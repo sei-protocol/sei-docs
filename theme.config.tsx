@@ -4,7 +4,6 @@ import { Logo } from "./components";
 
 const config: DocsThemeConfig = {
   logo: <Logo />,
-
   project: {
     link: "https://github.com/sei-protocol",
   },
