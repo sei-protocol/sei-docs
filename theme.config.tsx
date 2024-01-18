@@ -1,15 +1,17 @@
 import React from "react";
 import { DocsThemeConfig } from "nextra-theme-docs";
+import { Logo } from "./components";
 
 const config: DocsThemeConfig = {
-  logo: <span>Sei</span>,
+  logo: <Logo />,
+
   project: {
     link: "https://github.com/sei-protocol",
   },
   chat: {
     link: "https://discord.gg/sei",
   },
-  docsRepositoryBase: "https://github.com/sei-protocol/sei-docs",
+  docsRepositoryBase: "https://github.com/sei-protocol/sei-docs/tree/main",
   footer: {
     text: "Sei Docs © 2024",
   },
@@ -26,23 +28,29 @@ const config: DocsThemeConfig = {
       twitter: {
         site: "@SeiNetwork",
       },
-      // additionalLinkTags: [
-      //   {
-      //     rel: "icon",
-      //     href: "/favicon.ico",
-      //   },
-      //   {
-      //     href: "/favicon-96x96.png",
-      //     rel: "icon",
-      //     sizes: "96x96",
-      //     type: "image/png",
-      //   },
-      //   {
-      //     href: "/apple-icon-180x180.png",
-      //     rel: "apple-touch-icon",
-      //     sizes: "180x180",
-      //   },
-      // ],
+      additionalLinkTags: [
+        {
+          rel: "icon",
+          href: "/favicon.ico",
+        },
+        {
+          href: "/favicon-16x16.png",
+          rel: "icon",
+          sizes: "16x16",
+          type: "image/png",
+        },
+        {
+          href: "/favicon-32x32.png",
+          rel: "icon",
+          sizes: "32x32",
+          type: "image/png",
+        },
+        {
+          href: "/apple-touch-icon.png",
+          rel: "apple-touch-icon",
+          sizes: "180x180",
+        },
+      ],
     };
   },
 };
