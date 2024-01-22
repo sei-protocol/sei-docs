@@ -5,30 +5,31 @@ import { Nfts } from "../../components";
 
 ## Introduction
 
-Non-Fungible Tokens (NFTs) are unique digital assets with distinct identities and attributes. Unlike fungible tokens from the Token Factory, each NFT is irreplaceable and can't be exchanged on a like-for-like basis.
+Non-Fungible Tokens (NFTs) are unique digital assets, each possessing distinct identities and attributes. Unlike fungible tokens created by the Token Factory, NFTs cannot be exchanged on a like-for-like basis.
 
 <Nfts />
 
-This tutorial will guide you through creating and deploying a CW721 NFT contract on Sei, a standard for NFTs in the CosmWasm ecosystem. By the end, you'll have your own NFT contract deployed. Learn more about CW721 [here](https://github.com/CosmWasm/cw-nfts/blob/main/packages/cw721/README.md).
+This tutorial guides you through the creation and deployment of a CW721 NFT contract on Sei, a standard for NFTs in the CosmWasm ecosystem. By the end, you'll have deployed your own NFT contract. For more about CW721, visit [here](https://github.com/CosmWasm/cw-nfts/blob/main/packages/cw721/README.md).
 
 ## Requirements
 
-Before you begin, ensure you have:
+Before starting, ensure you have:
 
 - **`seid` CLI**: The Sei command-line interface tool, for interacting with the blockchain.
 - **Wallet with SEI tokens on testnet**: Contains SEI tokens for transaction fees.
 - **Rust Programming Environment**: Install Rust for CosmWasm contract development. Installation guide [here](https://www.rust-lang.org/tools/install).
 - **Understanding of CosmWasm**: Familiarize yourself with CosmWasm smart contracts. Start with the [CosmWasm Book](https://book.cosmwasm.com/).
+- **Docker**: Required for using the CosmWasm Rust Optimizer tool. Install from [Docker's official website](https://docs.docker.com/engine/install/).
 
 ## Setting Up Your Environment
 
-To work with CosmWasm smart contracts, you'll need the Wasm rust compiler backend installed to build Wasm binaries. To install it, run:
+To work with CosmWasm smart contracts, you'll need the Wasm rust compiler installed to build Wasm binaries. To install it, run:
 
 ```bash copy
 rustup target add wasm32-unknown-unknown
 ```
 
-Clone the `CW721-base` contract from the [cw-nfts](https://github.com/CosmWasm/cw-nfts) repository:
+Next, clone the `CW721-base` contract from the [cw-nfts](https://github.com/CosmWasm/cw-nfts) repository:
 
 ```bash copy
 git clone https://github.com/CosmWasm/cw-nfts.git
@@ -45,7 +46,7 @@ You should see that everything in the repository gets compiled and all tests pas
 
 ## Customizing the Contract
 
-Review and modify the `CW721-base` contract to meet your requirements. This might include updating metadata structures or changing the minting process.
+Review and modify the `cw721-base` contract to meet your requirements. This might include updating metadata structures or changing the minting process.
 
 ## Build the Contract
 
@@ -58,22 +59,34 @@ cargo wasm
 This compiles a Wasm binary for uploading to Sei.
 
 <Callout type="info" emoji="ℹ️">
-  Use the [CosmWasm Rust Optimizer](https://github.com/CosmWasm/rust-optimizer)
-  to reduce your contract's size for production deployment. While not required
-  for learning, it's recommended for live contracts.
+  Note: The generated Wasm file will be located in the root directory of the
+  `cw-nfts` repository, not in the `cw721-base` subdirectory. Make sure to
+  navigate to the root directory to see your compiled `.wasm` file in
+  `target/wasm32-unknown-unknown/`.
 </Callout>
 
-## Deploy the Contract
+Before we can upload the contract to the chain, we have to use the [CosmWasm Rust Optimizer](https://github.com/CosmWasm/rust-optimizer) to reduce the contract size. While not required, this is highly recommended for live contracts.
 
-After building the contract, we'll need to upload the contract to the chain and instantiate it.
+```bash copy
+docker run --rm -v "$(pwd)":/code \
+  --mount type=volume,source="$(basename "$(pwd)")_cache",target=/target \
+  --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
+  cosmwasm/optimizer:0.15.0 ./contracts/cw721-base/
+```
+
+This will generate an optimized Wasm contract in `/artifacts`.
+
+## Deploy the Contract
 
 Upload your contract:
 
 ```bash copy
-seid tx wasm store [path to .wasm file] --from=[your-account] --chain-id=[chain-id] --gas-prices=[gas-prices] --gas=[gas-limit] --broadcast-mode=block
+seid tx wasm store artifacts/cw721_base.wasm --from=$ACCOUNT --chain-id=atlantic-2 --node=https://rpc.atlantic-2.seinetwork.io/ --broadcast-mode=block --gas=5000000 --fees=500000usei
 ```
 
-<Callout emoji="💡">
+Replace `$ACCOUNT` with your account name or address. This command stores the contract on the chain and outputs a code ID.
+
+<Callout type="info" emoji="ℹ️">
   Learn about these command line arguments in our CLI reference (TODO: Link to
   CLI docs).
 </Callout>
@@ -81,11 +94,18 @@ seid tx wasm store [path to .wasm file] --from=[your-account] --chain-id=[chain-
 Instantiate your contract using the code ID:
 
 ```bash copy
-seid tx wasm instantiate [contract-code-id] '{"name":"[NFT Collection Name]", "symbol":"[NFT Symbol]"}' --from=[your-account] --chain-id=[chain-id] --amount=[amount] --label=[label-for-contract] --broadcast-mode=block
+seid tx wasm instantiate $CONTRACT_CODE_ID '{"name":"$COLLECTION_NAME", "symbol":"$SYMBOL"}' --from=$ACCOUNT --admin=$ADMIN_ADDRESS --label=$LABEL --chain-id=atlantic-2 --node=https://rpc.atlantic-2.seinetwork.io/ --broadcast-mode=block --gas=250000 --fees=25000usei
 ```
 
-Successful instantiation will give you the NFT contract address.
+Replace `$CONTRACT_CODE_ID`, `$ACCOUNT`, `$LABEL`, and `$ADMIN_ADDRESS` appropriately. Successful instantiation will provide the NFT contract address.
+
+- `$CONTRACT_CODE_ID`: code ID of the uploaded contract
+- `$COLLECTION_NAME`: Name of the collection
+- `$SYMBOL`: Symbol of the collection
+- `$ACCOUNT`: your account name or address
+- `$LABEL`: any label for easy identification
+- `$ADMIN_ADDRESS` (optional): address that will have administrative privileges over the contract, such as the ability to upgrade it
 
 ## Conclusion
 
-🎉 Congratulations! You've successfully created and deployed a CW721 NFT contract on Sei. Now, explore further customization options, integrate with front-end applications, or engage with the community! (TODO: Add front-end tutorial)
+🎉 Congratulations! You've successfully created and deployed a CW721 NFT contract on Sei.
