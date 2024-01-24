@@ -1,0 +1,231 @@
+import { Callout } from "nextra/components";
+
+# Building a Frontend
+
+## Introduction
+
+In this tutorial, we'll cover:
+
+- Setting up your frontend project
+- Connecting to a Sei wallet
+- Querying and interacting with a smart contract
+
+## Requirements
+
+Before starting, ensure you have:
+
+- Node.js & NPM installed
+- A Sei wallet extension, such as:
+  - [Compass](https://compasswallet.io/)
+  - [Fin](https://finwallet.com/)
+
+## Creating a React Project
+
+If you're starting a project from scratch, we recommend using the TypeScript template from Vite for easier development and debugging.
+
+```bash copy
+npm create vite@latest my-counter-frontend -- --template react-ts
+```
+
+This command creates a new folder with a React project using TypeScript. Open `my-counter-frontend` in your favorite IDE.
+
+<Callout type="info" emoji="ℹ️">
+  The rest of this tutorial will be in TypeScript. If you're not using
+  TypeScript, you can easily adjust by removing the types.
+</Callout>
+
+## Installing Dependencies
+
+From the terminal at the root of your project, install the required dependencies: `@sei-js/core` and `@sei-js/react`.
+
+```bash copy
+npm install @sei-js/core @sei-js/react
+```
+
+<Callout type="info" emoji="ℹ️">
+  `@sei-js` contains NPM libraries for writing applications that interact with
+  Sei. Learn more [here](https://github.com/sei-protocol/sei-js/tree/main).
+</Callout>
+
+## Wrapping App in SeiWalletProvider
+
+Replace the code in your `App.tsx` file with the following to set up a `SeiWalletProvider` context, define your chain info, and set connection URLs.
+
+```tsx copy
+import { SeiWalletProvider } from "@sei-js/react";
+import "./App.css";
+import Home from "./Home.tsx";
+
+function App() {
+  return (
+    // Set up SeiWalletProvider for easy wallet connection and to use hooks in @sei-js/react
+    <SeiWalletProvider
+      chainConfiguration={{
+        chainId: "atlantic-2",
+        restUrl: "https://rest.atlantic-2.seinetwork.io",
+        rpcUrl: "https://rpc.atlantic-2.seinetwork.io",
+      }}
+      wallets={["compass", "fin"]}
+    >
+      <Home />
+    </SeiWalletProvider>
+  );
+}
+
+export default App;
+```
+
+### Detailed outline of `App.tsx`
+
+**Wallet Provider Setup**
+
+- Imports `SeiWalletProvider` from the `@sei-js/react` package.
+- Wraps `App` with `SeiWalletProvider` for wallet context.
+
+**Chain Configuration**
+
+- Specifies the `chainConfiguration` prop in `SeiWalletProvider` to set up the blockchain network:
+  - `chainId`: Identifies the Sei network (in this case, `atlantic-2`).
+  - `restUrl`: REST URL for the Sei (You may need your own provider).
+  - `rpcUrl`: RPC URL for the Sei (You may need your own provider).
+
+**Supported Wallets**
+
+- Sets up supported wallet types (`'compass'`, `'fin'`, `'leap'`, `'keplr'`) in the wallets prop.
+
+## Adding Home Component
+
+Create a file named `Home.tsx` in your `src` directory with the following code:
+
+```tsx copy
+import { useCallback, useEffect, useState } from "react";
+import {
+  useCosmWasmClient,
+  useSigningCosmWasmClient,
+  useWallet,
+  WalletConnectButton,
+} from "@sei-js/react";
+
+// atlantic-2 example contract
+const CONTRACT_ADDRESS =
+  "sei18g4g35mhy5s88nshpa6flvpj9ex6u88l6mhjmzjchnrfa7xr00js0gswru";
+
+function Home() {
+  const [count, setCount] = useState<number | undefined>();
+  const [error, setError] = useState<string>("");
+  const [isIncrementing, setIsIncrementing] = useState<boolean>(false);
+
+  // Helpful hook for getting the currently connected wallet and chain info
+  const { connectedWallet, accounts } = useWallet();
+
+  // For querying cosmwasm smart contracts
+  const { cosmWasmClient: queryClient } = useCosmWasmClient();
+
+  // For executing messages on cosmwasm smart contracts
+  const { signingCosmWasmClient: signingClient } = useSigningCosmWasmClient();
+
+  const fetchCount = useCallback(async () => {
+    const response = await queryClient?.queryContractSmart(CONTRACT_ADDRESS, {
+      get_count: {},
+    });
+    return response?.count;
+  }, [queryClient]);
+
+  useEffect(() => {
+    fetchCount().then(setCount);
+  }, [connectedWallet, fetchCount]);
+
+  const incrementCounter = async () => {
+    setIsIncrementing(true);
+    try {
+      const senderAddress = accounts[0].address;
+
+      // Build message content
+      const msg = { increment: {} };
+
+      // Define gas price and limit
+      const fee = {
+        amount: [{ amount: "20000", denom: "usei" }],
+        gas: "200000",
+      };
+
+      // Call smart contract execute msg
+      await signingClient?.execute(senderAddress, CONTRACT_ADDRESS, msg, fee);
+
+      // Updates the counter state again
+      const updatedCount = await fetchCount();
+      setCount(updatedCount);
+
+      setIsIncrementing(false);
+      setError("");
+    } catch (error) {
+      if (error instanceof Error) {
+        setError(error.message);
+      } else {
+        setError("unknown error");
+      }
+      setIsIncrementing(false);
+    }
+  };
+
+  // Helpful component for wallet connection
+  if (!connectedWallet) return <WalletConnectButton />;
+
+  return (
+    <div>
+      <h1>Count is: {count ? count : "---"}</h1>
+      <button disabled={isIncrementing} onClick={incrementCounter}>
+        {isIncrementing ? "incrementing..." : "increment"}
+      </button>
+      {error && <p style={{ color: "red" }}>{error}</p>}
+    </div>
+  );
+}
+
+export default Home;
+```
+
+We deployed a counter contract on the `atlantic-2` testnet. Contract address: `sei18g4g35mhy5s88nshpa6flvpj9ex6u88l6mhjmzjchnrfa7xr00js0gswru`. Learn more about this contract [here](https://github.com/CosmWasm/cw-template).
+
+### Detailed outline of `Home.tsx`
+
+**Render Logic**
+
+- Shows `WalletConnectButton` if no wallet is connected.
+- Otherwise, displays the counter value and an "Increment" button.
+- Disables the button when a transaction is pending.
+- Catches and displays error messages, if any.
+
+**Wallet and Client Setup**
+
+- Utilizes `useWallet` hook from `@sei-js/react` to get the connected wallet and accounts.
+- Uses `useCosmWasmClient` and `useSigningCosmWasmClient` hooks from `@sei-js/react` to instantiate `queryClient` and `signingClient`. The signing client can be used for querying, but it is not recommended to use a signing client when only a query client is needed.
+
+**Fetching Counter Value**
+
+- `fetchCount` function uses `queryClient.queryContractSmart` to query the smart contract with the query `{ get_count: {} }`.
+
+**Incrementing Counter**
+
+- `incrementCounter` function:
+  - Extracts `senderAddress` from the connected wallet's accounts.
+  - Builds a message with `{ increment: {} }` to be sent to the smart contract.
+  - Specifies the transaction fee with gas price and gas limit.
+  - Calls `signingClient.execute` to execute the contract with the built message and fee.
+
+By leveraging `@sei-js` and its hooks, the component provides a way to connect to a wallet, query a CosmWasm smart contract to get the current counter state, and increment it with an execute message.
+
+## Running the App
+
+Run `npm run dev` and navigate to http://localhost:5173/ to view your application.
+
+<Callout type="info" emoji="ℹ️">
+  If this is your first time using Sei, you might see an error which says your
+  account does not exist on chain. You can claim some testnet tokens for
+  development purposes here: https://atlantic-2.app.sei.io/faucet. Once you have
+  funded your account, try the increment button again!
+</Callout>
+
+## Conclusion
+
+🎉 Congratulations on creating a website for querying and executing a smart contract on Sei! Explore more possibilities with your frontend at our [@sei-js repo](https://github.com/sei-protocol/sei-js/tree/main).
