@@ -1,4 +1,3 @@
-import Image from "next/image";
 import styles from "./Nfts.module.css";
 import colonyNFT from "./colony.png";
 import seiyanNFT from "./seiyan.png";
