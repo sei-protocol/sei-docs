@@ -60,7 +60,11 @@ export default function EvmWalletConnect() {
     <div className={styles.container}>
       <WagmiConfig config={wagmiConfig}>
         <RainbowKitProvider chains={chains}>
-          <ConnectButton showBalance={false} />
+          <ConnectButton
+            accountStatus="address"
+            chainStatus="icon"
+            showBalance={false}
+          />
         </RainbowKitProvider>
       </WagmiConfig>
     </div>
