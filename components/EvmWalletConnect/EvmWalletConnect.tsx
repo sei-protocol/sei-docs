@@ -6,7 +6,6 @@ import {
 import { injectedWallet, metaMaskWallet } from "@rainbow-me/rainbowkit/wallets";
 import { Chain, configureChains, createConfig, WagmiConfig } from "wagmi";
 import { publicProvider } from "wagmi/providers/public";
-import styles from "./EvmWalletConnect.module.css";
 import "@rainbow-me/rainbowkit/styles.css";
 import { ChainRpcUrls } from "viem/_types/types/chain";
 
@@ -57,7 +56,7 @@ export default function EvmWalletConnect() {
   });
 
   return (
-    <div className={styles.container}>
+    <div className="my-4 flex justify-center">
       <WagmiConfig config={wagmiConfig}>
         <RainbowKitProvider chains={chains}>
           <ConnectButton
