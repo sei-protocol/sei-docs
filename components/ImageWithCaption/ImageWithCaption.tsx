@@ -1,5 +1,4 @@
 import Image, { StaticImageData } from "next/image";
-import styles from "./ImageWithCaption.module.css";
 
 interface ImageWithCaption {
   img: StaticImageData;
@@ -13,9 +12,9 @@ export default function ImageWithCaption({
   caption,
 }: ImageWithCaption) {
   return (
-    <div className={styles.container}>
+    <div className="my-4 flex flex-col items-center justify-center gap-2">
       <Image src={img} alt={alt} />
-      {caption && <p className={styles.caption}>{caption}</p>}
+      {caption && <p className="text-gray-400">{caption}</p>}
     </div>
   );
 }
