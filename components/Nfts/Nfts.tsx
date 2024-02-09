@@ -1,19 +1,18 @@
-import styles from "./Nfts.module.css";
+import { ImageWithCaption } from "../ImageWithCaption";
 import colonyNFT from "./colony.png";
 import seiyanNFT from "./seiyan.png";
-import { ImageWithCaption } from "../ImageWithCaption";
 
 export default function Nfts() {
   return (
-    <div className={styles.container}>
-      <div className={styles.image}>
+    <div className="my-4 flex flex-col items-center sm:flex-row justify-center gap-8 w-full">
+      <div className="w-full">
         <ImageWithCaption
           img={colonyNFT}
           alt="Colony NFT"
           caption="Colony NFT"
         />
       </div>
-      <div className={styles.image}>
+      <div className="w-full">
         <ImageWithCaption
           img={seiyanNFT}
           alt="Seiyan NFT"
