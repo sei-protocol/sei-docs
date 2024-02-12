@@ -14,6 +14,12 @@ const config: DocsThemeConfig = {
   footer: {
     text: "Sei Docs © 2024",
   },
+  editLink: {
+    component: null,
+  },
+  feedback: {
+    content: null,
+  },
   useNextSeoProps() {
     return {
       titleTemplate: "%s - Sei Docs",
