@@ -20,6 +20,7 @@ const config: DocsThemeConfig = {
   feedback: {
     content: null,
   },
+  head: <></>,
   useNextSeoProps() {
     return {
       titleTemplate: "%s - Sei Docs",
