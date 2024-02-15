@@ -30,6 +30,15 @@ const config: DocsThemeConfig = {
         locale: "en_US",
         siteName: "Sei Docs",
         description: "Documentation for Sei Network",
+        images: [
+          {
+            url: "https://v2.docs.sei.io/assets/sei-v2-banner.jpg",
+            width: 1600,
+            height: 900,
+            alt: "Sei V2 Overview",
+            type: "image/jpg",
+          },
+        ],
       },
       twitter: {
         site: "@SeiNetwork",
