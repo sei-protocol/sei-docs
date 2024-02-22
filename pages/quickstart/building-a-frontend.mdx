@@ -1,15 +1,252 @@
-import { Callout } from "nextra/components";
+import { Callout, Tabs } from "nextra/components";
 import { HelpCallout } from "../../components";
 
 # Building a Frontend
 
 ## Introduction
 
-In this tutorial, we'll cover:
+In this tutorial, we'll demonstrate how to set up a frontend project using React. You'll learn how to connect to a Sei wallet and interact with EVM and CosmWasm smart contracts deployed on Sei.
 
-- Setting up your frontend project
-- Connecting to a Sei wallet
-- Querying and interacting with a smart contract
+Select one of the tabs below to get started!
+
+<Tabs items={["EVM", "CosmWasm"]}>
+<Tabs.Tab>
+In this section, we'll use [ethers.js](https://docs.ethers.org/v6/) to build a React app that interacts with a smart contract using the Sei [CosmWasm precompile](/precompiles).
+
+## Requirements
+
+Before starting, ensure you have:
+
+- Node.js & NPM installed
+- One of the Sei wallets listed [here](/setting-up-a-wallet)
+
+## Creating a React Project
+
+Start by creating a new React project using Vite's TypeScript template for streamlined development:
+
+```bash copy
+npm create vite@latest my-counter-frontend -- --template react-ts
+```
+
+This command creates a new folder with a React project using TypeScript. Open `my-counter-frontend` in your favorite IDE.
+
+<Callout type="info">
+  The rest of this tutorial will be in TypeScript. If you're not using
+  TypeScript, you can easily adjust by removing the types.
+</Callout>
+
+## Installing Dependencies
+
+Install `ethers`, an Ethereum library that facilitates interaction with the Ethereum blockchain:
+
+```bash copy
+npm install ethers
+```
+
+## Defining Contract Addresses and ABI
+
+First, define the address and ABI of the CosmWasm precompile, and the address of the contract you'll be interacting with:
+
+```tsx copy
+// Wasm precompile address
+const WASM_PRECOMPILE_ADDRESS = "0x0000000000000000000000000000000000001002";
+// Counter CosmWasm contract (used for testing on arctic-1)
+const COUNTER_CONTRACT_ADDRESS =
+  "sei14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9sh9m79m";
+// The precompiled contract ABI (fragments we care about)
+// View the entire ABI here: https://github.com/sei-protocol/sei-chain/tree/evm/precompiles/wasmd
+const WASM_PRECOMPILE_ABI = [
+  {
+    inputs: [
+      {
+        internalType: "string",
+        name: "contractAddress",
+        type: "string",
+      },
+      {
+        internalType: "bytes",
+        name: "msg",
+        type: "bytes",
+      },
+      {
+        internalType: "bytes",
+        name: "coins",
+        type: "bytes",
+      },
+    ],
+    name: "execute",
+    outputs: [
+      {
+        internalType: "bytes",
+        name: "response",
+        type: "bytes",
+      },
+    ],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "string",
+        name: "contractAddress",
+        type: "string",
+      },
+      {
+        internalType: "bytes",
+        name: "req",
+        type: "bytes",
+      },
+    ],
+    name: "query",
+    outputs: [
+      {
+        internalType: "bytes",
+        name: "response",
+        type: "bytes",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+];
+```
+
+These values will be used in the app to query and execute a contract.
+
+## Connecting to the Wallet and Initializing the Contract
+
+Replace your main `App` component with the following:
+
+```tsx copy filename="App.tsx"
+import { useEffect, useState } from "react";
+import { BrowserProvider, Contract, toUtf8Bytes, toUtf8String } from "ethers";
+import "./App.css";
+
+function App() {
+  const [count, setCount] = useState<string>();
+  const [contract, setContract] = useState<Contract>();
+  const [isIncrementing, setIsIncrementing] = useState(false);
+
+  const fetchCount = async () => {
+    if (!contract) {
+      return;
+    }
+    // Query to get the count on the counter contract
+    const queryMsg = { get_count: {} };
+    const queryResponse = await contract.query(
+      COUNTER_CONTRACT_ADDRESS,
+      toUtf8Bytes(JSON.stringify(queryMsg))
+    );
+    const { count } = JSON.parse(toUtf8String(queryResponse));
+    setCount(count);
+  };
+
+  useEffect(() => {
+    fetchCount();
+  }, [contract]);
+
+  const connectWallet = async () => {
+    if (window.ethereum) {
+      const provider = new BrowserProvider(window.ethereum);
+      const { chainId } = await provider.getNetwork();
+      if (chainId !== BigInt(713715)) {
+        alert("MetaMask is not connected to Sei EVM devnet");
+        return;
+      }
+
+      const signer = await provider.getSigner();
+      const contract = new Contract(
+        WASM_PRECOMPILE_ADDRESS,
+        WASM_PRECOMPILE_ABI,
+        signer
+      );
+      setContract(contract);
+    } else {
+      alert("MetaMask is not installed");
+    }
+  };
+
+  const incrementCount = async () => {
+    if (!contract) {
+      return;
+    }
+
+    setIsIncrementing(true);
+    // Execute message to increment the count on the contract
+    const executeMsg = { increment: {} };
+    const executeResponse = await contract.execute(
+      COUNTER_CONTRACT_ADDRESS,
+      toUtf8Bytes(JSON.stringify(executeMsg)),
+      toUtf8Bytes(JSON.stringify([])) // Used for sending funds if needed
+    );
+    // Wait for the transaction to be confirmed
+    await executeResponse.wait();
+    console.log(executeResponse);
+    setIsIncrementing(false);
+    await fetchCount();
+  };
+
+  return (
+    <>
+      <div className="card">
+        {contract ? (
+          <div>
+            <h1>Count is {count}</h1>
+            <button disabled={isIncrementing} onClick={incrementCount}>
+              {isIncrementing ? "incrementing..." : "increment"}
+            </button>
+          </div>
+        ) : (
+          <button onClick={connectWallet}>Connect Wallet</button>
+        )}
+      </div>
+    </>
+  );
+}
+
+export default App;
+```
+
+### Detailed outline of `App.tsx`
+
+**State Declarations**
+
+- `count`: Holds the current count fetched from the smart contract.
+- `contract`: An instance of the ethers Contract object, used for interacting with the blockchain.
+- `isIncrementing`: A boolean to manage UI state during contract execution
+
+**Effect Hooks**
+
+A single `useEffect` hook to fetch the current count whenever the contract state changes, indicating that the contract instance is ready for interaction.
+
+**Connecting to MetaMask**
+
+A function named `connectWallet` that:
+
+- Checks for the MetaMask extension.
+- Establishes a connection to the Ethereum network via MetaMask, using ethers.js BrowserProvider.
+- Verifies the correct network (Sei EVM devnet) by comparing chainId.
+- Creates an ethers.js Contract instance with the signer from MetaMask, setting it in the contract state for later use.
+
+**Fetching Contract Data**
+
+A function named `fetchCount` that:
+
+- Executes a contract query to get the current count.
+- Parses and updates the count state with the response.
+
+**Incrementing the Counter**
+
+A function named `incrementCount` that:
+
+- Sends a transaction to the smart contract to increment the count.
+- Waits for the transaction to be confirmed.
+- Refetches the count to update the UI with the new value.
+
+</Tabs.Tab>
+<Tabs.Tab>
+In this section, we'll use the [@sei-js](https://github.com/sei-protocol/sei-js/) library to build a React app that interacts with a CosmWasm contract.
 
 ## Requirements
 
@@ -225,6 +462,9 @@ Run `npm run dev` and navigate to http://localhost:5173/ to view your applicatio
   account does not exist on chain. You can claim some testnet tokens for
   development purposes from a faucet [here](/getting-tokens/faucets).
 </Callout>
+
+</Tabs.Tab>
+</Tabs>
 
 ## Conclusion
 
