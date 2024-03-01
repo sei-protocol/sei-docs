@@ -30,7 +30,7 @@ const config: DocsThemeConfig = {
       </a>
     )
   },
-  darkMode: false,
+  darkMode: true,
   head: <></>,
   useNextSeoProps() {
     return {
