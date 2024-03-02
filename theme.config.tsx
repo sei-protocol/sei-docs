@@ -20,8 +20,6 @@ const config: DocsThemeConfig = {
   feedback: {
     content: null,
   },
-  primaryHue: 0,
-  primarySaturation: 100,
   banner: {
     key: 'seiv2',
     text: (
