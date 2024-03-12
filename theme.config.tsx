@@ -20,6 +20,15 @@ const config: DocsThemeConfig = {
   feedback: {
     content: null,
   },
+  banner: {
+    key: 'seiv2',
+    text: (
+      <a href="https://v2.docs.sei.io/" target="_blank">
+        💡 Looking to build on the EVM Compatible Sei V2 Devnet? Click here for the updated Sei V2 Docs. →
+      </a>
+    )
+  },
+  darkMode: true,
   head: <></>,
   useNextSeoProps() {
     return {
