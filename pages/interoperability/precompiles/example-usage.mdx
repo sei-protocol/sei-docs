@@ -109,7 +109,7 @@ Once you have the contract, you can query and execute messages to any CosmWasm s
 // Counter CosmWasm contract (used for testing on arctic-1)
 // Replace with your contract as needed
 const COUNTER_CONTRACT_ADDRESS =
-  "sei14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9sh9m79m";
+  "sei1eyfccmjm6732k7wp4p6gdjwhxjwsvje44j0hfx8nkgrm8fs7vqfsy2jxff";
 
 // Query to get the count on the counter contract
 const queryMsg = { get_count: {} };
@@ -119,14 +119,39 @@ const queryResponse = await contract.query(
 );
 console.log(toUtf8String(queryResponse));
 
-// Execute message to increment the count on the contract
+// Execute message to increment the count on the contract.
+// No funds are attached since the increment method does not require sei.
 const executeMsg = { increment: {} };
 const executeResponse = await contract.execute(
   COUNTER_CONTRACT_ADDRESS,
   toUtf8Bytes(JSON.stringify(executeMsg)),
   toUtf8Bytes(JSON.stringify([])) // Used for sending funds if needed
 );
+
 // Wait for the transaction to be confirmed
 await executeResponse.wait();
 console.log(executeResponse);
 ```
+
+### Executing a payable function
+In this example, we execute the 'donate' method on our contract.
+This is similar to the `increment` method, but also receives funds from the user and stores it in the contract.
+```typescript
+// Execute a message to donate to the contract.
+const executeMsg = { donate: {} }
+
+// Funds are attached via overrides. This example is specific to ethers.js
+const overrides = {
+    value: ethers.parseEther("3.2"), // Sending 3.2 sei
+}
+const executeResponse = await contract.execute(
+    COUNTER_CONTRACT_ADDRESS,
+    toUtf8Bytes(JSON.stringify(executeJSON)),
+    toUtf8Bytes(JSON.stringify({denom: "usdc", amount: "100"})), // Also send 100 usdc
+    overrides);
+
+await executeResponse.wait();
+const receipt = await provider.getTransactionReceipt(executionResponse.hash);
+```
+
+For payable contracts, Sei amounts have to be sent directly to the contract while other denoms should use the `coins` field.
