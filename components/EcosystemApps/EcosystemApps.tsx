@@ -69,24 +69,6 @@ const APPS: App[] = [
     image: seijinLogo,
   },
   {
-    title: "MetaMask",
-    description: "EVM wallet",
-    href: "https://metamask.io/",
-    image: metamaskLogo,
-  },
-  {
-    title: "Compass",
-    description: "Sei native wallet",
-    href: "https://compasswallet.io/",
-    image: compassLogo,
-  },
-  {
-    title: "Fin",
-    description: "Sei native wallet",
-    href: "https://finwallet.com/",
-    image: finLogo,
-  },
-  {
     title: "PredX",
     description: "Prediction market",
     href: "https://events.predx.ai/",
