@@ -1,3 +1,4 @@
+import { StaticImageData } from "next/image";
 import { Card, Cards } from "../../components";
 
 import camelLogo from "../../public/assets/ecosystem/camel.png";
@@ -10,7 +11,11 @@ import seijinLogo from "../../public/assets/ecosystem/seijin.png";
 import metamaskLogo from "../../public/assets/ecosystem/metamask.jpeg";
 import compassLogo from "../../public/assets/ecosystem/compass.jpeg";
 import finLogo from "../../public/assets/ecosystem/fin.jpeg";
-import { StaticImageData } from "next/image";
+import predxLogo from "../../public/assets/ecosystem/predx.jpeg";
+import yakaLogo from "../../public/assets/ecosystem/yaka.jpeg";
+import webumpLogo from "../../public/assets/ecosystem/webump.jpeg";
+import accumulatedLogo from "../../public/assets/ecosystem/accumulated.jpeg";
+import mambaLogo from "../../public/assets/ecosystem/mamba.png";
 
 interface App {
   title: string;
@@ -80,6 +85,36 @@ const APPS: App[] = [
     description: "Sei native wallet",
     href: "https://finwallet.com/",
     image: finLogo,
+  },
+  {
+    title: "PredX",
+    description: "Prediction market",
+    href: "https://events.predx.ai/",
+    image: predxLogo,
+  },
+  {
+    title: "Yaka",
+    description: "Algebra Integral fork on Sei",
+    href: "https://test.yaka.finance/",
+    image: yakaLogo,
+  },
+  {
+    title: "WeBump",
+    description: "Sei native NFT launchpad",
+    href: "https://webump.xyz/",
+    image: webumpLogo,
+  },
+  {
+    title: "Accumulated",
+    description: "Liquid staking protocol",
+    href: "https://testnet.accumulated.finance/stake/sei",
+    image: accumulatedLogo,
+  },
+  {
+    title: "Mamba Defi",
+    description: "Defi and memecoin ecosystem",
+    href: "https://www.mambaswap.io/",
+    image: mambaLogo,
   },
 ];
 
