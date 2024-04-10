@@ -8,14 +8,14 @@ import fluidLogo from "../../public/assets/ecosystem/fluid.png";
 import belugasLogo from "../../public/assets/ecosystem/belugas.png";
 import squaredLabsLogo from "../../public/assets/ecosystem/squared-labs.jpeg";
 import seijinLogo from "../../public/assets/ecosystem/seijin.png";
-import metamaskLogo from "../../public/assets/ecosystem/metamask.jpeg";
-import compassLogo from "../../public/assets/ecosystem/compass.jpeg";
-import finLogo from "../../public/assets/ecosystem/fin.jpeg";
 import predxLogo from "../../public/assets/ecosystem/predx.jpeg";
 import yakaLogo from "../../public/assets/ecosystem/yaka.jpeg";
 import webumpLogo from "../../public/assets/ecosystem/webump.jpeg";
 import accumulatedLogo from "../../public/assets/ecosystem/accumulated.jpeg";
 import mambaLogo from "../../public/assets/ecosystem/mamba.png";
+import jellyverseLogo from "../../public/assets/ecosystem/jellyverse.png";
+import seicasinoLogo from "../../public/assets/ecosystem/seicasino.png";
+import hoyuLogo from "../../public/assets/ecosystem/hoyu.jpeg";
 
 interface App {
   title: string;
@@ -97,6 +97,25 @@ const APPS: App[] = [
     description: "Defi and memecoin ecosystem",
     href: "https://www.mambaswap.io/",
     image: mambaLogo,
+  },
+  {
+    title: "JellyVerse",
+    description: "Smart order router",
+    href: "https://jelly-verse-sei.vercel.app/jellyswap",
+    image: jellyverseLogo,
+  },
+  {
+    title: "SeiCasino",
+    description: "Full-featured casino built natively on Sei",
+    href: "https://seicasino.io",
+    image: seicasinoLogo,
+  },
+  {
+    title: "Hoyu",
+    description:
+      "DeFi protocol uniting lending and trading markets to give every token new utility as safe collateral",
+    href: "https://arctic.hoyu.io",
+    image: hoyuLogo,
   },
 ];
 
