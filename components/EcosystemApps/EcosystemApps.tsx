@@ -16,6 +16,8 @@ import mambaLogo from "../../public/assets/ecosystem/mamba.png";
 import jellyverseLogo from "../../public/assets/ecosystem/jellyverse.png";
 import seicasinoLogo from "../../public/assets/ecosystem/seicasino.png";
 import hoyuLogo from "../../public/assets/ecosystem/hoyu.jpeg";
+import superSeiyanBotLogo from "../../public/assets/ecosystem/superseiyanbot.jpeg";
+import nfts2meLogo from "../../public/assets/ecosystem/nfts2me.png";
 
 interface App {
   title: string;
@@ -26,10 +28,40 @@ interface App {
 
 const APPS: App[] = [
   {
-    title: "Camel",
-    description: "Sei's liquidity oasis",
-    href: "https://camel.money",
-    image: camelLogo,
+    title: "DragonSwap",
+    description: "The native DEX on SEI",
+    href: "https://test.dragonswap.app/",
+    image: dragonswapLogo,
+  },
+  {
+    title: "SeiCasino",
+    description: "Full-featured casino built natively on Sei",
+    href: "https://seicasino.io",
+    image: seicasinoLogo,
+  },
+  {
+    title: "WeBump",
+    description: "Sei native NFT launchpad",
+    href: "https://webump.xyz/",
+    image: webumpLogo,
+  },
+  {
+    title: "Seijin",
+    description: "Launchpad on Sei",
+    href: "https://seijin.app/staking",
+    image: seijinLogo,
+  },
+  {
+    title: "Squared Labs",
+    description: "Quadratic price exposure on perpetual futures",
+    href: "https://squaredlabs.io/app/btc",
+    image: squaredLabsLogo,
+  },
+  {
+    title: "PredX",
+    description: "Prediction market",
+    href: "https://events.predx.ai/",
+    image: predxLogo,
   },
   {
     title: "Gamblino",
@@ -39,10 +71,10 @@ const APPS: App[] = [
     image: gamblinoLogo,
   },
   {
-    title: "DragonSwap",
-    description: "The native DEX on SEI",
-    href: "https://test.dragonswap.app/",
-    image: dragonswapLogo,
+    title: "Camel",
+    description: "Sei's liquidity oasis",
+    href: "https://camel.money",
+    image: camelLogo,
   },
   {
     title: "Fluid",
@@ -57,34 +89,10 @@ const APPS: App[] = [
     image: belugasLogo,
   },
   {
-    title: "Squared Labs",
-    description: "Quadratic price exposure on perpetual futures",
-    href: "https://squaredlabs.io/app/btc",
-    image: squaredLabsLogo,
-  },
-  {
-    title: "Seijin",
-    description: "Launchpad on Sei",
-    href: "https://seijin.app/staking",
-    image: seijinLogo,
-  },
-  {
-    title: "PredX",
-    description: "Prediction market",
-    href: "https://events.predx.ai/",
-    image: predxLogo,
-  },
-  {
     title: "Yaka",
     description: "Algebra Integral fork on Sei",
     href: "https://test.yaka.finance/",
     image: yakaLogo,
-  },
-  {
-    title: "WeBump",
-    description: "Sei native NFT launchpad",
-    href: "https://webump.xyz/",
-    image: webumpLogo,
   },
   {
     title: "Accumulated",
@@ -105,21 +113,25 @@ const APPS: App[] = [
     image: jellyverseLogo,
   },
   {
-    title: "SeiCasino",
-    description: "Full-featured casino built natively on Sei",
-    href: "https://seicasino.io",
-    image: seicasinoLogo,
-  },
-  {
     title: "Hoyu",
     description:
       "DeFi protocol uniting lending and trading markets to give every token new utility as safe collateral",
     href: "https://arctic.hoyu.io",
     image: hoyuLogo,
   },
+  {
+    title: "Super Seiyan Bot",
+    description: "Sei native telegram trading bot",
+    href: "https://t.me/SSeiyanEvmBot",
+    image: superSeiyanBotLogo,
+  },
+  {
+    title: "NFTs2ME",
+    description: "No-code NFT creation tool",
+    href: "https://nfts2me.com/app/sei-devnet/",
+    image: nfts2meLogo,
+  },
 ];
-
-APPS.sort((a, b) => a.title.localeCompare(b.title));
 
 const EcosystemApps = () => {
   return (
