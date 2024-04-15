@@ -18,6 +18,7 @@ import seicasinoLogo from "../../public/assets/ecosystem/seicasino.png";
 import hoyuLogo from "../../public/assets/ecosystem/hoyu.jpeg";
 import superSeiyanBotLogo from "../../public/assets/ecosystem/superseiyanbot.jpeg";
 import nfts2meLogo from "../../public/assets/ecosystem/nfts2me.png";
+import stafiLogo from "../../public/assets/ecosystem/stafi.png";
 
 interface App {
   title: string;
@@ -130,6 +131,12 @@ const APPS: App[] = [
     description: "No-code NFT creation tool",
     href: "https://nfts2me.com/app/sei-devnet/",
     image: nfts2meLogo,
+  },
+  {
+    title: "Stafi",
+    description: "LST protocol",
+    href: "https://test-app.stafi.io/gallery/evm/SEI/?net=SEI",
+    image: stafiLogo,
   },
 ];
 
