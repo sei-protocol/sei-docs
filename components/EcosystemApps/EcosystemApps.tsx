@@ -80,7 +80,7 @@ const APPS: App[] = [
   {
     title: "Fluid",
     description: "Interest free loans, backed by Sei",
-    href: "https://thefluid.xyz/",
+    href: "https://fluidex.metabest.tech/",
     image: fluidLogo,
   },
   {
