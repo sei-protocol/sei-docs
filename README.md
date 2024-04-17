@@ -1,11 +1,11 @@
 ## Quick Start
-Ensure you have `yarn` installed (macOS users can Run `brew install yarn`)
+Ensure you have `pnpm` installed (macOS users can Run `brew install pnpm`)
 
-1. Use `yarn` to install dependencies
-2. Use `yarn dev` to run the docs locally.
-3. Use `yarn build` to build the docs.
+1. Use `pnpm install` to install dependencies
+2. Use `pnpm dev` to run the docs locally.
+3. Use `pnpm build` to build the docs.
 
-You should always run `yarn build` before pushing any changes to validate that there are no syntax errors.
+You should always run `pnpm build` before pushing any changes to validate that there are no syntax errors.
 
 ## Contributing
 
