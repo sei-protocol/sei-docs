@@ -15,7 +15,6 @@ const config: DocsThemeConfig = {
     text: "Sei Docs © 2024",
   },
   editLink: {
-    component: null,
   },
   feedback: {
     content: null,
