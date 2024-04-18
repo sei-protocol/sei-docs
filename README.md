@@ -44,5 +44,3 @@ To propose changes directly, you can open a Pull Request against this repository
 
 ### Open an Issue.
 Alternatively, if you have more general suggestions on how we can improve or correct these docs, you can [open an issue](https://github.com/sei-protocol/sei-docs/issues).
-
-
