@@ -58,6 +58,21 @@ To deploy a Pointer Contract on devnet, you'll need the following setup:
 - Ensure you have the Sei CLI installed on your machine. If not, you can install it by following the [installation guide](/quickstart/installing-seid.mdx).
 - Have your CW20 or ERC20 token details handy, as you'll need them to create the corresponding pointer token.
 
+Before deploying a pointer, you should first check if a pointer for the token/contract you wish to deploy already exists by running the following query:
+
+```bash copy
+seid q evm pointer $TYPE $POINTEE --evm-rpc=https://evm-rpc.arctic-1.seinetwork.io/
+```
+
+**Parameters**
+
+- `TYPE`: One of "ERC20", "ERC721", "NATIVE", "CW20", and "CW721". Note that type refers to the underlying token type, so a type of "ERC20" refers to a CosmWasm pointer pointing to an ERC-20 token.
+- `POINTEE`: the underlying token denom literal in the case of "NATIVE" type, or the underlying token contract address for all other types
+
+**Flags**
+
+- `--evm-rpc`: The endpoint URL for the EVM RPC interface of the Sei blockchain. This URL is used by the `seid` command to interact with the Sei EVM.
+
 ### Deploying an EVM Pointer Contract
 
 #### For Native Tokens
@@ -65,15 +80,12 @@ To deploy a Pointer Contract on devnet, you'll need the following setup:
 To deploy an ERC20 Pointer Contract that links to a tokenfactory or IBC token, you can use the following command:
 
 ```bash copy
-seid tx evm deploy-erc20 $DENOM $NAME $SYMBOL $DECIMAL --from=$SENDER --evm-rpc=https://evm-rpc.arctic-1.seinetwork.io/
+seid tx evm call-precompile pointer addNativePointer $DENOM --from=$SENDER --evm-rpc=https://evm-rpc.arctic-1.seinetwork.io/
 ```
 
 **Parameters**
 
 - `DENOM`: The denom of the token you want to create an ERC20 pointer for.
-- `NAME`: The name you want to assign to your ERC20 pointer token. This should match the name of the native token denom.
-- `SYMBOL`: The symbol for your ERC20 pointer token. This should match the symbol of the native token denom.
-- `DECIMAL`: The number of decimals for your ERC20 pointer token. This should match the decimals of the native token denom (usually 6).
 
 **Flags**
 
@@ -95,14 +107,12 @@ seid tx evm deploy-erc20 $DENOM $NAME $SYMBOL $DECIMAL --from=$SENDER --evm-rpc=
 To deploy an ERC20 Pointer Contract that links to a CW20 token, you can use the following command:
 
 ```bash copy
-seid tx evm deploy-erccw20 $CW20_TOKEN_ADDRESS $NAME $SYMBOL --from=$SENDER --evm-rpc=https://evm-rpc.arctic-1.seinetwork.io/
+seid tx evm call-precompile pointer addCW20Pointer $CW20_TOKEN_ADDRESS --from=$SENDER --evm-rpc=https://evm-rpc.arctic-1.seinetwork.io/
 ```
 
 **Parameters**
 
 - `CW20_TOKEN_ADDRESS`: The contract address of the CW20 token you want to create an ERC20 pointer for.
-- `NAME`: The alias to assign to your token. This should match the name of the underlying CW20 token.
-- `SYMBOL`: The symbol for your token. This should match the symbol of the underlying CW20 token.
 
 **Flags**
 
@@ -114,14 +124,12 @@ seid tx evm deploy-erccw20 $CW20_TOKEN_ADDRESS $NAME $SYMBOL --from=$SENDER --ev
 To deploy an ERC721 Pointer Contract that links to a CW721 NFT contract, you can use the following command:
 
 ```bash copy
-seid tx evm deploy-erccw721 $CW721_TOKEN_ADDRESS $NAME $SYMBOL --from=$SENDER --evm-rpc=https://evm-rpc.arctic-1.seinetwork.io/
+seid tx evm call-precompile pointer addCW721Pointer $CW721_TOKEN_ADDRESS --from=$SENDER --evm-rpc=https://evm-rpc.arctic-1.seinetwork.io/
 ```
 
 **Parameters**
 
 - `CW721_TOKEN_ADDRESS`: The contract address of the CW721 NFT you want to create an ERC721 pointer for.
-- `NAME`: The alias to assign to your token. This should match the name of the underlying CW721 NFT.
-- `SYMBOL`: The symbol for your token. This should match the symbol of the underlying CW721 NFT.
 
 **Flags**
 
@@ -135,7 +143,7 @@ seid tx evm deploy-erccw721 $CW721_TOKEN_ADDRESS $NAME $SYMBOL --from=$SENDER --
 To deploy an CW20 Pointer Contract that links to a ERC20 token, you can use the following command:
 
 ```bash copy
-seid tx wasm instantiate 7 '{"erc20_address": "$ERC20_TOKEN_ADDRESS"}' --from=$SENDER --label=$LABEL --chain-id=arctic-1 --broadcast-mode=block --gas=250000 --fees=25000usei --node=https://rpc-arctic-1.sei-apis.com/ --no-admin
+seid tx evm register-pointer ERC20 $ERC20_TOKEN_ADDRESS --from=$SENDER --chain-id=arctic-1 --broadcast-mode=block --gas=250000 --fees=25000usei --node=https://rpc-arctic-1.sei-apis.com/
 ```
 
 **Parameters**
@@ -145,17 +153,14 @@ seid tx wasm instantiate 7 '{"erc20_address": "$ERC20_TOKEN_ADDRESS"}' --from=$S
 **Flags**
 
 - `--from`: The Sei address from which the deployment transaction is sent. This address must have enough balance to cover transaction fees.
-- `--label`: A name for the contract instance used to identify the contract.
 - `--chain-id`: Identifies the specific chain of the Sei network you're interacting with. `arctic-1` refers to the Sei devnet.
 - `--broadcast-mode`: Determines how the transaction is broadcasted. Setting this to `block` means the transaction will wait to be included in a block before returning a response.
 - `--gas`: Specifies the maximum amount of gas that can be consumed by the transaction.
 - `--fees`: Indicates the transaction fee.
 - `--node`: Points to the specific Sei node RPC URL you're connecting to for transaction submission.
-- `--no-admin`: Specifies that the contract should not have an admin. This flag is used to indicate that the contract, once deployed, cannot be upgraded or migrated.
 
 <Callout type="info">
-  The CW20 Pointer Contract has a code ID of `7` on devnet, and it's pre-stored
-  for easy use. To store this contract yourself or to check out the source code,
+  To check out the source code,
   please visit our [GitHub
   page](https://github.com/sei-protocol/sei-chain/tree/evm/example/cosmwasm/cw20).
 </Callout>
@@ -165,7 +170,7 @@ seid tx wasm instantiate 7 '{"erc20_address": "$ERC20_TOKEN_ADDRESS"}' --from=$S
 To deploy an CW721 Pointer Contract that links to a ERC721 token, you can use the following command:
 
 ```bash copy
-seid tx wasm instantiate 8 '{"erc721_address": "$ERC721_TOKEN_ADDRESS"}' --from=$SENDER --label=$LABEL --chain-id=arctic-1 --broadcast-mode=block --gas=250000 --fees=25000usei --node=https://rpc-arctic-1.sei-apis.com/ --no-admin
+seid tx evm register-pointer ERC20 $ERC721_TOKEN_ADDRESS --from=$SENDER --chain-id=arctic-1 --broadcast-mode=block --gas=250000 --fees=25000usei --node=https://rpc-arctic-1.sei-apis.com/
 ```
 
 **Parameters**
@@ -175,17 +180,14 @@ seid tx wasm instantiate 8 '{"erc721_address": "$ERC721_TOKEN_ADDRESS"}' --from=
 **Flags**
 
 - `--from`: The Sei address from which the deployment transaction is sent. This address must have enough balance to cover transaction fees.
-- `--label`: A name for the contract instance used to identify the contract.
 - `--chain-id`: Identifies the specific chain of the Sei network you're interacting with. `arctic-1` refers to the Sei devnet.
 - `--broadcast-mode`: Determines how the transaction is broadcasted. Setting this to `block` means the transaction will wait to be included in a block before returning a response.
 - `--gas`: Specifies the maximum amount of gas that can be consumed by the transaction.
 - `--fees`: Indicates the transaction fee.
 - `--node`: Points to the specific Sei node RPC URL you're connecting to for transaction submission.
-- `--no-admin`: Specifies that the contract should not have an admin. This flag is used to indicate that the contract, once deployed, cannot be upgraded or migrated.
 
 <Callout type="info">
-  The CW721 Pointer Contract has a code ID of `8` on devnet, and it's pre-stored
-  for easy use. To store this contract yourself or to check out the source code,
+  To check out the source code,
   please visit our [GitHub
   page](https://github.com/sei-protocol/sei-chain/tree/evm/example/cosmwasm/cw721).
 </Callout>
