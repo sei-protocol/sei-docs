@@ -20,6 +20,9 @@ const config: DocsThemeConfig = {
     content: null,
   },
   head: <></>,
+  sidebar: {
+    defaultMenuCollapseLevel: 1,
+  },
   useNextSeoProps() {
     return {
       titleTemplate: "%s - Sei Docs",
@@ -46,12 +49,6 @@ const config: DocsThemeConfig = {
         {
           rel: "icon",
           href: "/favicon.ico",
-        },
-        {
-          href: "/favicon-16x16.png",
-          rel: "icon",
-          sizes: "16x16",
-          type: "image/png",
         },
         {
           href: "/favicon-32x32.png",
