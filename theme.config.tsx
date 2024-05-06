@@ -51,6 +51,12 @@ const config: DocsThemeConfig = {
           href: "/favicon.ico",
         },
         {
+          href: "/favicon-16x16.png",
+          rel: "icon",
+          sizes: "16x16",
+          type: "image/png",
+        },
+        {
           href: "/favicon-32x32.png",
           rel: "icon",
           sizes: "32x32",
