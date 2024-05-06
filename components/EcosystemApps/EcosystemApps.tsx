@@ -19,6 +19,8 @@ import hoyuLogo from "../../public/assets/ecosystem/hoyu.jpeg";
 import superSeiyanBotLogo from "../../public/assets/ecosystem/superseiyanbot.jpeg";
 import nfts2meLogo from "../../public/assets/ecosystem/nfts2me.png";
 import stafiLogo from "../../public/assets/ecosystem/stafi.png";
+import siloLogo from "../../public/assets/ecosystem/silo.jpeg";
+import vermillionLogo from "../../public/assets/ecosystem/vermillion.jpeg";
 
 interface App {
   title: string;
@@ -70,6 +72,12 @@ const APPS: App[] = [
       "GambleFi protocol covering crypto, sportsbook and classic games of chance",
     href: "https://test.gamblino.app/",
     image: gamblinoLogo,
+  },
+  {
+    title: "Silo",
+    description: "Liquid staking and MEV on Sei",
+    href: "https://silo-evm.dc37hw5o72ljt.amplifyapp.com/",
+    image: siloLogo,
   },
   {
     title: "Camel",
@@ -137,6 +145,12 @@ const APPS: App[] = [
     description: "LST protocol",
     href: "https://test-app.stafi.io/gallery/evm/SEI/?net=SEI",
     image: stafiLogo,
+  },
+  {
+    title: "Vermillion",
+    description: "Next-gen AMM and stablecoin",
+    href: "https://app.vermillion.finance/swap",
+    image: vermillionLogo,
   },
 ];
 
