@@ -21,6 +21,9 @@ import hoyuLogo from "../public/assets/ecosystem/hoyu.jpeg";
 import superSeiyanBotLogo from "../public/assets/ecosystem/superseiyanbot.jpeg";
 import nfts2meLogo from "../public/assets/ecosystem/nfts2me.png";
 import stafiLogo from "../public/assets/ecosystem/stafi.png";
+import siloLogo from "../../public/assets/ecosystem/silo.jpeg";
+import vermillionLogo from "../../public/assets/ecosystem/vermillion.jpeg";
+import compassLogo from "../../public/assets/ecosystem/compass.png"
 
 interface App {
     title: string;
@@ -32,11 +35,11 @@ interface App {
 
 export const appData: App[] = [
     {
-        title: "DragonSwap",
+        title: "Compass",
         description: "The native DEX on SEI",
-        href: "https://test.dragonswap.app/",
-        image: dragonswapLogo,
-        tags: ["DeFi", "Trading", "Swap", "DEX"]
+        href: "https://compasswallet.io/",
+        image: compassLogo,
+        tags: ["Wallet", "Native"]
     },
     {
         title: "SeiCasino",
@@ -81,11 +84,25 @@ export const appData: App[] = [
         tags: ["Betting", "Games", "Gaming"]
     },
     {
+        title: "Silo",
+        description: "Liquid staking and MEV on Sei",
+        href: "https://silo-evm.dc37hw5o72ljt.amplifyapp.com/",
+        image: siloLogo,
+        tags: ["Liquid Staking", "MEV"]
+    },
+    {
         title: "Camel",
         description: "Sei's liquidity oasis",
         href: "https://camel.money",
         image: camelLogo,
         tags: ["Liquidity", "DeFi"]
+    },
+    {
+        title: "Vermillion",
+        description: "Next-gen AMM and stablecoin",
+        href: "https://app.vermillion.finance/swap",
+        image: vermillionLogo,
+        tags: ["DEX", "DeFi", ]
     },
     {
         title: "Fluid",
