@@ -1,15 +1,29 @@
+// tailwind.config.js
+
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   darkMode: "class",
   content: [
     "./pages/**/*.{js,jsx,ts,tsx,md,mdx}",
     "./components/**/*.{js,jsx,ts,tsx,md,mdx}",
-
     // Or if using `src` directory:
     "./src/**/*.{js,jsx,ts,tsx,md,mdx}",
   ],
   theme: {
-    extend: {},
+    extend: {
+      colors: {
+        'custom-blue': '#007bff',  // Custom blue color
+      },
+      spacing: {
+        '72': '18rem',  // Custom spacing value
+      },
+      borderRadius: {
+        'xl': '1rem',  // Custom border radius
+      },
+      fontFamily: {
+        'sans': ['Helvetica', 'Arial', 'sans-serif'],  // Custom font family
+      }
+    },
   },
   plugins: [],
 };
