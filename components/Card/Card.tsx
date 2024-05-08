@@ -21,7 +21,6 @@ function Card({ image, title, description, href }: CardProps) {
       rel="noopener noreferrer"
     >
       <div>
-        {/* Assuming 'image' contains a valid path or imported image */}
         <Image src={image} alt={title} layout="responsive" width={700} height={475} priority />
       </div>
       <div className="flex-1 p-4 bg-gray-100 dark:bg-gray-800">
