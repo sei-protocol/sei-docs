@@ -12,7 +12,7 @@ const EcosystemApps = () => {
     appData.forEach(app => app.tags.forEach(tag => tags.add(tag)));
     setAllTags(Array.from(tags));
   }, []);
- // Filter by "title" and "tag" fields from appData.ts
+  // Filter by "title" and "tag" fields from appData.ts // Filter by "title" and "tag" fields from appData.ts
   const filteredApps = useMemo(() => (
     appData.filter(app =>
       app.title.toLowerCase().includes(searchTerm.toLowerCase()) ||

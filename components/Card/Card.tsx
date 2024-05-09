@@ -18,8 +18,8 @@ function Card({ image, title, description, href }: CardProps) {
       target="_blank"
       rel="noopener noreferrer"
     >
-      <div>
-        <Image src={image} alt={title} layout="responsive" width={700} height={475} priority />
+      <div className="relative w-full h-80"> {/* Adjust height as needed to match your design */}
+        <Image src={image} alt={title} width={700} height={475} priority />
       </div>
       <div className="flex-1 p-4 bg-gray-100 dark:bg-gray-800">
         <p className="text-lg font-semibold mb-2">{title}</p>
