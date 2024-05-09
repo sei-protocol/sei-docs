@@ -10,20 +10,7 @@ module.exports = {
     "./src/**/*.{js,jsx,ts,tsx,md,mdx}",
   ],
   theme: {
-    extend: {
-      colors: {
-        'custom-blue': '#007bff',  // Custom blue color
-      },
-      spacing: {
-        '72': '18rem',  // Custom spacing value
-      },
-      borderRadius: {
-        'xl': '1rem',  // Custom border radius
-      },
-      fontFamily: {
-        'sans': ['Helvetica', 'Arial', 'sans-serif'],  // Custom font family
-      }
-    },
+    extend: {},
   },
   plugins: [],
 };
