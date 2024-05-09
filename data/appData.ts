@@ -1,5 +1,3 @@
-// appData.ts
-
 import Image, { StaticImageData } from 'next/image';
 
 // Import logos
@@ -24,7 +22,7 @@ import stafiLogo from "../public/assets/ecosystem/stafi.png";
 import siloLogo from "../../public/assets/ecosystem/silo.jpeg";
 import vermillionLogo from "../../public/assets/ecosystem/vermillion.jpeg";
 import compassLogo from "../../public/assets/ecosystem/compass.png"
-
+// appData 'types' definition 
 interface App {
     title: string;
     description: string;
@@ -32,7 +30,7 @@ interface App {
     image: StaticImageData;
     tags: string[];
 }
-
+// export card data, with searchable "tags"
 export const appData: App[] = [
     {
         title: "Compass",
