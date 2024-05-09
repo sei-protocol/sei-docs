@@ -19,9 +19,9 @@ import hoyuLogo from "../public/assets/ecosystem/hoyu.jpeg";
 import superSeiyanBotLogo from "../public/assets/ecosystem/superseiyanbot.jpeg";
 import nfts2meLogo from "../public/assets/ecosystem/nfts2me.png";
 import stafiLogo from "../public/assets/ecosystem/stafi.png";
-import siloLogo from "../../public/assets/ecosystem/silo.jpeg";
-import vermillionLogo from "../../public/assets/ecosystem/vermillion.jpeg";
-import compassLogo from "../../public/assets/ecosystem/compass.png"
+import siloLogo from "../public/assets/ecosystem/silo.jpeg";
+import vermillionLogo from "../public/assets/ecosystem/vermillion.jpeg";
+import compassLogo from "../public/assets/ecosystem/compass.png"
 // appData 'types' definition 
 interface App {
     title: string;
