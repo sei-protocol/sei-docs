@@ -1,5 +1,3 @@
-// Card.tsx
-
 import Image, { StaticImageData } from "next/image";
 interface CardProps {
   image: StaticImageData;
