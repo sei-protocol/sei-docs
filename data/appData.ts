@@ -89,25 +89,11 @@ export const appData: App[] = [
         tags: ["Liquid Staking", "MEV"]
     },
     {
-        title: "Silo",
-        description: "Liquid staking and MEV on Sei",
-        href: "https://silo-evm.dc37hw5o72ljt.amplifyapp.com/",
-        image: siloLogo,
-        tags: ["Liquid Staking", "MEV"]
-    },
-    {
         title: "Camel",
         description: "Sei's liquidity oasis",
         href: "https://camel.money",
         image: camelLogo,
         tags: ["Liquidity", "DeFi"]
-    },
-    {
-        title: "Vermillion",
-        description: "Next-gen AMM and stablecoin",
-        href: "https://app.vermillion.finance/swap",
-        image: vermillionLogo,
-        tags: ["DEX", "DeFi", ]
     },
     {
         title: "Vermillion",
