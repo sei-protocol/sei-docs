@@ -20,6 +20,9 @@ const config: DocsThemeConfig = {
     content: null,
   },
   head: <></>,
+  sidebar: {
+    defaultMenuCollapseLevel: 1,
+  },
   useNextSeoProps() {
     return {
       titleTemplate: "%s - Sei Docs",
