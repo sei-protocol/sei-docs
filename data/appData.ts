@@ -22,6 +22,7 @@ import nukeemLogo from "../public/assets/ecosystem/nukeem.jpeg";
 import jaspervaultLogo from "../public/assets/ecosystem/jaspervault.jpeg";
 import monnaLogo from "../public/assets/ecosystem/monna.png";
 import kawaLogo from "../public/assets/ecosystem/kawa.jpeg";
+import fidropLogo from "../public/assets/ecosystem/fidrop.jpeg";
 
 interface App {
     title: string;
@@ -185,6 +186,13 @@ export const appData: App[] = [
         href: "https://v2.beta.kawa.finance/lend",
         image: kawaLogo,
         tags: ["DeFi", "Lending"]
+    },
+    {
+        title: "Fidrop",
+        description: "Platform that powers token creation, claiming, drops, and mints",
+        href: "https://fidrop.com/signin?callbackUrl=%2F",
+        image: fidropLogo,
+        tags: ["NFT", "Launchpad"]
     },
 ]
 
