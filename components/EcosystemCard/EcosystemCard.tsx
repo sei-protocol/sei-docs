@@ -1,16 +1,17 @@
 import Image, { StaticImageData } from "next/image";
-interface CardProps {
+
+interface EcosystemCardProps {
   image: StaticImageData;
   title: string;
   description: string;
   href: string;
 }
 
-interface CardsProps {
+interface EcosystemCardsProps {
   children: React.ReactNode;
 }
 
-function Card({ image, title, description, href }: CardProps) {
+function EcosystemCard({ image, title, description, href }: EcosystemCardProps) {
   return (
     <a
       className="flex flex-col border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden hover:opacity-80"
@@ -18,7 +19,7 @@ function Card({ image, title, description, href }: CardProps) {
       target="_blank"
       rel="noopener noreferrer"
     >
-      <div className="relative w-full h-80"> {/* Adjust height as needed to match your design */}
+      <div className="relative w-full"> {/* Adjust height as needed to match your design */}
         <Image src={image} alt={title} width={700} height={475} priority />
       </div>
       <div className="flex-1 p-4 bg-gray-100 dark:bg-gray-800">
@@ -29,10 +30,10 @@ function Card({ image, title, description, href }: CardProps) {
   );
 }
 
-function Cards({ children }: CardsProps) {
+function EcosystemCards({ children }: EcosystemCardsProps) {
   return (
     <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 my-4">{children}</div>
   );
 }
 
-export { Card, Cards };
+export { EcosystemCard, EcosystemCards };

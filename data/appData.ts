@@ -1,10 +1,7 @@
-import Image, { StaticImageData } from 'next/image';
+import { StaticImageData } from 'next/image';
 
-// Import logos
-import camelLogo from "../public/assets/ecosystem/camel.png";
 import gamblinoLogo from "../public/assets/ecosystem/gamblino.jpeg";
 import dragonswapLogo from "../public/assets/ecosystem/dragonswap.jpeg";
-import fluidLogo from "../public/assets/ecosystem/fluid.png";
 import belugasLogo from "../public/assets/ecosystem/belugas.png";
 import squaredLabsLogo from "../public/assets/ecosystem/squared-labs.jpeg";
 import seijinLogo from "../public/assets/ecosystem/seijin.png";
@@ -21,8 +18,11 @@ import nfts2meLogo from "../public/assets/ecosystem/nfts2me.png";
 import stafiLogo from "../public/assets/ecosystem/stafi.png";
 import siloLogo from "../public/assets/ecosystem/silo.jpeg";
 import vermillionLogo from "../public/assets/ecosystem/vermillion.jpeg";
-import compassLogo from "../public/assets/ecosystem/compass.png"
-// appData 'types' definition 
+import nukeemLogo from "../public/assets/ecosystem/nukeem.jpeg";
+import jaspervaultLogo from "../public/assets/ecosystem/jaspervault.jpeg";
+import monnaLogo from "../public/assets/ecosystem/monna.png";
+import kawaLogo from "../public/assets/ecosystem/kawa.jpeg";
+
 interface App {
     title: string;
     description: string;
@@ -30,14 +30,14 @@ interface App {
     image: StaticImageData;
     tags: string[];
 }
-// export card data, with searchable "tags"
+
 export const appData: App[] = [
     {
-        title: "Compass",
-        description: "The native wallet app for SEI",
-        href: "https://compasswallet.io/",
-        image: compassLogo,
-        tags: ["Wallet", "Native"]
+        title: "DragonSwap",
+        description: "The native DEX on SEI",
+        href: "https://test.dragonswap.app/",
+        image: dragonswapLogo,
+        tags: ["DeFi", "Trading", "Swap"]
     },
     {
         title: "SeiCasino",
@@ -89,25 +89,11 @@ export const appData: App[] = [
         tags: ["Liquid Staking", "MEV"]
     },
     {
-        title: "Camel",
-        description: "Sei's liquidity oasis",
-        href: "https://camel.money",
-        image: camelLogo,
-        tags: ["Liquidity", "DeFi"]
-    },
-    {
         title: "Vermillion",
         description: "Next-gen AMM and stablecoin",
         href: "https://app.vermillion.finance/swap",
         image: vermillionLogo,
         tags: ["DEX", "DeFi", ]
-    },
-    {
-        title: "Fluid",
-        description: "Interest free loans, backed by Sei",
-        href: "https://fluidex.metabest.tech/",
-        image: fluidLogo,
-        tags: ["Lending", "DeFi"]
     },
     {
         title: "Belugas",
@@ -172,6 +158,34 @@ export const appData: App[] = [
         image: stafiLogo,
         tags: ["DeFi", "Liquid Staking"]
     },
-];
+    {
+        title: "Nuk'Em Loans",
+        description: "DeFi marketplace",
+        href: "https://app.nukem.loans/",
+        image: nukeemLogo,
+        tags: ["DeFi", "Lending"]
+    },
+    {
+        title: "JasperVault",
+        description: "Fully decentralised options trading",
+        href: "https://alpha.jasper.finance/trade/sei",
+        image: jaspervaultLogo,
+        tags: ["DeFi", "Trading"]
+    },
+    {
+        title: "Monna",
+        description: "The standard for leveraged lending",
+        href: "https://app.monna.io/",
+        image: monnaLogo,
+        tags: ["DeFi", "Lending"]
+    },
+    {
+        title: "Kawa",
+        description: "Decentralised cross-chain lending",
+        href: "https://v2.beta.kawa.finance/lend",
+        image: kawaLogo,
+        tags: ["DeFi", "Lending"]
+    },
+]
 
 export default appData;
