@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Card, Cards } from '../../components/Card';
+import { EcosystemCard, EcosystemCards } from '../EcosystemCard';
 import appData from '../../data/appData';  // Ensure this import is correct
 
 const EcosystemApps = () => {
@@ -32,10 +32,10 @@ const EcosystemApps = () => {
       <div className="mt-2 mb-4 text-sm text-gray-600">
         <strong>Filter by Tags:</strong> {allTags.join(', ')}
       </div>
-      <Cards>
+      <EcosystemCards>
         {filteredApps.length > 0 ? (
           filteredApps.map((app) => (
-            <Card
+            <EcosystemCard
               key={app.title}
               title={app.title}
               description={app.description}
@@ -46,7 +46,7 @@ const EcosystemApps = () => {
         ) : (
           <div className="text-center text-gray-500">No apps found.</div>
         )}
-      </Cards>
+      </EcosystemCards>
     </div>
   );
 };
