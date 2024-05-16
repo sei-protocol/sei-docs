@@ -38,8 +38,7 @@ export default function EvmWalletConnect() {
         [publicProvider()]
     );
 
-    // This needs to be updated
-    const projectId = "???";
+    const projectId = "385413c214cb74213e0679bc30dd4e4c";
     const connectors = connectorsForWallets([
         {
             groupName: "Recommended",
