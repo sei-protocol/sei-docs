@@ -12,7 +12,6 @@ import accumulatedLogo from "../public/assets/ecosystem/accumulated.jpeg";
 import mambaLogo from "../public/assets/ecosystem/mamba.png";
 import jellyverseLogo from "../public/assets/ecosystem/jellyverse.png";
 import seicasinoLogo from "../public/assets/ecosystem/seicasino.png";
-import hoyuLogo from "../public/assets/ecosystem/hoyu.jpeg";
 import superSeiyanBotLogo from "../public/assets/ecosystem/superseiyanbot.jpeg";
 import nfts2meLogo from "../public/assets/ecosystem/nfts2me.png";
 import stafiLogo from "../public/assets/ecosystem/stafi.png";
@@ -130,13 +129,6 @@ export const appData: App[] = [
         href: "https://jelly-verse-sei.vercel.app/jellyswap",
         image: jellyverseLogo,
         tags: ["DeFi", "Trading", "Swap", "Liquidity"]
-    },
-    {
-        title: "Hoyu",
-        description: "DeFi protocol uniting lending and trading Marketplaces to give every token new utility as safe collateral",
-        href: "https://arctic.hoyu.io",
-        image: hoyuLogo,
-        tags: ["DeFi", "Liquidity", "Lending"]
     },
     {
         title: "Super Seiyan Bot",
