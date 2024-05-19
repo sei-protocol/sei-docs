@@ -9,47 +9,44 @@ import addressTranslationImage from "../../public/assets/address-derivation.png"
 # Pointer Contracts
 
 Pointer Contracts enable tokens to be used interoperably in both EVM and CosmWasm environments.
+Intended to be efficient and quick to deploy, a pointer simply serves as an interpreter between the two "languages" used in either execution environment.
 
 ## Why Pointer Contracts
 
 <ImageWithCaption img={PointerContractsWithout} alt="Without Pointer Contracts" caption="A world without pointer contracts"/>
+
 Wallets and clients for feature-rich protocols typically support only a single execution environment.
-EVM wallets handle ERC-20 coins and ERC-721 NFTs but can't interact with CW-based contracts because they use different token standards and contract interaction methods.
+EVM wallets handle ERC-20 coins and ERC-721 NFTs but cannot interact with cosmwasm contracts due to different token standards and interaction methods.  
+The same problem exists for clients built for other protocols (like cosmwasm) which cannot directly interact with Ethereum-based contracts or ERC tokens.
 
-Likewise, CosmWasm-intended clients can't directly interact with Ethereum-based ERC tokens or contracts.
+Pointer Contracts solve this by enabling interoperability of either protocol, regardless of the client interface.
 
-Pointer Contracts solve this by allowing tokens from one environment to be used in the other.
 <ImageWithCaption img={PointerContractsSimplified} alt="With Pointer Contracts" caption="With pointer contracts, all tokens can be accessed by wallets of either environment"/>
 
-Each token contract can have only **one* linked pointer contract, enabling CW-20/CW-721 tokens to be treated as ERC-20/ERC-721 tokens by the EVM, and vice versa.
-
-The pointer contract registry was created to improve security and clarity for users. By registering pointer contracts, tokens are accurately mapped and recognized across different environments. This prevents conflicts and ensures users can verify the authenticity of contracts, promoting a more secure and user-friendly ecosystem.
-
 ## How it Works
-A pointer contract serves as a wrapper around its corresponding contract in the other environment.
-<ImageWithCaption img={HowItWorks} alt="How it works" caption="EVM Pointer contracts for CW-20 tokens and Native tokens"/>
 
-Pointer contracts forward messages to their paired contract without storing their own state or creating any token. The destination contract or bank module remains the sole source of truth for token data. This allows all wallet types to interact seamlessly with any contract or token without added risk or complicated front-end workarounds.
+<ImageWithCaption img={HowItWorks} alt="How Pointer Contracts Work" caption="Pointer contracts enable seamless interoperability"/>
 
-When an EVM pointer contract is called, it:
-- Translates the message to an equivalent message understood by the underlying CosmWasm contract/module.
-- Forwards the message to the correct destination.
+Each smart contract is limited to **one** associated pointer contract, which must be registered on chain when deploying.  
+This prevents conflicts and provides a reference point for verifying the authenticity of the paired contract itself.
 
-## Deploying a Pointer Contract
+### Deploying Pointer Contracts
 
 This section guides you through the process of deploying a Pointer Contract for various token standards using the seid CLI tool.
 
-<Callout type="info">
+<Callout type="info" emoji="ℹ️">
   For an in-depth understanding of Sei token standards, click
   [here](/token-standards).
 </Callout>
 
-### Prerequisites
+#### Prerequisites
 
-To deploy a Pointer Contract on devnet, you'll need the following:
+The list of requirements for deploying a pointer is fairly short:
 
-- Sei light client (CLI/daemon) installed on your machine. If not, you can install it by following the [installation guide](/quickstart/installing-seid.mdx).
-- Have your CW20 or ERC20 token details, as you'll need them to create the corresponding pointer token.
+- Sei light client (CLI/daemon) installed on your machine. You can follow the [installation guide](/node-operators) if needed.
+- Address for the relevant contract (the "pointee")
+
+When a pointer is registered for any given contract, the two are mapped and identifiable across both execution environments. This link is immutable and can only be changed by the original address that created it.
 
 Before deploying a pointer, you should first check if a pointer for the token/contract you wish to deploy already exists by running the following query:
 
@@ -66,12 +63,12 @@ seid q evm pointer $TYPE $POINTEE --evm-rpc=https://evm-rpc.arctic-1.seinetwork.
 
 - `--evm-rpc`: The endpoint URL for the EVM RPC interface of the Sei blockchain. This URL is used by the `seid` command to interact with the Sei EVM.
 
-### Deploying an EVM Pointer Contract
+## Deploying a Pointer Contract
 
 To deploy an EVM Pointer Contract that links to a CosmWasm contract, you can use the following command:
 
 ```bash
-seid tx evm register-evm-pointer [pointer type] [cw-address] --gas-fee-cap=<cap> --gas-limit=<limit> --evm-rpc=<url>
+seid tx evm register-evm-pointer [pointer type] [cw-address] --gas-fee-cap=<cap> --gas-limit=<limit> --evm-rpc=<rpc>
 ```
 
 **Arguments**
@@ -86,22 +83,21 @@ seid tx evm register-evm-pointer [pointer type] [cw-address] --gas-fee-cap=<cap>
 - `--evm-rpc`: The endpoint URL for the EVM RPC interface of the Sei blockchain. This URL is used by the `seid` command to interact with the Sei EVM.
 
 <Callout type="info">
-  To learn more about the various command line arguments and flags, use the
-  `--help` flag for any CLI commands. For example:
-
-    ```bash copy
-    seid tx evm --help
-    ```
+  To learn more about the various command line arguments and flags, use the `--help` flag for any CLI commands. For example:
+  
+  ```bash
+  seid tx evm --help
+  ```
 </Callout>
 
-### Deploying a CW Pointer Contract
+## CosmWasm >> ERC Pointer
 
-#### For ERC20 Tokens
+### For ERC20 Tokens
 
 To deploy a CW20 Pointer Contract that links to an ERC20 token, you can use the following command:
 
 ```bash
-seid tx evm register-cw-pointer ERC20 $ERC20_TOKEN_ADDRESS --from=$SENDER --chain-id=arctic-1 --broadcast-mode=block --gas=250000 --fees=25000usei --node=https://rpc-arctic-1.sei-apis.com/
+seid tx evm register-cw-pointer ERC20 $ERC20_TOKEN_ADDRESS --from=$SENDER --chain-id=arctic-1 --broadcast-mode=block --gas=200000 --fees=5000usei --node=https://rpc.arctic-1.seinetwork.io
 ```
 
 **Arguments**
@@ -117,18 +113,16 @@ seid tx evm register-cw-pointer ERC20 $ERC20_TOKEN_ADDRESS --from=$SENDER --chai
 - `--fees`: Indicates the transaction fee.
 - `--node`: Points to the specific Sei node RPC URL you're connecting to for transaction submission.
 
-<Callout type="info">
-  To check out the source code,
-  please visit our [GitHub
-  page](https://github.com/sei-protocol/sei-chain/tree/evm/example/cosmwasm/cw20).
+<Callout type="info" emoji="ℹ️">
+  To check out the source code, please visit our [GitHub page](https://github.com/sei-network).
 </Callout>
 
-#### For ERC721 Tokens
+### For ERC721 Tokens
 
 To deploy a CW721 Pointer Contract that links to an ERC721 token, you can use the following command:
 
 ```bash
-seid tx evm register-cw-pointer ERC20 $ERC721_TOKEN_ADDRESS --from=$SENDER --chain-id=arctic-1 --broadcast-mode=block --gas=250000 --fees=25000usei --node=https://rpc-arctic-1.sei-apis.com/
+seid tx evm register-cw-pointer ERC721 $ERC721_TOKEN_ADDRESS --from=$SENDER --chain-id=arctic-1 --broadcast-mode=block --gas=200000 --fees=5000usei --node=https://rpc.arctic-1.seinetwork.io
 ```
 
 **Arguments**
@@ -144,8 +138,46 @@ seid tx evm register-cw-pointer ERC20 $ERC721_TOKEN_ADDRESS --from=$SENDER --cha
 - `--fees`: Indicates the transaction fee.
 - `--node`: Points to the specific Sei node RPC URL you're connecting to for transaction submission.
 
-<Callout type="info">
-  To check out the source code,
-  please visit our [GitHub
-  page](https://github.com/sei-protocol/sei-chain/tree/evm/example/cosmwasm/cw721).
-</Callout>
+## ERC >> CosmWasm Pointer
+
+### For CW20 Tokens
+
+To deploy an ERC20 Pointer Contract that links to a CW20 token, you can use the following command:
+
+```bash
+seid tx evm register-evm-pointer CW20 $CW20_TOKEN_ADDRESS --from=$SENDER --chain-id=arctic-1 --broadcast-mode=block --gas=200000 --fees=5000usei --node=https://rpc.arctic-1.seinetwork.io
+```
+
+**Arguments**
+
+- `CW20_TOKEN_ADDRESS`: The contract address of the CW20 token you want to create an ERC20 pointer for.
+
+**Flags**
+
+- `--from`: Keyfile (by name) from which the tx is sent. This address must have enough balance to cover transaction fees.
+- `--chain-id`: Identifies the specific chain of the Sei network you're interacting with. `arctic-1` refers to the Sei devnet.
+- `--broadcast-mode`: Determines how the transaction is broadcasted. Setting this to `block` means the transaction will wait to be included in a block before returning a response.
+- `--gas`: Specifies the maximum amount of gas that can be consumed by the transaction.
+- `--fees`: Indicates the transaction fee.
+- `--node`: Points to the specific Sei node RPC URL you're connecting to for transaction submission.
+
+### For CW721 Tokens
+
+To deploy an ERC721 Pointer Contract that links to a CW721 token, you can use the following command:
+
+```bash
+seid tx evm register-evm-pointer CW721 $CW721_TOKEN_ADDRESS --from=$SENDER --chain-id=arctic-1 --broadcast-mode=block --gas=200000 --fees=5000usei --node=https://rpc.arctic-1.seinetwork.io
+```
+
+**Arguments**
+
+- `CW721_TOKEN_ADDRESS`: The contract address of the CW721 token you want to create an ERC721 pointer for.
+
+**Flags**
+
+- `--from`: Keyfile (by name) from which the tx is sent. This address must have enough balance to cover transaction fees.
+- `--chain-id`: Identifies the specific chain of the Sei network you're interacting with. `arctic-1` refers to the Sei devnet.
+- `--broadcast-mode`: Determines how the transaction is broadcasted. Setting this to `block` means the transaction will wait to be included in a block before returning a response.
+- `--gas`: Specifies the maximum amount of gas that can be consumed by the transaction.
+- `--fees`: Indicates the transaction fee.
+- `--node`: Points to the specific Sei node RPC URL you're connecting to for transaction submission.
