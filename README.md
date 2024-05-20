@@ -30,7 +30,7 @@ As an open source and decentralized protocol, we **greatly appreciate** any cont
 If you feel like the docs can be better in some way, please feel free to fork this repo and make a pull request or open an issue in this Repository.
 
 ### Make changes yourself
-While the contents of this repository are not technical in nature, contributing requires a basic understanding of 
+While the contents of this repository are not technical in nature, contributing requires a basic understanding of:
 - [Git](https://git-scm.com/downloads)
 - Github
 
@@ -46,3 +46,6 @@ To propose changes directly, you can open a Pull Request against this repository
 Alternatively, if you have more general suggestions on how we can improve or correct these docs, you can [open an issue](https://github.com/sei-protocol/sei-docs/issues).
 
 
+### Addding to the Ecosystem Apps list.
+
+We welcome contributions to our ecosystem apps section. Please follow the process detailed in [CONTRIBUTING.mdx](https://github.com/sei-protocol/sei-docs/tree/main/pages/eco-apps.mdx) to add your own apps.

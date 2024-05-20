@@ -1,22 +1,25 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { EcosystemCard, EcosystemCards } from '../EcosystemCard';
-import appData from '../../data/appData';  // Ensure this import is correct
+import appData, { Tag, tagPrettyNames } from '../../data/appData';
 
 const EcosystemApps = () => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [allTags, setAllTags] = useState([]);
+  const [allTags, setAllTags] = useState<string[]>([]);
 
   // Extract unique tags from appData
   useEffect(() => {
-    const tags = new Set();
+    const tags = new Set<string>();
     appData.forEach(app => app.tags.forEach(tag => tags.add(tag)));
     setAllTags(Array.from(tags));
   }, []);
-  // Filter by "title" and "tag" fields from appData.ts // Filter by "title" and "tag" fields from appData.ts
+
+  // Filter by "title" and "tag" fields from appData.ts
   const filteredApps = useMemo(() => (
     appData.filter(app =>
       app.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      app.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))
+      app.tags.some(tag => 
+        tagPrettyNames[tag]?.some(prettyName => prettyName.toLowerCase().includes(searchTerm.toLowerCase()))
+      )
     )
   ), [searchTerm]);
 
