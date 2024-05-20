@@ -54,4 +54,4 @@ Alternatively, if you have more general suggestions on how we can improve or cor
 
 ### Addding to the Ecosystem Apps list
 
-We welcome contributions to our ecosystem apps section. Please follow the process detailed in [CONTRIBUTING.mdx](https://github.com/sei-protocol/sei-docs/tree/main/pages/eco-apps.mdx) to add your own apps.
+We welcome contributions to our ecosystem apps section. Please follow the process detailed in [eco-apps](https://github.com/sei-protocol/sei-docs/tree/main/pages/eco-apps.mdx) to add your own apps.
