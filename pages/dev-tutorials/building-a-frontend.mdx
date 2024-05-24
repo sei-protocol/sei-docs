@@ -10,7 +10,11 @@ Select one of the tabs below to get started!
 
 <Tabs items={["EVM", "CosmWasm"]}>
 <Tabs.Tab>
-In this section, we'll use [ethers.js](https://docs.ethers.org/v6/) to build a React app that interacts with a smart contract using the Sei [CosmWasm precompile](../precompiles/cosmwasm.mdx).
+In this section, we'll explore Sei's unique interoperability features by building an EVM compatible DApp that interacts with a CosmWasm smart contract.
+We will use [ethers.js](https://docs.ethers.org/v6/) to build a React app that interacts with a CosmWasm smart contract using the Sei [CosmWasm precompile](../precompiles/cosmwasm.mdx).
+
+## Prerequisites
+- Complete the tutorial in [cosmwasm-general](./cosmwasm-general.mdx) to deploy a CosmWasm counter contract on our devnet (arctic-1).
 
 ## Requirements
 
@@ -18,6 +22,7 @@ Before starting, ensure you have:
 
 - Node.js & NPM installed
 - One of the Sei wallets listed [here](/setting-up-a-wallet)
+- The wallet should be funded with sufficient Sei on our devnet (arctic-1). Refer to the section on [faucets](../dev-ecosystem-providers/faucets.mdx) for instructions on how to get Devnet tokens.
 
 ## Creating a React Project
 
@@ -43,72 +48,29 @@ npm install ethers
 ```
 
 ## Defining Contract Addresses and ABI
+In this tutorial, we will be using the **Wasm Precompile** to interact with our CosmWasm contract from the EVM.
+Precompiles (short for Precompiled contracts) are EVM compatible contracts that are built into the chain. The Wasm Precompile is a unique smart contract on Sei that enables EVM clients to query and execute CosmWasm contracts.
+Refer to the docs on [interoperability](./interoperability.mdx) for more details about precompiles.
 
-First, define the address and ABI of the CosmWasm precompile, and the address of the contract you'll be interacting with:
+First, import the address and ABI of the CosmWasm precompile from `@sei-js/evm`.
+
+<Callout type="info">
+  `@sei-js` contains NPM libraries for writing applications that interact with
+  Sei. Learn more [here](https://github.com/sei-protocol/sei-js/tree/main).
+</Callout>
+
+`@sei-js/evm` is an npm package that contains useful constants and helpers for interacting with the EVM on Sei.
+
+To install sei-js:
+```bash copy
+npm install @sei-js/evm
+```
+
+At the top of `App.tsx` you can then import `WASM_PRECOMPILE_ADDRESS`, `WASM_PRECOMPILE_ABI`. These constants allow us to interact with the Wasm Precompile.
 
 ```tsx copy
-// Wasm precompile address
-const WASM_PRECOMPILE_ADDRESS = "0x0000000000000000000000000000000000001002";
-// Counter CosmWasm contract (used for testing on arctic-1)
-const COUNTER_CONTRACT_ADDRESS =
-  "sei14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9sh9m79m";
-// The precompiled contract ABI (fragments we care about)
-// View the entire ABI here: https://github.com/sei-protocol/sei-chain/tree/evm/precompiles/wasmd
-const WASM_PRECOMPILE_ABI = [
-  {
-    inputs: [
-      {
-        internalType: "string",
-        name: "contractAddress",
-        type: "string",
-      },
-      {
-        internalType: "bytes",
-        name: "msg",
-        type: "bytes",
-      },
-      {
-        internalType: "bytes",
-        name: "coins",
-        type: "bytes",
-      },
-    ],
-    name: "execute",
-    outputs: [
-      {
-        internalType: "bytes",
-        name: "response",
-        type: "bytes",
-      },
-    ],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [
-      {
-        internalType: "string",
-        name: "contractAddress",
-        type: "string",
-      },
-      {
-        internalType: "bytes",
-        name: "req",
-        type: "bytes",
-      },
-    ],
-    name: "query",
-    outputs: [
-      {
-        internalType: "bytes",
-        name: "response",
-        type: "bytes",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-];
+import { WASM_PRECOMPILE_ADDRESS, WASM_PRECOMPILE_ABI, WasmPrecompileContract } from '@sei-js/evm';
+import { ethers } from 'ethers';
 ```
 
 These values will be used in the app to query and execute a contract.
@@ -118,15 +80,19 @@ These values will be used in the app to query and execute a contract.
 Replace your main `App` component with the following:
 
 ```tsx copy filename="App.tsx"
+import { WASM_PRECOMPILE_ADDRESS, SeiChainInfo, getWasmPrecompileEthersV6Contract } from '@sei-js/evm';
 import { useEffect, useState } from "react";
 import { BrowserProvider, Contract, toUtf8Bytes, toUtf8String } from "ethers";
 import "./App.css";
-
+ 
 function App() {
   const [count, setCount] = useState<string>();
   const [contract, setContract] = useState<Contract>();
   const [isIncrementing, setIsIncrementing] = useState(false);
-
+ 
+  // TODO: Replace this with your CosmWasm contract address here
+  const COUNTER_CONTRACT_ADDRESS = "sei14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9sh9m79m";
+ 
   const fetchCount = async () => {
     if (!contract) {
       return;
@@ -140,37 +106,35 @@ function App() {
     const { count } = JSON.parse(toUtf8String(queryResponse));
     setCount(count);
   };
-
+ 
   useEffect(() => {
     fetchCount();
   }, [contract]);
-
+ 
   const connectWallet = async () => {
     if (window.ethereum) {
       const provider = new BrowserProvider(window.ethereum);
       const { chainId } = await provider.getNetwork();
-      if (chainId !== BigInt(713715)) {
-        alert("MetaMask is not connected to Sei EVM devnet");
+      const devnetChainId = SeiChainInfo.devnet.chainId
+      if (chainId !== BigInt(devnetChainId)) {
+        alert("Wallet is not connected to Sei EVM devnet");
         return;
       }
-
+ 
       const signer = await provider.getSigner();
-      const contract = new Contract(
-        WASM_PRECOMPILE_ADDRESS,
-        WASM_PRECOMPILE_ABI,
-        signer
-      );
+      const contract = getWasmPrecompileEthersV6Contract(WASM_PRECOMPILE_ADDRESS, signer)
+
       setContract(contract);
     } else {
-      alert("MetaMask is not installed");
+      alert("No EVM compatible wallet installed");
     }
   };
-
+ 
   const incrementCount = async () => {
     if (!contract) {
       return;
     }
-
+ 
     setIsIncrementing(true);
     // Execute message to increment the count on the contract
     const executeMsg = { increment: {} };
@@ -185,7 +149,7 @@ function App() {
     setIsIncrementing(false);
     await fetchCount();
   };
-
+ 
   return (
     <>
       <div className="card">
@@ -203,7 +167,7 @@ function App() {
     </>
   );
 }
-
+ 
 export default App;
 ```
 
@@ -219,14 +183,14 @@ export default App;
 
 A single `useEffect` hook to fetch the current count whenever the contract state changes, indicating that the contract instance is ready for interaction.
 
-**Connecting to MetaMask**
+**Connecting to EVM Wallet**
 
 A function named `connectWallet` that:
 
-- Checks for the MetaMask extension.
-- Establishes a connection to the Ethereum network via MetaMask, using ethers.js BrowserProvider.
+- Checks for any EVM compatible wallet extension.
+- Establishes a connection to the Ethereum network via the connected wallet, using ethers.js BrowserProvider.
 - Verifies the correct network (Sei EVM devnet) by comparing chainId.
-- Creates an ethers.js Contract instance with the signer from MetaMask, setting it in the contract state for later use.
+- Creates an ethers.js Contract instance with the signer from the wallet, setting it in the contract state for later use.
 
 **Fetching Contract Data**
 
@@ -243,6 +207,10 @@ A function named `incrementCount` that:
 - Waits for the transaction to be confirmed.
 - Refetches the count to update the UI with the new value.
 
+
+To see your app in action, run `npm run dev` to spin up a local version of the application. Once you connect your wallet, you should see a counter, as well as a button you can use to increment the counter on the contract.
+
+Congrats on deploying your first interoperable dApp on Sei!
 </Tabs.Tab>
 <Tabs.Tab>
 In this section, we'll use the [@sei-js](https://github.com/sei-protocol/sei-js/) library to build a React app that interacts with a CosmWasm contract.
@@ -422,7 +390,7 @@ function Home() {
 export default Home;
 ```
 
-We deployed a counter contract on the `arctic-1` testnet. Contract address: `sei18g4g35mhy5s88nshpa6flvpj9ex6u88l6mhjmzjchnrfa7xr00js0gswru`. Learn more about this contract [here](https://github.com/CosmWasm/cw-template).
+We deployed a counter contract on the `arctic-1` testnet. Contract address: `sei14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9sh9m79m`. Learn more about this contract [here](https://github.com/CosmWasm/cw-template).
 
 ### Detailed outline of `Home.tsx`
 
