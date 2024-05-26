@@ -14,8 +14,8 @@ export default function EvmWalletConnect() {
         http: ["https://evm-rpc.sei-apis.com"],
         webSocket: ["wss://evm-ws.sei-apis.com"],
     };
-    const seiDevnet: Chain = {
-        id: 513,
+    const sei: Chain = {
+        id: 531,
         name: "Sei Network",
         network: "Sei",
         nativeCurrency: {
@@ -34,7 +34,7 @@ export default function EvmWalletConnect() {
     };
 
     const { chains, publicClient } = configureChains(
-        [seiDevnet],
+        [sei],
         [publicProvider()]
     );
 
