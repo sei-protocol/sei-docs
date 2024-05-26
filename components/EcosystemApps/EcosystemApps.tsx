@@ -17,7 +17,7 @@ const EcosystemApps = () => {
   const filteredApps = useMemo(() => (
     appData.filter(app =>
       app.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      app.tags.some(tag => 
+      app.tags.some(tag =>
         tagPrettyNames[tag]?.some(prettyName => prettyName.toLowerCase().includes(searchTerm.toLowerCase()))
       )
     )
@@ -27,13 +27,13 @@ const EcosystemApps = () => {
     <div>
       <input
         type="text"
-        placeholder="Search apps by name or tag..."
+        placeholder="Search apps by name or category..."
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
         className="w-full p-2 text-sm border rounded shadow-sm placeholder-gray-400"
       />
       <div className="mt-2 mb-4 text-sm text-gray-600">
-        <strong>Filter by Tags:</strong> {allTags.join(', ')}
+      {allTags.join(', ')}
       </div>
       <EcosystemCards>
         {filteredApps.length > 0 ? (
