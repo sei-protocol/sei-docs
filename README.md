@@ -1,4 +1,7 @@
+# Contributing to the Docs
+
 ## Quick Start
+
 Ensure you have `yarn` installed (macOS users can Run `brew install yarn`)
 
 1. Use `yarn` to install dependencies
@@ -12,6 +15,7 @@ You should always run `yarn build` before pushing any changes to validate that t
 This documentation is created using [Nextra](https://nextra.site).
 
 ### Structure
+
 Each page is generated from a single `.mdx` file under the `./pages` directory.
 
 Each directory represents a page grouping. Each directory contains a `_meta.json` file, which dictates the order and name of the items in the navbar.
@@ -19,10 +23,10 @@ Each directory represents a page grouping. Each directory contains a `_meta.json
 For more information on how the docs are structured, please refer to the [Nextra docs](https://nextra.site/docs/guide).
 
 ### Changing Content
+
 All content submitted will be reviewed by a maintainer
 
-To standardize the documentation, please follow the [style guide]() for instructions on how to format changes to the docs.
-
+To standardize the documentation, please follow the [style guide](https://github.com/sei-protocol/sei-docs/blob/devrel/STYLE_GUIDE.mdx) for instructions on how to format changes to the docs.
 
 ## Open Source Contributors
 
@@ -30,7 +34,9 @@ As an open source and decentralized protocol, we **greatly appreciate** any cont
 If you feel like the docs can be better in some way, please feel free to fork this repo and make a pull request or open an issue in this Repository.
 
 ### Make changes yourself
-While the contents of this repository are not technical in nature, contributing requires a basic understanding of 
+
+While the contents of this repository are not technical in nature, contributing requires a basic understanding of:
+
 - [Git](https://git-scm.com/downloads)
 - Github
 
@@ -42,7 +48,10 @@ To propose changes directly, you can open a Pull Request against this repository
 4. Commit and push your changes to your forked repository.
 5. Once your changes have been pushed to your forked repository, [make a Pull Request](https://git-scm.com/downloads) against this repository. Ensure that your Pull Request follows the template so we can understand and review your changes clearly.
 
-### Open an Issue.
+### Open an Issue
+
 Alternatively, if you have more general suggestions on how we can improve or correct these docs, you can [open an issue](https://github.com/sei-protocol/sei-docs/issues).
 
+### Addding to the Ecosystem Apps list
 
+We welcome contributions to our ecosystem apps section. Please follow the process detailed in [eco-apps](https://github.com/sei-protocol/sei-docs/tree/main/pages/eco-apps.mdx) to add your own apps.
