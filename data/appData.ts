@@ -2,6 +2,7 @@ import { StaticImageData } from 'next/image';
 
 import gamblinoLogo from "../public/assets/ecosystem/gamblino.jpeg";
 import dragonswapLogo from "../public/assets/ecosystem/dragonswap.jpeg";
+import carbondefiLogo from "../public/assets/ecosystem/carbondefi.jpeg";
 import belugasLogo from "../public/assets/ecosystem/belugas.png";
 import squaredLabsLogo from "../public/assets/ecosystem/squared-labs.jpeg";
 import seijinLogo from "../public/assets/ecosystem/seijin.png";
@@ -232,7 +233,14 @@ export const appData: App[] = [
         href: "https://fidrop.com/signin?callbackUrl=%2F",
         image: fidropLogo,
         tags: [Tag.NFT, Tag.LAUNCH]
-    }
+    },
+    {
+        title: "Carbon DeFi",
+        description: "An orderbook-like DEX with full automation and built-in 24/7 trading bot",
+        href: "https://sei.carbondefi.xyz/",
+        image: carbondefiLogo,
+        tags: [Tag.DEFI, Tag.DEX, Tag.LIQ, Tag.TRADE]
+    },
 ];
 
 export default appData;
