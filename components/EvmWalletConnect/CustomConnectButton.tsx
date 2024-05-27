@@ -3,9 +3,9 @@ import { ConnectButton } from "@rainbow-me/rainbowkit";
 import styled from 'styled-components';
 
 const CustomButton = styled.button`
-background: #001B2A; /* Dark color */
-border: none;
-color: #ECDEDE; /* Light color */
+background: black; /* Dark color */
+border: white solid 1px;
+color: white; /* Light color */
 padding: 0.5rem 1rem;
 font-size: 1rem;
 cursor: pointer;
@@ -19,8 +19,9 @@ box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 font-family: 'Inter', sans-serif;
 
 &:hover {
-color: #001B2A; /* Dark color */
-background: #ECDEDE; /* Light color */
+    color: black; /* Dark color */
+    background: white; /* Light color */
+    border: black solid 1px;
 }
 `;
 
