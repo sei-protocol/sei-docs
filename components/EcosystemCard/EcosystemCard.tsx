@@ -19,7 +19,7 @@ function EcosystemCard({ image, title, description, href }: EcosystemCardProps) 
       target="_blank"
       rel="noopener noreferrer"
     >
-      <div className="relative w-full"> {/* Adjust height as needed to match your design */}
+      <div className="relative w-full">
         <Image src={image} alt={title} width={700} height={475} priority />
       </div>
       <div className="flex-1 p-4 bg-gray-100 dark:bg-gray-800">
