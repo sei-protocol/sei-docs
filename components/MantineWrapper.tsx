@@ -16,7 +16,7 @@ export const MantineWrapper = ({ children }) => {
             case "light":
                 return "light";
             default:
-                return 'auto';
+                return undefined;
 
         }
     }, [theme]);
