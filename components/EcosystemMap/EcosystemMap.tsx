@@ -6,7 +6,7 @@ import {
   getSeiEcosystemAppsData,
 } from '../../data/ecosystemData'
 
-const EcosystemMap = () => {
+const EcosystemMap = ({ category }: { category?: string }) => {
   const [apps, setApps] = useState<EcosystemResponse['data'] | null>(null)
   const [loading, setLoading] = useState(true)
   useEffect(() => {
@@ -26,11 +26,28 @@ const EcosystemMap = () => {
     fetchData()
   }, [])
 
-  if (!apps || loading) return <div>Loading...</div>
+  if (!apps || loading)
+    return (
+      <div className="flex flex-col gap-6 mt-8 border-t pt-8">
+        <div className="w-1/3 h-8 bg-slate-200 rounded-md bg-gradient-to-tr from-slate-50 to-slate-200 animate-pulse" />
+        <div className="grid grid-cols-4 gap-6">
+          {Array.from({ length: 8 }).map((c, index) => (
+            <div
+              key={index}
+              className="animate-pulse bg-gradient-to-tr from-slate-50 to-slate-200 rounded-xl flex-col justify-start items-center inline-flex aspect-[2/3] overflow-hidden"
+            >
+              <div className="w-full relative bg-gradient-to-tl from-slate-50 to-slate-200 aspect-square" />
+            </div>
+          ))}
+        </div>
+      </div>
+    )
   const groupAppsByCategory = groupBy(apps, (app) =>
     app.fieldData.categorie === undefined ? 'Others' : app.fieldData.categorie
   )
   const categories = Object.keys(groupAppsByCategory)
+
+  const onlyCategory = category && categories.includes(category)
 
   return (
     <div className="flex flex-col gap-8 mt-8">
@@ -38,6 +55,7 @@ const EcosystemMap = () => {
         return (
           <div key={category} className="flex flex-col gap-4 border-t pt-8">
             <h2 className="text-2xl font-semibold">{category}</h2>
+
             <div className="grid grid-cols-4 gap-6">
               {groupAppsByCategory[category].map((app, index) => {
                 const logo = app.fieldData.logo
