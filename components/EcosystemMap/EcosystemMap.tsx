@@ -54,10 +54,13 @@ const EcosystemMap = () => {
       <div className="flex flex-col gap-8 mt-8">
         {categories.map((category) => {
           return (
-            <div key={category} className="flex flex-col gap-4 border-t pt-8">
+            <div
+              key={category}
+              className="flex flex-col gap-4 border-t dark:border-gray-700 border-gray-200 pt-8"
+            >
               <h2 className="text-2xl font-semibold">{category}</h2>
 
-              <div className="grid grid-cols-4 gap-6">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
                 {groupAppsByCategory[category].map((app, index) => {
                   const logo = app.fieldData.logo
                   return (
