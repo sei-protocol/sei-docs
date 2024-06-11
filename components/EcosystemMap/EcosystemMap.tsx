@@ -1,16 +1,32 @@
-import { ExternalLinkIcon } from 'lucide-react'
+import { useConfig } from 'nextra-theme-docs'
 import { useEffect, useState } from 'react'
 import { groupBy } from 'underscore'
+import { EcosystemSection, EcosystemSkeleton } from '.'
 import {
   EcosystemResponse,
   getSeiEcosystemAppsData,
 } from '../../data/ecosystemData'
 
+// ;[
+//   'Consumer Apps',
+//   'Infrastructure',
+//   'DeFi',
+//   'Data & Analytics',
+//   'Wallets',
+//   'NFTs',
+//   'Exchanges & On/Off Ramps',
+//   'Other',
+//   'AI',
+// ]
+
+
 const EcosystemMap = () => {
   const [apps, setApps] = useState<EcosystemResponse['data'] | null>(null)
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
+  const config = useConfig()
+
+  console.log(config)
   useEffect(() => {
     const fetchData = async () => {
       await getSeiEcosystemAppsData()
@@ -28,67 +44,54 @@ const EcosystemMap = () => {
     fetchData()
   }, [])
 
-  if (!apps || loading)
-    return (
-      <div className="flex flex-col gap-6 mt-8 border-t border-gray-200 dark:border-gray-700 pt-8">
-        <div className="w-1/3 h-8 bg-slate-200 rounded-md bg-gradient-to-tr from-zinc-50 to-zinc-200 dark:from-zinc-800 dark:to-zinc-950 animate-pulse" />
-        <div className="grid grid-cols-4 gap-6">
-          {Array.from({ length: 8 }).map((c, index) => (
-            <div
-              key={index}
-              className="animate-pulse bg-gradient-to-tr from-zinc-50 to-zinc-200 dark:from-zinc-800 dark:to-zinc-950 rounded-xl flex-col justify-start items-center inline-flex aspect-[2/3] overflow-hidden"
-            >
-              <div className="w-full relative bg-gradient-to-tl from-zinc-50 to-zinc-200 dark:from-zinc-800 dark:to-zinc-950 aspect-square" />
-            </div>
-          ))}
-        </div>
-      </div>
-    )
-  const groupAppsByCategory = groupBy(apps, (app) =>
-    app.fieldData.categorie === undefined ? 'Others' : app.fieldData.categorie
+  if (!apps || loading) return <EcosystemSkeleton />
+
+  // filter out apps that don't have a categorie
+  const filteredApps = apps.filter(
+    (app) => app.fieldData.categorie !== undefined
   )
+
+  // group apps by category
+  const groupAppsByCategory = groupBy(
+    filteredApps,
+    (app) => app.fieldData.categorie
+  )
+
   const categories = Object.keys(groupAppsByCategory)
+  console.log(categories)
+  const mappedCategories = categories.map((category) => {
+    if (category === undefined) return
+    return {
+      label: category,
+      // replace spaces with hyphens and remove special characters like & and / from the category name
+      value: category
+        .replace(/\s/g, '-')
+        .replace(/[&/\s]/g, '')
+        .toLowerCase()
+        .replace(/-+/g, '-'),
+    }
+  })
+
+  const appsByCategory = (category: string) =>
+    apps.filter((app) => app.fieldData.categorie === category)
 
   return (
     <div className="mt-8">
       <div className="flex flex-col gap-8 mt-8">
-        {categories.map((category) => {
+        {mappedCategories.map(({ label, value }) => {
           return (
-            <div
-              key={category}
-              className="flex flex-col gap-4 border-t dark:border-gray-700 border-gray-200 pt-8"
-            >
-              <h2 className="text-2xl font-semibold">{category}</h2>
-
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-                {groupAppsByCategory[category].map((app, index) => {
-                  const logo = app.fieldData.logo
-                  return (
-                    <a
-                      href={`${app.fieldData.link}?utm_source=sei-docs`}
-                      key={index}
-                      target="_blank"
-                      className="flex flex-col border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden hover:opacity-80 transition-all relative group"
-                    >
-                      <div className="bg-black text-white p-2 absolute rounded-md -right-8 -top-8  group-hover:top-1 group-hover:right-1 transition-all">
-                        <ExternalLinkIcon className="h-4 w-4" />
-                      </div>
-                      {logo && (
-                        <div className="flex flex-col">
-                          <img
-                            src={logo.url}
-                            alt={logo.name}
-                            className="h-full w-full aspect-square"
-                          />
-                          <div className="truncate bg-gray-100 dark:bg-gray-800 p-4 font-semibold">
-                            {app.fieldData.name}
-                          </div>
-                        </div>
-                      )}
-                    </a>
-                  )
-                })}
-              </div>
+            <div key={value} className="flex flex-col gap-4 ">
+              {/* <h2 className="text-2xl font-semibold">{label}</h2> */}
+              <h2 className="nx-font-semibold nx-tracking-tight nx-text-slate-900 dark:nx-text-slate-100 nx-mt-10 nx-border-b nx-pb-1 nx-text-3xl nx-border-neutral-200/70 contrast-more:nx-border-neutral-400 dark:nx-border-primary-100/10 contrast-more:dark:nx-border-neutral-400">
+                {label}
+                <a
+                  href={`#${value}`}
+                  id="overview"
+                  className="subheading-anchor"
+                  aria-label="Permalink for this section"
+                ></a>
+              </h2>
+              <EcosystemSection apps={appsByCategory(label)} />
             </div>
           )
         })}
