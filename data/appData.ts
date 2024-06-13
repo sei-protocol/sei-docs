@@ -245,7 +245,7 @@ export const appData: App[] = [
   {
     title: "Flipside",
     description: "Provides detailed blockchain analytics and insights.",
-    href: "https://flipside.xyz/",
+    href: "https://flipsidecrypto.xyz/",
     image: FlipsideLogo,
     tags: [Tag.INDEX],
   },
