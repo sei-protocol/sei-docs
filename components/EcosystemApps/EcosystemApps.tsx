@@ -1,6 +1,6 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { appData, tagPrettyNames } from '../../data/appData';
 import { EcosystemCard, EcosystemCards } from '../EcosystemCard';
-import appData, { Tag, tagPrettyNames } from '../../data/appData';
 
 const EcosystemApps = () => {
   const [searchTerm, setSearchTerm] = useState('');
