@@ -15,8 +15,8 @@ const AppCard = ({ app }: AppCardProps) => {
       rel="noopener noreferrer"
       className="group flex flex-col"
     >
-      <div className="border  rounded-lg  overflow-hidden flex flex-row lg:flex-col grow h-ull">
-        <div className="relative overflow-hidden grid place-items-center aspect-square lg:aspect-video border-r lg:border-b lg:border-r-0">
+      <div className="border dark:border-gray-800 rounded-lg  overflow-hidden flex flex-row lg:flex-col grow h-ull">
+        <div className="relative overflow-hidden grid place-items-center aspect-square lg:aspect-video border-r lg:border-b lg:border-r-0 dark:border-gray-800">
           <div className="absolute z-10">
             <Image
               src={image}
@@ -26,7 +26,7 @@ const AppCard = ({ app }: AppCardProps) => {
               className="group-hover:scale-[0.85] scale-75 transition-all"
             />
           </div>
-          <div className="bg-gray-200 dark:bg-gray-900 opacity-50 h-full w-full blur-3xl overflow-hidden">
+          <div className="bg-gray-400 dark:bg-gray-800 opacity-50 h-full w-full blur-3xl overflow-hidden">
             <Image
               src={image}
               alt={title}
