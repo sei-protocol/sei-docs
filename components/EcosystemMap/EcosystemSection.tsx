@@ -2,7 +2,7 @@ import { ExternalLinkIcon } from 'lucide-react'
 
 const EcosystemSection = ({ apps }: { apps: any[] }) => {
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mt-8">
+    <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-6 mt-8">
       {apps.map((app, index) => {
         const logo = app.fieldData.logo
         return (
