@@ -1,5 +1,9 @@
 import { StaticImageData } from 'next/image';
 
+import AxelarLogo from "../public/assets/bridges/axelar-logo.png";
+import SquidLogo from "../public/assets/bridges/squid-logo.png";
+import StargateLogo from "../public/assets/bridges/stargate-logo.png";
+import WormholeLogo from "../public/assets/bridges/wormhole-logo.png";
 import accumulatedLogo from "../public/assets/ecosystem/accumulated.jpeg";
 import belugasLogo from "../public/assets/ecosystem/belugas.png";
 import dragonswapLogo from "../public/assets/ecosystem/dragonswap.jpeg";
@@ -27,58 +31,58 @@ import SubGraphLogo from "../public/assets/indexers/subgraph-logo.png";
 import TheGraphLogo from "../public/assets/indexers/the-graph-logo.png";
 
 export interface App {
-    title: string;
-    description: string;
-    href: string;
-    image: StaticImageData;
-    tags: Tag[];
+  title: string;
+  description: string;
+  href: string;
+  image: StaticImageData;
+  tags: Tag[];
 }
 
 export enum Tag {
-    BET = 'Betting', // apps/games including betting/wagers
-    BOT = 'Bots', // automated trading or utility bots
-    BRIDGE = 'Bridge', // cross-chain bridging apps
-    DEFI = 'DeFi', // decentralized finance applications [generic, add other specific tags]
-    DEX = 'Exchange', // decentralized exchanges
-    GAMES = 'Gaming', // games or gaming platforms
-    GOV = 'Governance', // governance and voting applications or informational dashboards
-    INDEX = 'Indexer', // data indexing services
-    LAUNCH = 'Launchpad', // platforms for launching new projects or tokens
-    LEND = 'Lending', // lending/borrowing platforms
-    LIQ = 'Liquidity', // liquidity provision and management [vault protocols for example]
-    LST = 'Liquid Staking', // liquid staking solutions
-    MKT = 'Marketplace', // decentralized marketplaces [non-standard markets like NFT, services markets]
-    MEV = 'MEV', // applications dealing with arbitrage or block auctioning, etc.
-    NFT = 'NFT', // NFT platforms [generic, add other specific tags]
-    STAKE = 'Staking', // staking dashboards, automation, and other tools
-    STATS = 'Statistics/Metrics', // on-chain statistics and metrics tracking
-    TOOL = 'Tool', // utilities for builders or research, etc.
-    TRADE = 'Trading', // trading platforms and services [non-standard, peer/OTC swaps, NFT trading]
-    WS = 'Workshop' // educational and workshop platforms
+  BET = "Betting", // apps/games including betting/wagers
+  BOT = "Bots", // automated trading or utility bots
+  BRIDGE = "Bridge", // cross-chain bridging apps
+  DEFI = "DeFi", // decentralized finance applications [generic, add other specific tags]
+  DEX = "Exchange", // decentralized exchanges
+  GAMES = "Gaming", // games or gaming platforms
+  GOV = "Governance", // governance and voting applications or informational dashboards
+  INDEX = "Indexer", // data indexing services
+  LAUNCH = "Launchpad", // platforms for launching new projects or tokens
+  LEND = "Lending", // lending/borrowing platforms
+  LIQ = "Liquidity", // liquidity provision and management [vault protocols for example]
+  LST = "Liquid Staking", // liquid staking solutions
+  MKT = "Marketplace", // decentralized marketplaces [non-standard markets like NFT, services markets]
+  MEV = "MEV", // applications dealing with arbitrage or block auctioning, etc.
+  NFT = "NFT", // NFT platforms [generic, add other specific tags]
+  STAKE = "Staking", // staking dashboards, automation, and other tools
+  STATS = "Statistics/Metrics", // on-chain statistics and metrics tracking
+  TOOL = "Tool", // utilities for builders or research, etc.
+  TRADE = "Trading", // trading platforms and services [non-standard, peer/OTC swaps, NFT trading]
+  WS = "Workshop", // educational and workshop platforms
 }
 
 // Map pretty names to each tag
 export const tagPrettyNames: { [key in Tag]: string[] } = {
-    [Tag.BET]: ['Betting', 'Wagering', 'Gambling'],
-    [Tag.BOT]: ['Bots', 'Automation', 'Trading Bot'],
-    [Tag.BRIDGE]: ['Bridge', 'Cross-chain'],
-    [Tag.DEFI]: ['DeFi', 'Decentralized Finance'],
-    [Tag.DEX]: ['Exchange', 'DEX', 'Decentralized Exchange'],
-    [Tag.GAMES]: ['Gaming', 'Games'],
-    [Tag.GOV]: ['Governance', 'Voting', 'Governance Dashboard'],
-    [Tag.INDEX]: ['Indexer', 'Data Indexing'],
-    [Tag.LAUNCH]: ['Launchpad', 'Project Launch'],
-    [Tag.LEND]: ['Lending', 'Borrowing'],
-    [Tag.LIQ]: ['Liquidity', 'Liquidity Management'],
-    [Tag.LST]: ['Liquid Staking', 'Staking Solutions'],
-    [Tag.MKT]: ['Marketplace', 'Market'],
-    [Tag.MEV]: ['MEV', 'Arbitrage', 'Block Auctioning'],
-    [Tag.NFT]: ['NFT', 'Non-Fungible Token'],
-    [Tag.STAKE]: ['Staking', 'Staking Tools'],
-    [Tag.STATS]: ['Statistics', 'Metrics', 'On-chain Metrics'],
-    [Tag.TOOL]: ['Tool', 'Utility'],
-    [Tag.TRADE]: ['Trading', 'Trade', 'Swaps'],
-    [Tag.WS]: ['Workshop', 'Educational Platform']
+  [Tag.BET]: ["Betting", "Wagering", "Gambling"],
+  [Tag.BOT]: ["Bots", "Automation", "Trading Bot"],
+  [Tag.BRIDGE]: ["Bridge", "Cross-chain"],
+  [Tag.DEFI]: ["DeFi", "Decentralized Finance"],
+  [Tag.DEX]: ["Exchange", "DEX", "Decentralized Exchange"],
+  [Tag.GAMES]: ["Gaming", "Games"],
+  [Tag.GOV]: ["Governance", "Voting", "Governance Dashboard"],
+  [Tag.INDEX]: ["Indexer", "Data Indexing"],
+  [Tag.LAUNCH]: ["Launchpad", "Project Launch"],
+  [Tag.LEND]: ["Lending", "Borrowing"],
+  [Tag.LIQ]: ["Liquidity", "Liquidity Management"],
+  [Tag.LST]: ["Liquid Staking", "Staking Solutions"],
+  [Tag.MKT]: ["Marketplace", "Market"],
+  [Tag.MEV]: ["MEV", "Arbitrage", "Block Auctioning"],
+  [Tag.NFT]: ["NFT", "Non-Fungible Token"],
+  [Tag.STAKE]: ["Staking", "Staking Tools"],
+  [Tag.STATS]: ["Statistics", "Metrics", "On-chain Metrics"],
+  [Tag.TOOL]: ["Tool", "Utility"],
+  [Tag.TRADE]: ["Trading", "Trade", "Swaps"],
+  [Tag.WS]: ["Workshop", "Educational Platform"],
 };
 
 export const appData: App[] = [
@@ -259,6 +263,36 @@ export const appData: App[] = [
     href: "https://academy.subquery.network/indexer/quickstart/quickstart_chains/cosmos-sei.html",
     image: SubGraphLogo,
     tags: [Tag.INDEX],
+  },
+  {
+    title: "Wormhole",
+    description:
+      "A popular bridge for transferring assets across multiple blockchains.",
+    href: "https://wormholenetwork.com/",
+    image: WormholeLogo,
+    tags: [Tag.BRIDGE],
+  },
+  {
+    title: "Squid",
+    description:
+      "Enables one-click cross-chain swaps across various EVM blockchains.",
+    href: "https://app.squidrouter.com/",
+    image: SquidLogo,
+    tags: [Tag.BRIDGE],
+  },
+  {
+    title: "Axelar",
+    description: "Provides secure cross-chain communication for Web3.",
+    href: "https://axelar.network",
+    image: AxelarLogo,
+    tags: [Tag.BRIDGE],
+  },
+  {
+    title: "Stargate (Coming soon)",
+    description: "Facilitates seamless cross-chain transactions.",
+    href: "https://stargate.finance",
+    image: StargateLogo,
+    tags: [Tag.BRIDGE],
   },
 ];
 
