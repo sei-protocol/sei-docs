@@ -1,7 +1,11 @@
 import { StaticImageData } from 'next/image';
 
 import AxelarLogo from "../public/assets/apps/axelar-logo.png";
+import BinanceLogo from "../public/assets/apps/binance-cex.png";
+import CoinbaseLogo from "../public/assets/apps/coinbase-cex.png";
 import FlipsideLogo from "../public/assets/apps/flipside-logo.png";
+import KuCoinLogo from "../public/assets/apps/kucoin-cex.png";
+import PythNetworkLogo from "../public/assets/apps/pyth-network.png";
 import SquidLogo from "../public/assets/apps/squid-logo.png";
 import StargateLogo from "../public/assets/apps/stargate-logo.png";
 import SubGraphLogo from "../public/assets/apps/subgraph-logo.png";
@@ -44,6 +48,7 @@ export enum Tag {
   BRIDGE = "Bridge", // cross-chain bridging apps
   DEFI = "DeFi", // decentralized finance applications [generic, add other specific tags]
   DEX = "Exchange", // decentralized exchanges
+  CEX = "Centralized Exchange", // centralized exchanges
   GAMES = "Gaming", // games or gaming platforms
   GOV = "Governance", // governance and voting applications or informational dashboards
   INDEX = "Indexer", // data indexing services
@@ -59,6 +64,7 @@ export enum Tag {
   TOOL = "Tool", // utilities for builders or research, etc.
   TRADE = "Trading", // trading platforms and services [non-standard, peer/OTC swaps, NFT trading]
   WS = "Workshop", // educational and workshop platforms
+  ORACLE = "Oracle", // oracle services
 }
 
 // Map pretty names to each tag
@@ -83,6 +89,8 @@ export const tagPrettyNames: { [key in Tag]: string[] } = {
   [Tag.TOOL]: ["Tool", "Utility"],
   [Tag.TRADE]: ["Trading", "Trade", "Swaps"],
   [Tag.WS]: ["Workshop", "Educational Platform"],
+  [Tag.ORACLE]: ["Oracle", "Data Provider"],
+  [Tag.CEX]: ["Centralized Exchange", "Exchange"],
 };
 
 export const appData: App[] = [
@@ -293,6 +301,38 @@ export const appData: App[] = [
     href: "https://stargate.finance",
     image: StargateLogo,
     tags: [Tag.BRIDGE],
+  },
+  {
+    title: "Pyth",
+    description:
+      "A decentralized data oracle network providing high-fidelity real-time financial market data to smart contracts.",
+    href: "https://docs.pyth.network/home",
+    image: PythNetworkLogo,
+    tags: [Tag.ORACLE],
+  },
+  {
+    title: "Coinbase",
+    description:
+      "A leading cryptocurrency exchange platform in the U.S., known for its user-friendly interface and secure trading environment.",
+    href: "https://www.coinbase.com",
+    image: CoinbaseLogo,
+    tags: [Tag.CEX],
+  },
+  {
+    title: "Binance",
+    description:
+      "The world’s largest cryptocurrency exchange by trading volume, offering a wide range of digital assets and advanced trading features.",
+    href: "https://www.binance.com",
+    image: BinanceLogo,
+    tags: [Tag.CEX],
+  },
+  {
+    title: "KuCoin",
+    description:
+      "A global cryptocurrency exchange with a vast selection of cryptocurrencies and competitive trading fees, known for its extensive range of trading tools.",
+    href: "https://www.kucoin.com",
+    image: KuCoinLogo,
+    tags: [Tag.CEX],
   },
 ];
 
