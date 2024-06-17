@@ -1,9 +1,12 @@
 import { StaticImageData } from 'next/image';
 
-import AxelarLogo from "../public/assets/bridges/axelar-logo.png";
-import SquidLogo from "../public/assets/bridges/squid-logo.png";
-import StargateLogo from "../public/assets/bridges/stargate-logo.png";
-import WormholeLogo from "../public/assets/bridges/wormhole-logo.png";
+import AxelarLogo from "../public/assets/apps/axelar-logo.png";
+import FlipsideLogo from "../public/assets/apps/flipside-logo.png";
+import SquidLogo from "../public/assets/apps/squid-logo.png";
+import StargateLogo from "../public/assets/apps/stargate-logo.png";
+import SubGraphLogo from "../public/assets/apps/subgraph-logo.png";
+import TheGraphLogo from "../public/assets/apps/the-graph-logo.png";
+import WormholeLogo from "../public/assets/apps/wormhole-logo.png";
 import accumulatedLogo from "../public/assets/ecosystem/accumulated.jpeg";
 import belugasLogo from "../public/assets/ecosystem/belugas.png";
 import dragonswapLogo from "../public/assets/ecosystem/dragonswap.jpeg";
@@ -26,9 +29,6 @@ import superSeiyanBotLogo from "../public/assets/ecosystem/superseiyanbot.jpeg";
 import vermillionLogo from "../public/assets/ecosystem/vermillion.jpeg";
 import webumpLogo from "../public/assets/ecosystem/webump.jpeg";
 import yakaLogo from "../public/assets/ecosystem/yaka.jpeg";
-import FlipsideLogo from "../public/assets/indexers/flipside-logo.png";
-import SubGraphLogo from "../public/assets/indexers/subgraph-logo.png";
-import TheGraphLogo from "../public/assets/indexers/the-graph-logo.png";
 
 export interface App {
   title: string;
