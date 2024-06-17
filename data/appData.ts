@@ -5,7 +5,10 @@ import BinanceLogo from "../public/assets/apps/binance-cex.png";
 import CoinbaseLogo from "../public/assets/apps/coinbase-cex.png";
 import FlipsideLogo from "../public/assets/apps/flipside-logo.png";
 import KuCoinLogo from "../public/assets/apps/kucoin-cex.png";
+import PolkachuLogo from "../public/assets/apps/polkachu.png";
 import PythNetworkLogo from "../public/assets/apps/pyth-network.png";
+import QuickNodeLogo from "../public/assets/apps/quicknode.png";
+import RhinoLogo from "../public/assets/apps/rhino.png";
 import SquidLogo from "../public/assets/apps/squid-logo.png";
 import StargateLogo from "../public/assets/apps/stargate-logo.png";
 import SubGraphLogo from "../public/assets/apps/subgraph-logo.png";
@@ -65,6 +68,7 @@ export enum Tag {
   TRADE = "Trading", // trading platforms and services [non-standard, peer/OTC swaps, NFT trading]
   WS = "Workshop", // educational and workshop platforms
   ORACLE = "Oracle", // oracle services
+  RPC = "RPC", // RPC services
 }
 
 // Map pretty names to each tag
@@ -91,6 +95,7 @@ export const tagPrettyNames: { [key in Tag]: string[] } = {
   [Tag.WS]: ["Workshop", "Educational Platform"],
   [Tag.ORACLE]: ["Oracle", "Data Provider"],
   [Tag.CEX]: ["Centralized Exchange", "Exchange"],
+  [Tag.RPC]: ["RPC", "Remote Procedure Call"],
 };
 
 export const appData: App[] = [
@@ -333,6 +338,37 @@ export const appData: App[] = [
     href: "https://www.kucoin.com",
     image: KuCoinLogo,
     tags: [Tag.CEX],
+  },
+  {
+    title: "Rhino",
+    description:
+      "Provides robust RPC services for seamless blockchain interactions.",
+    href: "https://rhinostake.com",
+    image: RhinoLogo,
+    tags: [Tag.RPC],
+  },
+  {
+    title: "QuickNode",
+    description:
+      "A trusted infrastructure partner for the Sei network, providing developers with powerful APIs and dedicated support to streamline their blockchain applications.",
+    href: "https://www.quicknode.com",
+    image: QuickNodeLogo,
+    tags: [Tag.RPC],
+  },
+  {
+    title: "Polkachu",
+    description: "Offers RPC/REST/gRPC, snapshot, genesis files, and more.",
+    href: "https://polkachu.com/networks/sei",
+    image: PolkachuLogo,
+    tags: [Tag.RPC],
+  },
+  {
+    title: "SubQuery",
+    description:
+      "SubQuery is a fast, flexible, and reliable open-source data decentralised infrastructure network, providing both RPC and indexed data to consumers around the world.",
+    href: "https://academy.subquery.network/indexer/quickstart/quickstart_chains/cosmos-sei.html",
+    image: SubGraphLogo,
+    tags: [Tag.RPC],
   },
 ];
 
