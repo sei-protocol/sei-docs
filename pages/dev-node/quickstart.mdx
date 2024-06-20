@@ -1,18 +1,22 @@
-# Running a Sei RPC node
-A full Sei node is a fundamental building block of the Sei Blockchain. It consists of a local copy of the blockchain, including its history and state. Running a full node is essential for participating in network operations like validating transactions, joining consensus, and broadcasting events to other network participants.
+# Quick start
 
-## System Configuration
-- CPU Cores	RAM	Disk
-- 16 cores	64GB	1TB NVMe
 
-## Quick start
-There is a setup script that runs a lot of the basic setup to easily get you started running an RPC node. If you are an advanced user, please see Node Configurations.
+For quick simple setups you can use the `run-node.py` script in the `./scripts` directory of the `sei-chain` repo. It allows you to choose which network to launch on, including a private local network purely for testing. This method bypasses the need for most initial environment setup or node configuration, although there are some basic configurables in the script near the top if needed.
 
-You can use this startup script:
+For more advanced setup, please refer to the [Node Operators guide](./node-operators.mdx).
 
-`python3 scripts/run-node.py`
+Before running the script, ensure you have the required dependencies, then simply run the script and follow the prompts to specify the network and database format. (Sei-db is highly recommended for increased speed & efficiency)
 
-```sh
+
+
+
+```shell
+apt update && apt upgrade -y
+apt install python3 nano make build-essential gcc git jq chrony tar curl lz4 wget -y
+```
+
+
+```shell
 python3 scripts/run-node.py
 
                      ..:=++****++=:.
@@ -33,5 +37,85 @@ python3 scripts/run-node.py
               .--. .:*###*:.  ...  .+###*-.
                  .:+#######*-:..::*#####=.
                   .-+###############*+:.
-                     ..-+********+-..
+                     ..-+********+-.
+
+[...]
 ```
+
+
+## Configurable Parameters
+
+Before running the script, take a moment to understand the configurable parameters near the top of the file. These parameters allow you to customize the installation process to fit several varying needs:
+
+1. **moniker**:
+    - **Description**: This is the custom name for your node.
+    - **Default**: `"pynode"`
+    - **Usage**: Any name you prefer for easy identification of your node.
+
+2. **trust_height_delta**:
+    - **Description**: The negative height offset for state sync. It defines how many blocks before the latest block you trust for syncing.
+    - **Default**: `20000`
+    - **Usage**: Adjust this, usually lawer if you experience syncing issues.
+
+3. **enable_unsafe_reset**:
+    - **Description**: Determines whether to wipe the existing configs, database and keys before setting up the node.
+    - **Default**: `True`
+    - **Usage**: Set to `False` if you want to retain existing data. Use `True` for a clean setup.
+
+4. **version_override**:
+    - **Description**: Overrides automatic version selection in favor of version(s) specified in [`ENV_TO_CONFIG`](https://github.com/sei-protocol/sei-chain/blob/3b8b27c597a93b968f17335f911d35b38e5cf1f6/scripts/run-node.py#L28)
+    - **Default**: `False`
+    - **Usage**: Set `True` to force version specified in the parameters below.
+
+5. **MAINNET_VERSION, DEVNET_VERSION, TESTNET_VERSION**:
+    - **Description**: Versions of the chain binary for several environments, both testing and production.
+    - **Default**:
+        - MAINNET_VERSION = `"v3.9.0"`
+        - DEVNET_VERSION = `"v5.2.2"`
+        - TESTNET_VERSION = `"v5.2.2"`
+    - **Usage**: Specify the version to be installed if `version_override` is `True`.
+
+6. **ENV_TO_CONFIG**:
+    - **Description**: This maps environment names to their chain IDs and version overrides.
+    - **Default**:
+      ```python
+      ENV_TO_CONFIG = {
+          "local": {"chain_id": None, "version": "latest"},
+          "devnet": {"chain_id": "arctic-1", "version": DEVNET_VERSION},
+          "testnet": {"chain_id": "atlantic-2", "version": TESTNET_VERSION},
+          "mainnet": {"chain_id": "pacific-1", "version": MAINNET_VERSION}
+      }
+      ```
+    - **Usage**: Modify this dictionary to run a specific chian version for a given network.
+
+---
+
+## Running the Script
+
+1. **Initial Setup**:
+    - Ensure you have the required dependencies installed: Go 1.21, make, gcc, and Docker.
+    - Backup any important existing data before proceeding, the script will wipe existing data by default.
+
+2. **Execute the Script**:
+    - Run the script using Python: `python3 ./scripts/run_node.py`
+    - Follow the prompts to choose the environment (local, devnet, testnet, mainnet) and the database backend (legacy or sei-db).
+
+3. **Environment Selection**:
+    - The script will fetch the chain ID and version based on your environment selection. If `local` is selected, it will fetch the latest / most current version from GitHub.
+
+4. **Installation and Configuration**:
+    - The script will download the specified version, extract it, and install it using `make install`.
+    - If `enable_unsafe_reset` is `True`, it will reset the Tendermint state and any existing configs + keys.
+    - The script will initialize the node with the given moniker and chain ID.
+    - For non-local environments, it will fetch state sync parameters, persistent peers, and apropriate genesis file.
+
+5. **Configuration Files**:
+    - The script will modify `config.toml` and `app.toml` based on your selections and the fetched data.
+    - If `sei-db` is selected as the database backend, additional configurations will be applied to `app.toml`.
+
+6. **Start the Node**:
+    - The script then starts the node and begins to sync.
+    - At this point you may stop the script [`ctrl+C`] and run the node manually or as a service, or keep running in the terminal as long as needed.
+
+
+---
