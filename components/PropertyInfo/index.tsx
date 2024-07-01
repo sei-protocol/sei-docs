@@ -1,4 +1,4 @@
-import { Code, Paper, Text } from '@mantine/core';
+import { Code, Flex, Paper, Text } from '@mantine/core';
 
 type PropertyInfoProps = {
 	name: string;
@@ -8,8 +8,8 @@ type PropertyInfoProps = {
 
 export const PropertyInfo = ({ name, description, properties }: PropertyInfoProps) => {
 	return (
-		<Paper mt='md'>
-			<Code style={{ fontSize: '14pt', fontWeight: 600 }}>{name}</Code>
+		<Flex direction='column' mt='md'>
+			<Text style={{ fontSize: '14pt', fontWeight: 600 }}>{name}</Text>
 			<Text mt='xs'>{description}</Text>
 			{properties && (
 				<Paper p='md' withBorder mt='lg'>
@@ -25,6 +25,6 @@ export const PropertyInfo = ({ name, description, properties }: PropertyInfoProp
 					})}
 				</Paper>
 			)}
-		</Paper>
+		</Flex>
 	);
 };

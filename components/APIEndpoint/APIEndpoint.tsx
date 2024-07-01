@@ -100,7 +100,10 @@ export const APIEndpoint = ({ endpoint }: { endpoint: Endpoint }) => {
 		.filter((part: string) => !part.startsWith('{') && part !== '')
 		.map((part: string) => part.replace('-', '').toLowerCase());
 
-	const lastPart = parts[parts.length - 1];
+	const orgName = parts[0];
+	const moduleName = parts[1];
+	const version = parts[2];
+	const functionName = parts[parts.length - 1];
 
 	const method = Object.entries(methods)[0];
 
@@ -123,16 +126,13 @@ export const APIEndpoint = ({ endpoint }: { endpoint: Endpoint }) => {
 
 	return (
 		<>
-			<NextSeo title={lastPart}></NextSeo>
+			<NextSeo title={functionName}></NextSeo>
 			<Flex direction='column' gap='xl'>
 				<Breadcrumbs mt='md'>
-					<Anchor href={`/endpoints/cosmos#${parts[0]}`} key={parts[0]}>
-						endpoints
-					</Anchor>
-					<Anchor href={`/endpoints/${parts[0]}/${parts[1]}`} key={parts[1]}>
-						{parts[1]}
-					</Anchor>
+					<Anchor href={`/endpoints/cosmos#${orgName}`}>endpoints</Anchor>
+					<Anchor href={`/endpoints/${orgName}/${moduleName}`}>{moduleName}</Anchor>
 				</Breadcrumbs>
+				<Title>{functionName}</Title>
 				<Flex gap='sm' align='center'>
 					<Code style={{ minWidth: 'fit-content', height: 'fit-content' }}>{httpMethod.toUpperCase()}</Code>
 					<Text size='xl' style={{ wordBreak: 'break-all' }}>
@@ -171,7 +171,7 @@ export const APIEndpoint = ({ endpoint }: { endpoint: Endpoint }) => {
 						{`import { getQueryClient } from '@sei-js/cosmjs';
 
 const queryClient = await getQueryClient("YOUR_RPC_URL");
-const { ${routeNames.functionName} } = queryClient.${parts[0]}.${parts[1]}.${parts[2]};
+const { ${routeNames.functionName} } = queryClient.${orgName}.${moduleName}.${version};
 
 const params: ${requestType} = ${paramsString};
 const response: ${responseType} = await ${routeNames.functionName}(params);`}
