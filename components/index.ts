@@ -12,3 +12,4 @@ export * from './ImageWithCaption';
 export * from './Logo';
 export * from './Nfts';
 export * from './VersionFetcher';
+export * from "./EcosystemMap";
