@@ -32,9 +32,7 @@ export type EcosystemResponse = {
 
 export async function getSeiEcosystemAppsData(): Promise<EcosystemResponse> {
   const url = "http://staging.app-api.seinetwork.io/webflow/ecosystem"; // TODO: Move to ENV
-  const headers = {
-    Accept: "application/json",
-  };
+  const headers = { Accept: 'application/json' };
 
   try {
     const response = await fetch(url, {
