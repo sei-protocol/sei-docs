@@ -2,13 +2,8 @@ name: Broken URL Check
 
 on:
   schedule:
-    # Runs every Monday at 00:00 UTC
-    - cron: '0 0 * * 1'
+    - cron: '0 0 * * 1'  # Runs every Monday at 00:00 UTC
   workflow_dispatch:  # Allows manual triggering of the workflow
-
-defaults:
-  run:
-    shell: bash
 
 jobs:
   url-check:
@@ -29,26 +24,43 @@ jobs:
           pip install requests
 
       - name: Run link checker
-        run: python scripts/urlcheck.py
+        id: run_checker
+        run: |
+          output=$(python scripts/urlcheck.py)
+          echo "checker_output<<EOF" >> $GITHUB_OUTPUT
+          echo "$output" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
         env:
-          CHECK_PATH: './pages/'  # Set the CHECK_PATH environment variable here
+          CHECK_PATH: './pages/'
 
-      - name: Create Issue on Failure
-        if: failure()
+      - name: Create Issue with Results
+        if: always()
         uses: actions/github-script@v6
         with:
           github-token: ${{secrets.GITHUB_TOKEN}}
           script: |
-            github.rest.issues.create({
+            const output = JSON.parse('${{ steps.run_checker.outputs.checker_output }}');
+            const issueTitle = output.status === "issues_found" 
+              ? `Broken URLs Detected: ${output.total_issues} issues found`
+              : "URL Check Completed - No Issues Found";
+            
+            let issueBody = `# URL Check Results\n\n`;
+            if (output.status === "issues_found") {
+              issueBody += `## Issues Found: ${output.total_issues}\n\n`;
+              output.issues.forEach(issue => {
+                issueBody += `- File: ${issue.file}, Line: ${issue.line}\n`;
+                issueBody += `  URL: ${issue.url}\n`;
+                issueBody += `  Status Code: ${issue.status_code}, Reason: ${issue.reason}\n`;
+                issueBody += `  Final URL: ${issue.final_url}\n\n`;
+              });
+            } else {
+              issueBody += "No broken URLs detected in this check.";
+            }
+            
+            await github.rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.name,
-              title: 'Broken URLs detected',
-              body: 'The URL checking script has detected one or more broken URLs. Please check the workflow logs for details.'
-            })
-
-      - name: Upload Check Results
-        if: always()
-        uses: actions/upload-artifact@v3
-        with:
-          name: url-check-results
-          path: url_check_results.txt
+              title: issueTitle,
+              body: issueBody,
+              labels: ['url-check']
+            });
