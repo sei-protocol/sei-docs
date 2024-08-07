@@ -4,7 +4,7 @@ on:
   schedule:
     # Runs every Monday at 00:00 UTC
     - cron: '0 0 * * 1'
-  workflow_dispatch:  # Allows manual triggering of the workflow
+  workflow_dispatch: # Allows manual triggering of the workflow
 
 defaults:
   run:
@@ -29,5 +29,26 @@ jobs:
           pip install requests
 
       - name: Run link checker
-        run: |
-          python scripts/urlcheck.py
+        run: python scripts/urlcheck.py
+        env:
+          CHECK_PATH: './pages/' # Adjust this path if needed
+
+      - name: Create Issue on Failure
+        if: failure()
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.name,
+              title: 'Broken URLs detected',
+              body: 'The URL checking script has detected one or more broken URLs. Please check the workflow logs for details.'
+            })
+
+      - name: Upload Check Results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: url-check-results
+          path: url_check_results.txt
