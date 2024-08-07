@@ -1,6 +1,7 @@
 import os
 import re
 import requests
+import json
 from urllib.parse import urlparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -57,7 +58,6 @@ def check_files_in_directory(directory):
                     file_path = os.path.join(root, file)
                     future = executor.submit(process_file, file_path)
                     future_to_file[future] = file_path
-
         for future in as_completed(future_to_file):
             file_path = future_to_file[future]
             try:
@@ -65,30 +65,24 @@ def check_files_in_directory(directory):
                 all_reports.extend(report)
             except Exception as exc:
                 print(f'{file_path} generated an exception: {exc}')
-
     return all_reports
 
 def generate_report(report):
+    output = {}
     if report:
-        print(f"Total issues found: {len(report)}")
-        print("-" * 40)
-        for item in report:
-            print(f"File: {item['file']}, Line: {item['line']}")
-            print(f"URL: {item['url']}")
-            print(f"Status Code: {item['status_code']}, Reason: {item['reason']}")
-            print(f"Final URL: {item['final_url']}")
-            print("-" * 40)
+        output["status"] = "issues_found"
+        output["total_issues"] = len(report)
+        output["issues"] = report
     else:
-        print("No issues found.")
+        output["status"] = "no_issues_found"
+        output["total_issues"] = 0
+    
+    print(json.dumps(output, indent=2))
 
 if __name__ == "__main__":
-    # Use environment variable or default to './pages/'
     check_path = os.environ.get('CHECK_PATH', './pages/')
     report = check_files_in_directory(check_path)
     generate_report(report)
     
     # Set exit code for GitHub Actions
-    if report:
-        exit(1)  # Non-zero exit code if issues found
-    else:
-        exit(0)  # Zero exit code if no issues
+    exit(len(report))  # Exit code is the number of issues found
