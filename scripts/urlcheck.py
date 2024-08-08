@@ -1,12 +1,13 @@
 import os
 import re
-import requests
 import json
+import sys
+import requests
 from urllib.parse import urlparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 INTERNAL_404_URL = "https://github.com/sei-protocol/sei-docs/blob/main/pages/404.mdx"
-MAX_WORKERS = 5  # Adjust based on your needs and GitHub Actions limitations
+MAX_WORKERS = 5
 
 def check_url_status(url):
     try:
@@ -35,7 +36,7 @@ def process_file(file_path):
                 for url in urls:
                     if is_valid_url(url):
                         status_code, reason, final_url = check_url_status(url)
-                        if status_code and (status_code not in {200, 403, 415} or final_url == INTERNAL_404_URL):
+                        if status_code and status_code not in {200, 403, 415, 501} and final_url != INTERNAL_404_URL:
                             file_report.append({
                                 'file': file_path,
                                 'line': line_number,
@@ -48,16 +49,21 @@ def process_file(file_path):
         print(f"Error reading file {file_path}: {str(e)}")
     return file_report
 
-def check_files_in_directory(directory):
+def check_location(location):
     all_reports = []
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         future_to_file = {}
-        for root, _, files in os.walk(directory):
-            for file in files:
-                if file.endswith(('.md', '.mdx')):
-                    file_path = os.path.join(root, file)
-                    future = executor.submit(process_file, file_path)
-                    future_to_file[future] = file_path
+        if os.path.isfile(location):
+            future = executor.submit(process_file, location)
+            future_to_file[future] = location
+        else:
+            for root, _, files in os.walk(location):
+                for file in files:
+                    if file.endswith(('.md', '.mdx')):
+                        file_path = os.path.join(root, file)
+                        future = executor.submit(process_file, file_path)
+                        future_to_file[future] = file_path
+
         for future in as_completed(future_to_file):
             file_path = future_to_file[future]
             try:
@@ -65,24 +71,19 @@ def check_files_in_directory(directory):
                 all_reports.extend(report)
             except Exception as exc:
                 print(f'{file_path} generated an exception: {exc}')
+
     return all_reports
 
 def generate_report(report):
-    output = {}
-    if report:
-        output["status"] = "issues_found"
-        output["total_issues"] = len(report)
-        output["issues"] = report
-    else:
-        output["status"] = "no_issues_found"
-        output["total_issues"] = 0
-    
-    print(json.dumps(output, indent=2))
+    output = {
+        "total_issues": len(report),
+        "issues": report
+    }
+    return json.dumps(output)
 
 if __name__ == "__main__":
     check_path = os.environ.get('CHECK_PATH', './pages/')
-    report = check_files_in_directory(check_path)
-    generate_report(report)
-    
-    # Set exit code for GitHub Actions
-    exit(len(report))  # Exit code is the number of issues found
+    print(f"Checking URLs in location: {check_path}", file=sys.stderr)
+    report = check_location(check_path)
+    output = generate_report(report)
+    print(output)

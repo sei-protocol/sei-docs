@@ -2,12 +2,15 @@ name: Broken URL Check
 
 on:
   schedule:
-    - cron: '0 0 * * 1'  # Runs every Monday at 00:00 UTC
-  workflow_dispatch:  # Allows manual triggering of the workflow
+    - cron: '0 0 * * 1'
+  workflow_dispatch:
 
 jobs:
   url-check:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
 
     steps:
       - name: Checkout code
@@ -27,40 +30,33 @@ jobs:
         id: run_checker
         run: |
           output=$(python scripts/urlcheck.py)
-          echo "checker_output<<EOF" >> $GITHUB_OUTPUT
+          echo 'checker_output<<EOF' >> $GITHUB_OUTPUT
           echo "$output" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          echo 'EOF' >> $GITHUB_OUTPUT
         env:
           CHECK_PATH: './pages/'
 
-      - name: Create Issue with Results
-        if: always()
-        uses: actions/github-script@v6
+      - name: Process results
+        id: process_results
+        run: |
+          output='${{ steps.run_checker.outputs.checker_output }}'
+          echo "Raw output:"
+          echo "$output"
+          json_output=$(echo "$output" | grep -Eo '\{.*\}')
+          total_issues=$(echo "$json_output" | jq -r '.total_issues')
+          echo "TOTAL_ISSUES=$total_issues" >> $GITHUB_ENV
+          
+          if [ "$total_issues" -gt 0 ]; then
+            issue_table=$(echo "$json_output" | jq -r '.issues[] | "| \(.file) | \(.line) | \(.url) | \(.status_code) | \(.reason) |"' | sed -e 's/^/  /')
+            echo 'ISSUE_TABLE<<EOF' >> $GITHUB_ENV
+            echo "$issue_table" >> $GITHUB_ENV
+            echo 'EOF' >> $GITHUB_ENV
+          fi
+
+      - name: Create Issue
+        if: ${{ env.TOTAL_ISSUES > 0 }}
+        uses: JasonEtco/create-an-issue@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          github-token: ${{secrets.GITHUB_TOKEN}}
-          script: |
-            const output = JSON.parse('${{ steps.run_checker.outputs.checker_output }}');
-            const issueTitle = output.status === "issues_found" 
-              ? `Broken URLs Detected: ${output.total_issues} issues found`
-              : "URL Check Completed - No Issues Found";
-            
-            let issueBody = `# URL Check Results\n\n`;
-            if (output.status === "issues_found") {
-              issueBody += `## Issues Found: ${output.total_issues}\n\n`;
-              output.issues.forEach(issue => {
-                issueBody += `- File: ${issue.file}, Line: ${issue.line}\n`;
-                issueBody += `  URL: ${issue.url}\n`;
-                issueBody += `  Status Code: ${issue.status_code}, Reason: ${issue.reason}\n`;
-                issueBody += `  Final URL: ${issue.final_url}\n\n`;
-              });
-            } else {
-              issueBody += "No broken URLs detected in this check.";
-            }
-            
-            await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.name,
-              title: issueTitle,
-              body: issueBody,
-              labels: ['url-check']
-            });
+          filename: .github/ISSUE_TEMPLATE_URL_CHECK.md
