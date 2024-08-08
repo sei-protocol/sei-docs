@@ -1,10 +1,12 @@
+#!/usr/bin/env python3
+
 import os
 import re
-import sys
 import json
 import requests
 from urllib.parse import urlparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import sys
 
 INTERNAL_404_URL = "https://github.com/sei-protocol/sei-docs/blob/main/pages/404.mdx"
 MAX_WORKERS = 5  # Adjust based on your needs
@@ -83,7 +85,6 @@ def generate_report(report):
 
 if __name__ == "__main__":
     check_path = os.environ.get('CHECK_PATH', './pages/')
-    print(f"Checking URLs in location: {check_path}", file=sys.stderr)  # print to stderr
+    print(f"Checking URLs in location: {check_path}", file=sys.stderr)  # Print to stderr
     report = check_location(check_path)
-    output = generate_report(report)
-    print(output)  # only print JSON to stdout
+    generate_report(report)
