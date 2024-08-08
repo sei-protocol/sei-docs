@@ -78,11 +78,11 @@ def generate_report(report):
         "total_issues": len(report),
         "issues": report
     }
-    return json.dumps(output)
+    print(json.dumps(output))
 
 if __name__ == "__main__":
     check_path = os.environ.get('CHECK_PATH', './pages/')
-    print(f"Checking URLs in location: {check_path}")
+    print(f"Checking URLs in location: {check_path}", file=sys.stderr)  # print to stderr
     report = check_location(check_path)
     output = generate_report(report)
-    print(output)
+    print(output)  # only print JSON to stdout
