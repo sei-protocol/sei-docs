@@ -1,7 +1,7 @@
 ---
-title: 🚨 Broken URLs Detected: {{ env.TOTAL_ISSUES }} issues found
+title: "🚨 Broken URLs Detected: {{ env.TOTAL_ISSUES }} issues found"
 labels: bug, documentation
-assignees: 
+assignees:
 ---
 
 ## URL Check Results
