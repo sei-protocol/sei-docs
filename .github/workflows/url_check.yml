@@ -2,8 +2,8 @@ name: Broken URL Check
 
 on:
   schedule:
-    - cron: '0 0 * * 1'  # Runs every Monday at 00:00 UTC
-  workflow_dispatch:  # Allows manual triggering of the workflow
+    - cron: '0 0 * * 1'
+  workflow_dispatch:
 
 jobs:
   url-check:
@@ -34,29 +34,23 @@ jobs:
           CHECK_PATH: './pages/'
 
       - name: Create Issue with Results
-        if: always()
+        if: ${{ fromJson(steps.run_checker.outputs.checker_output).total_issues > 0 }}
         uses: actions/github-script@v6
         with:
           github-token: ${{secrets.GITHUB_TOKEN}}
           script: |
             const output = JSON.parse('${{ steps.run_checker.outputs.checker_output }}');
-            const issueTitle = output.status === "issues_found" 
-              ? `Broken URLs Detected: ${output.total_issues} issues found`
-              : "URL Check Completed - No Issues Found";
-            
-            let issueBody = `# URL Check Results\n\n`;
-            if (output.status === "issues_found") {
-              issueBody += `## Issues Found: ${output.total_issues}\n\n`;
-              output.issues.forEach(issue => {
-                issueBody += `- File: ${issue.file}, Line: ${issue.line}\n`;
-                issueBody += `  URL: ${issue.url}\n`;
-                issueBody += `  Status Code: ${issue.status_code}, Reason: ${issue.reason}\n`;
-                issueBody += `  Final URL: ${issue.final_url}\n\n`;
-              });
-            } else {
-              issueBody += "No broken URLs detected in this check.";
-            }
-            
+            const issueTitle = `🚨 Broken URLs Detected: ${output.total_issues} issues found`;
+
+            let issueBody = `## URL Check Results\n\n`;
+            issueBody += `### Issues Found: ${output.total_issues}\n\n`;
+            issueBody += "| File | Line | URL | Status Code | Reason |\n";
+            issueBody += "|------|------|-----|-------------|--------|\n";
+            output.issues.forEach(issue => {
+              issueBody += `| ${issue.file} | ${issue.line} | ${issue.url} | ${issue.status_code} | ${issue.reason} |\n`;
+            });
+            issueBody += "\n\nPlease review and fix these broken URLs.";
+
             await github.rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.name,
