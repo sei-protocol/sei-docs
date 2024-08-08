@@ -1,7 +1,6 @@
 ---
 title: "🚨 Broken URLs Detected: {{ env.TOTAL_ISSUES }} issues found"
 labels: bug, documentation
-assignees:
 ---
 
 ## URL Check Results
