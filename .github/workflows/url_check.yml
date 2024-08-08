@@ -27,21 +27,26 @@ jobs:
         id: run_checker
         run: |
           output=$(python scripts/urlcheck.py)
-          echo "checker_output<<EOF" >> $GITHUB_OUTPUT
+          echo 'checker_output<<EOF' >> $GITHUB_OUTPUT
           echo "$output" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-        env:
-          CHECK_PATH: './pages/'
+          echo 'EOF' >> $GITHUB_OUTPUT
+
+      - name: Process results
+        id: process_results
+        run: |
+          output='${{ steps.run_checker.outputs.checker_output }}'
+          total_issues=$(echo "$output" | jq -r '.total_issues')
+          echo "total_issues=$total_issues" >> $GITHUB_OUTPUT
 
       - name: Create Issue with Results
-        if: ${{ fromJson(steps.run_checker.outputs.checker_output).total_issues > 0 }}
+        if: ${{ steps.process_results.outputs.total_issues > 0 }}
         uses: actions/github-script@v6
         with:
           github-token: ${{secrets.GITHUB_TOKEN}}
           script: |
             const output = JSON.parse('${{ steps.run_checker.outputs.checker_output }}');
             const issueTitle = `🚨 Broken URLs Detected: ${output.total_issues} issues found`;
-
+            
             let issueBody = `## URL Check Results\n\n`;
             issueBody += `### Issues Found: ${output.total_issues}\n\n`;
             issueBody += "| File | Line | URL | Status Code | Reason |\n";
@@ -50,7 +55,7 @@ jobs:
               issueBody += `| ${issue.file} | ${issue.line} | ${issue.url} | ${issue.status_code} | ${issue.reason} |\n`;
             });
             issueBody += "\n\nPlease review and fix these broken URLs.";
-
+            
             await github.rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.name,
