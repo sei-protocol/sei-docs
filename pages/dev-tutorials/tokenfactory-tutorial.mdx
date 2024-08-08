@@ -83,6 +83,32 @@ Create a token metadata `json` file. The file below is an example metadata file 
 	"display": "sei"
 }
 ```
+Example for token factory denom:
+
+```json
+{
+    "name": "factory/{ACCOUNT}/{DENOM}",
+    "description": "A token created using the Token Factory module.",
+    "symbol": "factory/{ACCOUNT}/{DENOM}",
+    "denom_units": [
+        {
+            "denom": "factory/{ACCOUNT}/{DENOM}",
+            "exponent": 0,
+            "aliases": ["microdenom"]
+        },
+        {
+            "denom": "mdenom",
+            "exponent": 3
+        },
+        {
+            "denom": "{DENOM}",
+            "exponent": 6
+        }
+    ],
+    "base": "factory/{ACCOUNT}/{DENOM}",
+    "display": "{DENOM}"
+}
+```
 
 The `base` field denotes the smallest denom that this token can be represented in.
 Note that if you intend to create a [pointer contract](#create-pointer-contract), the `denom_units` with the largest exponent will be used as the display denom. (`sei` in this case).
@@ -142,7 +168,7 @@ Only the token admin has permission to mint and burn tokens. If necessary, you c
 To enable seamless use of this token in EVM environments, we can create a pointer contract. This process results in an ERC20 token that can be imported and used in EVM wallets and applications.
 
 ```bash copy
-seid tx evm register-evm-pointer NATIVE $DENOM --from=$ACCOUNT --fees 20000usei --evm-rpc=https://evm-rpc.arctic-1.seinetwork.io/
+seid tx evm register-evm-pointer NATIVE factory/${ACCOUNT}/${DENOM} --from=$ACCOUNT --fees 20000usei --evm-rpc=https://evm-rpc.arctic-1.seinetwork.io/
 ```
 
 **Parameters**
@@ -154,9 +180,22 @@ seid tx evm register-evm-pointer NATIVE $DENOM --from=$ACCOUNT --fees 20000usei 
 - `--from`: The Sei address from which the deployment transaction is sent. This address must have enough balance to cover transaction fees.
 - `--evm-rpc`: The endpoint URL for the EVM RPC interface of the Sei blockchain. This URL is used by the `seid` command to interact with the Sei EVM.
 
-Executing this command creates an ERC20 token and outputs the contract address. This token is linked to the TokenFactory token, meaning any activities involving this ERC20 token will also reflect on the state of the TokenFactory token and vice versa.
+Executing this command creates an ERC20 token. This token is linked to the TokenFactory token, meaning any activities involving this ERC20 token will also reflect on the state of the TokenFactory token and vice versa.
 
 Note that if you wish to specify denoms on your ERC20 tokens, you will need to [set the token metadata](#updating-token-metadata) for the base tokenfactory token. The denom with the largest exponent will be used.
+
+To query the pointer contract address run the following command:
+
+```bash copy
+seid q evm pointer NATIVE factory/${ACCOUNT}/${DENOM} --node=https://rpc.arctic-1.seinetwork.io/
+```
+Which will return the address of the pointer contract.
+```bash
+exists: true
+pointer: 0xPointerContractAddress
+version: 1
+```
+Now this pointer contract can be used in EVM environments to interact with your TokenFactory token.
 
 <Callout type='info'>Learn more about EVM interoperability and pointer contracts [here](../interoperability/overview.mdx).</Callout>
 
