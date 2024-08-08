@@ -8,6 +8,9 @@ on:
 jobs:
   url-check:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
 
     steps:
       - name: Checkout code
@@ -26,36 +29,33 @@ jobs:
       - name: Run link checker
         id: run_checker
         run: |
-          python3 scripts/urlcheck.py > output.json
+          output=$(python scripts/urlcheck.py)
+          echo 'checker_output<<EOF' >> $GITHUB_OUTPUT
+          echo "$output" >> $GITHUB_OUTPUT
+          echo 'EOF' >> $GITHUB_OUTPUT
+        env:
+          CHECK_PATH: './pages/'
 
       - name: Process results
         id: process_results
         run: |
-          output=$(cat output.json)
+          output='${{ steps.run_checker.outputs.checker_output }}'
           echo "Raw output:"
           echo "$output"
           total_issues=$(echo "$output" | jq -r '.total_issues')
+          echo "TOTAL_ISSUES=$total_issues" >> $GITHUB_ENV
+
           if [ "$total_issues" -gt 0 ]; then
-            issue_body=$(echo "$output" | jq -r '.issues | map("File: " + .file + "\nLine: " + (.line|tostring) + "\nURL: " + .url + "\nStatus Code: " + (.status_code|tostring) + "\nReason: " + .reason + "\nFinal URL: " + .final_url + "\n\n") | join("\n")')
-            echo "$issue_body"
-            echo "issue_body=$issue_body" >> $GITHUB_ENV
+            issue_table=$(echo "$output" | jq -r '.issues[] | "| \(.file) | \(.line) | \(.url) | \(.status_code) | \(.reason) |"' | sed -e 's/^/  /')
+            echo 'ISSUE_TABLE<<EOF' >> $GITHUB_ENV
+            echo "$issue_table" >> $GITHUB_ENV
+            echo 'EOF' >> $GITHUB_ENV
           fi
-          rm output.json
-          echo "total_issues=$total_issues" >> $GITHUB_OUTPUT
 
-      - name: Create Issue with Results
-        if: ${{ fromJson(steps.process_results.outputs.total_issues) > 0 }}
-        uses: actions/github-script@v6
+      - name: Create Issue
+        if: ${{ env.TOTAL_ISSUES > 0 }}
+        uses: JasonEtco/create-an-issue@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const issueTitle = `🚨 Broken URLs: ${process.env.total_issues} issues found`;
-            const issueBody = process.env.issue_body;
-
-            await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.name,
-              title: issueTitle,
-              body: issueBody,
-              labels: ['url-check']
-            });
+          filename: .github/ISSUE_TEMPLATE_URL_CHECK.md
