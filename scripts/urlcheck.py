@@ -1,15 +1,13 @@
-#!/usr/bin/env python3
-
 import os
 import re
 import json
+import sys
 import requests
 from urllib.parse import urlparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import sys
 
 INTERNAL_404_URL = "https://github.com/sei-protocol/sei-docs/blob/main/pages/404.mdx"
-MAX_WORKERS = 5  # Adjust based on your needs
+MAX_WORKERS = 5
 
 def check_url_status(url):
     try:
@@ -81,10 +79,11 @@ def generate_report(report):
         "total_issues": len(report),
         "issues": report
     }
-    print(json.dumps(output))
+    return json.dumps(output)
 
 if __name__ == "__main__":
     check_path = os.environ.get('CHECK_PATH', './pages/')
-    print(f"Checking URLs in location: {check_path}", file=sys.stderr)  # Print to stderr
+    print(f"Checking URLs in location: {check_path}", file=sys.stderr)
     report = check_location(check_path)
-    generate_report(report)
+    output = generate_report(report)
+    print(output)
