@@ -9,8 +9,5 @@ assignees:
 ### Issues Found: {{ env.TOTAL_ISSUES }}
 
 | File | Line | URL | Status Code | Reason |
-| ---- | ---- | --- | ----------- | ------ |
-
+|------|------|-----|-------------|--------|
 {{ env.ISSUE_TABLE }}
-
-Please review and fix these broken URLs.
