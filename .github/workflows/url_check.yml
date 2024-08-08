@@ -26,37 +26,31 @@ jobs:
       - name: Run link checker
         id: run_checker
         run: |
-          output=$(python scripts/urlcheck.py)
-          echo 'checker_output<<EOF' >> $GITHUB_OUTPUT
-          echo "$output" >> $GITHUB_OUTPUT
-          echo 'EOF' >> $GITHUB_OUTPUT
+          python3 scripts/urlcheck.py > output.json
 
       - name: Process results
         id: process_results
         run: |
-          output='${{ steps.run_checker.outputs.checker_output }}'
+          output=$(cat output.json)
           echo "Raw output:"
           echo "$output"
           total_issues=$(echo "$output" | jq -r '.total_issues')
+          if [ "$total_issues" -gt 0 ]; then
+            issue_body=$(echo "$output" | jq -r '.issues | map("File: " + .file + "\nLine: " + (.line|tostring) + "\nURL: " + .url + "\nStatus Code: " + (.status_code|tostring) + "\nReason: " + .reason + "\nFinal URL: " + .final_url + "\n\n") | join("\n")')
+            echo "$issue_body"
+            echo "issue_body=$issue_body" >> $GITHUB_ENV
+          fi
+          rm output.json
           echo "total_issues=$total_issues" >> $GITHUB_OUTPUT
 
       - name: Create Issue with Results
         if: ${{ fromJson(steps.process_results.outputs.total_issues) > 0 }}
         uses: actions/github-script@v6
         with:
-          github-token: ${{secrets.GITHUB_TOKEN}}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const output = JSON.parse('${{ steps.run_checker.outputs.checker_output }}');
-            const issueTitle = `🚨 Broken URLs: ${output.total_issues} issues found`;
-
-            let issueBody = `## URL Check Results\n\n`;
-            issueBody += `### Issues Found: ${output.total_issues}\n\n`;
-            issueBody += "| File | Line | URL | Status Code | Reason |\n";
-            issueBody += "|------|------|-----|-------------|--------|\n";
-            output.issues.forEach(issue => {
-              issueBody += `| ${issue.file} | ${issue.line} | ${issue.url} | ${issue.status_code} | ${issue.reason} |\n`;
-            });
-            issueBody += "\n\nPlease review and fix these broken URLs.";
+            const issueTitle = `🚨 Broken URLs: ${process.env.total_issues} issues found`;
+            const issueBody = process.env.issue_body;
 
             await github.rest.issues.create({
               owner: context.repo.owner,
