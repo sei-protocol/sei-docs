@@ -35,18 +35,20 @@ jobs:
         id: process_results
         run: |
           output='${{ steps.run_checker.outputs.checker_output }}'
+          echo "Raw output:"
+          echo "$output"
           total_issues=$(echo "$output" | jq -r '.total_issues')
           echo "total_issues=$total_issues" >> $GITHUB_OUTPUT
 
       - name: Create Issue with Results
-        if: ${{ steps.process_results.outputs.total_issues > 0 }}
+        if: ${{ fromJson(steps.process_results.outputs.total_issues) > 0 }}
         uses: actions/github-script@v6
         with:
           github-token: ${{secrets.GITHUB_TOKEN}}
           script: |
             const output = JSON.parse('${{ steps.run_checker.outputs.checker_output }}');
-            const issueTitle = `🚨 Broken URLs Detected: ${output.total_issues} issues found`;
-            
+            const issueTitle = `🚨 Broken URLs: ${output.total_issues} issues found`;
+
             let issueBody = `## URL Check Results\n\n`;
             issueBody += `### Issues Found: ${output.total_issues}\n\n`;
             issueBody += "| File | Line | URL | Status Code | Reason |\n";
@@ -55,7 +57,7 @@ jobs:
               issueBody += `| ${issue.file} | ${issue.line} | ${issue.url} | ${issue.status_code} | ${issue.reason} |\n`;
             });
             issueBody += "\n\nPlease review and fix these broken URLs.";
-            
+
             await github.rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.name,
