@@ -1,7 +1,7 @@
 ### `seid tx dex place-orders`
 ```ansi
 Place orders on an orderbook specified by contract-address. Orders are represented as strings with the order details separated by "?". Cancellation details format is OrderDirection?Quantity?Price?PriceAsset?QuoteAsset?OrderType?OrderData?AdditionalParams.
-			More info here: https://docs.seinetwork.io/smart-contracts-and-local-development/dex-module-tutorial#placeorders
+			More info here: https://medium.com/@supernoav551/dex-module-tutorial-sei-network-267a0a32954
 
 Usage:
   seid tx dex place-orders [contract address] [orders...] --amount [coins,optional] [flags]
