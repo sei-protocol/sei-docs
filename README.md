@@ -51,7 +51,3 @@ To propose changes directly, you can open a Pull Request against this repository
 ### Open an Issue
 
 Alternatively, if you have more general suggestions on how we can improve or correct these docs, you can [open an issue](https://github.com/sei-protocol/sei-docs/issues).
-
-### Addding to the Ecosystem Apps list
-
-We welcome contributions to our ecosystem apps section. Please follow the process detailed in [eco-apps](https://github.com/sei-protocol/sei-docs/tree/main/pages/eco-apps.mdx) to add your own apps.
