@@ -31,24 +31,43 @@ export type EcosystemResponse = {
 };
 
 export async function getSeiEcosystemAppsData(): Promise<EcosystemResponse> {
-  const url = "http://staging.app-api.seinetwork.io/webflow/ecosystem"; // TODO: Move to ENV
-  const headers = { Accept: 'application/json' };
+	const url = 'http://staging.app-api.seinetwork.io/webflow/ecosystem'; // TODO: Move to ENV
+	const headers = { Accept: 'application/json' };
 
-  try {
-    const response = await fetch(url, {
-      method: "GET",
-      headers,
-    });
+	try {
+		const response = await fetch(url, {
+			method: 'GET',
+			headers
+		});
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! Status: ${response.status}`);
-    }
+		if (!response.ok) {
+			throw new Error(`HTTP error! Status: ${response.status}`);
+		}
 
-    const data = await response.json();
-    console.log("Sei Ecosystem data", data);
-    return data;
-  } catch (error) {
-    console.error("Failed to fetch data:", error);
-    return { data: [] };
-  }
+		const data = await response.json();
+		return data;
+	} catch (error) {
+		return { data: [] };
+	}
+}
+
+export async function getSeiEcosystemAppByCategory(category: string) {
+	const url = `https://staging.app-api.seinetwork.io/webflow/ecosystem/docs/${category}`;
+	const headers = { Accept: 'application/json' };
+
+	try {
+		const response = await fetch(url, {
+			method: 'GET',
+			headers
+		});
+
+		if (!response.ok) {
+			throw new Error(`HTTP error! Status: ${response.status}`);
+		}
+
+		const data = await response.json();
+		return data;
+	} catch (error) {
+		return { data: [] };
+	}
 }
