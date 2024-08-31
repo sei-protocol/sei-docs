@@ -4,13 +4,18 @@ const withNextra = require('nextra')({
 });
 
 module.exports = withNextra({
-  images: {
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'cdn.sei.io',
-        pathname: '**',
-      }
-    ],
-  },
+	images: {
+		remotePatterns: [
+			{
+				protocol: 'https',
+				hostname: 'cdn.sei.io',
+				pathname: '**'
+			},
+			{
+				protocol: 'https',
+				hostname: 'uploads-ssl.webflow.com',
+				pathname: '**'
+			}
+		]
+	}
 });

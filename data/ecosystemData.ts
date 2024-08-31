@@ -5,29 +5,30 @@ export type EcosystemAppLogoType = {
 };
 
 export type EcosystemFieldData = {
-  "featured-app": boolean;
-  profile: string;
-  link: string;
-  "sei-only": boolean;
-  name: string;
-  slug: string;
-  logo: EcosystemAppLogoType;
-  categorie: string;
+	'featured-app': boolean;
+	profile: string;
+	link: string;
+	'sei-only': boolean;
+	name: string;
+	logo: EcosystemAppLogoType;
+	slug: string;
+	categorie: string;
+	'docs-category': string;
 };
 
 export type EcosystemItem = {
-  id: string;
-  cmsLocaleId: string;
-  lastPublished: string;
-  lastUpdated: string;
-  createdOn: string;
-  isArchived: boolean;
-  isDraft: boolean;
-  fieldData: EcosystemFieldData;
+	id: string;
+	cmsLocaleId: string;
+	lastPublished: string;
+	lastUpdated: string;
+	createdOn: string;
+	isArchived: boolean;
+	isDraft: boolean;
+	fieldData: EcosystemFieldData;
 };
 
 export type EcosystemResponse = {
-  data: EcosystemItem[];
+	data: EcosystemItem[];
 };
 
 export async function getSeiEcosystemAppsData(): Promise<EcosystemResponse> {
@@ -51,8 +52,10 @@ export async function getSeiEcosystemAppsData(): Promise<EcosystemResponse> {
 	}
 }
 
-export async function getSeiEcosystemAppByCategory(category: string) {
-	const url = `https://staging.app-api.seinetwork.io/webflow/ecosystem/docs/${category}`;
+export type EcosystemDocsCategory = 'indexer' | 'explorer' | 'wallet' | 'centralized-exchange' | 'rpc-provider' | 'faucet' | 'launchpad' | 'oracle' | 'bridge';
+
+export async function getSeiEcosystemAppByCategory(category: EcosystemDocsCategory): Promise<EcosystemResponse> {
+	const url = `https://app-api.seinetwork.io/webflow/ecosystem/docs/${category}`;
 	const headers = { Accept: 'application/json' };
 
 	try {
