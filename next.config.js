@@ -15,6 +15,11 @@ module.exports = withNextra({
 				protocol: 'https',
 				hostname: 'uploads-ssl.webflow.com',
 				pathname: '**'
+			},
+			{
+				protocol: 'https',
+				hostname: '*',
+				pathname: '**'
 			}
 		]
 	}

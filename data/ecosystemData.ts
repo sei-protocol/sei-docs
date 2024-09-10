@@ -14,6 +14,7 @@ export type EcosystemFieldData = {
 	slug: string;
 	categorie: string;
 	'docs-category': string;
+	'integration-guide-link': string;
 };
 
 export type EcosystemItem = {
@@ -32,7 +33,7 @@ export type EcosystemResponse = {
 };
 
 export async function getSeiEcosystemAppsData(): Promise<EcosystemResponse> {
-	const url = 'http://staging.app-api.seinetwork.io/webflow/ecosystem'; // TODO: Move to ENV
+	const url = 'http://app-api.seinetwork.io/webflow/ecosystem'; // TODO: Move to ENV
 	const headers = { Accept: 'application/json' };
 
 	try {
