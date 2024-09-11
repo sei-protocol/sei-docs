@@ -15,6 +15,8 @@ export type EcosystemFieldData = {
 	categorie: string;
 	'docs-category': string;
 	'integration-guide-link': string;
+	'short-description': string;
+	'categorie-2': string;
 };
 
 export type EcosystemItem = {
