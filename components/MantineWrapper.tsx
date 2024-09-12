@@ -2,26 +2,26 @@ import { createTheme, MantineProvider } from '@mantine/core';
 import { useTheme } from 'next-themes';
 import { useMemo } from 'react';
 
-const mantineThemeOverride = createTheme({
+const mantineTheme = createTheme({
 	autoContrast: true
 });
 
 export const MantineWrapper = ({ children }) => {
-	const { theme } = useTheme();
+	const { resolvedTheme } = useTheme();
 
-	const mantineTheme = useMemo(() => {
-		switch (theme) {
+	const colorScheme = useMemo(() => {
+		switch (resolvedTheme) {
 			case 'dark':
 				return 'dark';
 			case 'light':
 				return 'light';
 			default:
-				return null;
+				return undefined;
 		}
-	}, [theme]);
+	}, [resolvedTheme]);
 
 	return (
-		<MantineProvider theme={mantineThemeOverride} forceColorScheme={mantineTheme}>
+		<MantineProvider theme={mantineTheme} forceColorScheme={colorScheme}>
 			{children}
 		</MantineProvider>
 	);
