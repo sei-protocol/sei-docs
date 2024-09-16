@@ -1,3 +1,4 @@
+import { ExternalLinkIcon } from 'lucide-react';
 import Image from 'next/image';
 import { EcosystemItem } from '../../data/ecosystemData';
 
@@ -16,9 +17,11 @@ const AppCardV2 = ({ app }: AppCardProps) => {
 						<Image src={logo.url} alt={logo.alt} width={300} height={300} className='transition-all group-hover:scale-[1.15]' />
 					</a>
 				</div>
-				<div className='p-4 bg-gray-100 dark:bg-gray-800 w-full flex flex-col grow space-y-2'>
-					<h3 className='text-lg font-semibold inline-flex items-center gap-2'>{name}</h3>
-					{/* {shortDescription && (
+				<div className='px-3 pt-2 pb-3 bg-gray-100 dark:bg-gray-800 w-full flex flex-col grow space-y-1'>
+					<h3 className='text-lg font-semibold inline-flex items-center gap-2' title={name}>
+						{name}
+					</h3>
+					{shortDescription && (
 						<p className='opacity-75 text-sm line-clamp-4' title={shortDescription}>
 							{shortDescription}
 						</p>
@@ -31,7 +34,7 @@ const AppCardV2 = ({ app }: AppCardProps) => {
 							className='inline-flex items-center gap-2 bg-black text-white dark:bg-white dark:text-black px-3 py-1 self-start rounded-lg mt-2 text-sm font-medium tracking-tight'>
 							Integration <ExternalLinkIcon className='inline-block w-3 h-4 hover:underline' />
 						</a>
-					)} */}
+					)}
 				</div>
 			</div>
 		</div>

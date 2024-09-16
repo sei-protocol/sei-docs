@@ -24,7 +24,7 @@ function AppCardsGridCategory({ category }: { category: EcosystemDocsCategory })
 					<AppCardV2 key={app.id} app={app} />
 				))}
 			</div>
-			<small>
+			<small className='opacity-75'>
 				Projects listed here are developed by the Sei community. Inclusion on this site does not constitute endorsement. For questions related to each, please
 				contact the project directly.
 			</small>

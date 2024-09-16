@@ -7,12 +7,12 @@ const EcosystemSection = ({ apps }: { apps: EcosystemItem[] }) => {
 	const keys = Object.keys(groupedApps);
 
 	return (
-		<div>
+		<section>
 			{keys.map((key) => {
 				return (
 					<div key={key} className='flex flex-col gap-4 mt-12'>
-						{key != 'undefined' && <h2 className='text-2xl font-semibold'>{key}</h2>}
-						<div className='grid grid-cols-1 lg:grid-cols-5 gap-6'>
+						<h2 className='text-2xl font-semibold'>{key}</h2>
+						<div className='grid grid-cols-1 lg:grid-cols-4 gap-6'>
 							{groupedApps[key].map((app) => (
 								<AppCardV2 key={app.id} app={app} />
 							))}
@@ -20,7 +20,7 @@ const EcosystemSection = ({ apps }: { apps: EcosystemItem[] }) => {
 					</div>
 				);
 			})}
-		</div>
+		</section>
 	);
 };
 
