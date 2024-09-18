@@ -26,8 +26,9 @@ export const getStaticPaths = () => {
 		}
 		return [fullRoute, ...parentRoutes];
 	});
+	const uniquePaths = Array.from(new Set(paths.map((path) => JSON.stringify(path)))).map((path) => JSON.parse(path));
 	return {
-		paths: paths,
+		paths: uniquePaths,
 		fallback: false
 	};
 };

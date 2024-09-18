@@ -97,7 +97,7 @@ export const APIEndpoint = ({ endpoint }: { endpoint: Endpoint }) => {
 	const parts = path
 		.split('/')
 		.filter((part: string) => !part.startsWith('{') && part !== '')
-		.map((part: string) => part.replace('-', '').toLowerCase());
+		.map((part: string) => part.toLowerCase());
 
 	const orgName = parts[0];
 	const moduleName = parts[1];
