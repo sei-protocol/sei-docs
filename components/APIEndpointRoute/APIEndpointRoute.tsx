@@ -1,44 +1,76 @@
-import { APIEndpoint, APIModule } from '../index';
-import { useRouter } from 'next/router';
-import openapi from '../../data/cosmos-openapi.json';
 import { Flex, Title } from '@mantine/core';
 import { Button } from 'nextra/components';
 import Link from 'next/link';
 import { NextSeo } from 'next-seo';
+import { useData } from 'nextra/data';
 import { filterModuleRoutes } from './utils';
+import { APIEndpoint, APIModule } from '../index';
+import openapi from '../../data/cosmos-openapi.json';
 
-export const APIEndpointRoute = () => {
-	const router = useRouter();
-	const routes = router.query.route as string[];
+export const PageTitle = () => {
+	const { title } = useData();
+	return <NextSeo title={title} />;
+};
 
-	if (!routes?.[0]) return null;
+export const getStaticPaths = () => {
+	// Generate static paths for both the full routes and parent routes
+	const routes = Object.keys(openapi.paths).map((p) => {
+		const route = p.split('/').filter((s) => s);
+		return route;
+	});
+	const paths = routes.flatMap((route) => {
+		const fullRoute = { params: { route } };
+		const parentRoutes = [];
+		for (let i = 1; i < route.length; i++) {
+			parentRoutes.push({ params: { route: route.slice(0, i) } });
+		}
+		return [fullRoute, ...parentRoutes];
+	});
+	return {
+		paths: paths,
+		fallback: false
+	};
+};
 
-	const moduleRoutes = filterModuleRoutes(Object.entries(openapi.paths), routes);
+export const getStaticProps = async ({ params }) => {
+	const { route } = params;
+	const title = `Cosmos API - ${route.join('/')}`;
+	return {
+		props: {
+			ssg: {
+				route,
+				title
+			}
+		}
+	};
+};
 
+const APIEndpointRoute = () => {
+	const data = useData();
+	if (!data?.route?.length) {
+		return null;
+	}
+
+	const { route } = data;
+	const moduleRoutes = filterModuleRoutes(Object.entries(openapi.paths), route);
 	const splitRoutes = moduleRoutes?.[0]?.[0].split('/');
-	const SEO_TITLE = `Cosmos API - ${splitRoutes?.[2]} - Sei Docs`;
 
-	if (routes.length === 2) {
+	if (route.length === 2) {
 		return (
 			<Flex direction={'column'} gap='md'>
-				<NextSeo title={SEO_TITLE}></NextSeo>
-
 				<Link href={`/endpoints/cosmos#${splitRoutes[1]}`}>
 					<Button>Back</Button>
 				</Link>
 
 				<Title order={1} mb='xl'>
-					{routes.join('/')}
+					{route.join('/')}
 				</Title>
-				<APIModule prefix={routes.join('/')} basePaths={moduleRoutes.map((route) => route[0])} />
+				<APIModule prefix={route.join('/')} basePaths={moduleRoutes.map((route) => route[0])} />
 			</Flex>
 		);
 	}
 
-	return (
-		<>
-			<NextSeo title={SEO_TITLE}></NextSeo>
-			<APIEndpoint endpoint={moduleRoutes[0]} />
-		</>
-	);
+	return <APIEndpoint endpoint={moduleRoutes[0]} />;
 };
+
+export default APIEndpointRoute;

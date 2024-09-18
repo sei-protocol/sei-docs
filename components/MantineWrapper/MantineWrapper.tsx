@@ -6,7 +6,7 @@ const mantineTheme = createTheme({
 	autoContrast: true
 });
 
-export const MantineWrapper = ({ children }) => {
+const MantineWrapper = ({ children }) => {
 	const { resolvedTheme } = useTheme();
 
 	const colorScheme = useMemo(() => {
@@ -26,3 +26,5 @@ export const MantineWrapper = ({ children }) => {
 		</MantineProvider>
 	);
 };
+
+export default MantineWrapper;
