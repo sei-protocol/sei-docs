@@ -1,1 +1,1 @@
-export * from './APIEndpointRoute';
+export { default as APIEndpointRoute } from './APIEndpointRoute';
