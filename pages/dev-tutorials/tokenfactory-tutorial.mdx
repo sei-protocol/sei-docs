@@ -1,5 +1,4 @@
-import { Callout } from "nextra/components";
-import { HelpCallout } from "../../components";
+import { Callout } from 'nextra/components';
 
 # Token Factory Tutorial
 
@@ -14,10 +13,7 @@ To create a token on the devnet, ensure you have the following setup:
 - The `seid` CLI
 - A wallet with SEI tokens on devnet
 
-<Callout type="info">
-  You can obtain devnet tokens from one of the faucets listed
-  [here](../dev-ecosystem-providers/faucets).
-</Callout>
+<Callout type='info'>You can obtain devnet tokens from one of the faucets listed [here](../dev-ecosystem-providers/faucets).</Callout>
 
 ## Creating a Denom
 
@@ -45,50 +41,72 @@ Replace `your_account_name` with the actual name of your account. Once set, you 
 
 When executing commands in this tutorial, you'll encounter several arguments. Here's a brief overview of what each means:
 
-- `--chain-id=arctic-1`: This specifies the network where the command will be executed. In this case, `arctic-1` is the identifier for the Sei devnet.
-- `--node=https://rpc.arctic-1.seinetwork.io/`: This points to the RPC URL of the node you are interacting with.
-- `--broadcast-mode=block`: This determines how your transaction is broadcasted to the network. The `block` mode means the transaction will wait to be included in a block before returning a response. This is a safer option as it confirms your transaction is processed.
-- `--fees=20000usei`: This is used to specify the transaction fee.
+- `--chain-id arctic-1`: This specifies the network where the command will be executed. In this case, `arctic-1` is the identifier for the Sei devnet.
+- `--node https://rpc.arctic-1.seinetwork.io/ `: This points to the RPC URL of the node you are interacting with.
+- `--broadcast-mode block`: This determines how your transaction is broadcasted to the network. The `block` mode means the transaction will wait to be included in a block before returning a response. This is a safer option as it confirms your transaction is processed.
+- `--fees 20000usei`: This is used to specify the transaction fee.
 
 Understanding these arguments will help you execute the commands more confidently and customize them as needed for different scenarios.
 
-<Callout type="info">
-  For detailed descriptions of these arguments, use `seid help` in the CLI.
-</Callout>
+<Callout type='info'>For detailed descriptions of these arguments, use `seid help` in the CLI.</Callout>
 
 ## Updating Token Metadata
 
 When creating a token, it is important to specify details regarding the denom amounts and aliases so your token can be correctly parsed on wallets and explorers.
 
 ### 1. Create Token Metadata file
+
 Create a token metadata `json` file. The file below is an example metadata file for the Sei token.
+
 ```json
 {
-  "name": "sei",
-  "description": "The native token of Sei.",
-  "symbol": "SEI",
-  "denom_units": [
-    {
-      "denom": "usei",
-      "exponent": 0,
-      "aliases": [
-        "microsei"
-      ],
-    },
-    {
-      "denom": "msei",
-      "exponent": 3,
-      "aliases": [
-        "millisei"
-      ]
-    },
-    {
-      "denom": "sei",
-      "exponent": 6,
-    }
-  ],
-  "base": "usei",
-  "display": "sei",
+	"name": "sei",
+	"description": "The native token of Sei.",
+	"symbol": "SEI",
+	"denom_units": [
+		{
+			"denom": "usei",
+			"exponent": 0,
+			"aliases": ["microsei"]
+		},
+		{
+			"denom": "msei",
+			"exponent": 3,
+			"aliases": ["millisei"]
+		},
+		{
+			"denom": "sei",
+			"exponent": 6
+		}
+	],
+	"base": "usei",
+	"display": "sei"
+}
+```
+Example for token factory denom:
+
+```json
+{
+    "name": "factory/{ACCOUNT}/{DENOM}",
+    "description": "A token created using the Token Factory module.",
+    "symbol": "factory/{ACCOUNT}/{DENOM}",
+    "denom_units": [
+        {
+            "denom": "factory/{ACCOUNT}/{DENOM}",
+            "exponent": 0,
+            "aliases": ["microdenom"]
+        },
+        {
+            "denom": "mdenom",
+            "exponent": 3
+        },
+        {
+            "denom": "{DENOM}",
+            "exponent": 6
+        }
+    ],
+    "base": "factory/{ACCOUNT}/{DENOM}",
+    "display": "{DENOM}"
 }
 ```
 
@@ -96,6 +114,7 @@ The `base` field denotes the smallest denom that this token can be represented i
 Note that if you intend to create a [pointer contract](#create-pointer-contract), the `denom_units` with the largest exponent will be used as the display denom. (`sei` in this case).
 
 ### 2. Set token metadata using seid
+
 ```sh
 seid tx tokenfactory set-denom-metadata $METADATA_FILE --fees 20000usei -b block -y --from $ADDR
 ```
@@ -149,7 +168,7 @@ Only the token admin has permission to mint and burn tokens. If necessary, you c
 To enable seamless use of this token in EVM environments, we can create a pointer contract. This process results in an ERC20 token that can be imported and used in EVM wallets and applications.
 
 ```bash copy
-seid tx evm register-evm-pointer NATIVE $DENOM --from=$ACCOUNT --fees 20000usei --evm-rpc=https://evm-rpc.arctic-1.seinetwork.io/
+seid tx evm register-evm-pointer NATIVE factory/${ACCOUNT}/${DENOM} --from=$ACCOUNT --fees 20000usei --evm-rpc=https://evm-rpc.arctic-1.seinetwork.io/
 ```
 
 **Parameters**
@@ -161,24 +180,29 @@ seid tx evm register-evm-pointer NATIVE $DENOM --from=$ACCOUNT --fees 20000usei 
 - `--from`: The Sei address from which the deployment transaction is sent. This address must have enough balance to cover transaction fees.
 - `--evm-rpc`: The endpoint URL for the EVM RPC interface of the Sei blockchain. This URL is used by the `seid` command to interact with the Sei EVM.
 
-Executing this command creates an ERC20 token and outputs the contract address. This token is linked to the TokenFactory token, meaning any activities involving this ERC20 token will also reflect on the state of the TokenFactory token and vice versa.
+Executing this command creates an ERC20 token. This token is linked to the TokenFactory token, meaning any activities involving this ERC20 token will also reflect on the state of the TokenFactory token and vice versa.
 
 Note that if you wish to specify denoms on your ERC20 tokens, you will need to [set the token metadata](#updating-token-metadata) for the base tokenfactory token. The denom with the largest exponent will be used.
 
-<Callout type="info">
-  Learn more about EVM interoperability and pointer contracts
-  [here](../interoperability/overview.mdx).
-</Callout>
+To query the pointer contract address run the following command:
+
+```bash copy
+seid q evm pointer NATIVE factory/${ACCOUNT}/${DENOM} --node=https://rpc.arctic-1.seinetwork.io/
+```
+Which will return the address of the pointer contract.
+```bash
+exists: true
+pointer: 0xPointerContractAddress
+version: 1
+```
+Now this pointer contract can be used in EVM environments to interact with your TokenFactory token.
+
+<Callout type='info'>Learn more about EVM interoperability and pointer contracts [here](../interoperability/overview.mdx).</Callout>
 
 ## Next Steps
 
 🎉 Congrats on completing the Token Factory tutorial! You've learned how to create, mint, and burn tokens on Sei using the `tokenfactory` module.
 
-<Callout>
-  Smart contracts can also create TokenFactory denoms and act as token admins,
-  allowing for more complex and automated token management strategies.
-</Callout>
+<Callout>Smart contracts can also create TokenFactory denoms and act as token admins, allowing for more complex and automated token management strategies.</Callout>
 
 For more advanced features and detailed insights, please refer to the [Token Factory module documentation](https://github.com/sei-protocol/sei-chain/tree/main/x/tokenfactory).
-
-<HelpCallout />

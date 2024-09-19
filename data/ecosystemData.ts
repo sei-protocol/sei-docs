@@ -1,7 +1,7 @@
 export type EcosystemAppLogoType = {
-  fileId: string;
-  url: string;
-  alt: string | null;
+	fileId: string;
+	url: string;
+	alt: string | null;
 };
 
 export type EcosystemFieldData = {
@@ -28,9 +28,18 @@ export type EcosystemItem = {
 	isArchived: boolean;
 	isDraft: boolean;
 	fieldData: EcosystemFieldData;
+	id: string;
+	cmsLocaleId: string;
+	lastPublished: string;
+	lastUpdated: string;
+	createdOn: string;
+	isArchived: boolean;
+	isDraft: boolean;
+	fieldData: EcosystemFieldData;
 };
 
 export type EcosystemResponse = {
+	data: EcosystemItem[];
 	data: EcosystemItem[];
 };
 
@@ -66,7 +75,15 @@ export async function getSeiEcosystemAppByCategory(category: EcosystemDocsCatego
 			method: 'GET',
 			headers
 		});
+	try {
+		const response = await fetch(url, {
+			method: 'GET',
+			headers
+		});
 
+		if (!response.ok) {
+			throw new Error(`HTTP error! Status: ${response.status}`);
+		}
 		if (!response.ok) {
 			throw new Error(`HTTP error! Status: ${response.status}`);
 		}
