@@ -14,17 +14,17 @@ export const PageTitle = () => {
 
 export const getStaticPaths = () => {
 	// Generate static paths for both the full routes and parent routes
+	// i.e. for /cosmos/bank/v1beta1/supply, we want the routes:
+	// 1. cosmos/bank/v1beta1/supply
+	// 2. cosmos/bank
 	const routes = Object.keys(openapi.paths).map((p) => {
 		const route = p.split('/').filter((s) => s);
 		return route;
 	});
 	const paths = routes.flatMap((route) => {
 		const fullRoute = { params: { route } };
-		const parentRoutes = [];
-		for (let i = 1; i < route.length; i++) {
-			parentRoutes.push({ params: { route: route.slice(0, i) } });
-		}
-		return [fullRoute, ...parentRoutes];
+		const parentRoute = { params: { route: [route[0], route[1]] } };
+		return [fullRoute, parentRoute];
 	});
 	const uniquePaths = Array.from(new Set(paths.map((path) => JSON.stringify(path)))).map((path) => JSON.parse(path));
 	return {

@@ -127,7 +127,7 @@ export const APIEndpoint = ({ endpoint }: { endpoint: Endpoint }) => {
 		<Flex direction='column' gap='xl'>
 			<Breadcrumbs mt='md'>
 				<Anchor href={`/endpoints/cosmos#${orgName}`}>endpoints</Anchor>
-				<Anchor href={`/endpoints/${orgName}/${moduleName}`}>{moduleName}</Anchor>
+				<Anchor href={`/endpoints/cosmos/api/${orgName}/${moduleName}`}>{moduleName}</Anchor>
 			</Breadcrumbs>
 			<Title>{functionName}</Title>
 			<Flex gap='sm' align='center'>
