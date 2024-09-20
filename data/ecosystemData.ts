@@ -28,18 +28,9 @@ export type EcosystemItem = {
 	isArchived: boolean;
 	isDraft: boolean;
 	fieldData: EcosystemFieldData;
-	id: string;
-	cmsLocaleId: string;
-	lastPublished: string;
-	lastUpdated: string;
-	createdOn: string;
-	isArchived: boolean;
-	isDraft: boolean;
-	fieldData: EcosystemFieldData;
 };
 
 export type EcosystemResponse = {
-	data: EcosystemItem[];
 	data: EcosystemItem[];
 };
 
@@ -70,11 +61,6 @@ export async function getSeiEcosystemAppByCategory(category: EcosystemDocsCatego
 	const url = `https://app-api.seinetwork.io/webflow/ecosystem/docs/${category}`;
 	const headers = { Accept: 'application/json' };
 
-	try {
-		const response = await fetch(url, {
-			method: 'GET',
-			headers
-		});
 	try {
 		const response = await fetch(url, {
 			method: 'GET',
