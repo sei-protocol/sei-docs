@@ -1,4 +1,4 @@
-import { Box, Flex, Text, Title } from '@mantine/core';
+import { Box, Flex, Loader, Skeleton, Stack, Text, Title } from '@mantine/core';
 import { Button } from 'nextra/components';
 import Link from 'next/link';
 import { NextSeo } from 'next-seo';
@@ -7,6 +7,7 @@ import { isEqual } from 'underscore';
 import { filterModuleRoutes } from './utils';
 import { APIEndpoint, APIModule } from '../index';
 import openapi from '../../data/cosmos-openapi.json';
+import { useRouter } from 'next/router';
 
 export const PageTitle = () => {
 	const data = useData();
@@ -60,6 +61,18 @@ export const getStaticProps = async ({ params }) => {
 };
 
 const APIEndpointRoute = () => {
+	const router = useRouter();
+	// Check if the page is still loading
+	if (router.isFallback) {
+		return (
+			<Box>
+				<Skeleton h={16} w={200} mb='xl' />
+				<Skeleton h={32} w={128} mb='xl' />
+				<Skeleton h={24} />
+			</Box>
+		);
+	}
+
 	const data = useData();
 	if (!data?.route?.length) {
 		return (
