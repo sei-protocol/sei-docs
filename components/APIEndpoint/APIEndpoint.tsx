@@ -1,6 +1,6 @@
 import { Code, Flex, Paper, Title, Accordion, Breadcrumbs, Anchor, Text } from '@mantine/core';
+import { CodeHighlight } from '@mantine/code-highlight';
 import { EndpointResponseProperty, EndpointParameter, Endpoint } from './types';
-import { StyledSyntaxHighlighter } from '../StyledSyntaxHighlighter';
 
 const renderProperties = (properties: EndpointResponseProperty) => {
 	return Object.entries(properties).map(([key, value]) => (
@@ -123,6 +123,15 @@ export const APIEndpoint = ({ endpoint }: { endpoint: Endpoint }) => {
 			.reduce((acc, curr) => ({ ...acc, [curr]: '' }), {})
 	);
 
+	const exampleCode = `
+import { getQueryClient } from '@sei-js/cosmjs';
+
+const queryClient = await getQueryClient("YOUR_RPC_URL");
+const { ${routeNames.functionName} } = queryClient.${orgName}.${moduleName}.${version};
+
+const params: ${requestType} = ${paramsString};
+const response: ${responseType} = await ${routeNames.functionName}(params);`;
+
 	return (
 		<Flex direction='column' gap='xl'>
 			<Breadcrumbs mt='md'>
@@ -164,15 +173,7 @@ export const APIEndpoint = ({ endpoint }: { endpoint: Endpoint }) => {
 			</Flex>
 			<Flex gap='sm' direction='column'>
 				<Title order={4}>Example Usage</Title>
-				<StyledSyntaxHighlighter language='javascript'>
-					{`import { getQueryClient } from '@sei-js/cosmjs';
-
-const queryClient = await getQueryClient("YOUR_RPC_URL");
-const { ${routeNames.functionName} } = queryClient.${orgName}.${moduleName}.${version};
-
-const params: ${requestType} = ${paramsString};
-const response: ${responseType} = await ${routeNames.functionName}(params);`}
-				</StyledSyntaxHighlighter>
+				<CodeHighlight language='js' code={exampleCode} />
 			</Flex>
 		</Flex>
 	);
