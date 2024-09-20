@@ -1,22 +1,24 @@
-import { Flex, Title } from '@mantine/core';
+import { Box, Flex, Text, Title } from '@mantine/core';
 import { Button } from 'nextra/components';
 import Link from 'next/link';
 import { NextSeo } from 'next-seo';
 import { useData } from 'nextra/data';
+import { isEqual } from 'underscore';
 import { filterModuleRoutes } from './utils';
 import { APIEndpoint, APIModule } from '../index';
 import openapi from '../../data/cosmos-openapi.json';
 
 export const PageTitle = () => {
-	const { title } = useData();
+	const data = useData();
+	const title = data?.title || 'API Route Not Found';
 	return <NextSeo title={title} />;
 };
 
-export const getStaticPaths = () => {
-	// Generate static paths for both the full routes and parent routes
-	// i.e. for /cosmos/bank/v1beta1/supply, we want the routes:
-	// 1. cosmos/bank/v1beta1/supply
-	// 2. cosmos/bank
+// Generate static paths for both the full routes and parent routes
+// i.e. for /cosmos/bank/v1beta1/supply, we want the routes:
+// 1. cosmos/bank/v1beta1/supply
+// 2. cosmos/bank
+const getPaths = () => {
 	const routes = Object.keys(openapi.paths).map((p) => {
 		const route = p.split('/').filter((s) => s);
 		return route;
@@ -27,29 +29,45 @@ export const getStaticPaths = () => {
 		return [fullRoute, parentRoute];
 	});
 	const uniquePaths = Array.from(new Set(paths.map((path) => JSON.stringify(path)))).map((path) => JSON.parse(path));
+	return uniquePaths;
+};
+
+export const getStaticPaths = () => {
+	// Return empty path array here and just get static props on demand
 	return {
-		paths: uniquePaths,
-		fallback: false
+		paths: [],
+		fallback: true
 	};
 };
 
 export const getStaticProps = async ({ params }) => {
 	const { route } = params;
-	const title = `Cosmos API - ${route.join('/')}`;
-	return {
-		props: {
-			ssg: {
-				route,
-				title
+	const paths = getPaths();
+	if (paths.some((p) => isEqual(p.params.route, route))) {
+		const title = `Cosmos API - ${route.join('/')}`;
+		return {
+			props: {
+				ssg: {
+					route,
+					title
+				}
 			}
-		}
+		};
+	}
+	return {
+		notFound: true
 	};
 };
 
 const APIEndpointRoute = () => {
 	const data = useData();
 	if (!data?.route?.length) {
-		return null;
+		return (
+			<Box>
+				<Title mb='md'>API Route Not Found</Title>
+				<Text>The API route you were looking for could not be found.</Text>
+			</Box>
+		);
 	}
 
 	const { route } = data;
