@@ -10,6 +10,11 @@ import openapi from '../../data/cosmos-openapi.json';
 import { useRouter } from 'next/router';
 
 export const PageTitle = () => {
+	const router = useRouter();
+	// Check if the page is still loading
+	if (router.isFallback) {
+		return null;
+	}
 	const data = useData();
 	const title = data?.title || 'API Route Not Found';
 	return <NextSeo title={title} />;
