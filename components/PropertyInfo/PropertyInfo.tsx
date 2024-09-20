@@ -6,7 +6,7 @@ type PropertyInfoProps = {
 	properties?: { name: string; description: string }[];
 };
 
-export const PropertyInfo = ({ name, description, properties }: PropertyInfoProps) => {
+const PropertyInfo = ({ name, description, properties }: PropertyInfoProps) => {
 	return (
 		<Flex direction='column' mt='md'>
 			<Text style={{ fontSize: '14pt', fontWeight: 600 }}>{name}</Text>
@@ -28,3 +28,5 @@ export const PropertyInfo = ({ name, description, properties }: PropertyInfoProp
 		</Flex>
 	);
 };
+
+export default PropertyInfo;
