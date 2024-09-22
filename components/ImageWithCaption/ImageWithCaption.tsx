@@ -9,25 +9,6 @@ interface ImageWithCaption {
   width?: number; // Optional
   height?: number; // Optional
 }
-
-// interface ImageWithCaptionProps {
-//   img: string;
-//   alt: string;
-//   width?: number; // Optional
-//   height?: number; // Optional
-// }
-
-// const ImageWithCaption: React.FC<ImageWithCaptionProps> = ({ img, alt, width, height }) => {
-//   return (
-//     <Image 
-//       src={img} 
-//       alt={alt} 
-//       width={width || undefined} // Set to undefined if not provided
-//       height={height || undefined} // Set to undefined if not provided
-//     />
-//   );
-// };
-
 export default function ImageWithCaption({
   img,
   alt,
@@ -46,8 +27,8 @@ export default function ImageWithCaption({
       <Image 
         src={img} 
         alt={alt}
-        width={width || undefined} // Set to undefined if not provided
-        height={height || undefined} // Set to undefined if not provided
+        {...(width && { width })}
+        {...(height && { height })}
         />
       {caption && <p className="text-gray-400">{caption}</p>}
     </div>
