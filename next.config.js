@@ -5,6 +5,7 @@ const withNextra = require('nextra')({
 
 module.exports = withNextra({
 	images: {
+		contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
 		remotePatterns: [
 			{
 				protocol: 'https',
