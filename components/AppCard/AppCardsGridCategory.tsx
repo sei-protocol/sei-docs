@@ -3,8 +3,6 @@ import { EcosystemDocsCategory, EcosystemResponse, getSeiEcosystemAppByCategory 
 import { EcosystemSkeleton } from '../EcosystemMap';
 import AppCardV2 from './AppCard.v2';
 
-// TODO: need to operate on the description field and then display small grid of apps
-
 function AppCardsGridCategory({ category }: { category: EcosystemDocsCategory }) {
 	const [apps, setApps] = useState<EcosystemResponse['data']>([]);
 	const [loading, setLoading] = useState(true);

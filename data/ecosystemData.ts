@@ -35,7 +35,7 @@ export type EcosystemResponse = {
 };
 
 export async function getSeiEcosystemAppsData(): Promise<EcosystemResponse> {
-	const url = 'http://app-api.seinetwork.io/webflow/ecosystem'; // TODO: Move to ENV
+	const url = 'https://app-api.seinetwork.io/webflow/ecosystem';
 	const headers = { Accept: 'application/json' };
 
 	try {
@@ -67,9 +67,6 @@ export async function getSeiEcosystemAppByCategory(category: EcosystemDocsCatego
 			headers
 		});
 
-		if (!response.ok) {
-			throw new Error(`HTTP error! Status: ${response.status}`);
-		}
 		if (!response.ok) {
 			throw new Error(`HTTP error! Status: ${response.status}`);
 		}

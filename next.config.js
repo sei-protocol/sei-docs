@@ -18,7 +18,7 @@ module.exports = withNextra({
 			},
 			{
 				protocol: 'https',
-				hostname: '*',
+				hostname: 'cdn.prod.website-files.com',
 				pathname: '**'
 			}
 		]
