@@ -58,3 +58,4 @@ Alternatively, if you have more general suggestions on how we can improve or cor
 - explain library needed for frontend dapps
 - write about the various tips for beginner developers
 - make the docs more beginner friendly
+- tak about the create sei dapp library: `@sei-js/create-sei`
