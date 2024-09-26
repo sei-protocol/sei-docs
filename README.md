@@ -51,3 +51,10 @@ To propose changes directly, you can open a Pull Request against this repository
 ### Open an Issue
 
 Alternatively, if you have more general suggestions on how we can improve or correct these docs, you can [open an issue](https://github.com/sei-protocol/sei-docs/issues).
+
+
+### RoadMap
+- make frontend dapps a directory
+- explain library needed for frontend dapps
+- write about the various tips for beginner developers
+- make the docs more beginner friendly
