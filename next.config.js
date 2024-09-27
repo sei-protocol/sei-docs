@@ -13,13 +13,8 @@ module.exports = withNextra({
 			},
 			{
 				protocol: 'https',
-				hostname: 'uploads-ssl.webflow.com',
-				pathname: '**'
-			},
-			{
-				protocol: 'https',
 				hostname: 'cdn.prod.website-files.com',
-				pathname: '**'
+				pathname: '/65cb43fecf24523357feada9/**'
 			}
 		]
 	}
