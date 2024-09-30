@@ -4,7 +4,7 @@ import Image from 'next/image';
 interface DocCardProps {
   doc: {
     name: string;
-    logo: {
+    logo?: {
       url: string;
       alt: string;
     };
@@ -14,13 +14,12 @@ interface DocCardProps {
 }
 
 const DocCard = ({ doc }: DocCardProps) => {
-  if (!doc) return null;
   const { name, logo, link, 'short-description': shortDescription } = doc;
 
   return (
     <div className="group flex flex-col bg-gray-50 dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300">
       <div className="relative w-full h-48 bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
-        {logo?.url ? (
+        {logo ? (
           <Image src={logo.url} alt={logo.alt} layout="fill" objectFit="cover" className="transition-all duration-300 ease-in-out group-hover:scale-110" />
         ) : (
           <span className="text-gray-400">No image available</span>
