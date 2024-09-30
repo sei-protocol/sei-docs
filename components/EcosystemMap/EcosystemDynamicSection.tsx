@@ -29,9 +29,7 @@ const EcosystemDynamicSection = ({ category }: { category: string }) => {
   if (!apps || loading) return <EcosystemSkeleton />
 
   // filter out apps that don't have a categorie
-  const filteredApps = apps.filter(
-    (app) => app.fieldData.categorie !== undefined
-  )
+  const filteredApps = apps.filter((app) => app.fieldData.categorie !== undefined && app.fieldData['categorie-2'] !== undefined);
 
   const appsByCategory = (category: string) =>
     filteredApps.filter((app) => app.fieldData.categorie === category)
