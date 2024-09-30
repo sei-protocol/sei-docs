@@ -10,9 +10,13 @@ export type EcosystemFieldData = {
 	link: string;
 	'sei-only': boolean;
 	name: string;
-	slug: string;
 	logo: EcosystemAppLogoType;
+	slug: string;
 	categorie: string;
+	'docs-category': string;
+	'integration-guide-link': string;
+	'short-description': string;
+	'categorie-2': string;
 };
 
 export type EcosystemItem = {
@@ -45,10 +49,31 @@ export async function getSeiEcosystemAppsData(): Promise<EcosystemResponse> {
 		}
 
 		const data = await response.json();
-		console.log('Sei Ecosystem data', data);
 		return data;
 	} catch (error) {
-		console.error('Failed to fetch data:', error);
+		return { data: [] };
+	}
+}
+
+export type EcosystemDocsCategory = 'indexer' | 'explorer' | 'wallet' | 'centralized-exchange' | 'rpc-provider' | 'faucet' | 'launchpad' | 'oracle' | 'bridge';
+
+export async function getSeiEcosystemAppByCategory(category: EcosystemDocsCategory): Promise<EcosystemResponse> {
+	const url = `https://app-api.seinetwork.io/webflow/ecosystem/docs/${category}`;
+	const headers = { Accept: 'application/json' };
+
+	try {
+		const response = await fetch(url, {
+			method: 'GET',
+			headers
+		});
+
+		if (!response.ok) {
+			throw new Error(`HTTP error! Status: ${response.status}`);
+		}
+
+		const data = await response.json();
+		return data;
+	} catch (error) {
 		return { data: [] };
 	}
 }
