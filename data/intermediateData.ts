@@ -1,0 +1,65 @@
+export const intermediateData = [
+  {
+    id: 1,
+    name: "Working with CosmWasm Contracts",
+    link: "/build/cosmwasm-general",
+    'short-description': "Learn how to work with CosmWasm contracts on the Sei Network.",
+    logo: null,
+  },
+  {
+    id: 2,
+    name: "Working with EVM Contracts",
+    link: "/build/evm-general",
+    'short-description': "Discover how to interact with EVM contracts on the Sei Network.",
+    logo: null,
+  },
+  {
+    id: 3,
+    name: "Setting Up Multi-Sig Accounts",
+    link: "/build/multi-sig-accounts",
+    'short-description': "Learn how to set up multi-sig accounts for secure operations.",
+    logo: null,
+  },
+  {
+    id: 4,
+    name: "Achieving Interoperability Between VMs",
+    link: "/start/dev-interoperability",
+    'short-description': "Guide to interoperability between VMs on the Sei Network.",
+    logo: null,
+  },
+  {
+    id: 5,
+    name: "Interoperability with IBC Protocol",
+    link: "/build/ibc-protocol",
+    'short-description': "Learn how to achieve interoperability with IBC.",
+    logo: null,
+  },
+  {
+    id: 6,
+    name: "Managing and Optimizing Transactions",
+    link: "/start/dev-transactions",
+    'short-description': "Learn about managing and optimizing transactions.",
+    logo: null,
+  },
+  {
+    id: 7,
+    name: "Configuring a Developer Node",
+    link: "/node/node-configuration",
+    'short-description': "Instructions on setting up and configuring a developer node.",
+    logo: null,
+  },
+  {
+    id: 8,
+    name: "Advanced Querying and State Management",
+    link: "/start/dev-querying-state",
+    'short-description': "Guide to querying and managing state efficiently.",
+    logo: null,
+  },
+  {
+    id: 9,
+    name: "Deploying and Testing Smart Contracts",
+    link: "/build/smart-contract-deployment-testing",
+    'short-description': "Learn how to deploy and test smart contracts effectively.",
+    logo: null,
+  }
+];
