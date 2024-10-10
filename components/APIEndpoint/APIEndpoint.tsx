@@ -1,7 +1,6 @@
 import { Code, Flex, Paper, Title, Accordion, Breadcrumbs, Anchor, Text } from '@mantine/core';
-import { NextSeo } from 'next-seo';
+import { CodeHighlight } from '@mantine/code-highlight';
 import { EndpointResponseProperty, EndpointParameter, Endpoint } from './types';
-import { StyledSyntaxHighlighter } from '../StyledSyntaxHighlighter';
 
 const renderProperties = (properties: EndpointResponseProperty) => {
 	return Object.entries(properties).map(([key, value]) => (
@@ -98,7 +97,7 @@ export const APIEndpoint = ({ endpoint }: { endpoint: Endpoint }) => {
 	const parts = path
 		.split('/')
 		.filter((part: string) => !part.startsWith('{') && part !== '')
-		.map((part: string) => part.replace('-', '').toLowerCase());
+		.map((part: string) => part.toLowerCase());
 
 	const orgName = parts[0];
 	const moduleName = parts[1];
@@ -124,60 +123,58 @@ export const APIEndpoint = ({ endpoint }: { endpoint: Endpoint }) => {
 			.reduce((acc, curr) => ({ ...acc, [curr]: '' }), {})
 	);
 
-	return (
-		<>
-			<NextSeo title={functionName}></NextSeo>
-			<Flex direction='column' gap='xl'>
-				<Breadcrumbs mt='md'>
-					<Anchor href={`/endpoints/cosmos#${orgName}`}>endpoints</Anchor>
-					<Anchor href={`/endpoints/${orgName}/${moduleName}`}>{moduleName}</Anchor>
-				</Breadcrumbs>
-				<Title>{functionName}</Title>
-				<Flex gap='sm' align='center'>
-					<Code style={{ minWidth: 'fit-content', height: 'fit-content' }}>{httpMethod.toUpperCase()}</Code>
-					<Text size='xl' style={{ wordBreak: 'break-all' }}>
-						{path}
-					</Text>
-				</Flex>
-				<Title order={4}>{details.summary}</Title>
-				{!!requiredParams && (
-					<Flex gap='sm' direction='column'>
-						<Title order={4}>Parameters</Title>
-						{requiredParams.map(Parameter)}
-					</Flex>
-				)}
-
-				{optionalParams?.length > 0 && (
-					<Accordion>
-						<Accordion.Item value='optional'>
-							<Accordion.Control>
-								<Title order={4}>Optional Parameters</Title>
-							</Accordion.Control>
-							<Accordion.Panel>
-								<Flex gap='sm' direction='column' mt='sm'>
-									{optionalParams.map(Parameter)}
-								</Flex>
-							</Accordion.Panel>
-						</Accordion.Item>
-					</Accordion>
-				)}
-				<Flex gap='sm' direction='column'>
-					<Title order={4}>Responses</Title>
-					<Accordion>{Object.entries(details.responses).map(EndpointResponse)}</Accordion>
-				</Flex>
-				<Flex gap='sm' direction='column'>
-					<Title order={4}>Example Usage</Title>
-					<StyledSyntaxHighlighter language='javascript'>
-						{`import { getQueryClient } from '@sei-js/cosmjs';
+	const exampleCode = `
+import { getQueryClient } from '@sei-js/cosmjs';
 
 const queryClient = await getQueryClient("YOUR_RPC_URL");
 const { ${routeNames.functionName} } = queryClient.${orgName}.${moduleName}.${version};
 
 const params: ${requestType} = ${paramsString};
-const response: ${responseType} = await ${routeNames.functionName}(params);`}
-					</StyledSyntaxHighlighter>
-				</Flex>
+const response: ${responseType} = await ${routeNames.functionName}(params);`;
+
+	return (
+		<Flex direction='column' gap='xl'>
+			<Breadcrumbs mt='md'>
+				<Anchor href={`/endpoints/cosmos#${orgName}`}>endpoints</Anchor>
+				<Anchor href={`/endpoints/cosmos/api/${orgName}/${moduleName}`}>{moduleName}</Anchor>
+			</Breadcrumbs>
+			<Title>{functionName}</Title>
+			<Flex gap='sm' align='center'>
+				<Code style={{ minWidth: 'fit-content', height: 'fit-content' }}>{httpMethod.toUpperCase()}</Code>
+				<Text size='xl' style={{ wordBreak: 'break-all' }}>
+					{path}
+				</Text>
 			</Flex>
-		</>
+			<Title order={4}>{details.summary}</Title>
+			{!!requiredParams && (
+				<Flex gap='sm' direction='column'>
+					<Title order={4}>Parameters</Title>
+					{requiredParams.map(Parameter)}
+				</Flex>
+			)}
+
+			{optionalParams?.length > 0 && (
+				<Accordion>
+					<Accordion.Item value='optional'>
+						<Accordion.Control>
+							<Title order={4}>Optional Parameters</Title>
+						</Accordion.Control>
+						<Accordion.Panel>
+							<Flex gap='sm' direction='column' mt='sm'>
+								{optionalParams.map(Parameter)}
+							</Flex>
+						</Accordion.Panel>
+					</Accordion.Item>
+				</Accordion>
+			)}
+			<Flex gap='sm' direction='column'>
+				<Title order={4}>Responses</Title>
+				<Accordion>{Object.entries(details.responses).map(EndpointResponse)}</Accordion>
+			</Flex>
+			<Flex gap='sm' direction='column'>
+				<Title order={4}>Example Usage</Title>
+				<CodeHighlight language='js' code={exampleCode} />
+			</Flex>
+		</Flex>
 	);
 };
