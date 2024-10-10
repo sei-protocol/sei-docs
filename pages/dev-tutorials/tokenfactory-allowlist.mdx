@@ -1,0 +1,146 @@
+import { Callout } from 'nextra/components';
+
+# Token Allowlists
+
+The [Sei Token Factory module](/pages/dev-tutorials/tokenfactory-tutorial.mdx) 
+enables token creators to restrict who can interact with their custom tokens through 
+the use of allowlists.
+
+This tutorial will guide you through understanding the configuration and limitations of allowlists, creating a new denom with an allowlist, updating an existing denom to add or modify an allowlist, and querying the allowlist of a denom.
+
+## Prerequisites
+
+To create a token on the devnet, ensure you have the following setup:
+
+- The `seid` CLI installed.
+- A wallet with SEI tokens on devnet.
+- Access to a running Sei blockchain node.
+
+<Callout type='info'>You can obtain devnet tokens from one of the faucets listed [here](../dev-ecosystem-providers/faucets).</Callout>
+
+<details>
+<summary>Command Line Argument Overview</summary>
+
+When executing commands in this tutorial, you'll encounter several arguments. Here's a brief overview of what each means:
+
+- `--allow-list $ALLOW_LIST_FILE_PATH`: This specifies the path to the allowlist file that we have created in the previous step. E.g. `allowlist.json`.
+- `--chain-id arctic-1`: This specifies the network where the command will be executed. In this case, `arctic-1` is the identifier for the Sei devnet.
+- `--node https://rpc.arctic-1.seinetwork.io/ `: This points to the RPC URL of the node you are interacting with.
+- `--broadcast-mode block`: This determines how your transaction is broadcasted to the network. The `block` mode means the transaction will wait to be included in a block before returning a response. This is a safer option as it confirms your transaction is processed.
+- `--fees 20000usei`: This is used to specify the transaction fee.
+
+Understanding these arguments will help you execute the commands more confidently and customize them as needed for different scenarios.
+
+<Callout type='info'>For detailed descriptions of these arguments, use `seid help` in the CLI.</Callout>
+
+</details>
+
+<details>
+<summary>Validation Rules & Limits</summary>
+
+  - **Valid Addresses**: All addresses in the allowlist must be valid in their respective formats (SEI Bech32 or EVM 0x prefixed). Invalid addresses will result in a validation error.
+  - **Address Conversion**: EVM addresses (0x prefixed) are automatically converted to SEI Bech32 addresses when the allowlist is processed.
+  - **No Duplicates**: Duplicate addresses in the allowlist are not allowed and will result in a validation error.
+  - **Maximum Size**: By default, the maximum number of addresses allowed in the allowlist is 2,000. This limit can be configured by the chain administrator by setting `DenomAllowListMaxSize`.
+  - **Non-Empty List**: The allowlist cannot be empty when provided. If you wish to remove the allowlist, you need to pass an empty JSON object `{}`.
+  - **Additional Considerations**: Ensure to handle error cases and validation properly when interacting with the allowlist.
+
+</details>
+
+## Creating a Denom with Allowlist
+
+1. First, create a JSON file that contains the list of addresses you want to include in your allowlist.
+The format of the allowlist is as follows:
+
+	```json
+	{
+		"addresses": [
+			"address1",
+			"address2",
+			"address3"
+		]
+	}
+	```
+
+   > Ensure that all addresses are valid SEI (Bech32) or EVM (0x-prefixed) addresses. Note that 0x addresses will be converted to Bech32 addresses when the allowlist is persisted.
+   > The maximum number of addresses allowed in the allowlist is 2000 by default. This can be configured by the chain administrator.
+
+2. Create a new denom with the specified allowlist.
+
+	```bash
+	seid tx tokenfactory create-denom $SUBDENOM \
+	--allow-list=$ALLOW_LIST_FILE_PATH \
+	--from=$CREATOR_ACCOUNT \
+	--chain-id=$CHAIN_ID \
+	--fees=$FEE_AMOUNT \
+	--gas=$GAS_LIMIT \
+	-y
+	```
+
+	<details>
+	<summary>Here is an example</summary>
+
+	```bash
+	seid tx tokenfactory create-denom mytoken \
+	--allow-list=./allow_list.json \
+	--from mykey \
+	--chain-id sei-chain \
+	--fees 10000usei \
+	--gas auto \
+	-y
+	```
+
+	</details>
+
+## Updating an Existing Denom Allowlist
+
+To update the allowlist of a token, you can use the following command:
+
+```bash
+seid tx tokenfactory update-denom $SUBDENOM \
+  --allow-list=$ALLOW_LIST_FILE_PATH \
+  --from=$ACCOUNT \
+  --chain-id=$CHAIN_ID \
+  --node=$NODE_RPC_URL \
+  --broadcast-mode=block \
+  --fees=$FEE_AMOUNT \
+  --gas=$GAS_LIMIT \
+  -y
+```
+
+<details>
+<summary>Here is an example</summary>
+
+```bash
+seid tx tokenfactory update-denom mytoken \
+  --allow-list=./updated_allow_list.json \
+  --from mykey \
+  --chain-id arctic-1 \
+  --node https://rpc.arctic-1.seinetwork.io/ \
+  --broadcast-mode=block \
+  --fees 20000usei \
+  --gas auto \
+  -y
+```
+
+</details>
+
+To re-enable all addresses to transfer the token, you can simply submit an empty allowlist.
+
+## Querying a Denom Allowlist
+
+You may query the allowlist of a token using the node REST endpoint. Here is an example:
+
+```bash
+curl -X 'GET' \
+  'https://rest-arctic-1.sei-apis.com/sei-protocol/seichain/tokenfactory/denoms/allow_list?denom=factory/{ACCOUNT}/{DENOM}' \
+  -H 'accept: application/json'
+```
+
+## EVM Support
+
+To enable usage of this token in EVM environments, you can create a pointer contract. 
+The detailed process is outlined in the [<ins>Token Factory tutorial</ins>](tokenfactory-tutorial.mdx#create-pointer-contract).
+
+For more advanced features and in-depth information, refer to the 
+[<ins>Token Factory module documentation</ins>](https://github.com/sei-protocol/sei-chain/tree/main/x/tokenfactory).
