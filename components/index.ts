@@ -15,3 +15,4 @@ export * from './Nfts';
 export * from './VersionFetcher';
 export * from './PropertyInfo';
 export * from './EcosystemMap';
+export * from './InteractiveTerminal';
