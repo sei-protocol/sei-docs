@@ -1,4 +1,0 @@
-### `seid query evidence`
-```ansi
-
-```

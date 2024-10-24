@@ -1,0 +1,152 @@
+# IBC Relayer
+
+For IBC protocol overview, refer to
+
+[IBC Protocol](../dev-tutorials/ibc-protocol)
+
+# Overview
+
+**Relayers** are permissionless off-chain processes that ferry data packets from one chain to another. [Relayer](https://www.ibcprotocol.dev/technical-resource-catalog?category=Relayer#results)s scan chain states, build transactions based on these states, and submit the transactions to the chains involved in the network. Relayers play a crucial role in IBC because chains do not directly send messages to each other over networking infrastructure. Instead, they create and store the data to be retrieved and used by a relayer to build IBC packets.
+
+Get an in-depth walkthrough of the IBC components and packet flow on the [developer documentation.](https://ibc.cosmos.network/v8/ibc/overview)
+
+There are several relayer implementations in different languages:
+
+- Golang [relayer](https://github.com/cosmos/relayer)
+- Rust [hermes](https://hermes.informal.systems/)
+
+# Running relayer with Sei
+
+## Installation
+
+We will be using hermes as example relayer. Please note, that Sei requires hermes of version `1.3.0` .
+
+To install hermes simply head to the GitHub [Releases](https://github.com/informalsystems/hermes/releases) page and download Hermes binary matching your platform:
+
+- macOS: `hermes-v1.3.0-x86_64-apple-darwin.tar.gz` (or .zip),
+- Linux: `hermes-v1.3.0-x86_64-unknown-linux-gnu.tar.gz` (or .zip).
+
+The step-by-step instruction below should carry you through the whole process:
+
+1. Make the directory where we'll place the binary:
+
+ ```
+
+ mkdir -p $HOME/.hermes/bin
+
+    ```
+
+2. Extract the binary archive:
+
+ ```
+
+ tar -C $HOME/.hermes/bin/ -vxzf $ARCHIVE_NAME
+
+    ```
+
+3. Update your path, by adding this line in your `.bashrc` or `.zshrc` shell configuration file:
+
+ ```
+
+ export PATH="$HOME/.hermes/bin:$PATH"
+    ```
+
+
+The `Source code` [archive](https://github.com/informalsystems/hermes/archive/refs/tags/v1.3.0.tar.gz) also contains hermes documentation that you can follow in `guide/book` folder.
+
+## Configuration
+
+`$HOME/.hermes/config.toml` file should look like below. Please note that this example assumes local chains, so all RPC urls have to be substituted for real chain ones.
+
+```toml
+[global]
+log_level = 'info'
+
+[mode]
+
+[mode.clients]
+enabled = true
+refresh = true
+misbehaviour = true
+
+[mode.connections]
+enabled = true
+
+[mode.channels]
+enabled = true
+
+[mode.packets]
+enabled = true
+clear_interval = 100
+clear_on_start = true
+tx_confirmation = true
+
+[telemetry]
+enabled = true
+host = '127.0.0.1'
+port = 3001
+
+[[chains]]
+id = 'ibc-0'
+rpc_addr = 'http://localhost:27030'
+grpc_addr = 'http://localhost:27032'
+rpc_timeout = '15s'
+account_prefix = 'cosmos'
+key_name = 'wallet'
+store_prefix = 'ibc'
+gas_price = { price = 0.01, denom = 'stake' }
+max_gas = 10000000
+gas_multiplier = 1.5
+clock_drift = '5s'
+trusting_period = '14days'
+trust_threshold = { numerator = '1', denominator = '3' }
+event_source = { mode = 'push', url = 'ws://127.0.0.1:27030/websocket', batch_delay = '500ms' }
+
+[[chains]]
+id = 'sei-chain'
+rpc_addr = 'http://localhost:26657'
+grpc_addr = 'http://localhost:9090'
+rpc_timeout = '15s'
+account_prefix = 'sei'
+key_name = 'wallet'
+store_prefix = 'ibc'
+gas_price = { price = 0.025, denom = 'usei' }
+max_gas = 10000000
+gas_multiplier = 2
+clock_drift = '5s'
+trusting_period = '14days'
+trust_threshold = { numerator = '1', denominator = '3' }
+event_source = { mode = 'push', url = 'ws://127.0.0.1:26657/websocket', batch_delay = '500ms' }
+
+```
+
+Next we need to add the account keys to hermes.
+
+```bash
+
+$ hermes keys add --key-name wallet --chain sei-chain --mnemonic-file ~/misc/mm_file_sei
+$ hermes keys add --key-name wallet --chain ibc-0 --mnemonic-file ~/misc/mm_file_ibc_0
+
+```
+
+The contents of ~/misc/mm_file_* file is just a seed phrase of the chain account that will be associated with the chain.
+
+Finally we need to create clients, connections and channel. There are separate commands for that, but there is a simpler shortcut command:
+
+```bash
+$ hermes create channel --a-chain sei-chain --b-chain ibc-0 --a-port transfer --b-port transfer --new-client-connection
+```
+
+The output of this command should return created channel details.
+
+Finally start relaying:
+
+```bash
+$ hermes start
+```
+
+Please note, that this tutorial is a simplified version. Running relayer in production would require different level of
+ effort, configuration and monitoring.
+
+For more information on hermes, please refer to the [official 1.3 version documentation](https://github.com/informalsystems/hermes/archive/refs/tags/v1.3.0.tar.gz)
+that can be found in the `guide/book` folder of the source code archive.
