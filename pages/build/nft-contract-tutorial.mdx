@@ -1,0 +1,293 @@
+import { Callout, Tabs } from 'nextra/components';
+import { Nfts } from '../../components';
+
+# NFT Contract Tutorial
+
+## Introduction
+
+Non-Fungible Tokens (NFTs) are unique digital assets, each possessing distinct identities and attributes. Unlike fungible tokens created by the Token Factory, NFTs cannot be exchanged on a like-for-like basis.
+
+<Nfts />
+
+This tutorial guides you through the creation and deployment of an NFT contract on Sei. By the end, you'll have deployed your own NFT contract. Select one of the tabs below to get started!
+
+<Tabs items={["EVM", "CosmWasm"]}>
+<Tabs.Tab>
+
+In this section, we'll use Foundry to deploy an ERC-721 contract to the Ethereum network. ERC-721 is a standard for NFT contracts on Ethereum. Learm more about ERC-721 [here](https://erc721.org/).
+
+## Requirements
+
+Before we start, ensure you have:
+
+- Installed Foundry. Follow the [installation guide](https://book.getfoundry.sh/getting-started/installation).
+- A basic understanding of Solidity and smart contract development.
+- A wallet with SEI tokens on devnet
+
+<Callout type='info'>You can obtain devnet tokens from one of the faucets listed [here](../dev-ecosystem-providers/faucets).</Callout>
+
+## Setting Up Your Project
+
+1. Initialize a new Foundry project:
+
+   ```bash copy
+   forge init my-nft-project
+   cd my-nft-project
+   ```
+
+2. Install OpenZeppelin, a library for secure smart contract development.
+
+   ```bash copy
+   forge install OpenZeppelin/openzeppelin-contracts
+   ```
+
+3. Create a new Solidity file under `src/` for your NFT contract, e.g., `MyNFT.sol`.
+
+## Writing the ERC-721 Contract
+
+1. In `src/MyNFT.sol`, start by importing OpenZeppelin's ERC-721 implementation:
+
+   ```solidity copy
+    // contracts/MyNFT.sol
+    // SPDX-License-Identifier: MIT
+    pragma solidity ^0.8.20;
+
+    import {ERC721} from "openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
+
+    contract MyNFT is ERC721 {
+        constructor() ERC721("MyNFT", "MNFT") {
+        }
+    }
+   ```
+
+<Callout type="info" >
+You may see an error in your IDE about importing `openzeppelin-contracts`. To
+resolve this, run this command to create `remapping.txt` in the root of your
+project:
+
+```bash copy
+forge remappings > remappings.txt
+```
+
+</Callout>
+
+2. Add any additional functions or overrides necessary for your NFT.
+
+## Testing Your Contract
+
+1. Write tests for your contract in the `test/` directory.
+2. Run your tests with:
+
+   ```bash copy
+   forge test
+   ```
+
+## Deploying Your Contract
+
+1. Compile your contract:
+
+   ```bash copy
+   forge build
+   ```
+
+2. Deploy your contract to a local testnet (e.g., using Anvil, Foundry's local Ethereum node):
+
+   ```bash copy
+   anvil -a 1
+   ```
+
+   **Flags**
+
+   - `-a`: flag specifies the number of test accounts to create. This command will start a local Ethereum node and
+     create one account. In the command output you will see created account and its private key.
+     Use this private key to deploy your contract.
+
+   In a new terminal, deploy your contract:
+
+   ```bash copy
+   forge create --rpc-url http://localhost:8545 --private-key <test_account_private_key> src/MyNFT.sol:MyNFT --legacy
+   ```
+
+   **Flags**
+
+   - `--rpc-url`: flag to specify the URL of the Ethereum node. In this case, it's the URL of the local Anvil node.
+   - `--private-key`: flag to specify the private key of the account that will deploy the contract.
+     Anvil generated test account's private key is used in this case.
+
+3. Deploy contract to the Sei devnet (EVM endpoint):
+
+   ```bash copy
+   forge create --rpc-url https://evm-rpc.arctic-1.seinetwork.io/ --private-key <your_private_key> src/MyNFT.sol:MyNFT --legacy
+   ```
+
+   **Flags**
+
+   - `--rpc-url`: flag to specify the URL of the Ethereum node. In this case, it's the Sei EVM devnet URL.
+   - `--private-key`: flag to specify the private key of the account that will deploy the contract.
+     The private key of your account on the Sei devnet is used in this case.
+
+<Callout type='info'>Make sure to have SEI in your account to cover the gas fees for contract deployment.</Callout>
+
+## Interacting With Your NFT
+
+- You can interact with your deployed NFT contract using Foundry's `cast` tool or through other tools like Ethers.js in a script or web application.
+
+## Create Pointer Contract
+
+To enable seamless use of this NFT contract in CosmWasm environments, you can create a pointer contract. This process results in an CW721 token that can be imported and used in Sei wallets and applications.
+
+```bash copy
+seid tx evm register-cw-pointer ERC721 $ERC721_TOKEN_ADDRESS --from $ACCOUNT --chain-id=arctic-1 --fees=25000usei --node=https://rpc-arctic-1.sei-apis.com/
+```
+
+**Parameters**
+
+- `ERC721_TOKEN_ADDRESS`: The contract address of the ERC721 token you want to create an CW721 pointer for.
+
+**Flags**
+
+- `--from`: The Sei address from which the deployment transaction is sent. This address must have enough balance to cover transaction fees.
+- `--label`: A name for the contract instance used to identify the contract.
+- `--chain-id`: Identifies the specific chain of the Sei network you're interacting with. `arctic-1` refers to the Sei devnet.
+- `--broadcast-mode`: Determines how the transaction is broadcasted. Setting this to `block` means the transaction will wait to be included in a block before returning a response.
+- `--gas`: Specifies the maximum amount of gas that can be consumed by the transaction.
+- `--fees`: Indicates the transaction fee.
+- `--node`: Points to the specific Sei node RPC URL you're connecting to for transaction submission.
+- `--no-admin`: Specifies that the contract should not have an admin. This flag is used to indicate that the contract, once deployed, cannot be upgraded or migrated.
+
+Executing this command creates an CW721 NFT contract and outputs the contract address. This NFT contract is linked to the ERC721 NFT contract, meaning any activities involving CW721 NFTs will also reflect on the state of the ERC721 NFTs and vice versa.
+
+<Callout type='info'>Learn more about EVM interoperability and pointer contracts [here](../dev-advanced-concepts/interoperability/introduction.mdx).</Callout>
+
+</Tabs.Tab>
+<Tabs.Tab>
+
+In this section, we'll be deploying a CW721 contract, a standard for NFTs in the CosmWasm ecosystem. For more about CW721, visit [here](https://github.com/CosmWasm/cw-nfts/blob/main/packages/cw721/README.md).
+
+## Requirements
+
+Before starting, ensure you have:
+
+- **`seid` CLI**: The Sei command-line interface tool, for interacting with the blockchain.
+- **Wallet with SEI tokens on devnet**: Contains SEI tokens for transaction fees.
+- **Rust Programming Environment**: Install Rust for CosmWasm contract development. Installation guide [here](https://www.rust-lang.org/tools/install).
+- **Understanding of CosmWasm**: Familiarize yourself with CosmWasm smart contracts. Start with the [CosmWasm Book](https://book.cosmwasm.com/).
+- **Docker**: Required for using the CosmWasm Rust Optimizer tool. Install from [Docker's official website](https://docs.docker.com/engine/install/).
+
+<Callout type='info'>You can obtain devnet tokens from one of the faucets listed [here](../dev-ecosystem-providers/faucets).</Callout>
+
+## Setting Up Your Environment
+
+To work with CosmWasm smart contracts, you'll need the Wasm rust compiler installed to build Wasm binaries. To install it, run:
+
+```bash copy
+rustup target add wasm32-unknown-unknown
+```
+
+Next, clone the `CW721-base` contract from the [cw-nfts](https://github.com/CosmWasm/cw-nfts) repository:
+
+```bash copy
+git clone https://github.com/CosmWasm/cw-nfts.git
+cd cw-nfts/contracts/cw721-base
+```
+
+To test your setup, run:
+
+```bash copy
+cargo test
+```
+
+You should see that everything in the repository gets compiled and all tests pass.
+
+## Customizing the Contract
+
+Review and modify the `cw721-base` contract to meet your requirements. This might include updating metadata structures or changing the minting process.
+
+## Build the Contract
+
+To build the contract, run:
+
+```bash copy
+cargo wasm
+```
+
+This compiles a Wasm binary for uploading to Sei.
+
+<Callout type='info'>
+	Note: The generated Wasm file will be located in the root directory of the `cw-nfts` repository, not in the `cw721-base` subdirectory. Make sure to navigate to
+	the root directory to see your compiled `.wasm` file in `target/wasm32-unknown-unknown/`.
+</Callout>
+
+Before we can upload the contract to the chain, we have to use the [CosmWasm Rust Optimizer](https://github.com/CosmWasm/rust-optimizer) to reduce the contract size. While not required, this is highly recommended for live contracts.
+
+```bash copy
+docker run --rm -v "$(pwd)":/code \
+  --mount type=volume,source="$(basename "$(pwd)")_cache",target=/target \
+  --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
+  cosmwasm/optimizer:0.15.0 ./contracts/cw721-base/
+```
+
+This will generate an optimized Wasm contract in `/artifacts`.
+
+<Callout type='warning'>
+	If you're using a Mac M1 machine, you might need to use the Arm 64-bit optimizer. However, it's important to note that the native Arm version generates wasm
+	artifacts that differ from those produced by the Intel version. For production environments, we strongly recommend building contracts with the Intel optimizers to
+	ensure reliability. Learn more [here](https://github.com/CosmWasm/rust-optimizer).
+</Callout>
+
+## Deploy the Contract
+
+Upload your contract:
+
+```bash copy
+seid tx wasm store artifacts/cw721_base.wasm --from=$ACCOUNT --chain-id=arctic-1 --node=https://rpc.arctic-1.seinetwork.io/ --broadcast-mode=block --gas=5000000 --fees=500000usei
+```
+
+Replace `$ACCOUNT` with your account name or address. This command stores the contract on the chain and outputs a code ID.
+
+<Callout type='info'>For detailed descriptions of these arguments, use `seid help` in the CLI.</Callout>
+
+Instantiate your contract using the code ID:
+
+```bash copy
+seid tx wasm instantiate $CONTRACT_CODE_ID '{"name":"$COLLECTION_NAME", "symbol":"$SYMBOL"}' --from=$ACCOUNT --admin=$ADMIN_ADDRESS --label=$LABEL --chain-id=arctic-1 --node=https://rpc.arctic-1.seinetwork.io/ --broadcast-mode=block --gas=250000 --fees=25000usei
+```
+
+Replace `$CONTRACT_CODE_ID`, `$ACCOUNT`, `$LABEL`, and `$ADMIN_ADDRESS` appropriately. Successful instantiation will provide the NFT contract address.
+
+- `$CONTRACT_CODE_ID`: Code ID of the uploaded contract (can be found in the output of the previous `store` command)
+- `$COLLECTION_NAME`: Name of the collection
+- `$SYMBOL`: Symbol of the collection
+- `$ACCOUNT`: Your account name or address
+- `$LABEL`: Any label for easy identification, can be used to look up the contract in future
+- `$ADMIN_ADDRESS` (Optional): Address that will have administrative privileges over the contract, such as the ability to upgrade it
+
+## Create Pointer Contract
+
+To enable seamless use of this NFT contract in EVM environments, you can create a pointer contract. This process results in an ERC721 token that can be imported and used in EVM wallets and applications.
+
+```bash copy
+seid tx evm deploy-erccw721 $CW721_TOKEN_ADDRESS $NAME $SYMBOL --from=$SENDER --evm-rpc=https://evm-rpc.arctic-1.seinetwork.io/
+```
+
+**Parameters**
+
+- `CW721_TOKEN_ADDRESS`: The contract address of the CW721 NFT you want to create an ERC721 pointer for.
+- `NAME`: The name you want to assign to your ERC721 pointer token. This should match the name from the CW721 NFT.
+- `SYMBOL`: The symbol for your ERC721 pointer token. This should match the symbol from the CW721 NFT.
+
+**Flags**
+
+- `--from`: The Sei address from which the deployment transaction is sent. This address must have enough balance to cover transaction fees.
+- `--evm-rpc`: The endpoint URL for the EVM RPC interface of the Sei blockchain. This URL is used by the `seid` command to interact with the Sei EVM.
+
+Executing this command creates an ERC721 NFT contract and outputs the contract address. This NFT contract is linked to the CW721 NFT contract, meaning any activities involving CW721 NFTs will also reflect on the state of the ERC721 NFTs and vice versa.
+
+<Callout type='info'>Learn more about EVM interoperability and pointer contracts [here](./pointer-contracts.mdx).</Callout>
+
+</Tabs.Tab>
+</Tabs>
+
+## Conclusion
+
+🎉 Congratulations! You've successfully created and deployed an NFT contract on Sei.
