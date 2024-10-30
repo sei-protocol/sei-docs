@@ -1,69 +1,5 @@
-// components/SeiTraceSearch.tsx
-
 import React, { useState } from 'react';
-import styled from 'styled-components';
-
-const Form = styled.form`
-  margin-top: 1rem;
-`;
-
-const Label = styled.label`
-  color: #ddd;
-  font-size: 1rem;
-`;
-
-const InputContainer = styled.div`
-  display: flex;
-  margin-top: 0.5rem;
-`;
-
-const Input = styled.input<{ hasError: boolean }>`
-  flex: 1;
-  padding: 0.75rem 1rem;
-  font-size: 1rem;
-  border: none;
-  border-radius: 25px 0 0 25px;
-  background-color: #1a1a1a;
-  color: #fff;
-  outline: none;
-  transition: background-color 0.3s;
-
-  ::placeholder {
-    color: #666;
-  }
-
-  ${({ hasError }) =>
-    hasError
-      ? `
-    background-color: #2a1a1a;
-    box-shadow: inset 0 0 0 2px #e74c3c;
-  `
-      : `
-    box-shadow: inset 0 0 0 2px #333;
-  `}
-`;
-
-const Button = styled.button`
-  padding: 0 1.5rem;
-  font-size: 1rem;
-  border: none;
-  border-radius: 0 25px 25px 0;
-  background-color: #1a1a1a;
-  color: #fff;
-  cursor: pointer;
-  transition: background-color 0.3s;
-  box-shadow: inset 0 0 0 2px #333;
-
-  &:hover {
-    background-color: #333;
-  }
-`;
-
-const ErrorMessage = styled.div`
-  color: #e74c3c;
-  margin-top: 0.5rem;
-  font-size: 0.9rem;
-`;
+import styles from '../../styles/SeiTraceSearch.module.css';
 
 const SeiTraceSearch = () => {
   const [address, setAddress] = useState('');
@@ -97,20 +33,22 @@ const SeiTraceSearch = () => {
   };
 
   return (
-    <Form onSubmit={handleSubmit}>
-      <InputContainer>
-        <Input
+    <form onSubmit={handleSubmit} className={styles.form}>
+      <div className={styles.inputContainer}>
+        <input
           id="addressInput"
           type="text"
           placeholder="Enter address"
           value={address}
           onChange={(e) => setAddress(e.target.value)}
-          hasError={!!error}
+          className={`${styles.input} ${error ? styles.error : ''}`}
         />
-        <Button type="submit">View on Sei Trace</Button>
-      </InputContainer>
-      {error && <ErrorMessage>{error}</ErrorMessage>}
-    </Form>
+        <button type="submit" className={styles.button}>
+          View on SEITRACE
+        </button>
+      </div>
+      {error && <div className={styles.errorMessage}>{error}</div>}
+    </form>
   );
 };
 
