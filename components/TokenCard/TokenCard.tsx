@@ -15,7 +15,7 @@ const cardStyle = {
 const textColor = { color: '#f0f0f0' };
 const subTextColor = { color: '#b0b0b0' };
 
-export const TokenCard: React.FC<TokenCardProps> = ({ title, description, tooltip, details }) => {
+export const TokenCard: React.FC<TokenCardProps> = ({ title, description, tooltip, details, referenceGuide }) => {
   const [conversionInput, setConversionInput] = useState<number | ''>('');
   const [copied, setCopied] = useState<number | null>(null);
 
@@ -24,9 +24,8 @@ export const TokenCard: React.FC<TokenCardProps> = ({ title, description, toolti
     setConversionInput(value === '' ? '' : parseFloat(value));
   };
 
-  const handleCopy = async (channelData: object, idx: number) => {
-    const jsonData = JSON.stringify(channelData, null, 2);
-    await navigator.clipboard.writeText(jsonData);
+  const handleCopy = async (content: string, idx: number) => {
+    await navigator.clipboard.writeText(content);
     setCopied(idx);
     setTimeout(() => setCopied(null), 1500);
   };
@@ -117,7 +116,7 @@ export const TokenCard: React.FC<TokenCardProps> = ({ title, description, toolti
                         <Button
                           size="xs"
                           variant="subtle"
-                          onClick={() => handleCopy(channel, idx)}
+                          onClick={() => handleCopy(JSON.stringify(channel, null, 2), idx)}
                           style={{ color: '#4a90e2', cursor: 'pointer' }}
                         >
                           <IconClipboardCheck size={16} />
@@ -142,6 +141,40 @@ export const TokenCard: React.FC<TokenCardProps> = ({ title, description, toolti
               </Accordion.Panel>
             </Accordion.Item>
           ))}
+        </Accordion>
+      )}
+
+      {referenceGuide && (
+        <Accordion variant="contained" mt="md" styles={{
+          item: { backgroundColor: '#3b3e42', color: '#f0f0f0', borderRadius: '8px', marginBottom: '8px' },
+          control: { color: '#f0f0f0', fontWeight: 500 },
+          panel: { color: '#e0e0e0', padding: '12px 16px', fontSize: '14px' }
+        }}>
+          <Accordion.Item value="pointer-guide">
+            <Accordion.Control>Pointer Contract Guide</Accordion.Control>
+            <Accordion.Panel>
+              {referenceGuide.map((section, idx) => (
+                <div key={idx} style={{ marginBottom: '12px' }}>
+                  <Text size="sm" style={subTextColor}>{section.content}</Text>
+                  {section.command && (
+                    <div style={{ position: 'relative', backgroundColor: '#4a4d52', padding: '10px', borderRadius: '5px', marginTop: '8px' }}>
+                      <Text size="xs" style={{ color: '#ffffff', fontFamily: 'monospace' }}>{section.command}</Text>
+                      <Tooltip label={copied === idx ? "Copied!" : "Copy Command"} withArrow>
+                        <Button
+                          size="xs"
+                          variant="subtle"
+                          onClick={() => handleCopy(section.command, idx)}
+                          style={{ position: 'absolute', top: '8px', right: '8px', color: '#4a90e2', cursor: 'pointer' }}
+                        >
+                          <IconClipboardCheck size={16} />
+                        </Button>
+                      </Tooltip>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </Accordion.Panel>
+          </Accordion.Item>
         </Accordion>
       )}
     </Card>
