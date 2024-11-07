@@ -78,6 +78,9 @@ const SeiIntro: React.FC = () => {
     fontSize: '0.9rem',
     fontFamily: 'Satoshi, sans-serif',
     fontWeight: 500,
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
   };
 
   const scrollIndicatorContainerStyles = {
@@ -115,11 +118,7 @@ const SeiIntro: React.FC = () => {
     }
   `;
 
-  const keyframesStyle = (
-    <style>
-      {bounceAnimation}
-    </style>
-  );
+  const keyframesStyle = <style>{bounceAnimation}</style>;
 
   return (
     <section style={heroStyles}>
@@ -139,18 +138,17 @@ const SeiIntro: React.FC = () => {
               scalability with a developer-focused approach.
             </Text>
             <Group style={buttonsStyles}>
-              <Button<'a'>
+              <Button
                 variant="gradient"
                 gradient={{ from: '#9E1F19', to: '#780000', deg: 135 }}
                 size="md"
                 style={buttonStyles}
-                rightIcon={<IconArrowRight size={18} />}
                 component="a"
                 href="/users/user-quickstart"
               >
-                Get Started
+                Get Started <IconArrowRight size={18} />
               </Button>
-              <Button<'a'>
+              <Button
                 variant="outline"
                 color="light"
                 size="md"
