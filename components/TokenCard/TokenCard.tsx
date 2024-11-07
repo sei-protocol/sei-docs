@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Card, Text, Tooltip, TextInput, Accordion, Divider, Group, Button } from '@mantine/core';
+import { Card, Text, Tooltip, TextInput, Accordion, Divider, Button } from '@mantine/core';
 import { IconInfoCircle, IconClipboardCheck } from '@tabler/icons-react';
 import { TokenCardProps } from './types';
 import ibcInfo from './data/ibc_info.json';
@@ -42,14 +42,14 @@ export const TokenCard: React.FC<TokenCardProps> = ({ title, description, toolti
       onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 8px 20px rgba(0, 0, 0, 0.5)'}
       onMouseLeave={(e) => e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.3)'}
     >
-      <Group align="center" mb="xs">
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
         <Text size="lg" style={{ ...textColor, fontWeight: 'bold' }}>{title}</Text>
         {tooltip && (
           <Tooltip label={tooltip} position="right" withArrow>
-            <IconInfoCircle size={18} color="#4a90e2" style={{ cursor: 'pointer' }} />
+            <IconInfoCircle size={18} color="#4a90e2" style={{ cursor: 'pointer', marginLeft: '8px' }} />
           </Tooltip>
         )}
-      </Group>
+      </div>
       
       {description && (
         <Text size="sm" style={{ ...subTextColor, marginBottom: '16px' }}>{description}</Text>
@@ -108,7 +108,7 @@ export const TokenCard: React.FC<TokenCardProps> = ({ title, description, toolti
               <Accordion.Panel>
                 {channels.map((channel, idx) => (
                   <div key={idx} style={{ marginBottom: '12px' }}>
-                    <Group position="apart">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <Text size="sm" style={{ color: '#e0e0e0' }}>
                         <b>Counterparty Chain:</b> {channel.counterparty_chain_name}
                       </Text>
@@ -122,7 +122,7 @@ export const TokenCard: React.FC<TokenCardProps> = ({ title, description, toolti
                           <IconClipboardCheck size={16} />
                         </Button>
                       </Tooltip>
-                    </Group>
+                    </div>
                     <Text size="sm" style={subTextColor}>
                       <b>Destination Channel:</b> {channel.dst_channel}
                     </Text>
