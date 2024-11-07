@@ -19,6 +19,7 @@ const SeiIntro: React.FC = () => {
     setMounted(true);
   }, []);
 
+  // Styles
   const heroStyles = {
     position: 'relative' as const,
     height: '80vh',
@@ -138,7 +139,7 @@ const SeiIntro: React.FC = () => {
               scalability with a developer-focused approach.
             </Text>
             <Group style={buttonsStyles}>
-              <Button
+              <Button<'a'>
                 variant="gradient"
                 gradient={{ from: '#9E1F19', to: '#780000', deg: 135 }}
                 size="md"
@@ -149,7 +150,7 @@ const SeiIntro: React.FC = () => {
               >
                 Get Started
               </Button>
-              <Button
+              <Button<'a'>
                 variant="outline"
                 color="light"
                 size="md"
