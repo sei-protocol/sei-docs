@@ -28,7 +28,7 @@ const SeiIntro: React.FC<SeiIntroProps> = ({ onScrollToDocs }) => {
     setMounted(true);
     const descriptionInterval = setInterval(() => {
       setActiveDescription((prev) => (prev + 1) % descriptions.length);
-    }, 4000);
+    }, 4000); // Change every 4 seconds
     return () => clearInterval(descriptionInterval);
   }, []);
 
@@ -47,13 +47,23 @@ const SeiIntro: React.FC<SeiIntroProps> = ({ onScrollToDocs }) => {
   const overlayStyles = {
     position: 'absolute' as const,
     inset: 0,
-    background: 'linear-gradient(135deg, rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.6))',
-    animation: 'gradientShift 10s ease-in-out infinite',
+    background: 'linear-gradient(135deg, rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.65)), radial-gradient(circle, rgba(0, 0, 0, 0.3) 10%, transparent 60%)',
+    backgroundBlendMode: 'overlay, normal',
+    animation: 'gradientShift 15s ease-in-out infinite',
+  };
+
+  const noiseOverlayStyles = {
+    position: 'absolute' as const,
+    inset: 0,
+    backgroundImage: 'url(/assets/noise-texture.png)',
+    opacity: 0.08,
+    zIndex: 1,
+    pointerEvents: 'none',
   };
 
   const contentStyles = {
     position: 'relative' as const,
-    zIndex: 1,
+    zIndex: 2,
     maxWidth: '800px',
     textAlign: 'center' as const,
     fontFamily: 'Satoshi, sans-serif',
@@ -68,6 +78,7 @@ const SeiIntro: React.FC<SeiIntroProps> = ({ onScrollToDocs }) => {
     display: 'inline-block',
     marginBottom: theme.spacing.sm,
     paddingBottom: '10px',
+    letterSpacing: '0.5px',
   };
 
   const underlineStyles = {
@@ -78,7 +89,7 @@ const SeiIntro: React.FC<SeiIntroProps> = ({ onScrollToDocs }) => {
     height: '3px',
     background: 'linear-gradient(90deg, #9E1F19, #780000)',
     borderRadius: '1.5px',
-    opacity: 0.8,
+    boxShadow: '0px 0px 4px rgba(158, 31, 25, 0.4)',
   };
 
   const subtitleStyles = {
@@ -110,9 +121,8 @@ const SeiIntro: React.FC<SeiIntroProps> = ({ onScrollToDocs }) => {
     boxShadow: '0px 4px 6px rgba(0, 0, 0, 0.1)',
   };
 
-  const buttonHoverStyles = {
-    transform: 'translateY(-2px)',
-    boxShadow: '0px 6px 8px rgba(0, 0, 0, 0.15)',
+  const primaryButtonHoverStyles = {
+    background: 'linear-gradient(90deg, #780000, #9E1F19)',
   };
 
   const scrollIndicatorContainerStyles = {
@@ -140,7 +150,6 @@ const SeiIntro: React.FC<SeiIntroProps> = ({ onScrollToDocs }) => {
     cursor: 'pointer',
     transition: 'opacity 0.3s ease',
     opacity: 0.8,
-    '&:hover': { opacity: 1 },
   };
 
   const animations = `
@@ -170,6 +179,7 @@ const SeiIntro: React.FC<SeiIntroProps> = ({ onScrollToDocs }) => {
       />
       {animationsStyle}
       <div style={overlayStyles} />
+      <div style={noiseOverlayStyles} />
       <Transition
         mounted={mounted}
         transition="fade"
@@ -188,14 +198,14 @@ const SeiIntro: React.FC<SeiIntroProps> = ({ onScrollToDocs }) => {
                 variant="gradient"
                 gradient={{ from: '#9E1F19', to: '#780000', deg: 135 }}
                 size="md"
-                style={{ ...buttonStyles }}
+                style={buttonStyles}
                 component="a"
                 href="/users/user-quickstart"
                 onMouseOver={(e) =>
-                  (e.currentTarget.style.transform = 'translateY(-2px)')
+                  (e.currentTarget.style.background = primaryButtonHoverStyles.background)
                 }
                 onMouseOut={(e) =>
-                  (e.currentTarget.style.transform = 'translateY(0)')
+                  (e.currentTarget.style.background = 'linear-gradient(90deg, #9E1F19, #780000)')
                 }
               >
                 Get Started <IconArrowRight size={18} />
