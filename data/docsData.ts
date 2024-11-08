@@ -1,56 +1,56 @@
 export const docsData = [
   {
     id: 1,
-    name: "foo",
+    name: "Understanding Ethereum Differences",
     logo: {
       url: "/assets/sei_symbol_gradient.png",
     },
-    link: "/docs/deploy-contract",
-    'short-description': "Learn how to.",
+    link: "/learn/differences-with-ethereum",
+    'short-description': "See how Sei's architecture outperforms Ethereum.",
   },
   {
     id: 2,
-    name: "bar",
+    name: "Exploring Token Standards",
     logo: {
       url: "/assets/sei_symbol_gradient.png",
     },
-    link: "/docs/setup-node",
-    'short-description': "Learn how to.",
+    link: "/learn/dev-token-standards",
+    'short-description': "Learn Sei's token standards for effective development.",
   },
   {
     id: 3,
-    name: "baz",
+    name: "Mastering Staking",
     logo: {
       url: "/assets/sei_symbol_gradient.png",
     },
-    link: "/docs/stake-tokens",
-    'short-description': "Learn how to.",
+    link: "/learn/general-staking",
+    'short-description': "Understand staking and its role in Sei.",
   },
   {
     id: 4,
-    name: "foo",
+    name: "Developing Smart Contracts",
     logo: {
       url: "/assets/sei_symbol_gradient.png",
     },
-    link: "/docs/deploy-contract",
-    'short-description': "Learn how to.",
+    link: "/dev-smart-contracts",
+    'short-description': "Create and deploy smart contracts on Sei.",
   },
   {
     id: 5,
-    name: "bar",
+    name: "Building a Frontend Interface",
     logo: {
       url: "/assets/sei_symbol_gradient.png",
     },
-    link: "/docs/setup-node",
-    'short-description': "Learn how to.",
+    link: "/build/building-a-frontend",
+    'short-description': "Craft user-friendly dApp frontends on Sei.",
   },
   {
     id: 6,
-    name: "baz",
+    name: "Running a Validator Node",
     logo: {
       url: "/assets/sei_symbol_gradient.png",
     },
-    link: "/docs/stake-tokens",
-    'short-description': "Learn how to.",
+    link: "/node/overview",
+    'short-description': "Set up and manage a validator node on Sei.",
   },
 ];
