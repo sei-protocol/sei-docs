@@ -24,17 +24,13 @@ const SeiIntro: React.FC<SeiIntroProps> = ({ onScrollToDocs }) => {
 
   const heroStyles = {
     position: 'relative' as const,
-    height: '80vh',
-    backgroundImage: `url(${v2BannerImg.src})`,
-    backgroundSize: 'cover',
-    backgroundPosition: 'center',
-    backgroundAttachment: 'fixed',
+    height: '70vh',
+    overflow: 'hidden',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     color: theme.white,
     textShadow: '0 2px 4px rgba(0, 0, 0, 0.6)',
-    overflow: 'hidden',
   };
 
   const overlayStyles = {
@@ -129,6 +125,19 @@ const SeiIntro: React.FC<SeiIntroProps> = ({ onScrollToDocs }) => {
 
   return (
     <section style={heroStyles}>
+      <img
+        src={v2BannerImg.src}
+        alt="Background"
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          zIndex: 0,
+        }}
+      />
       {keyframesStyle}
       <div style={overlayStyles} />
       <Transition
