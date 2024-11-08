@@ -1,5 +1,6 @@
-import { ExternalLinkIcon } from 'lucide-react';
 import Image from 'next/image';
+import { ExternalLinkIcon } from 'lucide-react';
+import styles from '../../styles/DocCard.module.css';
 
 interface DocCardProps {
   doc: {
@@ -17,29 +18,45 @@ const DocCard = ({ doc }: DocCardProps) => {
   const { name, logo, link, 'short-description': shortDescription } = doc;
 
   return (
-    <div className="group flex flex-col bg-gray-50 dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300">
-      <div className="relative w-full h-48 bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+    <a
+      href={link}
+      className={`${styles.docCard} group flex flex-col md:flex-row items-center bg-gradient-to-r from-[#780000] to-[#001B2A] rounded-xl shadow-lg overflow-hidden hover:scale-105 transition-transform`}
+      rel="noopener noreferrer"
+    >
+      <div className={`${styles.imageContainer} w-1/3 relative h-36 md:h-48`}>
         {logo ? (
-          <Image src={logo.url} alt={logo.alt} layout="fill" objectFit="cover" className="transition-all duration-300 ease-in-out group-hover:scale-110" />
+          <Image
+            src={logo.url}
+            alt={logo.alt}
+            layout="fill"
+            objectFit="cover"
+            className="rounded-l-xl"
+          />
         ) : (
-          <span className="text-gray-400">No image available</span>
+          <div className="flex items-center justify-center text-gray-400 w-full h-full">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="w-10 h-10"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v-4a8 8 0 0116 0v4" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 20h8m-4-4v4" />
+            </svg>
+            <span>No image available</span>
+          </div>
         )}
       </div>
-      <div className="p-4 flex flex-col flex-grow">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">{name}</h3>
-        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">{shortDescription}</p>
-        <div className="mt-auto">
-          <a
-            href={link}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-600 dark:text-blue-400 inline-flex items-center font-medium hover:underline"
-          >
-            Learn more <ExternalLinkIcon className="ml-2 w-4 h-4" />
-          </a>
+      <div className="flex-grow p-4 flex flex-col justify-between">
+        <h3 className="text-lg font-semibold mb-2 tracking-tight text-[#ECEDEE]">{name}</h3>
+        <p className="text-sm text-[#8CABA9] mb-3">{shortDescription}</p>
+        <div className="flex items-center text-[#ECEDEE] font-medium group-hover:text-[#9E1F19]">
+          Explore
+          <ExternalLinkIcon className="ml-2 w-4 h-4 transition-transform group-hover:translate-x-1 group-hover:scale-110" />
         </div>
       </div>
-    </div>
+    </a>
   );
 };
 
