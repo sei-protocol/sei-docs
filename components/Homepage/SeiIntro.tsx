@@ -200,7 +200,7 @@ const SeiIntro: React.FC<SeiIntroProps> = ({ onScrollToDocs }) => {
                 size="md"
                 style={buttonStyles}
                 component="a"
-                href="/users/user-quickstart"
+                href="/onboard/user-quickstart"
                 onMouseOver={(e) =>
                   (e.currentTarget.style.background = primaryButtonHoverStyles.background)
                 }
@@ -208,7 +208,7 @@ const SeiIntro: React.FC<SeiIntroProps> = ({ onScrollToDocs }) => {
                   (e.currentTarget.style.background = 'linear-gradient(90deg, #9E1F19, #780000)')
                 }
               >
-                Dive In <IconArrowRight size={18} />
+                Get Started <IconArrowRight size={18} />
               </Button>
               <Button
                 variant="outline"
