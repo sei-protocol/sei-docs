@@ -58,7 +58,7 @@ const SeiIntro: React.FC<SeiIntroProps> = ({ onScrollToDocs }) => {
     backgroundImage: 'url(/assets/noise-texture.png)',
     opacity: 0.08,
     zIndex: 1,
-    pointerEvents: 'none',
+    pointerEvents: 'none' as 'none',
   };
 
   const contentStyles = {
