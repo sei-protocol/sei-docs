@@ -8,7 +8,7 @@ import {
   Transition,
 } from '@mantine/core';
 import { IconArrowRight, IconChevronDown } from '@tabler/icons-react';
-import v2BannerImg from '../../public/assets/sei-v2-banner.jpg';
+import v2BannerImg from '../../public/assets/sei-temp-gradient.png';
 
 interface SeiIntroProps {
   onScrollToDocs: () => void;
