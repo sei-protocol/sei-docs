@@ -28,7 +28,7 @@ const SeiIntro: React.FC<SeiIntroProps> = ({ onScrollToDocs }) => {
     setMounted(true);
     const descriptionInterval = setInterval(() => {
       setActiveDescription((prev) => (prev + 1) % descriptions.length);
-    }, 4000); // Change every 4 seconds
+    }, 4000);
     return () => clearInterval(descriptionInterval);
   }, []);
 
@@ -208,7 +208,7 @@ const SeiIntro: React.FC<SeiIntroProps> = ({ onScrollToDocs }) => {
                   (e.currentTarget.style.background = 'linear-gradient(90deg, #9E1F19, #780000)')
                 }
               >
-                Get Started <IconArrowRight size={18} />
+                Dive In <IconArrowRight size={18} />
               </Button>
               <Button
                 variant="outline"
