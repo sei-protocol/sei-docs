@@ -24,7 +24,7 @@ export const docsData = [
       url: "/assets/sei_symbol_gradient.png",
     },
     link: "/learn/general-staking",
-    'short-description': "Understand staking and its role in Sei Network.",
+    'short-description': "Understand staking and its role in Sei.",
   },
   {
     id: 4,
