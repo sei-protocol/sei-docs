@@ -28,7 +28,7 @@ const SeiIntro: React.FC<SeiIntroProps> = ({ onScrollToDocs }) => {
     setMounted(true);
     const descriptionInterval = setInterval(() => {
       setActiveDescription((prev) => (prev + 1) % descriptions.length);
-    }, 4000); // Change every 4 seconds
+    }, 4000);
     return () => clearInterval(descriptionInterval);
   }, []);
 
@@ -200,7 +200,7 @@ const SeiIntro: React.FC<SeiIntroProps> = ({ onScrollToDocs }) => {
                 size="md"
                 style={buttonStyles}
                 component="a"
-                href="/users/user-quickstart"
+                href="/onboard/user-quickstart"
                 onMouseOver={(e) =>
                   (e.currentTarget.style.background = primaryButtonHoverStyles.background)
                 }
