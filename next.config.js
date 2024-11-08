@@ -19,5 +19,14 @@ module.exports = withNextra({
 				pathname: '/65cb43fecf24523357feada9/**'
 			}
 		]
+	},
+	async redirects() {
+		return [
+			{
+				source: '/',
+				destination: '/onboard',
+				permanent: true
+			}
+		];
 	}
 });
