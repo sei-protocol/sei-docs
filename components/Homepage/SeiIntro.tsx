@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Container,
   Title,
   Text,
   Button,
@@ -11,7 +10,11 @@ import {
 import { IconArrowRight, IconChevronDown } from '@tabler/icons-react';
 import v2BannerImg from '../../public/assets/sei-v2-banner.jpg';
 
-const SeiIntro: React.FC = () => {
+interface SeiIntroProps {
+  onScrollToDocs: () => void;
+}
+
+const SeiIntro: React.FC<SeiIntroProps> = ({ onScrollToDocs }) => {
   const theme = useMantineTheme();
   const [mounted, setMounted] = useState(false);
 
@@ -19,7 +22,6 @@ const SeiIntro: React.FC = () => {
     setMounted(true);
   }, []);
 
-  // Styles
   const heroStyles = {
     position: 'relative' as const,
     height: '80vh',
@@ -46,7 +48,7 @@ const SeiIntro: React.FC = () => {
     zIndex: 1,
     maxWidth: '800px',
     margin: '0 auto',
-    padding: `${theme.spacing.lg}px ${theme.spacing.md}px`,
+    padding: `${theme.spacing.md}px ${theme.spacing.sm}px`,
     textAlign: 'center' as const,
     fontFamily: 'Satoshi, sans-serif',
   };
@@ -54,21 +56,21 @@ const SeiIntro: React.FC = () => {
   const titleStyles = {
     fontSize: '3.5rem',
     fontWeight: 500,
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
     lineHeight: 1.1,
     color: '#ECEDEE',
   };
 
   const subtitleStyles = {
-    fontSize: '1.25rem',
-    marginBottom: theme.spacing.md,
-    lineHeight: 1.5,
+    fontSize: '1.1rem',
+    marginBottom: theme.spacing.sm,
+    lineHeight: 1.4,
     color: '#ECEDEE',
     fontWeight: 500,
   };
 
   const buttonsStyles = {
-    marginTop: theme.spacing.md,
+    marginTop: theme.spacing.sm,
     justifyContent: 'center',
   };
 
@@ -85,23 +87,28 @@ const SeiIntro: React.FC = () => {
 
   const scrollIndicatorContainerStyles = {
     position: 'absolute' as const,
-    bottom: theme.spacing.lg,
+    bottom: theme.spacing.md,
     left: '50%',
     transform: 'translateX(-50%)',
     textAlign: 'center' as const,
     zIndex: 1,
+    display: 'flex',
+    flexDirection: 'column' as const,
+    alignItems: 'center',
+    justifyContent: 'center',
   };
 
   const scrollTextStyles = {
     color: '#ECEDEE',
     fontFamily: 'Satoshi, sans-serif',
-    fontSize: '1rem',
+    fontSize: '0.9rem',
     marginBottom: theme.spacing.xs,
   };
 
   const scrollIconStyles = {
     animation: 'bounce 2s infinite',
     color: '#ECEDEE',
+    cursor: 'pointer',
   };
 
   const bounceAnimation = `
@@ -169,9 +176,10 @@ const SeiIntro: React.FC = () => {
       <div style={scrollIndicatorContainerStyles}>
         <Text style={scrollTextStyles}>Find your starting point</Text>
         <IconChevronDown
-          size={32}
+          size={28}
           style={scrollIconStyles}
           aria-hidden="true"
+          onClick={onScrollToDocs}
         />
       </div>
     </section>
