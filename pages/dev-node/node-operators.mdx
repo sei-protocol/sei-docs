@@ -1,7 +1,4 @@
-import { Callout } from "nextra/components";
-import VersionTable from '../../components/VersionFetcher/VersionTable';
-
-# Sei Node Setup Guide
+# Sei Node Setup
 
 ## System Requirements
 
@@ -9,188 +6,143 @@ import VersionTable from '../../components/VersionFetcher/VersionTable';
 |-----------|------|----------|
 | 16 cores  | 64GB | 1TB NVMe |
 
-### Build Version and Genesis Table
-
-<VersionTable />
-
 ## Getting Started
 
-*The following is intended for Debian-based systems. Others like MacOS or Archlinux will differ slightly*
+*The following instructions are for Debian-based systems. Other operating systems like macOS or Arch will use a slightly different procedure.*
 
-#### Update and Upgrade System Packages
-
-```bash
-apt update && apt upgrade -y
-```
-
-#### Install Dependencies [use a package manager like `apt`]
+### Update and Upgrade System Packages
 
 ```bash
-apt install nano make build-essential gcc git jq chrony tar curl lz4 wget -y
+sudo apt update && sudo apt upgrade -y
 ```
 
-#### Install Golang [do not use a package manager for this step]
+### Install Dependencies
+
+```bash
+sudo apt install nano make build-essential gcc git jq chrony tar curl lz4 wget -y
+```
+
+### Install Golang
 
 1. Remove old Go version if necessary:
 
-    ```bash
-    rm -rvf /usr/local/go/
-    ```
+```bash
+sudo rm -rvf /usr/local/go/
+```
 
 2. Install Golang:
 
-    ```bash
-    wget https://golang.org/dl/go1.21.1.linux-amd64.tar.gz
-    tar -C /usr/local -xzf go1.21.1.linux-amd64.tar.gz
-    rm go1.21.1.linux-amd64.tar.gz
-    ```
+```bash
+wget https://go.dev/dl/go1.21.1.linux-amd64.tar.gz
+sudo tar -C /usr/local -xzf go1.21.1.linux-amd64.tar.gz
+rm go1.21.1.linux-amd64.tar.gz
+```
 
 3. Configure PATH and GOPATH (add to `~/.profile` or `~/.bashrc` to make persistent):
 
-    ```bash
-    export GOROOT=/usr/local/go
-    export GOPATH=$HOME/go
-    export GO111MODULE=on
-    export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin
-    ```
+```bash
+echo 'export GOROOT=/usr/local/go' >> ~/.profile
+echo 'export GOPATH=$HOME/go' >> ~/.profile
+echo 'export GO111MODULE=on' >> ~/.profile
+echo 'export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin' >> ~/.profile
+source ~/.profile
+```
 
-#### Install `seid`
+### Install `seid`
 
-1. Define the variables for your network and (optional) a moniker or name to assign your node:
-*Replace these with real values, found in the [reference table](/node-operators#build-version-and-genesis-table) above*
+1. Define the variables for your network and (optional) moniker:
 
-    ```bash
-        VERSION=v1.2.3
-        CHAIN_ID=mainnet-1
-        GENESIS_URL=https://raw.githubusercontent.com/sei-protocol/testnet/main/pacific-1/genesis.json
-        MONIKER="your node name"
-    ```
+```bash
+VERSION=v1.2.3
+CHAIN_ID=pacific-1
+GENESIS_URL=https://raw.githubusercontent.com/sei-protocol/testnet/main/pacific-1/genesis.json
+MONIKER="your_node_name"
+```
 
-1. Clone the repository and install:
+2. Clone the repository and install:
 
-    ```bash
-    cd ~/ && git clone https://github.com/sei-protocol/sei-chain.git
-    cd sei-chain
-    git checkout $VERSION
-    make install
-    ```
+```bash
+cd ~/ && git clone https://github.com/sei-protocol/sei-chain.git
+cd sei-chain
+git checkout $VERSION
+make install
+```
 
-#### Initialize Node
+### Initialize Node
 
 1. Initialize the node:
 
-    ```bash
-    seid init $MONIKER --chain-id $CHAIN_ID
-    ```
+```bash
+seid init $MONIKER --chain-id $CHAIN_ID
+```
 
 2. Download and place genesis file:
 
-    ```bash
-    wget -O genesis.json $GENESIS_URL
-    mv genesis.json ~/.sei/config
-    ```
+```bash
+wget -O $HOME/.sei/config/genesis.json $GENESIS_URL
+```
 
-<div className="callout custom-green">
-    For light-client setup stop here, and add an RPC connection to `client.toml` as a final step.
-</div>
+### Configure Node
 
+1. Enable `sei-db`:
 
-#### Configure Node
+```bash
+sed -i 's/^sc-enable[[:space:]]*=.*$/sc-enable = true/; s/^ss-enable[[:space:]]*=.*$/ss-enable = true/' $HOME/.sei/config/app.toml
+```
 
-1. Set persistent peers:
+2. Run the state sync script:
 
-    ```bash
-    sed -i '/^# Comma separated list of nodes to keep persistent connections to$/,/^$/ s/^persistent-peers = ""$/persistent-peers = "de8b1df70c7a8817ed121908e7c6e6059f4238f9@3.142.50.176:26656,7a962f3a928ca4e0e58355e6e798aba1ea253272@34.242.85.117:26656"/' ~/.sei/config/config.toml
-    ```
+```bash
+chmod +x $HOME/sei-chain/scripts/state_sync.sh
+$HOME/sei-chain/scripts/state_sync.sh
+```
 
-2. Enable `sei-db` (dependent on snapshot provider, must align with the format in which it was provided):
+3. Create Systemd Service File:
 
-    ```bash
-    sed -i 's/^sc-enable = false/sc-enable = true/' ~/.sei/config/app.toml
-    ```
+```bash
+sudo tee /etc/systemd/system/seid.service > /dev/null << EOF
+[Unit]
+Description=Sei Daemon
+After=network-online.target
 
-### Create Systemd Service
+[Service]
+User=$USER
+ExecStart=$(which seid) start
+Restart=always
+RestartSec=3
+LimitNOFILE=65535
 
-1. Create the service file:
+[Install]
+WantedBy=multi-user.target
+EOF
+```
 
-    ```bash
-    nano /etc/systemd/system/seid.service
-    ```
+4. Start the node:
 
-2. Add the following content:
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable seid
+sudo systemctl start seid
+```
 
-    ```ini
-    [Unit]
-    Description="Sei Daemon"
-    After=network-online.target
+5. Verify that the state sync is progressing:
 
-    [Service]
-    User=<USER>
-    ExecStart=/home/<USER>/go/bin/seid start
-    Restart=always
-    RestartSec=3
-    LimitNOFILE=8192
-
-    [Install]
-    WantedBy=multi-user.target
-    ```
-
-### Download & Apply Snapshot
-
-Find a snapshot from a provider like [Polkachu](https://polkachu.com/tendermint_snapshots/sei), and either download, or define $SNAP_URL with it.
-
-1. Download snapshot:
-
-    ```bash
-    wget -O $SNAP_URL $SNAP
-    ```
-
-2. Stop the node (if running as systemd service):
-
-    ```bash
-    systemctl stop seid
-    ```
-
-3. Unpack snapshot to location:
-
-    ```bash
-    lz4 -c -d $SNAP | tar -x -C $HOME/.sei
-    ```
-
-4. Start service and confirm operation:
-
-    ```bash
-    systemctl start seid
-    systemctl status seid
-    ```
-
-5. Remove snapshot archive:
-
-    ```bash
-    rm -v $SNAP
-    ```
+```bash
+sudo journalctl -u seid -f -o cat
+```
 
 ## Appendix
 
-### Node Types
+### Default Service Ports
 
-- **RPC / Full Nodes:** Used for querying data or interacting with the chain. Default settings run RPC / full nodes.
-- **Archive Nodes:** Maintain full state from genesis. Set `min-retain-blocks=0` and `pruning="nothing"` in `app.toml`.
-- **State Sync Nodes:** Provide snapshot data for other nodes to bootstrap. Set a value greater than zero for `snapshot-interval` under `[statesync]` in `app.toml`.
-- **Validator Nodes:** Secure the chain by proposing and signing blocks. Set `mode=validator` in `config.toml`.
+The standard service ports can be configured in `$HOME/.sei/config/config.toml` and `$HOME/.sei/config/app.toml`:
 
-#### Default Service Ports
+- P2P: 26656
+- RPC: 26657
+- REST: 1317
+- GRPC: 9090
+- EVM RPC: 8545
+- EVM Websocket: 8546
+- Tendermint Prometheus Metrics Exporter: 26660
 
-The standard service ports can be manually configured in `$HOME/.sei/config/config.toml` and `$HOME/.sei/config/app.toml`:
-
-- `26656`: P2P
-- `26657`: RPC
-- `1317`: REST
-- `9090` : GRPC
-- `8545`: EVM RPC
-- `8546`: EVM Websocket
-- `26660`: Tendermint Prometheus Metrics Exporter
-
-<Callout type="info" emoji="📘">
-The standard websocket rides on the same connection as the RPC server. Example: [non-TLS] `ws://localhost:26657/websocket`.
-</Callout>
+The standard websocket uses the same connection as the RPC server. Example: `ws://localhost:26657/websocket` (non-TLS).
