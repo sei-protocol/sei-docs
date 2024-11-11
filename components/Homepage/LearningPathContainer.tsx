@@ -23,9 +23,9 @@ const LearningPathContainer: React.FC<LearningPathContainerProps> = ({ data }) =
       <LearningPathIntro />
 
       <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-3 gap-8">
-        <LearningPathColumn title="Beginner Path" data={data.beginner} />
-        <LearningPathColumn title="Intermediate Path" data={data.intermediate} />
-        <LearningPathColumn title="Advanced Path" data={data.advanced} />
+        <LearningPathColumn title="Beginner" data={data.beginner} />
+        <LearningPathColumn title="Intermediate" data={data.intermediate} />
+        <LearningPathColumn title="Advanced" data={data.advanced} />
       </div>
     </section>
   );

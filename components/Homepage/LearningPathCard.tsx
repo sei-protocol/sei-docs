@@ -20,7 +20,12 @@ const LearningPathCard: React.FC<LearningPathCardProps> = ({ doc, onComplete, is
 
   return (
     <div className="relative flex items-center p-4 rounded-lg bg-dark shadow-lg transition-transform transform hover:-translate-y-1 border border-transparent">
-      <a href={link} className="flex items-center">
+      <a
+        href={link}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center"
+      >
         {logo && (
           <div className="mr-4">
             <Image src={logo.url} alt={logo.alt} width={32} height={32} className="rounded-md" />
