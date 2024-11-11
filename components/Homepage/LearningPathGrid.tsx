@@ -1,26 +1,43 @@
 import React from 'react';
 import LearningPathCard from './LearningPathCard';
 
-interface LearningPathGridProps {
-  title: string;
-  data: Array<{
-    id: number;
-    name: string;
-    link: string;
-    logo: {
-      url: string;
-      alt: string;
-    };
-  }>;
+interface LearningPathData {
+  id: number;
+  name: string;
+  link: string;
+  logo: {
+    url: string;
+    alt: string;
+  };
 }
 
-const LearningPathGrid: React.FC<LearningPathGridProps> = ({ title, data }) => {
+interface LearningPathGridProps {
+  title: string;
+  data: LearningPathData[];
+  color: string;
+}
+
+const LearningPathGrid: React.FC<LearningPathGridProps> = ({ title, data, color }) => {
+  
   return (
-    <div className="path-grid bg-dark p-4 rounded-lg shadow-md">
-      <h3 className="text-lg font-bold text-gray-200 mb-4">{title}</h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {data.map((doc) => (
-          <LearningPathCard key={doc.id} doc={doc} />
+    <div className="mb-16 relative">
+      {/* Title with gradient */}
+      <h3 className={`text-xl font-bold mb-6 text-light ${color}`}>
+        {title}
+      </h3>
+
+      {/* Visual connectors between cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 relative">
+        {data.map((doc, index) => (
+          <>
+            {index > 0 && (
+              // Connector line between cards
+              <div
+                className={`absolute h-px w-full bg-gradient-to-r from-crimson to-transparent top-[50%] left-[50%] transform translate-x-[50%]`}
+              />
+            )}
+            <LearningPathCard key={doc.id} doc={doc} />
+          </>
         ))}
       </div>
     </div>
