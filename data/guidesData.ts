@@ -2,109 +2,64 @@ export const guidesData = {
     beginner: [
       {
         id: 1,
-        name: "1. Overview",
-        link: "/start/overview",
+        name: "1. Install seid CLI",
+        link: "/build/installing-seid",
         logo: {
           url: "/assets/sei_symbol_gradient.png",
-          alt: "Sei Overview",
+          alt: "Install seid CLI",
         },
       },
       {
         id: 2,
-        name: "2. Connect to Sei",
-        link: "/start/user-quickstart",
+        name: "2. Interact with Sei EVM",
+        link: "/build/evm-cli-tutorial",
         logo: {
           url: "/assets/sei_symbol_gradient.png",
-          alt: "Connect to Sei",
+          alt: "Interact with Sei EVs",
         },
       },
       {
         id: 3,
-        name: "3. Installing seid CLI",
-        link: "/build/installing-seid",
+        name: "3. Create Your First Contract",
+        link: "/build/evm-general",
         logo: {
           url: "/assets/sei_symbol_gradient.png",
-          alt: "Installing seid CLI",
+          alt: "Create Your First Contrac",
         },
       },
       {
         id: 4,
-        name: "4. Setting Up Local Chains",
-        link: "/start/dev-chains",
+        name: "4. Create an NFT",
+        link: "/build/nft-contract-tutorial",
         logo: {
           url: "/assets/sei_symbol_gradient.png",
-          alt: "Setting Up Local Chains",
-        },
-      },
-      {
-        id: 5,
-        name: "5. Understanding Token Standards",
-        link: "/start/dev-token-standards",
-        logo: {
-          url: "/assets/sei_symbol_gradient.png",
-          alt: "Understanding Token Standards",
-        },
-      },
-      {
-        id: 6,
-        name: "6. Understanding Gas",
-        link: "/start/dev-gas",
-        logo: {
-          url: "/assets/sei_symbol_gradient.png",
-          alt: "Understanding Gas",
-        },
-      },
-      {
-        id: 7,
-        name: "7. Deploying Your First Smart Contract",
-        link: "/start/dev-smart-contracts",
-        logo: {
-          url: "/assets/sei_symbol_gradient.png",
-          alt: "Deploying Your First Smart Contract",
-        },
-      },
-      {
-        id: 8,
-        name: "8. Building a Simple Frontend",
-        link: "/build/building-a-frontend",
-        logo: {
-          url: "/assets/sei_symbol_gradient.png",
-          alt: "Building a Simple Frontend",
-        },
-      },
-      {
-        id: 9,
-        name: "9. Testing and Debugging Smart Contracts",
-        link: "/start/dev-testing-debugging",
-        logo: {
-          url: "/assets/sei_symbol_gradient.png",
-          alt: "Testing and Debugging Smart Contracts",
+          alt: "Create an NFT",
         },
       },
     ],
     intermediate: [
       {
         id: 1,
-        name: "1. Working with EVM Contracts",
-        link: "/build/evm-general",
+        name: "1. Choose a VM",
+        link: "/build/dev-smart-contracts",
         logo: {
           url: "/assets/sei_symbol_gradient.png",
-          alt: "EVM Contracts",
+          alt: "Choose a VM",
         },
       },
       {
         id: 2,
-        name: "2. Working with CosmWasm Contracts",
-        link: "/build/cosmwasm-general",
+        name: "2. Query Chain State",
+        link: "/build/dev-querying-state",
         logo: {
           url: "/assets/sei_symbol_gradient.png",
-          alt: "CosmWasm Contracts",
+          alt: "Query Chain State",
         },
       },
       {
         id: 3,
-        name: "3. Setting Up Multi-Sig Accounts",
-        link: "/build/multi-sig-accounts",
+        name: "3. Create a Token ",
+        link: "/build/tokenfactory-tutorial",
         logo: {
           url: "/assets/sei_symbol_gradient.png",
           alt: "Multi-Sig Accounts",
@@ -112,139 +67,49 @@ export const guidesData = {
       },
       {
         id: 4,
-        name: "4. Achieving Interoperability Between VMs",
-        link: "/start/dev-interoperability",
+        name: "4. Build a Frontend",
+        link: "/build/building-a-frontend",
         logo: {
           url: "/assets/sei_symbol_gradient.png",
-          alt: "Interoperability Between VMs",
-        },
-      },
-      {
-        id: 5,
-        name: "5. Interoperability with IBC",
-        link: "/build/ibc-protocol",
-        logo: {
-          url: "/assets/sei_symbol_gradient.png",
-          alt: "Interoperability with IBC",
-        },
-      },
-      {
-        id: 6,
-        name: "6. Managing Transactions",
-        link: "/start/dev-transactions",
-        logo: {
-          url: "/assets/sei_symbol_gradient.png",
-          alt: "Managing Transactions",
-        },
-      },
-      {
-        id: 7,
-        name: "7. Configuring a Node",
-        link: "/node/node-configuration",
-        logo: {
-          url: "/assets/sei_symbol_gradient.png",
-          alt: "Configuring a Node",
-        },
-      },
-      {
-        id: 8,
-        name: "8. Advanced Querying and State Management",
-        link: "/start/dev-querying-state",
-        logo: {
-          url: "/assets/sei_symbol_gradient.png",
-          alt: "Advanced Querying and State Management",
-        },
-      },
-      {
-        id: 9,
-        name: "9. Deploying and Testing Smart Contracts",
-        link: "/build/smart-contract-deployment-testing",
-        logo: {
-          url: "/assets/sei_symbol_gradient.png",
-          alt: "Deploying and Testing Smart Contracts",
+          alt: "Build a Frontend",
         },
       },
     ],
     advanced: [
       {
         id: 1,
-        name: "1. Foo",
-        link: "#",
+        name: "1. Use Multi-Sig Accounts",
+        link: "/build/multi-sig-accounts",
         logo: {
           url: "/assets/sei_symbol_gradient.png",
-          alt: "Foo",
+          alt: "Use Multi-Sig Accounts",
         },
       },
       {
         id: 2,
-        name: "2. Bar",
-        link: "#",
+        name: "2. Deploy Pointer Contracts",
+        link: "/build/pointer-contracts",
         logo: {
           url: "/assets/sei_symbol_gradient.png",
-          alt: "Bar",
+          alt: "Deploy Pointer Contracts",
         },
       },
       {
         id: 3,
-        name: "3. Baz",
-        link: "#",
+        name: "3. Interoperate with IBC",
+        link: "/build/ibc-protocol",
         logo: {
           url: "/assets/sei_symbol_gradient.png",
-          alt: "Baz",
+          alt: "Interoperate with IBC",
         },
       },
       {
         id: 4,
-        name: "4. Foo",
-        link: "#",
+        name: "4. Add a Token Allowlist",
+        link: "/build/tokenfactory-allowlist",
         logo: {
           url: "/assets/sei_symbol_gradient.png",
-          alt: "Foo",
-        },
-      },
-      {
-        id: 5,
-        name: "5. Bar",
-        link: "#",
-        logo: {
-          url: "/assets/sei_symbol_gradient.png",
-          alt: "Bar",
-        },
-      },
-      {
-        id: 6,
-        name: "6. Baz",
-        link: "#",
-        logo: {
-          url: "/assets/sei_symbol_gradient.png",
-          alt: "Baz",
-        },
-      },
-      {
-        id: 7,
-        name: "7. Foo",
-        link: "#",
-        logo: {
-          url: "/assets/sei_symbol_gradient.png",
-          alt: "Foo",
-        },
-      },
-      {
-        id: 8,
-        name: "8. Bar",
-        link: "#",
-        logo: {
-          url: "/assets/sei_symbol_gradient.png",
-          alt: "Bar",
-        },
-      },
-      {
-        id: 9,
-        name: "9. Baz",
-        link: "#",
-        logo: {
-          url: "/assets/sei_symbol_gradient.png",
-          alt: "Baz",
+          alt: "Add Token Allowlists",
         },
       },
     ],
