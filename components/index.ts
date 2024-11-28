@@ -9,6 +9,7 @@ export * from './EcosystemCard';
 export * from './EvmWalletConnect';
 export * from './BrandKitGallery';
 export * from './ImageWithCaption';
+export * from './LinkCard';
 export * from './Logo';
 export * from './MantineWrapper';
 export * from './Nfts';
