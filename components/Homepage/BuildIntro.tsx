@@ -3,11 +3,11 @@ import {
   Title,
   Text,
   Button,
-  Group,
   useMantineTheme,
 } from '@mantine/core';
 import { IconArrowRight, IconChevronDown } from '@tabler/icons-react';
 import v2BannerImg from '../../public/assets/sei-temp-gradient.png';
+import styles from '../../styles/BuildIntro.module.css';
 
 interface BuildIntroProps {
   onScrollToDocs?: () => void;
@@ -44,73 +44,24 @@ const BuildIntro: React.FC<BuildIntroProps> = ({
     }
   }, [descriptions]);
 
-  const containerStyles = {
-    position: 'relative' as const,
-    padding: '60px 20px',
-    background: `url(${v2BannerImg.src}) center/cover no-repeat`,
-    color: theme.white,
-    textAlign: 'center' as const,
-    display: 'flex',
-    flexDirection: 'column' as const,
-    justifyContent: 'center',
-    alignItems: 'center',
-    minHeight: '50vh',
-  };
-
-  const overlayStyles = {
-    position: 'absolute' as const,
-    inset: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-  };
-
-  const contentStyles = {
-    position: 'relative' as const,
-    zIndex: 1,
-    maxWidth: '800px',
-    fontFamily: 'Satoshi, sans-serif',
-  };
-
-  const titleStyles = {
-    fontSize: '2.5rem',
-    fontWeight: 600,
-    marginBottom: '10px',
-  };
-
-  const subtitleStyles = {
-    fontSize: '1.25rem',
-    marginBottom: '20px',
-    lineHeight: 1.5,
-  };
-
-  const buttonContainerStyles = {
-    display: 'flex',
-    justifyContent: 'center',
-    gap: '10px',
-    marginTop: '20px',
-  };
-
-  const scrollStyles = {
-    marginTop: '30px',
-    cursor: 'pointer',
-    display: 'flex',
-    flexDirection: 'column' as const,
-    alignItems: 'center',
-    color: theme.white,
-  };
-
   return (
-    <section style={containerStyles}>
-      <div style={overlayStyles} />
-      <div style={contentStyles}>
-        <Title order={1} style={titleStyles}>
+    <section
+      className={styles.container}
+      style={{ backgroundImage: `url(${v2BannerImg.src})` }}
+    >
+      <div className={styles.overlay} />
+      <div className={styles.content}>
+        <Title order={1} className={styles.title}>
           {title}
         </Title>
-        <Text style={subtitleStyles}>{subtitle}</Text>
+        <Text className={styles.subtitle}>{subtitle}</Text>
         {descriptions.length > 0 && (
-          <Text>{descriptions[activeDescription]}</Text>
+          <Text className={styles.description}>
+            {descriptions[activeDescription]}
+          </Text>
         )}
         {(primaryButtonText || secondaryButtonText) && (
-          <div style={buttonContainerStyles}>
+          <div className={styles.buttonContainer}>
             {primaryButtonText && primaryButtonLink && (
               <Button
                 variant="filled"
@@ -118,7 +69,7 @@ const BuildIntro: React.FC<BuildIntroProps> = ({
                 size="md"
                 component="a"
                 href={primaryButtonLink}
-                leftIcon={<IconArrowRight size={18} />}
+                leftSection={<IconArrowRight size={18} />}
               >
                 {primaryButtonText}
               </Button>
@@ -137,8 +88,8 @@ const BuildIntro: React.FC<BuildIntroProps> = ({
           </div>
         )}
         {onScrollToDocs && (
-          <div style={scrollStyles} onClick={onScrollToDocs}>
-            <Text size="sm">{scrollText}</Text>
+          <div className={styles.scroll} onClick={onScrollToDocs}>
+            <Text className={styles.scrollText}>{scrollText}</Text>
             <IconChevronDown size={28} />
           </div>
         )}
