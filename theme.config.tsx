@@ -4,20 +4,38 @@ import { Logo } from './components/Logo';
 
 const config: DocsThemeConfig = {
   logo: <Logo />,
+  navigation: true,
+  primaryHue: {
+    dark: 0,
+    light: 0,
+  },
+  search: {
+    placeholder: 'Search documentation...',
+  },
   project: {
     link: 'https://github.com/sei-protocol',
   },
   chat: {
     link: 'https://discord.gg/sei',
   },
-  docsRepositoryBase: 'https://github.com/sei-protocol/sei-docs/tree/main',
+  navbar: {
+    extraContent: null,
+  },
+  feedback: {
+    content: 'Question? Give us feedback →',
+    useLink: () => 'https://github.com/sei-protocol/sei-docs/issues/new',
+  },
+  editLink: {
+    text: 'Edit this page',
+  },
   footer: {
     text: 'Sei Docs © 2024',
   },
-  head: <></>,
   sidebar: {
     defaultMenuCollapseLevel: 1,
+    toggleButton: true,
   },
+  darkMode: true,
   useNextSeoProps() {
     return {
       titleTemplate: '%s - Sei Docs',
@@ -65,6 +83,7 @@ const config: DocsThemeConfig = {
       ],
     };
   },
+  head: <></>,
 };
 
 export default config;
