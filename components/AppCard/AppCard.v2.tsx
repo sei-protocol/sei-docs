@@ -1,6 +1,6 @@
 import { ExternalLinkIcon } from "lucide-react";
 import Image from "next/image";
-import { EcosystemItem } from "../../data/ecosystemData";
+import type { EcosystemItem } from "../../data/ecosystemData";
 
 interface AppCardProps {
 	app: EcosystemItem;
