@@ -1,6 +1,6 @@
 // These values can be used in markdown, and even inside codeblocks
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react'; // Explicit React import for JSX
 import { randomValueSets } from './RandomConfigs';
 
 interface RandomizerProps {
@@ -37,7 +37,7 @@ const Randomizer: React.FC<RandomizerProps> = ({ values, setKey, interval = 3600
   }, [values, setKey, interval]);
 
   // render value as plaintext
-  return <>{randomValue}</>;
+  return <div>{randomValue}</div>;
 };
 
 export default Randomizer;
