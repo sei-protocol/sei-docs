@@ -9,7 +9,7 @@ Both addresses for a single account are derived from the same **public key**, bu
 
 ---
 
-## **How Address Linking Works**
+## **How Accounts Work on Sei**
 
 ### **Automatic Linking**
 
@@ -29,7 +29,7 @@ If the account has not broadcasted any transaction yet:
 
 ---
 
-## **Key Points to Remember**
+## **Key Points**
 
 ### **Before Linking**
 
@@ -71,14 +71,14 @@ Certain actions are **not possible** before wallets are associated:
 | SEI            | Y             | N               | 0x                  | CW-based Token  | Not Possible  |
 | SEI            | N             | Y               | Sei                 | CW-based Token  | wasm transfer |
 | SEI            | N             | Y               | 0x                  | CW-based Token  | Not Possible  |
-| EVM            | Y             | N               | Sei                 | ERC-based Token | evm transfer  |
+| EVM            | Y             | N               | Sei                 | ERC-based Token | Not Possible  |
 | EVM            | Y             | N               | 0x                  | ERC-based Token | evm transfer  |
 | EVM            | N             | Y               | Sei                 | ERC-based Token | evm transfer  |
 | EVM            | N             | Y               | 0x                  | ERC-based Token | evm transfer  |
 
 ---
 
-## **1. Query Linked Addresses**
+## Query Linked Addresses
 
 ### Fetch EVM Address for a Sei Address
 
@@ -129,7 +129,7 @@ curl -X POST $SEIEVM -H "Content-Type: application/json" -d \
 
 ---
 
-### **2. Manual Association Using `sei_associate`**
+### Manual Association Using `sei_associate`
 
 If no transaction has been broadcasted, use this command to manually associate the addresses:
 
@@ -143,7 +143,15 @@ seid tx evm associate-address [optional priv key hex] --rpc=<url> --from=<sender
 
 ## **Deriving Addresses from the Public Key**
 
-### **Sei Address Derivation** (`derive.ts`)
+### **Sei Address Derivation**
+
+The Sei native address is derived from the public key using the following steps:
+
+1. Hash the public key using the `keccak256` algorithm.
+2. Extract the first 20 bytes of the resulting hash.
+3. Encode the extracted bytes in **Bech32 format** with the `sei` prefix.
+
+Example implementation:
 
 ```ts
 import { bech32 } from 'bech32';
@@ -156,7 +164,15 @@ export function deriveSeiAddress(publicKey: Buffer): string {
 }
 ```
 
-### **EVM Address Derivation** (`derivefrompk.ts`)
+### **EVM Address Derivation**
+
+The EVM-compatible address is derived as follows:
+
+1. Hash the public key using the `keccak256` algorithm.
+2. Extract the **last 20 bytes** of the resulting hash.
+3. Prefix the extracted bytes with `0x` to obtain the EVM address.
+
+Example implementation:
 
 ```ts
 import { keccak256 } from 'ethereumjs-util';
@@ -167,11 +183,15 @@ export function deriveEVMAddress(publicKey: Buffer): string {
 }
 ```
 
-**Summary**:
+### **Summary**
 
-1. The **public key** is hashed using `keccak256`.
-2. For Sei addresses: The first 20 bytes are encoded in Bech32 format.
-3. For EVM addresses: The last 20 bytes are used in Hex format.
+- **Public Key Hashing**: Both derivations rely on the `keccak256` hashing algorithm.
+- **Sei Address**: Extract the **first 20 bytes** of the hash and encode it in **Bech32 format**.
+- **EVM Address**: Extract the **last 20 bytes** of the hash and format it in **Hex** with a `0x` prefix.
+
+### **Why It Works**
+
+The `keccak256` hashing ensures a consistent and verifiable process for deriving both address formats from the same public key. This enables a single account to maintain compatibility across the Sei native and EVM environments.
 
 ---
 
@@ -180,3 +200,9 @@ export function deriveEVMAddress(publicKey: Buffer): string {
 - Accounts are automatically linked when a transaction is broadcasted or can be manually associated using `sei_associate`.
 - Both address formats share the same **public key**.
 - Linking enables dApps and tools to access balances consistently across both address formats.
+
+---
+
+## **Next Steps**
+
+For detailed technical instructions on how to perform account association, refer to the **Wallet Association** section.
