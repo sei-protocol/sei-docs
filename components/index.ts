@@ -17,3 +17,4 @@ export * from './VersionFetcher';
 export * from './PropertyInfo';
 export * from './EcosystemMap';
 export * from './InteractiveTerminal';
+export * from './AskCookbook';
