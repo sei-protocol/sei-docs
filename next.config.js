@@ -24,6 +24,5 @@ module.exports = withNextra({
 		return [
 		  { source: '/', destination: '/learn' }
 		]
-	  }
-	  
+	  }	  
 });
