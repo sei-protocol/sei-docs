@@ -1,8 +1,23 @@
 // TokenCard.tsx
+
 import React, { useState } from 'react';
 import { Text, Tooltip, TextInput } from '@mantine/core';
 import { IconInfoCircle, IconChevronDown } from '@tabler/icons-react';
 import classes from '../../styles/TokenCard.module.css';
+
+interface TokenCardProps {
+  title: string;
+  tooltip?: string;
+  details: Array<{
+    label?: string;
+    content?: string;
+    title?: string;
+    sections?: Array<{
+      content: string;
+      command?: string;
+    }>;
+  }>;
+}
 
 export function TokenCard({ title, tooltip, details }: TokenCardProps) {
   const [conversionInput, setConversionInput] = useState('');
@@ -59,15 +74,17 @@ export function TokenCard({ title, tooltip, details }: TokenCardProps) {
                 <Text className={classes.content}>{detail.content}</Text>
               )}
             </>
-          ) : detail.title && (
+          ) : detail.title ? (
             <div className={classes.subsection}>
-              <button 
+              <button
                 className={classes.expandButton}
-                onClick={() => toggleSection(detail.title)}
+                onClick={() => toggleSection(detail.title as string)}
               >
-                <IconChevronDown 
+                <IconChevronDown
                   size={12}
-                  className={`${classes.chevron} ${expandedSection === detail.title ? classes.chevronExpanded : ''}`}
+                  className={`${classes.chevron} ${
+                    expandedSection === detail.title ? classes.chevronExpanded : ''
+                  }`}
                 />
                 <Text>{detail.title}</Text>
               </button>
@@ -86,7 +103,7 @@ export function TokenCard({ title, tooltip, details }: TokenCardProps) {
                 </div>
               )}
             </div>
-          )}
+          ) : null}
         </div>
       ))}
     </div>
