@@ -20,4 +20,10 @@ module.exports = withNextra({
 			}
 		]
 	},
+	async rewrites() {
+		return [
+		  { source: '/', destination: '/learn' }
+		]
+	  }
+	  
 });
