@@ -204,7 +204,7 @@ const SeiIntro: FC<SeiIntroProps> = ({ onScrollToDocs }) => {
 								size="md"
 								style={buttonStyles}
 								component="a"
-								href="/onboard/user-quickstart"
+								href="/learn/user-quickstart"
 								onMouseOver={(e) =>
 									(e.currentTarget.style.background =
 										primaryButtonHoverStyles.background)

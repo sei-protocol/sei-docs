@@ -29,7 +29,7 @@ const VMCard: React.FC<VMCardProps> = ({
       }}
     >
       <Card.Section withBorder inheritPadding py="xs">
-        <Group justify="apart" mb="xs">
+        <Group justify="space-between" mb="xs">
           <Group>
             <Text fw={700} size="xl" color="#ECEDEE">{title}</Text>
             {ecosystemSize && (

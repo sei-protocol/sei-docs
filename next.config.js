@@ -20,13 +20,4 @@ module.exports = withNextra({
 			}
 		]
 	},
-	async redirects() {
-		return [
-			{
-				source: '/',
-				destination: '/onboard',
-				permanent: true
-			}
-		];
-	}
 });

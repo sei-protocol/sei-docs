@@ -69,8 +69,8 @@ const BuildIntro: React.FC<BuildIntroProps> = ({
                 size="md"
                 component="a"
                 href={primaryButtonLink}
-                leftSection={<IconArrowRight size={18} />}
               >
+                <IconArrowRight size={18} style={{ marginRight: 8 }} />
                 {primaryButtonText}
               </Button>
             )}
