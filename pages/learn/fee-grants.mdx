@@ -1,0 +1,120 @@
+import { CodeBlock } from '../../components/CodeBlock';
+
+# Fee Grants
+
+Fee grants allow an account to pay for the transaction fees of another account, which is especially useful for onboarding new users who might not have enough tokens to cover transaction fees.
+
+## Fee Allowance Types
+
+Fee grants use the Cosmos Fee Grant module and can be set up so that one account (the granter) can pay for the transaction fees of another account (the grantee). The granter specifies conditions under which the fees will be paid as well as limits.
+
+- **BasicAllowance**: Implements Allowance with a one-time grant of tokens that optionally expires. The grantee can use up to SpendLimit to cover fees.
+- **PeriodicAllowance**: Extends Allowance to allow for both a maximum cap, and a limit per time period.
+- **AllowedMsgAllowance**: Creates allowance only for specified message types.
+
+## Granting
+
+### Using CLI
+
+<CodeBlock
+  title="Grant Fee Allowance"
+  language="bash"
+  code="seid tx feegrant grant [granter_key_or_address] [grantee] [flags]"
+  flags={{
+    '--spend-limit': 'Specify maximum spend limit',
+    '--expiration': 'Set expiration timestamp',
+    '--period': 'Set time duration for periodic allowance',
+    '--period-limit': 'Maximum number of coins spendable per period',
+    '--allowed-messages': 'Set of allowed messages for fee allowance',
+  }}
+/>
+
+### Using CosmJS
+
+<CodeBlock
+  title="Grant Fee Allowance"
+  language="jsx"
+  code={`const { SigningStargateClient, GasPrice } = require("@cosmjs/stargate");
+const { DirectSecp256k1HdWallet } = require("@cosmjs/proto-signing");
+
+async function grantFeeGrant(rpcEndpoint, granterMnemonic, granteeAddress) {
+  const granterWallet = await DirectSecp256k1HdWallet.fromMnemonic(granterMnemonic, {
+    prefix: "sei"
+  });
+  const [granterAccount] = await granterWallet.getAccounts();
+  
+  const client = await SigningStargateClient.connectWithSigner(
+    rpcEndpoint,
+    granterWallet,
+    { gasPrice: GasPrice.fromString("0.025usei") }
+  );
+
+  const msg = {
+    typeUrl: "/cosmos.feegrant.v1beta1.MsgGrantAllowance",
+    value: {
+      granter: granterAccount.address,
+      grantee: granteeAddress,
+      allowance: {
+        typeUrl: "/cosmos.feegrant.v1beta1.BasicAllowance",
+        value: {
+          spendLimit: [{ denom: "usei", amount: "1000000" }],
+          expiration: null
+        }
+      }
+    }
+  };
+
+  const fee = {
+    amount: [{ denom: "usei", amount: "5000" }],
+    gas: "200000"
+  };
+
+  const result = await client.signAndBroadcast(granterAccount.address, [msg], fee);
+  console.log(result);
+}`}
+  variations={[
+    {
+      name: 'TypeScript',
+      code: `import { SigningStargateClient, GasPrice } from "@cosmjs/stargate";
+import { DirectSecp256k1HdWallet } from "@cosmjs/proto-signing";
+
+async function grantFeeGrant(
+  rpcEndpoint: string,
+  granterMnemonic: string,
+  granteeAddress: string
+) {
+  const granterWallet = await DirectSecp256k1HdWallet.fromMnemonic(granterMnemonic, {
+    prefix: "sei",
+  });
+  const [granterAccount] = await granterWallet.getAccounts();
+
+  const client = await SigningStargateClient.connectWithSigner(rpcEndpoint, granterWallet, {
+    gasPrice: GasPrice.fromString("0.025usei"),
+  });
+
+  const msg = {
+    typeUrl: "/cosmos.feegrant.v1beta1.MsgGrantAllowance",
+    value: {
+      granter: granterAccount.address,
+      grantee: granteeAddress,
+      allowance: {
+        typeUrl: "/cosmos.feegrant.v1beta1.BasicAllowance",
+        value: {
+          spendLimit: [{ denom: "usei", amount: "1000000" }],
+          expiration: null,
+        },
+      },
+    },
+  };
+
+  const fee = {
+    amount: [{ denom: "usei", amount: "5000" }],
+    gas: "200000",
+  };
+
+  const result = await client.signAndBroadcast(granterAccount.address, [msg], fee);
+  console.log(result);
+}`
+    },
+  ]}
+/>
