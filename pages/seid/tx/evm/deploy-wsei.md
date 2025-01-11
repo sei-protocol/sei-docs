@@ -3,7 +3,7 @@
 Deploy ERC20 contract for a native Sei token
 
 Usage:
-  seid tx evm deploy-wsei --from=<sender> --gas-fee-cap=<cap> --gas-limt=<limit> --evm-rpc=<url> [flags]
+  seid tx evm deploy-wsei --from=<sender> --gas-fee-cap=<cap> --gas-limit=<limit> --evm-rpc=<url> [flags]
 
 Flags:
   -a, --account-number uint      The account number of the signing account (offline mode only)

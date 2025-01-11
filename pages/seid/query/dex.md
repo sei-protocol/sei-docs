@@ -11,7 +11,7 @@ Available Commands:
   get-asset-metadata      Query Asset Metadata
   get-latest-price        Query getLatestPrice
   get-match-result        Query get match result by contract
-  get-order-count         get number of orders at a price leve
+  get-order-count         get number of orders at a price level
   get-orders              Query get orders for account
   get-orders-by-id        Query get order by ID
   get-price               Query getPrice

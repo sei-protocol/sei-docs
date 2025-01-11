@@ -3,7 +3,7 @@
 send recipient <amount> (in smallest unit) ERC20 tokens
 
 Usage:
-  seid tx evm erc20-send [addr] [recipient] [amount] --from=<sender> --gas-fee-cap=<cap> --gas-limt=<limit> --evm-rpc=<url> [flags]
+  seid tx evm erc20-send [addr] [recipient] [amount] --from=<sender> --gas-fee-cap=<cap> --gas-limit=<limit> --evm-rpc=<url> [flags]
 
 Flags:
   -a, --account-number uint      The account number of the signing account (offline mode only)

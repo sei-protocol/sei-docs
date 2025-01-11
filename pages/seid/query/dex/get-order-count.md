@@ -1,6 +1,6 @@
 ### `seid query dex get-order-count`
 ```ansi
-get number of orders at a price leve
+get number of orders at a price level
 
 Usage:
   seid query dex get-order-count [contract] [price denom] [asset denom] [LONG|SHORT] [price] [flags]

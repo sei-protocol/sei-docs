@@ -16,10 +16,10 @@ Available Commands:
   pool                       Query the current staking pool values
   redelegation               Query a redelegation record based on delegator and a source and destination validator address
   redelegations              Query all redelegations records for one delegator
-  redelegations-from         Query all outgoing redelegatations from a validator
+  redelegations-from         Query all outgoing redelegations from a validator
   unbonding-delegation       Query an unbonding-delegation record based on delegator and validator address
   unbonding-delegations      Query all unbonding-delegations records for one delegator
-  unbonding-delegations-from Query all unbonding delegatations from a validator
+  unbonding-delegations-from Query all unbonding delegations from a validator
   validator                  Query a validator
   validators                 Query for all validators
 
