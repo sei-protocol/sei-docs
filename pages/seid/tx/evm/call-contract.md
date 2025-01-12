@@ -3,7 +3,7 @@
 Call EVM contract with a bytes payload in hex
 
 Usage:
-  seid tx evm call-contract [addr] [payload hex] --value=<payment> --from=<sender> --gas-fee-cap=<cap> --gas-limt=<limit> --evm-rpc=<url> [flags]
+  seid tx evm call-contract [addr] [payload hex] --value=<payment> --from=<sender> --gas-fee-cap=<cap> --gas-limit=<limit> --evm-rpc=<url> [flags]
 
 Flags:
   -a, --account-number uint      The account number of the signing account (offline mode only)

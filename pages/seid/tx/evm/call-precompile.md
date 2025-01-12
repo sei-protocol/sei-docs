@@ -3,7 +3,7 @@
 call method on precompile
 
 Usage:
-  seid tx evm call-precompile [precompile name] [method] [args...] --value=<payment> --from=<sender> --gas-fee-cap=<cap> --gas-limt=<limit> --evm-rpc=<url> [flags]
+  seid tx evm call-precompile [precompile name] [method] [args...] --value=<payment> --from=<sender> --gas-fee-cap=<cap> --gas-limit=<limit> --evm-rpc=<url> [flags]
 
 Flags:
   -a, --account-number uint      The account number of the signing account (offline mode only)
