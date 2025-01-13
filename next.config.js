@@ -19,5 +19,10 @@ module.exports = withNextra({
 				pathname: '/65cb43fecf24523357feada9/**'
 			}
 		]
-	}
+	},
+	async rewrites() {
+		return [
+		  { source: '/', destination: '/learn' }
+		]
+	  }	  
 });
