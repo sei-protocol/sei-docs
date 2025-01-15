@@ -1,14 +1,11 @@
 import React from 'react';
-import { Title, Text, Button, useMantineTheme } from '@mantine/core';
-import { IconArrowRight } from '@tabler/icons-react';
+import { Title, Text, Button } from '@mantine/core';
 import Link from 'next/link';
 import Image from 'next/image';
 import SeiIcon from '../../public/assets/sei-icon.png';
 import styles from '../../styles/SeiIntro.module.css';
 
 const SeiIntro: React.FC = () => {
-	const theme = useMantineTheme();
-
 	return (
 		<section className={styles.hero}>
 			<div style={{ marginBottom: '1rem' }}>
@@ -20,18 +17,13 @@ const SeiIntro: React.FC = () => {
 
 			<div className={styles.ctaWrapper}>
 				<Link href='/learn/user-quickstart' passHref>
-					<Button<'a'>
-						component='a'
-						variant='gradient'
-						gradient={{ from: '#9E1F19', to: '#780000', deg: 135 }}
-						size='sm'
-						classNames={{ root: styles.gradientButton }}>
-						Quickstart <IconArrowRight size={16} />
+					<Button<'a'> component='a' variant='outline' size='sm' classNames={{ root: styles.outlineButton }}>
+						Quickstart
 					</Button>
 				</Link>
 
 				<Link href='/learn/general-overview' passHref>
-					<Button<'a'> component='a' variant='outline' color='gray' size='sm' classNames={{ root: styles.outlineButton }}>
+					<Button<'a'> component='a' variant='outline' size='sm' classNames={{ root: styles.outlineButton }}>
 						About Sei
 					</Button>
 				</Link>
