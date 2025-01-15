@@ -76,18 +76,12 @@ const SeiIntro: React.FC = () => {
 
 			<div style={ctaWrapper}>
 				<Link href='/onboard/user-quickstart' passHref>
-					<Button
-						component='a'
-						variant='gradient'
-						gradient={{ from: '#9E1F19', to: '#780000', deg: 135 }}
-						size='sm'
-						styles={{ root: gradientButtonRoot }}
-						rightIcon={<IconArrowRight size={16} />}>
-						Quickstart
+					<Button<'a'> component='a' variant='gradient' gradient={{ from: '#9E1F19', to: '#780000', deg: 135 }} size='sm' styles={{ root: gradientButtonRoot }}>
+						Quickstart <IconArrowRight size={16} />
 					</Button>
 				</Link>
 				<Link href='/learn/general-overview' passHref>
-					<Button component='a' variant='outline' color='gray' size='sm' styles={{ root: outlineButtonRoot }}>
+					<Button<'a'> component='a' variant='outline' color='gray' size='sm' styles={{ root: outlineButtonRoot }}>
 						About Sei
 					</Button>
 				</Link>

@@ -1,5 +1,6 @@
+// theme.config.tsx
 import React from 'react';
-import type { DocsThemeConfig, Layout, PageOpts } from 'nextra-theme-docs';
+import type { DocsThemeConfig } from 'nextra-theme-docs';
 import { Logo } from './components/Logo';
 
 const config: DocsThemeConfig = {
@@ -49,18 +50,7 @@ const config: DocsThemeConfig = {
 			]
 		};
 	},
-	head: <></>,
-	getLayout(page) {
-		const { route } = page.props as PageOpts;
-		if (route === '/') {
-			return (
-				<Layout {...page.props} sidebar={{ hidden: true }}>
-					{page}
-				</Layout>
-			);
-		}
-		return page;
-	}
+	head: <></>
 };
 
 export default config;
