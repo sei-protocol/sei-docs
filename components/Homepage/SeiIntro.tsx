@@ -16,17 +16,12 @@ const SeiIntro: React.FC = () => {
 			<Text className={styles.subtitle}>Sei is the first parallelized EVM blockchain delivering unmatched scalability.</Text>
 
 			<div className={styles.ctaWrapper}>
-				<Link href='/learn/user-quickstart' passHref>
-					<Button<'a'> component='a' variant='outline' size='sm' classNames={{ root: styles.outlineButton }}>
-						Quickstart
-					</Button>
-				</Link>
-
-				<Link href='/learn/general-overview' passHref>
-					<Button<'a'> component='a' variant='outline' size='sm' classNames={{ root: styles.outlineButton }}>
-						About Sei
-					</Button>
-				</Link>
+				<Button component={Link} href='/learn/user-quickstart' variant='outline' size='sm' classNames={{ root: styles.outlineButton }}>
+					Quickstart
+				</Button>
+				<Button component={Link} href='/learn/general-overview' variant='outline' size='sm' classNames={{ root: styles.outlineButton }}>
+					About Sei
+				</Button>
 			</div>
 		</section>
 	);
