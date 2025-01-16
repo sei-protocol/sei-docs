@@ -1,74 +1,75 @@
 // components/EvmWalletConnect/CustomConnectButton.tsx
-import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { ConnectButton } from '@rainbow-me/rainbowkit';
 import styled from 'styled-components';
 
 const CustomButton = styled.button`
-background: black; /* Dark color */
-border: white solid 1px;
-color: white; /* Light color */
-padding: 0.5rem 1rem;
-font-size: 1rem;
-cursor: pointer;
-transition: color 0.3s, background 0.3s;
-display: inline-block;
-margin-top: 1rem;
-margin-right: 0.5rem;
-border-radius: 25px; /* Rounded corners */
-text-align: center;
-box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-font-family: 'Inter', sans-serif;
+	/* --- Light Mode (default) --- */
+	background-color: #f9d2d2; /* same light red as LinkCards */
+	color: #000;
+	border-radius: 0.75rem;
+	border: none;
+	padding: 0.75rem 1.25rem;
+	font-family: 'Inter', sans-serif;
+	font-size: 1rem;
+	cursor: pointer;
+	margin-top: 1rem;
+	margin-right: 0.5rem;
+	transition:
+		background-color 0.3s ease,
+		color 0.3s ease;
 
-&:hover {
-    color: black; /* Dark color */
-    background: white; /* Light color */
-    border: black solid 1px;
-}
+	&:hover {
+		background-color: #e5a8a8; /* same hover color as LinkCards in light mode */
+		color: #000;
+	}
+
+	/* --- Force Dark Mode (matching .cardLink dark-red) --- */
+	/* Adjust if you have .dark on <html> or <body> */
+	html.dark &,
+	body.dark & {
+		background-color: #8b1f1f !important; /* same dark red as LinkCards */
+		color: #fff !important;
+
+		&:hover {
+			background-color: #9b2f2f !important;
+			color: #fff !important;
+		}
+	}
 `;
 
-const CustomConnectButton = (props) => (
-<ConnectButton.Custom>
-{({ account, chain, openAccountModal, openConnectModal, openChainModal, mounted }) => {
-    const ready = mounted;
-    const connected = ready && account && chain;
+const CustomConnectButton = () => (
+	<ConnectButton.Custom>
+		{({ account, chain, openAccountModal, openConnectModal, openChainModal, mounted }) => {
+			const ready = mounted;
+			const connected = ready && account && chain;
 
-    return (
-    <div
-        {...(!ready && {
-        'aria-hidden': true,
-        'style': {
-            opacity: 0,
-            pointerEvents: 'none',
-            userSelect: 'none'
-        },
-        })}
-    >
-        {(() => {
-        if (!connected) {
-            return (
-            <CustomButton onClick={openConnectModal} type="button">
-                Connect Wallet
-            </CustomButton>
-            );
-        }
-
-        if (chain.unsupported) {
-            return (
-            <CustomButton onClick={openChainModal} type="button">
-                Wrong network
-            </CustomButton>
-            );
-        }
-
-        return (
-            <CustomButton onClick={openAccountModal} type="button">
-            {account.displayName}
-            </CustomButton>
-        );
-        })()}
-    </div>
-    );
-}}
-</ConnectButton.Custom>
+			return (
+				<div
+					{...(!ready && {
+						'aria-hidden': true,
+						style: {
+							opacity: 0,
+							pointerEvents: 'none',
+							userSelect: 'none'
+						}
+					})}>
+					{!connected ? (
+						<CustomButton onClick={openConnectModal} type='button'>
+							Connect Wallet
+						</CustomButton>
+					) : chain?.unsupported ? (
+						<CustomButton onClick={openChainModal} type='button'>
+							Wrong network
+						</CustomButton>
+					) : (
+						<CustomButton onClick={openAccountModal} type='button'>
+							{account?.displayName}
+						</CustomButton>
+					)}
+				</div>
+			);
+		}}
+	</ConnectButton.Custom>
 );
 
 export default CustomConnectButton;
