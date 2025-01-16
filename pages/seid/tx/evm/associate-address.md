@@ -3,7 +3,7 @@
 associate EVM and Sei address for the sender
 
 Usage:
-  seid tx evm associate-address [optional priv key hex] --rpc=<url> --from=<sender> [flags]
+  seid tx evm associate-address [optional priv key hex] --evm-rpc=<url> --from=<sender> [flags]
 
 Flags:
   -a, --account-number uint      The account number of the signing account (offline mode only)
