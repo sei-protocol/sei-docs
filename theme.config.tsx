@@ -1,6 +1,7 @@
 import React from 'react';
 import type { DocsThemeConfig } from 'nextra-theme-docs';
 import { Logo } from './components/Logo';
+import { Footer } from './components/Footer/Footer';
 
 const config: DocsThemeConfig = {
 	logo: <Logo />,
@@ -15,12 +16,11 @@ const config: DocsThemeConfig = {
 		useLink: () => 'https://github.com/sei-protocol/sei-docs/issues/new'
 	},
 	editLink: { text: 'Edit this page' },
-	footer: { text: 'Sei Docs © 2024' },
-	sidebar: {
-		defaultMenuCollapseLevel: 1,
-		toggleButton: true
-	},
+	sidebar: { defaultMenuCollapseLevel: 1, toggleButton: true },
 	darkMode: true,
+	footer: {
+		component: <Footer />
+	},
 	useNextSeoProps() {
 		return {
 			titleTemplate: '%s - Sei Docs',
@@ -43,8 +43,18 @@ const config: DocsThemeConfig = {
 			twitter: { site: '@SeiNetwork' },
 			additionalLinkTags: [
 				{ rel: 'icon', href: '/favicon.ico' },
-				{ rel: 'icon', type: 'image/png', sizes: '16x16', href: '/favicon-16x16.png' },
-				{ rel: 'icon', type: 'image/png', sizes: '32x32', href: '/favicon-32x32.png' },
+				{
+					rel: 'icon',
+					type: 'image/png',
+					sizes: '16x16',
+					href: '/favicon-16x16.png'
+				},
+				{
+					rel: 'icon',
+					type: 'image/png',
+					sizes: '32x32',
+					href: '/favicon-32x32.png'
+				},
 				{ rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png' }
 			]
 		};

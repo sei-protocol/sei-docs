@@ -8,12 +8,12 @@ import styles from '../../styles/SeiIntro.module.css';
 const SeiIntro: React.FC = () => {
 	return (
 		<section className={styles.hero}>
-			<div style={{ marginBottom: '1rem' }}>
+			<div style={{ marginBottom: '2rem' }}>
 				<Image src={SeiIcon} alt='Sei Icon' width={100} height={100} priority />
 			</div>
 
 			<Title className={styles.title}>Sei Network Documentation</Title>
-			<Text className={styles.subtitle}>The first parallelized EVM blockchain delivering unmatched scalability.</Text>
+			<Text className={styles.subtitle}>Sei is the first parallelized EVM blockchain delivering unmatched scalability.</Text>
 
 			<div className={styles.ctaWrapper}>
 				<Link href='/learn/user-quickstart' passHref>
