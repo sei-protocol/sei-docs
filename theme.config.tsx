@@ -21,6 +21,7 @@ const config: DocsThemeConfig = {
 	footer: {
 		component: <Footer />
 	},
+	docsRepositoryBase: 'https://github.com/sei-protocol/sei-docs/tree/main',
 	useNextSeoProps() {
 		return {
 			titleTemplate: '%s - Sei Docs',
