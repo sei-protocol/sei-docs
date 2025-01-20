@@ -2,46 +2,43 @@ import { ExternalLinkIcon } from 'lucide-react';
 import Image from 'next/image';
 import type { EcosystemItem } from '../../data/ecosystemData';
 
-interface AppCardProps {
+interface AppCardV2Props {
 	app: EcosystemItem;
 }
-const AppCardV2 = ({ app }: AppCardProps) => {
+
+export default function AppCardV2({ app }: AppCardV2Props) {
 	if (!app) return null;
-	const fields = app.fieldData;
-	const { name, logo, link, 'integration-guide-link': integration, 'short-description': shortDescription } = fields;
-	if (!logo) {
-		return null;
-	}
+	const { name, logo, link, 'short-description': desc, 'integration-guide-link': integration } = app.fieldData;
+
+	if (!logo) return null;
+
 	return (
-		<div className='group flex flex-col'>
-			<div className='border dark:border-gray-800 rounded-lg  overflow-hidden flex flex-row lg:flex-col grow h-ull'>
-				<div className='relative overflow-hidden grid place-items-center aspect-square border-r lg:border-b lg:border-r-0 dark:border-gray-800'>
-					<a href={link} rel='noopener noreferrer' target='_blank' className='group'>
-						<Image src={logo.url} alt={`${name} logo`} width={300} height={300} className='transition-all group-hover:scale-[1.15]' />
+		<div className='group flex flex-col w-[180px] flex-shrink-0 rounded-lg overflow-hidden bg-[#121212] border border-[#2c2c2c] hover:border-[#424242] transition-colors'>
+			<div className='relative aspect-square flex items-center justify-center bg-black'>
+				{link ? (
+					<a href={link} target='_blank' rel='noopener noreferrer'>
+						<Image src={logo.url} alt={`${name} logo`} width={100} height={100} className='p-4 mx-auto transition-transform group-hover:scale-105' />
 					</a>
-				</div>
-				<div className='px-3 pt-2 pb-3 bg-gray-100 dark:bg-gray-800 w-full flex flex-col grow space-y-1'>
-					<h3 className='text-lg font-semibold inline-flex items-center gap-2' title={name}>
-						{name}
-					</h3>
-					{shortDescription && (
-						<p className='opacity-75 text-sm line-clamp-4' title={shortDescription}>
-							{shortDescription}
-						</p>
-					)}
-					{integration && (
-						<a
-							href={integration}
-							rel='noopener noreferrer'
-							target='_blank'
-							className='inline-flex items-center gap-2 bg-black text-white dark:bg-white dark:text-black px-3 py-1 self-start rounded-lg mt-2 text-sm font-medium tracking-tight'>
-							Integration <ExternalLinkIcon className='inline-block w-3 h-4 hover:underline' />
-						</a>
-					)}
-				</div>
+				) : (
+					<Image src={logo.url} alt={`${name} logo`} width={100} height={100} className='p-4 mx-auto' />
+				)}
+			</div>
+			<div className='p-3 text-white flex flex-col gap-1'>
+				<h3 className='text-sm font-semibold line-clamp-1' title={name}>
+					{name}
+				</h3>
+				{desc && <p className='text-xs text-gray-300 line-clamp-3'>{desc}</p>}
+				{integration && (
+					<a
+						href={integration}
+						target='_blank'
+						rel='noopener noreferrer'
+						className='mt-2 inline-flex items-center gap-1 px-2 py-1 bg-white text-black text-xs rounded hover:opacity-80 transition-opacity'>
+						Integration
+						<ExternalLinkIcon className='w-3 h-3' />
+					</a>
+				)}
 			</div>
 		</div>
 	);
-};
-
-export default AppCardV2;
+}

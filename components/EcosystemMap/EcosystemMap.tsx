@@ -1,103 +1,76 @@
-import { useConfig } from 'nextra-theme-docs'
-import { useEffect, useState } from 'react'
-import { groupBy } from 'underscore'
-import { EcosystemSection, EcosystemSkeleton } from '.'
-import {
-  EcosystemResponse,
-  getSeiEcosystemAppsData,
-} from '../../data/ecosystemData'
+import { useEffect, useState } from 'react';
+import { groupBy } from 'underscore';
+import { EcosystemSection, EcosystemSkeleton } from '.';
+import { EcosystemItem, EcosystemResponse, getSeiEcosystemAppsData } from '../../data/ecosystemData';
+import EcosystemSearchBar from './EcosystemSearchBar';
 
-// ;[
-//   'Consumer Apps',
-//   'Infrastructure',
-//   'DeFi',
-//   'Data & Analytics',
-//   'Wallets',
-//   'NFTs',
-//   'Exchanges & On/Off Ramps',
-//   'Other',
-//   'AI',
-// ]
+export default function EcosystemMap() {
+	const [apps, setApps] = useState<EcosystemItem[] | null>(null);
+	const [loading, setLoading] = useState(true);
+	const [searchTerm, setSearchTerm] = useState('');
 
+	useEffect(() => {
+		(async () => {
+			try {
+				const data: EcosystemResponse = await getSeiEcosystemAppsData();
+				setApps(data.data);
+			} catch (error) {
+				console.error('Failed to fetch data:', error);
+			} finally {
+				setLoading(false);
+			}
+		})();
+	}, []);
 
-const EcosystemMap = () => {
-  const [apps, setApps] = useState<EcosystemResponse['data'] | null>(null)
-  const [loading, setLoading] = useState(true)
+	if (loading || !apps) {
+		return <EcosystemSkeleton />;
+	}
 
-  const config = useConfig()
+	const filteredApps = apps.filter((app) => {
+		const fields = app.fieldData;
+		const normalizedSearch = searchTerm.toLowerCase();
+		const matchesName = fields.name?.toLowerCase().includes(normalizedSearch);
+		const matchesMainCategory = fields.categorie?.toLowerCase().includes(normalizedSearch);
+		const matchesSubCategory = fields['categorie-2']?.toLowerCase().includes(normalizedSearch);
+		return matchesName || matchesMainCategory || matchesSubCategory;
+	});
 
-  console.log(config)
-  useEffect(() => {
-    const fetchData = async () => {
-      await getSeiEcosystemAppsData()
-        .then((data) => {
-          setApps(data.data)
-          setLoading(false)
-        })
-        .catch((error) => {
-          console.error('Failed to fetch data:', error)
-        })
-        .finally(() => {
-          setLoading(false)
-        })
-    }
-    fetchData()
-  }, [])
+	const groupedApps = groupBy(filteredApps, (app) => app.fieldData.categorie);
+	const mainCategories = Object.keys(groupedApps).sort();
 
-  if (!apps || loading) return <EcosystemSkeleton />
-
-  // filter out apps that don't have a categorie
-  const filteredApps = apps.filter(
-    (app) => app.fieldData.categorie !== undefined
-  )
-
-  // group apps by category
-  const groupAppsByCategory = groupBy(
-    filteredApps,
-    (app) => app.fieldData.categorie
-  )
-
-  const categories = Object.keys(groupAppsByCategory)
-  console.log(categories)
-  const mappedCategories = categories.map((category) => {
-    if (category === undefined) return
-    return {
-      label: category,
-      // replace spaces with hyphens and remove special characters like & and / from the category name
-      value: category
-        .replace(/\s/g, '-')
-        .replace(/[&/\s]/g, '')
-        .toLowerCase()
-        .replace(/-+/g, '-'),
-    }
-  })
-
-  const appsByCategory = (category: string) =>
-    apps.filter((app) => app.fieldData.categorie === category)
-
-  return (
-    <div className="mt-8">
-      <div className="flex flex-col gap-8 mt-8">
-        {mappedCategories.map(({ label, value }) => {
-          return (
-            <div key={value} className="flex flex-col gap-4 ">
-              {/* <h2 className="text-2xl font-semibold">{label}</h2> */}
-              <h2 className="nx-font-semibold nx-tracking-tight nx-text-slate-900 dark:nx-text-slate-100 nx-mt-10 nx-border-b nx-pb-1 nx-text-3xl nx-border-neutral-200/70 contrast-more:nx-border-neutral-400 dark:nx-border-primary-100/10 contrast-more:dark:nx-border-neutral-400">
-                {label}
-                <a
-                  href={`#${value}`}
-                  id="overview"
-                  className="subheading-anchor"
-                  aria-label="Permalink for this section"
-                ></a>
-              </h2>
-              <EcosystemSection apps={appsByCategory(label)} />
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
+	return (
+		<div className='flex flex-col gap-8 mt-6'>
+			<div className='text-center'>
+				<h1 className='text-4xl font-extrabold mb-2'>Sei Ecosystem Map</h1>
+				<p className='max-w-xl mx-auto text-gray-600 dark:text-gray-400'>
+					Sei Ecosystem is the epicenter of technological advancement, bringing together creative minds and industry leaders to drive the future of Sei’s blockchain
+					technology.
+				</p>
+				<div className='mt-5 flex flex-row justify-center gap-4'>
+					<a href='#' className='px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors font-semibold'>
+						Start Building
+					</a>
+					<a
+						href='#'
+						className='px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-md hover:opacity-80 transition-opacity font-semibold'>
+						Join the Ecosystem
+					</a>
+				</div>
+			</div>
+			<div className='max-w-md mx-auto w-full'>
+				<EcosystemSearchBar searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
+			</div>
+			<div className='flex flex-col mt-4 gap-12'>
+				{mainCategories.map((category) => {
+					const appsInCategory = groupedApps[category];
+					return (
+						<div key={category}>
+							<h2 className='text-3xl font-bold mb-6'>{category}</h2>
+							<EcosystemSection apps={appsInCategory} />
+						</div>
+					);
+				})}
+			</div>
+		</div>
+	);
 }
-
-export default EcosystemMap
