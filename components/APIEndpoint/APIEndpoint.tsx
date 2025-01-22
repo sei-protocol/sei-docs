@@ -135,8 +135,8 @@ const response: ${responseType} = await ${routeNames.functionName}(params);`;
 	return (
 		<Flex direction='column' gap='xl'>
 			<Breadcrumbs mt='md'>
-				<Anchor href={`/endpoints/cosmos#${orgName}`}>endpoints</Anchor>
-				<Anchor href={`/endpoints/cosmos/api/${orgName}/${moduleName}`}>{moduleName}</Anchor>
+				<Anchor href={`/reference/cosmos#${orgName}`}>endpoints</Anchor>
+				<Anchor href={`/reference/api/${orgName}/${moduleName}`}>{moduleName}</Anchor>
 			</Breadcrumbs>
 			<Title>{functionName}</Title>
 			<Flex gap='sm' align='center'>
