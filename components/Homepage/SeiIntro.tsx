@@ -1,24 +1,26 @@
 import React from 'react';
-import { Title, Text, Button } from '@mantine/core';
+import { Title, Text, Button, Box, Image } from '@mantine/core';
 import Link from 'next/link';
-import Image from 'next/image';
+import NextImage from 'next/image';
+import Header from '../../public/assets/header.png';
 import SeiIcon from '../../public/assets/sei-icon.png';
 import styles from '../../styles/SeiIntro.module.css';
 
 const SeiIntro: React.FC = () => {
 	return (
 		<section className={styles.hero}>
-			<div style={{ marginBottom: '2rem' }}>
-				<Image src={SeiIcon} alt='Sei Icon' width={100} height={100} priority />
-			</div>
+			<Box mb='xl' w={600} pos='relative'>
+				<Image component={NextImage} src={Header} alt='Docs header' width={1728} height={875} priority />
+			</Box>
 
-			<Title className={styles.title}>Sei Network Documentation</Title>
+			<Title className={styles.title}>Sei Documentation</Title>
 			<Text className={styles.subtitle}>Sei is the first parallelized EVM blockchain delivering unmatched scalability.</Text>
 
 			<div className={styles.ctaWrapper}>
 				<Button component={Link} href='/learn/user-quickstart' variant='outline' size='sm' classNames={{ root: styles.outlineButton }}>
 					Quickstart
 				</Button>
+
 				<Button component={Link} href='/learn/general-overview' variant='outline' size='sm' classNames={{ root: styles.outlineButton }}>
 					About Sei
 				</Button>
