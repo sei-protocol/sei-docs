@@ -3,7 +3,6 @@ import { Title, Text, Button, Box, Image } from '@mantine/core';
 import Link from 'next/link';
 import NextImage from 'next/image';
 import Header from '../../public/assets/header.png';
-import SeiIcon from '../../public/assets/sei-icon.png';
 import styles from '../../styles/SeiIntro.module.css';
 
 const SeiIntro: React.FC = () => {
