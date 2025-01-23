@@ -95,7 +95,7 @@ const APIEndpointRoute = () => {
 	if (route.length === 2) {
 		return (
 			<Flex direction={'column'} gap='md'>
-				<Link href={`/endpoints/cosmos#${splitRoutes[1]}`}>
+				<Link href={`/reference/cosmos#${splitRoutes[1]}`}>
 					<Button>Back</Button>
 				</Link>
 

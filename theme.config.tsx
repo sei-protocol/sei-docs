@@ -1,23 +1,27 @@
 import React from 'react';
-import { DocsThemeConfig } from 'nextra-theme-docs';
+import type { DocsThemeConfig } from 'nextra-theme-docs';
 import { Logo } from './components/Logo';
+import { Footer } from './components/Footer/Footer';
 
 const config: DocsThemeConfig = {
 	logo: <Logo />,
-	project: {
-		link: 'https://github.com/sei-protocol'
+	navigation: true,
+	primaryHue: { dark: 0, light: 0 },
+	search: { placeholder: 'Search documentation...' },
+	project: { link: 'https://github.com/sei-protocol' },
+	chat: { link: 'https://discord.gg/sei' },
+	navbar: { extraContent: null },
+	feedback: {
+		content: 'Question? Give us feedback →',
+		useLink: () => 'https://github.com/sei-protocol/sei-docs/issues/new'
 	},
-	chat: {
-		link: 'https://discord.gg/sei'
+	editLink: { text: 'Edit this page' },
+	sidebar: { defaultMenuCollapseLevel: 1, toggleButton: true },
+	darkMode: true,
+	footer: {
+		component: <Footer />
 	},
 	docsRepositoryBase: 'https://github.com/sei-protocol/sei-docs/tree/main',
-	footer: {
-		text: 'Sei Docs © 2024'
-	},
-	head: <></>,
-	sidebar: {
-		defaultMenuCollapseLevel: 1
-	},
 	useNextSeoProps() {
 		return {
 			titleTemplate: '%s - Sei Docs',
@@ -37,34 +41,26 @@ const config: DocsThemeConfig = {
 					}
 				]
 			},
-			twitter: {
-				site: '@SeiNetwork'
-			},
+			twitter: { site: '@SeiNetwork' },
 			additionalLinkTags: [
+				{ rel: 'icon', href: '/favicon.ico' },
 				{
 					rel: 'icon',
-					href: '/favicon.ico'
-				},
-				{
-					href: '/favicon-16x16.png',
-					rel: 'icon',
+					type: 'image/png',
 					sizes: '16x16',
-					type: 'image/png'
+					href: '/favicon-16x16.png'
 				},
 				{
-					href: '/favicon-32x32.png',
 					rel: 'icon',
+					type: 'image/png',
 					sizes: '32x32',
-					type: 'image/png'
+					href: '/favicon-32x32.png'
 				},
-				{
-					href: '/apple-touch-icon.png',
-					rel: 'apple-touch-icon',
-					sizes: '180x180'
-				}
+				{ rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png' }
 			]
 		};
-	}
+	},
+	head: <></>
 };
 
 export default config;

@@ -1,3 +1,5 @@
+const REDIRECTS = require('./data/redirects');
+
 const withNextra = require('nextra')({
 	theme: 'nextra-theme-docs',
 	themeConfig: './theme.config.tsx'
@@ -19,5 +21,8 @@ module.exports = withNextra({
 				pathname: '/65cb43fecf24523357feada9/**'
 			}
 		]
+	},
+	async redirects() {
+		return REDIRECTS;
 	}
 });
