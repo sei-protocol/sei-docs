@@ -9,7 +9,6 @@ export * from './EvmWalletConnect';
 export * from './BrandKitGallery';
 export * from './ImageWithCaption';
 export * from './Logo';
-export * from './MantineWrapper';
 export * from './Nfts';
 export * from './VersionFetcher';
 export * from './PropertyInfo';

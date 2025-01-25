@@ -1,17 +1,20 @@
-import { Box, Flex, Loader, Skeleton, Stack, Text, Title } from '@mantine/core';
-import { Button } from 'nextra/components';
+import React from 'react';
 import Link from 'next/link';
-import { NextSeo } from 'next-seo';
-import { useData } from 'nextra/data';
-import { isEqual } from 'underscore';
-import { filterModuleRoutes } from './utils';
-import { APIEndpoint, APIModule } from '../index';
-import openapi from '../../data/cosmos-openapi.json';
 import { useRouter } from 'next/router';
+import { NextSeo } from 'next-seo';
+import { isEqual } from 'underscore';
+import { useData } from 'nextra/data';
+import openapi from '../../data/cosmos-openapi.json';
+import { filterModuleRoutes } from './utils';
+import { APIModule, APIEndpoint } from '../index';
+
+// Minimal skeleton loader
+function Skeleton({ width, height, className }: { width: number; height: number; className?: string }) {
+	return <div className={`bg-gray-200 dark:bg-gray-700 animate-pulse mb-4 ${className}`} style={{ width: `${width}px`, height: `${height}px` }} />;
+}
 
 export const PageTitle = () => {
 	const router = useRouter();
-	// Check if the page is still loading
 	if (router.isFallback) {
 		return null;
 	}
@@ -20,10 +23,7 @@ export const PageTitle = () => {
 	return <NextSeo title={title} />;
 };
 
-// Generate static paths for both the full routes and parent routes
-// i.e. for /cosmos/bank/v1beta1/supply, we want the routes:
-// 1. cosmos/bank/v1beta1/supply
-// 2. cosmos/bank
+// Gather all openapi paths
 const getPaths = () => {
 	const routes = Object.keys(openapi.paths).map((p) => {
 		const route = p.split('/').filter((s) => s);
@@ -39,7 +39,6 @@ const getPaths = () => {
 };
 
 export const getStaticPaths = () => {
-	// Return empty path array here and just get static props on demand
 	return {
 		paths: [],
 		fallback: true
@@ -65,26 +64,26 @@ export const getStaticProps = async ({ params }) => {
 	};
 };
 
-const APIEndpointRoute = () => {
+export default function APIEndpointRoute() {
 	const router = useRouter();
-	// Check if the page is still loading
+	// If still loading fallback page
 	if (router.isFallback) {
 		return (
-			<Box>
-				<Skeleton h={16} w={200} mb='xl' />
-				<Skeleton h={32} w={128} mb='xl' />
-				<Skeleton h={24} />
-			</Box>
+			<div>
+				<Skeleton width={200} height={16} />
+				<Skeleton width={128} height={32} />
+				<Skeleton width={300} height={24} />
+			</div>
 		);
 	}
 
 	const data = useData();
 	if (!data?.route?.length) {
 		return (
-			<Box>
-				<Title mb='md'>API Route Not Found</Title>
-				<Text>The API route you were looking for could not be found.</Text>
-			</Box>
+			<div className='mt-8'>
+				<h1 className='text-2xl font-bold mb-4'>API Route Not Found</h1>
+				<p className='text-base'>The API route you were looking for could not be found.</p>
+			</div>
 		);
 	}
 
@@ -92,22 +91,33 @@ const APIEndpointRoute = () => {
 	const moduleRoutes = filterModuleRoutes(Object.entries(openapi.paths), route);
 	const splitRoutes = moduleRoutes?.[0]?.[0].split('/');
 
+	// If only 2 segments (like cosmos/bank), show module overview
 	if (route.length === 2) {
 		return (
-			<Flex direction={'column'} gap='md'>
+			<div className='flex flex-col gap-4 mt-4'>
 				<Link href={`/reference/cosmos#${splitRoutes[1]}`}>
-					<Button>Back</Button>
+					<a
+						className='
+              inline-block 
+              px-4 py-2 
+              text-sm 
+              bg-gray-200 
+              dark:bg-gray-700 
+              dark:text-gray-200
+              rounded 
+              hover:bg-gray-300 
+              dark:hover:bg-gray-600
+            '>
+						Back
+					</a>
 				</Link>
 
-				<Title order={1} mb='xl'>
-					{route.join('/')}
-				</Title>
+				<h1 className='text-2xl font-bold mt-2 mb-4'>{route.join('/')}</h1>
 				<APIModule prefix={route.join('/')} basePaths={moduleRoutes.map((route) => route[0])} />
-			</Flex>
+			</div>
 		);
 	}
 
+	// Otherwise, show the single endpoint
 	return <APIEndpoint endpoint={moduleRoutes[0]} />;
-};
-
-export default APIEndpointRoute;
+}
