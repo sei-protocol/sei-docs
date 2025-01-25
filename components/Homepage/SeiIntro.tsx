@@ -1,31 +1,94 @@
 import React from 'react';
-import { Title, Text, Button, Box, Image } from '@mantine/core';
+import Image from 'next/image';
 import Link from 'next/link';
-import NextImage from 'next/image';
 import Header from '../../public/assets/header.png';
-import styles from '../../styles/SeiIntro.module.css';
 
-const SeiIntro: React.FC = () => {
+export default function SeiIntro() {
 	return (
-		<section className={styles.hero}>
-			<Box mb='xl' w={600} pos='relative'>
-				<Image component={NextImage} src={Header} alt='Docs header' width={1728} height={875} priority />
-			</Box>
+		<section
+			className='
+      min-h-[25vh] 
+      flex 
+      flex-col 
+      items-center 
+      justify-center 
+      text-center 
+      p-8 
+      pb-12 
+      text-black 
+      border-b 
+      border-black/10 
+      mb-8 
+      dark:text-white 
+      dark:border-white/10
+    '>
+			<div className='relative w-[600px] mb-6'>
+				<Image src={Header} alt='Docs header' width={1728} height={875} priority />
+			</div>
 
-			<Title className={styles.title}>Sei Documentation</Title>
-			<Text className={styles.subtitle}>Sei is the first parallelized EVM blockchain delivering unmatched scalability.</Text>
+			<h2
+				className='
+        mb-2 
+        font-semibold 
+        text-[clamp(1.7rem,3vw,2.5rem)] 
+        leading-[1.2] 
+        text-black 
+        dark:text-white
+      '>
+				Sei Documentation
+			</h2>
 
-			<div className={styles.ctaWrapper}>
-				<Button component={Link} href='/learn/user-quickstart' variant='outline' size='sm' classNames={{ root: styles.outlineButton }}>
+			<p
+				className='
+        mb-6 
+        text-base 
+        text-[rgba(0,0,0,0.7)] 
+        dark:text-[rgba(236,237,238,0.9)]
+      '>
+				Sei is the first parallelized EVM blockchain delivering unmatched scalability.
+			</p>
+
+			<div className='flex gap-8 justify-center items-center mt-4'>
+				<Link
+					href='/learn/user-quickstart'
+					className='
+            font-medium 
+            flex 
+            items-center 
+            gap-1 
+            border 
+            border-black 
+            text-black 
+            hover:bg-[rgba(0,0,0,0.12)]
+            p-2 
+            rounded 
+            dark:border-[#ecedee] 
+            dark:text-[#ecedee] 
+            dark:hover:bg-[rgba(236,237,238,0.12)]
+          '>
 					Quickstart
-				</Button>
+				</Link>
 
-				<Button component={Link} href='/learn/general-overview' variant='outline' size='sm' classNames={{ root: styles.outlineButton }}>
+				<Link
+					href='/learn/general-overview'
+					className='
+            font-medium 
+            flex 
+            items-center 
+            gap-1 
+            border 
+            border-black 
+            text-black 
+            hover:bg-[rgba(0,0,0,0.12)]
+            p-2 
+            rounded 
+            dark:border-[#ecedee] 
+            dark:text-[#ecedee] 
+            dark:hover:bg-[rgba(236,237,238,0.12)]
+          '>
 					About Sei
-				</Button>
+				</Link>
 			</div>
 		</section>
 	);
-};
-
-export default SeiIntro;
+}

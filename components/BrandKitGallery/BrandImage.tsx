@@ -1,59 +1,78 @@
-// components/BrandKitGallery/BrandImage.tsx
-import NextImage from 'next/image';
-import styles from '../../styles/custom.module.css';
 import { useState, useEffect } from 'react';
+import NextImage from 'next/image';
 
 interface BrandImageProps {
-  url: string;
-  alt: string;
-  name: string;
+	url: string;
+	alt: string;
+	name: string;
 }
 
-const BrandImage = ({ url, alt, name }: BrandImageProps) => {
-  const [imageDimensions, setImageDimensions] = useState({ width: 0, height: 0 });
-  const [showModal, setShowModal] = useState(false);
+export default function BrandImage({ url, alt, name }: BrandImageProps) {
+	const [imageDimensions, setImageDimensions] = useState({ width: 0, height: 0 });
+	const [showModal, setShowModal] = useState(false);
 
-  useEffect(() => {
-    const img = new window.Image();
-    img.src = url;
-    img.onload = () => {
-      setImageDimensions({ width: img.width, height: img.height });
-    };
-  }, [url]);
+	useEffect(() => {
+		const img = new window.Image();
+		img.src = url;
+		img.onload = () => {
+			setImageDimensions({ width: img.width, height: img.height });
+		};
+	}, [url]);
 
-  const handleImageClick = () => {
-    setShowModal(true);
-    document.body.style.overflow = 'hidden';
-  };
+	function handleImageClick() {
+		setShowModal(true);
+		document.body.style.overflow = 'hidden';
+	}
 
-  const closeModal = () => {
-    setShowModal(false);
-    document.body.style.overflow = 'auto';
-  };
+	function closeModal() {
+		setShowModal(false);
+		document.body.style.overflow = 'auto';
+	}
 
-  return (
-    <>
-      <div className={styles.imageWrapper}>
-        <div className={styles.imageContainer}>
-          <NextImage
-            src={url}
-            alt={alt}
-            width={imageDimensions.width}
-            height={imageDimensions.height}
-            className={styles.image}
-            onClick={handleImageClick}
-          />
-        </div>
-      </div>
-      {showModal && (
-        <div className={styles.modal} onClick={closeModal}>
-          <div className={styles.modalContent}>
-            <NextImage src={url} alt={alt} layout="fill" objectFit="contain" />
-          </div>
-        </div>
-      )}
-    </>
-  );
-};
+	return (
+		<>
+			<div
+				className='
+          my-8 
+          text-center 
+          relative 
+          cursor-pointer 
+          hover:scale-105 
+          transition-transform 
+          duration-300
+        '>
+				<div className='flex justify-center items-center'>
+					<NextImage
+						src={url}
+						alt={alt}
+						width={imageDimensions.width}
+						height={imageDimensions.height}
+						className='
+              rounded-md
+              shadow-[0_4px_8px_rgba(0,0,0,0.1)]
+            '
+						onClick={handleImageClick}
+					/>
+				</div>
+			</div>
 
-export default BrandImage;
+			{showModal && (
+				<div
+					className='
+            fixed 
+            inset-0 
+            flex 
+            justify-center 
+            items-center 
+            bg-black/80 
+            z-[1000]
+          '
+					onClick={closeModal}>
+					<div className='relative w-[80%] h-[80%]'>
+						<NextImage src={url} alt={alt} fill style={{ objectFit: 'contain' }} />
+					</div>
+				</div>
+			)}
+		</>
+	);
+}
