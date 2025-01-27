@@ -1,3 +1,4 @@
+// postcss.config.js
 module.exports = {
 	plugins: {
 		'postcss-simple-vars': {
@@ -9,7 +10,7 @@ module.exports = {
 				'xl-breakpoint': '88em'
 			}
 		},
-		tailwindcss: {},
+		'@tailwindcss/postcss': {},
 		autoprefixer: {}
 	}
 };
