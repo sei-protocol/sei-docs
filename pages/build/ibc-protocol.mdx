@@ -1,140 +1,100 @@
-# Sei Network's EVM-Enhanced IBC Architecture
+# Sei Network's Enhanced IBC Architecture: Bridging Cosmos and EVM Ecosystems
 
-## Understanding IBC: The Foundation
+## Understanding the Foundation: IBC Protocol
 
-The Inter-Blockchain Communication (IBC) protocol represents a fundamental advancement in blockchain interoperability. Unlike traditional bridge protocols that depend on external validators or trusted parties, IBC enables direct, trustless communication between independent blockchains. This architecture mirrors the layered design of TCP/IP, the protocol suite that powers the internet, providing a robust foundation for cross-chain communication.
+The Inter-Blockchain Communication (IBC) protocol represents a fundamental advancement in blockchain interoperability, enabling direct, trustless communication between independent blockchains. Much like how TCP/IP created a standard way for computers to communicate across the internet, IBC establishes a universal protocol for blockchains to interact, regardless of their underlying architecture.
 
-### The IBC Protocol Stack
+### The Protocol Stack
 
-IBC operates through two complementary layers:
+IBC's architecture mirrors TCP/IP's layered approach, dividing functionality into two distinct layers that work together to enable secure cross-chain communication:
 
-1. The Transport Layer serves as the foundation, managing secure data movement between chains. Like TCP/IP's approach to data packets, this layer remains completely agnostic to the content it transfers, focusing solely on secure and reliable delivery.
+The Transport Layer forms the foundation, managing the secure movement of data between chains. Just as TCP/IP doesn't care whether it's transmitting emails or web pages, this layer remains completely agnostic to the type of data being transferred. It focuses solely on ensuring reliable, secure delivery of information between chains.
 
-2. The Application Layer builds upon this foundation to implement specific use cases. For instance, when transferring ROCK tokens from Zenrock's Diamond chain to Sei Network, the application layer handles the token-specific logic while relying on the transport layer for secure transmission.
+The Application Layer builds upon this foundation to implement specific use cases. When you transfer tokens between chains, this layer handles the specifics of token denomination, amount conversion, and balance updates, while relying on the transport layer to ensure secure transmission.
 
-### Core Components and Their Roles
+### Core Components in Action
 
-The security of IBC relies on several interconnected components, each serving a specific purpose:
+The IBC protocol relies on several interconnected components that work together to enable secure cross-chain communication:
 
-1. Light Clients: These components enable one blockchain to verify another's state without maintaining a complete copy. When Zenrock and Sei communicate, each chain maintains a light client of the other, allowing them to validate cross-chain messages efficiently.
+Light Clients serve as trustless observers, allowing one blockchain to verify another's state without maintaining a complete copy. Imagine having a trusted friend in another country who can verify local events for you - light clients play a similar role between blockchains, providing efficient verification of cross-chain messages.
 
-2. Connections: These secure pathways link light clients together. A connection between Zenrock and Sei ensures that all communication follows an established, verified path.
+Connections create secure pathways between light clients, establishing a trusted channel for communication. Think of this as setting up a dedicated, secure phone line between two parties who need to communicate regularly.
 
-3. Channels: Operating on top of connections, channels create dedicated pathways for specific applications. For example, token transfers between Zenrock and Sei occur over a dedicated transfer channel.
+Channels operate on top of these connections, creating dedicated pathways for specific applications. If connections are like phone lines, channels are like different conversation topics - you might have one channel for token transfers and another for cross-chain governance.
 
-4. Relayers: These off-chain processes actively monitor both chains and relay messages between them. They ensure that when someone sends ROCK tokens from Zenrock to Sei, the transaction gets properly delivered and processed.
+Relayers act as the protocol's postal service, actively monitoring chains and ensuring messages get delivered. While the blockchains themselves store and process the messages, relayers handle the crucial task of ferrying information between them.
 
-## Sei's Innovation: Bridging IBC and EVM
+## Sei's Innovation: Seamless Integration of IBC and EVM
 
-Sei Network has fundamentally transformed the IBC landscape by creating seamless integration between IBC and EVM capabilities. This means that users can send tokens directly between Zenrock and EVM applications on Sei without any intermediate steps or manual conversions.
+Sei Network has fundamentally transformed the landscape of cross-chain communication by creating a seamless bridge between IBC and EVM environments. Traditional blockchain bridges often require multiple steps, manual interventions, and introduce additional trust assumptions. Sei's architecture eliminates these friction points, enabling direct communication between IBC and EVM environments.
 
-### The IBC Precompile: Direct Bridge to EVM
+### The IBC Precompile: A Direct Bridge to EVM
 
-At the heart of Sei's innovation lies the IBC precompile, located at address `0x0000000000000000000000000000000000001009`. This precompile serves as a direct bridge between EVM smart contracts and the IBC protocol. Let's examine its complete interface:
+At the heart of Sei's innovation lies the IBC precompile, a powerful feature that enables direct interaction between EVM smart contracts and the IBC protocol. Located at address `0x0000000000000000000000000000000000001009`, this precompile serves as a native bridge between environments.
 
-```solidity
-interface IBCPrecompile {
-    // Main transfer function for initiating IBC transfers
-    function transfer(
-        string memory toAddress,    // Destination address (can be Cosmos or EVM format)
-        string memory port,         // IBC port (usually "transfer")
-        string memory channel,      // IBC channel ID
-        string memory denom,        // Token denomination
-        uint256 amount,            // Amount to transfer
-        uint64 revisionNumber,     // Destination chain revision number
-        uint64 revisionHeight,     // Timeout height on destination chain
-        uint64 timeoutTimestamp,   // Timeout timestamp (in nanoseconds)
-        string memory memo          // Optional memo field
-    ) external returns (bool);
-
-    // Additional helper function with default timeout values
-    function transferWithDefaultTimeout(
-        string memory toAddress,
-        string memory port,
-        string memory channel,
-        string memory denom,
-        uint256 amount,
-        string memory memo
-    ) external returns (bool);
-}
-```
-
-This interface allows EVM contracts to initiate IBC transfers directly. Consider the traditional process of moving ROCK tokens from an EVM environment to Zenrock:
-
-1. Lock tokens in a bridge contract
-2. Wait for validator confirmations
-3. Mint wrapped tokens
-4. Manually claim or bridge again
-
-Sei eliminates these steps. When an EVM contract calls the IBC precompile, it directly initiates an IBC transfer, making the process as simple as a regular token transfer.
-
-### Implementation Deep Dive
-
-Let's examine a complete implementation of an IBC transfer using the precompile:
+When an EVM smart contract initiates an IBC transfer through the precompile, it's directly interfacing with the IBC protocol - no intermediate bridges, wrapped tokens, or manual claiming required. Here's how this works in practice:
 
 ```javascript
 const IBC_PRECOMPILE_ADDRESS = '0x0000000000000000000000000000000000001009';
 const IBC_PRECOMPILE_ABI = [
-	{
-		inputs: [
-			{ internalType: 'string', name: 'toAddress', type: 'string' },
-			{ internalType: 'string', name: 'port', type: 'string' },
-			{ internalType: 'string', name: 'channel', type: 'string' },
-			{ internalType: 'string', name: 'denom', type: 'string' },
-			{ internalType: 'uint256', name: 'amount', type: 'uint256' },
-			{ internalType: 'uint64', name: 'revisionNumber', type: 'uint64' },
-			{ internalType: 'uint64', name: 'revisionHeight', type: 'uint64' },
-			{ internalType: 'uint64', name: 'timeoutTimestamp', type: 'uint64' },
-			{ internalType: 'string', name: 'memo', type: 'string' }
-		],
-		name: 'transfer',
-		outputs: [{ internalType: 'bool', name: 'success', type: 'bool' }],
-		stateMutability: 'nonpayable',
-		type: 'function'
-	}
+ {
+  inputs: [
+   { internalType: 'string', name: 'toAddress', type: 'string' },
+   { internalType: 'string', name: 'port', type: 'string' },
+   { internalType: 'string', name: 'channel', type: 'string' },
+   { internalType: 'string', name: 'denom', type: 'string' },
+   { internalType: 'uint256', name: 'amount', type: 'uint256' },
+   { internalType: 'uint64', name: 'revisionNumber', type: 'uint64' },
+   { internalType: 'uint64', name: 'revisionHeight', type: 'uint64' },
+   { internalType: 'uint64', name: 'timeoutTimestamp', type: 'uint64' },
+   { internalType: 'string', name: 'memo', type: 'string' }
+  ],
+  name: 'transfer',
+  outputs: [{ internalType: 'bool', name: 'success', type: 'bool' }],
+  stateMutability: 'nonpayable',
+  type: 'function'
+ }
 ];
 
-async function transferToZenrock() {
-	// Initialize the contract interface
-	const ibcContract = new Contract(IBC_PRECOMPILE_ADDRESS, IBC_PRECOMPILE_ABI, wallet);
+// Example implementation showing basic setup and transfer
+async function initializeIBCTransfer(provider, wallet) {
+ const ibcContract = new Contract(IBC_PRECOMPILE_ADDRESS, IBC_PRECOMPILE_ABI, wallet);
 
-	// Calculate timeout parameters
-	const timeoutDuration = 600; // seconds
-	const timeoutBlocks = Math.ceil(timeoutDuration / 0.4); // Sei block time is ~0.4s
-	const revisionHeight = currentBlockNumber + timeoutBlocks;
+ // Calculate timeout parameters based on block time and desired duration
+ const timeoutDuration = 600; // 10 minutes in seconds
+ const blockTime = 0.4; // Sei's average block time in seconds
+ const timeoutBlocks = Math.ceil(timeoutDuration / blockTime);
 
-	// Convert timeout to nanoseconds and add to current timestamp
-	const timeoutTimestamp = BigInt(Date.now() * 1_000_000) + BigInt(timeoutDuration * 1_000_000_000);
+ const currentBlock = await provider.getBlockNumber();
+ const revisionHeight = currentBlock + timeoutBlocks;
+ const timeoutTimestamp = BigInt(Date.now() * 1_000_000) + BigInt(timeoutDuration * 1_000_000_000);
 
-	// Execute transfer to Zenrock
-	const tx = await ibcContract.transfer(
-		'zen1...', // Zenrock address
-		'transfer', // IBC port
-		'channel-44', // Channel to Zenrock
-		'ibc/ROCK_HASH', // IBC denomination of ROCK token
-		amount,
-		1, // Revision number
-		revisionHeight,
-		timeoutTimestamp,
-		'Transfer to Zenrock'
-	);
-
-	return tx;
+ return { ibcContract, revisionHeight, timeoutTimestamp };
 }
 ```
 
+### Understanding Transfer Parameters
+
+Each parameter in an IBC transfer serves a specific purpose in ensuring secure and reliable cross-chain communication:
+
+The `toAddress` parameter demonstrates Sei's flexibility in handling different address formats. Whether you're sending tokens to a Cosmos-style address (like zen1...) or an EVM address (0x...), the protocol automatically handles the routing and representation.
+
+The `port` and `channel` parameters define the exact path your tokens will take. Think of this like addressing a letter - the port identifies the type of service (usually "transfer" for token movements), while the channel specifies the exact route to the destination chain.
+
+The timeout parameters (`revisionNumber`, `revisionHeight`, and `timeoutTimestamp`) protect your transaction from getting stuck if something goes wrong. They work together to ensure that if a transfer isn't completed within a reasonable timeframe, the tokens safely return to the sender.
+
 ### Cross-Environment Address Recognition
 
-Sei's implementation uniquely handles both Cosmos (sei1..., zen1...) and EVM (0x...) addresses within the IBC protocol. When a transaction arrives from Zenrock, Sei automatically:
+One of Sei's most powerful features is its ability to seamlessly handle both Cosmos and EVM addresses within the IBC protocol. When a transaction arrives, Sei's architecture automatically:
 
-1. Identifies the address format of the recipient
+1. Detects the address format of the recipient
 2. Routes tokens to the appropriate environment
 3. Makes tokens immediately available in the correct format
 
-For example, when ROCK tokens arrive at an EVM address on Sei:
+For example, when tokens arrive at an EVM address:
 
 ```typescript
-// Example incoming IBC packet from Zenrock
+// Example incoming IBC packet
 {
   receiver: "0x742d35Cc6634C0532925a3b844Bc454e4438f44e",
   denom: "ibc/EF4E14F9FA4B871E8C0A2BE5F972CA315B4B630BFD0D96D313D595E7ED6D378C",
@@ -142,179 +102,197 @@ For example, when ROCK tokens arrive at an EVM address on Sei:
 }
 ```
 
-The tokens become immediately available to the EVM address through the corresponding pointer contract, requiring no additional steps or manual claims.
+The tokens become instantly available to the EVM address through a pointer contract, requiring no additional steps or manual claims.
 
-### Pointer Contracts: Unifying Environments
+### Pointer Contracts: The Bridge Between Worlds
 
-Pointer contracts serve as Sei's mechanism for representing IBC tokens in the EVM environment. When ROCK tokens arrive from Zenrock, their pointer contract maintains a direct, real-time link to the underlying IBC tokens. This means:
+Pointer contracts serve as Sei's elegant solution for representing IBC tokens in the EVM environment. Unlike traditional wrapped tokens that create separate assets requiring constant reconciliation with their underlying tokens, pointer contracts maintain a direct, real-time connection to the IBC tokens they represent. This creates a seamless experience where users can interact with tokens in either environment without manual conversions or claiming processes.
 
-1. Balance updates occur simultaneously in both environments
-2. No wrapping or unwrapping is needed
-3. Tokens can be used seamlessly in both Cosmos and EVM applications
+When an IBC token arrives on Sei, its pointer contract automatically reflects any changes in token state. Think of this like having a digital display that's directly wired to a sensor - when the sensor reading changes, the display updates instantly. Similarly, when IBC token balances change, the pointer contract immediately reflects these changes without any intermediate steps.
 
-Here's how a smart contract might interact with ROCK tokens:
+### Advanced Implementation Patterns
 
-```solidity
-// Example: Sending ROCK tokens back to Zenrock
-function sendToZenrock(string memory zenrockAddress, uint256 amount) external {
-    // Tokens can be sent directly through the IBC precompile
-    ibcPrecompile.transfer(
-        zenrockAddress,     // Zenrock address
-        "transfer",         // IBC port
-        "channel-44",       // Channel to Zenrock
-        "ibc/ROCK_HASH",    // ROCK token denomination
-        amount,
-        // ... timeout parameters ...
-    );
-}
-```
-
-## Technical Specifications and Configuration
-
-### Transfer Parameters Deep Dive
-
-When working with Sei's IBC precompile, understanding each parameter's purpose and proper configuration is crucial for reliable cross-chain communication. Let's examine each parameter in detail:
-
-#### Addressing and Routing Parameters
-
-The `toAddress` parameter accepts both Cosmos and EVM address formats. When sending tokens to Zenrock, you'll use their native `zen1...` format. This flexibility in address handling represents one of Sei's key innovations in cross-chain communication. For example:
+Let's explore how to implement robust IBC transfers that handle various scenarios and edge cases:
 
 ```javascript
-// Valid address formats
-const cosmosAddress = 'zen1wev8ptzj27aueu04wgvvl4gvurax6rj5yrag90'; // Zenrock format
-const evmAddress = '0x742d35Cc6634C0532925a3b844Bc454e4438f44e'; // EVM format
-```
+class IBCTransferManager {
+ constructor(provider, wallet) {
+  this.provider = provider;
+  this.wallet = wallet;
+  this.ibcContract = new Contract(IBC_PRECOMPILE_ADDRESS, IBC_PRECOMPILE_ABI, wallet);
+ }
 
-The `port` and `channel` parameters define the exact path your tokens will take. Think of them as specifying both the highway and the specific lane for your transaction. For Zenrock transfers, we use:
+ // Calculate timeout parameters based on desired duration
+ async calculateTimeoutParams(timeoutDuration = 600) {
+  const currentBlock = await this.provider.getBlockNumber();
+  const blockTime = 0.4; // Sei block time in seconds
+  const timeoutBlocks = Math.ceil(timeoutDuration / blockTime);
 
-```javascript
-const port = 'transfer'; // Standard port for token transfers
-const channel = 'channel-44'; // Specific channel to Zenrock's Diamond chain
-```
+  return {
+   revisionNumber: 1,
+   revisionHeight: currentBlock + timeoutBlocks,
+   timeoutTimestamp: BigInt(Date.now() * 1_000_000) + BigInt(timeoutDuration * 1_000_000_000)
+  };
+ }
 
-#### Token Specification Parameters
+ // Prepare and validate transfer parameters
+ async prepareTransfer(params) {
+  // For ERC20 tokens, verify and handle allowances
+  if (params.denom !== 'usei') {
+   const tokenContract = new Contract(params.tokenAddress, ERC20_ABI, this.wallet);
+   const allowance = await tokenContract.allowance(this.wallet.address, IBC_PRECOMPILE_ADDRESS);
 
-The `denom` parameter requires careful attention as it must match the exact IBC denomination of the token. For tokens arriving from Zenrock, the denomination follows a deterministic pattern:
-
-```javascript
-// Example for ROCK token after it arrives on Sei
-const rockTokenDenom = 'ibc/EF4E14F9FA4B871E8C0A2BE5F972CA315B4B630BFD0D96D313D595E7ED6D378C';
-```
-
-The `amount` parameter represents the token quantity in its smallest unit. For instance, if ROCK tokens have 6 decimals, sending 1 ROCK would require:
-
-```javascript
-const amount = BigInt(1000000); // 1 ROCK = 1,000,000 urock
-```
-
-#### Timeout Configuration
-
-The timeout parameters protect your transaction from getting stuck in limbo if something goes wrong. They require careful calculation:
-
-```javascript
-// Calculate timeout parameters
-async function calculateTimeoutParams(provider) {
-	// Get current block for height calculation
-	const currentBlock = await provider.getBlockNumber();
-
-	// Standard timeout duration in seconds
-	const timeoutDuration = 600; // 10 minutes
-
-	// Calculate blocks until timeout
-	// Sei's block time is approximately 0.4 seconds
-	const blocksUntilTimeout = Math.ceil(timeoutDuration / 0.4);
-
-	// Calculate revision height
-	const revisionHeight = currentBlock + blocksUntilTimeout;
-
-	// Calculate timeout timestamp in nanoseconds
-	// Current time in nanoseconds + timeout duration in nanoseconds
-	const timeoutTimestamp = BigInt(Date.now() * 1_000_000) + BigInt(timeoutDuration * 1_000_000_000);
-
-	return {
-		revisionNumber: 1, // Current revision number of the chain
-		revisionHeight, // Block height at which transfer times out
-		timeoutTimestamp // Timestamp at which transfer times out
-	};
-}
-```
-
-#### Optional Parameters
-
-The `memo` field allows you to attach additional information to your transfer. While optional, it can be valuable for tracking or integration purposes:
-
-```javascript
-const memo = 'Transfer ROCK tokens to Zenrock | Order ID: 123456';
-```
-
-### Gas and Resource Configuration
-
-When submitting IBC transfers through the EVM environment, proper gas configuration ensures reliable execution:
-
-```javascript
-// Recommended gas configuration
-const transferConfig = {
-	gasLimit: BigInt(2000000), // Fixed gas limit for IBC transfers
-	maxFeePerGas, // Obtained from network
-	maxPriorityFeePerGas, // Obtained from network
-	type: 2 // EIP-1559 transaction type
-};
-```
-
-### Error Handling and Recovery
-
-IBC transfers can face various challenges. Here's how to handle common scenarios:
-
-```javascript
-async function handleIBCTransfer(ibcContract, transferParams) {
-	try {
-		const tx = await ibcContract.transfer(...transferParams, transferConfig);
-
-		// Wait for transaction confirmation
-		const receipt = await tx.wait();
-
-		// Check for events indicating successful IBC packet creation
-		const events = receipt.logs.map((log) => ibcContract.interface.parseLog(log));
-	} catch (error) {
-		if (error.code === 'TIMEOUT') {
-			// Handle timeout - tokens will return to sender automatically
-			console.log('Transfer timed out, tokens will be returned');
-		} else if (error.code === 'INSUFFICIENT_FUNDS') {
-			// Handle insufficient balance
-			console.log('Insufficient balance for transfer');
-		} else {
-			// Handle other errors
-			console.error('Transfer failed:', error);
-		}
-	}
-}
-```
-
-### Best Practices for Production Deployments
-
-When deploying IBC transfers in production environments, consider these configurations:
-
-1. Timeout Configuration:
-
-   ```javascript
-   const PRODUCTION_TIMEOUT = {
-   	duration: 600, // 10 minutes in seconds
-   	buffer: 50, // Additional blocks for safety
-   	maxRetries: 3 // Number of retry attempts
-   };
-   ```
-
-2. Channel Health Monitoring:
-   ```javascript
-   async function checkChannelHealth(channel) {
-   	// Verify channel is active
-   	const status = await queryChannelStatus(channel);
-
-   	// Check recent packet success rate
-   	const metrics = await getChannelMetrics(channel);
-
-   	return status === 'OPEN' && metrics.successRate > 0.99;
+   if (allowance < params.amount) {
+    throw new Error('Insufficient allowance for IBC transfer');
    }
-   ```
+  }
 
-These specifications provide a robust foundation for implementing IBC transfers between Sei's EVM environment and other IBC-enabled chains like Zenrock. By carefully considering each parameter and following these configuration guidelines, you can ensure reliable cross-chain token transfers.
+  // Calculate timeout parameters
+  const timeoutParams = await this.calculateTimeoutParams(params.timeoutDuration);
+
+  return {
+   toAddress: params.toAddress,
+   port: 'transfer',
+   channel: params.channel,
+   denom: params.denom,
+   amount: params.amount,
+   ...timeoutParams,
+   memo: params.memo || ''
+  };
+ }
+
+ // Execute transfer with comprehensive error handling
+ async executeTransfer(transferParams) {
+  try {
+   const gasEstimate = await this.ibcContract.transfer.estimateGas(...Object.values(transferParams));
+
+   // Add 20% buffer to gas estimate
+   const gasLimit = (gasEstimate * BigInt(120)) / BigInt(100);
+
+   const tx = await this.ibcContract.transfer(...Object.values(transferParams), {
+    gasLimit,
+    maxFeePerGas: await this.provider.getFeeData(),
+    maxPriorityFeePerGas: await this.provider.getFeeData()
+   });
+
+   // Wait for transaction confirmation and verify success
+   const receipt = await tx.wait();
+
+   // Parse events to confirm proper IBC packet creation
+   const events = receipt.logs.map((log) => this.ibcContract.interface.parseLog(log));
+
+   return { success: true, receipt, events };
+  } catch (error) {
+   this.handleTransferError(error);
+  }
+ }
+
+ // Comprehensive error handling
+ handleTransferError(error) {
+  if (error.code === 'TIMEOUT') {
+   // Handle timeout scenario
+   console.log('Transfer timed out - tokens will return to sender');
+   throw new Error('IBC transfer timed out');
+  }
+
+  if (error.code === 'INSUFFICIENT_FUNDS') {
+   console.log('Insufficient balance for transfer');
+   throw new Error('Insufficient balance');
+  }
+
+  // Handle other specific error cases
+  console.error('Transfer failed:', error);
+  throw error;
+ }
+}
+```
+
+### State Management and Event Handling
+
+When working with IBC transfers, proper state management and event handling are crucial for reliable operations. The system needs to track various states and handle different scenarios appropriately:
+
+```javascript
+// Example event monitoring system
+class IBCEventMonitor {
+ constructor(provider, ibcContract) {
+  this.provider = provider;
+  this.ibcContract = ibcContract;
+  this.pendingTransfers = new Map();
+ }
+
+ // Monitor IBC packet events
+ async startMonitoring() {
+  this.provider.on('block', async (blockNumber) => {
+   const block = await this.provider.getBlock(blockNumber);
+   const txs = await Promise.all(block.transactions.map((txHash) => this.provider.getTransactionReceipt(txHash)));
+
+   for (const tx of txs) {
+    const events = tx.logs.filter((log) => log.address === IBC_PRECOMPILE_ADDRESS).map((log) => this.ibcContract.interface.parseLog(log));
+
+    for (const event of events) {
+     await this.handleIBCEvent(event);
+    }
+   }
+  });
+ }
+
+ // Handle different IBC events
+ async handleIBCEvent(event) {
+  switch (event.name) {
+   case 'PacketSent':
+    await this.handlePacketSent(event);
+    break;
+   case 'PacketReceived':
+    await this.handlePacketReceived(event);
+    break;
+   case 'PacketTimeout':
+    await this.handlePacketTimeout(event);
+    break;
+  }
+ }
+
+ // Implementation of specific event handlers
+ async handlePacketSent(event) {
+  const { sequence, sourceChannel, destinationChannel } = event.args;
+  this.pendingTransfers.set(sequence.toString(), {
+   status: 'sent',
+   timestamp: Date.now(),
+   details: event.args
+  });
+ }
+
+ async handlePacketReceived(event) {
+  const { sequence } = event.args;
+  const transfer = this.pendingTransfers.get(sequence.toString());
+
+  if (transfer) {
+   transfer.status = 'received';
+   this.emit('transferComplete', transfer);
+  }
+ }
+
+ async handlePacketTimeout(event) {
+  const { sequence } = event.args;
+  const transfer = this.pendingTransfers.get(sequence.toString());
+
+  if (transfer) {
+   transfer.status = 'timeout';
+   this.emit('transferTimeout', transfer);
+  }
+ }
+}
+```
+
+This implementation provides robust handling of IBC transfers, including proper state management, error handling, and event monitoring. The system can track the status of transfers, handle timeouts appropriately, and provide feedback about transfer progress.
+
+### Production Considerations
+
+When deploying IBC transfers in a production environment, several additional factors require attention:
+
+1. Transaction Monitoring: The system should track all stages of an IBC transfer, from initial submission through final settlement. This includes monitoring for timeouts and handling any necessary recovery procedures.
+
+2. Gas Management: Different types of tokens and different destination chains may require varying amounts of gas. The system should dynamically adjust gas estimates based on historical data and current network conditions.
+
+3. Error Recovery: Implement robust error recovery mechanisms that can handle various failure scenarios, including network issues, timeout conditions, and destination chain congestion.
+
+4. State Verification: Regularly verify the state of transfers and maintain accurate records of all IBC operations. This includes tracking both successful transfers and any that require manual intervention.
