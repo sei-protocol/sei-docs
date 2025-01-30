@@ -1,70 +1,64 @@
 import React from 'react';
-import Image from 'next/image';
 import Link from 'next/link';
+import NextImage from 'next/image';
 import Header from '../../public/assets/header.png';
 
 export default function SeiIntro() {
 	return (
 		<section
 			className='
-      min-h-[25vh] 
-      flex 
-      flex-col 
-      items-center 
-      justify-center 
-      text-center 
-      p-8 
-      pb-12 
-      text-black 
-      border-b 
-      border-black/10 
-      mb-8 
-      dark:text-white 
-      dark:border-white/10
-    '>
-			<div className='relative w-[600px] mb-6'>
-				<Image src={Header} alt='Docs header' width={1728} height={875} priority />
+        w-full
+        flex
+        flex-col
+        items-center
+        justify-center
+        text-center
+        py-12
+        px-4
+        bg-transparent
+        text-white
+      '>
+			{/* Smaller swirl */}
+			<div className='relative w-[320px] mb-8 mx-auto'>
+				<NextImage src={Header} alt='Docs header' width={800} height={800} priority className='w-full h-auto' />
 			</div>
 
-			<h2
+			<h1
 				className='
-        mb-2 
-        font-semibold 
-        text-[clamp(1.7rem,3vw,2.5rem)] 
-        leading-[1.2] 
-        text-black 
-        dark:text-white
-      '>
+          mb-3
+          font-semibold
+          text-4xl
+          md:text-5xl
+          leading-tight
+        '>
 				Sei Documentation
-			</h2>
+			</h1>
 
 			<p
 				className='
-        mb-6 
-        text-base 
-        text-[rgba(0,0,0,0.7)] 
-        dark:text-[rgba(236,237,238,0.9)]
-      '>
+          mb-6
+          text-base
+          md:text-lg
+          text-white/80
+        '>
 				Sei is the first parallelized EVM blockchain delivering unmatched scalability.
 			</p>
 
-			<div className='flex gap-8 justify-center items-center mt-4'>
+			<div className='flex gap-6 justify-center items-center mt-4'>
 				<Link
 					href='/learn/user-quickstart'
 					className='
-            font-medium 
-            flex 
-            items-center 
-            gap-1 
-            border 
-            border-black 
-            text-black 
-            hover:bg-[rgba(0,0,0,0.12)]
-            p-2 
-            rounded 
-            dark:border-[#ecedee] 
-            dark:text-[#ecedee] 
-            dark:hover:bg-[rgba(236,237,238,0.12)]
+            font-medium
+            flex
+            items-center
+            gap-1
+            border
+            border-white
+            text-white
+            px-5
+            py-2
+            hover:bg-white/10
+            transition-colors
           '>
 					Quickstart
 				</Link>
@@ -72,19 +66,17 @@ export default function SeiIntro() {
 				<Link
 					href='/learn/general-overview'
 					className='
-            font-medium 
-            flex 
-            items-center 
-            gap-1 
-            border 
-            border-black 
-            text-black 
-            hover:bg-[rgba(0,0,0,0.12)]
-            p-2 
-            rounded 
-            dark:border-[#ecedee] 
-            dark:text-[#ecedee] 
-            dark:hover:bg-[rgba(236,237,238,0.12)]
+            font-medium
+            flex
+            items-center
+            gap-1
+            border
+            border-white
+            text-white
+            px-5
+            py-2
+            hover:bg-white/10
+            transition-colors
           '>
 					About Sei
 				</Link>
