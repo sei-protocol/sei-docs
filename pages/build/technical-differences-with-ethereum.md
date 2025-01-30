@@ -1,6 +1,7 @@
 ---
-title: "Divergence from Ethereum"
-description: "Detailed technical differences between Sei's EVM and Ethereum."
+title: "Divergence from Ethereum | Sei Docs"
+description: "Explore how Sei’s EVM compatibility differs from Ethereum. Learn about opcode changes, gas fees, block finality, and more."
+keywords: ["sei docs", "ethereum differences", "evm compatibility", "gas fees", "web3 docs"]
 ---
 
 import { CHAIN_IDS } from '@sei-js/registry';

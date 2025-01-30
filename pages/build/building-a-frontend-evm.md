@@ -1,6 +1,7 @@
 ---
-title: "Building a Frontend (EVM)"
-description: "How to build a React-based EVM DApp on Sei"
+title: "Building a Frontend (EVM) | Sei Docs"
+description: "Set up a React-based EVM DApp on Sei, bridging EVM contracts to CosmWasm via the Wasm Precompile."
+keywords: ["sei docs", "evm dapp", "wasm precompile", "react", "web3 docs"]
 ---
 
 import { Callout } from "nextra/components";
