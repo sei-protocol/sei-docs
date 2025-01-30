@@ -2,7 +2,7 @@ import VersionTable from '../../components/VersionFetcher/VersionTable';
 
 # Sei Node Setup
 
-## System Requirements
+### System Requirements
 
 | CPU Cores | RAM  | Disk     |
 | --------- | ---- | -------- |
@@ -12,59 +12,16 @@ import VersionTable from '../../components/VersionFetcher/VersionTable';
 
 <VersionTable />
 
-## Getting Started
+# Node Operator Guide
 
-_The following instructions are for Debian-based systems. Other operating systems like macOS or Arch will use a slightly different procedure._
+## Building from Source
 
-## Option 1: Install from Precompiled Binaries
-If you prefer not to build seid from source, you can use precompiled binaries. Make sure to select the correct architecture for your machine (e.g., linux-amd64 for typical 64-bit Linux systems, darwin-arm64 for macOS).
-
-Head to [sei-binares](https://github.com/alexander-sei/sei-binaries/releases) to pick the release. Download and install it as follows:
-
-```
-cd ~
-
-# Replace <The_link_of_the_binary> with the link the precompiled binary
-wget -O seid <The_link_of_the_binary>
-
-# Copy the binary into your PATH (e.g., /usr/local/bin)
-sudo cp seid /usr/local/bin/seid
-sudo chmod +x /usr/local/bin/seid
-```
-
-## Option 2: Manually compiling seid 
-
-### Update and Upgrade System Packages
-
-```bash
-sudo apt update && sudo apt upgrade -y
-```
-
-### Install Dependencies
-
-```bash
-sudo apt install nano make build-essential gcc git jq chrony tar curl lz4 wget -y
-```
-
-### Install Golang
-
-1. Remove old Go version if necessary:
-
-```bash
-sudo rm -rvf /usr/local/go/
-```
-
-2. Install Golang:
+### Install Go
 
 ```bash
 wget https://go.dev/dl/go1.21.1.linux-amd64.tar.gz
 sudo tar -C /usr/local -xzf go1.21.1.linux-amd64.tar.gz
-rm go1.21.1.linux-amd64.tar.gz
-```
 
-3. Configure PATH and GOPATH (add to `~/.profile` or `~/.bashrc` to make persistent):
-
-```bash
 echo 'export GOROOT=/usr/local/go' >> ~/.profile
 echo 'export GOPATH=$HOME/go' >> ~/.profile
 echo 'export GO111MODULE=on' >> ~/.profile
@@ -72,64 +29,81 @@ echo 'export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin' >> ~/.profile
 source ~/.profile
 ```
 
-### Install `seid`
-
-1. Define the variables for your network and (optional) moniker:
+### Build Sei
 
 ```bash
-VERSION=v1.2.3
-CHAIN_ID=pacific-1
-GENESIS_URL=https://raw.githubusercontent.com/sei-protocol/testnet/main/pacific-1/genesis.json
-MONIKER="your_node_name"
-```
-
-2. Clone the repository and install:
-
-```bash
-cd ~/ && git clone https://github.com/sei-protocol/sei-chain.git
+git clone https://github.com/sei-protocol/sei-chain.git
 cd sei-chain
-git checkout $VERSION
+git checkout [version]  # See version table below
 make install
 ```
 
-## Initialize and Configure the Node
+For available versions, see our [version table](../references/versions).
+
+## Network Setup
 
 ### Initialize Node
 
-1. Initialize the node:
-
 ```bash
+# Set network variables
+CHAIN_ID="pacific-1"  # or "atlantic-2" for testnet
+MONIKER="your-node-name"
+
+# Initialize
 seid init $MONIKER --chain-id $CHAIN_ID
-```
-
-2. Download and place genesis file:
-
-```bash
-wget -O $HOME/.sei/config/genesis.json $GENESIS_URL
 ```
 
 ### Configure Node
 
-1. Enable `sei-db`:
-
 ```bash
-sed -i 's/^sc-enable[[:space:]]*=.*$/sc-enable = true/; s/^ss-enable[[:space:]]*=.*$/ss-enable = true/' $HOME/.sei/config/app.toml
+# Get genesis
+wget -O $HOME/.sei/config/genesis.json https://raw.githubusercontent.com/sei-protocol/testnet/main/$CHAIN_ID/genesis.json
+
+# Set seeds/peers
+PEERS="id1@peer1:26656,id2@peer2:26656"
+sed -i.bak -e "s/^persistent_peers *=.*/persistent_peers = \"$PEERS\"/" $HOME/.sei/config/config.toml
 ```
 
-2. Run the state sync script:
+See [Network Configuration](./node-configuration#network) for peer selection strategies.
 
-```bash
-chmod +x $HOME/sei-chain/scripts/state_sync.sh
-$HOME/sei-chain/scripts/state_sync.sh
+### State Sync (Optional)
+
+For faster sync, see our [State Sync Guide](./node-configuration#state-sync).
+
+## Database Setup
+
+### Enable Sei-DB
+
+```toml
+# ~/.sei/config/app.toml
+[state-commit]
+sc-enable = true
+sc-async-commit-buffer = 100
+
+[state-store]
+ss-enable = true
+ss-backend = "pebbledb"
 ```
 
-3. Create Systemd Service File:
+See [Database Configuration](./node-configuration#database) for optimization tips.
+
+## Service Configuration
+
+### System Limits
 
 ```bash
-sudo tee /etc/systemd/system/seid.service > /dev/null << EOF
+# /etc/security/limits.conf
+$USER             soft    nofile          65535
+$USER             hard    nofile          65535
+```
+
+### Service File
+
+```ini
+# /etc/systemd/system/seid.service
 [Unit]
-Description=Sei Daemon
-After=network-online.target
+Description=Sei Node
+After=network.target
 
 [Service]
 User=$USER
@@ -140,10 +114,9 @@ LimitNOFILE=65535
 
 [Install]
 WantedBy=multi-user.target
-EOF
 ```
 
-4. Start the node:
+### Start Service
 
 ```bash
 sudo systemctl daemon-reload
@@ -151,24 +124,61 @@ sudo systemctl enable seid
 sudo systemctl start seid
 ```
 
-5. Verify that the state sync is progressing:
+## Monitoring Setup
+
+### Basic Checks
 
 ```bash
-sudo journalctl -u seid -f -o cat
+# Sync status
+seid status | jq .SyncInfo
+
+# Node info
+seid status | jq .NodeInfo
+
+# Connection info
+seid status | jq .ValidatorInfo
 ```
 
-## Appendix
+For advanced monitoring, see our [Best Practices Guide](./best-practices#monitoring).
 
-### Default Service Ports
+## Key Management
 
-The standard service ports can be configured in `$HOME/.sei/config/config.toml` and `$HOME/.sei/config/app.toml`:
+### Create Keys
 
-- P2P: 26656
-- RPC: 26657
-- REST: 1317
-- GRPC: 9090
-- EVM RPC: 8545
-- EVM Websocket: 8546
-- Tendermint Prometheus Metrics Exporter: 26660
+```bash
+# Create new key
+seid keys add <name>
 
-The standard websocket uses the same connection as the RPC server. Example: `ws://localhost:26657/websocket` (non-TLS).
+# Restore existing key
+seid keys add <name> --recover
+```
+
+See our [Security Guide](./best-practices#key-security) for key management best practices.
+
+## Common Operations
+
+### Update Binary
+
+```bash
+cd sei-chain
+git fetch --all
+git checkout [new-version]
+make install
+sudo systemctl restart seid
+```
+
+### Reset Node
+
+```bash
+sudo systemctl stop seid
+seid tendermint unsafe-reset-all --keep-addr-book
+sudo systemctl start seid
+```
+
+For more maintenance tasks, see our [Operations Guide](./best-practices#maintenance).
+
+## Next Steps
+
+- [Node Configuration](./node-configuration) - Advanced settings
+- [Best Practices](./best-practices) - Operations & monitoring
+- [Validator Guide](./validator-faq) - Become a validator

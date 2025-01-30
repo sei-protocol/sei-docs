@@ -1,154 +1,124 @@
-# Local Sei Node
-In this guide, we'll walk you through how to set up the Sei blockchain locally on your machine.
+# Getting Started with Sei
 
-## Prerequisites
-To begin, ensure you are in the sei-chain repository on your local machine.
+## System Requirements
+
+### Hardware Specifications
+
+See our [System Configuration Guide](./node-configuration#hardware-tuning) for detailed performance tuning.
+
+| Component | Minimum      | Recommended  |
+| --------- | ------------ | ------------ |
+| CPU       | 8 cores      | 16 cores     |
+| RAM       | 32GB         | 64GB         |
+| Storage   | 1TB NVMe SSD | 2TB NVMe SSD |
+| Network   | 1Gbps        | 2Gbps        |
+
+### Base System
+
+```bash
+sudo apt update && sudo apt upgrade -y
+sudo apt install make gcc git jq chrony curl lz4 wget -y
+```
+
+See [Security Best Practices](./best-practices#system-security) for post-installation hardening steps.
+
+## Installation Options
+
+### 1. Pre-built Binary
+
+[Download latest release](https://github.com/sei-protocol/sei-chain/releases)
+
+```bash
+wget -O seid <binary_url_for_version>
+sudo mv seid /usr/local/bin/
+sudo chmod +x /usr/local/bin/seid
+```
+
+### 2. Quick Start Script
+
+For testing or development environments. See [Local Development Guide](../develop/local-testnet) for more options.
 
 ```bash
 git clone https://github.com/sei-protocol/sei-chain
 cd sei-chain
+python3 scripts/run-node.py
 ```
 
-## Running a Local Single-node Testnet
-To run Sei locally, run the following command
+### 3. Build from Source
+
+For production environments, see our [Node Operators Guide](./node-operators#building-from-source) for detailed build instructions.
+
+## Basic Configuration
+
+See [Configuration Reference](./node-configuration#configuration-files) for complete documentation.
+
+### Node Directory Structure
 
 ```bash
-./scripts/initialize_local_chain.sh
+~/.sei/config/
+├── app.toml          # Application settings
+├── client.toml       # CLI configuration
+├── config.toml       # Tendermint settings
+├── genesis.json      # Chain genesis file
+├── node_key.json     # P2P authentication
+└── priv_validator_key.json  # Validator key (if applicable)
 ```
 
-Once you run the initialization script, the seid process will be running 1 node locally. It will also seed 50 accounts. To verify the status of the local blockchain, open a new tab and run
+### Essential Settings
 
-```bash
-seid status | jq
+```toml
+# app.toml
+[state-commit]
+sc-enable = true    # Enable sei-db for better performance
+
+[state-store]
+ss-enable = true    # Enable historical state
+
+minimum-gas-prices = "0.01usei"  # Minimum transaction fees
 ```
 
-If the chain is running properly, you should see output similar to the following:
+See [Database Optimization](./node-configuration#database-settings) for performance tuning.
 
-```bash
-{
-"NodeInfo": {
-"protocol_version": {
-"p2p": "8",
-"block": "11",
-"app": "0"
-},
-"id": "36126cf4875862c3388f04dcc636fc1557791dd7",
-"listen_addr": "tcp://0.0.0.0:26656",
-"network": "sei-chain",
-"version": "0.34.19",
-"channels": "40202122233038606100",
-"moniker": "demo",
-"other": {
-"tx_index": "on",
-"rpc_address": "tcp://127.0.0.1:26657"
-}
-},
-"SyncInfo": {
-"latest_block_hash": "0A708E540CC04445B3C5585ED2757FADCAD18FB8E2A403655B3DC90D0F588D49",
-"latest_app_hash": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
-"latest_block_height": "1",
-"latest_block_time": "2022-09-04T17:59:07.314228Z",
-"earliest_block_hash": "0A708E540CC04445B3C5585ED2757FADCAD18FB8E2A403655B3DC90D0F588D49",
-"earliest_app_hash": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
-"earliest_block_height": "1",
-"earliest_block_time": "2022-09-04T17:59:07.314228Z",
-"catching_up": false
-},
-"ValidatorInfo": {
-"Address": "13A8F763B396AF5B835A10748C4EFEDB0F99AC28",
-"PubKey": {
-"type": "tendermint/PubKeyEd25519",
-"value": "7ztvoNO/8wxIkqTcsDQ3CLgCyF5yOz6WBqf0yGrmeuE="
-},
-"VotingPower": "70000000000000"
-}
-}
+### Default Ports
+
+See [Network Configuration](./node-configuration#network-settings) for security recommendations.
+
+- P2P: 26656
+- RPC: 26657
+- API: 1317
+- gRPC: 9090
+
+## Service Setup
+
+For detailed service management, see [Node Operations](./best-practices#service-management).
+
+```ini
+# /etc/systemd/system/seid.service
+[Unit]
+Description=Sei Node
+After=network.target
+
+[Service]
+User=$USER
+ExecStart=$(which seid) start
+Restart=always
+RestartSec=3
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target
 ```
 
-To deploy multiple nodes, you can use a docker container to start a sei chain cluster.
+## Node Types
 
-## Install Docker & Docker Compose
-- For MacOS:
-The easiest and recommended way to get Docker and Docker Compose is to install Docker Desktop here:
+- **Full Node**: [Standard Setup Guide](./node-operators#full-node-setup)
+- **Archive Node**: [Historical Data Configuration](./node-configuration#archive-node-setup)
+- **Validator Node**: [Validator Requirements](./validator-faq#technical-requirements)
+- **RPC Node**: [API Configuration](./node-configuration#rpc-node-setup)
 
-https://docs.docker.com/desktop/install/mac-install/
+## Next Steps
 
-- For Ubuntu:
-Follow the below link to install docker on ubuntu
-
-https://docs.docker.com/engine/install/ubuntu/#install-using-the-repository
-
-Follow the below link to install standalone docker compose
-
-https://docs.docker.com/compose/install/other/
-
-## Deploy Sei Chain Validators on Docker
-Detailed instructions and commands can be found in the Makefile of the sei-chain repo.
-
-- Start a 4 Node Validator Cluster
-This will start a 4 node sei chain cluster, each validator node will be running in its own docker container, and each node will also run the oracle price feeder daemon
-
-#### If this is the first time or you want to rebuild the binary:
-```bash
-make docker-cluster-start
-```
-
-#### If you have run docker-cluster-start and build/seid exist,
-#### you can skip the build process to quick start by:
-```bash
-make docker-cluster-start-skipbuild
-```
-All the logs and genesis files will be generated under the temporary build/generated folder. To access the service log:
-
-### Monitor logs after cluster is started for node0
-```bash
-tail -f build/generated/logs/seid-0.log
-```
-
-SSH into a single validator node
-### List all containers
-docker ps -a
-### SSH into a running container
-docker exec -it [container_name] /bin/bash
-Deploy a State Sync Node
-Requirement: Follow the above steps to start a 4 node docker cluster before starting any state sync node.
-
-### Be sure to start up a 4-node cluster before you start a state sync node
-```bash
-make docker-cluster-start
-```
-
-## Wait for at least a few minutes till the latest block height exceed 500 (this can be changed via app.toml)
-```bash
-seid status |jq
-```
-
-# Start up a state sync node
-```bash
-make run-rpc-nodesh
-```
-
-## Local Docker for Debugging and Testing
-One of the fanciest thing of using docker is fast iteration. Here we support:
-
-Being able to make changes locally and start up the chain to see the immediate impact
-Being able to make changes to local dependency repo (Cosmo SDK/Tendermint) and start the chain with the latest changes without bumping or release any binary version In order to make local debugging work, you can follow these steps:
-
-#### Clone your dependency repo and put them under the same path as sei-chain
-```bash
-cd sei-chain
-cd ../
-git clone https://github.com/sei-protocol/sei-tendermint.git
-git clone https://github.com/sei-protocol/sei-cosmos.git
-```
-
-#### Modify go.mod file to point to local repo, must use the exact same path as below:
-cd sei-chain
-```bash
-go mod edit -replace github.com/cosmos/cosmos-sdk=../sei-cosmos
-go mod edit -replace github.com/tendermint/tendermint=../sei-tendermint
-```
-
-## Start the docker cluster
-make docker-cluster-start
-#### You are good to go now! Make changes as you wish to any of the dependency repo and run docker to test it out.
+1. [Node Operators Guide](./node-operators) - Full setup instructions
+2. [Node Configuration](./node-configuration) - Advanced configuration options
+3. [Best Practices](./best-practices) - Operations & monitoring
+4. [Validator Guide](./validator-faq) - Running a validator
