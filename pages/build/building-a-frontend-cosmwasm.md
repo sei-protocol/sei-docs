@@ -1,5 +1,5 @@
 ---
-title: "Building a Frontend (CosmWasm) | Sei Docs"
+title: "Building a Frontend (CosmWasm)"
 description: "Learn how to create a React-based DApp that interacts with CosmWasm contracts on Sei using @sei-js libraries."
 keywords: ["sei docs", "cosmwasm", "frontend", "smart contracts", "web3 docs"]
 ---

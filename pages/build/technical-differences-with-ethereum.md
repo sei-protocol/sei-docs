@@ -1,5 +1,5 @@
 ---
-title: "Divergence from Ethereum | Sei Docs"
+title: "Divergence from Ethereum"
 description: "Explore how Sei’s EVM compatibility differs from Ethereum. Learn about opcode changes, gas fees, block finality, and more."
 keywords: ["sei docs", "ethereum differences", "evm compatibility", "gas fees", "web3 docs"]
 ---

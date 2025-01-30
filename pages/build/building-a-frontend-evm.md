@@ -1,5 +1,5 @@
 ---
-title: "Building a Frontend (EVM) | Sei Docs"
+title: "Building a Frontend (EVM)"
 description: "Set up a React-based EVM DApp on Sei, bridging EVM contracts to CosmWasm via the Wasm Precompile."
 keywords: ["sei docs", "evm dapp", "wasm precompile", "react", "web3 docs"]
 ---
