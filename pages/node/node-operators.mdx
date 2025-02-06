@@ -1,165 +1,192 @@
-import VersionTable from '../../components/VersionFetcher/VersionTable';
+# Sei Node Operations Guide
 
-# Sei Node Setup
+This guide covers the detailed operational aspects of running a Sei node, including configuration management, maintenance procedures, and best practices for ongoing operations.
 
-### System Requirements
+## Configuration Management
 
-| CPU Cores | RAM  | Disk     |
-| --------- | ---- | -------- |
-| 16 cores  | 64GB | 1TB NVMe |
+### Directory Structure
 
-### Build Version and Genesis Table
-
-<VersionTable />
-
-# Node Operator Guide
-
-## Building from Source
-
-### Install Go
+The Sei node configuration lives in `~/.sei/config/`:
 
 ```bash
-wget https://go.dev/dl/go1.21.1.linux-amd64.tar.gz
-sudo tar -C /usr/local -xzf go1.21.1.linux-amd64.tar.gz
-
-echo 'export GOROOT=/usr/local/go' >> ~/.profile
-echo 'export GOPATH=$HOME/go' >> ~/.profile
-echo 'export GO111MODULE=on' >> ~/.profile
-echo 'export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin' >> ~/.profile
-source ~/.profile
+~/.sei/config/
+├── app.toml          # Application configuration
+├── client.toml       # Client settings
+├── config.toml       # Tendermint core settings
+├── genesis.json      # Chain genesis file
+├── node_key.json     # Node identity key
+└── priv_validator_key.json  # Validator signing key (if applicable)
 ```
 
-### Build Sei
+### Essential Configuration Parameters
 
-```bash
-git clone https://github.com/sei-protocol/sei-chain.git
-cd sei-chain
-git checkout [version]  # See version table below
-make install
-```
-
-For available versions, see our [version table](../references/versions).
-
-## Network Setup
-
-### Initialize Node
-
-```bash
-# Set network variables
-CHAIN_ID="pacific-1"  # or "atlantic-2" for testnet
-MONIKER="your-node-name"
-
-# Initialize
-seid init $MONIKER --chain-id $CHAIN_ID
-```
-
-### Configure Node
-
-```bash
-# Get genesis
-wget -O $HOME/.sei/config/genesis.json https://raw.githubusercontent.com/sei-protocol/testnet/main/$CHAIN_ID/genesis.json
-
-# Set seeds/peers
-PEERS="id1@peer1:26656,id2@peer2:26656"
-sed -i.bak -e "s/^persistent_peers *=.*/persistent_peers = \"$PEERS\"/" $HOME/.sei/config/config.toml
-```
-
-See [Network Configuration](./node-configuration#network) for peer selection strategies.
-
-### State Sync (Optional)
-
-For faster sync, see our [State Sync Guide](./node-configuration#state-sync).
-
-## Database Setup
-
-### Enable Sei-DB
+#### Network Settings (config.toml)
 
 ```toml
-# ~/.sei/config/app.toml
+[p2p]
+# Your node's public IP
+external_address = "your-public-ip:26656"
+# Listen address for P2P connections
+laddr = "tcp://0.0.0.0:26656"
+# Maximum number of inbound peers
+max_num_inbound_peers = 40
+# Maximum number of outbound peers
+max_num_outbound_peers = 20
+# Rate at which packets can be sent
+send_rate = 20480000
+# Rate at which packets can be received
+recv_rate = 20480000
+
+[rpc]
+# RPC listen address
+laddr = "tcp://0.0.0.0:26657"
+# Maximum number of simultaneous connections
+max_open_connections = 900
+# Timeout for broadcast transactions
+timeout_broadcast_tx_commit = "10s"
+```
+
+#### Application Settings (app.toml)
+
+```toml
+# Minimum gas prices for transaction acceptance
+minimum-gas-prices = "0.01usei"
+
+[api]
+# Enable the API server
+enable = true
+# Maximum number of connections
+max-open-connections = 1000
+
+[state-store]
+# Enable state store for historical queries
+ss-enable = true
+# Backend database type
+ss-backend = "pebbledb"
+```
+
+## Database Management
+
+### Database Types
+
+Sei supports two database backends:
+
+1. Sei-DB (Recommended)
+
+   - Higher performance
+   - Better resource utilization
+   - Improved sync times
+
+2. Legacy DB
+   - Traditional Cosmos SDK database
+   - More widely tested
+   - Compatible with older tools
+
+### Sei-DB Configuration
+
+```toml
 [state-commit]
 sc-enable = true
 sc-async-commit-buffer = 100
+sc-keep-recent = 1
+sc-snapshot-interval = 10000
 
 [state-store]
 ss-enable = true
 ss-backend = "pebbledb"
+ss-async-write-buffer = 100
+ss-keep-recent = 100000
+ss-prune-interval = 600
 ```
 
-See [Database Configuration](./node-configuration#database) for optimization tips.
+### Database Maintenance
 
-## Service Configuration
-
-### System Limits
+Regular maintenance tasks:
 
 ```bash
-# /etc/security/limits.conf
-$USER             soft    nofile          65535
-$USER             hard    nofile          65535
+# Check database size
+du -sh ~/.sei/data/
+
+# Compact database (if needed)
+seid tendermint unsafe-reset-all --home=$HOME/.sei --keep-addr-book
+
+# Backup database
+cp -r ~/.sei/data/ ~/sei-backup-$(date +%Y%m%d)/
 ```
 
-### Service File
+## Service Management
 
-```ini
-# /etc/systemd/system/seid.service
-[Unit]
-Description=Sei Node
-After=network.target
-
-[Service]
-User=$USER
-ExecStart=$(which seid) start
-Restart=always
-RestartSec=3
-LimitNOFILE=65535
-
-[Install]
-WantedBy=multi-user.target
-```
-
-### Start Service
+### Systemd Commands
 
 ```bash
-sudo systemctl daemon-reload
-sudo systemctl enable seid
-sudo systemctl start seid
+# Check service status
+systemctl status seid
+
+# Start service
+systemctl start seid
+
+# Stop service
+systemctl stop seid
+
+# Restart service
+systemctl restart seid
+
+# View logs
+journalctl -u seid -f
 ```
 
-## Monitoring Setup
+### Log Management
 
-### Basic Checks
+Configure log rotation to prevent disk space issues:
 
 ```bash
-# Sync status
-seid status | jq .SyncInfo
-
-# Node info
-seid status | jq .NodeInfo
-
-# Connection info
-seid status | jq .ValidatorInfo
+sudo tee /etc/logrotate.d/sei > /dev/null << EOF
+/var/log/sei/*.log {
+    daily
+    rotate 14
+    compress
+    delaycompress
+    notifempty
+    create 0640 sei sei
+    sharedscripts
+    postrotate
+        systemctl reload seid
+    endscript
+}
+EOF
 ```
 
-For advanced monitoring, see our [Best Practices Guide](./best-practices#monitoring).
+## Update Procedures
 
-## Key Management
+### Minor Updates
 
-### Create Keys
+For minor version updates:
 
 ```bash
-# Create new key
-seid keys add <name>
+# Stop service
+sudo systemctl stop seid
 
-# Restore existing key
-seid keys add <name> --recover
+# Update binary
+cd sei-chain
+git fetch --all
+git checkout [new-version]
+make install
+
+# Restart service
+sudo systemctl restart seid
 ```
 
-See our [Security Guide](./best-practices#key-security) for key management best practices.
+### Major Updates
 
-## Common Operations
+For major version updates or hard forks:
 
-### Update Binary
+1. Wait for the upgrade height
+2. The node will automatically halt
+3. Update the binary
+4. Restart the service
 
 ```bash
+# After node halts
 cd sei-chain
 git fetch --all
 git checkout [new-version]
@@ -167,18 +194,132 @@ make install
 sudo systemctl restart seid
 ```
 
-### Reset Node
+## Performance Optimization
+
+### Memory Management
 
 ```bash
-sudo systemctl stop seid
-seid tendermint unsafe-reset-all --keep-addr-book
-sudo systemctl start seid
+# /etc/sysctl.conf
+vm.swappiness = 1
+vm.dirty_background_ratio = 3
+vm.dirty_ratio = 10
+vm.dirty_expire_centisecs = 300
+vm.dirty_writeback_centisecs = 100
 ```
 
-For more maintenance tasks, see our [Operations Guide](./best-practices#maintenance).
+### Network Stack
 
-## Next Steps
+```bash
+# /etc/sysctl.conf
+net.core.somaxconn = 32768
+net.core.netdev_max_backlog = 32768
+net.ipv4.tcp_max_syn_backlog = 16384
+net.core.rmem_max = 16777216
+net.core.wmem_max = 16777216
+```
 
-- [Node Configuration](./node-configuration) - Advanced settings
-- [Best Practices](./best-practices) - Operations & monitoring
-- [Validator Guide](./validator-faq) - Become a validator
+### Storage Optimization
+
+For NVMe drives:
+
+```bash
+echo "none" > /sys/block/nvme0n1/queue/scheduler
+blockdev --setra 4096 /dev/nvme0n1
+```
+
+## Backup and Recovery
+
+### Regular Backups
+
+Implement automated backups:
+
+```bash
+#!/bin/bash
+BACKUP_DIR="/backup/sei"
+DATE=$(date +%Y%m%d)
+
+# Stop service
+systemctl stop seid
+
+# Create backup
+tar czf $BACKUP_DIR/sei-backup-$DATE.tar.gz ~/.sei/
+
+# Restart service
+systemctl start seid
+```
+
+### Recovery Procedure
+
+To restore from backup:
+
+```bash
+# Stop service
+systemctl stop seid
+
+# Remove existing data
+rm -rf ~/.sei/data/
+
+# Restore from backup
+tar xzf sei-backup-[date].tar.gz -C /
+
+# Restart service
+systemctl start seid
+```
+
+## Troubleshooting
+
+### Common Issues
+
+1. Sync Problems
+
+   - Check disk space
+   - Verify peer connections
+   - Review network settings
+
+2. Performance Issues
+
+   - Monitor system resources
+   - Check disk I/O
+   - Review network traffic
+
+3. Database Issues
+   - Verify database integrity
+   - Check for corruption
+   - Consider resyncing if necessary
+
+### Diagnostic Commands
+
+```bash
+# Check sync status
+seid status | jq .SyncInfo
+
+# View peer count
+seid net info | jq '.n_peers'
+
+# Check validator status
+seid query staking validator $(seid keys show -a $VALIDATOR_KEY)
+
+# View recent blocks
+seid query blocks recent
+```
+
+## Security Considerations
+
+1. Network Security
+
+   - Use firewalls
+   - Implement rate limiting
+   - Monitor for attacks
+
+2. System Security
+
+   - Regular updates
+   - Minimal installed packages
+   - Secure SSH configuration
+
+3. Key Management
+   - Secure key storage
+   - Regular key rotation
+   - Backup procedures
+
+For detailed security guidelines, refer to the Security Best Practices Guide.
