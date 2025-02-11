@@ -55,7 +55,7 @@ export async function getSeiEcosystemAppsData(): Promise<EcosystemResponse> {
 	}
 }
 
-export type EcosystemDocsCategory = 'indexer' | 'explorer' | 'wallet' | 'centralized-exchange' | 'rpc-provider' | 'faucet' | 'launchpad' | 'oracle' | 'bridge';
+export type EcosystemDocsCategory = 'indexer' | 'explorer' | 'wallet' | 'centralized-exchange' | 'rpc-provider' | 'faucet' | 'launchpad' | 'oracle' | 'bridge' | 'account-abstraction';
 
 export async function getSeiEcosystemAppByCategory(category: EcosystemDocsCategory): Promise<EcosystemResponse> {
 	const url = `https://app-api.seinetwork.io/webflow/ecosystem/docs/${category}`;
