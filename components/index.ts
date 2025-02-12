@@ -17,3 +17,4 @@ export * from './EcosystemMap';
 export * from './InteractiveTerminal';
 export * from './AskCookbook';
 export * from './OldDocsCallout';
+export * from './VersionFetcher';
