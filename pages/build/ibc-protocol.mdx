@@ -1,94 +1,370 @@
-import { Code } from '@mantine/core';
-import { CHAIN_IDS } from '@sei-js/registry';
+# EVM-Enhanced IBC Implementation
 
-# Overview
+## Understanding the Foundation: IBC Protocol
 
-The Inter-Blockchain Communication (IBC) protocol is a blockchain interoperability solution that allows blockchains to transfer any type of data encoded in bytes, in a secure and permissionless manner.
+The Inter-Blockchain Communication (IBC) protocol represents a fundamental advancement in blockchain interoperability, enabling direct, trustless communication between independent blockchains. Much like TCP/IP created a standard way for computers to communicate across the internet, IBC establishes a universal protocol for blockchains to interact—regardless of their underlying architecture.
 
-The most popular IBC use case arguably is token swaps between different blockchains.
+### The Protocol Stack
 
-## What differentiates IBC from other bridging protocols?
+IBC’s architecture mirrors TCP/IP’s layered approach by dividing functionality into two distinct layers:
 
-**Universal Interoperability**. Chains that speak IBC can share any type of data as long as it's encoded in bytes, enabling the industry’s most feature-rich cross-chain interactions.
+- **Transport Layer:**  
+  This layer manages the secure movement of data between chains. Just as TCP/IP is indifferent to whether it’s carrying an email or a web page, this layer is agnostic to the type of data transferred—focusing solely on ensuring reliable, secure delivery.
 
-**Permissionless access**. IBC is completely open-source: Anyone can build with IBC, and there’s no in-protocol rent extraction or hidden fees.
+- **Application Layer:**  
+  Built atop the transport layer, this layer implements specific use cases. For instance, when transferring tokens between chains, it handles token denomination, amount conversion, and balance updates while relying on the underlying layer to secure the data transmission.
 
-**Security**. IBC’s light client-based interoperability removes the need for a trusted third party in cross-chain interactions, securing tens of billions in annual value transfer without a single exploit since launch.
+### Core Components
 
-# Design Principles
+Several interconnected components work together within IBC to enable secure cross-chain communication:
 
-The design principles of IBC drew inspiration from the TCP/IP specification that enabled the creation of the internet. Mirroring the way TCP/IP sets the standard for seamless communication between computers, IBC defines a universal framework of abstractions that lets blockchains communicate.
+- **Light Clients:**  
+  Act as trustless observers, verifying the state of another blockchain without storing its full copy—much like a trusted friend verifying local events from afar.
 
-The IBC protocol stack can be decoupled into two distinct elements: the **[IBC Transport Layer](https://www.ibcprotocol.dev/blog/what-are-the-ibc-transport-and-application-layers)** and the **[IBC Application Layer](https://www.ibcprotocol.dev/blog/what-are-the-ibc-transport-and-application-layers).**
+- **Connections:**  
+  Create secure pathways between light clients, much like dedicated, secure phone lines between two parties.
 
-The **IBC Transport Layer** is agnostic to the contents of transferred data packets, much like TCP/IP. The IBC Transport Layer is a foundational layer upon which feature-rich applications are developed, similar to the applications that sit on top of TCP/IP and allow for the flourishing of end-user Internet applications.
+- **Channels:**  
+  Operating over established connections, channels provide dedicated paths for specific applications (imagine different conversation topics over the same phone line).
 
-The transport layer handles data packet transport, authentication, and ordering. The key components of the transport layer are light clients, connections, channels, and relayers.
+- **Relayers:**  
+  Function as the protocol’s postal service by listening for in/outbound packets and ensuring these immutable messages reach their destination.
 
-**Light clients** are the heart of the IBC Transport Layer. A [light client](https://www.ibcprotocol.dev/technical-resource-catalog?category=Light+Client#results) is a lightweight representation of destination chain that live within the state machine of the source chain.
+---
 
-For example, chains A and B are connected over IBC via their light clients. Chain A will have a light client representing chain B in its own state machine, and Chain B has a light client of Chain A. Light clients keep track of a counterparty blockchain’s consensus algorithm by verifying block headers and Merkle proofs.
+## Sei's Innovation: Seamless Integration of IBC and EVM
 
-**Connections** are responsible for connecting two different light clients together.
+Traditional bridges often rely on multiple steps, manual interventions, or additional trust assumptions.
+In contrast, Sei’s architecture enables EVM clients and smart contracts to interact with IBC directly—eliminating friction points such as wrapped tokens or manual claiming.
+This uniquely positions Sei as an easily accessible solution for teams seeking a fast, reliable and affordable gateway between any existing IBC and EVM ecosystems.
 
-**Channels** act as a conduit to connect a module/application on the source chain to a module on the destination chain. Data packets between the source and destination chains are sent over this abstraction layer.
+### The IBC Precompile: A Direct Bridge to EVM
 
-**Relayers** are permissionless off-chain processes that ferry data packets from one chain to another. [Relayer](https://www.ibcprotocol.dev/technical-resource-catalog?category=Relayer#results)s scan chain states, build transactions based on these states, and submit the transactions to the chains involved in the network. Relayers play a crucial role in IBC because chains do not directly send messages to each other over networking infrastructure. Instead, they create and store the data to be retrieved and used by a relayer to build IBC packets.
+At the heart of Sei’s innovation is the IBC precompile, a powerful feature that enables direct interaction between EVM smart contracts and the IBC protocol. Deployed at address `0x0000000000000000000000000000000000001009`, the precompile provides a native bridge between Cosmos and EVM environments.
 
-Get an in-depth walkthrough of the IBC components and packet flow on the [developer documentation.](https://ibc.cosmos.network/v8/ibc/overview)
+When an EVM smart contract initiates an IBC transfer via the precompile, it directly interfaces with the IBC protocol. No intermediate bridges or additional wrapping is required. Consider the following streamlined example:
 
-# Asset transfer
+```javascript
+import { Contract, BigNumber } from 'ethers';
 
-## Command line
+const IBC_PRECOMPILE_ADDRESS = '0x0000000000000000000000000000000000001009';
+const IBC_PRECOMPILE_ABI = [
+	{
+		inputs: [
+			{ internalType: 'string', name: 'toAddress', type: 'string' },
+			{ internalType: 'string', name: 'port', type: 'string' },
+			{ internalType: 'string', name: 'channel', type: 'string' },
+			{ internalType: 'string', name: 'denom', type: 'string' },
+			{ internalType: 'uint256', name: 'amount', type: 'uint256' },
+			{ internalType: 'uint64', name: 'revisionNumber', type: 'uint64' },
+			{ internalType: 'uint64', name: 'revisionHeight', type: 'uint64' },
+			{ internalType: 'uint64', name: 'timeoutTimestamp', type: 'uint64' },
+			{ internalType: 'string', name: 'memo', type: 'string' }
+		],
+		name: 'transfer',
+		outputs: [{ internalType: 'bool', name: 'success', type: 'bool' }],
+		stateMutability: 'nonpayable',
+		type: 'function'
+	}
+];
 
-In order to transfer funds from Sei to other chain or other way round we need several bits of information. In particular:
+/**
+ * IBCTransfer encapsulates the core logic for constructing and executing an IBC transfer.
+ */
+class IBCTransfer {
+	constructor(provider, wallet) {
+		this.provider = provider;
+		this.wallet = wallet;
+		this.contract = new Contract(IBC_PRECOMPILE_ADDRESS, IBC_PRECOMPILE_ABI, wallet);
+	}
 
-- from wallet e.g. Sei bech32 address
-- to wallet e.g. Axelar bech32 address
-- the source channel and port id
+	/**
+	 * Calculate timeout parameters based on the desired duration (in seconds).
+	 * These parameters (revisionNumber, revisionHeight, timeoutTimestamp) ensure that if a transfer isn’t confirmed in time, tokens will safely return.
+	 *
+	 * @param {number} timeoutDuration - Duration in seconds (default 600 seconds)
+	 * @returns {Object} Timeout parameters for the IBC transfer.
+	 */
+	async calculateTimeout(timeoutDuration = 600) {
+		const currentBlock = await this.provider.getBlockNumber();
+		const blockTime = 0.4; // Average block time (in seconds) for Sei
+		const timeoutBlocks = Math.ceil(timeoutDuration / blockTime);
 
-  - These could be located in [registry](https://github.com/sei-protocol/chain-registry/blob/main/ibc_info.json). E.g. for {<Code>{CHAIN_IDS.testnet}</Code>} Axelar, we would use:
+		return {
+			revisionNumber: 1,
+			revisionHeight: currentBlock + timeoutBlocks,
+			// Current time in nanoseconds plus the timeout duration (in nanoseconds)
+			timeoutTimestamp: BigInt(Date.now() * 1_000_000) + BigInt(timeoutDuration * 1_000_000_000)
+		};
+	}
 
-  ```json
-      {
-        "counterparty_chain_name": "axelar-testnet-lisbon-3",
-        "dst_channel": "channel-257",
-        "src_channel": "channel-44",
-        "port_id": "transfer",
-        "client_id": "07-tendermint-80"
-      },
-  ```
+	/**
+	 * Prepare IBC transfer parameters.
+	 *
+	 * Returns an array of parameters in the exact order required by the IBC precompile:
+	 * [toAddress, port, channel, denom, amount, revisionNumber, revisionHeight, timeoutTimestamp, memo]
+	 *
+	 * @param {Object} params - Contains toAddress, channel, denom, amount, timeoutDuration, and optional memo.
+	 * @returns {Array} Array of parameters for the transfer call.
+	 */
+	async prepareTransfer(params) {
+		const { revisionNumber, revisionHeight, timeoutTimestamp } = await this.calculateTimeout(params.timeoutDuration);
+		return [
+			params.toAddress, // Recipient address (Cosmos or EVM format)
+			'transfer', // Port (fixed as "transfer")
+			params.channel, // Specific channel identifier
+			params.denom, // Token denomination (e.g., "usei")
+			params.amount, // Transfer amount (as a BigNumber or numeric string)
+			revisionNumber, // Revision number (constant 1)
+			revisionHeight, // Revision height (current block + timeout blocks)
+			timeoutTimestamp, // Timeout timestamp in nanoseconds
+			params.memo || '' // Optional memo field
+		];
+	}
 
-With that information on hand we could run a cmd command to perform transfer like:
+	/**
+	 * Execute the IBC transfer.
+	 *
+	 * This method:
+	 * - Prepares transfer parameters,
+	 * - Estimates gas with a 20% buffer,
+	 * - Retrieves EIP-1559 fee data,
+	 * - Sends the transaction via the IBC precompile,
+	 * - And waits for transaction confirmation.
+	 *
+	 * @param {Object} params - The transfer parameters.
+	 * @returns {Object} An object containing the transaction receipt and parsed events.
+	 */
+	async executeTransfer(params) {
+		try {
+			const transferParams = await this.prepareTransfer(params);
 
-```bash
-$ seid tx ibc-transfer transfer transfer channel-44 $AXELAR_ADDRESS 200sei --from $SEI_ADDRESS --fees 4000usei  --node https://rpc-testnet.sei-apis.com --chain-id atlantic-2 -b block
+			// Estimate gas and apply a 20% buffer
+			const gasEstimate = await this.contract.transfer.estimateGas(...transferParams);
+			const gasLimit = gasEstimate.mul(120).div(100);
+
+			// Retrieve fee data for EIP-1559 pricing
+			const feeData = await this.provider.getFeeData();
+			const maxFeePerGas = feeData.maxFeePerGas || BigNumber.from('10000000000'); // Fallback: 10 gwei
+			const maxPriorityFeePerGas = feeData.maxPriorityFeePerGas || BigNumber.from('1000000000'); // Fallback: 1 gwei
+
+			const tx = await this.contract.transfer(...transferParams, {
+				gasLimit,
+				maxFeePerGas,
+				maxPriorityFeePerGas,
+				type: 2 // EIP-1559 transaction type
+			});
+
+			const receipt = await tx.wait();
+
+			// Parse logs to confirm proper IBC packet creation
+			const events = receipt.logs.map((log) => this.contract.interface.parseLog(log));
+
+			return { success: true, receipt, events };
+		} catch (error) {
+			this.handleError(error);
+		}
+	}
+
+	/**
+	 * Handle errors encountered during transfer execution.
+	 *
+	 * @param {Error} error - The encountered error.
+	 */
+	handleError(error) {
+		if (error.code === 'TIMEOUT') {
+			console.error('IBC transfer timed out.');
+			throw new Error('IBC transfer timed out.');
+		}
+		if (error.code === 'INSUFFICIENT_FUNDS') {
+			console.error('Insufficient balance for transfer.');
+			throw new Error('Insufficient balance.');
+		}
+		console.error('IBC transfer failed:', error);
+		throw error;
+	}
+}
+
+export default IBCTransfer;
 ```
 
-This would transfer 200 sei from sei address to axelar address.
+---
 
-## JS Client
+### Understanding Transfer Parameters
 
-```tsx
-import { ethers } from 'ethers';
-import { IBC_PRECOMPILE_ADDRESS, IBC_PRECOMPILE_ABI } from '@sei-js/evm';
+Each parameter in an IBC transfer is designed to guarantee secure and reliable cross-chain communication:
 
-const transferWithDefaultTimeout = async () => {
-	const signer = await getEthSigner();
+- **toAddress:**  
+  Supports both Cosmos-style addresses (e.g., `sei1...`) and EVM addresses (e.g., `0x...`), with the protocol handling proper routing and representation.
 
-	if (!signer) {
-		toast.error('No signer found');
-		return;
+- **port & channel:**  
+  These specify the exact route your tokens will travel. The `port` is typically fixed as `"transfer"`, while the `channel` directs the tokens to the correct destination.
+
+- **Timeout Parameters:**  
+  The trio of `revisionNumber`, `revisionHeight`, and `timeoutTimestamp` protects your transaction. If a transfer isn’t completed within the designated timeframe, these parameters ensure tokens revert to the sender.
+
+---
+
+### Cross-Environment Address Recognition
+
+Sei’s architecture automatically recognizes both Cosmos and EVM addresses. When a transaction arrives, it:
+
+1. Detects the recipient's address format
+2. Routes tokens to the appropriate environment
+3. Makes tokens immediately available in the correct format
+
+For instance, when tokens are directed to an EVM address, a pointer contract updates balances in real time—eliminating manual claims or conversions.
+
+---
+
+### Pointer Contracts: The Bridge Between Worlds
+
+Pointer contracts in Sei act as dynamic representations of IBC tokens within the EVM environment. Unlike traditional wrapped tokens, these contracts maintain a direct, real-time connection to the underlying IBC tokens. This ensures that any change in token state is immediately reflected without the need for reconciliation processes.
+
+---
+
+### Advanced Implementation Patterns
+
+The refactored implementation below demonstrates robust handling of various scenarios and edge cases. It focuses solely on the essential details of IBC transfers:
+
+```javascript
+class IBCTransferManager {
+	constructor(provider, wallet) {
+		this.provider = provider;
+		this.wallet = wallet;
+		this.ibcContract = new Contract(IBC_PRECOMPILE_ADDRESS, IBC_PRECOMPILE_ABI, wallet);
 	}
-	const contract = new ethers.Contract(IBC_PRECOMPILE_ADDRESS, IBC_PRECOMPILE_ABI, signer);
-	const axelarAddress = AXELAR_ADDRESS;
 
-	try {
-		console.log('Transfer');
-		const result = await contract.transferWithDefaultTimeout(axelarAddress, 'transfer', 'channel-44', 'usei', '76000', 'memo text');
-		console.log('TransferResult: ', result);
-	} catch (e) {
-		console.log(e);
+	async calculateTimeoutParams(timeoutDuration = 600) {
+		const currentBlock = await this.provider.getBlockNumber();
+		const blockTime = 0.4;
+		const timeoutBlocks = Math.ceil(timeoutDuration / blockTime);
+
+		return {
+			revisionNumber: 1,
+			revisionHeight: currentBlock + timeoutBlocks,
+			timeoutTimestamp: BigInt(Date.now() * 1_000_000) + BigInt(timeoutDuration * 1_000_000_000)
+		};
 	}
-};
+
+	async prepareTransfer(params) {
+		const timeoutParams = await this.calculateTimeoutParams(params.timeoutDuration);
+		return {
+			toAddress: params.toAddress,
+			port: 'transfer',
+			channel: params.channel,
+			denom: params.denom,
+			amount: params.amount,
+			...timeoutParams,
+			memo: params.memo || ''
+		};
+	}
+
+	async executeTransfer(transferParams) {
+		try {
+			const paramsArray = Object.values(transferParams);
+			const gasEstimate = await this.ibcContract.transfer.estimateGas(...paramsArray);
+			const gasLimit = gasEstimate.mul(120).div(100);
+
+			const tx = await this.ibcContract.transfer(...paramsArray, {
+				gasLimit,
+				maxFeePerGas: (await this.provider.getFeeData()).maxFeePerGas,
+				maxPriorityFeePerGas: (await this.provider.getFeeData()).maxPriorityFeePerGas,
+				type: 2
+			});
+
+			const receipt = await tx.wait();
+			const events = receipt.logs.map((log) => this.ibcContract.interface.parseLog(log));
+
+			return { success: true, receipt, events };
+		} catch (error) {
+			this.handleTransferError(error);
+		}
+	}
+
+	handleTransferError(error) {
+		if (error.code === 'TIMEOUT') {
+			console.log('Transfer timed out - tokens will return to sender');
+			throw new Error('IBC transfer timed out');
+		}
+		if (error.code === 'INSUFFICIENT_FUNDS') {
+			console.log('Insufficient balance for transfer');
+			throw new Error('Insufficient balance');
+		}
+		console.error('Transfer failed:', error);
+		throw error;
+	}
+}
+```
+
+---
+
+### State Management and Event Handling
+
+For reliable operations, proper state management and event handling are essential when working with IBC transfers. Consider the following example of an event monitoring system:
+
+```javascript
+class IBCEventMonitor {
+	constructor(provider, ibcContract) {
+		this.provider = provider;
+		this.ibcContract = ibcContract;
+		this.pendingTransfers = new Map();
+	}
+
+	async startMonitoring() {
+		this.provider.on('block', async (blockNumber) => {
+			const block = await this.provider.getBlock(blockNumber);
+			const txs = await Promise.all(block.transactions.map((txHash) => this.provider.getTransactionReceipt(txHash)));
+
+			for (const tx of txs) {
+				const events = tx.logs.filter((log) => log.address === IBC_PRECOMPILE_ADDRESS).map((log) => this.ibcContract.interface.parseLog(log));
+
+				for (const event of events) {
+					await this.handleIBCEvent(event);
+				}
+			}
+		});
+	}
+
+	async handleIBCEvent(event) {
+		switch (event.name) {
+			case 'PacketSent':
+				await this.handlePacketSent(event);
+				break;
+			case 'PacketReceived':
+				await this.handlePacketReceived(event);
+				break;
+			case 'PacketTimeout':
+				await this.handlePacketTimeout(event);
+				break;
+		}
+	}
+
+	async handlePacketSent(event) {
+		const { sequence } = event.args;
+		this.pendingTransfers.set(sequence.toString(), {
+			status: 'sent',
+			timestamp: Date.now(),
+			details: event.args
+		});
+	}
+
+	async handlePacketReceived(event) {
+		const { sequence } = event.args;
+		const transfer = this.pendingTransfers.get(sequence.toString());
+		if (transfer) {
+			transfer.status = 'received';
+			this.emit('transferComplete', transfer);
+		}
+	}
+
+	async handlePacketTimeout(event) {
+		const { sequence } = event.args;
+		const transfer = this.pendingTransfers.get(sequence.toString());
+		if (transfer) {
+			transfer.status = 'timeout';
+			this.emit('transferTimeout', transfer);
+		}
+	}
+}
 ```

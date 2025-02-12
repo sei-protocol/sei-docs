@@ -1,0 +1,179 @@
+# Getting Started with Sei
+
+This guide provides a comprehensive introduction to running a Sei node, whether you're setting up a full node or planning to become a validator. We'll cover both quick start options for testing and detailed setup procedures for production environments.
+
+## System Requirements
+
+Before beginning your Sei node setup, ensure your system meets these minimum requirements:
+
+### Hardware Specifications
+
+| Component | Minimum      | Recommended  | Notes                                                      |
+| --------- | ------------ | ------------ | ---------------------------------------------------------- |
+| CPU       | 8 cores      | 16 cores     | Modern processor (Intel Xeon/Core i7/i9 or AMD Epyc/Ryzen) |
+| RAM       | 32GB         | 64GB         | DDR4 or better                                             |
+| Storage   | 1TB NVMe SSD | 2TB NVMe SSD | High IOPS required; standard SSDs not recommended          |
+| Network   | 1Gbps        | 2Gbps        | Low latency connection                                     |
+
+### Base System Setup
+
+Start with a fresh installation of Ubuntu 20.04 LTS or later and install these essential packages:
+
+```bash
+sudo apt update && sudo apt upgrade -y
+sudo apt install make gcc git jq chrony curl lz4 wget tar build-essential -y
+```
+
+## Quick Start Options
+
+### 1. Automated Setup Script (Development/Testing)
+
+For rapid deployment or testing environments, use our automated setup script:
+
+```bash
+git clone https://github.com/sei-protocol/sei-chain
+cd sei-chain
+python3 scripts/run-node.py
+```
+
+The script will guide you through selecting:
+
+- Network (mainnet, testnet, or local)
+- Database backend (sei-db recommended)
+- Basic configuration options
+
+### 2. Production Setup Overview
+
+For production environments, follow these steps in order:
+
+1. Install Sei binary
+2. Configure your node
+3. Initialize the chain
+4. Start the service
+
+#### Install Sei Binary
+
+Choose one of these installation methods:
+
+```bash
+# Option 1: Pre-built binary
+wget -O seid https://github.com/sei-protocol/sei-chain/releases/download/[version]/seid-[version]-linux-amd64
+sudo mv seid /usr/local/bin/
+sudo chmod +x /usr/local/bin/seid
+
+# Option 2: Build from source
+git clone https://github.com/sei-protocol/sei-chain
+cd sei-chain
+git checkout [version]  # Check latest stable release
+make install
+```
+
+#### Basic Configuration
+
+Initialize your node:
+
+```bash
+# Set your node name
+MONIKER="your-node-name"
+CHAIN_ID="pacific-1"  # Use "atlantic-2" for testnet
+
+# Initialize node
+seid init $MONIKER --chain-id $CHAIN_ID
+```
+
+Configure essential settings:
+
+```bash
+# Update minimum gas prices
+sed -i 's/minimum-gas-prices = ""/minimum-gas-prices = "0.01usei"/g' ~/.sei/config/app.toml
+
+# Enable Prometheus metrics
+sed -i 's/prometheus = false/prometheus = true/g' ~/.sei/config/config.toml
+```
+
+#### Service Setup
+
+Create a systemd service for automatic startup and recovery:
+
+```bash
+sudo tee /etc/systemd/system/seid.service > /dev/null << EOF
+[Unit]
+Description=Sei Node
+After=network-online.target
+
+[Service]
+User=$USER
+ExecStart=$(which seid) start
+Restart=always
+RestartSec=3
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable seid
+sudo systemctl start seid
+```
+
+## Verify Your Setup
+
+Check node status:
+
+```bash
+# View sync status
+seid status | jq .SyncInfo
+
+# Check logs
+sudo journalctl -u seid -f -o cat
+
+# Query node info
+seid status | jq .NodeInfo
+```
+
+Your node is properly set up when:
+
+- Sync status shows `catching_up: false`
+- You see blocks being processed in the logs
+- Node info shows correct chain ID and network connection
+
+## Next Steps
+
+After completing basic setup, consider:
+
+1. Setting up monitoring and alerting
+2. Implementing security best practices
+3. Configuring backup procedures
+4. Becoming a validator (if planned)
+
+These topics are covered in detail in their respective guides:
+
+- Advanced Configuration & Monitoring Guide
+- Node Operations Guide
+- Validator Operations Guide
+
+## Common Issues and Solutions
+
+### Sync Issues
+
+- Ensure sufficient disk space
+- Check network connectivity
+- Verify system time synchronization
+- Consider using state sync for faster initial sync (**not applicable to archive nodes**)
+
+### Performance Problems
+
+- Monitor system resources
+- Check disk I/O performance
+- Ensure adequate network bandwidth
+- Verify memory usage patterns
+
+### Network Connectivity
+
+- Configure firewall rules
+- Check peer connections
+- Verify DNS resolution
+- Ensure required ports are open (26656, 26657, 9090)
+
+For more detailed troubleshooting, refer to the Reference Guide.

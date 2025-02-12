@@ -1,0 +1,451 @@
+# Advanced Configuration and Monitoring Guide
+
+This guide covers advanced configuration options and comprehensive monitoring setup for Sei nodes. We'll explore performance tuning, monitoring infrastructure, and alerting systems.
+
+## Performance Tuning
+
+### Memory Management
+
+The following settings optimize memory usage and disk I/O patterns. Add these configurations to `/etc/sysctl.conf`:
+
+```bash
+# Minimize swapping
+vm.swappiness = 1
+
+# Control disk write behavior
+vm.dirty_background_ratio = 3
+vm.dirty_ratio = 10
+vm.dirty_expire_centisecs = 300
+vm.dirty_writeback_centisecs = 100
+```
+
+Apply the changes:
+
+```bash
+sudo sysctl -p
+```
+
+### Network Stack Optimization
+
+These settings improve network performance. Add to `/etc/sysctl.conf`:
+
+```bash
+# Increase connection handling capacity
+net.core.somaxconn = 32768
+net.core.netdev_max_backlog = 32768
+net.ipv4.tcp_max_syn_backlog = 16384
+
+# Optimize buffer sizes
+net.core.rmem_max = 16777216
+net.core.wmem_max = 16777216
+net.ipv4.tcp_rmem = 4096 87380 16777216
+net.ipv4.tcp_wmem = 4096 87380 16777216
+```
+
+### Storage Configuration
+
+For NVMe drives, optimize I/O scheduling:
+
+Storage Optimization Commands
+
+```bash
+# Set IO scheduler
+echo "none" > /sys/block/nvme0n1/queue/scheduler
+
+# Set read-ahead buffer
+blockdev --setra 4096 /dev/nvme0n1
+
+# Set IO priority in systemd service
+sudo tee -a /etc/systemd/system/seid.service << EOF
+[Service]
+IOSchedulingClass=realtime
+IOSchedulingPriority=2
+EOF
+
+# Configure disk mount options
+sudo tee -a /etc/fstab << EOF
+/dev/nvme0n1p1 /data ext4 defaults,noatime,nosuid,nodev,noexec,commit=60 0 0
+EOF
+```
+
+## Monitoring Setup
+
+### Prometheus Configuration
+
+First, install Prometheus:
+
+```bash
+wget https://github.com/prometheus/prometheus/releases/download/v2.42.0/prometheus-2.42.0.linux-amd64.tar.gz
+tar xvf prometheus-2.42.0.linux-amd64.tar.gz
+```
+
+Create the Prometheus configuration:
+
+```yaml
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'sei_node'
+    static_configs:
+      - targets: ['localhost:26660']
+    metrics_path: /metrics
+```
+
+### Grafana Dashboard Setup
+
+Install and configure Grafana:
+
+```bash
+sudo apt-get install -y apt-transport-https software-properties-common
+sudo add-apt-repository "deb https://packages.grafana.com/oss/deb stable main"
+sudo apt-get update && sudo apt-get install grafana
+```
+
+<details>
+<summary>Sample Grafana Dashboard JSON</summary>
+
+```json
+{
+	"annotations": {
+		"list": [
+			{
+				"builtIn": 1,
+				"datasource": "-- Grafana --",
+				"enable": true,
+				"hide": true,
+				"iconColor": "rgba(0, 211, 255, 1)",
+				"name": "Annotations & Alerts",
+				"type": "dashboard"
+			}
+		]
+	},
+	"editable": true,
+	"gnetId": null,
+	"graphTooltip": 0,
+	"id": 1,
+	"links": [],
+	"panels": [
+		{
+			"alerting": {},
+			"aliasColors": {},
+			"bars": false,
+			"dashLength": 10,
+			"dashes": false,
+			"datasource": null,
+			"fieldConfig": {
+				"defaults": {
+					"custom": {}
+				},
+				"overrides": []
+			},
+			"fill": 1,
+			"fillGradient": 0,
+			"gridPos": {
+				"h": 8,
+				"w": 12,
+				"x": 0,
+				"y": 0
+			},
+			"hiddenSeries": false,
+			"id": 2,
+			"legend": {
+				"avg": false,
+				"current": false,
+				"max": false,
+				"min": false,
+				"show": true,
+				"total": false,
+				"values": false
+			},
+			"lines": true,
+			"linewidth": 1,
+			"nullPointMode": "null",
+			"options": {
+				"alertThreshold": true
+			},
+			"percentage": false,
+			"pluginVersion": "7.2.0",
+			"pointradius": 2,
+			"points": false,
+			"renderer": "flot",
+			"seriesOverrides": [],
+			"spaceLength": 10,
+			"stack": false,
+			"steppedLine": false,
+			"targets": [
+				{
+					"expr": "tendermint_consensus_height",
+					"interval": "",
+					"legendFormat": "",
+					"refId": "A"
+				}
+			],
+			"thresholds": [],
+			"timeRegions": [],
+			"title": "Block Height",
+			"tooltip": {
+				"shared": true,
+				"sort": 0,
+				"value_type": "individual"
+			},
+			"type": "graph",
+			"xaxis": {
+				"buckets": null,
+				"mode": "time",
+				"name": null,
+				"show": true,
+				"values": []
+			},
+			"yaxes": [
+				{
+					"format": "short",
+					"label": null,
+					"logBase": 1,
+					"max": null,
+					"min": null,
+					"show": true
+				},
+				{
+					"format": "short",
+					"label": null,
+					"logBase": 1,
+					"max": null,
+					"min": null,
+					"show": true
+				}
+			],
+			"yaxis": {
+				"align": false,
+				"alignLevel": null
+			}
+		}
+	],
+	"schemaVersion": 26,
+	"style": "dark",
+	"tags": [],
+	"templating": {
+		"list": []
+	},
+	"time": {
+		"from": "now-6h",
+		"to": "now"
+	},
+	"timepicker": {},
+	"timezone": "",
+	"title": "Sei Node Metrics",
+	"uid": "sei_metrics",
+	"version": 1
+}
+```
+
+</details>
+
+### Alert Configuration
+
+Set up alerting using Alertmanager:
+
+```bash
+wget https://github.com/prometheus/alertmanager/releases/download/v0.25.0/alertmanager-0.25.0.linux-amd64.tar.gz
+tar xvf alertmanager-0.25.0.linux-amd64.tar.gz
+```
+
+Create alert rules:
+
+```yaml
+groups:
+  - name: sei_alerts
+    rules:
+      - alert: NodeDown
+        expr: up == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'Node {{ $labels.instance }} down'
+
+      - alert: BlockProductionSlow
+        expr: rate(tendermint_consensus_height[5m]) < 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Block production is slow on {{ $labels.instance }}'
+```
+
+## Log Management
+
+### Loki Setup
+
+Install and configure Loki for log aggregation:
+
+```bash
+wget https://github.com/grafana/loki/releases/download/v2.8.0/loki-linux-amd64.zip
+unzip loki-linux-amd64.zip
+```
+
+Configure Promtail to ship logs:
+
+```yaml
+server:
+  http_listen_port: 9080
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://localhost:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: sei_logs
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: seid_logs
+          __path__: /var/log/seid/*.log
+```
+
+### Log Rotation
+
+Configure logrotate to manage log files:
+
+```bash
+sudo tee /etc/logrotate.d/sei << EOF
+/var/log/sei/*.log {
+    daily
+    rotate 14
+    compress
+    delaycompress
+    notifempty
+    create 0640 sei sei
+    sharedscripts
+    postrotate
+        systemctl reload seid
+    endscript
+}
+EOF
+```
+
+## Advanced Security Configuration
+
+### Network Security
+
+Configure UFW firewall rules:
+
+```bash
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+sudo ufw allow 26656/tcp comment 'Sei P2P'
+sudo ufw allow 26657/tcp comment 'Sei RPC'
+sudo ufw allow 9090/tcp comment 'Sei gRPC'
+sudo ufw enable
+```
+
+### Rate Limiting
+
+Configure nginx as a reverse proxy with rate limiting:
+
+```nginx
+http {
+    limit_req_zone $binary_remote_addr zone=sei_rpc:10m rate=10r/s;
+
+    server {
+        listen 26657;
+        location / {
+            limit_req zone=sei_rpc burst=20 nodelay;
+            proxy_pass http://localhost:26657;
+        }
+    }
+}
+```
+
+## Backup and Recovery
+
+### Automated Backup Script
+
+Create a comprehensive backup script:
+
+<details>
+
+<summary>Backup Script</summary>
+
+```bash
+#!/bin/bash
+BACKUP_DIR="/backup/sei"
+DATE=$(date +%Y%m%d)
+NODE_HOME="/root/.sei"
+
+# Create backup directory
+mkdir -p $BACKUP_DIR
+
+# Stop service
+systemctl stop seid
+
+# Backup configuration
+tar czf $BACKUP_DIR/sei-config-$DATE.tar.gz $NODE_HOME/config
+
+# Backup data directory
+tar czf $BACKUP_DIR/sei-data-$DATE.tar.gz $NODE_HOME/data
+
+# Backup key files
+tar czf $BACKUP_DIR/sei-keys-$DATE.tar.gz $NODE_HOME/keyring-file
+
+# Start service
+systemctl start seid
+
+# Remove backups older than 7 days
+find $BACKUP_DIR -type f -mtime +7 -name '*.tar.gz' -delete
+
+# Log backup completion
+echo "Backup completed successfully on $(date)" >> $BACKUP_DIR/backup.log
+```
+
+</details>
+
+## Performance Monitoring
+
+### Resource Usage Tracking
+
+Install and configure node_exporter:
+
+```bash
+wget https://github.com/prometheus/node_exporter/releases/download/v1.5.0/node_exporter-1.5.0.linux-amd64.tar.gz
+tar xvf node_exporter-1.5.0.linux-amd64.tar.gz
+```
+
+Add to Prometheus configuration:
+
+```yaml
+scrape_configs:
+  - job_name: 'node'
+    static_configs:
+      - targets: ['localhost:9100']
+```
+
+### Performance Benchmarking
+
+Create a benchmark script to test node performance:
+
+Benchmark Script
+
+```bash
+#!/bin/bash
+# Test RPC endpoint response time
+curl -s -w "\nResponse time: %{time_total}s\n" -o /dev/null http://localhost:26657/status
+
+# Test P2P connectivity
+seid net_info | jq '.result.n_peers'
+
+# Test transaction processing
+seid tx bank send \
+    $(seid keys show -a test1) \
+    $(seid keys show -a test2) \
+    1000000usei \
+    --chain-id $CHAIN_ID \
+    --fees 5000usei \
+    -y
+```
+
+This guide provides advanced configuration options and monitoring setup instructions. For specific customizations or additional metrics, consult the Sei technical communities in [Telegram](https://t.me/+ZN-NcvOWStQwMzk0) or [Discord](https://discord.gg/sei).
