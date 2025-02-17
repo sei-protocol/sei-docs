@@ -1,21 +1,37 @@
 ## **HD Paths and Coin Types**
 
-When deriving a private key from a mnemonic phrase, the hierarchical deterministic (HD) path involves multiple parameters, including the coin type. The coin type determines the blockchain ecosystem for which the key is derived, making it crucial when dealing with different wallets and blockchains.
+When deriving a private key from a mnemonic phrase, the hierarchical
+deterministic (HD) path involves multiple parameters, including the coin type.
+The coin type determines the blockchain ecosystem for which the key is derived,
+making it crucial when dealing with different wallets and blockchains.
 
 ### **Coin Type Parameter**
 
-The second parameter in the HD path specifies the coin type, which is defined by the BIP-44 standard. This parameter identifies the blockchain ecosystem associated with the derived keys.
+The second parameter in the HD path specifies the coin type, which is defined by
+the BIP-44 standard. This parameter identifies the blockchain ecosystem
+associated with the derived keys.
 
-- **Ethereum (Coin Type 60)**: Wallets like MetaMask use coin type 60. The HD path for Ethereum typically looks like this: `m/44'/60'/0'/0/0`.
-- **Cosmos (Coin Type 118)**: Wallets for Cosmos-based chains, such as Compass, use coin type 118. The HD path for Cosmos typically looks like this: `m/44'/118'/0'/0/0`.
+- **Ethereum (Coin Type 60)**: Wallets like MetaMask use coin type 60. The HD
+  path for Ethereum typically looks like this: `m/44'/60'/0'/0/0`.
+- **Cosmos (Coin Type 118)**: Wallets for Cosmos-based chains, such as Compass,
+  use coin type 118. The HD path for Cosmos typically looks like this:
+  `m/44'/118'/0'/0/0`.
 
 ### **Implications**
 
-Due to the different coin types, a mnemonic phrase used to derive keys for Ethereum (coin type 60) cannot be directly used in a Cosmos wallet (coin type 118) to access the same accounts. This is because the HD path determines a different set of keys for each coin type, meaning the derived addresses will differ.
+Due to the different coin types, a mnemonic phrase used to derive keys for
+Ethereum (coin type 60) cannot be directly used in a Cosmos wallet (coin
+type 118) to access the same accounts. This is because the HD path determines a
+different set of keys for each coin type, meaning the derived addresses will
+differ.
 
 ### **Private Key Export**
 
-Users can export their private key from MetaMask (derived using coin type 60) and import it into any Cosmos wallet. This works because the private key, once derived, can be used across different blockchain ecosystems, provided the receiving wallet supports the import function. This allows users to manage their assets across various blockchains using the same underlying cryptographic key.
+Users can export their private key from MetaMask (derived using coin type 60)
+and import it into any Cosmos wallet. This works because the private key, once
+derived, can be used across different blockchain ecosystems, provided the
+receiving wallet supports the import function. This allows users to manage their
+assets across various blockchains using the same underlying cryptographic key.
 
 ### **Example HD Paths**
 
@@ -26,13 +42,14 @@ Users can export their private key from MetaMask (derived using coin type 60) an
 
 ### **Deriving bech32 and hex addresses from pubkey**
 
-Sei uses a unique method of deriving both the Cosmos/Tendermint style bech32 address and the Ethereum-style hex address from the same public key, using the `keccak` hashing method common in EVM networks.
-
+Sei uses a unique method of deriving both the Cosmos/Tendermint style bech32
+address and the Ethereum-style hex address from the same public key, using the
+`keccak` hashing method common in EVM networks.
 
 ### **Examples**
 
-These extensively commented snippets demonstrate the 'proper' method of deriving both bech32 and hex addresses from a given ECDSA SECP256k1 key:
-
+These extensively commented snippets demonstrate the 'proper' method of deriving
+both bech32 and hex addresses from a given ECDSA SECP256k1 key:
 
 <details>
 <summary>Python - from pubkey</summary>
@@ -101,7 +118,6 @@ print(f"Ethereum Address: {eth_address_hex}")
 
 ---
 
-
 <details>
 <summary>Typescript - from pubkey</summary>
 
@@ -115,29 +131,29 @@ import { bech32 } from 'bech32';
 
 // Utility function to convert bits for Bech32 encoding
 function convertBits(data: Uint8Array, fromBits: number, toBits: number, pad: boolean): number[] {
-    let acc = 0;
-    let bits = 0;
-    const result: number[] = [];
-    const maxv = (1 << toBits) - 1;
+  let acc = 0;
+  let bits = 0;
+  const result: number[] = [];
+  const maxv = (1 << toBits) - 1;
 
-    for (const value of data) {
-        acc = (acc << fromBits) | value;
-        bits += fromBits;
-        while (bits >= toBits) {
-            bits -= toBits;
-            result.push((acc >> bits) & maxv);
-        }
+  for (const value of data) {
+    acc = (acc << fromBits) | value;
+    bits += fromBits;
+    while (bits >= toBits) {
+      bits -= toBits;
+      result.push((acc >> bits) & maxv);
     }
+  }
 
-    if (pad) {
-        if (bits > 0) {
-            result.push((acc << (toBits - bits)) & maxv);
-        }
-    } else if (bits >= fromBits || ((acc << (toBits - bits)) & maxv)) {
-        throw new Error('Unable to convert bits');
+  if (pad) {
+    if (bits > 0) {
+      result.push((acc << (toBits - bits)) & maxv);
     }
+  } else if (bits >= fromBits || (acc << (toBits - bits)) & maxv) {
+    throw new Error('Unable to convert bits');
+  }
 
-    return result;
+  return result;
 }
 
 // Define the prefix for the Bech32 address (e.g., "sei" for Sei network)
@@ -192,7 +208,6 @@ console.log(`Ethereum Address: ${ethAddress}`);
 
 ---
 
-
 <details>
 <summary>Typescript - Full Derivation from Private Key</summary>
 
@@ -205,63 +220,66 @@ import { bech32 } from 'bech32';
 
 // Utility function to convert bits for Bech32 encoding
 function convertBits(data: Uint8Array, fromBits: number, toBits: number, pad: boolean): number[] {
-    let acc = 0;
-    let bits = 0;
-    const result: number[] = [];
-    const maxv = (1 << toBits) - 1;
+  let acc = 0;
+  let bits = 0;
+  const result: number[] = [];
+  const maxv = (1 << toBits) - 1;
 
-    for (const value of data) {
-        acc = (acc << fromBits) | value;
-        bits += fromBits;
-        while (bits >= toBits) {
-            bits -= toBits;
-            result.push((acc >> bits) & maxv);
-        }
+  for (const value of data) {
+    acc = (acc << fromBits) | value;
+    bits += fromBits;
+    while (bits >= toBits) {
+      bits -= toBits;
+      result.push((acc >> bits) & maxv);
     }
+  }
 
-    if (pad) {
-        if (bits > 0) {
-            result.push((acc << (toBits - bits)) & maxv);
-        }
-    } else if (bits >= fromBits || ((acc << (toBits - bits)) & maxv)) {
-        throw new Error('Unable to convert bits');
+  if (pad) {
+    if (bits > 0) {
+      result.push((acc << (toBits - bits)) & maxv);
     }
+  } else if (bits >= fromBits || (acc << (toBits - bits)) & maxv) {
+    throw new Error('Unable to convert bits');
+  }
 
-    return result;
+  return result;
 }
 
 // Function to generate addresses from a private key
-function generateAddresses(privateKeyHex: string): { seiAddress: string, ethAddress: string } {
-    // Ensure the private key is exactly 32 bytes long
-    const privateKey = Uint8Array.from(Buffer.from(privateKeyHex.padStart(64, '0'), 'hex'));
-    if (privateKey.length !== 32) {
-        throw new Error('Private key must be 32 bytes long.');
-    }
-    
-    // Derive the compressed public key from the private key
-    const publicKey = secp256k1.getPublicKey(privateKey, true);
-    const publicKeyBytes = publicKey;
+function generateAddresses(privateKeyHex: string): {
+  seiAddress: string;
+  ethAddress: string;
+} {
+  // Ensure the private key is exactly 32 bytes long
+  const privateKey = Uint8Array.from(Buffer.from(privateKeyHex.padStart(64, '0'), 'hex'));
+  if (privateKey.length !== 32) {
+    throw new Error('Private key must be 32 bytes long.');
+  }
 
-    // Perform SHA-256 hashing on the compressed public key
-    const sha256Digest = sha256(publicKeyBytes);
+  // Derive the compressed public key from the private key
+  const publicKey = secp256k1.getPublicKey(privateKey, true);
+  const publicKeyBytes = publicKey;
 
-    // Perform RIPEMD-160 hashing on the SHA-256 digest
-    const ripemd160Digest = ripemd160(sha256Digest);
+  // Perform SHA-256 hashing on the compressed public key
+  const sha256Digest = sha256(publicKeyBytes);
 
-    // Convert the RIPEMD-160 digest to a 5-bit array for Bech32 encoding
-    const fiveBitArray = convertBits(ripemd160Digest, 8, 5, true);
+  // Perform RIPEMD-160 hashing on the SHA-256 digest
+  const ripemd160Digest = ripemd160(sha256Digest);
 
-    // Bech32 address with "sei" prefix
-    const seiAddress = bech32.encode('sei', fiveBitArray, 256);
+  // Convert the RIPEMD-160 digest to a 5-bit array for Bech32 encoding
+  const fiveBitArray = convertBits(ripemd160Digest, 8, 5, true);
 
-    // Derive the uncompressed public key from the private key and exclude the first byte
-    const publicKeyUncompressed = secp256k1.getPublicKey(privateKey, false).slice(1);
+  // Bech32 address with "sei" prefix
+  const seiAddress = bech32.encode('sei', fiveBitArray, 256);
 
-    // Perform Keccak-256 hashing on the uncompressed public key to derive the Ethereum address
-    const keccakHash = keccak_256(publicKeyUncompressed);
-    const ethAddress = `0x${Buffer.from(keccakHash).slice(-20).toString('hex')}`;
+  // Derive the uncompressed public key from the private key and exclude the first byte
+  const publicKeyUncompressed = secp256k1.getPublicKey(privateKey, false).slice(1);
 
-    return { seiAddress, ethAddress };
+  // Perform Keccak-256 hashing on the uncompressed public key to derive the Ethereum address
+  const keccakHash = keccak_256(publicKeyUncompressed);
+  const ethAddress = `0x${Buffer.from(keccakHash).slice(-20).toString('hex')}`;
+
+  return { seiAddress, ethAddress };
 }
 
 // Example usage of the generateAddresses function
