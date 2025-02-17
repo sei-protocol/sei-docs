@@ -1,4 +1,6 @@
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/sei-protocol/sei-docs/blob/main/LICENSE)
+[![Twitter](https://img.shields.io/twitter/follow/SeiNetwork)](https://x.com/SeiNetwork)
+[![Discord](https://img.shields.io/badge/discord-join%20chat-5B5EA6)](https://discord.com/invite/Sei)
 
 # Contributing to the Docs
 
