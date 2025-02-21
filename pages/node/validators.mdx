@@ -373,11 +373,123 @@ Aside from direct logs and systemd status, you can also:
 seid query staking validator $(seid keys show -a <validator-key>)
 ```
 
-If your validator becomes jailed, you will no longer be signing blocks or generating rewards or commission. You can check the status in the staking module"
+If your validator becomes jailed, you will no longer be signing blocks or generating rewards or commission. You can check the status in the staking module:
 
 ```sh
-curl -s "http://localhost:1317/cosmos/staking/v1beta1/validators/
+curl -s "http://localhost:1317/cosmos/staking/v1beta1/validators/"
 ```
+
+#### Even Simpler Method Using `seid`
+
+For a straightforward jailed status check, you can use:
+
+```sh
+seid query staking validator <validator-address> -o json | jq '.jailed'
+```
+
+Example usage:
+
+```sh
+seid query staking validator seivaloper1j9644d7qyln8smd2t42jvymj0yhjw5qkmw9fms -o json | jq '.jailed'
+```
+
+#### Fetch Complete Validator Object
+
+For a more general query that retrieves the full validator object by moniker:
+
+```sh
+#!/bin/bash
+
+MONIKER="$1"
+API_URL="http//localhost:1317/cosmos/staking/v1beta1/validators?pagination.limit=500"
+
+echo "Querying validators from $API_URL..."
+
+VALIDATOR_DATA=$(curl -s "$API_URL" | jq -c --arg MONIKER "$MONIKER" '.validators[] | select(.description.moniker == $MONIKER)')
+
+if [[ -z "$VALIDATOR_DATA" ]]; then
+    echo "❌ No validator found with moniker: $MONIKER"
+    exit 1
+fi
+
+echo "Validator details:"
+echo "$VALIDATOR_DATA" | jq '.'
+```
+
+Example usage:
+
+```sh
+root@seid:~# ./scripts/get_validator.sh Figment
+Querying validators from http://localhost:1317/cosmos/staking/v1beta1/validators?pagination.limit=500...
+Validator details:
+{
+  "operator_address": "seivaloper1y82m5y3wevjneamzg0pmx87dzanyxzht0kepvn",
+  "consensus_pubkey": {
+    "@type": "/cosmos.crypto.ed25519.PubKey",
+    "key": "P3MLnMNN/76GwQiCDHiniyNhRJ2sMPvtKxmvS8l4MyI="
+  },
+  "jailed": false,
+  "status": "BOND_STATUS_BONDED",
+  "tokens": "275418312918540",
+  "delegator_shares": "275418312918540.000000000000000000",
+  "description": {
+    "moniker": "Figment",
+    "identity": "E5F274B870BDA01D",
+    "website": "https://figment.io",
+    "security_contact": "security@figment.io",
+    "details": "Figment Inc."
+  },
+  "unbonding_height": "61344000",
+  "unbonding_time": "2024-03-24T08:55:08.357009625Z",
+  "commission": {
+    "commission_rates": {
+      "rate": "0.050000000000000000",
+      "max_rate": "0.500000000000000000",
+      "max_change_rate": "0.100000000000000000"
+    },
+    "update_time": "2024-02-01T16:12:19.780060576Z"
+  },
+  "min_self_delegation": "1"
+}
+```
+
+Additionally, you can check a validator's status by moniker using the following script:
+
+```sh
+#!/bin/bash
+
+MONIKER="$1"
+API_URL="http://localhost:1317/cosmos/staking/v1beta1/validators?pagination.limit=500"
+
+echo "Querying validators from $API_URL..."
+
+# Fetch the validator list and check if the moniker exists
+VALIDATOR_DATA=$(curl -s "$API_URL" | jq -c --arg MONIKER "$MONIKER" '.validators[] | select(.description.moniker | contains($MONIKER))')
+
+if [[ -z "$VALIDATOR_DATA" ]]; then
+    echo "❌ No validator found with moniker: $MONIKER"
+    exit 1
+fi
+
+# Extract jailed status
+JAILED=$(echo "$VALIDATOR_DATA" | jq -r '.jailed')
+
+if [[ "$JAILED" == "true" ]]; then
+    echo "🚨 Your validator **IS JAILED**! Take action immediately."
+else
+    echo "✅ Your validator is NOT jailed."
+fi
+```
+
+Example usage:
+
+```sh
+root@seid:~# ./scripts/amijailed.sh Figment
+Querying validators from http://localhost:1317/cosmos/staking/v1beta1/validators?pagination.limit=500...
+✅ Your validator is NOT jailed.
+```
+
+
 
 ### Example Prometheus Rules
 
