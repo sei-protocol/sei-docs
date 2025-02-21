@@ -1,4 +1,4 @@
-# Validator Operations Guide
+# Validator Operations
 
 This comprehensive guide explains how to operate a Sei validator node. We'll
 cover the complete lifecycle of a validator, from initial setup through ongoing
@@ -97,29 +97,96 @@ The commission parameters deserve careful consideration:
 - `commission-max-rate`: An upper limit that can never be exceeded
 - `commission-max-change-rate`: Maximum daily commission change
 
-## Oracle Price Feeder Setup
+Below is an expanded explanation of the **Oracle Price Feeder** setup and operations. This covers everything from creating a dedicated price-feeder account, to configuring and running the price feeder, to how it fetches and votes on prices on-chain. This also includes notes on monitoring, recommended best practices, and more in-depth references to the underlying logic.
 
-As a Sei validator, you must run a price feeder to provide oracle data. This is
-crucial for network operations.
+---
 
-First, install the price feeder:
+## Overview
 
-```bash
-cd sei-chain
-make install-price-feeder
-```
+Running a price feeder is **required** when your validator is participating in a network that depends on oracle data (e.g. Sei). The price feeder is responsible for:
 
-Create a configuration file for your price feeder:
+1. **Fetching real-time exchange rates** for a set of assets from various centralized-exchange (CEX) or aggregator data sources (called "providers").
+2. **Aggregating and computing** a time-weighted or volume-weighted average price for each asset pair.
+3. **Submitting periodic on-chain votes** (pre-vote and vote messages, handled automatically) following the network’s oracle specifications.
+
+If the feeder does not consistently broadcast valid oracle votes, the validator will be **jailed** by the chain’s oracle module, incurring downtime and potential slashings.
+
+---
+
+## Dedicated Price-Feeder Account
+
+Although you _can_ use your main validator key for both validation and oracle feeding, it’s **highly recommended** that you create a **dedicated** “feeder delegate” account. The primary reasons:
+
+- **Safety**: Reduces risk of accidentally revealing or compromising your validator signing key.
+- **Reduced Account Sequence Errors**: The price feeder signs many transactions in rapid intervals, which can conflict with other transactions from your validator account and lead to sequence mismatches.
+
+### Steps
+
+1. **Create a new key** within your keyring:
+
+   ```bash
+   seid keys add price-feeder-delegate
+   ```
+
+   You can name it whatever you like, e.g. `price-feeder-delegate`. This will prompt you for a password (if using an `os` or `file` keyring), which you can set.
+
+2. **Set that new address as the validator’s “feeder address”:**
+
+   ```bash
+   export PRICE_FEEDER_DELEGATE_ADDR=<the address from the step above>
+
+   seid tx oracle set-feeder $PRICE_FEEDER_DELEGATE_ADDR --from <validator-wallet> \
+       --fees 2000usei -b block -y --chain-id <chain-id>
+   ```
+
+3. **Send a small amount of funds** to that new account so it can pay for fees:
+
+   ```bash
+   seid tx bank send <validator-wallet> $PRICE_FEEDER_DELEGATE_ADDR \
+       [AMOUNT]usei --fees=2000usei -b block -y
+   ```
+
+4. **Export** the keyring password so the price feeder can sign automatically:
+
+   ```bash
+   export PRICE_FEEDER_PASS=<enter your keyring password>
+   ```
+
+   If you don’t set this variable, the feeder will prompt for a password at startup. For systemd usage, you can place this environment variable in the `[Service]` section (see below).
+
+---
+
+## Installing the Price Feeder
+
+1. **Clone or download** the `sei-chain` repo:
+
+   ```bash
+   git clone https://github.com/sei-protocol/sei-chain.git
+   cd sei-chain
+   ```
+
+2. **Compile and install** the standalone feeder binary:
+
+   ```bash
+   make install-price-feeder
+   ```
+
+   This produces a `price-feeder` binary typically placed in your `$GOPATH/bin` (for Go-based systems) or `/usr/local/bin`. You can verify it with `which price-feeder`.
+
+---
+
+## Configuration
+
+The price feeder operates off a single `config.toml` file (referred to as `/path/to/price_feeder_config.toml` below). In Sei, this config is heavily influenced by the [Umee Price Feeder](https://github.com/umee-network/umee/tree/main/price-feeder) but adapted for Sei’s `oracle` module. A sample `config.toml` might look like:
 
 <details>
 <summary>Price Feeder Configuration</summary>
 
 ```toml
 gas_adjustment = 1.5
-gas_prices = "0.01usei"
+gas_prices = "0.00125usei"
 enable_server = true
 enable_voter = true
-provider_timeout = "500ms"
 
 [server]
 listen_addr = "0.0.0.0:7171"
@@ -127,78 +194,194 @@ read_timeout = "20s"
 verbose_cors = true
 write_timeout = "20s"
 
+[[deviation_thresholds]]
+base = "ETH"
+threshold = "2"
+
+# (You can repeat the same block for BTC, USDC, SEI, etc.)
+
+[[currency_pairs]]
+base = "ETH"
+chain_denom = "ueth"
+providers = ["huobi", "crypto", "coinbase", "kraken", "okx"]
+quote = "USDT"
+
+# (Currency pairs for BTC, USDC, ATOM, etc...)
+
+[account]
+address = "FEEDER_ADDR"   # e.g. $PRICE_FEEDER_DELEGATE_ADDR
+chain_id = "CHAIN_ID"     # e.g. sei-testnet-2 or sei-mainnet-xyz
+validator = "VALIDATOR_ADDR" # e.g. seivaloper1...
+prefix = "sei"
+
 [keyring]
-backend = "file"
-dir = "/home/sei/.sei"
+backend = "os"
+dir = "/root/.sei"
 
 [rpc]
 grpc_endpoint = "localhost:9090"
-rpc_timeout = "500ms"
+rpc_timeout = "100ms"
 tmrpc_endpoint = "http://localhost:26657"
 
 [telemetry]
 enable_hostname = true
 enable_hostname_label = true
 enable_service_label = true
-prometheus_retention = 120
+enabled = true
+global_labels = [["chain_id", "sei-chain"]]
 service_name = "price-feeder"
+prometheus_retention = 60
 
 [[provider_endpoints]]
 name = "binance"
 rest = "https://api1.binance.com"
 websocket = "stream.binance.com:9443"
+
+[[healthchecks]]
+url = "https://hc-ping.com/your-uuid"
+timeout = "5s"
 ```
 
 </details>
 
-Start the price feeder as a service:
+### Key Sections
 
-```bash
-sudo tee /etc/systemd/system/price-feeder.service << EOF
+1. **`[account]`**
+
+   - `address` corresponds to the feeder account’s Bech32 address, i.e. `$PRICE_FEEDER_DELEGATE_ADDR`.
+   - `chain_id` is the chain ID of the network you’re using (must match your `seid` config).
+   - `validator` is the **operator address** of your validator, e.g. `seivaloper1xyz...`.
+   - `prefix` sets the human-readable prefix for addresses (“sei”). This is needed so the code knows how to encode/decode Bech32 addresses for your network.
+
+2. **`[keyring]`**
+
+   - `backend` is typically “os”, “file”, “test”, “memory”, etc. If you used `seid keys add ...` in typical production mode, you likely have an `os` or `file` backend.
+   - `dir` points to the location of `.sei/keys` or wherever your keys are stored. This is typically `~/.sei` or `/root/.sei`.
+
+3. **`[rpc]`**
+
+   - `tmrpc_endpoint` points to your node’s RPC address, typically `http://localhost:26657`.
+   - `grpc_endpoint` points to your node’s GRPC address, typically `localhost:9090`.
+   - `rpc_timeout` is how long the feeder waits for an RPC response before timing out.
+
+4. **`[server]`** (optional if `enable_server = true`)
+
+   - `listen_addr` sets the local interface/port for the feeder’s **health** and **metrics** API endpoint (default `0.0.0.0:7171`).
+   - `write_timeout` and `read_timeout` set how long the feeder’s HTTP server will wait before timing out.
+
+5. **`[[currency_pairs]]`**
+
+   - Each block indicates a `base` (e.g. `ETH`) and a `quote` (e.g. `USDT`) pair, plus the **chain denoms** and **providers** used to fetch prices for that pair.
+   - The `chain_denom` is the way the on-chain oracle recognizes your base. For instance, if the chain internally uses `ueth` for Ether.
+   - **Providers** must be supported (Binance, Kraken, Crypto, etc.). If you list multiple providers, the feeder tries to fetch from each and then does time-/volume-weighted averaging, ignoring outliers that deviate too far from the mean.
+
+6. **`[[deviation_thresholds]]`**
+
+   - For each `base` (like “ETH”), you can set a tolerance threshold that helps the feeder ignore obviously incorrect data from any single provider. E.g. `threshold = "2"` means that if a provider’s price is 2 standard deviations away from the aggregated median, that data point is filtered.
+
+7. **Healthchecks** (optional)
+   - If you define a `[healthchecks]` block with a URL, the feeder will `GET` that endpoint each time it broadcasts a successful price vote. Helpful for pinging third-party services like [healthchecks.io](https://healthchecks.io) to alert you if the feeder fails.
+
+---
+
+## Running as a Systemd Service
+
+Running the price feeder under **systemd** is a best practice for servers, ensuring it auto-starts on reboot and restarts if it crashes. Below is a typical unit file at `/etc/systemd/system/price-feeder.service`:
+
+```ini
 [Unit]
 Description=Sei Price Feeder
 After=network-online.target
 
 [Service]
-User=$USER
-ExecStart=$(which price-feeder) /path/to/config.toml
-Restart=always
+User=root
+Type=simple
+# Pass your keyring password
+Environment="PRICE_FEEDER_PASS=YOUR_KEYRING_PASSWORD"
+ExecStart=/usr/local/bin/price-feeder /root/price_feeder_config.toml
+Restart=on-failure
 RestartSec=3
-LimitNOFILE=65535
+LimitNOFILE=6553500
 
 [Install]
 WantedBy=multi-user.target
 EOF
+```
 
+Refresh and start the service, and watch initial logs for any issues:
+
+```sh
 sudo systemctl daemon-reload
 sudo systemctl enable price-feeder
-sudo systemctl start price-feeder
+sudo systemctl start price-feeder && journalctl -fu price-feeder -o cat
 ```
 
-## Monitoring and Alerting
+---
 
-### Validator-Specific Metrics
+## High-level breakdown of the feeder process:
 
-Beyond basic node monitoring, validators should track additional metrics:
+1. **Initialization**:
+
+   - Reads your `config.toml`.
+   - Sets up the keyring with your feeder account.
+   - Connects to your node's RPC and gRPC.
+
+2. **Price Gathering**:
+
+   - For each configured `provider` (Binance, Kraken, etc.), queries the _latest market data_ (candles, tickers).
+   - Cleans and discards outlier data if it is more than `N` standard deviations away from the median (defined by `[[deviation_thresholds]]`).
+   - Aggregates each data point into a final volume- or time-weighted price.
+
+3. **Voting**:
+
+   - Checks the on-chain `oracleParams.VotePeriod` to see when it’s time to broadcast a new vote.
+   - Constructs a `MsgAggregateExchangeRateVote` message listing all the `[base -> chain_denom]` pairs with their computed prices.
+   - Signs and broadcasts the transaction via the gRPC and RPC endpoints.
+   - If multiple currencies share the same `quote`, the feeder automatically converts them to the standard the oracle module expects (usually USD or USDT).
+
+4. **Healthchecks** (optional):
+
+   - After each successful vote, the feeder can ping a user-defined `healthchecks` endpoint, letting external services know it’s live and functioning.
+
+5. **Telemetry & API** (if `enable_server = true`):
+   - Exposes Prometheus-compatible metrics at `/metrics` on the `listen_addr`.
+   - Exposes JSON endpoints for health (`/healthz`) and the current computed prices (`/prices`).
+
+If the price feeder does not send any votes for an extended period, the on-chain module will detect missing votes and jail your validator.
+
+---
+
+## Monitoring & Alerting
+
+### Built-In Telemetry
+
+If `[telemetry]` is enabled in `config.toml`, the price feeder exposes internal metrics (e.g. how long it took to fetch data, last block voted on, errors, etc.):
+
+- **Endpoint**: `<listen_addr>/api/v1/metrics` (e.g. `http://127.0.0.1:7171/api/v1/metrics`)
+- **Format**: By default, Prometheus text format. You can pass `?format=json` to get JSON metrics.
+
+### Price Feeder Health
+
+- **Health** endpoint: `<listen_addr>/api/v1/healthz` returns a simple JSON with `"Status":"available"` if running.
+
+### On-Chain Checks
+
+Aside from direct logs and systemd status, you can also:
 
 ```bash
-# Check validator status
-seid query staking validator $(seid keys show -a $VALIDATOR_KEY)
-
-# Monitor signing status
-seid query slashing signing-info $(seid tendermint show-validator)
-
-# Check current delegations
-seid query staking delegations-to $(seid keys show -a $VALIDATOR_KEY)
+# Check your validator’s on-chain status
+seid query staking validator $(seid keys show -a <validator-key>)
 ```
 
-### Alert Configuration
+If your validator becomes jailed, you will no longer be signing blocks or generating rewards or commission. You can check the status in the staking module"
 
-Set up critical alerts for validator operations. Here are essential Prometheus
-alert rules:
+```sh
+curl -s "http://localhost:1317/cosmos/staking/v1beta1/validators/
+```
 
-<details>
-<summary>Validator Alert Rules</summary>
+### Example Prometheus Rules
+
+For a more robust setup, integrate the node’s and feeder’s metrics with a Prometheus + Grafana stack. Set rules like:
 
 ```yaml
 groups:
@@ -226,7 +409,28 @@ groups:
           summary: 'Oracle price feed delayed'
 ```
 
-</details>
+This should ensure you are alerted if the oracle feeder stops updating, or worse.
+
+---
+
+## Best Practices & Tips
+
+- **Use Multiple Providers**: For each base asset, specify at least three different data providers. Price feeders try to ignore outliers. The more providers you have, the more resilient your feed is.
+- **Separate Feeder Account**: Always use a dedicated account for feeding to reduce the chance of sequence collisions and keep your validator key safe.
+- **Keep Service & Node on Same Host**: Minimize latency by running the feeder on the same machine as the node it queries (or a local network if that is not possible).
+- **Enable Telemetry & Alerting**: Integrate your metrics into Prometheus or a similar system. Oracle feed downtime is a critical event.
+
+## Final Checklist
+
+1. **Create & Fund Delegate Feeder Account**
+2. **Set Feeder Address** on-chain to your newly created delegate
+3. **Install** the `price-feeder` binary
+4. **Write** your `config.toml` with correct accounts, pairs, RPC endpoints, and providers
+5. **Configure** systemd (or your preferred process manager)
+6. **Enable Telemetry & Alerting** with your favorite stack
+7. **Monitor** logs, ensure votes are being broadcast every oracle vote period
+
+If set up correctly, your validator will remain healthy and will continually submit price votes, thus contributing to the on-chain oracle’s price data and staying out of jail.
 
 ## Security Practices
 
