@@ -1,18 +1,14 @@
-# Validator Operations
+# Validator Operations Guide
 
-This comprehensive guide explains how to operate a Sei validator node. We'll
-cover the complete lifecycle of a validator, from initial setup through ongoing
-operations and maintenance. Understanding these concepts is crucial for
-maintaining a reliable and secure validator operation.
+This document covers the complete lifecycle of a validator node, from initial setup through ongoing operations and maintenance. Understanding these concepts is crucial for maintaining a reliable and secure validator operation.
 
 ## Understanding Validator Responsibilities
 
-A validator in the Sei network serves several critical functions. As a
-validator, you are responsible for:
+A validator in the Sei network serves several critical functions. As a validator, you are responsible for:
 
 - Participating in consensus by proposing and validating blocks
 - Maintaining high uptime and performance to avoid slashing
-- Providing accurate oracle price feeds for asset pricing
+- Running a price feeder to provide oracle data (refer to the [Oracle Price Feeder Guide](./oracle-pricefeeder) for complete setup instructions)
 - Managing delegator relationships and maintaining transparent operations
 - Participating in governance and network upgrades
 
@@ -20,8 +16,7 @@ validator, you are responsible for:
 
 ### Key Management
 
-The security of your validator begins with proper key management. Your validator
-requires several distinct keys:
+The security of your validator begins with proper key management. Your validator requires several distinct keys:
 
 ```bash
 # Validator consensus key - Used for signing blocks
@@ -29,19 +24,13 @@ seid tendermint show-validator
 
 # Operator key - Used for managing validator operations
 seid keys add operator
-
-# Oracle key - Used for price feed submissions
-seid keys add oracle
 ```
 
-These keys serve different purposes and should be managed with appropriate
-security measures. The consensus key, stored in `priv_validator_key.json`, is
-particularly critical as it's used to sign blocks.
+These keys serve different purposes and should be managed with appropriate security measures. The consensus key, stored in `priv_validator_key.json`, is particularly critical as it's used to sign blocks and could result in slashing if compromised or mishandled.
 
 ### Hardware Security Module (HSM) Integration
 
-For production validators, using an HSM is strongly recommended. Here's how to
-configure an HSM with your validator:
+For production validators, using an HSM is strongly recommended to protect your consensus key. Here's how to configure an HSM with your validator:
 
 <details>
 <summary>HSM Configuration Steps</summary>
@@ -72,8 +61,7 @@ EOF
 
 ### Validator Registration
 
-Before registering your validator, ensure your node is fully synced with the
-network. Then create your validator:
+Before registering your validator, ensure your node is fully synced with the network. The creation of a validator is a crucial step that requires careful consideration of commission parameters:
 
 ```bash
 seid tx staking create-validator \
@@ -91,297 +79,35 @@ seid tx staking create-validator \
     --from=operator
 ```
 
-The commission parameters deserve careful consideration:
+The commission parameters require strategic consideration:
 
-- `commission-rate`: Your initial commission rate
-- `commission-max-rate`: An upper limit that can never be exceeded
-- `commission-max-change-rate`: Maximum daily commission change
+- `commission-rate`: Your initial commission rate, which should be competitive while ensuring operational sustainability
+- `commission-max-rate`: An upper limit that can never be exceeded, setting a permanent cap on your commission
+- `commission-max-change-rate`: Maximum daily commission change, limiting how quickly you can adjust rates
 
-Below is an expanded explanation of the **Oracle Price Feeder** setup and operations. This covers everything from creating a dedicated price-feeder account, to configuring and running the price feeder, to how it fetches and votes on prices on-chain. This also includes notes on monitoring, recommended best practices, and more in-depth references to the underlying logic.
+## Monitoring and Alerting
 
----
+### Validator-Specific Metrics
 
-## Overview
-
-Running a price feeder is **required** when your validator is participating in a network that depends on oracle data (e.g. Sei). The price feeder is responsible for:
-
-1. **Fetching real-time exchange rates** for a set of assets from various centralized-exchange (CEX) or aggregator data sources (called "providers").
-2. **Aggregating and computing** a time-weighted or volume-weighted average price for each asset pair.
-3. **Submitting periodic on-chain votes** (pre-vote and vote messages, handled automatically) following the network’s oracle specifications.
-
-If the feeder does not consistently broadcast valid oracle votes, the validator will be **jailed** by the chain’s oracle module, incurring downtime and potential slashings.
-
----
-
-## Dedicated Price-Feeder Account
-
-Although you _can_ use your main validator key for both validation and oracle feeding, it’s **highly recommended** that you create a **dedicated** “feeder delegate” account. The primary reasons:
-
-- **Safety**: Reduces risk of accidentally revealing or compromising your validator signing key.
-- **Reduced Account Sequence Errors**: The price feeder signs many transactions in rapid intervals, which can conflict with other transactions from your validator account and lead to sequence mismatches.
-
-### Steps
-
-1. **Create a new key** within your keyring:
-
-   ```bash
-   seid keys add price-feeder-delegate
-   ```
-
-   You can name it whatever you like, e.g. `price-feeder-delegate`. This will prompt you for a password (if using an `os` or `file` keyring), which you can set.
-
-2. **Set that new address as the validator’s “feeder address”:**
-
-   ```bash
-   export PRICE_FEEDER_DELEGATE_ADDR=<the address from the step above>
-
-   seid tx oracle set-feeder $PRICE_FEEDER_DELEGATE_ADDR --from <validator-wallet> \
-       --fees 2000usei -b block -y --chain-id <chain-id>
-   ```
-
-3. **Send a small amount of funds** to that new account so it can pay for fees:
-
-   ```bash
-   seid tx bank send <validator-wallet> $PRICE_FEEDER_DELEGATE_ADDR \
-       [AMOUNT]usei --fees=2000usei -b block -y
-   ```
-
-4. **Export** the keyring password so the price feeder can sign automatically:
-
-   ```bash
-   export PRICE_FEEDER_PASS=<enter your keyring password>
-   ```
-
-   If you don’t set this variable, the feeder will prompt for a password at startup. For systemd usage, you can place this environment variable in the `[Service]` section (see below).
-
----
-
-## Installing the Price Feeder
-
-1. **Clone or download** the `sei-chain` repo:
-
-   ```bash
-   git clone https://github.com/sei-protocol/sei-chain.git
-   cd sei-chain
-   ```
-
-2. **Compile and install** the standalone feeder binary:
-
-   ```bash
-   make install-price-feeder
-   ```
-
-   This produces a `price-feeder` binary typically placed in your `$GOPATH/bin` (for Go-based systems) or `/usr/local/bin`. You can verify it with `which price-feeder`.
-
----
-
-## Configuration
-
-The price feeder operates off a single `config.toml` file (referred to as `/path/to/price_feeder_config.toml` below). In Sei, this config is heavily influenced by the [Umee Price Feeder](https://github.com/umee-network/umee/tree/main/price-feeder) but adapted for Sei’s `oracle` module. A sample `config.toml` might look like:
-
-<details>
-<summary>Price Feeder Configuration</summary>
-
-```toml
-gas_adjustment = 1.5
-gas_prices = "0.00125usei"
-enable_server = true
-enable_voter = true
-
-[server]
-listen_addr = "0.0.0.0:7171"
-read_timeout = "20s"
-verbose_cors = true
-write_timeout = "20s"
-
-[[deviation_thresholds]]
-base = "ETH"
-threshold = "2"
-
-# (You can repeat the same block for BTC, USDC, SEI, etc.)
-
-[[currency_pairs]]
-base = "ETH"
-chain_denom = "ueth"
-providers = ["huobi", "crypto", "coinbase", "kraken", "okx"]
-quote = "USDT"
-
-# (Currency pairs for BTC, USDC, ATOM, etc...)
-
-[account]
-address = "FEEDER_ADDR"   # e.g. $PRICE_FEEDER_DELEGATE_ADDR
-chain_id = "CHAIN_ID"     # e.g. sei-testnet-2 or sei-mainnet-xyz
-validator = "VALIDATOR_ADDR" # e.g. seivaloper1...
-prefix = "sei"
-
-[keyring]
-backend = "os"
-dir = "/root/.sei"
-
-[rpc]
-grpc_endpoint = "localhost:9090"
-rpc_timeout = "100ms"
-tmrpc_endpoint = "http://localhost:26657"
-
-[telemetry]
-enable_hostname = true
-enable_hostname_label = true
-enable_service_label = true
-enabled = true
-global_labels = [["chain_id", "sei-chain"]]
-service_name = "price-feeder"
-prometheus_retention = 60
-
-[[provider_endpoints]]
-name = "binance"
-rest = "https://api1.binance.com"
-websocket = "stream.binance.com:9443"
-
-[[healthchecks]]
-url = "https://hc-ping.com/your-uuid"
-timeout = "5s"
-```
-
-</details>
-
-### Key Sections
-
-1. **`[account]`**
-
-   - `address` corresponds to the feeder account’s Bech32 address, i.e. `$PRICE_FEEDER_DELEGATE_ADDR`.
-   - `chain_id` is the chain ID of the network you’re using (must match your `seid` config).
-   - `validator` is the **operator address** of your validator, e.g. `seivaloper1xyz...`.
-   - `prefix` sets the human-readable prefix for addresses (“sei”). This is needed so the code knows how to encode/decode Bech32 addresses for your network.
-
-2. **`[keyring]`**
-
-   - `backend` is typically “os”, “file”, “test”, “memory”, etc. If you used `seid keys add ...` in typical production mode, you likely have an `os` or `file` backend.
-   - `dir` points to the location of `.sei/keys` or wherever your keys are stored. This is typically `~/.sei` or `/root/.sei`.
-
-3. **`[rpc]`**
-
-   - `tmrpc_endpoint` points to your node’s RPC address, typically `http://localhost:26657`.
-   - `grpc_endpoint` points to your node’s GRPC address, typically `localhost:9090`.
-   - `rpc_timeout` is how long the feeder waits for an RPC response before timing out.
-
-4. **`[server]`** (optional if `enable_server = true`)
-
-   - `listen_addr` sets the local interface/port for the feeder’s **health** and **metrics** API endpoint (default `0.0.0.0:7171`).
-   - `write_timeout` and `read_timeout` set how long the feeder’s HTTP server will wait before timing out.
-
-5. **`[[currency_pairs]]`**
-
-   - Each block indicates a `base` (e.g. `ETH`) and a `quote` (e.g. `USDT`) pair, plus the **chain denoms** and **providers** used to fetch prices for that pair.
-   - The `chain_denom` is the way the on-chain oracle recognizes your base. For instance, if the chain internally uses `ueth` for Ether.
-   - **Providers** must be supported (Binance, Kraken, Crypto, etc.). If you list multiple providers, the feeder tries to fetch from each and then does time-/volume-weighted averaging, ignoring outliers that deviate too far from the mean.
-
-6. **`[[deviation_thresholds]]`**
-
-   - For each `base` (like “ETH”), you can set a tolerance threshold that helps the feeder ignore obviously incorrect data from any single provider. E.g. `threshold = "2"` means that if a provider’s price is 2 standard deviations away from the aggregated median, that data point is filtered.
-
-7. **Healthchecks** (optional)
-   - If you define a `[healthchecks]` block with a URL, the feeder will `GET` that endpoint each time it broadcasts a successful price vote. Helpful for pinging third-party services like [healthchecks.io](https://healthchecks.io) to alert you if the feeder fails.
-
----
-
-## Running as a Systemd Service
-
-Running the price feeder under **systemd** is a best practice for servers, ensuring it auto-starts on reboot and restarts if it crashes. Below is a typical unit file at `/etc/systemd/system/price-feeder.service`:
-
-```ini
-[Unit]
-Description=Sei Price Feeder
-After=network-online.target
-
-[Service]
-User=root
-Type=simple
-# Pass your keyring password
-Environment="PRICE_FEEDER_PASS=YOUR_KEYRING_PASSWORD"
-ExecStart=/usr/local/bin/price-feeder /root/price_feeder_config.toml
-Restart=on-failure
-RestartSec=3
-LimitNOFILE=6553500
-
-[Install]
-WantedBy=multi-user.target
-EOF
-```
-
-Refresh and start the service, and watch initial logs for any issues:
-
-```sh
-sudo systemctl daemon-reload
-sudo systemctl enable price-feeder
-sudo systemctl start price-feeder && journalctl -fu price-feeder -o cat
-```
-
----
-
-## High-level breakdown of the feeder process:
-
-1. **Initialization**:
-
-   - Reads your `config.toml`.
-   - Sets up the keyring with your feeder account.
-   - Connects to your node's RPC and gRPC.
-
-2. **Price Gathering**:
-
-   - For each configured `provider` (Binance, Kraken, etc.), queries the _latest market data_ (candles, tickers).
-   - Cleans and discards outlier data if it is more than `N` standard deviations away from the median (defined by `[[deviation_thresholds]]`).
-   - Aggregates each data point into a final volume- or time-weighted price.
-
-3. **Voting**:
-
-   - Checks the on-chain `oracleParams.VotePeriod` to see when it’s time to broadcast a new vote.
-   - Constructs a `MsgAggregateExchangeRateVote` message listing all the `[base -> chain_denom]` pairs with their computed prices.
-   - Signs and broadcasts the transaction via the gRPC and RPC endpoints.
-   - If multiple currencies share the same `quote`, the feeder automatically converts them to the standard the oracle module expects (usually USD or USDT).
-
-4. **Healthchecks** (optional):
-
-   - After each successful vote, the feeder can ping a user-defined `healthchecks` endpoint, letting external services know it’s live and functioning.
-
-5. **Telemetry & API** (if `enable_server = true`):
-   - Exposes Prometheus-compatible metrics at `/metrics` on the `listen_addr`.
-   - Exposes JSON endpoints for health (`/healthz`) and the current computed prices (`/prices`).
-
-If the price feeder does not send any votes for an extended period, the on-chain module will detect missing votes and jail your validator.
-
----
-
-## Monitoring & Alerting
-
-### Built-In Telemetry
-
-If `[telemetry]` is enabled in `config.toml`, the price feeder exposes internal metrics (e.g. how long it took to fetch data, last block voted on, errors, etc.):
-
-- **Endpoint**: `<listen_addr>/api/v1/metrics` (e.g. `http://127.0.0.1:7171/api/v1/metrics`)
-- **Format**: By default, Prometheus text format. You can pass `?format=json` to get JSON metrics.
-
-### Price Feeder Health
-
-- **Health** endpoint: `<listen_addr>/api/v1/healthz` returns a simple JSON with `"Status":"available"` if running.
-
-### On-Chain Checks
-
-Aside from direct logs and systemd status, you can also:
+Beyond basic node monitoring, validators should track these critical metrics:
 
 ```bash
-# Check your validator’s on-chain status
-seid query staking validator $(seid keys show -a <validator-key>)
+# Check validator status
+seid query staking validator $(seid keys show -a $VALIDATOR_KEY)
+
+# Monitor signing status
+seid query slashing signing-info $(seid tendermint show-validator)
+
+# Check current delegations
+seid query staking delegations-to $(seid keys show -a $VALIDATOR_KEY)
 ```
 
-If your validator becomes jailed, you will no longer be signing blocks or generating rewards or commission. You can check the status in the staking module"
+### Alert Configuration
 
-```sh
-curl -s "http://localhost:1317/cosmos/staking/v1beta1/validators/
-```
+Set up critical alerts for validator operations. Here are essential Prometheus alert rules:
 
-### Example Prometheus Rules
-
-For a more robust setup, integrate the node’s and feeder’s metrics with a Prometheus + Grafana stack. Set rules like:
+<details>
+<summary>Validator Alert Rules</summary>
 
 ```yaml
 groups:
@@ -401,42 +127,22 @@ groups:
         annotations:
           summary: 'Validator has been jailed'
 
-      - alert: OraclePriceFeedDelay
-        expr: time() - sei_oracle_price_timestamp > 300
+      - alert: ConsensusStalled
+        expr: tendermint_consensus_height_status == 0
+        for: 5m
         labels:
           severity: critical
         annotations:
-          summary: 'Oracle price feed delayed'
+          summary: 'Consensus has stalled'
 ```
 
-This should ensure you are alerted if the oracle feeder stops updating, or worse.
-
----
-
-## Best Practices & Tips
-
-- **Use Multiple Providers**: For each base asset, specify at least three different data providers. Price feeders try to ignore outliers. The more providers you have, the more resilient your feed is.
-- **Separate Feeder Account**: Always use a dedicated account for feeding to reduce the chance of sequence collisions and keep your validator key safe.
-- **Keep Service & Node on Same Host**: Minimize latency by running the feeder on the same machine as the node it queries (or a local network if that is not possible).
-- **Enable Telemetry & Alerting**: Integrate your metrics into Prometheus or a similar system. Oracle feed downtime is a critical event.
-
-## Final Checklist
-
-1. **Create & Fund Delegate Feeder Account**
-2. **Set Feeder Address** on-chain to your newly created delegate
-3. **Install** the `price-feeder` binary
-4. **Write** your `config.toml` with correct accounts, pairs, RPC endpoints, and providers
-5. **Configure** systemd (or your preferred process manager)
-6. **Enable Telemetry & Alerting** with your favorite stack
-7. **Monitor** logs, ensure votes are being broadcast every oracle vote period
-
-If set up correctly, your validator will remain healthy and will continually submit price votes, thus contributing to the on-chain oracle’s price data and staying out of jail.
+</details>
 
 ## Security Practices
 
 ### Network Security
 
-Implement a sentry node architecture to protect your validator:
+Validators may choose to implement a sentry node architecture to protect the block signing node (the validator). This setup helps prevent DDoS attacks on your validator node by creating a layer of defensive proxies:
 
 ```bash
 # Validator node config.toml
@@ -449,13 +155,20 @@ addr_book_strict = false
 # Sentry node config.toml
 [p2p]
 pex = true
+persistent_peers = "validator_node_id@ip:port"
 private_peer_ids = "validator_node_id"
 addr_book_strict = true
+#optionsl
+unconditional_peer_ids = "validator_node_id"
 ```
 
 ### Key Management Practices
 
-Implement secure key backup procedures:
+Implement secure key backup procedures. Remember to choose the storage media carefully! Mechanical / flash based storage can fail unexpectedly, and cloud storage should **never** be used.
+
+By default, the wallet key files are stored in your `/.sei` directory root, and the signer/consensus key in `/config`. Not only the `priv_validator_key.json`, but the wallet `.info` and `.address` file should also be saved.
+
+Example script to encrypt backups of key files:
 
 <details>
 <summary>Key Backup Script</summary>
@@ -486,59 +199,42 @@ sha256sum $BACKUP_DIR/*.gpg > $BACKUP_DIR/checksums_$DATE.txt
 
 ### Planned Maintenance
 
-When performing planned maintenance:
+When performing planned maintenance, to minimize potential impact:
+
+- Notify delegators (recommended at least 24h in advance)
+
+Consider posting to:
+
+- Shared development team/validators comms channels
+- Social media channels
+- Validator website
+
+Don't forget to stop the service!
 
 ```bash
-# Notify delegators (recommended at least 24h in advance)
-# Consider posting to:
-# - Chain governance forum
-# - Social media channels
-# - Validator website
-
-# Gracefully stop the validator
+# Gracefully stop the node
 sudo systemctl stop seid
 
 # Perform maintenance tasks
 
 # Restart services
 sudo systemctl start seid
-sudo systemctl start price-feeder
 ```
 
 ### Emergency Procedures
 
-Create an emergency response plan:
+Create and maintain an emergency response plan for various scenarios:
 
-<details>
-<summary>Emergency Response Procedures</summary>
-
-```bash
-# 1. If double-signing is detected:
-sudo systemctl stop seid
-# Investigate priv_validator_state.json
-# Contact team and delegators
-
-# 2. If node is stuck:
-seid status
-# Check for consensus failures
-journalctl -u seid -n 100
-# Attempt safe restart
-sudo systemctl restart seid
-
-# 3. If oracle feed fails:
-systemctl status price-feeder
-# Check price-feeder logs
-journalctl -u price-feeder -n 100
-# Restart if necessary
-sudo systemctl restart price-feeder
-```
-
-</details>
+#### Consult with your fellow valiidators or a member of the Sei Labs or Foundation team directly for advice
 
 ## Governance Participation
 
-As a validator, you have a responsibility to participate in governance. Monitor
-and vote on proposals:
+As a validator, active participation in governance is required. Governance is the primary tool with which adjustments t0 various chain parameters are made.
+Another critical role for validators is to review, and ultimately approve or reject proposed software upgrades to the network.
+
+Governance proposals may be submitted by anyone willing to provide the mandatory (refundable) deposit, and can be voted on by any network user. Only votes by accounts delegating $SEI at the end of the voting period for a given proposal will be given weight.
+
+Proposals currently on chain can be queried at any given time:
 
 ```bash
 # List active proposals
@@ -554,22 +250,109 @@ seid tx gov vote 1 yes \
 
 ## Validator Economics
 
-Understanding validator economics is crucial for long-term success:
+Understanding validator economics is crucial for long-term success. Consider these key aspects:
 
-- Commission Rate Strategy: Set competitive rates while ensuring operational
-  sustainability
-- Delegation Management: Maintain good delegator relationships through
-  transparent communication
-- Reward Distribution: Rewards are distributed in real-time as blocks are
-  produced
-- Slashing Risks: Understand and mitigate risks of slashing through proper
-  operation
+- Commission Rate Strategy: Set competitive rates while ensuring operational sustainability
+- Delegation Management: Maintain good delegator relationships through transparent communication
+- Reward Distribution: Rewards are distributed in real-time as blocks are produced
+- Slashing Risks: Understand and mitigate risks of slashing through proper operation
+- Economic Security: Maintain adequate self-bonding to align incentives with delegators
+
+## Node Debugging and Logging
+
+### Debugging Procedures
+
+When encountering node issues, proper debugging information is crucial for resolution. Different types of issues require different debugging approaches:
+
+#### AppHash Mismatch Errors
+
+If you encounter an AppHash mismatch, you'll need to capture the state for comparison with a known good version:
+
+```bash
+# For SeiDB (most non-archive nodes):
+git clone https://github.com/sei-protocol/sei-db.git
+cd sei-db/tools
+make install
+systemctl stop seid
+seidb dump-iavl -d ~/.sei/data/committer.db -o /home/ubuntu/iavl-dump
+systemctl restart seid
+
+# For Legacy IAVL DB:
+seid debug dump-iavl <latest height>
+```
+
+Always include the app hash, commit hash, and block height from your logs when reporting issues.
+
+#### Crash and Panic Debugging
+
+For crashes, panics, or nil pointer exceptions:
+
+- Capture at least 1,000 lines of logs leading up to the crash
+- Or collect 15 minutes of log data, whichever provides more context
+- Include the full stack trace if available
+
+### Logging Configuration
+
+Proper logging configuration is essential for debugging and monitoring:
+
+```toml
+# In config.toml
+# Set appropriate log level
+log_level = "debug"  # Use "trace" for maximum detail
+
+# Choose log format
+log_format = "json"  # Use "plain" for human-readable logs
+```
+
+Configure log rotation to manage storage effectively:
+
+```bash
+# Example logrotate configuration
+sudo tee /etc/logrotate.d/seid << EOF
+/var/log/seid/*.log {
+    daily
+    rotate 14
+    compress
+    delaycompress
+    notifempty
+    create 0640 sei sei
+    sharedscripts
+    postrotate
+        systemctl reload seid
+    endscript
+}
+EOF
+```
+
+Enable core dumps for crash analysis:
+
+```bash
+# Set unlimited core dump size
+ulimit -c unlimited
+
+# Configure core dump location
+echo "/tmp/core.%e.%p" > /proc/sys/kernel/core_pattern
+```
 
 ## Recovery Procedures
 
+### Critical Warning: Double-Signing Prevention
+
+Double-signing is a severe violation that results in permanent validator tombstoning (irreversible jailing). Never run your validator keys on more than one machine simultaneously. If your primary validator goes offline:
+
+1. DO NOT start another validator with the same keys
+2. Either recover the original machine or properly migrate keys with absolute certainty the original is offline
+3. If unsure about the state of your original validator, seek support before proceeding
+
+The safe approach to recovery is:
+
+1. Diagnose why the original validator is offline
+2. If the original validator cannot be recovered, verify it is completely offline and powered down
+3. Only then proceed with key migration to a new machine
+
 ### Validator Recovery
 
-If you need to recover your validator on a new machine:
+When you need to recover your validator on a new machine, follow these steps carefully:
 
 ```bash
 # 1. Set up new machine with Sei node
@@ -580,10 +363,15 @@ gpg -d validator_key_backup.tar.gz.gpg | tar xzf -
 gpg -d keyring_backup.tar.gz.gpg | tar xzf -
 # 5. Start services
 sudo systemctl start seid
-sudo systemctl start price-feeder
 ```
 
-This guide provides a foundation for operating a Sei validator. Remember that
-validator operation requires constant attention to security, performance, and
-network participation. Stay engaged with the Sei community and keep updated with
-network developments.
+After recovery, verify your validator's status and performance:
+
+```bash
+# Check validator status
+seid status
+# Verify signing is working
+seid query slashing signing-info $(seid tendermint show-validator)
+```
+
+This guide provides a foundation for operating a Sei validator. Remember that validator operation requires constant attention to security, performance, and network participation. Stay engaged with the Sei community and keep updated with network developments.
