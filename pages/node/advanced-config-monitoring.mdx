@@ -1,15 +1,15 @@
-# Advanced Configuration and Monitoring
+# Performance, Monitoring and Alerting
 
-This guide covers advanced configuration options and comprehensive monitoring
-setup for Sei nodes. We'll explore performance tuning, monitoring
-infrastructure, and alerting systems.
+## Optimizing System Configuration
 
-## Performance Tuning
+There are a virtgually unlimited number of unique individual setups that cannot be covered in this document. As well, even very similar builds and configurations can behave very differently due to external factors, so your results may vary.
+
+Here are some general guidelines to use as a starting point. Be cautious, make incremental changes, testing and observing before moving forward.
+Always focus on only one specific area at a time - avoid making changes to memory, storage, and CPU configs all at once. Diagnosing potential problems becomes nearly impossible otherwise.
 
 ### Memory Management
 
-The following settings optimize memory usage and disk I/O patterns. Add these
-configurations to `/etc/sysctl.conf`:
+The following settings in `/etc/sysctl.conf` can optimize memory usage and disk I/O patterns:
 
 ```bash
 # Minimize swapping
@@ -22,15 +22,11 @@ vm.dirty_expire_centisecs = 300
 vm.dirty_writeback_centisecs = 100
 ```
 
-Apply the changes:
+Apply changes: `sudo sysctl -p`
 
-```bash
-sudo sysctl -p
-```
+### Network Stack
 
-### Network Stack Optimization
-
-These settings improve network performance. Add to `/etc/sysctl.conf`:
+The following settings in `/etc/sysctl.conf` may improve network performance:
 
 ```bash
 # Increase connection handling capacity
@@ -71,9 +67,11 @@ sudo tee -a /etc/fstab << EOF
 EOF
 ```
 
-## Monitoring Setup
+## Infrastructure Monitoring
 
-### Prometheus Configuration
+Monitoring is one of the most critical components of network infrastructure. performance tuning, and alerting configuration for Cosmos-SDK/Tendermint nodes.
+
+### Prometheus Setup
 
 First, install Prometheus:
 
@@ -82,7 +80,7 @@ wget https://github.com/prometheus/prometheus/releases/download/v2.42.0/promethe
 tar xvf prometheus-2.42.0.linux-amd64.tar.gz
 ```
 
-Create the Prometheus configuration:
+Example Prometheus configuration:
 
 ```yaml
 global:
@@ -92,18 +90,21 @@ global:
 scrape_configs:
   - job_name: 'sei_node'
     static_configs:
-      - targets: ['localhost:26660']
+      - targets: ['node1_ip:port']
     metrics_path: /metrics
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node2_ip:port']
 ```
 
-### Grafana Dashboard Setup
+### Grafana Integration
 
 Install and configure Grafana:
 
 ```bash
-sudo apt-get install -y apt-transport-https software-properties-common
+sudo apt install -y apt-transport-https software-properties-common
 sudo add-apt-repository "deb https://packages.grafana.com/oss/deb stable main"
-sudo apt-get update && sudo apt-get install grafana
+sudo apt update && sudo apt-get install grafana
 ```
 
 <details>
@@ -245,20 +246,21 @@ sudo apt-get update && sudo apt-get install grafana
 
 </details>
 
-### Alert Configuration
+### Alert Management
 
-Set up alerting using Alertmanager:
+Install Alertmanager:
 
 ```bash
 wget https://github.com/prometheus/alertmanager/releases/download/v0.25.0/alertmanager-0.25.0.linux-amd64.tar.gz
 tar xvf alertmanager-0.25.0.linux-amd64.tar.gz
 ```
 
-Create alert rules:
+<details>
+<summary>Create Alert Rules Configuration</summary>
 
 ```yaml
 groups:
-  - name: sei_alerts
+  - name: validator_alerts
     rules:
       - alert: NodeDown
         expr: up == 0
@@ -275,20 +277,44 @@ groups:
           severity: warning
         annotations:
           summary: 'Block production is slow on {{ $labels.instance }}'
+      - alert: ValidatorMissedBlocks
+        expr: increase(tendermint_consensus_validator_missed_blocks[1h]) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: 'Validator missing blocks'
+
+      - alert: ValidatorJailed
+        expr: tendermint_consensus_validator_status == 0
+        labels:
+          severity: critical
+        annotations:
+          summary: 'Validator has been jailed'
+
+      - alert: ConsensusStalled
+        expr: tendermint_consensus_height_status == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'Consensus has stalled'
 ```
+
+</details>
 
 ## Log Management
 
 ### Loki Setup
 
-Install and configure Loki for log aggregation:
+Using Loki for log aggregation:
 
 ```bash
 wget https://github.com/grafana/loki/releases/download/v2.8.0/loki-linux-amd64.zip
 unzip loki-linux-amd64.zip
 ```
 
-Configure Promtail to ship logs:
+<details>
+<summary>Promtail Configuration</summary>
 
 ```yaml
 server:
@@ -309,6 +335,8 @@ scrape_configs:
           job: seid_logs
           __path__: /var/log/seid/*.log
 ```
+
+</details>
 
 ### Log Rotation
 
@@ -331,11 +359,11 @@ sudo tee /etc/logrotate.d/sei << EOF
 EOF
 ```
 
-## Advanced Security Configuration
+## Security Configuration
 
 ### Network Security
 
-Configure UFW firewall rules:
+UFW firewall configuration:
 
 ```bash
 sudo ufw default deny incoming
@@ -348,7 +376,8 @@ sudo ufw enable
 
 ### Rate Limiting
 
-Configure nginx as a reverse proxy with rate limiting:
+<details>
+<summary>Example Nginx Configuration with Rate Limiting</summary>
 
 ```nginx
 http {
@@ -364,15 +393,68 @@ http {
 }
 ```
 
-## Backup and Recovery
+</details>
 
-### Automated Backup Script
+## Validator-Specific Monitoring
 
-Create a comprehensive backup script:
+### Status Query
+
+Query validator status through SDK:
+
+```bash
+seid query staking validator $(seid keys show --bech val -a <validator_keyfile_name>)
+```
+
+Query through REST API:
+
+```sh
+curl -s "http://localhost:1317/cosmos/staking/v1beta1/validators/<valoper_address>"
+```
 
 <details>
+<summary>Validator "Status" Query Script</summary>
 
-<summary>Backup Script</summary>
+```sh
+#!/bin/bash
+
+MONIKER="$1"
+API_URL="http//localhost:1317/cosmos/staking/v1beta1/validators?pagination.limit=500"
+
+echo "Querying validators from $API_URL..."
+
+VALIDATOR_DATA=$(curl -s "$API_URL" | jq -c --arg MONIKER "$MONIKER" '.validators[] | select(.description.moniker == $MONIKER)')
+
+if [[ -z "$VALIDATOR_DATA" ]]; then
+    echo "❌ No validator found with moniker: $MONIKER"
+    exit 1
+fi
+
+echo "Validator details:"
+echo "$VALIDATOR_DATA" | jq '.'
+```
+
+</details>
+
+### Critical Metrics
+
+Monitor these validator-specific metrics:
+
+```bash
+# Check signing status
+seid query slashing signing-info $(seid tendermint show-validator)
+
+# Check current delegations
+seid query staking delegations-to $(seid keys show -a $VALIDATOR_KEY)
+```
+
+## Oracle Price Feeder Monitoring
+
+The price feeder exposes metrics at `<listen_addr>/api/v1/metrics` when telemetry is enabled in `config.toml`. Health status is available at `<listen_addr>/api/v1/healthz`.
+
+## Backup Management
+
+<details>
+<summary>Complete Automated Backup Script</summary>
 
 ```bash
 #!/bin/bash
@@ -407,7 +489,7 @@ echo "Backup completed successfully on $(date)" >> $BACKUP_DIR/backup.log
 
 </details>
 
-## Performance Monitoring
+## Host System Monitoring
 
 ### Resource Usage Tracking
 
@@ -427,31 +509,162 @@ scrape_configs:
       - targets: ['localhost:9100']
 ```
 
-### Performance Benchmarking
+## Performance Testing
 
-Create a benchmark script to test node performance:
+<details>
+<summary>Example Benchmark Script using `eth_getLogs`</summary>
 
-Benchmark Script
+```js
+import { ethers } from 'ethers';
 
-```bash
-#!/bin/bash
-# Test RPC endpoint response time
-curl -s -w "\nResponse time: %{time_total}s\n" -o /dev/null http://localhost:26657/status
+// Configuration
+const EVM_RPC_URL = 'http://localhost:8545'; // EVM RPC endpoint to test
+const CONTRACT_ADDRESS = '0x0000000000000000000000000000000000001002'; // replace with very active contract for best results
+const INITIAL_BLOCK_RANGE = 50; // range of blocks to query using 'eth_getLogs'
+const RANGE_INCREMENT = 10; // additional blocks to query each consecutive round
+const MAX_TESTS = 50; // total number of rounds for testing
 
-# Test P2P connectivity
-seid net_info | jq '.result.n_peers'
+// Store metrics for final analysis
+const metrics = [];
 
-# Test transaction processing
-seid tx bank send \
-    $(seid keys show -a test1) \
-    $(seid keys show -a test2) \
-    1000000usei \
-    --chain-id $CHAIN_ID \
-    --fees 5000usei \
-    -y
+function getResponseSize(logs) {
+  return Buffer.byteLength(JSON.stringify(logs), 'utf8');
+}
+
+function formatBytes(bytes) {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
+}
+
+function padString(str, length) {
+  return String(str).padEnd(length);
+}
+
+function analyzeResults(metrics) {
+  console.log('\nPerformance Analysis');
+  console.log('='.repeat(50));
+
+  // Filter out queries with no logs for meaningful statistics
+  const queriesWithLogs = metrics.filter((m) => m.logsCount > 0);
+  const totalQueries = metrics.length;
+
+  console.log(`\nGeneral Statistics:`);
+  console.log(`Total Queries Run: ${totalQueries}`);
+  console.log(`Queries with Logs: ${queriesWithLogs.length}`);
+  console.log(`Empty Responses: ${totalQueries - queriesWithLogs.length}`);
+
+  if (queriesWithLogs.length > 0) {
+    const avgResponseTime = queriesWithLogs.reduce((acc, m) => acc + m.responseTime, 0) / queriesWithLogs.length;
+    const avgLogsPerQuery = queriesWithLogs.reduce((acc, m) => acc + m.logsCount, 0) / queriesWithLogs.length;
+    const maxLogs = Math.max(...queriesWithLogs.map((m) => m.logsCount));
+    const maxLogsQuery = queriesWithLogs.find((m) => m.logsCount === maxLogs);
+
+    console.log(`\nPerformance Metrics:`);
+    console.log(`Average Response Time (with logs): ${avgResponseTime.toFixed(2)}ms`);
+    console.log(`Average Logs per Query: ${avgLogsPerQuery.toFixed(2)}`);
+    console.log(`Maximum Logs in Single Query: ${maxLogs}`);
+    if (maxLogsQuery) {
+      console.log(`- At Range Size: ${maxLogsQuery.rangeSize} blocks`);
+      console.log(`- Response Time: ${maxLogsQuery.responseTime}ms`);
+      console.log(`- Efficiency: ${maxLogsQuery.logsPerMs.toFixed(3)} logs/ms`);
+    }
+
+    // Identify optimal range size based on logs/ms
+    const bestEfficiency = queriesWithLogs.reduce((best, m) => (m.logsPerMs > best.logsPerMs ? m : best));
+    console.log(`\nOptimal Performance:`);
+    console.log(`Best Efficiency: ${bestEfficiency.logsPerMs.toFixed(3)} logs/ms`);
+    console.log(`- At Range Size: ${bestEfficiency.rangeSize} blocks`);
+    console.log(`- Retrieved ${bestEfficiency.logsCount} logs in ${bestEfficiency.responseTime}ms`);
+  }
+}
+
+async function testEthGetLogs() {
+  const provider = new ethers.JsonRpcProvider(EVM_RPC_URL);
+
+  try {
+    const latestBlock = await provider.getBlockNumber();
+    console.log(`Latest block: ${latestBlock} (0x${latestBlock.toString(16)})`);
+
+    let currentToBlock = latestBlock;
+    let currentRange = INITIAL_BLOCK_RANGE;
+    let testCount = 0;
+
+    // Column headers with fixed widths
+    console.log('\nBlock Range         Time  Logs    Size     B/ms   Logs/ms  KB/Log  Range');
+    console.log('='.repeat(80));
+
+    while (testCount < MAX_TESTS && currentToBlock > 0) {
+      const fromBlock = Math.max(0, currentToBlock - currentRange);
+
+      try {
+        const startTime = Date.now();
+        const filter = {
+          fromBlock: fromBlock,
+          toBlock: currentToBlock,
+          address: CONTRACT_ADDRESS
+        };
+
+        const logs = await provider.getLogs(filter);
+
+        const endTime = Date.now();
+        const responseTime = endTime - startTime;
+        const logsCount = logs.length;
+        const responseSize = getResponseSize(logs);
+
+        // Calculate metrics
+        const bytesPerMs = (responseSize / responseTime).toFixed(1);
+        const logsPerMs = (logsCount / responseTime).toFixed(3);
+        const kbPerLog = logsCount > 0 ? (responseSize / 1024 / logsCount).toFixed(2) : 'N/A';
+
+        // Store metrics for analysis
+        metrics.push({
+          rangeSize: currentRange,
+          responseTime,
+          logsCount,
+          responseSize,
+          bytesPerMs: parseFloat(bytesPerMs),
+          logsPerMs: parseFloat(logsPerMs),
+          kbPerLog: kbPerLog !== 'N/A' ? parseFloat(kbPerLog) : 0
+        });
+
+        // Format block range
+        const rangeDisplay = `${fromBlock.toString(16)}-${currentToBlock.toString(16)}`;
+
+        // Log with fixed column widths
+        console.log(padString(rangeDisplay, 17) + padString(responseTime, 6) + padString(logsCount, 8) + padString(formatBytes(responseSize), 9) + padString(bytesPerMs, 8) + padString(logsPerMs, 9) + padString(kbPerLog, 8) + currentRange);
+
+        if (logsCount === 10000) {
+          console.log(`\nWarning: Hit 10000 log limit at range ${currentRange}`);
+        }
+
+        currentToBlock = fromBlock - 1;
+        currentRange += RANGE_INCREMENT;
+        testCount++;
+      } catch (error) {
+        console.log(`Error at range ${currentRange}: ${error.message}`);
+        currentRange = Math.max(INITIAL_BLOCK_RANGE, currentRange - RANGE_INCREMENT);
+        currentToBlock = fromBlock - 1;
+        testCount++;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+
+    // Perform final analysis
+    analyzeResults(metrics);
+  } catch (error) {
+    console.error('Failed to initialize or get latest block:', error);
+    process.exit(1);
+  }
+}
+
+// Run the test
+testEthGetLogs();
 ```
 
-This guide provides advanced configuration options and monitoring setup
-instructions. For specific customizations or additional metrics, consult the Sei
+For specific customizations or additional metrics, consult the Sei
 technical communities in [Telegram](https://t.me/+ZN-NcvOWStQwMzk0) or
 [Discord](https://discord.gg/sei).
