@@ -1,4 +1,4 @@
-# Sei Oracle Price Feeder Guide
+# Sei Oracle Price Feeder
 
 ## Overview
 
@@ -6,61 +6,72 @@ The Sei Oracle Price Feeder is a mandatory component for validators in networks 
 
 Failure to maintain an active price feeder results in validator jailing and slashing due to missing oracle votes. The system expects consistent vote broadcasts within each oracle vote period.
 
-### Key Responsibilities
+## Core Functionality
 
-- Fetch real-time market prices from supported providers
-- Aggregate and filter data using time-weighted or volume-weighted averages
-- Submit periodic pre-vote and vote messages to the Sei blockchain
-- Monitor feeder health to prevent downtime
+The price feeder relies on several key processes:
 
-## 1. Installation
+1. Price Data Collection
 
-### 1.1 Install the Price Feeder
+   - Queries multiple supported exchanges for real-time market data
+   - Processes raw price data through cleaning and aggregation pipelines
+   - Applies deviation thresholds to filter outliers
+
+2. Vote Construction and Submission
+
+   - Monitors on-chain oracle parameters for vote timing
+   - Creates and signs MsgAggregateExchangeRateVote messages
+   - Broadcasts transactions via configured endpoints
+
+3. Health Monitoring
+   - Exposes metrics and health check endpoints
+   - Integrates with external monitoring services
+   - Provides real-time price data access
+
+## Setup
+
+### Installing the Binary
 
 ```bash
 cd sei-chain
 make install-price-feeder
 ```
 
-This compiles the price-feeder binary, typically placed in /usr/local/bin/.
+This compiles and copies the price-feeder binary to /usr/local/bin/.
 
-### 1.2 Create a Dedicated Feeder Account
+### Account Configuration
 
-Using a separate feeder account prevents sequence errors from rapid transaction signing and reduces security risks to your validator key.
+Create and configure a dedicated feeder account to prevent sequence errors and enhance security:
 
 ```bash
+# Create feeder account
 seid keys add price-feeder-delegate
 export PRICE_FEEDER_DELEGATE_ADDR=$(seid keys show -a price-feeder-delegate)
-```
 
-### 1.3 Assign the Feeder to Your Validator
-
-```bash
+# Assign feeder to validator
 seid tx oracle set-feeder $PRICE_FEEDER_DELEGATE_ADDR --from <validator-wallet> \
     --fees 2000usei -b block -y --chain-id sei-chain
-```
 
-### 1.4 Fund the Feeder Account
-
-```bash
+# Fund feeder account
 seid tx bank send <validator-wallet> $PRICE_FEEDER_DELEGATE_ADDR 1000000usei \
     --fees=2000usei -b block -y
 ```
 
-### 1.5 Configure Automatic Signing
+### Automatic Signing
 
 ```bash
 export PRICE_FEEDER_PASS=<your_password>
 ```
 
-For systemd usage, add this environment variable to the [Service] section.
+For systemd services, add this environment variable to the [Service] section.
 
-## 2. Configuration
+## Configuration Details
 
-The price feeder operates through a single `config.toml` file. This configuration is adapted from the Umee Price Feeder for Sei's oracle module. Below is a complete configuration template with inline comments explaining each component, followed by detailed explanations of key sections:
+The price feeder uses a single TOML configuration file that defines all operational parameters. Let's examine each major component:
+
+<details>
+<summary>Complete Configuration Template</summary>
 
 ```toml
-# Basic configuration for gas and server settings
 gas_adjustment = 1.5
 gas_prices = "0.00125usei"
 enable_server = true
@@ -69,14 +80,12 @@ enable_voter = true
 [server]
 listen_addr = "0.0.0.0:7171"
 read_timeout = "20s"
-verbose_cors = true    # Enables detailed CORS logging
+verbose_cors = true
 write_timeout = "20s"
 
 [[deviation_thresholds]]
 base = "ETH"
 threshold = "2"
-
-# You can repeat the same block for BTC, USDC, SEI, etc.
 
 [[currency_pairs]]
 base = "ETH"
@@ -84,16 +93,14 @@ chain_denom = "ueth"
 providers = ["huobi", "crypto", "coinbase", "kraken", "okx"]
 quote = "USDT"
 
-# Currency pairs for BTC, USDC, ATOM, etc...
-
 [account]
-address = "FEEDER_ADDR"   # e.g. $PRICE_FEEDER_DELEGATE_ADDR
-chain_id = "CHAIN_ID"     # e.g. sei-testnet-2 or sei-mainnet-xyz
-validator = "VALIDATOR_ADDR" # e.g. seivaloper1...
+address = "FEEDER_ADDR"
+chain_id = "CHAIN_ID"
+validator = "VALIDATOR_ADDR"
 prefix = "sei"
 
 [keyring]
-backend = "os"    # Options: "os", "file", "test", "memory"
+backend = "os"
 dir = "/root/.sei"
 
 [rpc]
@@ -118,7 +125,6 @@ websocket = "stream.binance.com:9443"
 [[healthchecks]]
 url = "https://hc-ping.com/your-uuid"
 timeout = "5s"
-
 
 gas_adjustment = 1.5
 gas_prices = "0.00125usei"
@@ -174,98 +180,66 @@ url = "<https://hc-ping.com/your-uuid>"
 timeout = "5s"
 ```
 
-### Configuration Section Details
+</details>
 
-Each section of the configuration serves a specific purpose in the price feeder's operation. Let's examine each component in detail:
+### Configuration Section Explanations
 
-1. **Root Level Settings**
+1. Root Level Settings
 
-   - `gas_adjustment`: Multiplier for gas estimation to ensure transactions succeed. A value of 1.5 provides a 50% buffer above the estimated gas.
-   - `gas_prices`: Chain-specific gas price in the network's base denomination (usei).
-   - `enable_server`: When true, activates the HTTP server for health checks and metrics.
-   - `enable_voter`: Controls whether this instance participates in price voting.
+   - The gas_adjustment value of 1.5 provides a 50% buffer above estimated gas requirements
+   - gas_prices defines the fee denomination and amount
+   - enable_server activates the HTTP metrics endpoint
+   - enable_voter controls price voting participation
 
-2. **Server Configuration `[server]`**
+2. Server Configuration
 
-   - `listen_addr`: Specifies which network interface and port the metrics server uses. The default 0.0.0.0:7171 allows access from any network interface.
-   - `read_timeout` and `write_timeout`: Control how long the HTTP server waits for incoming requests and responses.
-   - `verbose_cors`: Enables detailed logging of Cross-Origin Resource Sharing requests, helpful for debugging API access issues.
+   - listen_addr determines the network interface and port for metrics
+   - Timeout settings control request handling durations
+   - verbose_cors enables detailed access logging
 
-3. **Deviation Thresholds `[[deviation_thresholds]]`**
+3. Price Data Settings
 
-   - These settings help prevent outlier prices from affecting the aggregate price.
-   - When a provider's price deviates more than the specified number of standard deviations from the median, it is excluded from calculations.
-   - You should configure thresholds for each asset you're tracking (BTC, ETH, USDC, etc.).
+   - deviation_thresholds prevent outlier prices from affecting aggregation
+   - currency_pairs define trading pairs, on-chain denominations, and data sources
+   - provider_endpoints specify exchange API connection details
 
-4. **Currency Pairs `[[currency_pairs]]`**
+4. Chain Integration
 
-   - Defines which assets to track and how to track them.
-   - `base` and `quote` together specify the trading pair (e.g., ETH/USDT).
-   - `chain_denom` maps the external asset to its on-chain representation (e.g., "ueth" for ETH).
-   - `providers` lists which exchanges to query for this pair. Using multiple providers increases reliability and accuracy.
+   - account settings link to your validator and network
+   - keyring configuration manages transaction signing
+   - rpc settings enable chain communication
 
-5. **Account Settings `[account]`**
+5. Monitoring
+   - telemetry enables Prometheus metric collection
+   - healthchecks integrate with external monitoring
+   - Both systems help prevent missed votes
 
-   - Contains the critical chain-specific information for your feeder.
-   - The `address` field must match your delegated feeder account.
-   - `validator` must be your validator's operator address (starting with seivaloper).
-   - `chain_id` must match the network you're connecting to.
+## Deployment
 
-6. **Keyring Configuration `[keyring]`**
+### Systemd Service Configuration
 
-   - Controls how the feeder accesses and manages keys.
-   - The `backend` choice affects security and convenience:
-     - "os" uses your operating system's secure storage
-     - "file" stores keys encrypted on disk
-     - "test" and "memory" are for testing only
-   - `dir` must point to where your keys are stored.
+<details>
+<summary>Example Systemd Service File</summary>
 
-7. **RPC Settings `[rpc]`**
-
-   - Configures how the feeder communicates with your Sei node.
-   - Both GRPC (`grpc_endpoint`) and Tendermint RPC (`tmrpc_endpoint`) connections are required.
-   - `rpc_timeout` should be tuned based on your network latency to the node.
-
-8. **Telemetry Options `[telemetry]`**
-
-   - Enables Prometheus-compatible metrics collection.
-   - The hostname and service label options help identify metrics from different feeders.
-   - `prometheus_retention` determines how long metrics are kept in memory.
-
-9. **Provider Endpoints `[[provider_endpoints]]`**
-
-   - Specifies how to connect to each exchange.
-   - Both REST and WebSocket endpoints are needed for complete price data.
-   - Configure each provider you listed in your currency pairs.
-
-10. **Healthchecks `[[healthchecks]]`**
-    - Optional but recommended for production deployments.
-    - Integrates with external monitoring services like healthchecks.io.
-    - The feeder pings the specified URL after successful price votes.
-    - Alerts you if the feeder stops submitting prices.
-
-## 3. Running the Price Feeder
-
-### 3.1 Systemd Service Configuration
-
-```bash
-sudo tee /etc/systemd/system/price-feeder.service << EOF
+```ini
 [Unit]
 Description=Sei Price Feeder
 After=network-online.target
 
 [Service]
-User=$USER
-Environment="PRICE_FEEDER_PASS=<your_password>"
-ExecStart=$(which price-feeder) /path/to/config.toml
-Restart=always
+User=root
+Type=simple
+Environment="PRICE_FEEDER_PASS=YOUR_KEYRING_PASSWORD"
+ExecStart=/usr/local/bin/price-feeder /root/price_feeder_config.toml
+Restart=on-failure
 RestartSec=3
 LimitNOFILE=6553500
 
 [Install]
 WantedBy=multi-user.target
-EOF
 ```
+
+</details>
 
 Enable and start the service:
 
@@ -275,34 +249,35 @@ sudo systemctl enable price-feeder
 sudo systemctl start price-feeder
 ```
 
-## 4. Monitoring & Troubleshooting
+## Monitoring and Maintenance
 
-### 4.1 Health Monitoring
+### Health Monitoring Endpoints
 
-The price feeder exposes several monitoring endpoints when enable_server = true:
+When enable_server = true, these endpoints become available:
 
-- Health check: `curl -s http://127.0.0.1:7171/healthz`
-- Current prices: `curl -s http://127.0.0.1:7171/prices`
-- Metrics: `curl -s http://127.0.0.1:7171/metrics`
+```bash
+# Health check
+curl -s http://127.0.0.1:7171/healthz
 
-### 4.2 Log Monitoring
+# Current prices
+curl -s http://127.0.0.1:7171/prices
+
+# Metrics
+curl -s http://127.0.0.1:7171/metrics
+```
+
+### Log Monitoring
+
+Monitor service logs:
 
 ```bash
 journalctl -fu price-feeder -o cat
 ```
 
-### 4.3 Validator Status
+### Prometheus Integration
 
-Check validator status and unjail if necessary:
-
-```bash
-seid query staking validator $(seid keys show -a <validator-wallet>)
-seid tx slashing unjail --from <validator-wallet> --chain-id sei-chain
-```
-
-### 4.4 Prometheus Integration
-
-Example alert rules for monitoring:
+<details>
+<summary>Example Alert Rules</summary>
 
 ```yaml
 groups:
@@ -314,22 +289,50 @@ groups:
           severity: critical
 ```
 
-## 5. Best Practices
+</details>
 
-- Use multiple price providers for redundancy and accurate price aggregation
-- Run the feeder on the same machine as the validator for minimal latency
-- Enable comprehensive monitoring with Prometheus metrics
-- Configure alerts for missing votes or delayed price updates
-- Maintain sufficient funds in the feeder account for transaction fees
-- Regular log monitoring for error detection
-- Implement automated restarts via systemd
+## Operational Best Practices
 
-## 6. Operational Checklist
+1. Redundancy and Accuracy
 
-- Create and fund dedicated price feeder account
-- Set feeder delegation for validator
-- Install and configure price feeder with optimal settings
-- Configure systemd service with appropriate restart policies
-- Enable monitoring and alerting systems
-- Verify active vote submissions
-- Monitor validator jailing status
+   - Configure multiple price providers for reliable data
+   - Set appropriate deviation thresholds
+   - Maintain sufficient transaction fees
+
+2. Performance Optimization
+
+   - Co-locate feeder with validator node
+   - Configure appropriate RPC timeouts
+   - Monitor system resource usage
+
+3. Monitoring and Recovery
+
+   - Implement comprehensive metrics collection
+   - Configure alerting for missed votes
+   - Maintain automated restart procedures
+
+4. Security Considerations
+   - Use dedicated feeder accounts
+   - Secure key storage configuration
+   - Regular security audits
+
+## Troubleshooting Guide
+
+### Common Issues
+
+1. Missing Votes
+
+   - Check feeder account balance
+   - Verify RPC connectivity
+   - Review log files for errors
+
+2. Price Deviations
+
+   - Examine provider data quality
+   - Review threshold configurations
+   - Check for market anomalies
+
+3. System Problems
+   - Monitor resource usage
+   - Verify network connectivity
+   - Check disk space and I/O
