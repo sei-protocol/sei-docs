@@ -1,3 +1,5 @@
+'use client';
+
 import { useEffect, useState } from 'react';
 import { groupBy } from 'underscore';
 import { EcosystemSection, EcosystemSkeleton } from '.';

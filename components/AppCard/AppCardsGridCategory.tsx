@@ -1,3 +1,5 @@
+'use client';
+
 import { useEffect, useState } from 'react';
 import { EcosystemDocsCategory, EcosystemResponse, getSeiEcosystemAppByCategory } from '../../data/ecosystemData';
 import { EcosystemSkeleton } from '../EcosystemMap';

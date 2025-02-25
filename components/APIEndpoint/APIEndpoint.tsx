@@ -1,22 +1,25 @@
-import { Code, Flex, Paper, Title, Accordion, Breadcrumbs, Anchor, Text } from '@mantine/core';
-import { CodeHighlight } from '@mantine/code-highlight';
+import { Box, Code, Flex } from '@radix-ui/themes';
 import { EndpointResponseProperty, EndpointParameter, Endpoint } from './types';
+import Link from 'next/link';
+import { SyntaxHighlighter } from '../SyntaxHighlighter';
 
 const renderProperties = (properties: EndpointResponseProperty) => {
 	return Object.entries(properties).map(([key, value]) => (
-		<Paper key={key} withBorder p='md'>
-			<Flex gap='lg'>
+		<div className='border-neutral-800 border-2 p-4' key={key}>
+			<div className='flex gap-6'>
 				<strong>{key}</strong>
-				<Code>{value.type}</Code>
-			</Flex>
+				<Code color='gray' variant='soft'>
+					{value.type}
+				</Code>
+			</div>
 			<p>{value.description}</p>
 			{value.properties && (
-				<Flex direction='column' gap='xs' mt='lg'>
-					<Title order={5}>Properties</Title>
+				<div className='flex flex-col gap-1'>
+					<p className='text-xl'>Properties</p>
 					{renderProperties(value.properties)}
-				</Flex>
+				</div>
 			)}
-		</Paper>
+		</div>
 	));
 };
 
@@ -51,43 +54,44 @@ const unquotedStringify = (obj: object) => {
 const Parameter = (params: EndpointParameter) => {
 	const { name, description, type, required, format } = params;
 	return (
-		<Paper key={name} withBorder p='md'>
-			<Flex gap='lg'>
+		<div className='border-neutral-800 border-2 p-4' key={name}>
+			<div className='flex gap-6'>
 				<strong>
 					{name}
 					{required && <span>*</span>}
 				</strong>
-				<Code>{type}</Code>
-				<Code>{params['in']}</Code>
+				<Code color='gray' variant='soft'>
+					{type}
+				</Code>
 				{format && (
-					<Text>
-						format: <Code>{format}</Code>
-					</Text>
+					<Code color='gray' variant='soft'>
+						{format}
+					</Code>
 				)}
-			</Flex>
+				<Code color='gray' variant='soft'>
+					{params['in']}
+				</Code>
+			</div>
 			<p>{description}</p>
-		</Paper>
+		</div>
 	);
 };
 
 const EndpointResponse = ([code, response]) => {
 	return (
-		<Accordion.Item key={code} value={code}>
-			<Flex direction='column' gap='xs'>
-				<Accordion.Control>
-					<strong>{code}</strong>
-					<p>{response.description}</p>
-				</Accordion.Control>
-				<Accordion.Panel>
-					{response.schema && response.schema.properties && (
-						<Flex direction='column' gap='xs'>
-							<Title order={5}>Properties</Title>
-							{renderProperties(response.schema.properties)}
-						</Flex>
-					)}
-				</Accordion.Panel>
-			</Flex>
-		</Accordion.Item>
+		<Flex direction='column' gap='xs'>
+			<Box>
+				<strong>{code}</strong>
+				<p>{response.description}</p>
+			</Box>
+			<Box>
+				{response.schema && response.schema.properties && (
+					<Flex direction='column' gap='xs'>
+						{renderProperties(response.schema.properties)}
+					</Flex>
+				)}
+			</Box>
+		</Flex>
 	);
 };
 
@@ -95,7 +99,7 @@ export const APIEndpoint = ({ endpoint }: { endpoint: Endpoint }) => {
 	const [path, methods] = endpoint;
 
 	const parts = path
-		.split('/')
+		?.split('/')
 		.filter((part: string) => !part.startsWith('{') && part !== '')
 		.map((part: string) => part.toLowerCase());
 
@@ -133,48 +137,49 @@ const params: ${requestType} = ${paramsString};
 const response: ${responseType} = await ${routeNames.functionName}(params);`;
 
 	return (
-		<Flex direction='column' gap='xl'>
-			<Breadcrumbs mt='md'>
-				<Anchor href={`/reference/cosmos#${orgName}`}>endpoints</Anchor>
-				<Anchor href={`/reference/api/${orgName}/${moduleName}`}>{moduleName}</Anchor>
-			</Breadcrumbs>
-			<Title>{functionName}</Title>
-			<Flex gap='sm' align='center'>
-				<Code style={{ minWidth: 'fit-content', height: 'fit-content' }}>{httpMethod.toUpperCase()}</Code>
-				<Text size='xl' style={{ wordBreak: 'break-all' }}>
-					{path}
-				</Text>
-			</Flex>
-			<Title order={4}>{details.summary}</Title>
-			{!!requiredParams && (
-				<Flex gap='sm' direction='column'>
-					<Title order={4}>Parameters</Title>
+		<div className='flex flex-col gap-8'>
+			<div className='flex flex-row items-center gap-2'>
+				<Link className='text-neutral-400' href={`/reference/cosmos#${orgName}`}>
+					endpoints
+				</Link>
+				<p>
+					<b>{'>'}</b>
+				</p>
+				<Link className='text-neutral-400' href={`/reference/api/${orgName}/${moduleName}`}>
+					{moduleName}
+				</Link>
+				<p>
+					<b>{'>'}</b>
+				</p>
+				<p className='font-2xl'>{functionName}</p>
+			</div>
+			<div className='flex flex-row gap-2 items-center'>
+				<Code className='mt-1'>{httpMethod.toUpperCase()}</Code>
+				<p className='text-2xl break-all'>{path}</p>
+			</div>
+			<p className='font-xl break-all'>{details.summary}</p>
+			{requiredParams?.length > 0 && (
+				<div className='flex flex-col gap-2'>
+					<p className='text-xl font-bold'>Parameters</p>
 					{requiredParams.map(Parameter)}
-				</Flex>
+				</div>
 			)}
 
 			{optionalParams?.length > 0 && (
-				<Accordion>
-					<Accordion.Item value='optional'>
-						<Accordion.Control>
-							<Title order={4}>Optional Parameters</Title>
-						</Accordion.Control>
-						<Accordion.Panel>
-							<Flex gap='sm' direction='column' mt='sm'>
-								{optionalParams.map(Parameter)}
-							</Flex>
-						</Accordion.Panel>
-					</Accordion.Item>
-				</Accordion>
+				<div className='flex flex-col gap-2'>
+					<p className='text-xl font-bold'>Optional Parameters</p>
+					{optionalParams?.map(Parameter)}
+				</div>
 			)}
-			<Flex gap='sm' direction='column'>
-				<Title order={4}>Responses</Title>
-				<Accordion>{Object.entries(details.responses).map(EndpointResponse)}</Accordion>
-			</Flex>
-			<Flex gap='sm' direction='column'>
-				<Title order={4}>Example Usage</Title>
-				<CodeHighlight language='js' code={exampleCode} />
-			</Flex>
-		</Flex>
+
+			<div className='flex flex-col gap-2'>
+				<p className='text-xl font-bold'>Responses</p>
+				{Object.entries(details.responses).map(EndpointResponse)}
+			</div>
+			<div className='flex flex-col gap-2'>
+				<p className='text-xl'>Example Usage</p>
+				<SyntaxHighlighter language='typescript' code={exampleCode} />
+			</div>
+		</div>
 	);
 };

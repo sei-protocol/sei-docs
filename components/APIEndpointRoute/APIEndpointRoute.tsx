@@ -1,22 +1,16 @@
-import { Box, Flex, Loader, Skeleton, Stack, Text, Title } from '@mantine/core';
-import { Button } from 'nextra/components';
+'use client';
+
 import Link from 'next/link';
 import { NextSeo } from 'next-seo';
-import { useData } from 'nextra/data';
 import { isEqual } from 'underscore';
 import { filterModuleRoutes } from './utils';
 import { APIEndpoint, APIModule } from '../index';
 import openapi from '../../data/cosmos-openapi.json';
-import { useRouter } from 'next/router';
+import { Button } from '@radix-ui/themes';
+import { usePathname } from 'next/navigation';
 
 export const PageTitle = () => {
-	const router = useRouter();
-	// Check if the page is still loading
-	if (router.isFallback) {
-		return null;
-	}
-	const data = useData();
-	const title = data?.title || 'API Route Not Found';
+	const title = 'API Route Not Found';
 	return <NextSeo title={title} />;
 };
 
@@ -26,16 +20,16 @@ export const PageTitle = () => {
 // 2. cosmos/bank
 const getPaths = () => {
 	const routes = Object.keys(openapi.paths).map((p) => {
-		const route = p.split('/').filter((s) => s);
-		return route;
+		return p.split('/').filter((s) => s);
 	});
+
 	const paths = routes.flatMap((route) => {
 		const fullRoute = { params: { route } };
 		const parentRoute = { params: { route: [route[0], route[1]] } };
 		return [fullRoute, parentRoute];
 	});
-	const uniquePaths = Array.from(new Set(paths.map((path) => JSON.stringify(path)))).map((path) => JSON.parse(path));
-	return uniquePaths;
+
+	return Array.from(new Set(paths.map((path) => JSON.stringify(path)))).map((path) => JSON.parse(path));
 };
 
 export const getStaticPaths = () => {
@@ -66,44 +60,34 @@ export const getStaticProps = async ({ params }) => {
 };
 
 const APIEndpointRoute = () => {
-	const router = useRouter();
-	// Check if the page is still loading
-	if (router.isFallback) {
+	const pathname = usePathname();
+	const routes = pathname
+		.split('/')
+		.filter(Boolean)
+		.slice(2) // Remove `/reference/api/` prefix
+		.map((route) => decodeURIComponent(route)); // URL decode
+
+	if (!routes.length) {
 		return (
-			<Box>
-				<Skeleton h={16} w={200} mb='xl' />
-				<Skeleton h={32} w={128} mb='xl' />
-				<Skeleton h={24} />
-			</Box>
+			<div className='flex flex-col gap-2'>
+				<p>API Route Not Found</p>
+				<p>The API route you were looking for could not be found.</p>
+			</div>
 		);
 	}
-
-	const data = useData();
-	if (!data?.route?.length) {
-		return (
-			<Box>
-				<Title mb='md'>API Route Not Found</Title>
-				<Text>The API route you were looking for could not be found.</Text>
-			</Box>
-		);
-	}
-
-	const { route } = data;
-	const moduleRoutes = filterModuleRoutes(Object.entries(openapi.paths), route);
+	const moduleRoutes = filterModuleRoutes(Object.entries(openapi.paths), routes);
 	const splitRoutes = moduleRoutes?.[0]?.[0].split('/');
 
-	if (route.length === 2) {
+	if (routes.length === 2) {
 		return (
-			<Flex direction={'column'} gap='md'>
+			<div className='flex flex-col gap-6'>
 				<Link href={`/reference/cosmos#${splitRoutes[1]}`}>
 					<Button>Back</Button>
 				</Link>
 
-				<Title order={1} mb='xl'>
-					{route.join('/')}
-				</Title>
-				<APIModule prefix={route.join('/')} basePaths={moduleRoutes.map((route) => route[0])} />
-			</Flex>
+				<p className='text-2xl'>{routes.join('/')}</p>
+				<APIModule prefix={routes.join('/')} basePaths={moduleRoutes.map((route) => route[0])} />
+			</div>
 		);
 	}
 

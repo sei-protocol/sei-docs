@@ -1,59 +1,50 @@
-// components/EvmWalletConnect/EvmWalletConnect.tsx
-import { connectorsForWallets, RainbowKitProvider } from '@rainbow-me/rainbowkit';
-import { injectedWallet, metaMaskWallet } from '@rainbow-me/rainbowkit/wallets';
-import { Chain, configureChains, createConfig, WagmiConfig } from 'wagmi';
-import { publicProvider } from 'wagmi/providers/public';
-import '@rainbow-me/rainbowkit/styles.css';
-import { ChainRpcUrls } from 'viem/_types/types/chain';
-import CustomConnectButton from './CustomConnectButton';
+'use client';
+
+import React from 'react';
+import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
+import { Box, Button } from '@radix-ui/themes';
+import { IconLogout } from '@tabler/icons-react';
+import useSeiAddress from '../../hooks/useSeiAddress';
+import { getCosmosChainId } from '../../utils/chains';
+import { CopyText } from '../CopyText';
+import { SwitchNetwork } from '../SwitchNetwork';
 
 export default function EvmWalletConnect() {
-	const rpcUrl: ChainRpcUrls = {
-		http: ['https://evm-rpc.sei-apis.com'],
-		webSocket: ['wss://evm-ws.sei-apis.com']
-	};
-	const sei: Chain = {
-		id: 1329,
-		name: 'Sei Network',
-		network: 'Sei',
-		nativeCurrency: {
-			decimals: 18,
-			name: 'Sei',
-			symbol: 'SEI'
-		},
-		rpcUrls: {
-			public: rpcUrl,
-			default: rpcUrl
-		},
-		testnet: true,
-		blockExplorers: {
-			default: { name: 'Seitrace', url: 'https://seitrace.com' }
+	const { handleLogOut, network, primaryWallet, setShowAuthFlow } = useDynamicContext();
+
+	const response = useSeiAddress({ chainId: getCosmosChainId(Number(network)) });
+	const { data: seiAddress, isLoading } = response;
+
+	const renderContent = () => {
+		if (network) {
+			return (
+				<Button className='flex flex-row gap-4 !bg-neutral-700 !p-6 !rounded-2xl cursor-pointer hover:!bg-[#9e1f19aa]' onClick={handleLogOut}>
+					<IconLogout />
+					<p className='font-bold'>Disconnect Wallet</p>
+				</Button>
+			);
 		}
+
+		return (
+			<Button onClick={() => setShowAuthFlow(true)} className='flex flex-row gap-4 !bg-[#9e1f19] !p-6 !rounded-2xl cursor-pointer hover:!bg-[#9e1f19aa]'>
+				<p className='font-bold'>Connect & Link Wallet</p>
+			</Button>
+		);
 	};
-
-	const { chains, publicClient } = configureChains([sei], [publicProvider()]);
-
-	const projectId = '385413c214cb74213e0679bc30dd4e4c';
-	const connectors = connectorsForWallets([
-		{
-			groupName: 'Recommended',
-			wallets: [injectedWallet({ chains }), metaMaskWallet({ projectId, chains })]
-		}
-	]);
-
-	const wagmiConfig = createConfig({
-		autoConnect: false,
-		connectors,
-		publicClient
-	});
 
 	return (
-		<div className='my-4 flex justify-center'>
-			<WagmiConfig config={wagmiConfig}>
-				<RainbowKitProvider chains={chains}>
-					<CustomConnectButton />
-				</RainbowKitProvider>
-			</WagmiConfig>
+		<div className='flex flex-col gap-4 mt-4 border-neutral-800 border-1 p-4 rounded-xl'>
+			<SwitchNetwork />
+			<div className='flex flex-col gap-2'>
+				<CopyText
+					column={true}
+					label='EVM Address:'
+					value={primaryWallet?.address && !isLoading ? primaryWallet?.address : '---'}
+					copyDisabled={network === undefined}
+				/>
+				<CopyText column={true} label='Cosmos Address:' value={seiAddress && !isLoading ? seiAddress : '---'} copyDisabled={network === undefined || isLoading} />
+				<Box className='w-full mt-4'>{renderContent()}</Box>
+			</div>
 		</div>
 	);
 }
