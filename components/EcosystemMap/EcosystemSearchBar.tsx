@@ -1,18 +1,23 @@
+'use client';
+
 import React from 'react';
+import { atom, useAtom } from 'jotai';
+import { TextField } from '@radix-ui/themes';
+import { IconSearch } from '@tabler/icons-react';
 
-interface EcosystemSearchBarProps {
-	searchTerm: string;
-	setSearchTerm: (val: string) => void;
-}
+export const searchTermAtom = atom('');
 
-export default function EcosystemSearchBar({ searchTerm, setSearchTerm }: EcosystemSearchBarProps) {
+type EcosystemSearchBarProps = {
+	placeholder: string;
+};
+
+export function EcosystemSearchBar({ placeholder }: EcosystemSearchBarProps) {
+	const [searchTerm, setSearchTerm] = useAtom(searchTermAtom);
 	return (
-		<input
-			type='search'
-			placeholder='Search for apps...'
-			value={searchTerm}
-			onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
-			className='w-full px-4 py-2 bg-gray-900 text-white border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500'
-		/>
+		<TextField.Root size='3' className='w-full' placeholder={placeholder} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}>
+			<TextField.Slot>
+				<IconSearch height='16' width='16' />
+			</TextField.Slot>
+		</TextField.Root>
 	);
 }
