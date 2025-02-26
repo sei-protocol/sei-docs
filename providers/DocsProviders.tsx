@@ -11,12 +11,13 @@ export default function DocsProviders({ children, pageMap }) {
 	return (
 		<Layout
 			docsRepositoryBase='https://github.com/sei-protocol/sei-docs/tree/main'
-			darkMode={true}
 			sidebar={{ defaultMenuCollapseLevel: 1, toggleButton: true }}
 			editLink='Edit this page'
 			feedback={{ content: 'Question? Give us feedback →', labels: 'https://github.com/sei-protocol/sei-docs/issues/new' }}
 			footer={<Footer />}
+			darkMode={true}
 			search={null}
+			nextThemes={{ attribute: 'class' }}
 			navbar={
 				<Navbar
 					logo={<Logo />}
@@ -30,7 +31,7 @@ export default function DocsProviders({ children, pageMap }) {
 				/>
 			}
 			pageMap={pageMap}>
-			<Theme accentColor='red' grayColor='gray' panelBackground='solid' scaling='100%'>
+			<Theme accentColor='red' grayColor='gray' scaling='100%'>
 				{children}
 			</Theme>
 		</Layout>

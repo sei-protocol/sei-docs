@@ -1,55 +1,57 @@
+'use client';
+
 import React, { useState } from 'react';
-import styles from '../../styles/SeiTraceSearch.module.css';
+import { Button, Flex } from '@radix-ui/themes';
+import { ExternalLinkIcon } from '@radix-ui/react-icons';
 
 const SeiTraceSearch = () => {
-  const [address, setAddress] = useState('');
-  const [error, setError] = useState('');
+	const [address, setAddress] = useState('');
+	const [error, setError] = useState('');
 
-  const isValidAddress = (addr: string) => {
-    // Accept addresses starting with 'sei' or '0x' and of reasonable length
-    const seiPattern = /^sei[a-z0-9]{8,}$/i;
-    const evmPattern = /^0x[a-fA-F0-9]{40}$/;
-    return seiPattern.test(addr) || evmPattern.test(addr);
-  };
+	const isValidAddress = (addr: string) => {
+		const seiPattern = /^sei[a-z0-9]{8,}$/i;
+		const evmPattern = /^0x[a-fA-F0-9]{40}$/;
+		return seiPattern.test(addr) || evmPattern.test(addr);
+	};
 
-  const getSeiTraceUrl = (addr: string) => {
-    const chainParam = '?chain=pacific-1';
-    // For all addresses, use '/address/' path
-    return `https://seitrace.com/address/${addr}${chainParam}`;
-  };
+	const getSeiTraceUrl = (addr: string) => {
+		const chainParam = '?chain=pacific-1';
+		return `https://seitrace.com/address/${addr}${chainParam}`;
+	};
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const trimmedAddress = address.trim();
-    if (trimmedAddress) {
-      if (isValidAddress(trimmedAddress)) {
-        const url = getSeiTraceUrl(trimmedAddress);
-        window.open(url, '_blank');
-        setError('');
-      } else {
-        setError('Please enter a valid Sei or EVM address.');
-      }
-    }
-  };
+	const handleSearch = () => {
+		const trimmedAddress = address.trim();
+		if (!trimmedAddress) {
+			setError('Please enter an address.');
+			return;
+		}
+		if (!isValidAddress(trimmedAddress)) {
+			setError('Invalid Sei or EVM address.');
+			return;
+		}
 
-  return (
-    <form onSubmit={handleSubmit} className={styles.form}>
-      <div className={styles.inputContainer}>
-        <input
-          id="addressInput"
-          type="text"
-          placeholder="Enter address"
-          value={address}
-          onChange={(e) => setAddress(e.target.value)}
-          className={`${styles.input} ${error ? styles.error : ''}`}
-        />
-        <button type="submit" className={styles.button}>
-          View on SEITRACE
-        </button>
-      </div>
-      {error && <div className={styles.errorMessage}>{error}</div>}
-    </form>
-  );
+		window.open(getSeiTraceUrl(trimmedAddress), '_blank');
+		setError('');
+	};
+
+	return (
+		<div className='w-full max-w-2xl border border-muted bg-card rounded-full px-4 py-2 flex items-center gap-3 mt-8 mb-2'>
+			<input
+				id='addressInput'
+				type='text'
+				placeholder='Search SeiTrace (Sei / EVM Address)'
+				value={address}
+				onChange={(e) => setAddress(e.target.value)}
+				className='w-full bg-transparent outline-none text-foreground'
+			/>
+
+			<Button variant='soft' className='px-4 flex items-center gap-2 rounded-full' onClick={handleSearch}>
+				Search <ExternalLinkIcon className='w-4 h-4' />
+			</Button>
+
+			{error && <p className='text-red-500 text-sm mt-2 absolute'>{error}</p>}
+		</div>
+	);
 };
 
 export default SeiTraceSearch;

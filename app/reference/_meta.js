@@ -1,6 +1,5 @@
 export default {
 	index: 'Home',
-	overview: 'Overview',
 	'-- API Reference': {
 		type: 'separator',
 		title: 'API Reference'

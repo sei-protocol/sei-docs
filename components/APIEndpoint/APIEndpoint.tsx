@@ -1,11 +1,11 @@
-import { Box, Code, Flex } from '@radix-ui/themes';
+import { Box, Code } from '@radix-ui/themes';
 import { EndpointResponseProperty, EndpointParameter, Endpoint } from './types';
 import Link from 'next/link';
 import { SyntaxHighlighter } from '../SyntaxHighlighter';
 
 const renderProperties = (properties: EndpointResponseProperty) => {
 	return Object.entries(properties).map(([key, value]) => (
-		<div className='border-neutral-800 border-2 p-4' key={key}>
+		<div className='rounded-xl bg-neutral-100 dark:bg-neutral-900  border-neutral-200 dark:border-neutral-800 border-2 p-4' key={key}>
 			<div className='flex gap-6'>
 				<strong>{key}</strong>
 				<Code color='gray' variant='soft'>
@@ -14,7 +14,7 @@ const renderProperties = (properties: EndpointResponseProperty) => {
 			</div>
 			<p>{value.description}</p>
 			{value.properties && (
-				<div className='flex flex-col gap-1'>
+				<div className='flex flex-col gap-2'>
 					<p className='text-xl'>Properties</p>
 					{renderProperties(value.properties)}
 				</div>
@@ -54,7 +54,7 @@ const unquotedStringify = (obj: object) => {
 const Parameter = (params: EndpointParameter) => {
 	const { name, description, type, required, format } = params;
 	return (
-		<div className='border-neutral-800 border-2 p-4' key={name}>
+		<div className='rounded-xl bg-neutral-100 dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 border-2 p-4' key={name}>
 			<div className='flex gap-6'>
 				<strong>
 					{name}
@@ -79,19 +79,13 @@ const Parameter = (params: EndpointParameter) => {
 
 const EndpointResponse = ([code, response]) => {
 	return (
-		<Flex direction='column' gap='xs'>
+		<div className='flex flex-col gap-4'>
 			<Box>
 				<strong>{code}</strong>
 				<p>{response.description}</p>
 			</Box>
-			<Box>
-				{response.schema && response.schema.properties && (
-					<Flex direction='column' gap='xs'>
-						{renderProperties(response.schema.properties)}
-					</Flex>
-				)}
-			</Box>
-		</Flex>
+			<Box>{response.schema && response.schema.properties && <div className='flex flex-col gap-4'>{renderProperties(response.schema.properties)}</div>}</Box>
+		</div>
 	);
 };
 

@@ -9,7 +9,7 @@ type SyntaxHighlighterProps = {
 	language: BundledLanguage;
 };
 
-export const SyntaxHighlighter = ({ code, language }) => {
+export const SyntaxHighlighter = ({ code, language }: SyntaxHighlighterProps) => {
 	const { theme } = useTheme();
 
 	return (

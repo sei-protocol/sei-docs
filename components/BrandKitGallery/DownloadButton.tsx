@@ -1,6 +1,6 @@
 'use client';
 
-import { DownloadIcon } from 'lucide-react';
+import { IconDownload } from '@tabler/icons-react';
 
 const DownloadButton = ({ url, fileName, children }) => {
 	const handleDownload = () => {
@@ -17,7 +17,7 @@ const DownloadButton = ({ url, fileName, children }) => {
 		<button
 			className='inline-flex items-center px-4 py-1.5 font-semibold bg-black text-white rounded-lg hover:bg-gray-800 dark:bg-white dark:text-black dark:hover:bg-gray-200 transition-all duration-200 active:translate-y-px'
 			onClick={handleDownload}>
-			{children} <DownloadIcon className='w-4 h-4 ml-2' />
+			{children} <IconDownload className='w-4 h-4 ml-2' />
 		</button>
 	);
 };

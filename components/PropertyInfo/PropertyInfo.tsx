@@ -8,7 +8,7 @@ type PropertyInfoProps = {
 
 const PropertyInfo = ({ name, description, properties }: PropertyInfoProps) => {
 	return (
-		<div className='flex flex-col bg-neutral-900 border-[1px] rounded border-neutral-800 p-4 gap-6'>
+		<div className='flex flex-col border-[1px] rounded border-neutral-800 p-4 gap-6'>
 			<div className='flex flex-col'>
 				<p className='font-black text-xl'>{name}</p>
 				<p>{description}</p>

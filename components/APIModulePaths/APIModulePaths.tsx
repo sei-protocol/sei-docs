@@ -4,7 +4,7 @@ export const APIModulePaths = ({ basePaths, prefix }: { basePaths: any[]; prefix
 	return (
 		<Cards>
 			{Object.values(basePaths).map((path) => {
-				return <Cards.Card key={path} title={path} href={`/reference/api/${prefix}/${path}`} icon={null} children={null} />;
+				return <Cards.Card key={path} title={path} href={`/reference/api/${prefix}/${path}`} />;
 			})}
 		</Cards>
 	);

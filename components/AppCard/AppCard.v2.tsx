@@ -1,6 +1,7 @@
-import { ExternalLinkIcon } from 'lucide-react';
+import { IconLink } from '@tabler/icons-react';
 import Image from 'next/image';
 import type { EcosystemItem } from '../../data/ecosystemData';
+import Link from 'next/link';
 
 interface AppCardV2Props {
 	app: EcosystemItem;
@@ -8,37 +9,35 @@ interface AppCardV2Props {
 
 export default function AppCardV2({ app }: AppCardV2Props) {
 	if (!app) return null;
+
 	const { name, logo, link, 'short-description': desc, 'integration-guide-link': integration } = app.fieldData;
 
 	if (!logo) return null;
 
 	return (
-		<div className='group flex flex-col w-[180px] flex-shrink-0 rounded-lg overflow-hidden bg-[#121212] border border-[#2c2c2c] hover:border-[#424242] transition-colors'>
-			<div className='relative aspect-square flex items-center justify-center bg-black'>
-				{link ? (
-					<a href={link} target='_blank' rel='noopener noreferrer'>
-						<Image src={logo.url} alt={`${name} logo`} width={100} height={100} className='p-4 mx-auto transition-transform group-hover:scale-105' />
-					</a>
-				) : (
-					<Image src={logo.url} alt={`${name} logo`} width={100} height={100} className='p-4 mx-auto' />
-				)}
+		<a
+			href={link || '#'}
+			target='_blank'
+			rel='noopener noreferrer'
+			className='group flex flex-col w-[250px] min-h-[330px] h-fit flex-shrink-0 bg-neutral-100 dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-800 rounded-lg overflow-hidden transition-transform hover:opacity-80'>
+			<div className='relative flex items-center justify-center aspect-square border-b border-b-neutral-300 dark:border-b-neutral-800'>
+				<Image src={logo.url} alt={name} width={250} height={250} className='mx-auto transition-transform max-h-[250px]' />
 			</div>
-			<div className='p-3 text-white flex flex-col gap-1'>
-				<h3 className='text-sm font-semibold line-clamp-1' title={name}>
-					{name}
-				</h3>
-				{desc && <p className='text-xs text-gray-300 line-clamp-3'>{desc}</p>}
+
+			<div className='p-4 flex flex-col justify-between grow'>
+				<h3 className='text-md font-semibold flex items-center gap-2'>{name}</h3>
+				{desc && <p className='text-sm opacity-75'>{desc}</p>}
+
 				{integration && (
-					<a
+					<Link
 						href={integration}
 						target='_blank'
 						rel='noopener noreferrer'
-						className='mt-2 inline-flex items-center gap-1 px-2 py-1 bg-white text-black text-xs rounded hover:opacity-80 transition-opacity'>
-						Integration
-						<ExternalLinkIcon className='w-3 h-3' />
-					</a>
+						className='text-black mt-2 inline-flex items-center gap-1 px-2 py-1 bg-white border border-neutral-200 dark:border-neutral-800 text-sm rounded hover:opacity-80 transition-opacity'>
+						Integration Guide <IconLink className='w-4 h-4' />
+					</Link>
 				)}
 			</div>
-		</div>
+		</a>
 	);
 }

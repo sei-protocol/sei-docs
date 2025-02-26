@@ -62,12 +62,12 @@ export const getStaticProps = async ({ params }) => {
 const APIEndpointRoute = () => {
 	const pathname = usePathname();
 	const routes = pathname
-		.split('/')
+		?.split('/')
 		.filter(Boolean)
 		.slice(2) // Remove `/reference/api/` prefix
 		.map((route) => decodeURIComponent(route)); // URL decode
 
-	if (!routes.length) {
+	if (!routes?.length) {
 		return (
 			<div className='flex flex-col gap-2'>
 				<p>API Route Not Found</p>
@@ -78,7 +78,7 @@ const APIEndpointRoute = () => {
 	const moduleRoutes = filterModuleRoutes(Object.entries(openapi.paths), routes);
 	const splitRoutes = moduleRoutes?.[0]?.[0].split('/');
 
-	if (routes.length === 2) {
+	if (routes?.length === 2) {
 		return (
 			<div className='flex flex-col gap-6'>
 				<Link href={`/reference/cosmos#${splitRoutes[1]}`}>

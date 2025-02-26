@@ -33,7 +33,7 @@ export default function EvmWalletConnect() {
 	};
 
 	return (
-		<div className='flex flex-col gap-4 mt-4 border-neutral-800 border-1 p-4 rounded-xl'>
+		<div className='flex flex-col gap-4 mt-4 border-2 border-neutral-200 dark:border-neutral-800 border-1 p-4 rounded-xl'>
 			<SwitchNetwork />
 			<div className='flex flex-col gap-2'>
 				<CopyText

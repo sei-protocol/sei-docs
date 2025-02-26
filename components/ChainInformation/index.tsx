@@ -40,11 +40,7 @@ export const ChainInformation = () => {
 									<Table.Cell>
 										<Flex direction='column' className='gap-2'>
 											{net.explorerLinks.map((explorer) => (
-												<Link
-													key={explorer.name}
-													href={explorer.url}
-													target='_blank'
-													className='!underline !decoration-neutral-200 !text-neutral-200 hover:!opacity-50'>
+												<Link key={explorer.name} href={explorer.url} target='_blank' className='!underline hover:!opacity-50'>
 													{explorer.name}
 												</Link>
 											))}
