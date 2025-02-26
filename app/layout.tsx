@@ -42,6 +42,36 @@ export default function RootLayout({ children }) {
 
 	return (
 		<html lang='en' dir='ltr' suppressHydrationWarning style={{ width: '100%', height: '100%' }}>
+			<head>
+				<meta charSet='UTF-8' />
+				<meta name='viewport' content='width=device-width, initial-scale=1' />
+
+				<title>Homepage - Sei Docs</title>
+				<link rel='icon' type='image/x-icon' href='/favicon.ico' />
+				<link rel='canonical' href='https://docs.sei.io' />
+
+				<meta name='description' content='Documentation for Sei Network' />
+				<meta name='keywords' content='Sei, Sei Network, Sei Blockchain, Sei Docs, Sei Documentation' />
+				<meta name='author' content='Sei Network' />
+
+				<meta property='og:url' content='https://docs.sei.io' />
+				<meta property='og:type' content='website' />
+				<meta property='og:title' content='Homepage - Sei Docs' />
+				<meta property='og:description' content='Documentation for Sei Network' />
+				<meta property='og:image' content='/assets/docs-banner.png' />
+				<meta property='og:site_name' content='Sei Docs' />
+
+				<meta name='twitter:card' content='summary_large_image' />
+				<meta name='twitter:site' content='@sei_network' />
+
+				<meta name='twitter:creator' content='@sei_network' />
+				<meta property='twitter:domain' content='docs.sei.io' />
+				<meta property='twitter:url' content='https://docs.sei.io' />
+				<meta name='twitter:title' content='Homepage - Sei Docs' />
+				<meta name='twitter:description' content='Documentation for Sei Network' />
+				<meta name='twitter:image' content='/assets/docs-banner.png' />
+			</head>
+
 			<body style={{ width: '100%', height: '100%' }}>
 				<DynamicContextProvider
 					settings={{
