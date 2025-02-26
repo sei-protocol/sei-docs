@@ -20,54 +20,153 @@ The Sei node configuration is stored in `~/.sei/config/`:
 └── priv_validator_key.json  # Validator private signing key (if running as a validator)
 ```
 
-### Essential Configuration Parameters
+## Configuration Parameters
 
-#### Network Settings (config.toml)
+Understanding configuration parameters is essential for optimizing your node's
+performance and security.
+Any parameters not specifically mentioned here typically can be left to default values.
 
-```toml
-[p2p]
-# Public IP for other nodes to reach you
-external_address = "your-public-ip:26656"
-# Local address to listen for incoming P2P connections
-laddr = "tcp://0.0.0.0:26656"
-# Number of peers allowed
-max_num_inbound_peers = 40
-max_num_outbound_peers = 20
-# Network bandwidth limits to prevent congestion
-send_rate = 20480000  # 20MB/s
-recv_rate = 20480000  # 20MB/s
+### App.toml Parameters
 
-[rpc]
-# RPC listen address
-laddr = "tcp://0.0.0.0:26657"
-# Maximum number of simultaneous connections
-max_open_connections = 900
-# Transaction confirmation timeout
-timeout_broadcast_tx_commit = "10s"
-```
+The app.toml file controls application-specific settings:
 
-#### Application Settings (app.toml)
+<details>
+<summary>~/.sei/config/app.toml</summary>
 
 ```toml
-# Minimum gas prices [to prevent spam transactions]
-minimum-gas-prices = "0.01usei"
+# Minimum gas prices for transaction acceptance
+minimum-gas-prices = "0.02usei"
 
 [api]
-# Enable the API server
+# This is a requirement for the EVM RPC to respond to requests
 enable = true
+swagger = true
+address = "tcp://0.0.0.0:1317"
 max-open-connections = 1000
 
-[state-commit]
-# Use SeiDB for improved performance
-sc-enable = true
+# State sync configuration
+[state-sync]
+snapshot-interval = 10000
+snapshot-keep-recent = 2
 
+# State store configuration
 [state-store]
-# Enable state store for historical queries
 ss-enable = true
-# Retain 100,000 blocks for queryability
-# 0 = "keep all"
+ss-backend = "pebbledb"
 ss-keep-recent = 100000
+ss-prune-interval = 600
 ```
+
+</details>
+
+### Config.toml Parameters
+
+The config.toml file controls the core consensus engine and networking:
+
+<details>
+<summary>~/.sei/config/config.toml</summary>
+
+```toml
+# P2P Configuration
+[p2p]
+laddr = "tcp://0.0.0.0:26656"
+external_address = ""               # do not use this field
+seeds = ""                          # do not use this field
+persistent_peers = ""               # do not set more thann a few known good nodes
+upnp = false
+max_num_inbound_peers = 100
+max_num_outbound_peers = 100
+allowed_pools = ""
+max_packet_msg_payload_size = 10240
+handshake_timeout = "20s"
+dial_timeout = "3s"
+
+# RPC Configuration
+[rpc]
+laddr = "tcp://0.0.0.0:26657"
+cors_allowed_origins = []          # this allows you to handle CORS at the app or web-server level
+cors_allowed_methods = ["HEAD", "GET", "POST"]
+cors_allowed_headers = ["Origin", "Accept", "Content-Type", "X-Requested-With", "X-Server-Time"]
+max_open_connections = 900
+timeout_broadcast_tx_commit = "10s"
+
+#######################################################
+###          Mempool Configuration Options         ###
+#######################################################
+[mempool]
+
+# Enable transaction gossiping to other nodes.
+# If false, transactions remain local and are not broadcasted.
+broadcast = true
+
+# Maximum number of valid (non-pending) transactions allowed in the mempool.
+# Once reached, new transactions are rejected or trigger evictions.
+size = 5000
+
+# Maximum total size (in bytes) of all valid transactions in the mempool.
+# Transactions exceeding this combined limit are rejected.
+max-txs-bytes = 10737418240  # 10 GiB
+
+# Cache size for previously seen transactions to prevent redundant processing.
+# Transactions in the cache are ignored if re-broadcasted.
+cache-size = 100000
+
+# If true, invalid transactions remain in the cache and cannot be retried later.
+# If false, invalid transactions may be re-submitted if they become valid.
+keep-invalid-txs-in-cache = true
+
+# Maximum size (in bytes) allowed for a single transaction.
+# Transactions exceeding this size are rejected.
+max-tx-bytes = 2048576  # ~2 MB
+
+# Maximum size of a batch of transactions sent to a peer.
+# Currently unused due to an open issue.
+max-batch-bytes = 0  # Unused
+
+# Maximum time a valid transaction can stay in the mempool before expiring.
+# Transactions exceeding this duration are removed.
+# "0s" = no time-based expiration
+ttl-duration = "3s"
+
+# Maximum number of blocks a valid transaction can stay in the mempool before expiring.
+# Transactions exceeding this block count are removed.
+# 0 = no block-based expiration
+ttl-num-blocks = 5
+
+# Minimum number of valid (non-pending) transactions required before mempool
+# notifications are triggered (e.g., for block proposal).
+# 0 = notify immediately if transactions exist
+tx-notify-threshold = 0
+
+# Enables automatic blacklisting of peers that repeatedly send invalid transactions.
+# Once a peer exceeds the failure threshold, it is evicted.
+check-tx-error-blacklist-enabled = true
+
+# Number of failed transactions allowed per peer before blacklisting.
+# If set to 0, a single failure results in immediate blacklisting.
+check-tx-error-threshold = 10
+
+# Maximum number of pending transactions allowed in the mempool.
+# Pending transactions are not yet valid but may become valid later.
+pending-size = 5000
+
+# Maximum total size (in bytes) of all pending transactions.
+# Transactions exceeding this limit are rejected.
+max-pending-txs-bytes = 1073741824  # 1 GiB
+
+# Maximum time a pending transaction can stay in the mempool before expiring.
+# Applies only to pending transactions, separate from valid transaction TTLs.
+# "0s" = no time-based expiration for pending transactions
+pending-ttl-duration = "3s"
+
+# Maximum number of blocks a pending transaction can stay in the mempool before expiring.
+# Transactions exceeding this block count are removed.
+# 0 = no block-based expiration for pending transactions
+pending-ttl-num-blocks = 5
+
+```
+
+</details>
 
 ## Database Management
 
