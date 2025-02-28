@@ -9,7 +9,7 @@ export const OfficeHoursCard = () => {
 
 	useEffect(() => {
 		const pacificTime = new Date();
-		pacificTime.setUTCHours(18, 0, 0, 0);
+		pacificTime.setUTCHours(17, 0, 0, 0);
 
 		const localTimeString = pacificTime.toLocaleTimeString([], {
 			hour: 'numeric',
@@ -32,7 +32,7 @@ export const OfficeHoursCard = () => {
 			<div>
 				<h2 className='text-2xl font-bold'>Developer Office Hours</h2>
 				<p className='text-sm opacity-90'>Questions? Join us every week for office hours in the Sei Discord.</p>
-				<p className='mt-2 font-medium'>📅 Mondays @ 10 AM Pacific ({localTime})</p>
+				<p className='mt-2 font-medium'>📅 Wednesdays @ 9 AM Pacific ({localTime})</p>
 			</div>
 		</Link>
 	);

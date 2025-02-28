@@ -20,7 +20,11 @@ export const ChainInformation = () => {
 			{['EVM', 'Cosmos'].map((networkType) => (
 				<React.Fragment key={networkType}>
 					<Table.Header>
-						<Table.Row className='flex p-4 !justify-start !items-start text-nowrap py-4 text-xl font-bold h-fit'>{networkType} Chains</Table.Row>
+						<Table.Row>
+							<Table.ColumnHeaderCell colSpan={4} className='p-4 text-xl font-bold text-left'>
+								{networkType} Chains
+							</Table.ColumnHeaderCell>
+						</Table.Row>
 					</Table.Header>
 					<Table.Body>
 						{networks

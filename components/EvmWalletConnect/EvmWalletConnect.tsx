@@ -32,6 +32,10 @@ export default function EvmWalletConnect() {
 		);
 	};
 
+	if (!network) {
+		return <Box className='w-full mt-4'>{renderContent()}</Box>;
+	}
+
 	return (
 		<div className='flex flex-col gap-4 mt-4 border-2 border-neutral-200 dark:border-neutral-800 border-1 p-4 rounded-xl'>
 			<SwitchNetwork />
