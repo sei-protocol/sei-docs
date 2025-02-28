@@ -75,32 +75,32 @@ export const ADDRESS_PRECOMPILE_ABI = [
 
 This method directly uses the private key to interact with the network.
 
-```ts
-import { createPublicClient, createWalletClient, http } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
-import { seiTestnet } from 'viem/chains';
-import { ADDRESS_PRECOMPILE_ABI, ADDRESS_PRECOMPILE_ADDRESS } from '@sei-js/evm';
+    ```ts
+    import { createPublicClient, createWalletClient, http } from 'viem';
+    import { privateKeyToAccount } from 'viem/accounts';
+    import { seiTestnet } from 'viem/chains';
+    import { ADDRESS_PRECOMPILE_ABI, ADDRESS_PRECOMPILE_ADDRESS } from '@sei-js/evm';
 
-const PRIVATE_KEY = '<replace_with_private_key>';
+    const PRIVATE_KEY = '<replace_with_private_key>';
 
-const publicClient = createPublicClient({
-  chain: seiTestnet,
-  transport: http()
-});
-const client = createWalletClient({ chain: seiTestnet, transport: http() });
+    const publicClient = createPublicClient({
+    	chain: seiTestnet,
+    	transport: http()
+    });
+    const client = createWalletClient({ chain: seiTestnet, transport: http() });
 
-const account = privateKeyToAccount(PRIVATE_KEY);
+    const account = privateKeyToAccount(PRIVATE_KEY);
 
-const response = await client.writeContract({
-  account,
-  address: ADDRESS_PRECOMPILE_ADDRESS,
-  abi: ADDRESS_PRECOMPILE_ABI,
-  functionName: 'associate',
-  args: ['0', '0', '0', 'example_message'],
-  gasPrice: BigInt(100_000_000_000)
-});
-console.log(response);
-```
+    const response = await client.writeContract({
+    	account,
+    	address: ADDRESS_PRECOMPILE_ADDRESS,
+    	abi: ADDRESS_PRECOMPILE_ABI,
+    	functionName: 'associate',
+    	args: ['0', '0', '0', 'example_message'],
+    	gasPrice: BigInt(100_000_000_000)
+    });
+    console.log(response);
+    ```
 
 ---
 
@@ -112,32 +112,32 @@ console.log(response);
 This method involves signing a predefined message to prove ownership of the
 account.
 
-```ts
-import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
-import { parseSignature, toHex } from 'viem';
+    ```ts
+    import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
+    import { parseSignature, toHex } from 'viem';
 
-const associate = async () => {
-  const account = privateKeyToAccount('<replace_with_private_key>');
-  const newPk = generatePrivateKey();
-  const newAccount = privateKeyToAccount(newPk);
+    const associate = async () => {
+    	const account = privateKeyToAccount('<replace_with_private_key>');
+    	const newPk = generatePrivateKey();
+    	const newAccount = privateKeyToAccount(newPk);
 
-  const message = 'associate';
-  const signature = await newAccount.signMessage({ message });
-  const parsedSignature = parseSignature(signature);
+    	const message = 'associate';
+    	const signature = await newAccount.signMessage({ message });
+    	const parsedSignature = parseSignature(signature);
 
-  const response = await client.writeContract({
-    account,
-    address: ADDRESS_PRECOMPILE_ADDRESS,
-    abi: ADDRESS_PRECOMPILE_ABI,
-    functionName: 'associate',
-    args: [toHex(Number(parsedSignature.v) - 27), parsedSignature.r, parsedSignature.s, message],
-    gasPrice: BigInt(100_000_000_000)
-  });
-  console.log(response);
-};
+    	const response = await client.writeContract({
+    		account,
+    		address: ADDRESS_PRECOMPILE_ADDRESS,
+    		abi: ADDRESS_PRECOMPILE_ABI,
+    		functionName: 'associate',
+    		args: [toHex(Number(parsedSignature.v) - 27), parsedSignature.r, parsedSignature.s, message],
+    		gasPrice: BigInt(100_000_000_000)
+    	});
+    	console.log(response);
+    };
 
-associate();
-```
+    associate();
+    ```
 
 ---
 
@@ -148,31 +148,31 @@ associate();
 
 This method compresses the public key and sends it for association.
 
-```ts
-import secp256k1 from 'secp256k1';
-import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
+    ```ts
+    import secp256k1 from 'secp256k1';
+    import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
 
-const associateViaPubkey = async () => {
-  const account = privateKeyToAccount('<replace_with_private_key>');
-  const newPk = generatePrivateKey();
-  const newAccount = privateKeyToAccount(newPk);
+    const associateViaPubkey = async () => {
+    	const account = privateKeyToAccount('<replace_with_private_key>');
+    	const newPk = generatePrivateKey();
+    	const newAccount = privateKeyToAccount(newPk);
 
-  const publicKeyBuffer = Buffer.from(newAccount.publicKey.slice(2), 'hex');
-  const compressedPubKey = secp256k1.publicKeyConvert(publicKeyBuffer, true);
+    	const publicKeyBuffer = Buffer.from(newAccount.publicKey.slice(2), 'hex');
+    	const compressedPubKey = secp256k1.publicKeyConvert(publicKeyBuffer, true);
 
-  const response = await client.writeContract({
-    account,
-    address: ADDRESS_PRECOMPILE_ADDRESS,
-    abi: ADDRESS_PRECOMPILE_ABI,
-    functionName: 'associatePubKey',
-    args: [Buffer.from(compressedPubKey).toString('hex')],
-    gasPrice: BigInt(100_000_000_000)
-  });
-  console.log(response);
-};
+    	const response = await client.writeContract({
+    		account,
+    		address: ADDRESS_PRECOMPILE_ADDRESS,
+    		abi: ADDRESS_PRECOMPILE_ABI,
+    		functionName: 'associatePubKey',
+    		args: [Buffer.from(compressedPubKey).toString('hex')],
+    		gasPrice: BigInt(100_000_000_000)
+    	});
+    	console.log(response);
+    };
 
-associateViaPubkey();
-```
+    associateViaPubkey();
+    ```
 
 ---
 
@@ -184,44 +184,44 @@ associateViaPubkey();
 This method signs a message and uses the `sei_associate` RPC call to finalize
 the association.
 
-```ts
-import { parseSignature, numberToHex } from 'viem';
+    ```ts
+    import { parseSignature, numberToHex } from 'viem';
 
-interface AssociateRequest {
-  r: string;
-  s: string;
-  v: string;
-  custom_message: string;
-}
+    interface AssociateRequest {
+    	r: string;
+    	s: string;
+    	v: string;
+    	custom_message: string;
+    }
 
-interface AssociateRequestSchema {
-  Method: 'sei_associate';
-  Parameters: [request: AssociateRequest];
-  ReturnType: null;
-}
+    interface AssociateRequestSchema {
+    	Method: 'sei_associate';
+    	Parameters: [request: AssociateRequest];
+    	ReturnType: null;
+    }
 
-const associateGasless = async (signature: `0x${string}`, message: string) => {
-  const parsedSignature = parseSignature(signature);
-  const messageLength = Buffer.from(message, 'utf8').length;
-  const messageToSign = `\x19Ethereum Signed Message:\n${messageLength}${message}`;
+    const associateGasless = async (signature: `0x${string}`, message: string) => {
+    	const parsedSignature = parseSignature(signature);
+    	const messageLength = Buffer.from(message, 'utf8').length;
+    	const messageToSign = `\x19Ethereum Signed Message:\n${messageLength}${message}`;
 
-  const request: AssociateRequest = {
-    r: parsedSignature.r,
-    s: parsedSignature.s,
-    v: numberToHex(Number(parsedSignature.v) - 27),
-    custom_message: messageToSign
-  };
+    	const request: AssociateRequest = {
+    		r: parsedSignature.r,
+    		s: parsedSignature.s,
+    		v: numberToHex(Number(parsedSignature.v) - 27),
+    		custom_message: messageToSign
+    	};
 
-  const response = await client.request<AssociateRequestSchema>({
-    method: 'sei_associate',
-    params: [request]
-  });
-  console.log(response);
-};
+    	const response = await client.request<AssociateRequestSchema>({
+    		method: 'sei_associate',
+    		params: [request]
+    	});
+    	console.log(response);
+    };
 
-// Example Usage
-associateGasless('<replace_with_signature>', 'example_message');
-```
+    // Example Usage
+    associateGasless('<replace_with_signature>', 'example_message');
+    ```
 
 ---
 

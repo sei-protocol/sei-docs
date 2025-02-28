@@ -21,6 +21,7 @@ export default function DocsProviders({ children, pageMap }) {
 			navbar={
 				<Navbar
 					logo={<Logo />}
+					logoLink='/'
 					className='flex items-center justify-between px-4 w-full'
 					children={
 						<div className='flex items-center justify-between gap-4'>

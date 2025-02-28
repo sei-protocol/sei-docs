@@ -21,9 +21,9 @@ export const ChainInformation = () => {
 				<React.Fragment key={networkType}>
 					<Table.Header>
 						<Table.Row>
-							<Table.ColumnHeaderCell colSpan={4} className='p-4 text-xl font-bold text-left'>
+							<Table.RowHeaderCell colSpan={4} className='p-4 text-xl font-bold text-left'>
 								{networkType} Chains
-							</Table.ColumnHeaderCell>
+							</Table.RowHeaderCell>
 						</Table.Row>
 					</Table.Header>
 					<Table.Body>
