@@ -1,17 +1,23 @@
+'use client';
+
 import { useEffect, useState } from 'react';
 import { groupBy } from 'underscore';
-import { EcosystemSection, EcosystemSkeleton } from '.';
+import { EcosystemSection, EcosystemSkeleton } from './index';
 import { EcosystemItem, EcosystemResponse, getSeiEcosystemAppsData } from '../../data/ecosystemData';
+import { useAtomValue } from 'jotai/index';
+import { searchTermAtom } from './EcosystemSearchBar';
+import { Button } from '@radix-ui/themes';
 
 interface EcosystemDynamicSectionProps {
 	category: string;
-	searchTerm: string | undefined;
 }
 
-export default function EcosystemDynamicSection({ category, searchTerm }: EcosystemDynamicSectionProps) {
+export function EcosystemDynamicSection({ category }: EcosystemDynamicSectionProps) {
 	const [apps, setApps] = useState<EcosystemItem[] | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [activeSubCat, setActiveSubCat] = useState<string | null>(null);
+
+	const searchTerm = useAtomValue(searchTermAtom);
 
 	useEffect(() => {
 		(async () => {
@@ -52,11 +58,7 @@ export default function EcosystemDynamicSection({ category, searchTerm }: Ecosys
 		}
 	}, [apps, subCats, activeSubCat, grouped]);
 
-	if (loading) {
-		return <EcosystemSkeleton />;
-	}
-
-	if (!apps) {
+	if (loading || !apps) {
 		return <EcosystemSkeleton />;
 	}
 
@@ -65,19 +67,15 @@ export default function EcosystemDynamicSection({ category, searchTerm }: Ecosys
 	return (
 		<div className='mt-4'>
 			<div className='flex gap-4 overflow-x-auto pb-2 mb-4'>
-				{subCats.map((sc) => {
-					const isActive = sc === activeSubCat;
-					return (
-						<button
-							key={sc}
-							onClick={() => setActiveSubCat(sc)}
-							className={`whitespace-nowrap px-3 py-1 rounded-sm text-sm font-medium transition-colors ${
-								isActive ? 'bg-gray-700 text-white' : 'bg-gray-800 text-gray-200 hover:bg-gray-700'
-							}`}>
-							{sc}
-						</button>
-					);
-				})}
+				{subCats.map((sc) => (
+					<Button
+						variant={sc === activeSubCat ? 'solid' : 'outline'}
+						key={sc}
+						onClick={() => setActiveSubCat(sc)}
+						className={`whitespace-nowrap px-3 py-1 !rounded-full text-sm font-medium transition-colors`}>
+						{sc}
+					</Button>
+				))}
 			</div>
 			<EcosystemSection apps={activeApps} />
 		</div>

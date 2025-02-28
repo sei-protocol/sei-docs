@@ -1,4 +1,4 @@
-import { Code, Flex, Paper, Text } from '@mantine/core';
+import { Code } from '@radix-ui/themes';
 
 type PropertyInfoProps = {
 	name: string;
@@ -8,24 +8,24 @@ type PropertyInfoProps = {
 
 const PropertyInfo = ({ name, description, properties }: PropertyInfoProps) => {
 	return (
-		<Flex direction='column' mt='md'>
-			<Text style={{ fontSize: '14pt', fontWeight: 600 }}>{name}</Text>
-			<Text mt='xs'>{description}</Text>
+		<div className='flex flex-col border-[1px] rounded border-neutral-800 p-4 gap-6'>
+			<div className='flex flex-col'>
+				<p className='font-black text-xl'>{name}</p>
+				<p>{description}</p>
+			</div>
 			{properties && (
-				<Paper p='md' withBorder mt='lg'>
-					{properties.map((property, i) => {
+				<div className='flex flex-col gap-4'>
+					{properties.map((property) => {
 						return (
-							<div key={property.name}>
+							<div key={property.name} className='flex flex-col p-2 gap-1 border-[1px] rounded border-neutral-700'>
 								<Code style={{ fontSize: '12pt', fontWeight: 500 }}>{property.name}</Code>
-								<Text mt='xs' mb={i === properties.length - 1 ? undefined : 'lg'}>
-									{property.description}
-								</Text>
+								<p>{property.description}</p>
 							</div>
 						);
 					})}
-				</Paper>
+				</div>
 			)}
-		</Flex>
+		</div>
 	);
 };
 

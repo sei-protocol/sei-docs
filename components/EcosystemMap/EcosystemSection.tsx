@@ -12,7 +12,7 @@ export function EcosystemSection({ apps }: EcosystemSectionProps) {
 
 	return (
 		<div className='overflow-x-auto'>
-			<div className='flex gap-4 pb-2'>
+			<div className='flex gap-4 pb-2 flex-wrap'>
 				{apps.map((app) => (
 					<AppCardV2 key={app.id} app={app} />
 				))}
