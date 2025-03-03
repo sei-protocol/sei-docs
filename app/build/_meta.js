@@ -23,9 +23,10 @@ export default {
 	pointers: 'Pointer Contracts',
 	'dev-smart-contracts': 'Choosing a VM',
 	'dev-querying-state': 'Querying Blockchain State',
-	'cosm-wasm-general': 'CosmWasm (General)',
 	'evm-general': 'EVM (General)',
+	'solidity-resources': 'Solidity Resources',
 	'evm-cli-tutorial': 'EVM (CLI)',
+	'cosm-wasm-general': 'CosmWasm (General)',
 	'nft-contract-tutorial': 'NFT Contracts',
 
 	'-- Assets': {
