@@ -5,6 +5,7 @@ export * from './APIModule';
 export * from './APIModulePaths';
 export * from './CopyText';
 export * from './ChainInformation';
+export * from './FaucetRequest';
 export * from './OfficeHoursCard';
 export * from './EcosystemApps';
 export * from './EcosystemCard';

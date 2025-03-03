@@ -8,6 +8,7 @@ export default {
 	'installing-seid': 'Installing seid CLI',
 	'seid-devtool': 'Generate Boilerplate Tx Messages',
 	'dev-token-standards': 'Token Standards',
+	faucet: 'Faucet',
 
 	'-- Frontend Development': {
 		type: 'separator',

@@ -16,7 +16,7 @@ import DocsProviders from '../providers/DocsProviders';
 import '@radix-ui/themes/styles.css';
 import 'nextra-theme-docs/style.css';
 import './globals.css';
-import { DefaultSeo } from 'next-seo';
+import { Toaster } from 'sonner';
 
 const wagmiConfig = createConfig({
 	chains: [sei, seiTestnet, seiDevnet],
@@ -56,42 +56,7 @@ export default function RootLayout({ children }) {
 			</head>
 
 			<body style={{ width: '100%', height: '100%' }}>
-				<DefaultSeo
-					titleTemplate='%s - Sei Docs'
-					description='Documentation for Sei Network'
-					openGraph={{
-						type: 'website',
-						locale: 'en_US',
-						siteName: 'Sei Docs',
-						description: 'Documentation for Sei Network',
-						images: [
-							{
-								url: 'https://www.docs.sei.io/assets/sei-v2-banner.jpg',
-								width: 1600,
-								height: 900,
-								alt: 'Sei V2 Overview',
-								type: 'image/jpg'
-							}
-						]
-					}}
-					twitter={{ site: '@SeiNetwork', cardType: 'summary_large_image' }}
-					additionalLinkTags={[
-						{ rel: 'icon', href: '/favicon.ico' },
-						{
-							rel: 'icon',
-							type: 'image/png',
-							sizes: '16x16',
-							href: '/favicon-16x16.png'
-						},
-						{
-							rel: 'icon',
-							type: 'image/png',
-							sizes: '32x32',
-							href: '/favicon-32x32.png'
-						},
-						{ rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png' }
-					]}
-				/>
+				<Toaster position='bottom-left' />
 				<DynamicContextProvider
 					settings={{
 						environmentId: '8974dcb9-89c7-4472-a988-e55c217a1020',
@@ -106,7 +71,7 @@ export default function RootLayout({ children }) {
 						</QueryClientProvider>
 					</WagmiProvider>
 				</DynamicContextProvider>
-				{/*<script id='ze-snippet' src='https://static.zdassets.com/ekr/snippet.js?key=95ec0096-4a77-48ad-b645-f010d3cb8971' />*/}
+				<script id='ze-snippet' src='https://static.zdassets.com/ekr/snippet.js?key=95ec0096-4a77-48ad-b645-f010d3cb8971' />
 			</body>
 		</html>
 	);
