@@ -5,15 +5,50 @@ const path = require('path');
 
 // Configuration
 const SITE_URL = 'http://localhost:3000';
-const OUTPUT_DIR = './out/_pagefind';
-const ROUTES_FILE = './out/routes.json';
 const TEMP_DIR = path.join(process.cwd(), './out/temp-static');
+const PAGES_DIR = './out';
+const OUTPUT_DIR = PAGES_DIR + '/_pagefind';
+
+// Function to recursively get all HTML file routes
+function getRoutes(dir, routes = [], basePath = '') {
+	const files = fs.readdirSync(dir, { withFileTypes: true });
+	for (const file of files) {
+		const filePath = path.join(dir, file.name);
+		if (file.isDirectory()) {
+			if (file.name === 'api' || file.name === 'public') {
+				continue;
+			}
+
+			let routePath = file.name;
+			if (file.name.startsWith('[') && file.name.endsWith(']')) {
+				routePath = ':' + file.name.slice(1, -1);
+			}
+			getRoutes(filePath, routes, path.join(basePath, routePath));
+		} else if (file.name.endsWith('.html')) {
+			// Process HTML files
+			let route = path.join(basePath, file.name === 'index.html' ? '' : file.name.replace('.html', ''));
+			// Handle index routes
+			if (route === '') {
+				route = '/';
+			} else if (!route.startsWith('/')) {
+				route = '/' + route;
+			}
+			routes.push(route);
+		}
+	}
+	return routes;
+}
 
 async function main() {
-	console.log('Starting deferred PageFind indexing...');
+	console.log('Starting routes generation and PageFind indexing...');
+
+	// Generate routes
+	console.log('Generating routes...');
+	const routes = getRoutes(PAGES_DIR);
+	console.log(`Generated ${routes.length} routes from HTML files`);
+
 	let server = null;
 	let browser = null;
-
 	try {
 		// 1. Start Next.js server
 		console.log('Starting Next.js server...');
@@ -23,7 +58,7 @@ async function main() {
 		});
 
 		// Give server time to start
-		await new Promise((resolve) => setTimeout(resolve, 5000));
+		await new Promise((resolve) => setTimeout(resolve, 10000));
 
 		// 2. Launch headless browser
 		console.log('Launching headless browser...');
@@ -32,26 +67,18 @@ async function main() {
 			args: ['--no-sandbox', '--disable-setuid-sandbox']
 		});
 
-		// 3. Read routes from routes file
-		console.log('Reading routes from file...');
-		if (!fs.existsSync(ROUTES_FILE)) {
-			throw new Error(`Routes file not found at ${ROUTES_FILE}`);
-		}
-		const routes = JSON.parse(fs.readFileSync(ROUTES_FILE, 'utf8'));
-
-		// 4. Create temporary directory for rendered HTML
+		// 3. Create temporary directory for rendered HTML
 		console.log('Creating temporary directory...');
 		if (fs.existsSync(TEMP_DIR)) {
 			fs.rmSync(TEMP_DIR, { recursive: true, force: true });
 		}
 		fs.mkdirSync(TEMP_DIR, { recursive: true });
 
-		// 5. Render and save each page
+		// 4. Render and save each page
 		console.log('Rendering pages...');
 		for (const route of routes) {
 			console.log(`Rendering ${route}...`);
 			const page = await browser.newPage();
-
 			try {
 				// Navigate to the page
 				await page.goto(`${SITE_URL}${route}`, {
@@ -60,7 +87,7 @@ async function main() {
 				});
 
 				// Wait a bit longer for any delayed JavaScript execution
-				await new Promise((resolve) => setTimeout(resolve, 200));
+				await new Promise((resolve) => setTimeout(resolve, 100));
 
 				// Get the fully rendered HTML
 				const html = await page.content();
@@ -79,7 +106,7 @@ async function main() {
 			}
 		}
 
-		// 7. Run PageFind on the rendered HTML
+		// 5. Run PageFind on the rendered HTML
 		console.log('Running PageFind on rendered HTML...');
 		if (!fs.existsSync(path.dirname(OUTPUT_DIR))) {
 			fs.mkdirSync(path.dirname(OUTPUT_DIR), { recursive: true });
@@ -93,7 +120,7 @@ async function main() {
 		console.error('Error during indexing:', error);
 		process.exitCode = 1;
 	} finally {
-		// 8. Clean up
+		// 6. Clean up
 		console.log('Cleaning up...');
 
 		// Close browser if it was opened
