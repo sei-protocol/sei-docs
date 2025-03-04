@@ -24,9 +24,10 @@ export default {
 		title: 'Smart Contracts'
 	},
 	'dev-smart-contracts': 'Choosing a VM',
-	'cosm-wasm-general': 'CosmWasm (General)',
 	'evm-general': 'EVM (General)',
+	'solidity-resources': 'Solidity Resources',
 	'evm-cli-tutorial': 'EVM (CLI)',
+	'cosm-wasm-general': 'CosmWasm (General)',
 	'nft-contract-tutorial': 'NFT Contracts',
 
 	'-- Assets': {
