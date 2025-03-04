@@ -1,6 +1,5 @@
 import { Box, Code } from '@radix-ui/themes';
 import { EndpointResponseProperty, EndpointParameter, Endpoint } from './types';
-import Link from 'next/link';
 import { SyntaxHighlighter } from '../SyntaxHighlighter';
 
 const renderProperties = (properties: EndpointResponseProperty) => {
