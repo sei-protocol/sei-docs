@@ -10,7 +10,7 @@ interface AppCardV2Props {
 export default function AppCardV2({ app }: AppCardV2Props) {
 	if (!app) return null;
 
-	const { name, logo, link, 'short-description': desc, 'integration-guide-link': integration } = app.fieldData;
+	const { name, logo, link, 'short-description': desc, 'integration-guide-link': integration, priority } = app.fieldData;
 
 	if (!logo) return null;
 
