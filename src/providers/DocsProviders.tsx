@@ -22,7 +22,7 @@ export default function DocsProviders({ children, pageMap }) {
 				<Navbar
 					logo={<Logo />}
 					logoLink='/'
-					className='flex items-center justify-between px-4 w-full'
+					className='flex items-center justify-between px-4 w-full dark:bg-neutral-900 bg-neutral-100'
 					children={
 						<div className='flex items-center justify-between gap-4'>
 							<AskCookbook />
