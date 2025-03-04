@@ -2,7 +2,9 @@ import nextra from 'nextra';
 
 const withNextra = nextra({
 	latex: true,
-	contentDirBasePath: '/docs',
+	search: {
+		codeblocks: false
+	},
 	mdxOptions: {
 		rehypePrettyCodeOptions: {
 			theme: {
