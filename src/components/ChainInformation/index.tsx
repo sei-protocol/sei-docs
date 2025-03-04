@@ -22,7 +22,7 @@ export const ChainInformation = () => {
 					<Table.Header>
 						<Table.Row>
 							<Table.RowHeaderCell colSpan={4} className='p-4 text-xl font-bold text-left'>
-								{networkType} Chains
+								{networkType}
 							</Table.RowHeaderCell>
 						</Table.Row>
 					</Table.Header>
@@ -33,9 +33,9 @@ export const ChainInformation = () => {
 								<Table.Row key={net.name}>
 									<Table.RowHeaderCell>{net.name}</Table.RowHeaderCell>
 									<Table.RowHeaderCell>
-										<Flex direction='column' gap='1'>
+										<Flex direction='column' gap='2'>
 											<CopyButton value={net.chainId} />
-											{net.hexChainId && <CopyText label='(hex)' value={net.hexChainId} />}
+											{net.hexChainId && <CopyButton value={net.hexChainId} />}
 										</Flex>
 									</Table.RowHeaderCell>
 									<Table.Cell>
@@ -61,12 +61,12 @@ export const ChainInformation = () => {
 					<Table.RowHeaderCell />
 					<Table.RowHeaderCell />
 					<Table.Cell>
-						<a href={`/providers/rpc-providers`} className='!underline'>
+						<a href={`/providers/rpc-providers`} className='text-[#9e1f19] !underline'>
 							View more RPC providers
 						</a>
 					</Table.Cell>
 					<Table.Cell>
-						<a href='/src/providers/explorers' className='text-[#780000] underline'>
+						<a href='/src/providers/explorers' className='text-[#9e1f19] !underline'>
 							See more explorers
 						</a>
 					</Table.Cell>

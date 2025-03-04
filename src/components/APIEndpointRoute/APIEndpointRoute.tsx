@@ -1,18 +1,11 @@
 'use client';
 
-import Link from 'next/link';
-import { NextSeo } from 'next-seo';
 import { isEqual } from 'underscore';
 import { filterModuleRoutes } from './utils';
 import { APIEndpoint, APIModule } from '../index';
 import openapi from '../../data/cosmos-openapi.json';
 import { Button } from '@radix-ui/themes';
 import { usePathname } from 'next/navigation';
-
-export const PageTitle = () => {
-	const title = 'API Route Not Found';
-	return <NextSeo title={title} />;
-};
 
 // Generate static paths for both the full routes and parent routes
 // i.e. for /cosmos/bank/v1beta1/supply, we want the routes:

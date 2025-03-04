@@ -1,4 +1,7 @@
 export default {
+	index: {
+		title: 'Home'
+	},
 	'-- Setup & Installation': {
 		type: 'separator',
 		title: 'Setup and Installation'
@@ -7,6 +10,7 @@ export default {
 	'installing-seid': 'Installing seid CLI',
 	'seid-devtool': 'Generate Boilerplate Tx Messages',
 	'dev-token-standards': 'Token Standards',
+	'querying-state': 'Querying Blockchain State',
 	faucet: 'Faucet',
 	'-- Frontend Development': {
 		type: 'separator',
@@ -19,9 +23,7 @@ export default {
 		type: 'separator',
 		title: 'Smart Contracts'
 	},
-	pointers: 'Pointer Contracts',
 	'dev-smart-contracts': 'Choosing a VM',
-	'dev-querying-state': 'Querying Blockchain State',
 	'cosm-wasm-general': 'CosmWasm (General)',
 	'evm-general': 'EVM (General)',
 	'evm-cli-tutorial': 'EVM (CLI)',
@@ -40,12 +42,13 @@ export default {
 		title: 'Interoperability'
 	},
 	'ibc-protocol': 'IBC Protocol',
-	'ledger-ethers': 'Using Ledger with Ethers',
+	pointers: 'Pointer Contracts',
 
-	'-- Ecosystem': {
+	'-- Ecosystem & Tools': {
 		type: 'separator',
 		title: 'Ecosystem'
 	},
+	'ledger-ethers': 'Using Ledger with Ethers',
 	'resources-tools-and-resources': 'Tools',
 	'resources-resources': 'Resources'
 };

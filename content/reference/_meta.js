@@ -1,4 +1,7 @@
 export default {
+	index: {
+		title: 'Home'
+	},
 	'-- API Reference': {
 		type: 'separator',
 		title: 'API Reference'

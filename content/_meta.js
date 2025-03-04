@@ -1,5 +1,6 @@
 export default {
 	index: {
+		display: 'hidden',
 		theme: {
 			sidebar: false,
 			breadcrumb: false

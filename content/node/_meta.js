@@ -1,4 +1,7 @@
 export default {
+	index: {
+		title: 'Home'
+	},
 	'-- Getting Started': {
 		type: 'separator',
 		title: 'Getting Started'

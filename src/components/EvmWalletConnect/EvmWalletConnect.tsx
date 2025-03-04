@@ -61,9 +61,12 @@ const WalletComponent = () => {
 		}
 
 		return (
-			<Button onClick={() => setShowAuthFlow(true)} className='flex flex-row gap-4 !bg-[#9e1f19] !p-6 !rounded-2xl cursor-pointer hover:!bg-[#9e1f19aa]'>
-				<p className='font-bold'>Connect & Link Wallet</p>
-			</Button>
+			<div className='flex flex-col gap-4 mt-8'>
+				<p>Click the button below to automatically set up your wallet by adding the correct network and by linking your EVM and Cosmos addresses together.</p>
+				<Button onClick={() => setShowAuthFlow(true)} className='flex flex-row gap-4 !bg-[#9e1f19] !p-6 !rounded-2xl cursor-pointer hover:!bg-[#9e1f19aa]'>
+					<p className='font-bold'>Connect & Link Wallet</p>
+				</Button>
+			</div>
 		);
 	};
 
@@ -72,7 +75,7 @@ const WalletComponent = () => {
 	}
 
 	return (
-		<div className='flex flex-col gap-4 mt-4 border-2 border-neutral-200 dark:border-neutral-800 border-1 p-4 rounded-xl'>
+		<div className='flex flex-col gap-4 mt-4'>
 			<SwitchNetwork />
 			<div className='flex flex-col gap-2'>
 				<CopyText column={true} label='EVM Address:' value={primaryWallet?.address ? primaryWallet?.address : '---'} copyDisabled={!primaryWallet?.address} />
