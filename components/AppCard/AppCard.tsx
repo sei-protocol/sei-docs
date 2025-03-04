@@ -13,7 +13,7 @@ const AppCard = ({ app }: AppCardProps) => {
 			<div className='border border-neutral-300 dark:border-neutral-800  bg-neutral-100 dark:bg-neutral-900 rounded-lg  overflow-hidden flex flex-row lg:flex-col grow h-full'>
 				<div className='relative overflow-hidden grid place-items-center aspect-square lg:border-b-neutral-300 lg:aspect-video border-r lg:border-b lg:border-r-0 dark:border-neutral-800'>
 					<div className='absolute z-10'>
-						<Image src={image} alt={title} width={200} height={200} className='group-hover:scale-[0.85] scale-75 transition-all' />
+						<Image src={image} alt={title} width={175} height={175} className='group-hover:scale-[0.85] scale-75 transition-all' />
 					</div>
 					<div className='opacity-50 h-full w-full blur-3xl overflow-hidden'>
 						<Image src={image} alt={title} width={100} height={100} className='object-cover w-full h-full' />
