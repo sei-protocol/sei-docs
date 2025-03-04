@@ -2,7 +2,9 @@ import nextra from 'nextra';
 
 const withNextra = nextra({
 	latex: true,
-	contentDirBasePath: '/docs',
+	search: {
+		codeblocks: false
+	},
 	mdxOptions: {
 		rehypePrettyCodeOptions: {
 			theme: {
@@ -134,7 +136,7 @@ export default withNextra({
 			},
 			{
 				"source": "/dev-querying-state",
-				"destination": "/build/dev-querying-state",
+				"destination": "/build/querying-state",
 				"permanent": true
 			},
 			{
