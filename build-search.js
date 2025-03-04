@@ -28,7 +28,8 @@ async function main() {
 		// 2. Launch headless browser
 		console.log('Launching headless browser...');
 		browser = await puppeteer.launch({
-			headless: true
+			headless: true,
+			args: ['--no-sandbox', '--disable-setuid-sandbox']
 		});
 
 		// 3. Read routes from routes file
