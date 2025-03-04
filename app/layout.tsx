@@ -47,7 +47,6 @@ export default function RootLayout({ children }) {
 				<meta charSet='UTF-8' />
 				<meta name='viewport' content='width=device-width, initial-scale=1' />
 
-				<title>Homepage - Sei Docs</title>
 				<link rel='icon' type='image/x-icon' href='/favicon.ico' />
 				<link rel='canonical' href='https://docs.sei.io' />
 

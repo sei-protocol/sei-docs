@@ -38,6 +38,7 @@ export default function DocsProviders({ children, pageMap }) {
 			<Theme accentColor='red' grayColor='gray' scaling='100%'>
 				<DefaultSeo
 					titleTemplate='%s - Sei Docs'
+					defaultTitle='Sei Docs'
 					description='Documentation for Sei Network'
 					openGraph={{
 						type: 'website',
