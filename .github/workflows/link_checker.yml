@@ -1,0 +1,43 @@
+name: Link checker
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 12 * * *'
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  link-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Install dependencies
+        run: yarn install
+
+      - name: Install playwright browsers
+        run: yarn playwright install
+
+      - name: Run crawler
+        id: crawler
+        run: yarn tsx scripts/checkLinks.ts
+        working-directory: link_checker
+        continue-on-error: true
+
+      - name: Upload broken links artifact
+        if: steps.crawler.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: broken-links
+          path: brokenLinks.json
+
+      - name: Fail job if crawler finds broken links
+        if: steps.crawler.outcome == 'failure'
+        run: exit 1
