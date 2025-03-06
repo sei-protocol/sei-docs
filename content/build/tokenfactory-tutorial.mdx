@@ -1,0 +1,186 @@
+import { Callout } from 'nextra/components';
+
+# Token Factory Tutorial
+
+The `tokenfactory` module allows any account to create new tokens with a unique
+identifier based on the creator's address. Each account can generate multiple
+tokens by specifying distinct denominations (denoms). The token creator is
+granted "admin" privileges, enabling them to mint, burn, and transfer their
+token.
+
+The "address" of these tokens is in the format:  
+`factory/{CREATOR_ADDRESS}/{DENOM}`  
+and come with a host of native functionalities.
+
+---
+
+## Requirements
+
+Before you begin, ensure you have the following:
+
+- The `seid` CLI installed.
+- A wallet with SEI tokens on testnet.
+
+<Callout type="info">You can obtain testnet tokens from the faucet available in our [Telegram Tech Chat](https://t.me/+y0eW4tn8gZZiMmJk) by typing `/faucet` followed by your hex address (e.g., `/faucet 0x...`).</Callout>
+
+---
+
+## Creating a Denom
+
+```bash copy
+seid tx tokenfactory create-denom \$DENOM --from=\$ACCOUNT --chain-id=atlantic-2 --node=https://rpc-testnet.sei-apis.com --broadcast-mode=block --fees=20000usei
+```
+
+This command creates a new coin with the format `factory/{ACCOUNT}/{DENOM}`.
+Replace `$DENOM` with your desired denom name and `$ACCOUNT` with your account
+name. The account specified here will be the token admin.
+
+<Callout>
+For a smoother experience, set your variables in the terminal. For example:
+
+```bash copy
+DENOM=giga
+ACCOUNT=your_account_name
+```
+
+Replace `your_account_name` with your actual account name. You can then
+reference `$DENOM` and `$ACCOUNT` throughout this guide.
+
+</Callout>
+
+---
+
+## Updating Token Metadata
+
+When creating a token, it's important to specify details regarding the denom
+amounts and aliases so your token can be correctly parsed on wallets and
+explorers.
+
+### 1. Create Token Metadata file
+
+Create a token metadata `json` file with the following content:
+
+```json copy
+{
+  "name": "Giga",
+  "description": "A token created using the Token Factory module.",
+  "symbol": "GIGA",
+  "denom_units": [
+    {
+      "denom": "factory/sei1ep3f207kt7julz9tjwxp2x8kluj0y9l6u0fume/giga",
+      "exponent": 0,
+      "aliases": ["ugiga"]
+    },
+    {
+      "denom": "GIGA",
+      "exponent": 18,
+      "aliases": ["Giga"]
+    }
+  ],
+  "base": "factory/sei1ep3f207kt7julz9tjwxp2x8kluj0y9l6u0fume/giga",
+  "display": "GIGA"
+}
+```
+
+The `base` field denotes the smallest denom that this token can be represented
+in. The "GIGA" denom with 18 decimals will be used as the display denomination.
+
+### 2. Set token metadata using seid
+
+```bash copy
+seid tx tokenfactory set-denom-metadata \$METADATA_FILE --fees 20000usei -b block -y --from \$ADDR
+```
+
+Replace `$METADATA_FILE` with the path to your metadata file created in step 1,
+and `$ADDR` with the address of the token admin.
+
+## Minting Tokens
+
+```bash copy
+seid tx tokenfactory mint 1000000000000000000000000000factory/\${ACCOUNT}/\${DENOM} --from=\$ACCOUNT --chain-id=atlantic-2 --node=https://rpc-testnet.sei-apis.com --broadcast-mode=block --fees=20000usei
+```
+
+This command will create (mint) 1 billion tokens of your new denom. The amount
+is specified in the smallest denomination, which is `factory/{ACCOUNT}/{DENOM}`.
+
+To verify that the tokens have been minted, query the balance of your account:
+
+```bash copy
+seid query bank balances \$ACCOUNT --chain-id=atlantic-2 --node=https://rpc-testnet.sei-apis.com
+```
+
+---
+
+## Burning Tokens
+
+Burning tokens decreases the total supply. To burn tokens, run:
+
+```bash copy
+seid tx tokenfactory burn \$AMOUNT --from=\$ACCOUNT --chain-id=atlantic-2 --node=https://rpc-testnet.sei-apis.com --broadcast-mode=block --fees=20000usei
+```
+
+- **$AMOUNT**: Replace with the amount you wish to burn, specified in the
+  smallest denomination.
+
+<Callout>
+  For example, to burn 100 tokens, set: ```bash copy AMOUNT=100factory/\${ACCOUNT}/\${DENOM}
+  ``` Only the token admin can perform minting and burning. To reassign these privileges, use the `change-admin` command.
+</Callout>
+
+---
+
+## Creating a Pointer Contract
+
+To enable seamless integration with EVM environments, you can create a pointer
+contract. This process generates an ERC20 token that mirrors your TokenFactory
+token.
+
+```bash copy
+seid tx evm register-evm-pointer NATIVE factory/\${ACCOUNT}/\${DENOM} --from=\$ACCOUNT --fees=20000usei --evm-rpc=https://evm-rpc.arctic-1.seinetwork.io/
+```
+
+**Parameters:**
+
+- **DENOM**: The token denomination. This should match the TokenFactory token
+  you created.
+
+**Flags:**
+
+- `--from`: The Sei address sending the transaction (must have enough balance
+  for fees).
+- `--evm-rpc`: The endpoint URL for the Sei blockchain's EVM RPC interface.
+
+After executing, query the pointer contract address with:
+
+```bash copy
+seid q evm pointer NATIVE factory/\${ACCOUNT}/\${DENOM} --node=https://rpc-testnet.sei-apis.com
+```
+
+You should see an output similar to:
+
+```
+exists: true
+pointer: 0xPointerContractAddress
+version: 1
+```
+
+This pointer contract allows EVM wallets and applications to interact directly
+with your TokenFactory token.
+
+<Callout type="info">Learn more about EVM interoperability and pointer contracts [here](build/pointers/overview.mdx).</Callout>
+
+---
+
+## Next Steps
+
+🎉 Congratulations on completing the Token Factory tutorial! You've learned how
+to:
+
+- Create a new token denom.
+- Update token metadata.
+- Mint and burn tokens.
+- Create a pointer contract for EVM integration.
+
+For complete technical details, refer to the
+[Token Factory module](https://github.com/sei-protocol/sei-chain/tree/main/x/tokenfactory)
+on github.

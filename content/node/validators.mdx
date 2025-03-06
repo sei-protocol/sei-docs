@@ -1,0 +1,328 @@
+# Validator Operations Guide
+
+This document covers the complete lifecycle of a validator node, from initial setup through ongoing operations and maintenance. Understanding these concepts is crucial for maintaining a reliable and secure validator operation.
+
+## Understanding Validator Responsibilities
+
+A validator in the Sei network serves several critical functions. As a validator, you are responsible for:
+
+- Participating in consensus by proposing and validating blocks
+- Maintaining high uptime and performance to avoid slashing
+- Running a price feeder to provide oracle data (refer to the [Oracle Price Feeder Guide](node/oracle-pricefeeder) for complete setup instructions)
+- Managing delegator relationships and maintaining transparent operations
+- Participating in governance and network upgrades
+
+## Initial Setup
+
+### Key Management
+
+The security of your validator begins with proper key management. Your validator requires several distinct keys:
+
+```bash copy
+# Validator consensus key - Used for signing blocks
+seid tendermint show-validator
+
+# Operator key - Used for managing validator operations
+seid keys add operator
+```
+
+These keys serve different purposes and should be managed with appropriate security measures. The consensus key, stored in `priv_validator_key.json`, is particularly critical as it's used to sign blocks and could result in slashing if compromised or mishandled.
+
+### Hardware Security Module (HSM) Integration
+
+For production validators, using an HSM is strongly recommended to protect your consensus key. Here's how to configure an HSM with your validator:
+
+<details>
+<summary>HSM Configuration Steps</summary>
+
+```bash copy
+# Install required libraries
+sudo apt-get install opensc pkcs11-utils
+
+# Configure YubiHSM2
+yubihsm-connector -d
+
+# Generate key in HSM
+yubihsm-shell
+
+# Configure seid to use HSM
+tee "$HOME/.sei/config/priv_validator_config.json" << EOF
+{
+    "chain_id": "sei-chain",
+    "key_type": "yubihsm",
+    "state_file": "$HOME/.sei/data/priv_validator_state.json",
+    "hsm_serial": "YOUR_HSM_SERIAL",
+    "hsm_key_id": "YOUR_KEY_ID"
+}
+EOF
+```
+
+</details>
+
+### Validator Registration
+
+Before registering your validator, ensure your node is fully synced with the network. The creation of a validator is a crucial step that requires careful consideration of commission parameters:
+
+```bash copy
+seid tx staking create-validator \
+    --amount=1000000usei \
+    --pubkey=$(seid tendermint show-validator) \
+    --moniker="choose_moniker" \
+    --chain-id=sei-chain \
+    --commission-rate="0.10" \
+    --commission-max-rate="0.20" \
+    --commission-max-change-rate="0.01" \
+    --min-self-delegation="1" \
+    --gas="auto" \
+    --gas-adjustment="1.5" \
+    --gas-prices="0.01usei" \
+    --from=operator
+```
+
+The commission parameters require strategic consideration:
+
+- `commission-rate`: Your initial commission rate, which should be competitive while ensuring operational sustainability
+- `commission-max-rate`: An upper limit that can never be exceeded, setting a permanent cap on your commission
+- `commission-max-change-rate`: Maximum daily commission change, limiting how quickly you can adjust rates
+
+## Monitoring and Alerting
+
+**Please refer to the [Advanced Operations](node/advanced-config-monitoring) section for details around monitoring + alerting for your validator, price feeder and other nodes.**
+
+## Security Practices
+
+### Network Security
+
+Validators may choose to implement a sentry node architecture to protect the block signing node (the validator). This setup helps prevent DDoS attacks on your validator node by creating a layer of defensive proxies:
+
+```bash copy
+# Validator node config.toml
+[p2p]
+pex = false
+persistent_peers = "sentry_node_id@sentry_node_ip:26656"
+private_peer_ids = ""
+addr_book_strict = false
+
+# Sentry node config.toml
+[p2p]
+pex = true
+persistent_peers = "validator_node_id@ip:port"
+private_peer_ids = "validator_node_id"
+addr_book_strict = true
+#optionsl
+unconditional_peer_ids = "validator_node_id"
+```
+
+### Key Management Practices
+
+Implement secure key backup procedures. Remember to choose the storage media carefully! Mechanical / flash based storage can fail unexpectedly, and cloud storage should **never** be used.
+
+By default, the wallet key files are stored in your `/.sei` directory root, and the signer/consensus key in `/.sei/config`. Not only the `priv_validator_key.json`, but the wallet `.info` and `.address` file should also be saved.
+
+Example script to encrypt backups of key files:
+
+<details>
+<summary>Key Backup Script</summary>
+
+```bash copy
+#!/bin/bash
+# Create encrypted backup of validator keys
+BACKUP_DIR="/secure/validator/backup"
+DATE=$(date +%Y%m%d)
+
+# Backup validator key
+tar czf - $HOME/.sei/config/priv_validator_key.json | \
+    gpg --symmetric --cipher-algo AES256 \
+    -o $BACKUP_DIR/validator_key_$DATE.tar.gz.gpg
+
+# Backup keyring
+tar czf - $HOME/.sei/keyring-file | \
+    gpg --symmetric --cipher-algo AES256 \
+    -o $BACKUP_DIR/keyring_$DATE.tar.gz.gpg
+
+# Create SHA256 checksums
+sha256sum $BACKUP_DIR/*.gpg > $BACKUP_DIR/checksums_$DATE.txt
+```
+
+</details>
+
+## Maintenance Procedures
+
+### Planned Maintenance
+
+When performing planned maintenance, to minimize potential impact:
+
+- Notify delegators (recommended at least 24h in advance)
+
+Consider posting to:
+
+- Shared development team/validators comms channels
+- Social media channels
+- Validator website
+
+Don't forget to stop the service!
+
+```bash copy
+# Gracefully stop the node
+sudo systemctl stop seid
+
+# Perform maintenance tasks
+
+# Restart services
+sudo systemctl start seid
+```
+
+### Emergency Procedures
+
+Create and maintain an emergency response plan for various scenarios:
+
+#### Consult with your fellow validators or a member of the Sei Labs or Foundation team directly for advice
+
+## Governance Participation
+
+As a validator, active participation in governance is required. Governance is the primary tool with which adjustments t0 various chain parameters are made.
+Another critical role for validators is to review, and ultimately approve or reject proposed software upgrades to the network.
+
+Governance proposals may be submitted by anyone willing to provide the mandatory (refundable) deposit, and can be voted on by any network user. Only votes by accounts delegating $SEI at the end of the voting period for a given proposal will be given weight.
+
+Proposals currently on chain can be queried at any given time:
+
+```bash copy
+# List active proposals
+seid query gov proposals --status voting_period
+
+# Vote on a proposal
+seid tx gov vote 1 yes \
+    --from operator \
+    --chain-id sei-chain \
+    --gas auto \
+    --gas-prices 0.01usei
+```
+
+## Validator Economics
+
+Understanding validator economics is crucial for long-term success. Consider these key aspects:
+
+- Commission Rate Strategy: Set competitive rates while ensuring operational sustainability
+- Delegation Management: Maintain good delegator relationships through transparent communication
+- Reward Distribution: Rewards are distributed in real-time as blocks are produced
+- Slashing Risks: Understand and mitigate risks of slashing through proper operation
+- Economic Security: Maintain adequate self-bonding to align incentives with delegators
+
+## Node Debugging and Logging
+
+### Debugging Procedures
+
+When encountering node issues, proper debugging information is crucial for resolution. Different types of issues require different debugging approaches:
+
+#### AppHash Mismatch Errors
+
+If you encounter an AppHash mismatch, you'll need to capture the state for comparison with a known good version:
+
+```bash copy
+# For SeiDB (most non-archive nodes):
+git clone https://github.com/sei-protocol/sei-db.git
+cd sei-db/tools
+make install
+systemctl stop seid
+seidb dump-iavl -d ~/.sei/data/committer.db -o /home/ubuntu/iavl-dump
+systemctl restart seid
+
+# For Legacy IAVL DB:
+seid debug dump-iavl <latest height>
+```
+
+Always include the app hash, commit hash, and block height from your logs when reporting issues.
+
+#### Crash and Panic Debugging
+
+For crashes, panics, or nil pointer exceptions:
+
+- Capture at least 1,000 lines of logs leading up to the crash
+- Or collect 15 minutes of log data, whichever provides more context
+- Include the full stack trace if available
+
+### Logging Configuration
+
+Proper logging configuration is essential for debugging and monitoring:
+
+```toml copy
+# In config.toml
+# Set appropriate log level
+log_level = "debug"  # Use "trace" for maximum detail
+
+# Choose log format
+log_format = "json"  # Use "plain" for human-readable logs
+```
+
+Configure log rotation to manage storage effectively:
+
+```bash copy
+# Example logrotate configuration
+sudo tee /etc/logrotate.d/seid << EOF
+/var/log/seid/*.log {
+    daily
+    rotate 14
+    compress
+    delaycompress
+    notifempty
+    create 0640 sei sei
+    sharedscripts
+    postrotate
+        systemctl reload seid
+    endscript
+}
+EOF
+```
+
+Enable core dumps for crash analysis:
+
+```bash copy
+# Set unlimited core dump size
+ulimit -c unlimited
+
+# Configure core dump location
+echo "/tmp/core.%e.%p" > /proc/sys/kernel/core_pattern
+```
+
+## Recovery Procedures
+
+### Critical Warning: Double-Signing Prevention
+
+Double-signing is a severe violation that results in permanent validator tombstoning (irreversible jailing). Never run your validator keys on more than one machine simultaneously. If your primary validator goes offline:
+
+1. DO NOT start another validator with the same keys
+2. Either recover the original machine or properly migrate keys with absolute certainty the original is offline
+3. If unsure about the state of your original validator, seek support before proceeding
+
+The safe approach to recovery is:
+
+1. Diagnose why the original validator is offline
+2. If the original validator cannot be recovered, verify it is completely offline and powered down
+3. Only then proceed with key migration to a new machine
+
+### Validator Recovery
+
+When you need to recover your validator on a new machine, follow these steps carefully:
+
+```bash copy
+# 1. Set up new machine with Sei node
+# 2. Copy secured backup files
+# 3. Restore validator key
+gpg -d validator_key_backup.tar.gz.gpg | tar xzf -
+# 4. Restore keyring
+gpg -d keyring_backup.tar.gz.gpg | tar xzf -
+# 5. Start services
+sudo systemctl start seid
+```
+
+After recovery, verify your validator's status and performance:
+
+```bash copy
+# Check validator status
+seid status
+# Verify signing is working
+seid query slashing signing-info $(seid tendermint show-validator)
+```
+
+This guide provides a foundation for operating a Sei validator. Remember that validator operation requires constant attention to security, performance, and network participation. Stay engaged with the Sei community and keep updated with network developments.

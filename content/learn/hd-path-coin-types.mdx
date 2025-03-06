@@ -1,0 +1,295 @@
+## **HD Paths and Coin Types**
+
+When deriving a private key from a mnemonic phrase, the hierarchical
+deterministic (HD) path involves multiple parameters, including the coin type.
+The coin type determines the blockchain ecosystem for which the key is derived,
+making it crucial when dealing with different wallets and blockchains.
+
+### **Coin Type Parameter**
+
+The second parameter in the HD path specifies the coin type, which is defined by
+the BIP-44 standard. This parameter identifies the blockchain ecosystem
+associated with the derived keys.
+
+- **Ethereum (Coin Type 60)**: Wallets like MetaMask use coin type 60. The HD
+  path for Ethereum typically looks like this: `m/44'/60'/0'/0/0`.
+- **Cosmos (Coin Type 118)**: Wallets for Cosmos-based chains, such as Compass,
+  use coin type 118. The HD path for Cosmos typically looks like this:
+  `m/44'/118'/0'/0/0`.
+
+### **Implications**
+
+Due to the different coin types, a mnemonic phrase used to derive keys for
+Ethereum (coin type 60) cannot be directly used in a Cosmos wallet (coin
+type 118) to access the same accounts. This is because the HD path determines a
+different set of keys for each coin type, meaning the derived addresses will
+differ.
+
+### **Private Key Export**
+
+Users can export their private key from MetaMask (derived using coin type 60)
+and import it into any Cosmos wallet. This works because the private key, once
+derived, can be used across different blockchain ecosystems, provided the
+receiving wallet supports the import function. This allows users to manage their
+assets across various blockchains using the same underlying cryptographic key.
+
+### **Example HD Paths**
+
+- **Traditional Cosmos Path**: `m/44'/118'/0'/0/0`
+- **Traditional EVM Path**: `m/44'/60'/0'/0/0`
+
+## **Generating Wallets**
+
+### **Deriving bech32 and hex addresses from pubkey**
+
+Sei uses a unique method of deriving both the Cosmos/Tendermint style bech32
+address and the Ethereum-style hex address from the same public key, using the
+`keccak` hashing method common in EVM networks.
+
+### **Examples**
+
+These extensively commented snippets demonstrate the 'proper' method of deriving
+both bech32 and hex addresses from a given ECDSA SECP256k1 key:
+
+<details>
+<summary>Python - from pubkey</summary>
+
+```python copy
+import base64
+import json
+from hashlib import sha256, new as hashlib_new
+from coincurve import PublicKey
+from bech32 import bech32_encode, convertbits
+from Crypto.Hash import keccak
+
+# Example input, replace with the actual pubkey JSON string
+pubkey_json = '{"@type":"/cosmos.crypto.secp256k1.PubKey","key":"Agmik4xkmF57hNjzykYHP3gRu1Mpae4B5BCiwx7jmRzI"}'
+
+# Extract the base64-encoded key from the JSON-like string
+pubkey_dict = json.loads(pubkey_json)
+pubkey_base64 = pubkey_dict['key']
+
+# Decode the base64-encoded public key
+public_key_compressed = base64.b64decode(pubkey_base64)
+
+# Ensure the public key length is 33 bytes (compressed key format)
+if len(public_key_compressed) != 33:
+    raise ValueError(f"Invalid public key length, expected 33 bytes for compressed format, got {len(public_key_compressed)}")
+
+# Debugging: Print the public key details
+print(f"Compressed public key (hex): {public_key_compressed.hex()}")
+
+# SHA-256 on the compressed public key
+sha256_digest = sha256(public_key_compressed).digest()
+# Debugging: Print SHA-256 digest
+print(f"SHA-256 Digest: {sha256_digest.hex()}")
+
+# RIPEMD-160 on SHA-256 hash
+ripemd160 = hashlib_new('ripemd160')
+ripemd160.update(sha256_digest)
+ripemd160_digest = ripemd160.digest()
+# Debugging: Print RIPEMD-160 digest
+print(f"RIPEMD-160 Digest: {ripemd160_digest.hex()}")
+
+# Convert the digest to 5-bit groups for Bech32 encoding
+five_bit_ripemd160 = convertbits(ripemd160_digest, 8, 5, pad=True)
+bech32_address = bech32_encode("sei", five_bit_ripemd160)
+
+print(f"Bech32 Cosmos Address: {bech32_address}")
+
+# Decompress the public key to 65 bytes
+public_key = PublicKey(public_key_compressed).format(compressed=False)
+
+# Debugging: Print the public key details
+print(f"Decompressed public key length: {len(public_key)}")
+print(f"Decompressed public key (hex): {public_key.hex()}")
+
+# Derive Ethereum Address using Keccak-256
+keccak_hash = keccak.new(digest_bits=256)
+keccak_hash.update(public_key[1:])  # Exclude the first byte (0x04)
+digest_keccak = keccak_hash.digest()
+eth_address = digest_keccak[-20:]
+eth_address_hex = '0x' + eth_address.hex()
+
+print(f"Ethereum Address: {eth_address_hex}")
+```
+
+</details>
+
+---
+
+<details>
+<summary>Typescript - from pubkey</summary>
+
+```typescript copy
+import { fromBase64 } from '@cosmjs/encoding';
+import { sha256 } from '@noble/hashes/sha256';
+import { ripemd160 } from '@noble/hashes/ripemd160';
+import { keccak_256 } from '@noble/hashes/sha3';
+import { secp256k1 } from '@noble/curves/secp256k1';
+import { bech32 } from 'bech32';
+
+// Utility function to convert bits for Bech32 encoding
+function convertBits(data: Uint8Array, fromBits: number, toBits: number, pad: boolean): number[] {
+  let acc = 0;
+  let bits = 0;
+  const result: number[] = [];
+  const maxv = (1 << toBits) - 1;
+
+  for (const value of data) {
+    acc = (acc << fromBits) | value;
+    bits += fromBits;
+    while (bits >= toBits) {
+      bits -= toBits;
+      result.push((acc >> bits) & maxv);
+    }
+  }
+
+  if (pad) {
+    if (bits > 0) {
+      result.push((acc << (toBits - bits)) & maxv);
+    }
+  } else if (bits >= fromBits || (acc << (toBits - bits)) & maxv) {
+    throw new Error('Unable to convert bits');
+  }
+
+  return result;
+}
+
+// Define the prefix for the Bech32 address (e.g., "sei" for Sei network)
+const chainPrefix = 'sei';
+
+// Public key JSON string (replace with actual data)
+const pubkeyJson = '{"@type":"/cosmos.crypto.secp256k1.PubKey","key":"AiN+aFvHgjblWPaP9Er5p005JjPX3nj4I/+jA6W4BOho"}';
+
+// Parse the JSON string to extract the public key in Base64 format
+const pubkeyDict = JSON.parse(pubkeyJson);
+const pubkeyBase64 = pubkeyDict.key;
+
+console.log('Original public key JSON:', pubkeyJson);
+console.log('Parsed public key object:', pubkeyDict);
+console.log('Base64-encoded public key:', pubkeyBase64);
+
+// Decode the Base64-encoded public key to its compressed form
+const publicKeyCompressed = fromBase64(pubkeyBase64);
+
+console.log('Compressed public key (bytes):', publicKeyCompressed);
+console.log('Compressed public key (hex):', Buffer.from(publicKeyCompressed).toString('hex'));
+
+// Perform SHA-256 hashing on the compressed public key
+const sha256Digest = sha256(publicKeyCompressed);
+console.log('SHA-256 hash of public key (hex):', Buffer.from(sha256Digest).toString('hex'));
+
+// Perform RIPEMD-160 hashing on the SHA-256 digest
+const ripemd160Digest = ripemd160(sha256Digest);
+console.log('RIPEMD-160 hash of SHA-256 hash (hex):', Buffer.from(ripemd160Digest).toString('hex'));
+
+// Convert the RIPEMD-160 digest to a 5-bit array for Bech32 encoding
+const fiveBitArray = convertBits(ripemd160Digest, 8, 5, true);
+
+// Encode the 5-bit array into a Bech32 address with the specified prefix
+const bech32Address = bech32.encode(chainPrefix, fiveBitArray);
+
+console.log(`Bech32 Cosmos Address: ${bech32Address}`);
+
+// Decompress the public key to its uncompressed form (65 bytes) and exclude the first byte
+const publicKeyUncompressed = secp256k1.ProjectivePoint.fromHex(publicKeyCompressed).toRawBytes(false).slice(1);
+
+// Perform Keccak-256 hashing on the uncompressed public key to derive the Ethereum address
+const keccakHash = keccak_256(publicKeyUncompressed);
+const ethAddress = '0x' + Buffer.from(keccakHash.slice(-20)).toString('hex');
+
+console.log('Uncompressed public key (hex):', Buffer.from(publicKeyUncompressed).toString('hex'));
+console.log('Keccak-256 hash of uncompressed public key (hex):', Buffer.from(keccakHash).toString('hex'));
+console.log(`Ethereum Address: ${ethAddress}`);
+```
+
+</details>
+
+---
+
+<details>
+<summary>Typescript - Full Derivation from Private Key</summary>
+
+```typescript copy
+import { sha256 } from '@noble/hashes/sha256';
+import { ripemd160 } from '@noble/hashes/ripemd160';
+import { keccak_256 } from '@noble/hashes/sha3';
+import { secp256k1 } from '@noble/curves/secp256k1';
+import { bech32 } from 'bech32';
+
+// Utility function to convert bits for Bech32 encoding
+function convertBits(data: Uint8Array, fromBits: number, toBits: number, pad: boolean): number[] {
+  let acc = 0;
+  let bits = 0;
+  const result: number[] = [];
+  const maxv = (1 << toBits) - 1;
+
+  for (const value of data) {
+    acc = (acc << fromBits) | value;
+    bits += fromBits;
+    while (bits >= toBits) {
+      bits -= toBits;
+      result.push((acc >> bits) & maxv);
+    }
+  }
+
+  if (pad) {
+    if (bits > 0) {
+      result.push((acc << (toBits - bits)) & maxv);
+    }
+  } else if (bits >= fromBits || (acc << (toBits - bits)) & maxv) {
+    throw new Error('Unable to convert bits');
+  }
+
+  return result;
+}
+
+// Function to generate addresses from a private key
+function generateAddresses(privateKeyHex: string): {
+  seiAddress: string;
+  ethAddress: string;
+} {
+  // Ensure the private key is exactly 32 bytes long
+  const privateKey = Uint8Array.from(Buffer.from(privateKeyHex.padStart(64, '0'), 'hex'));
+  if (privateKey.length !== 32) {
+    throw new Error('Private key must be 32 bytes long.');
+  }
+
+  // Derive the compressed public key from the private key
+  const publicKey = secp256k1.getPublicKey(privateKey, true);
+  const publicKeyBytes = publicKey;
+
+  // Perform SHA-256 hashing on the compressed public key
+  const sha256Digest = sha256(publicKeyBytes);
+
+  // Perform RIPEMD-160 hashing on the SHA-256 digest
+  const ripemd160Digest = ripemd160(sha256Digest);
+
+  // Convert the RIPEMD-160 digest to a 5-bit array for Bech32 encoding
+  const fiveBitArray = convertBits(ripemd160Digest, 8, 5, true);
+
+  // Bech32 address with "sei" prefix
+  const seiAddress = bech32.encode('sei', fiveBitArray, 256);
+
+  // Derive the uncompressed public key from the private key and exclude the first byte
+  const publicKeyUncompressed = secp256k1.getPublicKey(privateKey, false).slice(1);
+
+  // Perform Keccak-256 hashing on the uncompressed public key to derive the Ethereum address
+  const keccakHash = keccak_256(publicKeyUncompressed);
+  const ethAddress = `0x${Buffer.from(keccakHash).slice(-20).toString('hex')}`;
+
+  return { seiAddress, ethAddress };
+}
+
+// Example usage of the generateAddresses function
+const privateKeyHex = '907ab4bf7fc60cff';
+const { seiAddress, ethAddress } = generateAddresses(privateKeyHex);
+
+console.log(`Sei Address: ${seiAddress}`);
+console.log(`Ethereum Address: ${ethAddress}`);
+```
+
+</details>
+
+---

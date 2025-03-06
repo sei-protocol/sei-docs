@@ -1,0 +1,206 @@
+# **Sei Account Structure and Address Linking**
+
+On Sei, accounts are represented by two address formats:
+
+- **Sei native Bech32** (`sei...`)
+- **EVM-compatible Hex** (`0x...`)
+
+Both addresses for a single account are derived from the same **public key**,
+but the chain can only determine their association **after the public key is
+known**.
+
+---
+
+## **How Accounts Work on Sei**
+
+### **Automatic Linking**
+
+- When an account **broadcasts a transaction** (e.g., sending tokens), its
+  public key is recorded on-chain.
+- Once the public key is known, the **EVM address** and **Bech32 address** are
+  linked automatically.
+- This ensures balances and transactions are accessible across both address
+  formats.
+
+### **Manual Association**
+
+If the account has not broadcasted any transaction yet:
+
+- Use the `sei_associate` function to **manually record the public key**
+  on-chain.
+- This is a **gasless operation** as long as the account has **at least 1 wei**.
+
+> **Why is the public key required?**  
+> The public key enables the chain to derive and validate both the Bech32 and
+> EVM addresses. Without it, the chain cannot determine the relationship between
+> these two addresses.
+
+---
+
+## **Key Points**
+
+### **Before Linking**
+
+- The Bech32 (`sei...`) and EVM (`0x...`) addresses are treated as **separate
+  accounts**.
+- They will have separate balances until linked.
+- Native tokens received by the EVM address prior to association will be held in
+  a temporary native address, which will transfer to the associated address upon
+  linking.
+- Some types of transactions will **not be possible** (see table below).
+
+### **After Linking**
+
+- Balances are reflected consistently across both addresses.
+- Applications can query either address format seamlessly.
+
+---
+
+## **Wallet Association and Transfer Limitations**
+
+Certain actions are **not possible** before wallets are associated:
+
+- Transfers of **CW-based tokens** (e.g., CW20/721/1155) from a non-EVM wallet
+  to an **unassociated EVM address**.
+- Transfers of **ERC-based tokens** (e.g., ERC20/721/1155) from an EVM wallet to
+  an **unassociated Sei native address**.
+
+---
+
+## Query Linked Addresses
+
+### Fetch EVM Address for a Sei Address
+
+```bash copy
+curl -X POST $SEIEVM -H "Content-Type: application/json" -d \
+'{"jsonrpc": "2.0", "method": "sei_getEVMAddress", "params": ["<seiAddress>"], "id": 1}'
+```
+
+**Example Response**:
+
+```json copy
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": "0x4e1ae6017997128D421074FbE31d90362F181C"
+}
+```
+
+**Failure Example**:
+
+```json copy
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": -32000,
+    "message": "failed to find EVM address for sei1wev8ptz..."
+  }
+}
+```
+
+### Fetch Bech32 Address for an EVM Address
+
+```bash copy
+curl -X POST $SEIEVM -H "Content-Type: application/json" -d \
+'{"jsonrpc": "2.0", "method": "sei_getSeiAddress", "params": ["<hexAddress>"], "id": 1}'
+```
+
+**Example Response**:
+
+```json copy
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": "sei1wev8ptzj27aueu04wg..."
+}
+```
+
+---
+
+### Manual Association Using `sei_associate`
+
+If no transaction has been broadcasted, use this command to manually associate
+the addresses:
+
+```bash copy
+seid tx evm associate-address [optional priv key hex] --rpc=<url> --from=<sender> [flags]
+```
+
+> **Note**: The account must have at least 1 wei to perform this operation.
+
+---
+
+## **Deriving Addresses from the Public Key**
+
+### **Sei Address Derivation**
+
+The Sei native address is derived from the public key using the following steps:
+
+1. Hash the public key using the `keccak256` algorithm.
+2. Extract the first 20 bytes of the resulting hash.
+3. Encode the extracted bytes in **Bech32 format** with the `sei` prefix.
+
+Example implementation:
+
+```ts copy
+import { bech32 } from 'bech32';
+import { keccak256 } from 'ethereumjs-util';
+
+export function deriveSeiAddress(publicKey: Buffer): string {
+  const hash = keccak256(publicKey);
+  const words = bech32.toWords(hash.slice(0, 20));
+  return bech32.encode('sei', words);
+}
+```
+
+### **EVM Address Derivation**
+
+The EVM-compatible address is derived as follows:
+
+1. Hash the public key using the `keccak256` algorithm.
+2. Extract the **last 20 bytes** of the resulting hash.
+3. Prefix the extracted bytes with `0x` to obtain the EVM address.
+
+Example implementation:
+
+```ts copy
+import { keccak256 } from 'ethereumjs-util';
+
+export function deriveEVMAddress(publicKey: Buffer): string {
+  const hash = keccak256(publicKey);
+  return `0x${hash.slice(-20).toString('hex')}`;
+}
+```
+
+### **Summary**
+
+- **Public Key Hashing**: Both derivations rely on the `keccak256` hashing
+  algorithm.
+- **Sei Address**: Extract the **first 20 bytes** of the hash and encode it in
+  **Bech32 format**.
+- **EVM Address**: Extract the **last 20 bytes** of the hash and format it in
+  **Hex** with a `0x` prefix.
+
+### **Why It Works**
+
+The `keccak256` hashing ensures a consistent and verifiable process for deriving
+both address formats from the same public key. This enables a single account to
+maintain compatibility across the Sei native and EVM environments.
+
+---
+
+## **Conclusion**
+
+- Accounts are automatically linked when a transaction is broadcasted or can be
+  manually associated using `sei_associate`.
+- Both address formats share the same **public key**.
+- Linking enables dApps and tools to access balances consistently across both
+  address formats.
+
+---
+
+## **Next Steps**
+
+For detailed technical instructions on how to perform account association, refer
+to the **Wallet Association** section.
