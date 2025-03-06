@@ -7,11 +7,9 @@ export default {
 		title: 'Setup and Installation'
 	},
 	networks: 'Network Information',
-	'installing-seid': 'Installing seid CLI',
-	'seid-devtool': 'Generate Boilerplate Tx Messages',
-	'dev-token-standards': 'Token Standards',
-	'querying-state': 'Querying Blockchain State',
 	faucet: 'Faucet',
+	'dev-token-standards': 'Token Standards',
+
 	'-- Frontend Development': {
 		type: 'separator',
 		title: 'Frontend Development'
@@ -30,20 +28,23 @@ export default {
 	'cosm-wasm-general': 'CosmWasm (General)',
 	'nft-contract-tutorial': 'NFT Contracts',
 
-	'-- Assets': {
-		type: 'separator',
-		title: 'Assets'
-	},
-	'tokenfactory-tutorial': 'Token Factory',
-	'tokenfactory-allowlist': 'Allowlists',
-	'multi-sig-accounts': 'Multi-Sig Accounts',
-
 	'-- Interoperability': {
 		type: 'separator',
 		title: 'Interoperability'
 	},
 	'ibc-protocol': 'IBC Protocol',
 	pointers: 'Pointer Contracts',
+
+	'-- Cosmos': {
+		type: 'separator',
+		title: 'Cosmos'
+	},
+	'installing-seid': 'Installing seid CLI',
+	'seid-devtool': 'Generate Boilerplate Tx Messages',
+	'tokenfactory-tutorial': 'Token Factory',
+	'tokenfactory-allowlist': 'Allowlists',
+	'multi-sig-accounts': 'Multi-Sig Accounts',
+	'querying-state': 'Querying Blockchain State',
 
 	'-- Ecosystem & Tools': {
 		type: 'separator',

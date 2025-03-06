@@ -2,21 +2,14 @@ export default {
 	index: {
 		title: 'Home'
 	},
-	'-- Accessing Sei': {
+	'-- Network Tools & Providers': {
 		type: 'separator',
-		title: 'Providers'
+		title: 'Network Tools & Providers'
 	},
-	wallets: 'Wallet Apps & Providers',
-	'centralized-exchanges': 'Centralized Exchanges',
-	bridges: 'Bridges',
-	nfts: 'NFTs',
-
-	'-- Network Tools & Services': {
-		type: 'separator',
-		title: 'Network Tools & Services'
-	},
+	wallets: 'Wallets',
 	'rpc-providers': 'RPC Providers',
-	explorers: 'Explorers',
+	'centralized-exchanges': 'Centralized Exchanges',
 	indexers: 'Indexers',
-	oracles: 'Oracles'
+	oracles: 'Oracles',
+	explorers: 'Explorers'
 };
