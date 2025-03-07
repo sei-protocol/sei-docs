@@ -1,3 +1,4 @@
+//@ts-nocheck
 import {Browser, chromium, Page, Response} from "@playwright/test";
 import * as fs from "node:fs";
 
