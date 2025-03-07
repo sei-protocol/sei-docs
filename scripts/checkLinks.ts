@@ -57,18 +57,30 @@ async function checkExternalLinks(url: string, page: Page, path: string, browser
 
 async function isLinkBroken(page: Page, url: string, path: string) {
 	if (visitedLinks.has(url)) return false;
+	if (url.includes('localhost') || url.includes('.tar.gz')) return false;
+
 	let pageResponse: Response;
 	try {
-		pageResponse = await page.goto(url, {waitUntil: 'domcontentloaded', timeout: 15000});
+		pageResponse = await page.goto(url, {waitUntil: 'load', timeout: 15000});
 	} catch (error: any) {
+		if (error.message.includes('Timeout')) {
+			pageResponse = await retryPageLoadIfTimeout(page, url);
+		}
 	} finally {
-		if (url.includes('localhost') || url.includes('.tar.gz')) return false;
 		if (!pageResponse || [404, 403].includes(pageResponse.status())) {
 			console.warn(`Broken link detected: ${path} (Status ${pageResponse ? pageResponse.status() : 'page not opened'})`);
 			brokenLinks.add(path);
 			return true;
 		}
 		return false;
+	}
+}
+
+async function retryPageLoadIfTimeout(page: Page, url: string, path: string) {
+	try {
+		return await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15000 });
+	} catch {
+		return undefined;
 	}
 }
 
