@@ -19,15 +19,12 @@ export default {
 	'wallet-setup': 'Wallet Setup',
 	'ledger-setup': 'Ledger Integration',
 	'linking-addresses': 'Linking Address Types',
-	'getting-tokens': 'Acquiring SEI Tokens',
 
 	'-- Account Basics': {
 		type: 'separator',
 		title: 'Account Basics'
 	},
-	'block-explorers': 'Exploring Transactions',
 	'wrapped-sei': 'Wrapped SEI',
-	bridging: 'Bridging Assets to Sei',
 	'hardware-wallets': 'Using Hardware Wallets',
 	'wallet-association': 'Wallet Association',
 
@@ -37,7 +34,6 @@ export default {
 	},
 	'account-structure': 'Account Structure',
 	'hd-path-coin-types': 'HD Paths & Coin Types',
-	'fee-grants': 'Understanding Fee Grants',
 
 	'-- Staking': {
 		type: 'separator',
@@ -65,19 +61,12 @@ export default {
 	},
 	oracles: 'Understanding Oracles',
 
-	'-- Interoperability': {
+	'-- Cosmos': {
 		type: 'separator',
-		title: 'Interoperability'
+		title: 'Cosmos'
 	},
-	'dev-interoperability': 'VM Interoperability',
-	'ibc-relayer': 'IBC Relayers',
-
-	'-- Environments': {
-		type: 'separator',
-		title: 'Environments'
-	},
-	evm: 'EVM Compatibility',
-	cosmos: 'Cosmos Environment',
+	'fee-grants': 'Understanding Fee Grants',
+	'dev-interoperability': 'Interoperability',
 
 	'-- Additional Resources': {
 		type: 'separator',

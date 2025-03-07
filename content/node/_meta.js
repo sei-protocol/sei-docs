@@ -13,6 +13,7 @@ export default {
 		type: 'separator',
 		title: 'Advanced Operations'
 	},
+	'ibc-relayer': 'IBC Relayers',
 	'advanced-config-monitoring': 'Advanced Configuration & Monitoring',
 	'technical-reference': 'Technical Reference'
 };
