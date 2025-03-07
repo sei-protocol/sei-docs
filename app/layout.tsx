@@ -15,26 +15,26 @@ export const metadata: Metadata = {
 		default: 'Sei Docs',
 		template: '%s | Sei Docs'
 	},
-	description: 'Documentation for Sei Network',
+	description: 'Documentation for Sei Network.',
 	category: 'technology',
 	openGraph: {
+		// Make sure not to specify `title` or description` as they are automatically generated from the main description and title template
 		url: 'https://docs.sei.io',
 		siteName: 'Sei Docs',
 		locale: 'en_US',
 		images: [
 			{
-				url: 'https://www.docs.sei.io/assets/sei-v2-banner.jpg',
-				alt: 'Sei V2 Overview'
+				url: 'https://www.docs.sei.io/assets/docs-banner.png',
+				alt: 'Sei Docs'
 			}
 		],
-		type: 'website'
+		type: 'article'
 	},
 	twitter: {
+		// Make sure not to specify `title` or description` as they are automatically generated from the main description and title template
 		card: 'summary_large_image',
-		title: 'Sei Docs',
-		description: 'Documentation for Sei Network',
 		creator: '@SeiNetwork',
-		images: ['https://www.docs.sei.io/assets/sei-v2-banner.jpg']
+		images: ['https://www.docs.sei.io/assets/docs-banner.png']
 	},
 	referrer: 'origin-when-cross-origin',
 	keywords: ['Sei', 'Sei Network', 'Sei Blockchain', 'Sei Docs', 'Sei Documentation', 'EVM', 'ERC20', 'ERC721'],
@@ -60,12 +60,7 @@ export const metadata: Metadata = {
 	},
 	icons: {
 		icon: '/icon.png',
-		shortcut: '/shortcut-icon.png',
-		apple: '/apple-icon.png',
-		other: {
-			rel: 'apple-touch-icon-precomposed',
-			url: '/apple-touch-icon-precomposed.png'
-		}
+		apple: '/apple-icon.png'
 	}
 };
 
