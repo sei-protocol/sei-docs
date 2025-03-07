@@ -67,6 +67,10 @@ export const metadata: Metadata = {
 export default async function RootLayout({ children }) {
 	return (
 		<html lang='en' dir='ltr' suppressHydrationWarning style={{ width: '100%', height: '100%' }}>
+			<head>
+				<title></title>
+				<link rel='canonical' href='https://docs.sei.io' />
+			</head>
 			<body style={{ width: '100%', height: '100%' }}>
 				<Toaster position='bottom-left' />
 				<DocsProviders pageMap={await getPageMap()}>{children}</DocsProviders>
