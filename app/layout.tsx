@@ -12,10 +12,11 @@ import './globals.css';
 
 export const metadata: Metadata = {
 	title: {
-		default: 'Sei Docs',
+		default: 'Sei Documentation | Developer Guides & Resources',
 		template: '%s | Sei Docs'
 	},
-	description: 'Documentation for Sei Network.',
+	description:
+		'Documentation for Sei. Providing comprehensive guides, tutorials, and resources for developers building on Sei. Learn about the EVM, smart contracts, tokenization standards (ERC20, ERC721, ERC1155), and advanced features of the Sei ecosystem to accelerate your blockchain development journey.',
 	category: 'technology',
 	openGraph: {
 		// Make sure not to specify `title` or description` as they are automatically generated from the main description and title template
