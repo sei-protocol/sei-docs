@@ -43,6 +43,7 @@ export default {
 	'seid-devtool': 'Generate Boilerplate Tx Messages',
 	'tokenfactory-tutorial': 'Token Factory',
 	'tokenfactory-allowlist': 'Allowlists',
+	'global-wallet': 'Global Wallet',
 	'multi-sig-accounts': 'Multi-Sig Accounts',
 	'querying-state': 'Querying Blockchain State',
 
