@@ -18,9 +18,9 @@ export default function AppCardV2({ app }: AppCardV2Props) {
 			href={link || '#'}
 			target='_blank'
 			rel='noopener noreferrer'
-			className='group flex flex-col w-[250px] min-h-[330px] h-fit flex-shrink-0 bg-neutral-100 dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-800 rounded-lg overflow-hidden transition-transform hover:opacity-80'>
+			className='group flex flex-col w-[190px] min-h-[250px] h-fit flex-shrink-0 bg-neutral-100 dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-800 rounded-lg overflow-hidden transition-transform hover:opacity-80'>
 			<div className='relative flex items-center justify-center aspect-square border-b border-b-neutral-300 dark:border-b-neutral-800'>
-				<Image src={logo.url} alt={name} width={250} height={250} className='mx-auto transition-transform max-h-[250px]' />
+				<Image src={logo.url} alt={name} width={200} height={200} className='mx-auto transition-transform max-h-[200px]' />
 			</div>
 
 			<div className='p-4 flex flex-col justify-between grow'>
