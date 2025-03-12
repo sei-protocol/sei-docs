@@ -29,6 +29,7 @@ export default {
 	},
 	transactions: 'Transaction Overview',
 	reference: 'RPC Reference',
+	tokens: 'View Tokens',
 
 	'-- CosmWasm Interoperability': {
 		type: 'separator',
