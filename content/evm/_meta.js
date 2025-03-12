@@ -8,12 +8,12 @@ export default {
 	},
 	networks: 'Network Information',
 	'differences-with-ethereum': 'Divergence from Ethereum',
-	'sei-account': 'EIP-6963 Account',
 	'-- Frontend Development': {
 		type: 'separator',
 		title: 'Frontend Development'
 	},
 	'building-a-frontend': 'Building a Frontend',
+	'sei-account': 'EIP-6963 Account',
 
 	'-- Smart Contracts': {
 		type: 'separator',

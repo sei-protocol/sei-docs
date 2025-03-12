@@ -6,9 +6,9 @@ export default {
 	index: 'About Sei',
 	'user-quickstart': 'User Quickstart',
 	'dev-chains': 'Chain Info',
-	accounts: 'Accounts',
 	'dev-token-standards': 'Token Standards',
 	'dev-gas': 'Gas',
+	accounts: 'Account Linking',
 
 	'-- Network Tools & Providers': {
 		type: 'separator',
