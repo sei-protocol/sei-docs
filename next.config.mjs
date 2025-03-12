@@ -391,7 +391,7 @@ export default withNextra({
 			},
 			{
 				"source": "/dev-tutorials/tokenfactory-tutorial",
-				"destination": "/build/tokenfactory-tutorial",
+				"destination": "/cosmwasm/tokenfactory-tutorial",
 				"permanent": true
 			},
 			{
