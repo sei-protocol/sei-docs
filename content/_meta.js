@@ -1,6 +1,7 @@
 export default {
 	index: {
 		display: 'hidden',
+		title: 'Home',
 		theme: {
 			sidebar: false,
 			breadcrumb: false
@@ -10,20 +11,16 @@ export default {
 		title: 'Learn',
 		type: 'page'
 	},
-	build: {
-		title: 'Build',
+	evm: {
+		title: 'EVM',
+		type: 'page'
+	},
+	cosmwasm: {
+		title: 'CosmWasm',
 		type: 'page'
 	},
 	node: {
 		title: 'Operate',
-		type: 'page'
-	},
-	reference: {
-		title: 'Reference',
-		type: 'page'
-	},
-	providers: {
-		title: 'Providers',
 		type: 'page'
 	}
 };

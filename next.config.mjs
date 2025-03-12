@@ -466,7 +466,7 @@ export default withNextra({
 			},
 			{
 				"source": "/dev-ecosystem-providers/centralized-exchanges",
-				"destination": "/providers/centralized-exchanges",
+				"destination": "/learn/centralized-exchanges",
 				"permanent": true
 			},
 			{
