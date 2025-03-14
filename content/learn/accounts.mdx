@@ -1,0 +1,670 @@
+import { ImageWithCaption } from '../../src/components';
+import addressTranslationImage from '../../public/assets/address-derivation.png';
+
+# Accounts on Sei EVM and CosmWasm
+
+Every account on Sei has a unique public key. This public key can be used to
+generate multiple wallet addresses, but it is important to note that the two are
+functionally the same. They appear different, and depending on the app they may
+be used interchangeably, but they both point to the same destination - your
+account. The difference is like the difference between the numeral "2" and the
+word "two". They both define the same value, but may be used in different
+contexts.
+
+- **"hex" Address**: Starts with `0x` and is EVM-based.
+
+- **"bech32" Address**: Starts with `sei1` and is used for Sei-native functions.
+
+<ImageWithCaption img={addressTranslationImage} alt="Address derivation" />
+
+Although these addresses appear different, they actually share the same
+underlying account. This means whatever action you take with one address will
+also affect the other.
+
+If you deposit funds into your EVM address, you can access and use those same
+funds with your SEI address, and vice versa. They are linked together as one
+account, ensuring seamless integration between the EVM and SEI ecosystems.
+
+Both addresses for a single account are derived from the same **public key**, but the chain can only determine their association **after the public key is known by the chain** via association.
+
+## **Key Points**
+
+### **Before Linking**
+
+- The Bech32 (`sei...`) and EVM (`0x...`) addresses are treated as **separate
+  accounts**.
+- They will have separate balances until linked.
+- Native tokens received by the EVM address prior to association will be held in
+  a temporary native address, which will transfer to the associated address upon
+  linking.
+- Some types of transactions will **not be possible** (see table below).
+
+### **After Linking**
+
+- Balances are reflected consistently across both addresses.
+- Applications can query either address format seamlessly.
+
+---
+
+## Wallet Association and Transfer Limitations
+
+Certain actions are **not possible** before wallets are associated:
+
+- Transfers of **CW-based tokens** (e.g., CW20/721/1155) from a non-EVM wallet
+  to an **unassociated EVM address**.
+- Transfers of **ERC-based tokens** (e.g., ERC20/721/1155) from an EVM wallet to
+  an **unassociated Sei native address**.
+
+---
+
+## Methods of Association
+
+| Method                         | Security Risk | User Action Required                              |
+| ------------------------------ | ------------- | ------------------------------------------------- |
+| **1. Broadcast a Transaction** | Low           | Association happens automatically                 |
+| **2. Direct Private Key**      | High          | Provide private key directly.                     |
+| **3. Signed Message**          | Medium        | Sign a predefined message to prove ownership.     |
+| **4. Public Key**              | Lower         | Provide a compressed public key for association.  |
+| **5. Gasless Signed Message**  | Low           | Sign a message without requiring gas (if funded). |
+
+> Using any of these methods will ensure the **public key** is known to the chain, enabling automatic association between the EVM-compatible and Bech32 addresses.
+
+Constants for the `addr` precompile can also be found in the repo
+[Sei-Chain/precompiles](https://github.com/sei-protocol/sei-chain/tree/44fd60cec6a5ef301df1472431d6db40b382e486/precompiles/addr):
+
+## **Method 1: Broadcast a Transaction**
+
+- When an account **broadcasts a transaction** (e.g., sending tokens), its
+  public key is recorded on-chain.
+- Once the public key is known, the **EVM address** and **Bech32 address** are
+  linked automatically.
+- This ensures balances and transactions are accessible across both address
+  formats.
+
+## **Method 2: Direct Private Key Association**
+
+> **Security Risk**: **High** – Requires the private key to be directly
+> available. Exposing the private key can compromise the wallet.
+
+This method directly uses the private key to interact with the network.
+
+    ```ts copy
+    import { createPublicClient, createWalletClient, http } from 'viem';
+    import { privateKeyToAccount } from 'viem/accounts';
+    import { seiTestnet } from 'viem/chains';
+    import { ADDRESS_PRECOMPILE_ABI, ADDRESS_PRECOMPILE_ADDRESS } from '@sei-js/evm';
+
+    const PRIVATE_KEY = '<replace_with_private_key>';
+
+    const publicClient = createPublicClient({
+    	chain: seiTestnet,
+    	transport: http()
+    });
+    const client = createWalletClient({ chain: seiTestnet, transport: http() });
+
+    const account = privateKeyToAccount(PRIVATE_KEY);
+
+    const response = await client.writeContract({
+    	account,
+    	address: ADDRESS_PRECOMPILE_ADDRESS,
+    	abi: ADDRESS_PRECOMPILE_ABI,
+    	functionName: 'associate',
+    	args: ['0', '0', '0', 'example_message'],
+    	gasPrice: BigInt(100_000_000_000)
+    });
+    console.log(response);
+    ```
+
+---
+
+## **Method 3: Associate via Signed Message**
+
+> **Security Risk**: **Medium** – Requires signing a specific message using the
+> private key.
+
+This method involves signing a predefined message to prove ownership of the
+account.
+
+    ```ts copy
+    import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
+    import { parseSignature, toHex } from 'viem';
+
+    const associate = async () => {
+    	const account = privateKeyToAccount('<replace_with_private_key>');
+    	const newPk = generatePrivateKey();
+    	const newAccount = privateKeyToAccount(newPk);
+
+    	const message = 'associate';
+    	const signature = await newAccount.signMessage({ message });
+    	const parsedSignature = parseSignature(signature);
+
+    	const response = await client.writeContract({
+    		account,
+    		address: ADDRESS_PRECOMPILE_ADDRESS,
+    		abi: ADDRESS_PRECOMPILE_ABI,
+    		functionName: 'associate',
+    		args: [toHex(Number(parsedSignature.v) - 27), parsedSignature.r, parsedSignature.s, message],
+    		gasPrice: BigInt(100_000_000_000)
+    	});
+    	console.log(response);
+    };
+
+    associate();
+    ```
+
+---
+
+## **Method 4: Associate via Public Key**
+
+> **Security Risk**: **Lower** – Involves using the public key, which is less
+> sensitive than the private key.
+
+This method compresses the public key and sends it for association.
+
+    ```ts copy
+    import secp256k1 from 'secp256k1';
+    import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
+
+    const associateViaPubkey = async () => {
+    	const account = privateKeyToAccount('<replace_with_private_key>');
+    	const newPk = generatePrivateKey();
+    	const newAccount = privateKeyToAccount(newPk);
+
+    	const publicKeyBuffer = Buffer.from(newAccount.publicKey.slice(2), 'hex');
+    	const compressedPubKey = secp256k1.publicKeyConvert(publicKeyBuffer, true);
+
+    	const response = await client.writeContract({
+    		account,
+    		address: ADDRESS_PRECOMPILE_ADDRESS,
+    		abi: ADDRESS_PRECOMPILE_ABI,
+    		functionName: 'associatePubKey',
+    		args: [Buffer.from(compressedPubKey).toString('hex')],
+    		gasPrice: BigInt(100_000_000_000)
+    	});
+    	console.log(response);
+    };
+
+    associateViaPubkey();
+    ```
+
+---
+
+## **Method 5: Gasless Association via Signed Message**
+
+> **Security Risk**: **Low** – Requires signing a message but does not expose
+> the private key. No gas is consumed if the account already has funds.
+
+This method signs a message and uses the `sei_associate` RPC call to finalize
+the association.
+
+    ```ts copy
+    import { parseSignature, numberToHex } from 'viem';
+
+    interface AssociateRequest {
+    	r: string;
+    	s: string;
+    	v: string;
+    	custom_message: string;
+    }
+
+    interface AssociateRequestSchema {
+    	Method: 'sei_associate';
+    	Parameters: [request: AssociateRequest];
+    	ReturnType: null;
+    }
+
+    const associateGasless = async (signature: `0x${string}`, message: string) => {
+    	const parsedSignature = parseSignature(signature);
+    	const messageLength = Buffer.from(message, 'utf8').length;
+    	const messageToSign = `\x19Ethereum Signed Message:\n${messageLength}${message}`;
+
+    	const request: AssociateRequest = {
+    		r: parsedSignature.r,
+    		s: parsedSignature.s,
+    		v: numberToHex(Number(parsedSignature.v) - 27),
+    		custom_message: messageToSign
+    	};
+
+    	const response = await client.request<AssociateRequestSchema>({
+    		method: 'sei_associate',
+    		params: [request]
+    	});
+    	console.log(response);
+    };
+
+    // Example Usage
+    associateGasless('<replace_with_signature>', 'example_message');
+    ```
+
+## Query Linked Addresses
+
+### Fetch EVM Address for a Sei Address
+
+```bash copy
+curl -X POST $SEIEVM -H "Content-Type: application/json" -d \
+'{"jsonrpc": "2.0", "method": "sei_getEVMAddress", "params": ["<seiAddress>"], "id": 1}'
+```
+
+**Example Response**:
+
+```json copy
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": "0x4e1ae6017997128D421074FbE31d90362F181C"
+}
+```
+
+**Failure Example**:
+
+```json copy
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": -32000,
+    "message": "failed to find EVM address for sei1wev8ptz..."
+  }
+}
+```
+
+### Fetch Bech32 Address for an EVM Address
+
+```bash copy
+curl -X POST $SEIEVM -H "Content-Type: application/json" -d \
+'{"jsonrpc": "2.0", "method": "sei_getSeiAddress", "params": ["<hexAddress>"], "id": 1}'
+```
+
+**Example Response**:
+
+```json copy
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": "sei1wev8ptzj27aueu04wg..."
+}
+```
+
+---
+
+### Manual Association Using `sei_associate`
+
+If no transaction has been broadcasted, use this command to manually associate
+the addresses:
+
+```bash copy
+seid tx evm associate-address [optional priv key hex] --rpc=<url> --from=<sender> [flags]
+```
+
+> **Note**: The account must have at least 1 wei to perform this operation.
+
+---
+
+## Deriving Addresses from the Public Key
+
+### Sei Address Derivation
+
+The Sei native address is derived from the public key using the following steps:
+
+1. Hash the public key using the `keccak256` algorithm.
+2. Extract the first 20 bytes of the resulting hash.
+3. Encode the extracted bytes in **Bech32 format** with the `sei` prefix.
+
+Example implementation:
+
+```ts copy
+import { bech32 } from 'bech32';
+import { keccak256 } from 'ethereumjs-util';
+
+export function deriveSeiAddress(publicKey: Buffer): string {
+  const hash = keccak256(publicKey);
+  const words = bech32.toWords(hash.slice(0, 20));
+  return bech32.encode('sei', words);
+}
+```
+
+### EVM Address Derivation
+
+The EVM-compatible address is derived as follows:
+
+1. Hash the public key using the `keccak256` algorithm.
+2. Extract the **last 20 bytes** of the resulting hash.
+3. Prefix the extracted bytes with `0x` to obtain the EVM address.
+
+Example implementation:
+
+```ts copy
+import { keccak256 } from 'ethereumjs-util';
+
+export function deriveEVMAddress(publicKey: Buffer): string {
+  const hash = keccak256(publicKey);
+  return `0x${hash.slice(-20).toString('hex')}`;
+}
+```
+
+### Summary
+
+- **Public Key Hashing**: Both derivations rely on the `keccak256` hashing
+  algorithm.
+- **Sei Address**: Extract the **first 20 bytes** of the hash and encode it in
+  **Bech32 format**.
+- **EVM Address**: Extract the **last 20 bytes** of the hash and format it in
+  **Hex** with a `0x` prefix.
+
+### Why It Works
+
+The `keccak256` hashing ensures a consistent and verifiable process for deriving
+both address formats from the same public key. This enables a single account to
+maintain compatibility across the Sei native and EVM environments.
+
+---
+
+### Recap
+
+- Accounts are automatically linked when a transaction is broad-casted or can be
+  manually associated using `sei_associate`.
+- Both address formats share the same **public key**.
+- Linking enables dApps and tools to access balances consistently across both
+  address formats.
+
+---
+
+## HD Paths and Coin Types
+
+When deriving a private key from a mnemonic phrase, the hierarchical
+deterministic (HD) path involves multiple parameters, including the coin type.
+The coin type determines the blockchain ecosystem for which the key is derived,
+making it crucial when dealing with different wallets and blockchains.
+
+### Coin Type Parameter
+
+The second parameter in the HD path specifies the coin type, which is defined by
+the BIP-44 standard. This parameter identifies the blockchain ecosystem
+associated with the derived keys.
+
+- **Ethereum (Coin Type 60)**: Wallets like MetaMask use coin type 60. The HD
+  path for Ethereum typically looks like this: `m/44'/60'/0'/0/0`.
+- **Cosmos (Coin Type 118)**: Wallets for Cosmos-based chains, such as Compass,
+  use coin type 118. The HD path for Cosmos typically looks like this:
+  `m/44'/118'/0'/0/0`.
+
+### Implications
+
+Due to the different coin types, a mnemonic phrase used to derive keys for
+Ethereum (coin type 60) cannot be directly used in a Cosmos wallet (coin
+type 118) to access the same accounts. This is because the HD path determines a
+different set of keys for each coin type, meaning the derived addresses will
+differ.
+
+### Private Key Export
+
+Users can export their private key from MetaMask (derived using coin type 60)
+and import it into any Cosmos wallet. This works because the private key, once
+derived, can be used across different blockchain ecosystems, provided the
+receiving wallet supports the import function. This allows users to manage their
+assets across various blockchains using the same underlying cryptographic key.
+
+### Example HD Paths
+
+- **Traditional Cosmos Path**: `m/44'/118'/0'/0/0`
+- **Traditional EVM Path**: `m/44'/60'/0'/0/0`
+
+## Generating Wallets
+
+### **Deriving bech32 and hex addresses from pubkey**
+
+Sei uses a unique method of deriving both the Cosmos/Tendermint style bech32
+address and the Ethereum-style hex address from the same public key, using the
+`keccak` hashing method common in EVM networks. These extensively commented snippets demonstrate the 'proper' method of deriving
+both bech32 and hex addresses from a given ECDSA SECP256k1 key:
+
+<details>
+	<summary>Python - from pubkey</summary>
+
+    ```python copy
+    import base64
+    import json
+    from hashlib import sha256, new as hashlib_new
+    from coincurve import PublicKey
+    from bech32 import bech32_encode, convertbits
+    from Crypto.Hash import keccak
+
+    # Example input, replace with the actual pubkey JSON string
+    pubkey_json = '{"@type":"/cosmos.crypto.secp256k1.PubKey","key":"Agmik4xkmF57hNjzykYHP3gRu1Mpae4B5BCiwx7jmRzI"}'
+
+    # Extract the base64-encoded key from the JSON-like string
+    pubkey_dict = json.loads(pubkey_json)
+    pubkey_base64 = pubkey_dict['key']
+
+    # Decode the base64-encoded public key
+    public_key_compressed = base64.b64decode(pubkey_base64)
+
+    # Ensure the public key length is 33 bytes (compressed key format)
+    if len(public_key_compressed) != 33:
+    raise ValueError(f"Invalid public key length, expected 33 bytes for compressed format, got {len(public_key_compressed)}")
+
+    # Debugging: Print the public key details
+    print(f"Compressed public key (hex): {public_key_compressed.hex()}")
+
+    # SHA-256 on the compressed public key
+    sha256_digest = sha256(public_key_compressed).digest()
+    # Debugging: Print SHA-256 digest
+    print(f"SHA-256 Digest: {sha256_digest.hex()}")
+
+    # RIPEMD-160 on SHA-256 hash
+    ripemd160 = hashlib_new('ripemd160')
+    ripemd160.update(sha256_digest)
+    ripemd160_digest = ripemd160.digest()
+    # Debugging: Print RIPEMD-160 digest
+    print(f"RIPEMD-160 Digest: {ripemd160_digest.hex()}")
+
+    # Convert the digest to 5-bit groups for Bech32 encoding
+    five_bit_ripemd160 = convertbits(ripemd160_digest, 8, 5, pad=True)
+    bech32_address = bech32_encode("sei", five_bit_ripemd160)
+
+    print(f"Bech32 Cosmos Address: {bech32_address}")
+
+    # Decompress the public key to 65 bytes
+    public_key = PublicKey(public_key_compressed).format(compressed=False)
+
+    # Debugging: Print the public key details
+    print(f"Decompressed public key length: {len(public_key)}")
+    print(f"Decompressed public key (hex): {public_key.hex()}")
+
+    # Derive Ethereum Address using Keccak-256
+    keccak_hash = keccak.new(digest_bits=256)
+    keccak_hash.update(public_key[1:])  # Exclude the first byte (0x04)
+    digest_keccak = keccak_hash.digest()
+    eth_address = digest_keccak[-20:]
+    eth_address_hex = '0x' + eth_address.hex()
+
+    print(f"Ethereum Address: {eth_address_hex}")
+    ```
+
+</details>
+
+---
+
+<details>
+	<summary>Typescript - from pubkey</summary>
+
+    ```typescript copy
+    import { fromBase64 } from '@cosmjs/encoding';
+    import { sha256 } from '@noble/hashes/sha256';
+    import { ripemd160 } from '@noble/hashes/ripemd160';
+    import { keccak_256 } from '@noble/hashes/sha3';
+    import { secp256k1 } from '@noble/curves/secp256k1';
+    import { bech32 } from 'bech32';
+
+    // Utility function to convert bits for Bech32 encoding
+    function convertBits(data: Uint8Array, fromBits: number, toBits: number, pad: boolean): number[] {
+    let acc = 0;
+    let bits = 0;
+    const result: number[] = [];
+    const maxv = (1 << toBits) - 1;
+
+    for (const value of data) {
+    acc = (acc << fromBits) | value;
+    bits += fromBits;
+    while (bits >= toBits) {
+    bits -= toBits;
+    result.push((acc >> bits) & maxv);
+
+}
+}
+
+    if (pad) {
+    if (bits > 0) {
+    result.push((acc << (toBits - bits)) & maxv);
+
+}
+} else if (bits >= fromBits || (acc << (toBits - bits)) & maxv) {
+throw new Error('Unable to convert bits');
+}
+
+    return result;
+
+}
+
+    // Define the prefix for the Bech32 address (e.g., "sei" for Sei network)
+    const chainPrefix = 'sei';
+
+    // Public key JSON string (replace with actual data)
+    const pubkeyJson = '{"@type":"/cosmos.crypto.secp256k1.PubKey","key":"AiN+aFvHgjblWPaP9Er5p005JjPX3nj4I/+jA6W4BOho"}';
+
+    // Parse the JSON string to extract the public key in Base64 format
+    const pubkeyDict = JSON.parse(pubkeyJson);
+    const pubkeyBase64 = pubkeyDict.key;
+
+    console.log('Original public key JSON:', pubkeyJson);
+    console.log('Parsed public key object:', pubkeyDict);
+    console.log('Base64-encoded public key:', pubkeyBase64);
+
+    // Decode the Base64-encoded public key to its compressed form
+    const publicKeyCompressed = fromBase64(pubkeyBase64);
+
+    console.log('Compressed public key (bytes):', publicKeyCompressed);
+    console.log('Compressed public key (hex):', Buffer.from(publicKeyCompressed).toString('hex'));
+
+    // Perform SHA-256 hashing on the compressed public key
+    const sha256Digest = sha256(publicKeyCompressed);
+    console.log('SHA-256 hash of public key (hex):', Buffer.from(sha256Digest).toString('hex'));
+
+    // Perform RIPEMD-160 hashing on the SHA-256 digest
+    const ripemd160Digest = ripemd160(sha256Digest);
+    console.log('RIPEMD-160 hash of SHA-256 hash (hex):', Buffer.from(ripemd160Digest).toString('hex'));
+
+    // Convert the RIPEMD-160 digest to a 5-bit array for Bech32 encoding
+    const fiveBitArray = convertBits(ripemd160Digest, 8, 5, true);
+
+    // Encode the 5-bit array into a Bech32 address with the specified prefix
+    const bech32Address = bech32.encode(chainPrefix, fiveBitArray);
+
+    console.log(`Bech32 Cosmos Address: ${bech32Address}`);
+
+    // Decompress the public key to its uncompressed form (65 bytes) and exclude the first byte
+    const publicKeyUncompressed = secp256k1.ProjectivePoint.fromHex(publicKeyCompressed).toRawBytes(false).slice(1);
+
+    // Perform Keccak-256 hashing on the uncompressed public key to derive the Ethereum address
+    const keccakHash = keccak_256(publicKeyUncompressed);
+    const ethAddress = '0x' + Buffer.from(keccakHash.slice(-20)).toString('hex');
+
+    console.log('Uncompressed public key (hex):', Buffer.from(publicKeyUncompressed).toString('hex'));
+    console.log('Keccak-256 hash of uncompressed public key (hex):', Buffer.from(keccakHash).toString('hex'));
+    console.log(`Ethereum Address: ${ethAddress}`);
+    ```
+
+</details>
+
+---
+
+<details>
+	<summary>Typescript - Full Derivation from Private Key</summary>
+
+    ```typescript copy
+    import { sha256 } from '@noble/hashes/sha256';
+    import { ripemd160 } from '@noble/hashes/ripemd160';
+    import { keccak_256 } from '@noble/hashes/sha3';
+    import { secp256k1 } from '@noble/curves/secp256k1';
+    import { bech32 } from 'bech32';
+
+    // Utility function to convert bits for Bech32 encoding
+    function convertBits(data: Uint8Array, fromBits: number, toBits: number, pad: boolean): number[] {
+    let acc = 0;
+    let bits = 0;
+    const result: number[] = [];
+    const maxv = (1 << toBits) - 1;
+
+    for (const value of data) {
+    acc = (acc << fromBits) | value;
+    bits += fromBits;
+    while (bits >= toBits) {
+    bits -= toBits;
+    result.push((acc >> bits) & maxv);
+
+}
+}
+
+    if (pad) {
+    if (bits > 0) {
+    result.push((acc << (toBits - bits)) & maxv);
+
+}
+} else if (bits >= fromBits || (acc << (toBits - bits)) & maxv) {
+throw new Error('Unable to convert bits');
+}
+
+    return result;
+
+}
+
+    // Function to generate addresses from a private key
+    function generateAddresses(privateKeyHex: string): {
+    seiAddress: string;
+    ethAddress: string;
+
+} {
+// Ensure the private key is exactly 32 bytes long
+const privateKey = Uint8Array.from(Buffer.from(privateKeyHex.padStart(64, '0'), 'hex'));
+if (privateKey.length !== 32) {
+throw new Error('Private key must be 32 bytes long.');
+}
+
+    // Derive the compressed public key from the private key
+    const publicKey = secp256k1.getPublicKey(privateKey, true);
+    const publicKeyBytes = publicKey;
+
+    // Perform SHA-256 hashing on the compressed public key
+    const sha256Digest = sha256(publicKeyBytes);
+
+    // Perform RIPEMD-160 hashing on the SHA-256 digest
+    const ripemd160Digest = ripemd160(sha256Digest);
+
+    // Convert the RIPEMD-160 digest to a 5-bit array for Bech32 encoding
+    const fiveBitArray = convertBits(ripemd160Digest, 8, 5, true);
+
+    // Bech32 address with "sei" prefix
+    const seiAddress = bech32.encode('sei', fiveBitArray, 256);
+
+    // Derive the uncompressed public key from the private key and exclude the first byte
+    const publicKeyUncompressed = secp256k1.getPublicKey(privateKey, false).slice(1);
+
+    // Perform Keccak-256 hashing on the uncompressed public key to derive the Ethereum address
+    const keccakHash = keccak_256(publicKeyUncompressed);
+    const ethAddress = `0x${Buffer.from(keccakHash).slice(-20).toString('hex')}`;
+
+    return { seiAddress, ethAddress };
+
+}
+
+    // Example usage of the generateAddresses function
+    const privateKeyHex = '907ab4bf7fc60cff';
+    const { seiAddress, ethAddress } = generateAddresses(privateKeyHex);
+
+    console.log(`Sei Address: ${seiAddress}`);
+    console.log(`Ethereum Address: ${ethAddress}`);
+    ```
+
+</details>
+
+---

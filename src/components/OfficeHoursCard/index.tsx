@@ -25,9 +25,9 @@ export const OfficeHoursCard = () => {
 			href='https://discord.gg/sei'
 			target='_blank'
 			rel='noopener noreferrer'
-			className='mt-16 block bg-gradient-to-r from-[#9e1f19] to-red-700 text-white p-6 rounded-2xl shadow-lg flex items-center gap-4 border border-white/20 transition-transform duration-150 hover:scale-[1.02]'>
+			className='mt-16 block bg-gradient-to-r from-[#9e1f1933] to-[#9e1f1944] text-[#9e1f19] dark:text-white p-6 rounded-2xl shadow-lg flex items-center gap-4 border border-red-500/20 transition-transform duration-150 hover:scale-[1.02]'>
 			<div className='bg-white/20 p-3 rounded-full'>
-				<IconClock className='w-10 h-10 text-white' />
+				<IconClock className='w-10 h-10 text-[#9e1f19] dark:text-white' />
 			</div>
 			<div>
 				<h2 className='text-2xl font-bold'>Developer Office Hours</h2>
