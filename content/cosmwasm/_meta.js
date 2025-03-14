@@ -7,8 +7,8 @@ export default {
 		title: 'Essentials'
 	},
 	networks: 'Network Information',
-	'installing-seid': 'Installing `seid` CLI',
 	'querying-state': 'Querying Blockchain State',
+	'installing-seid': 'Installing `seid` CLI',
 
 	'-- Transactions': {
 		type: 'separator',
@@ -16,7 +16,6 @@ export default {
 	},
 	transactions: 'Transaction Overview',
 	'execute-multiple': 'Executing Multiple Transactions',
-	'seid-devtool': 'Generate Boilerplate Tx Messages',
 
 	'-- Frontend Development': {
 		type: 'separator',
@@ -35,8 +34,7 @@ export default {
 		type: 'separator',
 		title: 'Interoperability'
 	},
-	'ibc-protocol': 'IBC Protocol',
-	pointers: 'Pointer Contracts',
+	'evm-transactions': 'EVM on Cosmos',
 
 	'-- Modules': {
 		type: 'separator',

@@ -13,7 +13,7 @@ export default {
 		title: 'Frontend Development'
 	},
 	'building-a-frontend': 'Building a Frontend',
-	'sei-account': 'EIP-6963 Account',
+	'sei-account': 'Sei Account',
 
 	'-- Smart Contracts': {
 		type: 'separator',
@@ -36,6 +36,8 @@ export default {
 		title: 'CosmWasm Interoperability'
 	},
 	precompiles: 'Precompiles',
+	pointers: 'Pointer Contracts',
+	'ibc-protocol': 'IBC on EVM',
 
 	'-- Hardware Wallets': {
 		type: 'separator',
