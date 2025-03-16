@@ -24,6 +24,8 @@ export default {
 	'dev-smart-contracts': 'Choosing a VM',
 	'evm-general': 'EVM (General)',
 	'solidity-resources': 'Solidity Resources',
+	'evm-hardhat': 'EVM Hardhat',
+	'evm-foundry': 'EVM Foundry',
 	'evm-cli-tutorial': 'EVM (CLI)',
 	'cosm-wasm-general': 'CosmWasm (General)',
 	'nft-contract-tutorial': 'NFT Contracts',
