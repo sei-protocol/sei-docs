@@ -1,4 +1,5 @@
 export default {
+  "index": { title: "Overview" },
   "actives": { title: "denoms/actives" },
   "exchange-rates": { title: "denoms/exchange_rates" },
   "price-snapshot-history": { title: "denoms/price_snapshot_history" },

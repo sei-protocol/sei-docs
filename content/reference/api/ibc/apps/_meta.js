@@ -1,4 +1,5 @@
 export default {
+  "index": { title: "Overview" },
   "params": { title: "params" },
   "escrow-address": { title: "(port_id)/escrow_address" },
   "trace": { title: "denom_hashes/(trace)" },

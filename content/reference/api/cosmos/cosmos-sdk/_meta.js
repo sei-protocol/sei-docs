@@ -1,4 +1,5 @@
 export default {
+  "index": { title: "Overview" },
   "list-resource-dependency-mapping": { title: "accesscontrol/list_resource_dependency_mapping" },
   "list-wasm-dependency-mapping": { title: "accesscontrol/list_wasm_dependency_mapping" },
   "params": { title: "accesscontrol/params" },

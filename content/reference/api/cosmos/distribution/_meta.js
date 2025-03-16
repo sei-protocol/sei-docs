@@ -1,4 +1,5 @@
 export default {
+  "index": { title: "Overview" },
   "community-pool": { title: "community_pool" },
   "rewards": { title: "(delegator_address)/rewards" },
   "validator-address": { title: "rewards/(validator_address)" },
