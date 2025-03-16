@@ -1,4 +1,5 @@
 export default {
+  "index": { title: "Overview" },
   "code": { title: "code" },
   "code-id": { title: "code/(code_id)" },
   "contracts": { title: "(code_id)/contracts" },

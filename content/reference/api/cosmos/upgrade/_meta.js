@@ -1,4 +1,5 @@
 export default {
+  "index": { title: "Overview" },
   "name": { title: "applied_plan/(name)" },
   "current-plan": { title: "current_plan" },
   "module-versions": { title: "module_versions" },

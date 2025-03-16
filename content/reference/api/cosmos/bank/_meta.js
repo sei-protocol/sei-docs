@@ -1,4 +1,5 @@
 export default {
+  "index": { title: "Overview" },
   "address": { title: "balances/(address)" },
   "by-denom": { title: "(address)/by_denom" },
   "denoms-metadata": { title: "denoms_metadata" },

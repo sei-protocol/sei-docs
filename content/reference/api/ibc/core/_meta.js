@@ -1,4 +1,5 @@
 export default {
+  "index": { title: "Overview" },
   "channels": { title: "channels" },
   "port-id": { title: "ports/(port_id)" },
   "client-state": { title: "(port_id)/client_state" },
@@ -17,7 +18,6 @@ export default {
   "client-id": { title: "client_status/(client_id)" },
   "client-id": { title: "consensus_states/(client_id)" },
   "heights": { title: "(client_id)/heights" },
-  "revision-height": { title: "height/(revision_height)" },
   "upgraded-client-states": { title: "upgraded_client_states" },
   "upgraded-consensus-states": { title: "upgraded_consensus_states" },
   "client-id": { title: "client_connections/(client_id)" },

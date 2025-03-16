@@ -7,10 +7,7 @@ export default {
 		title: 'API Reference'
 	},
 	evm: 'EVM',
-	cosmos: {
-		title: 'Cosmos',
-		display: 'hidden'
-	},
+	api: 'Cosmos',
 	'-- Interoperability': {
 		type: 'separator',
 		title: 'Interoperability'

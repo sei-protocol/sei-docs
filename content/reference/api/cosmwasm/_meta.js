@@ -1,4 +1,4 @@
 export default {
   "index": { title: "Overview" },
-  "params": { title: "params" }
+  "wasm": { title: "Wasm" }
 };

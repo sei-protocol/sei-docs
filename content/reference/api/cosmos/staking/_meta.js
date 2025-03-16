@@ -1,4 +1,5 @@
 export default {
+  "index": { title: "Overview" },
   "delegator-addr": { title: "delegations/(delegator_addr)" },
   "redelegations": { title: "(delegator_addr)/redelegations" },
   "unbonding-delegations": { title: "(delegator_addr)/unbonding_delegations" },
@@ -8,9 +9,7 @@ export default {
   "params": { title: "params" },
   "pool": { title: "pool" },
   "validators": { title: "validators" },
-  "validator-addr": { title: "validators/(validator_addr)" },
   "delegations": { title: "(validator_addr)/delegations" },
-  "delegator-addr": { title: "delegations/(delegator_addr)" },
   "unbonding-delegation": { title: "(delegator_addr)/unbonding_delegation" },
   "unbonding-delegations": { title: "(validator_addr)/unbonding_delegations" }
 };

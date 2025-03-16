@@ -1,4 +1,5 @@
 export default {
+  "index": { title: "Overview" },
   "params-type": { title: "params/(params_type)" },
   "proposals": { title: "proposals" },
   "proposal-id": { title: "proposals/(proposal_id)" },
