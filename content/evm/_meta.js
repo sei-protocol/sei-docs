@@ -13,7 +13,10 @@ export default {
 		title: 'Frontend Development'
 	},
 	'building-a-frontend': 'Building a Frontend',
-	'sei-account': 'Sei Account',
+	'sei-account': {
+		title: 'Sei Account',
+		display: 'hidden'
+	},
 
 	'-- Smart Contracts': {
 		type: 'separator',
