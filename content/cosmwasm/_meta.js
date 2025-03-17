@@ -43,5 +43,10 @@ export default {
 	'tokenfactory-tutorial': 'Token Factory',
 	'tokenfactory-allowlist': 'Allowlists',
 	'multi-sig-accounts': 'Multi-Sig Accounts',
-	'fee-grants': 'Fee Grants'
+	'fee-grants': 'Fee Grants',
+	'-- Reference': {
+		type: 'separator',
+		title: 'Reference'
+	},
+	api: 'REST API'
 };
