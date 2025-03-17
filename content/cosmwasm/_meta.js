@@ -43,10 +43,5 @@ export default {
 	'tokenfactory-tutorial': 'Token Factory',
 	'tokenfactory-allowlist': 'Allowlists',
 	'multi-sig-accounts': 'Multi-Sig Accounts',
-	'fee-grants': 'Fee Grants',
-
-	cosmos: {
-		title: 'REST API',
-		display: 'hidden'
-	}
+	'fee-grants': 'Fee Grants'
 };
