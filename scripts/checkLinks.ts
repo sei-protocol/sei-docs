@@ -16,6 +16,7 @@ async function main() {
 		throw new Error(`Found broken links: ${brokenLinks.size} broken links.`);
 	}
 	console.info('Finished checking links');
+	await browserInstance.close();
 }
 
 async function crawlPages(url: string, browser: Browser, path: string) {
@@ -95,4 +96,7 @@ async function getLinksFromPage(page: Page, path: string) {
 	});
 }
 
-main().then(() => console.log('Finished checks'));
+main().then(() => {
+	console.info('No broken links found.');
+	process.exit(0);
+});
