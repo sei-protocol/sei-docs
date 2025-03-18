@@ -35,7 +35,7 @@ export const networks: NetworkEntry[] = [
 		type: 'Cosmos',
 		name: 'Mainnet',
 		chainId: 'pacific-1',
-		rpcUrl: 'https://wallet.rpc.pacific-1.seinetwork.io',
+		rpcUrl: 'https://rpc.sei-apis.com',
 		explorerLinks: [
 			{ name: 'SeiTrace', url: 'https://seitrace.com/?chain=pacific-1' },
 			{ name: 'SeiScan', url: 'https://www.seiscan.app/?chain=pacific-1' }
@@ -45,7 +45,7 @@ export const networks: NetworkEntry[] = [
 		type: 'Cosmos',
 		name: 'Testnet',
 		chainId: 'atlantic-2',
-		rpcUrl: 'https://wallet.rpc.atlantic-2.seinetwork.io',
+		rpcUrl: 'https://rpc-testnet.sei-apis.com',
 		explorerLinks: [
 			{ name: 'SeiTrace', url: 'https://seitrace.com/?chain=atlantic-2' },
 			{ name: 'SeiScan', url: 'https://www.seiscan.app/?chain=atlantic-2' }
@@ -55,7 +55,7 @@ export const networks: NetworkEntry[] = [
 		type: 'Cosmos',
 		name: 'Devnet',
 		chainId: 'arctic-1',
-		rpcUrl: 'https://wallet.rpc.arctic-1.seinetwork.io',
+		rpcUrl: 'https://rpc-arctic-1.sei-apis.com',
 		explorerLinks: [{ name: 'SeiTrace', url: 'https://seitrace.com/?chain=arctic-1' }]
 	}
 ];
