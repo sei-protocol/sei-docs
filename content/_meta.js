@@ -22,5 +22,9 @@ export default {
 	node: {
 		title: 'Operate',
 		type: 'page'
+	},
+	node: {
+		title: 'Library',
+		type: 'page'
 	}
 };
