@@ -1,4 +1,4 @@
-import { Callout } from 'nextra/components';
+import { Callout, Tabs } from 'nextra/components';
 
 # Sei Account
 
@@ -12,11 +12,28 @@ import { Callout } from 'nextra/components';
     terms of service and support resources.
     If you do not agree to these terms, please refrain from using the wallet integration on sei.io.</Callout>
 
-Sei Account is powered by [Dynamic Global Wallets](https://docs.dynamic.xyz/global-wallets/overview) that enables smooth
-user onboarding by providing embedded wallet that does not require installation of any additional wallet add-ons.
+Sei Account is powered by [Dynamic Global Wallets](https://docs.dynamic.xyz/global-wallets/overview) and is a programmable web3 crypto wallet that provides seamless
+onboarding for your users. For developers using EIP-6963-compatible wallets or libraries like RainbowKit,
+WalletConnectKit or Dynamic, integrating is straightforward. Our lightweight SDK allows to easily add Sei Account to
+your app.
 
-Integration into existing dApp requires few lines of code and will work seamlessly across all dApps, provided dApp uses
-EIP-6963-compatible wallets or libraries like RainbowKit, WalletConnect, Dynamic itself and others.
+### Benefits of the Sei Account
+
+- Simplifies onboarding for users
+- Provides a seamless way for users to explore onchain apps without a browser extension or native app
+- Allows developers to utilize a secure popup that is compatible with RainbowKit, WalletConnect, and Dynamic
+- Offers users simple login flows without compromising access to liquidity
+- Works across all dApps that use EIP-6963-compatible wallets or libraries
+
+### Features
+- Does not require a browser extension
+- Login with email
+- Social login (Google, X, Telegram)
+- All existing wallets will work as well (e.g. Metamask, Trust, WalletConnect, Coinbase)
+
+### Future Features
+- Login with Passkeys
+- Gas Sponsorship
 
 ## EIP-6963
 EIP-6963 is a standardized communication protocol for embedded wallets, enabling seamless cross-application
@@ -46,54 +63,143 @@ package in your project.
  import "@sei-js/sei-account/eip6963";
  ```
 
-For example, if you are using the Dynamic library, you can import the Sei Account package as follows:
-
-```javascript
-import { DynamicContextProvider } from "@dynamic-labs/sdk-react-core";
-import { EthereumWalletConnectors } from "@dynamic-labs/ethereum";
-import { DynamicWagmiConnector } from "@dynamic-labs/wagmi-connector";
-import { createConfig, WagmiProvider } from "wagmi";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { http } from "viem";
-import { sei, seiTestnet } from "viem/chains";
-import Main from "./Main";
-import '@sei-js/sei-account/eip6963';
-
-
-const config = createConfig({
-  chains: [sei, seiTestnet],
-  multiInjectedProviderDiscovery: false,
-  transports: {
-    [sei.id]: http(),
-    [seiTestnet.id]: http(),
-  },
-});
-
-const queryClient = new QueryClient();
-
-const App = () => (
-  <DynamicContextProvider
-    theme="auto"
-    settings={{
-      environmentId: "<Yor Dynamic Environment ID>",
-      walletConnectors: [EthereumWalletConnectors],
-    }}
-  >
-    <WagmiProvider config={config}>
-      <QueryClientProvider client={queryClient}>
-        <DynamicWagmiConnector>
-          <Main />
-        </DynamicWagmiConnector>
-      </QueryClientProvider>
-    </WagmiProvider>
-  </DynamicContextProvider>
-);
-
-export default App;
-```
-
 3.**Use Sei Account**
 Your Sei Account is now ready to use within the project.
+
+## Library Specific Examples
+
+Here are some examples of how to use Sei Account with some popular libraries: Dynamic, WalletConnect and RainbowKit.
+
+<Tabs items={['Dynamic + nextjs', 'WalletConnect', 'RainbowKit']}>
+    <Tabs.Tab>
+
+        ```tsx copy filename="layout.tsx"
+        "use client";
+
+        import "./globals.css";
+
+        import { Inter } from "next/font/google";
+        import Providers from "@/lib/providers";
+
+        const inter = Inter({ subsets: ["latin"] });
+
+        import '@sei-js/sei-account/eip6963';
+
+        export default function RootLayout({
+        children,
+    }: {
+         children: React.ReactNode;
+    }) {
+        return (
+            <html lang="en">
+              <body className={inter.className}>
+                <Providers>{children}</Providers>
+              </body>
+            </html>
+          );
+        }
+     ```
+    </Tabs.Tab>
+    <Tabs.Tab>
+        ```tsx copy filename="main.tsx"
+        import { FC, PropsWithChildren, StrictMode } from "react";
+        import { createRoot } from "react-dom/client";
+        import "./index.css";
+        import { WagmiProvider, createConfig, http } from "wagmi";
+        import { seiTestnet } from "wagmi/chains";
+        import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+        import {
+          ConnectKitButton,
+          ConnectKitProvider,
+          getDefaultConfig,
+    } from "connectkit";
+
+        import "@sei-js/sei-account/eip6963";
+
+        const config = createConfig(
+        getDefaultConfig({
+          // Your dApps chains
+          chains: [seiTestnet],
+          transports: {
+            // RPC URL for each chain
+            [seiTestnet.id]: http(),
+          },
+
+          // Required API Keys
+          walletConnectProjectId: "",
+
+          // Required App Info
+          appName: "Your App Name",
+
+          // Optional App Info
+          appDescription: "Your App Description",
+          appUrl: "https://family.co", // your app's url
+          appIcon: "https://family.co/logo.png", // your app's icon, no bigger than 1024x1024px (max. 1MB)
+      })
+    );
+
+        const queryClient = new QueryClient();
+
+        export const Web3Provider: FC<PropsWithChildren> = ({ children }) => {
+        return (
+          <WagmiProvider config={config}>
+            <QueryClientProvider client={queryClient}>
+              <ConnectKitProvider>{children}</ConnectKitProvider>
+            </QueryClientProvider>
+          </WagmiProvider>
+          );
+        };
+
+        createRoot(document.getElementById("root")!).render(
+          <StrictMode>
+              <Web3Provider>
+                  <ConnectKitButton />
+              </Web3Provider>
+          </StrictMode>
+        );
+        ```
+    </Tabs.Tab>
+    <Tabs.Tab>
+        ```tsx copy filename="main.tsx"
+        import { StrictMode } from "react";
+        import { createRoot } from "react-dom/client";
+        import "./index.css";
+
+        import "@rainbow-me/rainbowkit/styles.css";
+        import {
+          ConnectButton,
+          getDefaultConfig,
+          RainbowKitProvider,
+    } from "@rainbow-me/rainbowkit";
+        import { WagmiProvider } from "wagmi";
+        import { seiTestnet } from "wagmi/chains";
+        import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
+
+        import "@sei-js/sei-account/eip6963";
+
+        const queryClient = new QueryClient();
+
+        const config = getDefaultConfig({
+          appName: "My RainbowKit App",
+          projectId: "YOUR_PROJECT_ID",
+          chains: [seiTestnet],
+          ssr: true, // If your dApp uses server side rendering (SSR)
+    });
+
+        createRoot(document.getElementById("root")!).render(
+          <StrictMode>
+              <WagmiProvider config={config}>
+                  <QueryClientProvider client={queryClient}>
+                      <RainbowKitProvider>
+                          <ConnectButton />
+                      </RainbowKitProvider>
+                  </QueryClientProvider>
+              </WagmiProvider>
+          </StrictMode>
+        );
+        ```
+    </Tabs.Tab>
+</Tabs>
 
 ## References and links
 
