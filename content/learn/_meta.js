@@ -20,8 +20,6 @@ export default {
 	faucet: 'Faucet',
 	indexers: 'Indexers',
 	oracles: 'Oracles',
-	'centralized-exchanges': 'Centralized Exchanges',
-
 	'-- Consensus': {
 		type: 'separator',
 		title: 'Consensus'
