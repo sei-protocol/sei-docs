@@ -36,7 +36,7 @@ cd sei-hardhat-project
 npm init -y
 
 # Install Hardhat and necessary dependencies
-npm install --save-dev hardhat @nomicfoundation/hardhat-toolbox @openzeppelin/contracts
+npm install --save-dev hardhat @nomicfoundation/hardhat-toolbox @openzeppelin/contracts dotenv
 ```
 
 After installation, initialize a new Hardhat project:
@@ -57,12 +57,11 @@ require('dotenv').config();
 
 // Load environment variables
 const PRIVATE_KEY = process.env.PRIVATE_KEY || '0x0000000000000000000000000000000000000000000000000000000000000000';
-const SEI_API_KEY = process.env.SEI_API_KEY || '';
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
   solidity: {
-    version: '0.8.20',
+    version: '0.8.28',
     settings: {
       optimizer: {
         enabled: true,
@@ -73,46 +72,22 @@ module.exports = {
   networks: {
     // Sei testnet configuration
     seitestnet: {
-      url: 'https://evm-rpc.testnet.sei.io',
+      url: 'https://evm-rpc-testnet.sei-apis.com',
       accounts: [PRIVATE_KEY],
-      chainId: 713715, // Sei testnet chain ID
+      chainId: 1328, // Sei testnet chain ID
       gasPrice: 2000000000 // 2 gwei = 2 nsei
     },
     // Sei mainnet configuration
     seimainnet: {
-      url: 'https://evm-rpc.mainnet.sei.io',
+      url: 'https://evm-rpc-mainnet.sei-apis.com',
       accounts: [PRIVATE_KEY],
-      chainId: 1868, // Sei mainnet chain ID
+      chainId: 1329, // Sei mainnet chain ID
       gasPrice: 2000000000 // 2 gwei = 2 nsei
     },
     // Local development with Hardhat Network
     hardhat: {
       chainId: 31337
     }
-  },
-  etherscan: {
-    apiKey: {
-      seitestnet: SEI_API_KEY,
-      seimainnet: SEI_API_KEY
-    },
-    customChains: [
-      {
-        network: 'seitestnet',
-        chainId: 713715,
-        urls: {
-          apiURL: 'https://api-testnet.sei.io/api',
-          browserURL: 'https://explorer-testnet.sei.io'
-        }
-      },
-      {
-        network: 'seimainnet',
-        chainId: 1868,
-        urls: {
-          apiURL: 'https://api.sei.io/api',
-          browserURL: 'https://explorer.sei.io'
-        }
-      }
-    ]
   },
   paths: {
     sources: './contracts',
@@ -126,11 +101,10 @@ module.exports = {
 };
 ```
 
-Create a `.env` file in your project root to store your private key and API key:
+Create a `.env` file in your project root to store your private key:
 
 ```bash copy
 PRIVATE_KEY=your_private_key_here
-SEI_API_KEY=your_sei_scan_api_key_here
 ```
 
 Add `.env` to your `.gitignore` file to prevent committing sensitive information.
@@ -230,17 +204,20 @@ Now, let's create an ERC721 NFT contract. Create a new file `SeiNFT.sol` in the 
 
 ```solidity copy
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+// Compatible with OpenZeppelin Contracts ^5.0.0
+pragma solidity ^0.8.22;
 
-import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/Counters.sol";
+import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import {ERC721Burnable} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
+import {ERC721Enumerable} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
+import {ERC721Pausable} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Pausable.sol";
+import {ERC721URIStorage} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-contract SeiNFT is ERC721URIStorage, Ownable {
-    using Counters for Counters.Counter;
-    Counters.Counter private _tokenIds;
+contract SeiNFT is ERC721, ERC721Enumerable, ERC721URIStorage, ERC721Pausable, Ownable, ERC721Burnable {
+    uint256 private _nextTokenId;
 
-    // Base URI for metadata
+     // Base URI for metadata
     string private _baseTokenURI;
 
     constructor(address initialOwner, string memory baseTokenURI)
@@ -248,17 +225,6 @@ contract SeiNFT is ERC721URIStorage, Ownable {
         Ownable(initialOwner)
     {
         _baseTokenURI = baseTokenURI;
-    }
-
-    // Function to mint new NFTs
-    function mintNFT(address recipient, string memory tokenURI) public onlyOwner returns (uint256) {
-        _tokenIds.increment();
-        uint256 newItemId = _tokenIds.current();
-
-        _mint(recipient, newItemId);
-        _setTokenURI(newItemId, tokenURI);
-
-        return newItemId;
     }
 
     // Function to update the base URI (only owner)
@@ -269,6 +235,60 @@ contract SeiNFT is ERC721URIStorage, Ownable {
     // Override the baseURI function
     function _baseURI() internal view override returns (string memory) {
         return _baseTokenURI;
+    }
+
+    function pause() public onlyOwner {
+        _pause();
+    }
+
+    function unpause() public onlyOwner {
+        _unpause();
+    }
+
+    function safeMint(address to, string memory uri)
+        public
+        onlyOwner
+        returns (uint256)
+    {
+        uint256 tokenId = _nextTokenId++;
+        _safeMint(to, tokenId);
+        _setTokenURI(tokenId, uri);
+        return tokenId;
+    }
+
+    // The following functions are overrides required by Solidity.
+
+    function _update(address to, uint256 tokenId, address auth)
+        internal
+        override(ERC721, ERC721Enumerable, ERC721Pausable)
+        returns (address)
+    {
+        return super._update(to, tokenId, auth);
+    }
+
+    function _increaseBalance(address account, uint128 value)
+        internal
+        override(ERC721, ERC721Enumerable)
+    {
+        super._increaseBalance(account, value);
+    }
+
+    function tokenURI(uint256 tokenId)
+        public
+        view
+        override(ERC721, ERC721URIStorage)
+        returns (string memory)
+    {
+        return super.tokenURI(tokenId);
+    }
+
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        override(ERC721, ERC721Enumerable, ERC721URIStorage)
+        returns (bool)
+    {
+        return super.supportsInterface(interfaceId);
     }
 }
 ```
@@ -296,7 +316,7 @@ async function main() {
 
   // Mint an example NFT
   console.log('Minting an example NFT...');
-  const mintTx = await seiNFT.mintNFT(deployer.address, '1.json');
+  const mintTx = await seiNFT.safeMint(deployer.address, '1.json');
   await mintTx.wait();
   console.log('NFT minted with ID: 1');
 }
@@ -313,163 +333,6 @@ Deploy the NFT contract to the Sei testnet:
 
 ```bash copy
 npx hardhat run scripts/deploy-sei-nft.js --network seitestnet
-```
-
-## Implementing an Upgradeable Smart Contract
-
-Upgradeable contracts are essential for complex applications that may need patches or feature additions in the future. We'll create an upgradeable ERC1155 contract using OpenZeppelin's upgradeable contracts.
-
-First, create `SeiMultiToken.sol` in the `contracts` directory:
-
-```solidity copy
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
-
-import "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-
-contract SeiMultiToken is Initializable, ERC1155Upgradeable, OwnableUpgradeable, UUPSUpgradeable {
-    // Token type IDs
-    uint256 public constant GOLD = 0;
-    uint256 public constant SILVER = 1;
-    uint256 public constant BRONZE = 2;
-
-    // Version tracking for upgrades
-    string public version;
-
-    /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() {
-        _disableInitializers();
-    }
-
-    function initialize(address initialOwner) public initializer {
-        __ERC1155_init("https://your-metadata-server.com/metadata/{id}.json");
-        __Ownable_init(initialOwner);
-        __UUPSUpgradeable_init();
-
-        version = "1.0";
-
-        // Mint some initial tokens to the owner
-        _mint(initialOwner, GOLD, 100, "");
-        _mint(initialOwner, SILVER, 500, "");
-        _mint(initialOwner, BRONZE, 1000, "");
-    }
-
-    // Function to mint new tokens (only owner)
-    function mint(address to, uint256 id, uint256 amount) public onlyOwner {
-        _mint(to, id, amount, "");
-    }
-
-    // Function to mint batches of tokens (only owner)
-    function mintBatch(address to, uint256[] memory ids, uint256[] memory amounts) public onlyOwner {
-        _mintBatch(to, ids, amounts, "");
-    }
-
-    // Authorization for upgrades
-    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
-}
-```
-
-Next, create a deployment script `deploy-multi-token.js`:
-
-```javascript copy
-const { ethers, upgrades } = require('hardhat');
-
-async function main() {
-  const [deployer] = await ethers.getSigners();
-  console.log('Deploying contracts with the account:', deployer.address);
-
-  // Get the contract factory
-  const SeiMultiToken = await ethers.getContractFactory('SeiMultiToken');
-
-  // Deploy as upgradeable contract
-  console.log('Deploying SeiMultiToken...');
-  const seiMultiToken = await upgrades.deployProxy(SeiMultiToken, [deployer.address], { initializer: 'initialize', kind: 'uups' });
-
-  await seiMultiToken.waitForDeployment();
-  console.log('SeiMultiToken deployed to:', await seiMultiToken.getAddress());
-}
-
-main()
-  .then(() => process.exit(0))
-  .catch((error) => {
-    console.error(error);
-    process.exit(1);
-  });
-```
-
-To demonstrate upgrading, let's create a new version of the contract. Create `SeiMultiTokenV2.sol`:
-
-```solidity copy
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
-
-import "./SeiMultiToken.sol";
-
-contract SeiMultiTokenV2 is SeiMultiToken {
-    // New feature: A mapping to store token names
-    mapping(uint256 => string) public tokenNames;
-
-    // Function to set a token name (only owner)
-    function setTokenName(uint256 id, string memory name) public onlyOwner {
-        tokenNames[id] = name;
-    }
-
-    // Function to update the version
-    function updateVersion() external onlyOwner {
-        version = "2.0";
-    }
-
-    // New function to burn tokens
-    function burn(address from, uint256 id, uint256 value) public {
-        require(from == msg.sender || isApprovedForAll(from, msg.sender),
-                "ERC1155: caller is not owner nor approved");
-        _burn(from, id, value);
-    }
-}
-```
-
-Now create an upgrade script `upgrade-multi-token.js`:
-
-```javascript copy
-const { ethers, upgrades } = require('hardhat');
-
-async function main() {
-  const [deployer] = await ethers.getSigners();
-  console.log('Upgrading with the account:', deployer.address);
-
-  // Address of the deployed proxy
-  const proxyAddress = 'YOUR_DEPLOYED_PROXY_ADDRESS';
-
-  // Get the contract factory for V2
-  const SeiMultiTokenV2 = await ethers.getContractFactory('SeiMultiTokenV2');
-
-  // Upgrade the contract
-  console.log('Upgrading SeiMultiToken...');
-  const upgraded = await upgrades.upgradeProxy(proxyAddress, SeiMultiTokenV2);
-
-  console.log('SeiMultiToken upgraded. Address:', await upgraded.getAddress());
-
-  // Update the version
-  const updateTx = await upgraded.updateVersion();
-  await updateTx.wait();
-
-  // Set some token names
-  await upgraded.setTokenName(0, 'GOLD');
-  await upgraded.setTokenName(1, 'SILVER');
-  await upgraded.setTokenName(2, 'BRONZE');
-
-  console.log('Version updated and token names set');
-}
-
-main()
-  .then(() => process.exit(0))
-  .catch((error) => {
-    console.error(error);
-    process.exit(1);
-  });
 ```
 
 ## Testing Your Smart Contracts

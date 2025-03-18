@@ -23,8 +23,8 @@ export default {
 		title: 'Smart Contracts'
 	},
 	'evm-general': 'EVM (General)',
-	'evm-hardhat': 'EVM Hardhat',
-	'evm-foundry': 'EVM Foundry',
+	'evm-hardhat': 'EVM with Hardhat',
+	'evm-foundry': 'EVM with Foundry',
 	'solidity-resources': 'Solidity Resources',
 	'nft-contract-tutorial': 'ERC721 (NFT) Contracts',
 
