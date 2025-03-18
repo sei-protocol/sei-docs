@@ -22,7 +22,7 @@ export default function DocsProviders({ children, pageMap }) {
 				<Navbar
 					logo={<Logo />}
 					logoLink='/'
-					className='fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 w-full dark:bg-neutral-900 bg-neutral-100'
+					className='fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 w-full dark:bg-neutral-900 bg-neutral-100 h-16'
 					children={
 						<div className='flex items-center justify-between gap-4'>
 							<AskCookbook />
@@ -32,9 +32,11 @@ export default function DocsProviders({ children, pageMap }) {
 				/>
 			}
 			pageMap={pageMap}>
-			<Theme accentColor='red' grayColor='gray' scaling='100%'>
-				{children}
-			</Theme>
+			<div className='pt-16'>
+				<Theme accentColor='red' grayColor='gray' scaling='100%'>
+					{children}
+				</Theme>
+			</div>
 		</Layout>
 	);
 }
