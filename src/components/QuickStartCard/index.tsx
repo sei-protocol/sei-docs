@@ -3,7 +3,6 @@
 import React, { ReactNode } from 'react';
 import Link from 'next/link';
 import { IconArrowRight } from '@tabler/icons-react';
-import GlobalStyles from './GlobalStyles';
 
 interface QuickStartCardProps {
 	title: string;
@@ -12,7 +11,7 @@ interface QuickStartCardProps {
 	description?: string;
 }
 
-export const QuickStartCard = ({ title, href, icon, description }: QuickStartCardProps) => {
+export function QuickStartCard({ title, href, icon, description }: QuickStartCardProps) {
 	const isExternalLink = href.startsWith('http');
 
 	const CardContent = () => (
@@ -35,13 +34,13 @@ export const QuickStartCard = ({ title, href, icon, description }: QuickStartCar
 				</div>
 			</div>
 			<div className='absolute bottom-3 right-3 opacity-50 group-hover:opacity-100 transition-opacity duration-300'>
-				<IconArrowRight className='w-3 h-3 text-red-9 dark:text-red-7' />
+				<IconArrowRight className='w-3 h-3 text-red-9 dark:text-red-7 group-hover:text-red-9 dark:group-hover:text-red-7' />
 			</div>
 		</div>
 	);
 
 	const cardClasses =
-		'quick-start-card block w-full h-full backdrop-blur-sm bg-white/70 dark:bg-neutral-900/60 border border-neutral-200/40 dark:border-neutral-800/40 rounded-lg shadow-sm hover:shadow transition-all duration-300 group hover:border-red-9/20 dark:hover:border-red-7/20 relative overflow-hidden';
+		'block w-full h-full backdrop-blur-sm bg-white/70 dark:bg-neutral-900/60 border border-neutral-200/40 dark:border-neutral-800/40 rounded-lg shadow-sm hover:shadow transition-all duration-300 group hover:border-red-9/20 dark:hover:border-red-7/20 relative overflow-hidden hover:-translate-y-[1px] animate-fadeIn odd:animate-fadeIn-400 even:animate-fadeIn-500 [&:nth-child(3n)]:animate-fadeIn-600';
 
 	if (isExternalLink) {
 		return (
@@ -56,11 +55,10 @@ export const QuickStartCard = ({ title, href, icon, description }: QuickStartCar
 			<CardContent />
 		</Link>
 	);
-};
+}
 
-export const QuickStartCardContainer = ({ children }: { children: ReactNode }) => {
+export function QuickStartCardContainer({ children }: { children: ReactNode }) {
 	return <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 my-4'>{children}</div>;
-};
+}
 
-export { GlobalStyles };
 export default QuickStartCard;

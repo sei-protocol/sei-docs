@@ -24,4 +24,5 @@ export * from './VersionFetcher';
 export * from './QuickStartCard';
 export * from './CompactExplorerSearch';
 export * from './Collapsible';
-export * from './CopyButton';
+export * from './NetworkTabs';
+export * from './ThemeToggle';
