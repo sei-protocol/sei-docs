@@ -1,0 +1,268 @@
+import { Callout } from 'nextra/components';
+
+# Frontend Development
+
+Developing the frontend of a dApp on Sei involves connecting to wallets,
+interacting with the blockchain via RPC endpoints, and signing and broadcasting
+transactions.
+
+In this section, we'll explore Sei's unique interoperability features by building an EVM compatible DApp that interacts with a CosmWasm smart contract.
+We will use [ethers.js](https://docs.ethers.org/v6/) to build a React app that interacts with a CosmWasm smart contract using the Sei [CosmWasm precompile](https://github.com/sei-protocol/sei-chain/tree/main/precompiles/wasmd).
+
+### EVM and EVM RPC dApps:
+
+- **Wagmi**: A React-based library for Ethereum dApps that simplifies wallet
+  connection and interaction. Provides hooks for interacting with Ethereum
+  wallets and contracts for use with modern frontend libraries and frameworks.
+- [Wagmi Documentation](https://wagmi.sh/)
+- **Viem**: A lightweight and flexible library for Ethereum development.
+- [Viem Documentation](https://viem.sh/docs/getting-started)
+- **Ethers.js**: A complete and compact library for interacting with the
+  Ethereum blockchain and its ecosystem. Known for its simplicity and extensive
+  functionality.
+- [Ethers.js Documentation](https://docs.ethers.io/v6/)
+
+## Requirements
+
+Before starting, ensure you have:
+
+- Node.js & NPM installed
+- One of the Sei wallets listed [here](/learn/wallets)
+
+## Creating a React Project
+
+Start by creating a new React project using Vite's TypeScript template for
+streamlined development:
+
+    ```bash copy
+    npm create vite@latest my-counter-frontend -- --template react-ts
+    ```
+
+This command creates a new folder with a React project using TypeScript. Open
+`my-counter-frontend` in your favorite IDE.
+
+<Callout type="info">The rest of this tutorial will be in TypeScript. If you're not using TypeScript, you can easily adjust by removing the types.</Callout>
+
+## Installing Dependencies
+
+Install `ethers`, an Ethereum library that facilitates interaction with the
+Ethereum blockchain:
+
+    ```bash copy
+    npm install ethers
+    ```
+
+## Defining Contract Addresses and ABI
+
+In this tutorial, we will be using the **Wasm Precompile** to interact with our
+CosmWasm contract from the EVM. Precompiles (short for Precompiled contracts)
+are EVM compatible contracts that are built into the chain.
+The Wasm Precompile
+is a unique smart contract on Sei that enables EVM clients to query and execute
+CosmWasm contracts. Refer to the docs on
+[precompiles](/evm/precompiles/example-usage) for
+more details.
+
+First, import the address and ABI of the CosmWasm precompile from `@sei-js/evm`.
+
+<Callout type="info">`@sei-js` contains NPM libraries for writing applications that interact with Sei. Learn more [here](https://github.com/sei-protocol/sei-js/tree/main).</Callout>
+
+`@sei-js/evm` is an npm package that contains useful constants and helpers for
+interacting with the EVM on Sei.
+
+To install sei-js:
+
+    ```bash copy
+    npm install @sei-js/evm
+    ```
+
+At the top of `App.tsx` you can then import `WASM_PRECOMPILE_ADDRESS`,
+`WASM_PRECOMPILE_ABI`. These constants allow us to interact with the Wasm
+Precompile.
+
+    ```tsx copy
+    import { WASM_PRECOMPILE_ADDRESS, WASM_PRECOMPILE_ABI, WasmPrecompileContract } from '@sei-js/evm';
+    import { ethers } from 'ethers';
+    ```
+
+These values will be used in the app to query and execute a contract.
+
+## Connecting to the Wallet and Initializing the Contract
+
+Replace your main `App` component with the following:
+
+    ```tsx copy filename="App.tsx"
+    import { WASM_PRECOMPILE_ADDRESS, SEI_CHAIN_INFO, getWasmPrecompileEthersV6Contract } from '@sei-js/evm';
+    import { useEffect, useState } from 'react';
+    import { BrowserProvider, Contract, toUtf8Bytes, toUtf8String } from 'ethers';
+    import './App.css';
+
+    function App() {
+    	const [count, setCount] = useState<string>();
+    	const [contract, setContract] = useState<Contract>();
+    	const [isIncrementing, setIsIncrementing] = useState(false);
+
+    	// TODO: Replace this with your CosmWasm contract address here
+    	const COUNTER_CONTRACT_ADDRESS = 'sei14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9sh9m79m';
+
+    	const fetchCount = async () => {
+    		if (!contract) {
+    			return;
+    		}
+    		// Query to get the count on the counter contract
+    		const queryMsg = { get_count: {} };
+    		const queryResponse = await contract.query(COUNTER_CONTRACT_ADDRESS, toUtf8Bytes(JSON.stringify(queryMsg)));
+    		const { count } = JSON.parse(toUtf8String(queryResponse));
+    		setCount(count);
+    	};
+
+    	useEffect(() => {
+    		fetchCount();
+    	}, [contract]);
+
+    	const connectWallet = async () => {
+    		if (window.ethereum) {
+    			const provider = new BrowserProvider(window.ethereum);
+    			const { chainId } = await provider.getNetwork();
+    			const devnetChainId = SEI_CHAIN_INFO.devnet.chainId;
+    			if (chainId !== BigInt(devnetChainId)) {
+    				alert('Wallet is not connected to Sei EVM devnet');
+    				return;
+    			}
+
+    			const signer = await provider.getSigner();
+    			const contract = getWasmPrecompileEthersV6Contract(signer);
+
+    			setContract(contract);
+    		} else {
+    			alert('No EVM compatible wallet installed');
+    		}
+    	};
+
+    	const incrementCount = async () => {
+    		if (!contract) {
+    			return;
+    		}
+
+    		setIsIncrementing(true);
+    		// Execute message to increment the count on the contract
+    		const executeMsg = { increment: {} };
+    		const executeResponse = await contract.execute(
+    			COUNTER_CONTRACT_ADDRESS,
+    			toUtf8Bytes(JSON.stringify(executeMsg)),
+    			toUtf8Bytes(JSON.stringify([])) // Used for sending funds if needed
+    		);
+    		// Wait for the transaction to be confirmed
+    		await executeResponse.wait();
+    		console.log(executeResponse);
+    		setIsIncrementing(false);
+    		await fetchCount();
+    	};
+
+    	return (
+    		<>
+    			<div className="card">
+    				{contract ? (
+    					<div>
+    						<h1>Count is {count}</h1>
+    						<button disabled={isIncrementing} onClick={incrementCount}>
+    							{isIncrementing ? 'incrementing...' : 'increment'}
+    						</button>
+    					</div>
+    				) : (
+    					<button onClick={connectWallet}>Connect Wallet</button>
+    				)}
+    			</div>
+    		</>
+    	);
+    }
+
+    export default App;
+    ```
+
+### Detailed outline of `App.tsx`
+
+**State Declarations**
+
+- `count`: Holds the current count fetched from the smart contract.
+- `contract`: An instance of the ethers Contract object, used for interacting
+  with the blockchain.
+- `isIncrementing`: A boolean to manage UI state during contract execution
+
+**Effect Hooks**
+
+A single `useEffect` hook to fetch the current count whenever the contract state
+changes, indicating that the contract instance is ready for interaction.
+
+**Connecting to EVM Wallet**
+
+A function named `connectWallet` that:
+
+- Checks for any EVM compatible wallet extension.
+- Establishes a connection to the Ethereum network via the connected wallet,
+  using ethers.js BrowserProvider.
+- Verifies the correct network (Sei EVM devnet) by comparing chainId.
+- Creates an ethers.js Contract instance with the signer from the wallet,
+  setting it in the contract state for later use.
+
+**Fetching Contract Data**
+
+A function named `fetchCount` that:
+
+- Executes a contract query to get the current count.
+- Parses and updates the count state with the response.
+
+**Incrementing the Counter**
+
+A function named `incrementCount` that:
+
+- Sends a transaction to the smart contract to increment the count.
+- Waits for the transaction to be confirmed.
+- Refetches the count to update the UI with the new value.
+
+To see your app in action, run `npm run dev` to spin up a local version of the
+application. Once you connect your wallet, you should see a counter, as well as
+a button you can use to increment the counter on the contract.
+
+Congrats on deploying your first interoperable dApp on Sei!
+
+### Polyfills Warning
+
+When developing frontend applications for the blockchain, it's important to be
+aware that some libraries may require polyfills, especially when used in browser
+environments. For instance, the `Buffer` class and other Node.js-specific
+features are not natively available in browsers and need to be polyfilled.
+
+If you are using Vite or another rollup based frontend library you can add the
+following to the entry point of your app.
+
+```tsx copy
+import { Buffer } from 'buffer';
+
+// Polyfill self for browser and global for Node.js
+const globalObject = typeof self !== 'undefined' ? self : global;
+
+Object.assign(globalObject, {
+  process: process,
+  Buffer: Buffer
+});
+```
+
+If you are using a Webpack based bundling tool you can use the following plugin
+in you Webpack config.
+
+```
+yarn add -D node-polyfill-webpack-plugin
+```
+
+```tsx copy
+import NodePolyfillPlugin from 'node-polyfill-webpack-plugin';
+
+... // the rest of your webpack config
+plugins: [
+    ...
+    new NodePolyfillPlugin(),
+    ...
+],
+...
+```

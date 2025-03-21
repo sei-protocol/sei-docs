@@ -1,0 +1,225 @@
+# EVM Transactions on Cosmos
+
+On Sei, EVM transactions can be executed using the same tools as native Cosmos transactions. This is useful for developers who want to interact with both native and EVM functionality in their applications. This guide will help you understand how to query and send transactions using the Sei CLI (`seid`) and Foundry's `cast` command, as well as how to generate transaction templates for both native and EVM transactions.
+
+## `seid` for EVM
+
+You can query or send transactions to Sei easily via `seid` once you have the
+`seid` command installed (see [Installing Seid](/cosmwasm/installing-seid))
+
+### Queries
+
+If the machine you run these commands from are not running a node of the
+network, you'll need to append `--node http://url-to-sei-cosmos-rpc` to your
+command. Refer to the
+[RPC Providers](/learn/rpc-providers) page for a list of
+RPC endpoints.
+
+- `seid q evm sei-addr [some EVM address]`: Gets the associated Sei address of
+  the queried EVM address, if it exists on-chain.
+- `seid q evm evm-addr [some Sei address]`: Gets the associated EVM address of
+  the queried Sei address, if it exists on-chain.
+- `seid q evm erc20 [erc20 address] [method] [arguments...]`: Query the ERC20
+  contract at given address using the given method/arguments.
+- `seid q evm payload [abi-filepath] [method] [arguments...]`: Generate the
+  hexadecimal payload of the requested method call given an ABI.
+- `seid q evm pointer [type] [pointee]`: Gets the pointer contract of the
+  requested pointee. The `type` parameter can be one of "NATIVE", "CW20",
+  "CW721", "ERC20", or "ERC721", and `pointee` is the target contract address.
+  For "NATIVE" type, `pointee` would be the native denom name instead.
+
+### Transactions
+
+Sending transactions via CLI requires you to have keys added via
+`seid keys add`. You can then specify the key you want to use by appending
+`--from=[key name]` to your command.
+
+If the machine you run these commands from are not a node of the network, you'd
+need to append `--evm-rpc http://url-to-sei-evm-rpc` to your command. Refer to
+the [RPC Providers](/learn/rpc-providers) page for a list
+of RPC endpoints.
+
+- `seid tx evm associate-address`: Associates the Sei address and EVM address
+  on-chain for the sending key.
+- `seid tx evm send [to EVM address] [amount in wei]`: Sends native tokens to
+  the target EVM address.
+- `seid tx evm deploy [path_to_binary]`: Deploys the EVM contract specified in
+  `path_to_binary`.
+- `seid tx evm call-contract [addr] [payload hex]`: Sends a transaction that
+  calls contract at the target address with the provided payload.
+- `seid tx evm erc20-send [addr] [recipient] [amount]`: Sends ERC20 tokens of
+  contract at `addr` to the target recipient.
+- `seid tx evm delegate [val-addr] [amount]`: Delegates specified amount to the
+  target validator address. The validator address must be in Sei/Cosmos
+  validator address format.
+
+### Transaction Template Generation
+
+The `--generate-only` flag transforms any Sei CLI transaction command into a
+template generator, creating complete transaction structures without
+broadcasting them. Through the `--generate-only` flag and Foundry's `cast` tool,
+developers can craft, analyze, and debug transactions across both native Cosmos
+and EVM environments.
+
+#### Basic Command Pattern
+
+The general pattern follows this structure:
+
+```bash copy
+seid tx <module> <action> <parameters> --from <key> --generate-only
+```
+
+For example, a token transfer template:
+
+```bash copy
+seid tx bank send \
+  $(seid keys show sender -a) \
+  $(seid keys show recipient -a) \
+  1000000usei \
+  --from sender \
+  --generate-only | jq
+```
+
+### Generating EVM Transaction Templates
+
+To generate an EVM transaction template, use the `evm` module with
+`--generate-only`. Here's an example registering an EVM pointer:
+
+```bash copy
+seid tx evm register-evm-pointer NATIVE \
+  factory/sei1ep3f207kt7julz9tjwxp2x8kluj0y9l6u0fume/gptw \
+  --gas-fee-cap=100000000000 \
+  --gas-limit=2500000 \
+  --evm-rpc=https://localhost:8545 \
+  --from tf \
+  --generate-only
+```
+
+This command returns a transaction hash that you can analyze further using
+Foundry's `cast` tool.
+
+### Analyzing EVM Transactions with Cast
+
+Once you have a transaction hash, you can use Foundry's `cast` command to
+inspect the transaction details:
+
+```bash copy
+cast tx 0x5010e6600e67f04a9bc3d3b670a7c2de380b180713d9a014a5dbd76b7e2190f1 \
+  --rpc-url=https://localhost:8545
+```
+
+This provides detailed transaction information:
+
+```text copy
+blockHash            0x4696d63a9a9ae88b03bcc94ccbd87f407e994b309d1dff9c0626de51ac57b76e
+blockNumber          130076639
+from                 0xAa55a16dD4E73c48C968928983c2bcC98d913d96
+transactionIndex     7
+effectiveGasPrice    100000000000
+accessList           []
+chainId              1329
+gasLimit             2500000
+hash                 0x5010e6600e67f04a9bc3d3b670a7c2de380b180713d9a014a5dbd76b7e2190f1
+input                0xc31d960f0000...
+maxFeePerGas         100000000000
+maxPriorityFeePerGas 100000000000
+nonce                3
+r                    0x92313277d1ffad9a18260303081671a2d40035016ac83740486dee916c964db7
+s                    0x158de03cac836b1fad26770274cffdb06b0809961811eb0b66aebfff95186417
+to                   0x000000000000000000000000000000000000100b
+type                 2
+value                0
+yParity              1
+```
+
+> Learn more about the EVM transaction structure in the [EVM transactions documentation](/evm/transactions).
+
+### Practical Applications
+
+When developing applications that interact with both native and EVM functionality you may want to get an eth transaction by hash from a dApp that is set up to use the Cosmos RPC interface, not the EVM RPC interface:
+
+```javascript copy
+async function analyzeTransaction(txHash) {
+  // First, get the native transaction details
+  const nativeTx = await fetch(`${seiRestEndpoint}/cosmos/tx/v1beta1/txs/${txHash}`).then((res) => res.json());
+
+  // If it's an EVM transaction, get EVM details
+  if (nativeTx.tx.body.messages[0]['@type'].includes('evm')) {
+    const evmTx = await fetch(`${evmRpcEndpoint}`, {
+      method: 'POST',
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'eth_getTransactionByHash',
+        params: [txHash],
+        id: 1
+      })
+    }).then((res) => res.json());
+
+    return {
+      native: nativeTx,
+      evm: evmTx
+    };
+  }
+
+  return { native: nativeTx };
+}
+```
+
+### Template Generation for Different Transaction Types
+
+Generate templates for various transaction types:
+
+```bash copy
+# Native governance proposal
+seid tx gov submit-proposal param-change proposal.json \
+  --from validator \
+  --generate-only > native_template.json
+
+# EVM contract interaction
+seid tx evm send-tx \
+  --evm-rpc=http://localhost:8545 \
+  --gas-limit=2500000 \
+  --from=mykey \
+  --generate-only > evm_template.json
+```
+
+### Best Practices
+
+#### Transaction Analysis
+
+When analyzing transactions:
+
+- Always verify both native and EVM aspects of transactions
+- Use `cast` to decode input data when working with EVM transactions
+- Keep track of gas parameters across both layers
+- Monitor transaction status on both native and EVM layers
+
+#### Error Handling
+
+Handle potential issues across both layers:
+
+```javascript copy
+try {
+  // Check native transaction status
+  const nativeStatus = await checkNativeStatus(txHash);
+
+  // If native succeeded but EVM failed, investigate EVM layer
+  if (nativeStatus.success) {
+    const evmStatus = await checkEvmStatus(txHash);
+    if (!evmStatus.success) {
+      const evmError = await cast.call(['tx', txHash, '--rpc-url', evmRpcUrl]);
+      console.error('EVM transaction failed:', evmError);
+    }
+  }
+} catch (error) {
+  console.error('Transaction analysis failed:', error);
+}
+```
+
+> [!WARNING]
+>
+> Security Best Practices
+>
+> - Keep private keys secure and never include them in templates
+> - Use an `.env` file or other environment variable where possible when working
+>   with hard coded wallet keys or mnemonics

@@ -1,0 +1,183 @@
+# EVM (general)
+
+## Overview
+
+The Ethereum Virtual Machine (EVM) is the runtime environment for smart
+contracts, enabling compatibility with Ethereum-based dApps. Sei is an EVM
+compatible blockchain. Sei's parallelized EVM ensures high performance and
+efficiency.
+
+Here are some key points about the EVM:
+
+1. **Turing Completeness**: The EVM is Turing complete, meaning it can execute
+   any computable function. This allows developers to write complex smart
+   contracts.
+2. **Gas**: Transactions and contract executions on the EVM compatible network
+   consume gas. Gas is a measure of computational work, and users pay for it in
+   usei on Sei networks . Gas ensures that malicious or inefficient code doesn’t
+   overload the network.
+3. **Bytecode Execution**: Smart contracts are compiled into bytecode (low-level
+   machine-readable instructions) and deployed to the EVM compatible network.
+   The EVM executes this bytecode.
+
+## Smart contract languages
+
+The two most popular languages for developing smart contracts on the EVM are
+**Solidity** and **Vyper**.
+
+### Solidity
+
+- Object-oriented, high-level language for implementing smart contracts.
+- Curly-bracket language that has been most profoundly influenced by C++.
+- Statically typed (the type of a variable is known at compile time).
+- Supports:
+  - Inheritance (you can extend other contracts).
+  - Libraries (you can create reusable code that you can call from different
+    contracts – like static functions in a static class in other object oriented
+    programming languages).
+  - Complex user-defined types.
+
+#### Example solidity contract
+
+```solidity copy
+// SPDX-License-Identifier: GPL-3.0
+pragma solidity >= 0.7.0;
+
+contract Coin {
+    // The keyword "public" makes variables
+    // accessible from other contracts
+    address public minter;
+    mapping (address => uint) public balances;
+
+    // Events allow clients to react to specific
+    // contract changes you declare
+    event Sent(address from, address to, uint amount);
+
+    // Constructor code is only run when the contract
+    // is created
+    constructor() {
+        minter = msg.sender;
+    }
+
+    // Sends an amount of newly created coins to an address
+    // Can only be called by the contract creator
+    function mint(address receiver, uint amount) public {
+        require(msg.sender == minter);
+        require(amount < 1e60);
+        balances[receiver] += amount;
+    }
+
+    // Sends an amount of existing coins
+    // from any caller to an address
+    function send(address receiver, uint amount) public {
+        require(amount <= balances[msg.sender], "Insufficient balance.");
+        balances[msg.sender] -= amount;
+        balances[receiver] += amount;
+        emit Sent(msg.sender, receiver, amount);
+    }
+}
+```
+
+### Vyper
+
+- Pythonic programming language
+- Strong typing
+- Small and understandable compiler code
+- Efficient bytecode generation
+- Deliberately has less features than Solidity with the aim of making contracts
+  more secure and easier to audit. Vyper does not support:
+  - Modifiers
+  - Inheritance
+  - Inline assembly
+  - Function overloading
+  - Operator overloading
+  - Recursive calling
+  - Infinite-length loops
+  - Binary fixed points
+
+#### Example Vyper contract
+
+```python copy
+# Open Auction
+
+# Auction params
+# Beneficiary receives money from the highest bidder
+beneficiary: public(address)
+auctionStart: public(uint256)
+auctionEnd: public(uint256)
+
+# Current state of auction
+highestBidder: public(address)
+highestBid: public(uint256)
+
+# Set to true at the end, disallows any change
+ended: public(bool)
+
+# Keep track of refunded bids so we can follow the withdraw pattern
+pendingReturns: public(HashMap[address, uint256])
+
+# Create a simple auction with `_bidding_time`
+# seconds bidding time on behalf of the
+# beneficiary address `_beneficiary`.
+@external
+def __init__(_beneficiary: address, _bidding_time: uint256):
+    self.beneficiary = _beneficiary
+    self.auctionStart = block.timestamp
+    self.auctionEnd = self.auctionStart + _bidding_time
+
+# Bid on the auction with the value sent
+# together with this transaction.
+# The value will only be refunded if the
+# auction is not won.
+@external
+@payable
+def bid():
+    # Check if bidding period is over.
+    assert block.timestamp < self.auctionEnd
+    # Check if bid is high enough
+    assert msg.value > self.highestBid
+    # Track the refund for the previous high bidder
+    self.pendingReturns[self.highestBidder] += self.highestBid
+    # Track new high bid
+    self.highestBidder = msg.sender
+    self.highestBid = msg.value
+
+# Withdraw a previously refunded bid. The withdraw pattern is
+# used here to avoid a security issue. If refunds were directly
+# sent as part of bid(), a malicious bidding contract could block
+# those refunds and thus block new higher bids from coming in.
+@external
+def withdraw():
+    pending_amount: uint256 = self.pendingReturns[msg.sender]
+    self.pendingReturns[msg.sender] = 0
+    send(msg.sender, pending_amount)
+
+# End the auction and send the highest bid
+# to the beneficiary.
+@external
+def endAuction():
+    # It is a good guideline to structure functions that interact
+    # with other contracts (i.e. they call functions or send ether)
+    # into three phases:
+    # 1. checking conditions
+    # 2. performing actions (potentially changing conditions)
+    # 3. interacting with other contracts
+    # If these phases are mixed up, the other contract could call
+    # back into the current contract and modify the state or cause
+    # effects (ether payout) to be performed multiple times.
+    # If functions called internally include interaction with external
+    # contracts, they also have to be considered interaction with
+    # external contracts.
+
+    # 1. Conditions
+    # Check if auction endtime has been reached
+    assert block.timestamp >= self.auctionEnd
+    # Check if this function has already been called
+    assert not self.ended
+
+    # 2. Effects
+    self.ended = True
+
+    # 3. Interaction
+    send(self.beneficiary, self.highestBid)
+```
