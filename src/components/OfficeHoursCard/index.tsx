@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { IconClock } from '@tabler/icons-react';
 
 export const OfficeHoursCard = () => {
@@ -25,14 +24,20 @@ export const OfficeHoursCard = () => {
 			href='https://discord.gg/sei'
 			target='_blank'
 			rel='noopener noreferrer'
-			className='mt-16 block bg-gradient-to-r from-[#9e1f1933] to-[#9e1f1944] text-[#9e1f19] dark:text-white p-6 rounded-2xl shadow-lg flex items-center gap-4 border border-red-500/20 transition-transform duration-150 hover:scale-[1.02]'>
-			<div className='bg-white/20 p-3 rounded-full'>
-				<IconClock className='w-10 h-10 text-[#9e1f19] dark:text-white' />
-			</div>
-			<div>
-				<h2 className='text-2xl font-bold'>Developer Office Hours</h2>
-				<p className='text-sm opacity-90'>Questions? Join us every week for office hours in the Sei Discord.</p>
-				<p className='mt-2 font-medium'>📅 Wednesdays @ 9 AM Pacific ({localTime})</p>
+			className='my-6 block border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 rounded-xl shadow-sm transition-all duration-200 hover:border-neutral-300 dark:hover:border-neutral-700 hover:shadow-md group'>
+			<div className='flex items-center gap-4 p-4'>
+				<div className='bg-red-3 dark:bg-neutral-800 p-3 rounded-full flex-shrink-0 transition-all duration-200 group-hover:bg-red-4 dark:group-hover:bg-neutral-700'>
+					<IconClock className='w-5 h-5 text-red-9 dark:text-red-7' />
+				</div>
+				<div>
+					<h3 className='text-base font-medium text-neutral-900 dark:text-neutral-100 flex items-center'>
+						<span>Developer Office Hours</span>
+						<span className='ml-2 px-2 py-0.5 text-xs bg-red-3 dark:bg-neutral-800 rounded-full text-red-9 dark:text-red-7 border border-red-4 dark:border-neutral-700'>
+							Weekly
+						</span>
+					</h3>
+					<p className='text-sm text-neutral-600 dark:text-neutral-400'>Join our Discord every Wednesday @ 9 AM Pacific ({localTime})</p>
+				</div>
 			</div>
 		</a>
 	);
