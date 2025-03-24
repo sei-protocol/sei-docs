@@ -61,14 +61,16 @@ const WalletComponent = () => {
 		}
 
 		return (
-			<Button onClick={() => setShowAuthFlow(true)} className='flex flex-row gap-4 !bg-[#9e1f19] !p-6 !rounded-2xl cursor-pointer hover:!bg-[#9e1f19aa]'>
-				<p className='font-bold'>Select Your Wallet</p>
-			</Button>
+			<div className='flex flex-col gap-4 mt-8'>
+				<Button onClick={() => setShowAuthFlow(true)} className='flex flex-row gap-4 !bg-[#9e1f19] !p-6 !rounded-2xl cursor-pointer hover:!bg-[#9e1f19aa]'>
+					<p className='font-bold'>Connect & Link Wallet</p>
+				</Button>
+			</div>
 		);
 	};
 
 	if (!network) {
-		return <Box className='w-full mt-4'>{renderContent()}</Box>;
+		return <Box className='w-full'>{renderContent()}</Box>;
 	}
 
 	return (

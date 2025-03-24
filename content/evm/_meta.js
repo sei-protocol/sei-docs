@@ -14,17 +14,18 @@ export default {
 	},
 	'building-a-frontend': 'Building a Frontend',
 	'sei-account': {
-		title: 'Sei Account',
-		display: 'hidden'
+		title: 'Sei Account'
 	},
 
 	'-- Smart Contracts': {
 		type: 'separator',
 		title: 'Smart Contracts'
 	},
-	'evm-general': 'Overview',
-	'nft-contract-tutorial': 'ERC721 (NFT) Contracts',
+	'evm-general': 'EVM (General)',
+	'evm-hardhat': 'EVM with Hardhat',
+	'evm-foundry': 'EVM with Foundry',
 	'solidity-resources': 'Solidity Resources',
+	'nft-contract-tutorial': 'ERC721 (NFT) Contracts',
 
 	'-- Reference': {
 		type: 'separator',

@@ -23,7 +23,10 @@ export function EcosystemDynamicSection({ category }: EcosystemDynamicSectionPro
 		(async () => {
 			try {
 				const data: EcosystemResponse = await getSeiEcosystemAppsData();
-				setApps(data.data);
+				// Filter for apps with app.fieldData.priority set to 4516fc7f3951b7d6a252f418edb6e473 only
+				const filteredApps = data.data.filter((app) => app.fieldData.priority === '4516fc7f3951b7d6a252f418edb6e473');
+
+				setApps(filteredApps);
 			} catch (err) {
 				console.error('Failed to fetch data:', err);
 			} finally {
