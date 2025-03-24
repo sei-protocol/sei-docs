@@ -13,8 +13,8 @@ export default {
 		title: 'Frontend Development'
 	},
 	'building-a-frontend': 'Building a Frontend',
-	'sei-account': {
-		title: 'Sei Account',
+	'sei-global-wallet': {
+		title: 'Sei Global Wallet',
 		display: 'hidden'
 	},
 
