@@ -14,7 +14,8 @@ export default {
 	},
 	'building-a-frontend': 'Building a Frontend',
 	'sei-account': {
-		title: 'Sei Account'
+		title: 'Sei Account',
+		display: 'hidden'
 	},
 
 	'-- Smart Contracts': {
