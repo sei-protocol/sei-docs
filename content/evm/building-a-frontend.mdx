@@ -2,25 +2,61 @@ import { Callout } from 'nextra/components';
 
 # Frontend Development
 
-Developing the frontend of a dApp on Sei involves connecting to wallets,
-interacting with the blockchain via RPC endpoints, and signing and broadcasting
-transactions.
+Developing the frontend of a dApp on Sei EVM involves connecting to wallets, interacting with the blockchain via RPC endpoints, and signing and broadcasting transactions. This tutorial will demonstrate how to build a simple ERC20 token interface using three popular libraries:
 
-In this section, we'll explore Sei's unique interoperability features by building an EVM compatible DApp that interacts with a CosmWasm smart contract.
-We will use [ethers.js](https://docs.ethers.org/v6/) to build a React app that interacts with a CosmWasm smart contract using the Sei [CosmWasm precompile](https://github.com/sei-protocol/sei-chain/tree/main/precompiles/wasmd).
+1. [**Ethers.js**](https://docs.ethers.org/v6/) - A complete and compact library for interacting with
+   EVM blockchains. Known for its simplicity and extensive functionality.
+2. [**Viem**](https://viem.sh/docs/getting-started) - A lightweight and modular TypeScript interface for Ethereum
+3. [**Wagmi**](https://wagmi.sh/) - A React hooks library built on top of Viem that simplifies wallet
+   connection and interaction. Provides hooks for interacting with Ethereum
+   wallets and contracts for use with modern frontend libraries and frameworks.
 
-### EVM and EVM RPC dApps:
+We'll implement the same functionality using each library so you can compare their approaches and choose the one that best fits your development style.
 
-- **Wagmi**: A React-based library for Ethereum dApps that simplifies wallet
-  connection and interaction. Provides hooks for interacting with Ethereum
-  wallets and contracts for use with modern frontend libraries and frameworks.
-- [Wagmi Documentation](https://wagmi.sh/)
-- **Viem**: A lightweight and flexible library for Ethereum development.
-- [Viem Documentation](https://viem.sh/docs/getting-started)
-- **Ethers.js**: A complete and compact library for interacting with the
-  Ethereum blockchain and its ecosystem. Known for its simplicity and extensive
-  functionality.
-- [Ethers.js Documentation](https://docs.ethers.io/v6/)
+## When to Use Each Library
+
+### Ethers.js
+
+Ethers.js is ideal for developers who want a comprehensive, battle-tested library with straightforward API design. It's great for both simple and complex dApps, especially when you're not using React or need custom state management.
+
+- **Pros**:
+  - Comprehensive and easy-to-use API
+  - Well-documented with a large community
+  - Works well with both TypeScript and JavaScript
+  - All-in-one solution for wallet connection and contract interaction
+- **Cons**:
+
+  - Larger bundle size compared to Viem
+  - Not specifically designed for React hooks integration
+
+### Viem
+
+Viem is perfect for developers who want fine-grained control over their blockchain interactions and appreciate a modular, lightweight approach. It's a good choice when bundle size matters and when you have specific requirements for how contract interactions should work.
+
+- **Pros**:
+  - Lightweight and modular
+  - Excellent TypeScript support with better type safety
+  - Lower-level API gives more control
+  - Smaller bundle size
+- **Cons**:
+
+  - Steeper learning curve
+  - Requires more boilerplate code for some operations
+  - Requires separate handling for wallet connection and contract interactions
+
+### Wagmi
+
+Wagmi is the best choice for React developers building dApps who want to leverage React's state management capabilities. It abstracts away much of the complexity of blockchain interactions via hooks, making it easy to build reactive UIs that respond to chain state.
+
+- **Pros**:
+  - React-specific hooks for seamless integration
+  - Handles complex state management for you
+  - Built on top of Viem, combining its benefits
+  - Convenient caching and auto-refreshing for contract data
+- **Cons**:
+  - Only works with React
+  - Adds another dependency layer
+  - Opinionated about how data should be managed in your app
 
 ## Requirements
 
@@ -31,233 +67,757 @@ Before starting, ensure you have:
 
 ## Creating a React Project
 
-Start by creating a new React project using Vite's TypeScript template for
-streamlined development:
+Start by creating a new React project using Vite's TypeScript template for streamlined development:
 
-    ```bash copy
-    npm create vite@latest my-counter-frontend -- --template react-ts
-    ```
+```bash copy
+npm create vite@latest sei-token-interface -- --template react-ts
+```
 
-This command creates a new folder with a React project using TypeScript. Open
-`my-counter-frontend` in your favorite IDE.
+This command creates a new folder with a React project using TypeScript. Open `sei-token-interface` in your favorite IDE.
 
-<Callout type="info">The rest of this tutorial will be in TypeScript. If you're not using TypeScript, you can easily adjust by removing the types.</Callout>
+<Callout type="info">This tutorial uses TypeScript. If you're not using TypeScript, you can easily adjust by removing the types.</Callout>
 
-## Installing Dependencies
+## Project Structure
 
-Install `ethers`, an Ethereum library that facilitates interaction with the
-Ethereum blockchain:
+For clarity, we'll create separate components for each library implementation. Let's set up the project structure:
 
-    ```bash copy
-    npm install ethers
-    ```
+```bash copy
+cd sei-token-interface
+mkdir src/components
+touch src/components/EthersInterface.tsx
+touch src/components/ViemInterface.tsx
+touch src/components/WagmiInterface.tsx
+mkdir src/shared
+touch src/shared/constants.ts
+touch src/wagmi.ts
+```
 
-## Defining Contract Addresses and ABI
+## Defining the ERC20 Contract Details
 
-In this tutorial, we will be using the **Wasm Precompile** to interact with our
-CosmWasm contract from the EVM. Precompiles (short for Precompiled contracts)
-are EVM compatible contracts that are built into the chain.
-The Wasm Precompile
-is a unique smart contract on Sei that enables EVM clients to query and execute
-CosmWasm contracts. Refer to the docs on
-[precompiles](/evm/precompiles/example-usage) for
-more details.
+<Callout type="info">Make sure to deploy your ERC20 token contract first and replace `TOKEN_CONTRACT_ADDRESS` in the constants file with your actual deployed contract address, and update the RPC URL in the Sei chain configuration. You can find a list of existing ERC20 contracts on Sei Mainnet here: [Sei Assets](https://seitrace.com/sei-assets?chain=pacific-1)</Callout>
 
-First, import the address and ABI of the CosmWasm precompile from `@sei-js/evm`.
+Let's create a shared constants file for our project:
 
-<Callout type="info">`@sei-js` contains NPM libraries for writing applications that interact with Sei. Learn more [here](https://github.com/sei-protocol/sei-js/tree/main).</Callout>
+```tsx copy filename="src/shared/constants.ts"
+// Constants used across different implementations
+export const ERC20_ABI = [
+  {
+    inputs: [],
+    name: 'name',
+    outputs: [
+      {
+        internalType: 'string',
+        name: '',
+        type: 'string'
+      }
+    ],
+    stateMutability: 'view',
+    type: 'function'
+  },
+  {
+    inputs: [],
+    name: 'symbol',
+    outputs: [
+      {
+        internalType: 'string',
+        name: '',
+        type: 'string'
+      }
+    ],
+    stateMutability: 'view',
+    type: 'function'
+  },
+  {
+    inputs: [],
+    name: 'decimals',
+    outputs: [
+      {
+        internalType: 'uint8',
+        name: '',
+        type: 'uint8'
+      }
+    ],
+    stateMutability: 'view',
+    type: 'function'
+  },
+  {
+    inputs: [
+      {
+        internalType: 'address',
+        name: 'account',
+        type: 'address'
+      }
+    ],
+    name: 'balanceOf',
+    outputs: [
+      {
+        internalType: 'uint256',
+        name: '',
+        type: 'uint256'
+      }
+    ],
+    stateMutability: 'view',
+    type: 'function'
+  },
+  {
+    inputs: [
+      {
+        internalType: 'address',
+        name: 'to',
+        type: 'address'
+      },
+      {
+        internalType: 'uint256',
+        name: 'amount',
+        type: 'uint256'
+      }
+    ],
+    name: 'transfer',
+    outputs: [
+      {
+        internalType: 'bool',
+        name: '',
+        type: 'bool'
+      }
+    ],
+    stateMutability: 'nonpayable',
+    type: 'function'
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: true,
+        internalType: 'address',
+        name: 'from',
+        type: 'address'
+      },
+      {
+        indexed: true,
+        internalType: 'address',
+        name: 'to',
+        type: 'address'
+      },
+      {
+        indexed: false,
+        internalType: 'uint256',
+        name: 'value',
+        type: 'uint256'
+      }
+    ],
+    name: 'Transfer',
+    type: 'event'
+  }
+];
 
-`@sei-js/evm` is an npm package that contains useful constants and helpers for
-interacting with the EVM on Sei.
+// TODO: Replace with your deployed ERC20 token contract address
+export const TOKEN_CONTRACT_ADDRESS = '0xYourTokenContractAddress';
+```
 
-To install sei-js:
+## Option 1: Ethers.js Implementation
 
-    ```bash copy
-    npm install @sei-js/evm
-    ```
+Install ethers.js first:
 
-At the top of `App.tsx` you can then import `WASM_PRECOMPILE_ADDRESS`,
-`WASM_PRECOMPILE_ABI`. These constants allow us to interact with the Wasm
-Precompile.
+```bash copy
+npm install ethers
+```
 
-    ```tsx copy
-    import { WASM_PRECOMPILE_ADDRESS, WASM_PRECOMPILE_ABI, WasmPrecompileContract } from '@sei-js/evm';
-    import { ethers } from 'ethers';
-    ```
-
-These values will be used in the app to query and execute a contract.
-
-## Connecting to the Wallet and Initializing the Contract
-
-Replace your main `App` component with the following:
-
-    ```tsx copy filename="App.tsx"
-    import { WASM_PRECOMPILE_ADDRESS, getWasmPrecompileEthersV6Contract } from '@sei-js/evm';
-    import { useEffect, useState } from 'react';
-    import { BrowserProvider, Contract, toUtf8Bytes, toUtf8String } from 'ethers';
-    import './App.css';
-
-    function App() {
-    	const [count, setCount] = useState<string>();
-    	const [contract, setContract] = useState<Contract>();
-    	const [isIncrementing, setIsIncrementing] = useState(false);
-
-    	// TODO: Replace this with your CosmWasm contract address here
-    	const COUNTER_CONTRACT_ADDRESS = 'sei14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9sh9m79m';
-
-    	const fetchCount = async () => {
-    		if (!contract) {
-    			return;
-    		}
-    		// Query to get the count on the counter contract
-    		const queryMsg = { get_count: {} };
-    		const queryResponse = await contract.query(COUNTER_CONTRACT_ADDRESS, toUtf8Bytes(JSON.stringify(queryMsg)));
-    		const { count } = JSON.parse(toUtf8String(queryResponse));
-    		setCount(count);
-    	};
-
-    	useEffect(() => {
-    		fetchCount();
-    	}, [contract]);
-
-    	const connectWallet = async () => {
-    		if (window.ethereum) {
-    			const provider = new BrowserProvider(window.ethereum);
-    			const { chainId } = await provider.getNetwork();
-
-    			const signer = await provider.getSigner();
-    			const contract = getWasmPrecompileEthersV6Contract(signer);
-
-    			setContract(contract);
-    		} else {
-    			alert('No EVM compatible wallet installed');
-    		}
-    	};
-
-    	const incrementCount = async () => {
-    		if (!contract) {
-    			return;
-    		}
-
-    		setIsIncrementing(true);
-    		// Execute message to increment the count on the contract
-    		const executeMsg = { increment: {} };
-    		const executeResponse = await contract.execute(
-    			COUNTER_CONTRACT_ADDRESS,
-    			toUtf8Bytes(JSON.stringify(executeMsg)),
-    			toUtf8Bytes(JSON.stringify([])) // Used for sending funds if needed
-    		);
-    		// Wait for the transaction to be confirmed
-    		await executeResponse.wait();
-    		console.log(executeResponse);
-    		setIsIncrementing(false);
-    		await fetchCount();
-    	};
-
-    	return (
-    		<>
-    			<div className="card">
-    				{contract ? (
-    					<div>
-    						<h1>Count is {count}</h1>
-    						<button disabled={isIncrementing} onClick={incrementCount}>
-    							{isIncrementing ? 'incrementing...' : 'increment'}
-    						</button>
-    					</div>
-    				) : (
-    					<button onClick={connectWallet}>Connect Wallet</button>
-    				)}
-    			</div>
-    		</>
-    	);
-    }
-
-    export default App;
-    ```
-
-### Detailed outline of `App.tsx`
-
-**State Declarations**
-
-- `count`: Holds the current count fetched from the smart contract.
-- `contract`: An instance of the ethers Contract object, used for interacting
-  with the blockchain.
-- `isIncrementing`: A boolean to manage UI state during contract execution
-
-**Effect Hooks**
-
-A single `useEffect` hook to fetch the current count whenever the contract state
-changes, indicating that the contract instance is ready for interaction.
-
-**Connecting to EVM Wallet**
-
-A function named `connectWallet` that:
+Let's start with the Ethers.js implementation:
 
 - Checks for any EVM compatible wallet extension.
-- Establishes a connection to the Ethereum network via the connected wallet,
+- Establishes a connection to Sei Mainnet via the connected wallet,
   using ethers.js BrowserProvider.
-- Verifies the correct network (Sei EVM devnet) by comparing chainId.
-- Creates an ethers.js Contract instance with the signer from the wallet,
+- Creates an ethers.js contract instance with the signer from the wallet,
   setting it in the contract state for later use.
 
-**Fetching Contract Data**
+```tsx copy filename="src/components/EthersInterface.tsx"
+import { useState, useEffect } from 'react';
+import { BrowserProvider, Contract, formatEther, parseEther } from 'ethers';
+import { ERC20_ABI, TOKEN_CONTRACT_ADDRESS } from '../shared/constants';
 
-A function named `fetchCount` that:
+export function EthersInterface() {
+  const [balance, setBalance] = useState<string>();
+  const [contract, setContract] = useState<Contract>();
+  const [recipientAddress, setRecipientAddress] = useState('');
+  const [amount, setAmount] = useState('');
+  const [isTransferring, setIsTransferring] = useState(false);
+  const [tokenInfo, setTokenInfo] = useState<{ name: string; symbol: string }>();
+  const [address, setAddress] = useState<string>();
 
-- Executes a contract query to get the current count.
-- Parses and updates the count state with the response.
+  // Sei EVM network configuration
+  const SEI_NETWORK_PARAMS = {
+    chainId: '0x531', // 1329 in hexadecimal
+    chainName: 'Sei Network',
+    nativeCurrency: {
+      name: 'Sei',
+      symbol: 'SEI',
+      decimals: 18
+    },
+    rpcUrls: ['https://evm-rpc.sei-apis.com'],
+    blockExplorerUrls: ['https://seitrace.com']
+  };
 
-**Incrementing the Counter**
+  const fetchBalance = async () => {
+    if (!contract || !address) return;
+    try {
+      const balance = await contract.balanceOf(address);
+      setBalance(formatEther(balance));
+    } catch (error) {
+      console.error('Failed to fetch balance:', error);
+    }
+  };
 
-A function named `incrementCount` that:
+  const fetchTokenInfo = async () => {
+    if (!contract) return;
+    try {
+      const name = await contract.name();
+      const symbol = await contract.symbol();
+      setTokenInfo({ name, symbol });
+    } catch (error) {
+      console.error('Failed to fetch token info:', error);
+    }
+  };
 
-- Sends a transaction to the smart contract to increment the count.
-- Waits for the transaction to be confirmed.
-- Refetches the count to update the UI with the new value.
+  useEffect(() => {
+    if (contract) {
+      fetchTokenInfo();
+      fetchBalance();
+    }
+  }, [contract, address]);
 
-To see your app in action, run `npm run dev` to spin up a local version of the
-application. Once you connect your wallet, you should see a counter, as well as
-a button you can use to increment the counter on the contract.
+  const connectWallet = async () => {
+    if (window.ethereum) {
+      try {
+        const provider = new BrowserProvider(window.ethereum);
+        // Attempt to switch to the Sei network
+        try {
+          await provider.send('wallet_switchEthereumChain', [{ chainId: SEI_NETWORK_PARAMS.chainId }]);
+        } catch (switchError: any) {
+          // Error code 4902 indicates the chain is not added in MetaMask
+          if (switchError.code === 4902) {
+            await provider.send('wallet_addEthereumChain', [SEI_NETWORK_PARAMS]);
+          } else {
+            throw switchError;
+          }
+        }
+        // Request account access
+        await provider.send('eth_requestAccounts', []);
+        const signer = await provider.getSigner();
+        const userAddress = await signer.getAddress();
+        setAddress(userAddress);
+        const tokenContract = new Contract(TOKEN_CONTRACT_ADDRESS, ERC20_ABI, signer);
+        setContract(tokenContract);
+      } catch (error) {
+        console.error('Failed to connect wallet:', error);
+        alert('Failed to connect wallet. See console for details.');
+      }
+    } else {
+      alert('No EVM compatible wallet installed');
+    }
+  };
 
-Congrats on deploying your first interoperable dApp on Sei!
+  const transferTokens = async () => {
+    if (!contract || !recipientAddress || !amount) return;
+    try {
+      setIsTransferring(true);
+      const tx = await contract.transfer(recipientAddress, parseEther(amount));
+      console.log('Transaction sent:', tx.hash);
+      const receipt = await tx.wait();
+      console.log('Transaction confirmed:', receipt);
+      await fetchBalance();
+      setRecipientAddress('');
+      setAmount('');
+    } catch (error) {
+      console.error('Transfer failed:', error);
+      alert('Transfer failed. Check console for details.');
+    } finally {
+      setIsTransferring(false);
+    }
+  };
 
-### Polyfills Warning
+  return (
+    <div className="card">
+      <h2>Ethers.js v6 Implementation</h2>
+      {contract ? (
+        <div>
+          <h3>
+            {tokenInfo?.name} ({tokenInfo?.symbol})
+          </h3>
+          <p>
+            Connected Address: {address?.slice(0, 6)}...{address?.slice(-4)}
+          </p>
+          <p>
+            Balance: {balance} {tokenInfo?.symbol}
+          </p>
+          <div style={{ marginTop: '20px' }}>
+            <input type="text" placeholder="Recipient Address" value={recipientAddress} onChange={(e) => setRecipientAddress(e.target.value)} style={{ marginBottom: '10px', width: '300px' }} />
+            <br />
+            <input type="number" placeholder="Amount" value={amount} onChange={(e) => setAmount(e.target.value)} style={{ marginBottom: '10px', width: '300px' }} />
+            <br />
+            <button disabled={isTransferring} onClick={transferTokens}>
+              {isTransferring ? 'Transferring...' : 'Transfer Tokens'}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button onClick={connectWallet}>Connect with Ethers.js v6</button>
+      )}
+    </div>
+  );
+}
+```
 
-When developing frontend applications for the blockchain, it's important to be
-aware that some libraries may require polyfills, especially when used in browser
-environments. For instance, the `Buffer` class and other Node.js-specific
-features are not natively available in browsers and need to be polyfilled.
+## Option 2: Viem Implementation
 
-If you are using Vite or another rollup based frontend library you can add the
-following to the entry point of your app.
+Install Viem first:
 
-```tsx copy
+```bash copy
+npm install viem
+```
+
+Now implement the Viem interface:
+
+```tsx copy filename="src/components/ViemInterface.tsx"
+import { useState, useEffect } from 'react';
+import { createWalletClient, custom, parseEther, formatEther } from 'viem';
+import { createPublicClient, http } from 'viem';
+import { mainnet } from 'viem/chains';
+import { ERC20_ABI, TOKEN_CONTRACT_ADDRESS } from '../shared/constants';
+
+// Sei Mainnet settings
+const seiMainnet = {
+  ...mainnet, // using mainnet as a base
+  id: 1329,
+  name: 'Sei Mainnet',
+  rpcUrls: {
+    default: { http: ['https://evm-rpc.sei-apis.com'] }
+  }
+};
+
+export function ViemInterface() {
+  const [balance, setBalance] = useState<string>();
+  const [address, setAddress] = useState<string>();
+  const [walletClient, setWalletClient] = useState<any>(null);
+  const [publicClient, setPublicClient] = useState<any>(null);
+  const [recipientAddress, setRecipientAddress] = useState('');
+  const [amount, setAmount] = useState('');
+  const [isTransferring, setIsTransferring] = useState(false);
+  const [tokenInfo, setTokenInfo] = useState<{ name: string; symbol: string }>();
+
+  useEffect(() => {
+    // Initialize the public client
+    const newPublicClient = createPublicClient({
+      chain: seiMainnet,
+      transport: http()
+    });
+    setPublicClient(newPublicClient);
+  }, []);
+
+  useEffect(() => {
+    if (walletClient && publicClient && address) {
+      fetchTokenInfo();
+      fetchBalance();
+    }
+  }, [walletClient, publicClient, address]);
+
+  const fetchBalance = async () => {
+    if (!publicClient || !address) return;
+
+    try {
+      const balance = await publicClient.readContract({
+        address: TOKEN_CONTRACT_ADDRESS as `0x${string}`,
+        abi: ERC20_ABI,
+        functionName: 'balanceOf',
+        args: [address]
+      });
+
+      setBalance(formatEther(balance as bigint));
+    } catch (error) {
+      console.error('Error fetching balance:', error);
+    }
+  };
+
+  const fetchTokenInfo = async () => {
+    if (!publicClient) return;
+
+    try {
+      const [name, symbol] = await Promise.all([
+        publicClient.readContract({
+          address: TOKEN_CONTRACT_ADDRESS,
+          abi: ERC20_ABI,
+          functionName: 'name'
+        }),
+        publicClient.readContract({
+          address: TOKEN_CONTRACT_ADDRESS,
+          abi: ERC20_ABI,
+          functionName: 'symbol'
+        })
+      ]);
+
+      setTokenInfo({ name: name as string, symbol: symbol as string });
+    } catch (error) {
+      console.error('Error fetching token info:', error);
+    }
+  };
+  const connectWallet = async () => {
+    if (!window.ethereum) {
+      alert('No EVM compatible wallet installed');
+      return;
+    }
+
+    try {
+      const [userAddress] = await window.ethereum.request({
+        method: 'eth_requestAccounts'
+      });
+
+      setAddress(userAddress);
+
+      const newWalletClient = createWalletClient({
+        chain: seiMainnet,
+        transport: custom(window.ethereum)
+      });
+
+      setWalletClient(newWalletClient);
+    } catch (error) {
+      console.error('Failed to connect wallet:', error);
+      alert('Failed to connect wallet. See console for details.');
+    }
+  };
+
+  const transferTokens = async () => {
+    if (!walletClient || !address || !recipientAddress || !amount) return;
+
+    try {
+      setIsTransferring(true);
+
+      // Prepare the contract call parameters
+      const abi = ERC20_ABI;
+      const functionName = 'transfer';
+      const args = [recipientAddress, parseEther(amount)];
+
+      // Execute the transaction
+      const hash = await walletClient.writeContract({
+        address: TOKEN_CONTRACT_ADDRESS as `0x${string}`,
+        abi,
+        functionName,
+        args
+      });
+
+      console.log('Transaction sent:', hash);
+
+      // Wait for the transaction to be mined
+      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+      console.log('Transaction confirmed:', receipt);
+
+      // Refresh the balance
+      await fetchBalance();
+
+      // Reset form
+      setRecipientAddress('');
+      setAmount('');
+    } catch (error) {
+      console.error('Transfer failed:', error);
+      alert('Transfer failed. Check console for details.');
+    } finally {
+      setIsTransferring(false);
+    }
+  };
+
+  return (
+    <div className="card">
+      <h2>Viem Implementation</h2>
+      {address ? (
+        <div>
+          <h3>
+            {tokenInfo?.name} ({tokenInfo?.symbol})
+          </h3>
+          <p>
+            Connected Address: {address.slice(0, 6)}...{address.slice(-4)}
+          </p>
+          <p>
+            Balance: {balance} {tokenInfo?.symbol}
+          </p>
+          <div style={{ marginTop: '20px' }}>
+            <input type="text" placeholder="Recipient Address" value={recipientAddress} onChange={(e) => setRecipientAddress(e.target.value)} style={{ marginBottom: '10px', width: '300px' }} />
+            <br />
+            <input type="number" placeholder="Amount" value={amount} onChange={(e) => setAmount(e.target.value)} style={{ marginBottom: '10px', width: '300px' }} />
+            <br />
+            <button disabled={isTransferring} onClick={transferTokens}>
+              {isTransferring ? 'Transferring...' : 'Transfer Tokens'}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button onClick={connectWallet}>Connect with Viem</button>
+      )}
+    </div>
+  );
+}
+```
+
+## Option 3: Wagmi Implementation
+
+Install Wagmi and configure it:
+
+```bash copy
+npm install wagmi viem @tanstack/react-query
+```
+
+First, let's create a Wagmi configuration file:
+
+```tsx copy filename="src/wagmi.ts"
+import { http, createConfig } from 'wagmi';
+import { mainnet } from 'wagmi/chains';
+import { injected } from 'wagmi/connectors';
+
+// Sei Mainnet settings
+const seiMainnet = {
+  ...mainnet, // using mainnet as a base
+  id: 1329,
+  name: 'Sei Mainnet',
+  rpcUrls: {
+    default: { http: ['https://evm-rpc.sei-apis.com'] }
+  }
+};
+
+// Sei Testnet settings
+const seiTestnet = {
+  ...mainnet, // using mainnet as a base, then override
+  id: 1328,
+  name: 'Sei Testnet',
+  rpcUrls: {
+    default: { http: ['https://evm-rpc-testnet.sei-apis.com'] }
+  }
+};
+
+export const config = createConfig({
+  chains: [seiMainnet, seiTestnet],
+  connectors: [injected()],
+  transports: {
+    [seiMainnet.id]: http(),
+    [seiTestnet.id]: http()
+  }
+});
+```
+
+Now implement the Wagmi interface:
+
+```tsx copy filename="src/components/WagmiInterface.tsx"
+import { useState } from 'react';
+import { useAccount, useConnect, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { injected } from 'wagmi/connectors';
+import { parseEther, formatEther } from 'viem';
+import { ERC20_ABI, TOKEN_CONTRACT_ADDRESS } from '../shared/constants';
+
+export function WagmiInterface() {
+  const [recipientAddress, setRecipientAddress] = useState('');
+  const [amount, setAmount] = useState('');
+
+  // Wagmi hooks
+  const { address, isConnected } = useAccount();
+  const { connect } = useConnect();
+
+  // For debugging
+  console.log('Connection status:', { address, isConnected });
+
+  // Read from contract
+  const { data: name } = useReadContract({
+    address: TOKEN_CONTRACT_ADDRESS as `0x${string}`,
+    abi: ERC20_ABI,
+    functionName: 'name'
+  });
+
+  const { data: symbol } = useReadContract({
+    address: TOKEN_CONTRACT_ADDRESS as `0x${string}`,
+    abi: ERC20_ABI,
+    functionName: 'symbol'
+  });
+
+  const { data: balance, refetch: refetchBalance } = useReadContract({
+    address: TOKEN_CONTRACT_ADDRESS as `0x${string}`,
+    abi: ERC20_ABI,
+    functionName: 'balanceOf',
+    args: address ? [address] : undefined,
+    query: {
+      enabled: !!address
+    }
+  });
+
+  // Write to contract
+  const { writeContract, data: hash, isPending: isTransferring, error } = useWriteContract();
+
+  // Wait for transaction
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
+    hash
+  });
+
+  // Connect wallet
+  const connectWallet = async () => {
+    try {
+      connect({ connector: injected() });
+    } catch (err) {
+      console.error('Failed to connect:', err);
+    }
+  };
+
+  // Transfer tokens
+  const transferTokens = async () => {
+    if (!recipientAddress || !amount) return;
+    try {
+      writeContract({
+        address: TOKEN_CONTRACT_ADDRESS as `0x${string}`,
+        abi: ERC20_ABI,
+        functionName: 'transfer',
+        args: [recipientAddress, parseEther(amount)]
+      });
+    } catch (err) {
+      console.error('Transfer failed:', err);
+    }
+  };
+
+  // Handle successful transfer
+  if (isConfirmed) {
+    refetchBalance();
+    setRecipientAddress('');
+    setAmount('');
+  }
+
+  return (
+    <div className="card">
+      <h2>Wagmi Implementation</h2>
+      {isConnected ? (
+        <div>
+          <h3>
+            {(name as string) || 'Loading...'} ({(symbol as string) || '...'})
+          </h3>
+          <p>
+            Connected Address: {address?.slice(0, 6)}...{address?.slice(-4)}
+          </p>
+          <p>
+            Balance: {balance ? formatEther(balance as bigint) : '0'} {(symbol as string) || ''}
+          </p>
+          <div style={{ marginTop: '20px' }}>
+            <input type="text" placeholder="Recipient Address" value={recipientAddress} onChange={(e) => setRecipientAddress(e.target.value)} style={{ marginBottom: '10px', width: '300px' }} />
+            <br />
+            <input type="number" placeholder="Amount" value={amount} onChange={(e) => setAmount(e.target.value)} style={{ marginBottom: '10px', width: '300px' }} />
+            <br />
+            <button disabled={isTransferring || isConfirming} onClick={transferTokens}>
+              {isTransferring ? 'Preparing Transaction...' : isConfirming ? 'Confirming Transaction...' : 'Transfer Tokens'}
+            </button>
+            {error && <p style={{ color: 'red' }}>Error: {(error as Error).message}</p>}
+          </div>
+        </div>
+      ) : (
+        <button onClick={connectWallet}>Connect with Wagmi</button>
+      )}
+    </div>
+  );
+}
+```
+
+## Updating the Main App to Display all Implementations
+
+Now update your `App.tsx` to include all three interface options:
+
+```tsx copy filename="src/App.tsx"
+import { useState } from 'react';
+import { WagmiProvider } from 'wagmi';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { EthersInterface } from './components/EthersInterface';
+import { ViemInterface } from './components/ViemInterface';
+import { WagmiInterface } from './components/WagmiInterface';
+import { config } from './wagmi';
+
+function App() {
+  const [selectedLib, setSelectedLib] = useState<string | null>(null);
+
+  const queryClient = new QueryClient();
+
+  return (
+    <div className="app-container">
+      <h1>Sei ERC20 Token Interface</h1>
+      <p>Choose a library implementation:</p>
+
+      <div className="button-group">
+        <button onClick={() => setSelectedLib('ethers')} className={selectedLib === 'ethers' ? 'active' : ''}>
+          Ethers.js
+        </button>
+        <button onClick={() => setSelectedLib('viem')} className={selectedLib === 'viem' ? 'active' : ''}>
+          Viem
+        </button>
+        <button onClick={() => setSelectedLib('wagmi')} className={selectedLib === 'wagmi' ? 'active' : ''}>
+          Wagmi (React Hooks)
+        </button>
+      </div>
+
+      <div className="interface-container">
+        {selectedLib === 'ethers' && <EthersInterface />}
+        {selectedLib === 'viem' && <ViemInterface />}
+        {selectedLib === 'wagmi' && (
+          <WagmiProvider config={config}>
+            <QueryClientProvider client={queryClient}>
+              <WagmiInterface />
+            </QueryClientProvider>
+          </WagmiProvider>
+        )}
+        {!selectedLib && (
+          <div className="placeholder">
+            <p>Select a library to see its implementation</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default App;
+```
+
+## Polyfills for Browser Environment
+
+When developing frontend applications for the blockchain, you might need polyfills for Node.js-specific features like `Buffer`. Add these polyfills to your project:
+
+```tsx copy filename="src/main.tsx"
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App.tsx';
+import './index.css';
 import { Buffer } from 'buffer';
 
 // Polyfill self for browser and global for Node.js
 const globalObject = typeof self !== 'undefined' ? self : global;
 
 Object.assign(globalObject, {
-  process: process,
   Buffer: Buffer
 });
+
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
 ```
 
-If you are using a Webpack based bundling tool you can use the following plugin
-in you Webpack config.
+## Running the Application
 
-```
-yarn add -D node-polyfill-webpack-plugin
+To see your app in action, run:
+
+```bash copy
+npm run dev
 ```
 
-```tsx copy
-import NodePolyfillPlugin from 'node-polyfill-webpack-plugin';
+This will start a local development server, at `http://localhost:5173`. You can toggle between the different library implementations to see how each one works.
 
-... // the rest of your webpack config
-plugins: [
-    ...
-    new NodePolyfillPlugin(),
-    ...
-],
-...
+To build your application, build first:
+
+```bash copy
+npm run build
 ```
+
+Then deploy via:
+
+```bash copy
+npm run preview
+```
+
+This will start a local production server, at `http://localhost:4173`. You can toggle between the different library implementations to see how each one works.
