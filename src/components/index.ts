@@ -24,3 +24,5 @@ export * from './CompactExplorerSearch';
 export * from './Collapsible';
 export * from './NetworkTabs';
 export * from './ThemeToggle';
+export * from './RpcSelector';
+export * from './EvmNetworkInfo';
