@@ -30,7 +30,7 @@ export default function EvmWalletConnect() {
 	return (
 		<DynamicContextProvider
 			settings={{
-				environmentId: '8974dcb9-89c7-4472-a988-e55c217a1020',
+				environmentId: '95354152-5f75-47c2-b0e3-b2dc1fead1fc',
 				walletConnectors: [EthereumWalletConnectors]
 			}}>
 			<WagmiProvider config={wagmiConfig}>
