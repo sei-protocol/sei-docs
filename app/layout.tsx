@@ -9,6 +9,7 @@ import DocsProviders from '../src/providers/DocsProviders';
 import '@radix-ui/themes/styles.css';
 import 'nextra-theme-docs/style.css';
 import './globals.css';
+import Script from 'next/script';
 
 export const metadata: Metadata = {
 	title: {
@@ -71,6 +72,15 @@ export default async function RootLayout({ children }) {
 			<head>
 				<title></title>
 				<link rel='canonical' href='https://docs.sei.io' />
+				<Script src={`https://www.googletagmanager.com/gtag/js?id=G-G33FDB53X5`} strategy='afterInteractive' />
+				<Script id='ga-init' strategy='afterInteractive'>
+					{`
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-G33FDB53X5');
+        `}
+				</Script>
 			</head>
 			<body style={{ width: '100%', height: '100%' }}>
 				<Toaster position='bottom-left' />
