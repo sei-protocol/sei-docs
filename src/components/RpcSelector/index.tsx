@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { IconExternalLink, IconCopy, IconCheck, IconArrowRight, IconSearch, IconChevronDown, IconServer, IconInfoCircle } from '@tabler/icons-react';
+import { IconExternalLink, IconCopy, IconCheck, IconArrowRight, IconSearch, IconChevronDown, IconServer, IconInfoCircle, IconChevronUp } from '@tabler/icons-react';
 
 type EndpointType = 'public' | 'premium' | 'community';
 type Network = 'mainnet' | 'testnet' | 'devnet' | 'localnet';
@@ -124,6 +124,7 @@ export function RpcSelector() {
 	const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
 	const [searchTerm, setSearchTerm] = useState('');
 	const [expandedEndpoint, setExpandedEndpoint] = useState<string | null>(null);
+	const [showAllEndpoints, setShowAllEndpoints] = useState(false);
 
 	const handleCopy = (url: string) => {
 		navigator.clipboard.writeText(url);
@@ -145,13 +146,13 @@ export function RpcSelector() {
 			(searchTerm === '' || endpoint.url.toLowerCase().includes(searchTerm.toLowerCase()) || endpoint.provider.toLowerCase().includes(searchTerm.toLowerCase()))
 	);
 
+	// Display only 3 endpoints by default
+	const displayedEndpoints = showAllEndpoints || searchTerm !== '' ? filteredEndpoints : filteredEndpoints.slice(0, 3);
+	const hasMoreEndpoints = filteredEndpoints.length > 3 && !showAllEndpoints && searchTerm === '';
+
 	return (
 		<div className='flex flex-col'>
-			<div className='flex items-center justify-between mb-6'>
-				<div className='text-xl font-semibold text-neutral-800 dark:text-white flex items-center gap-2'>
-					<IconServer className='h-5 w-5 text-red-500' />
-					RPC Endpoints
-				</div>
+			<div className='flex justify-end mb-6'>
 				<a href='/evm/reference' className='text-sm text-red-500 hover:text-red-600 dark:hover:text-red-400 flex items-center transition-colors'>
 					View full RPC reference
 					<IconArrowRight className='h-4 w-4 ml-1' />
@@ -172,7 +173,10 @@ export function RpcSelector() {
 
 				<div className='flex space-x-2'>
 					<button
-						onClick={() => setSelectedNetwork('mainnet')}
+						onClick={() => {
+							setSelectedNetwork('mainnet');
+							setShowAllEndpoints(false);
+						}}
 						className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
 							selectedNetwork === 'mainnet'
 								? 'bg-neutral-200 dark:bg-neutral-700 text-neutral-900 dark:text-white'
@@ -181,7 +185,10 @@ export function RpcSelector() {
 						Mainnet
 					</button>
 					<button
-						onClick={() => setSelectedNetwork('testnet')}
+						onClick={() => {
+							setSelectedNetwork('testnet');
+							setShowAllEndpoints(false);
+						}}
 						className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
 							selectedNetwork === 'testnet'
 								? 'bg-neutral-200 dark:bg-neutral-700 text-neutral-900 dark:text-white'
@@ -190,7 +197,10 @@ export function RpcSelector() {
 						Testnet
 					</button>
 					<button
-						onClick={() => setSelectedNetwork('devnet')}
+						onClick={() => {
+							setSelectedNetwork('devnet');
+							setShowAllEndpoints(false);
+						}}
 						className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
 							selectedNetwork === 'devnet'
 								? 'bg-neutral-200 dark:bg-neutral-700 text-neutral-900 dark:text-white'
@@ -210,95 +220,102 @@ export function RpcSelector() {
 				</div>
 
 				<div className='divide-y divide-neutral-200 dark:divide-neutral-800'>
-					{filteredEndpoints.length > 0 ? (
-						filteredEndpoints.map((endpoint) => (
-							<div key={endpoint.url} className='hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors'>
-								<div className='px-4 py-3 grid grid-cols-12 items-center text-sm'>
-									<div className='col-span-6 sm:col-span-5 truncate'>
-										<code className='text-neutral-800 dark:text-neutral-300 font-mono text-xs'>{endpoint.url}</code>
-									</div>
-									<div className='col-span-4 sm:col-span-3 text-neutral-700 dark:text-neutral-400'>{endpoint.provider}</div>
-									<div className='hidden sm:block sm:col-span-3'>
-										<span
-											className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-												endpoint.type === 'public'
-													? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
-													: endpoint.type === 'premium'
-														? 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400'
-														: 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400'
-											}`}>
-											{endpoint.type}
-										</span>
-									</div>
-									<div className='col-span-2 sm:col-span-1 flex justify-end'>
-										<div className='flex space-x-2'>
-											<button
-												onClick={() => handleCopy(endpoint.url)}
-												className='p-1 rounded-md text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200 hover:bg-neutral-200/50 dark:hover:bg-neutral-700/50 transition-colors'
-												title='Copy to clipboard'>
-												{copiedUrl === endpoint.url ? <IconCheck className='h-4 w-4 text-green-500' /> : <IconCopy className='h-4 w-4' />}
-											</button>
-											<button
-												onClick={() => toggleEndpointDetails(endpoint.url)}
-												className='p-1 rounded-md text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200 hover:bg-neutral-200/50 dark:hover:bg-neutral-700/50 transition-colors'
-												title='Show details'>
-												<IconChevronDown className={`h-4 w-4 transform transition-transform ${expandedEndpoint === endpoint.url ? 'rotate-180' : ''}`} />
-											</button>
+					{displayedEndpoints.length > 0 ? (
+						<>
+							{displayedEndpoints.map((endpoint) => (
+								<div key={endpoint.url} className='hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors'>
+									<div className='px-4 py-3 grid grid-cols-12 items-center text-sm'>
+										<div className='col-span-6 sm:col-span-5 truncate'>
+											<code className='text-neutral-800 dark:text-neutral-300 font-mono text-xs'>{endpoint.url}</code>
+										</div>
+										<div className='col-span-4 sm:col-span-3 text-neutral-700 dark:text-neutral-400'>{endpoint.provider}</div>
+										<div className='hidden sm:block sm:col-span-3'>
+											<span
+												className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+													endpoint.type === 'public'
+														? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
+														: endpoint.type === 'premium'
+															? 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400'
+															: 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400'
+												}`}>
+												{endpoint.type}
+											</span>
+										</div>
+										<div className='col-span-2 sm:col-span-1 flex justify-end'>
+											<div className='flex space-x-2'>
+												<button
+													onClick={() => handleCopy(endpoint.url)}
+													className='p-1 rounded-md text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200 hover:bg-neutral-200/50 dark:hover:bg-neutral-700/50 transition-colors'
+													title='Copy to clipboard'>
+													{copiedUrl === endpoint.url ? <IconCheck className='h-4 w-4 text-green-500' /> : <IconCopy className='h-4 w-4' />}
+												</button>
+												<button
+													onClick={() => toggleEndpointDetails(endpoint.url)}
+													className='p-1 rounded-md text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200 hover:bg-neutral-200/50 dark:hover:bg-neutral-700/50 transition-colors'
+													title='Show details'>
+													<IconChevronDown className={`h-4 w-4 transform transition-transform ${expandedEndpoint === endpoint.url ? 'rotate-180' : ''}`} />
+												</button>
+											</div>
 										</div>
 									</div>
-								</div>
 
-								{expandedEndpoint === endpoint.url && (
-									<div className='px-4 py-3 bg-neutral-50 dark:bg-neutral-800/30 text-sm'>
-										<div className='flex flex-col space-y-2'>
-											<div>
-												<span className='text-neutral-500 dark:text-neutral-400'>Description:</span>
-												<span className='ml-2 text-neutral-800 dark:text-neutral-300'>{endpoint.description}</span>
-											</div>
-											<div className='grid grid-cols-1 sm:grid-cols-2 gap-2'>
-												{endpoint.latency && (
-													<div>
-														<span className='text-neutral-500 dark:text-neutral-400'>Latency:</span>
-														<span className='ml-2 text-neutral-800 dark:text-neutral-300'>{endpoint.latency}</span>
-													</div>
-												)}
-												{endpoint.rateLimit && (
-													<div>
-														<span className='text-neutral-500 dark:text-neutral-400'>Rate Limit:</span>
-														<span className='ml-2 text-neutral-800 dark:text-neutral-300'>{endpoint.rateLimit}</span>
-													</div>
-												)}
-											</div>
-											{endpoint.notes && (
-												<div className='flex items-start'>
-													<IconInfoCircle className='h-4 w-4 text-blue-500 mr-2 mt-0.5' />
-													<span className='text-neutral-700 dark:text-neutral-300'>{endpoint.notes}</span>
+									{expandedEndpoint === endpoint.url && (
+										<div className='px-4 py-3 bg-neutral-50 dark:bg-neutral-800/30 text-sm'>
+											<div className='flex flex-col space-y-2'>
+												<div>
+													<span className='text-neutral-500 dark:text-neutral-400'>Description:</span>
+													<span className='ml-2 text-neutral-800 dark:text-neutral-300'>{endpoint.description}</span>
 												</div>
-											)}
-											<div className='mt-2'>
-												<a
-													href={`https://downdetector.com/status/${endpoint.provider.toLowerCase().replace(/\s+/g, '-')}/`}
-													target='_blank'
-													rel='noopener noreferrer'
-													className='text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 inline-flex items-center'>
-													Check status
-													<IconExternalLink className='h-3 w-3 ml-1' />
-												</a>
+												<div className='grid grid-cols-1 sm:grid-cols-2 gap-2'>
+													{endpoint.latency && (
+														<div>
+															<span className='text-neutral-500 dark:text-neutral-400'>Latency:</span>
+															<span className='ml-2 text-neutral-800 dark:text-neutral-300'>{endpoint.latency}</span>
+														</div>
+													)}
+													{endpoint.rateLimit && (
+														<div>
+															<span className='text-neutral-500 dark:text-neutral-400'>Rate Limit:</span>
+															<span className='ml-2 text-neutral-800 dark:text-neutral-300'>{endpoint.rateLimit}</span>
+														</div>
+													)}
+												</div>
+												{endpoint.notes && (
+													<div className='flex items-start'>
+														<IconInfoCircle className='h-4 w-4 text-blue-500 mr-2 mt-0.5' />
+														<span className='text-neutral-700 dark:text-neutral-300'>{endpoint.notes}</span>
+													</div>
+												)}
 											</div>
 										</div>
-									</div>
-								)}
-							</div>
-						))
+									)}
+								</div>
+							))}
+							{hasMoreEndpoints && (
+								<div className='px-4 py-3 flex justify-center'>
+									<button
+										onClick={() => setShowAllEndpoints(true)}
+										className='flex items-center text-sm text-neutral-700 dark:text-neutral-300 hover:text-red-500 dark:hover:text-red-400 transition-colors font-medium'>
+										<span>Show more</span>
+										<IconChevronDown className='h-4 w-4 ml-1' />
+									</button>
+								</div>
+							)}
+							{showAllEndpoints && (
+								<div className='px-4 py-3 flex justify-center'>
+									<button
+										onClick={() => setShowAllEndpoints(false)}
+										className='flex items-center text-sm text-neutral-700 dark:text-neutral-300 hover:text-red-500 dark:hover:text-red-400 transition-colors font-medium'>
+										<span>Show fewer RPC endpoints</span>
+										<IconChevronUp className='h-4 w-4 ml-1' />
+									</button>
+								</div>
+							)}
+						</>
 					) : (
-						<div className='px-4 py-6 text-center text-neutral-500 dark:text-neutral-400'>No endpoints found. Try adjusting your search.</div>
+						<div className='px-4 py-6 text-center text-neutral-600 dark:text-neutral-400'>No endpoints found for your search criteria.</div>
 					)}
 				</div>
-			</div>
-
-			<div className='mt-4 text-sm text-neutral-500 dark:text-neutral-400 flex items-center'>
-				<IconInfoCircle className='h-4 w-4 mr-2' />
-				<span>For production applications, consider using a dedicated RPC provider for higher rate limits and reliability.</span>
 			</div>
 		</div>
 	);
