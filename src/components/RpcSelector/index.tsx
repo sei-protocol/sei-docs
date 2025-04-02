@@ -30,16 +30,7 @@ const rpcEndpoints: RpcEndpoint[] = [
 		notes: 'Recommended for development'
 	},
 	{
-		url: 'https://sei-mainnet-rpc.allthatnode.com',
-		type: 'public',
-		provider: 'AllThatNode',
-		network: 'mainnet',
-		description: 'Community maintained RPC endpoint',
-		latency: 'Medium',
-		rateLimit: '5 req/s'
-	},
-	{
-		url: 'https://sei.api.t.stavr.tech',
+		url: 'https://evm-rpc-sei.stingray.plus',
 		type: 'public',
 		provider: 'Staketab',
 		network: 'mainnet',
@@ -47,7 +38,7 @@ const rpcEndpoints: RpcEndpoint[] = [
 		latency: 'Medium'
 	},
 	{
-		url: 'https://sei-rpc.publicnode.com',
+		url: 'https://sei-evm-rpc.publicnode.com',
 		type: 'public',
 		provider: 'PublicNode',
 		network: 'mainnet',
@@ -56,15 +47,7 @@ const rpcEndpoints: RpcEndpoint[] = [
 		rateLimit: '5 req/s'
 	},
 	{
-		url: 'https://sei.rpc.bccnodes.com',
-		type: 'public',
-		provider: 'BCCNodes',
-		network: 'mainnet',
-		description: 'Community maintained RPC endpoint',
-		latency: 'Medium'
-	},
-	{
-		url: 'https://evm-rpc-atlantic-2.sei-apis.com',
+		url: 'https://evm-rpc-testnet.sei-apis.com',
 		type: 'public',
 		provider: 'Sei Foundation',
 		network: 'testnet',
@@ -74,24 +57,15 @@ const rpcEndpoints: RpcEndpoint[] = [
 		notes: 'Recommended for testing'
 	},
 	{
-		url: 'https://sei-testnet-rpc.allthatnode.com',
+		url: 'https://evm-rpc-testnet-sei.stingray.plus',
 		type: 'public',
-		provider: 'AllThatNode',
+		provider: 'Staketab',
 		network: 'testnet',
-		description: 'Community maintained testnet RPC endpoint',
-		latency: 'Medium',
-		rateLimit: '10 req/s'
-	},
-	{
-		url: 'https://sei-testnet.rpc.bccnodes.com',
-		type: 'public',
-		provider: 'BCCNodes',
-		network: 'testnet',
-		description: 'Community maintained testnet RPC endpoint',
+		description: 'Community maintained RPC endpoint',
 		latency: 'Medium'
 	},
 	{
-		url: 'https://evm-rpc-arctic-1.sei-apis.com',
+		url: 'https://evm-rpc.arctic-1.seinetwork.io',
 		type: 'public',
 		provider: 'Sei Foundation',
 		network: 'devnet',
@@ -100,13 +74,21 @@ const rpcEndpoints: RpcEndpoint[] = [
 		rateLimit: '20 req/s'
 	},
 	{
-		url: 'https://sei-devnet-rpc.allthatnode.com',
+		url: 'https://evm-rpc-arctic-1.sei-apis.com',
 		type: 'public',
-		provider: 'AllThatNode',
+		provider: 'Rhino Stake',
 		network: 'devnet',
 		description: 'Community maintained devnet RPC endpoint',
 		latency: 'Medium',
 		rateLimit: '10 req/s'
+	},
+	{
+		url: 'https://evm-rpc-devnet-sei.stingray.plus',
+		type: 'public',
+		provider: 'Staketab',
+		network: 'devnet',
+		description: 'Community maintained RPC endpoint',
+		latency: 'Medium'
 	},
 	{
 		url: 'http://localhost:8545',
