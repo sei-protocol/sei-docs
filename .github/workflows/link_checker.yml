@@ -26,10 +26,27 @@ jobs:
       - name: Install playwright browsers
         run: yarn playwright install
 
-      - name: Run crawler
-        id: crawler
-        run: yarn tsx scripts/checkLinks.ts
-        continue-on-error: true
+
+      - name: Run crawler for PR (local build)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_URL: "http://localhost:3000"
+        run: |
+          yarn build
+          sleep 5
+          echo "Starting local build..."
+          yarn start & 
+          sleep 10
+          echo "Running link checker for local build at ${BASE_URL}"
+          yarn tsx scripts/checkLinks.ts
+
+      - name: Run crawler for deployed docs
+        if: github.event_name != 'pull_request'
+        env:
+          BASE_URL: "https://www.docs.sei.io/"
+        run: |
+          echo "Running link checker for deployed docs at ${BASE_URL}"
+          yarn tsx scripts/checkLinks.ts
 
       - name: Upload broken links artifact
         if: steps.crawler.outcome == 'failure'
