@@ -31,7 +31,7 @@ async function crawlPages(url: string, browser: Browser, path: string) {
 }
 
 function isInternal(url: string) {
-	return url.includes('docs.sei');
+	return url.includes('docs.sei') || url.includes('localhost:3000');
 }
 
 async function checkInternalLinks(url: string, page: Page, path: string, browser: Browser) {
@@ -58,7 +58,7 @@ async function checkExternalLinks(url: string, page: Page, path: string, browser
 
 async function isLinkBroken(page: Page, url: string, path: string) {
 	if (visitedLinks.has(url)) return false;
-	if (url.includes('localhost') || url.includes('.tar.gz')) return false;
+	if ((url.includes('localhost') && !url.includes(':3000')) || url.includes('.tar.gz')) return false;
 
 	let pageResponse: Response;
 	try {
