@@ -9,7 +9,6 @@ async function main() {
 	const browserInstance = await chromium.launch();
 	const baseUrl = process.env.BASE_URL || 'https://www.docs.sei.io/';
 	await crawlPages(baseUrl, browserInstance, 'main');
-
 	fs.writeFileSync('brokenLinks.json', JSON.stringify([...brokenLinks], null, 2));
 
 	if (brokenLinks.size > 0) {
