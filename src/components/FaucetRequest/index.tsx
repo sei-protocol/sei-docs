@@ -7,6 +7,7 @@ import { IconDroplet, IconShieldCheck, IconHourglass, IconCheck, IconLoader2, Ic
 import { isAddress } from 'viem';
 import { isValidSeiCosmosAddress } from '@sei-js/cosmjs';
 import HCaptcha from '@hcaptcha/react-hcaptcha';
+import { sendGAEvent } from '@next/third-parties/google';
 
 const VITE_FAUCET_API_URL = 'https://staging-faucet-v3.seinetwork.io';
 
@@ -78,6 +79,7 @@ const RequestFaucetCard = () => {
 				console.log('response', responseJson);
 				toast.success('Tokens requested successfully!');
 				await fetchTransactionHash(messageId);
+				sendGAEvent('event', 'faucetUsed', { address: destAddress });
 			} else if (responseJson.data?.nextAllowedUseDate) {
 				setNextUseTime(responseJson.data.nextAllowedUseDate);
 				toast.error(`Rate limited. Try again after ${responseJson.data.nextAllowedUseDate}`);
