@@ -1,42 +1,5 @@
 import { StaticImageData } from 'next/image';
 
-import AxelarLogo from '../../public/assets/apps/axelar-logo.png';
-import BinanceLogo from '../../public/assets/apps/binance-cex.png';
-import CoinbaseLogo from '../../public/assets/apps/coinbase-cex.png';
-import FlipsideLogo from '../../public/assets/apps/flipside-logo.png';
-import KuCoinLogo from '../../public/assets/apps/kucoin-cex.png';
-import PolkachuLogo from '../../public/assets/apps/polkachu.png';
-import PythNetworkLogo from '../../public/assets/apps/pyth-network.png';
-import QuickNodeLogo from '../../public/assets/apps/quicknode.png';
-import RhinoLogo from '../../public/assets/apps/rhino.png';
-import SquidLogo from '../../public/assets/apps/squid-logo.png';
-import StargateLogo from '../../public/assets/apps/stargate-logo.png';
-import SubGraphLogo from '../../public/assets/apps/subgraph-logo.png';
-import TheGraphLogo from '../../public/assets/apps/the-graph-logo.png';
-import WormholeLogo from '../../public/assets/apps/wormhole-logo.png';
-import accumulatedLogo from '../../public/assets/ecosystem/accumulated.jpeg';
-import belugasLogo from '../../public/assets/ecosystem/belugas.png';
-import dragonswapLogo from '../../public/assets/ecosystem/dragonswap.jpeg';
-import fidropLogo from '../../public/assets/ecosystem/fidrop.jpeg';
-import gamblinoLogo from '../../public/assets/ecosystem/gamblino.jpeg';
-import jaspervaultLogo from '../../public/assets/ecosystem/jaspervault.jpeg';
-import jellyverseLogo from '../../public/assets/ecosystem/jellyverse.png';
-import kawaLogo from '../../public/assets/ecosystem/kawa.jpeg';
-import mambaLogo from '../../public/assets/ecosystem/mamba.png';
-import monnaLogo from '../../public/assets/ecosystem/monna.png';
-import nfts2meLogo from '../../public/assets/ecosystem/nfts2me.png';
-import nukeemLogo from '../../public/assets/ecosystem/nukeem.jpeg';
-import predxLogo from '../../public/assets/ecosystem/predx.jpeg';
-import seicasinoLogo from '../../public/assets/ecosystem/seicasino.png';
-import seijinLogo from '../../public/assets/ecosystem/seijin.png';
-import siloLogo from '../../public/assets/ecosystem/silo.jpeg';
-import squaredLabsLogo from '../../public/assets/ecosystem/squared-labs.jpeg';
-import stafiLogo from '../../public/assets/ecosystem/stafi.png';
-import superSeiyanBotLogo from '../../public/assets/ecosystem/superseiyanbot.jpeg';
-import vermillionLogo from '../../public/assets/ecosystem/vermillion.jpeg';
-import webumpLogo from '../../public/assets/ecosystem/webump.jpeg';
-import yakaLogo from '../../public/assets/ecosystem/yaka.jpeg';
-
 export interface App {
 	title: string;
 	description: string;
