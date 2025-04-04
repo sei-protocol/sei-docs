@@ -1,6 +1,7 @@
 name: Link checker
 
 on:
+  pull_request:
   workflow_dispatch:
   schedule:
     - cron: '0 12 * * *'
@@ -27,8 +28,20 @@ jobs:
 
       - name: Run crawler
         id: crawler
-        run: yarn tsx scripts/checkLinks.ts
         continue-on-error: true
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "Running PR workflow: Building and starting local server..."
+            yarn build
+            sleep 5
+            yarn start & 
+            sleep 15 
+            export BASE_URL="http://localhost:3000"
+          else
+            export BASE_URL="https://www.docs.sei.io/"
+          fi
+          echo "Running link checker for ${BASE_URL}"
+          yarn tsx scripts/checkLinks.ts
 
       - name: Upload broken links artifact
         if: steps.crawler.outcome == 'failure'
