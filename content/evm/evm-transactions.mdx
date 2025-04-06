@@ -1,13 +1,13 @@
-# EVM Transactions on Cosmos
+# EVM with seid
 
-On Sei, EVM transactions can be executed using the same tools as native Cosmos transactions. This is useful for developers who want to interact with both native and EVM functionality in their applications. This guide will help you understand how to query and send transactions using the Sei CLI (`seid`) and Foundry's `cast` command, as well as how to generate transaction templates for both native and EVM transactions.
+On Sei, EVM transactions can be executed using `seid`. This is useful for developers who want to interact with EVM functionality in their applications. This guide will help you understand how to query and send transactions using the Sei CLI (`seid`) and Foundry's `cast` command, as well as how to generate transaction templates for EVM transactions.
 
-## `seid` for EVM
+# `seid` for EVM
 
 You can query or send transactions to Sei easily via `seid` once you have the
-`seid` command installed (see [Installing Seid](/cosmwasm/installing-seid))
+`seid` command installed (see [Installing Seid](./installing-seid))
 
-### Queries
+## Queries
 
 If the machine you run these commands from are not running a node of the
 network, you'll need to append `--node http://url-to-sei-cosmos-rpc` to your
@@ -28,7 +28,7 @@ RPC endpoints.
   "CW721", "ERC20", or "ERC721", and `pointee` is the target contract address.
   For "NATIVE" type, `pointee` would be the native denom name instead.
 
-### Transactions
+## Transactions
 
 Sending transactions via CLI requires you to have keys added via
 `seid keys add`. You can then specify the key you want to use by appending
@@ -51,17 +51,16 @@ of RPC endpoints.
   contract at `addr` to the target recipient.
 - `seid tx evm delegate [val-addr] [amount]`: Delegates specified amount to the
   target validator address. The validator address must be in Sei/Cosmos
-  validator address format.
+  validator address (`seivaloper1...`) format.
 
-### Transaction Template Generation
+## Transaction Template Generation
 
 The `--generate-only` flag transforms any Sei CLI transaction command into a
 template generator, creating complete transaction structures without
 broadcasting them. Through the `--generate-only` flag and Foundry's `cast` tool,
-developers can craft, analyze, and debug transactions across both native Cosmos
-and EVM environments.
+developers can craft, analyze, and debug transactions across in the EVM environment.
 
-#### Basic Command Pattern
+### Basic Command Pattern
 
 The general pattern follows this structure:
 
@@ -69,18 +68,7 @@ The general pattern follows this structure:
 seid tx <module> <action> <parameters> --from <key> --generate-only
 ```
 
-For example, a token transfer template:
-
-```bash copy
-seid tx bank send \
-  $(seid keys show sender -a) \
-  $(seid keys show recipient -a) \
-  1000000usei \
-  --from sender \
-  --generate-only | jq
-```
-
-### Generating EVM Transaction Templates
+## Generating EVM Transaction Templates
 
 To generate an EVM transaction template, use the `evm` module with
 `--generate-only`. Here's an example registering an EVM pointer:
@@ -98,7 +86,7 @@ seid tx evm register-evm-pointer NATIVE \
 This command returns a transaction hash that you can analyze further using
 Foundry's `cast` tool.
 
-### Analyzing EVM Transactions with Cast
+## Analyzing EVM Transactions with Cast
 
 Once you have a transaction hash, you can use Foundry's `cast` command to
 inspect the transaction details:
@@ -134,47 +122,11 @@ yParity              1
 
 > Learn more about the EVM transaction structure in the [EVM transactions documentation](/evm/transactions).
 
-### Practical Applications
-
-When developing applications that interact with both native and EVM functionality you may want to get an eth transaction by hash from a dApp that is set up to use the Cosmos RPC interface, not the EVM RPC interface:
-
-```javascript copy
-async function analyzeTransaction(txHash) {
-  // First, get the native transaction details
-  const nativeTx = await fetch(`${seiRestEndpoint}/cosmos/tx/v1beta1/txs/${txHash}`).then((res) => res.json());
-
-  // If it's an EVM transaction, get EVM details
-  if (nativeTx.tx.body.messages[0]['@type'].includes('evm')) {
-    const evmTx = await fetch(`${evmRpcEndpoint}`, {
-      method: 'POST',
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        method: 'eth_getTransactionByHash',
-        params: [txHash],
-        id: 1
-      })
-    }).then((res) => res.json());
-
-    return {
-      native: nativeTx,
-      evm: evmTx
-    };
-  }
-
-  return { native: nativeTx };
-}
-```
-
 ### Template Generation for Different Transaction Types
 
 Generate templates for various transaction types:
 
 ```bash copy
-# Native governance proposal
-seid tx gov submit-proposal param-change proposal.json \
-  --from validator \
-  --generate-only > native_template.json
-
 # EVM contract interaction
 seid tx evm send-tx \
   --evm-rpc=http://localhost:8545 \
@@ -183,9 +135,9 @@ seid tx evm send-tx \
   --generate-only > evm_template.json
 ```
 
-### Best Practices
+## Best Practices
 
-#### Transaction Analysis
+### Transaction Analysis
 
 When analyzing transactions:
 
@@ -194,7 +146,7 @@ When analyzing transactions:
 - Keep track of gas parameters across both layers
 - Monitor transaction status on both native and EVM layers
 
-#### Error Handling
+### Error Handling
 
 Handle potential issues across both layers:
 
