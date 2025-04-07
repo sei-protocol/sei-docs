@@ -88,7 +88,7 @@ async function isLinkBroken(page: Page, url: string, path: string) {
 
 	let pageResponse: Response;
 	try {
-		pageResponse = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
+		pageResponse = await page.goto(url, { waitUntil: 'load', timeout: 45000 });
 	} catch (error: any) {
 		pageResponse = await retryPageLoadIfTimeout(page, url, path);
 	} finally {
