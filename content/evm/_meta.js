@@ -17,8 +17,7 @@ export default {
 	},
 	'building-a-frontend': 'Building a Frontend',
 	'sei-global-wallet': {
-		title: 'Sei Global Wallet',
-		display: 'hidden'
+		title: 'Sei Global Wallet'
 	},
 
 	'-- Smart Contracts': {
