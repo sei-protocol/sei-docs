@@ -1,4 +1,3 @@
-//@ts-nocheck
 import { Browser, chromium, Page, Response } from "@playwright/test";
 import * as fs from "node:fs";
 
@@ -40,7 +39,7 @@ async function worker(browser: Browser, workerId: number) {
 		}
 
 		activeCount++;
-		const { url, path } = task;
+		const { url, path } = currentTask;
 
 		if (visitedLinks.has(url)) {
 			activeCount--;
