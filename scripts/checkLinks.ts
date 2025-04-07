@@ -1,4 +1,3 @@
-//@ts-nocheck
 import { Browser, chromium, Page, Response } from "@playwright/test";
 import * as fs from "node:fs";
 
@@ -15,7 +14,7 @@ async function main() {
 
 	const workers = [];
 	for (let i = 0; i < MAX_PAGES; i++) {
-		workers.push(worker(browserInstance, i));
+		workers.push(processLink(browserInstance, i));
 	}
 	await Promise.all(workers);
 
@@ -28,7 +27,7 @@ async function main() {
 	await browserInstance.close();
 }
 
-async function worker(browser: Browser, workerId: number) {
+async function processLink(browser: Browser, workerId: number) {
 	const ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36 Edg/116.0.1938.81";
 	while (true) {
 		const currentTask = linkQueue.shift();
@@ -51,21 +50,7 @@ async function worker(browser: Browser, workerId: number) {
 		console.info(`Worker ${workerId} visiting: ${path}`);
 		const page = await browser.newPage({ userAgent: ua });
 		try {
-			if (isInternal(url)) {
-				const isBroken = await isLinkBroken(page, url, path);
-				if (!isBroken) {
-					const links = await getLinksFromPage(page, path);
-					links.forEach(link => {
-						if (!visitedLinks.has(link)) {
-							linkQueue.push({ url: link, path: `${path} => ${link}` });
-						}
-					});
-				}
-			} else {
-				if (!path.includes('learn/getting-tokens')) {
-					await isLinkBroken(page, url, path);
-				}
-			}
+			await processPage(page, path, url);
 		} catch (error) {
 			console.error(`Worker ${workerId} error processing ${url}: ${error}`);
 		} finally {
@@ -77,6 +62,24 @@ async function worker(browser: Browser, workerId: number) {
 
 function isInternal(url: string) {
 	return url.includes('docs.sei') || url.includes('localhost:3000');
+}
+
+async function processPage(page: Page, path: string, url:string) {
+	if (isInternal(url)) {
+		const isBroken = await isLinkBroken(page, url, path);
+		if (!isBroken) {
+			const links = await getLinksFromPage(page, path);
+			links.forEach(link => {
+				if (!visitedLinks.has(link)) {
+					linkQueue.push({ url: link, path: `${path} => ${link}` });
+				}
+			});
+		}
+	} else {
+		if (!path.includes('learn/getting-tokens')) {
+			await isLinkBroken(page, url, path);
+		}
+	}
 }
 
 async function isLinkBroken(page: Page, url: string, path: string) {
@@ -99,6 +102,7 @@ async function isLinkBroken(page: Page, url: string, path: string) {
 
 async function retryPageLoadIfTimeout(page: Page, url: string, path: string) {
 	try {
+		console.warn(`Retrying page load for ${path}`);
 		return await page.goto(url, { waitUntil: 'load', timeout: 45000 });
 	} catch(e: any) {
 		return undefined;
