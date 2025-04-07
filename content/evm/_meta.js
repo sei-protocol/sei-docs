@@ -8,7 +8,7 @@ export default {
 	},
 	networks: 'Network Information',
 	'differences-with-ethereum': 'Divergence from Ethereum',
-	'installing-seid': 'Installing `seid` CLI',
+	'installing-seid': 'Installing seid CLI',
 	'evm-transactions': 'EVM with seid',
 
 	'-- Frontend Development': {
