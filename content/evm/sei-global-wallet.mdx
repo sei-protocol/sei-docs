@@ -70,7 +70,7 @@ interoperability in the web3 ecosystem. It defines a common API for:
 
 Sei Global Wallet support can be added to most applications using various popular libraries. The key is to wrap your
 provider stack with the global wallet providers. Here are examples demonstrating integrations using **Generic (Dynamic/Wagmi)**,
-**Dynamic (Next.js)**, **WalletConnectKit**, and **RainbowKit**.
+**Dynamic (Next.js)**, **WalletConnectKit**, and **RainbowKit** as well as web3-react hooks.
 
 <details>
   <summary><strong>Generic (Dynamic/Wagmi)</strong></summary>
@@ -289,6 +289,88 @@ provider stack with the global wallet providers. Here are examples demonstrating
       </WagmiProvider>
     </StrictMode>
   );
+  ```
+</details>
+
+<details>
+  <summary><strong>web3‑react (hook‑based)</strong></summary>
+
+  ```tsx copy filename="src/App.web3react.tsx"
+  // 1) Register the Sei Global Wallet under EIP‑6963 discovery
+  import '@sei-js/sei-global-wallet/eip6963'
+
+  import React, { useEffect } from 'react'
+  import { Web3ReactProvider, useWeb3React } from '@web3-react/core'
+  import { EIP1193Connector }     from '@web3-react/eip1193'
+  import { Web3Provider as EthersProvider } from '@ethersproject/providers'
+
+  // Create a connector that auto‑discovers EIP‑6963 providers
+  const eip6963 = new EIP1193Connector()
+
+  // Wrap your app in Web3ReactProvider, supplying an ethers.js getLibrary fn
+  function getLibrary(provider: any): EthersProvider {
+    return new EthersProvider(provider)
+  }
+
+  function InnerApp() {
+    const { activate, active, account, library, error } = useWeb3React()
+
+    // Auto‑connect on mount
+    useEffect(() => {
+      activate(eip6963).catch((err) => {
+        console.error('Failed to connect Sei Global Wallet', err)
+      })
+    }, [activate])
+
+    if (error) {
+      return <div style={{ color: 'red' }}>Error: {error.message}</div>
+    }
+    if (!active) {
+      return <div>Connecting to Sei Global Wallet…</div>
+    }
+
+    return (
+      <div>
+        <h2>✅ Connected!</h2>
+        <p>Account: <code>{account}</code></p>
+        <p>Chain ID: <code>{library?.network?.chainId}</code></p>
+      </div>
+    )
+  }
+
+  export default function App() {
+    return (
+      <Web3ReactProvider getLibrary={getLibrary}>
+        <InnerApp />
+      </Web3ReactProvider>
+    )
+  }
+  ```
+  
+  **Explanation:**
+  - **Global‑wallet shim:** Importing `@sei-js/sei-global-wallet/eip6963` registers the wallet under the standard EIP‑6963 discovery events.  
+  - **EIP‑1193 connector:** `@web3-react/eip1193` listens for those events and exposes any injected providers via `activate(connector)`.  
+  - **Hook‑based flow:** Wrapping in `Web3ReactProvider` and calling `activate(eip6963)` on mount (or behind a “Connect” button) gives you a familiar hook API (`useWeb3React`) and an `ethers.js` provider.  
+
+  ———
+
+  #### Filtering only the Sei Global Wallet
+
+  If you need to ignore other injected wallets, you can pass a custom `getProvider` to the connector:
+
+  ```ts
+  const seiConnector = new EIP1193Connector({
+    getProvider: () => {
+      const all = (window as any).eip6963Providers as Array<{
+        info: { name: string }
+        provider: any
+      }>
+      const found = all.find((d) => d.info.name === 'Sei Global Wallet')
+      if (!found) throw new Error('Sei Global Wallet not found')
+      return found.provider
+    },
+  })
+  // then: activate(seiConnector)
   ```
 </details>
 
