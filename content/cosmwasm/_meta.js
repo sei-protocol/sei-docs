@@ -8,7 +8,6 @@ export default {
 	},
 	networks: 'Network Information',
 	'querying-state': 'Querying Blockchain State',
-	'installing-seid': 'Installing `seid` CLI',
 
 	'-- Transactions': {
 		type: 'separator',
@@ -34,7 +33,6 @@ export default {
 		type: 'separator',
 		title: 'Interoperability'
 	},
-	'evm-transactions': 'EVM on Cosmos',
 
 	'-- Modules': {
 		type: 'separator',
