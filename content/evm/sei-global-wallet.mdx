@@ -2,191 +2,378 @@ import { Callout } from 'nextra/components';
 
 # Sei Global Wallet
 
+
 <Callout type="error">By logging in with Sei Global Wallet, you agree to our [Terms of Use](https://app.sei.io/terms)</Callout>
 
-Sei Global Wallet is a cross-application embedded crypto wallet powered by
-[Dynamic Global Wallets](https://docs.dynamic.xyz/global-wallets/overview) that is accessed via conventional
-login methods (i.e., email, X, Telegram). With Sei Global Wallet, users gain access to the same embedded wallet on any
-integrated app within the Sei ecosystem-- enabling seamless onboarding without fragmenting liquidity
-(or adding an extra deposit step) for your users.
-Integrating is straightforward for developers using EIP-6963-compatible wallets or libraries like RainbowKit,
-WalletConnectKit, or Dynamic. Our lightweight SDK allows to easily add Sei Global Wallet to your app with just a
-few lines of code.
+Sei Global Wallet is a cross-application embedded crypto wallet powered by [Dynamic Global Wallets](https://docs.dynamic.xyz/global-wallets/overview). It gives users a persistent wallet experience across any integrated app within the Sei ecosystem, allowing them to authenticate and interact using familiar login methods like email, X, or Telegram—no browser extension or prior crypto knowledge required.
+
+For developers, integration is intentionally lightweight. If you're using EIP-6963-compatible libraries such as RainbowKit, WalletConnectKit, or Dynamic, setup takes only a few lines of code. You'll need to import the wallet package and wrap your provider stack with the appropriate global wallet components to fully activate functionality.
 
 ### Benefits of the Sei Global Wallet
 
-- Simplifies onboarding for users
-- Provides a seamless way for users to explore onchain apps without a browser extension or native app
-- Allows developers to utilize a secure popup that is compatible with RainbowKit, WalletConnect, and Dynamic
-- Offers users simple login flows without compromising access to liquidity
-- Works across all dApps that use EIP-6963-compatible wallets or libraries
+- Streamlined onboarding with familiar web2 login methods (email, Google, X, Telegram)
+- Seamless access across all integrated Sei ecosystem apps
+- No browser extension or crypto wallet installation required
+- Fully self-custodial: user controls private keys at all times
+- Simple integration via RainbowKit, WalletConnect, or Dynamic
+- Compatibility with existing wallet apps (e.g. MetaMask, Trust, WalletConnect, Coinbase) can be enabled if there is demand
+- Supports secure, popup-based interactions for transaction signing and authentication with active prevention of common hijacking methods
 
-### Features
-- Does not require a browser extension
-- Login with email
-- Social login (Google, X, Telegram)
-- All existing wallets will work as well (e.g. Metamask, Trust, WalletConnect, Coinbase)
+
+
+---
 
 ## EIP-6963
+
 EIP-6963 is a standardized communication protocol for embedded wallets, enabling seamless cross-application
 interoperability in the web3 ecosystem. It defines a common API for:
 
-- Wallet Discovery & Pairing: Allowing decentralized applications (dApps) to locate and securely connect with embedded wallets.
-- Authentication & Session Management: Facilitating unified login experiences and secure authentication across multiple apps.
-- Transaction Signing: Providing a consistent method for users to sign transactions through their embedded wallets.
+- **Wallet Discovery & Pairing:** Allowing decentralized applications (dApps) to locate and securely connect with embedded wallets.
+- **Authentication & Session Management:** Facilitating unified login experiences and secure authentication across multiple apps.
+- **Transaction Signing:** Providing a consistent method for users to sign transactions through their embedded wallets.
+
+---
 
 ## Installation
 
-1.**Install Sei Global Wallet Package**
+1. **Install Sei Global Wallet Package**
 
-```bash copy
-yarn add @sei-js/sei-global-wallet
-```
-or
-```bash copy
-npm install @sei-js/sei-global-wallet
-```
+   ```bash copy
+   yarn add @sei-js/sei-global-wallet
+   ```
+   or
+   ```bash copy
+   npm install @sei-js/sei-global-wallet
+   ```
 
-2.**Importing the Sei Global Wallet**
-To use this wallet with any wallet provider that supports the EIP-6963 standard, you need to import the wallet
-package in your project.
+2. **Importing the Sei Global Wallet**
 
-```javascript copy
- import "@sei-js/sei-global-wallet/eip6963";
- ```
+   To use this wallet with any wallet provider that supports the EIP-6963 standard, you must import the wallet
+   package in your project:
 
-3.**Use Sei Global Wallet**
-Your Sei Global Wallet is now ready to use within the project.
+   ```javascript copy
+   import "@sei-js/sei-global-wallet/eip6963";
+   ```
 
-## Library Specific Examples
+   **Note:** Importing the package alone does not activate the global wallet functionality. You must also
+   wrap your provider stack with the necessary global wallet provider components (e.g. DynamicContextProvider
+   and DynamicWagmiConnector).
 
-Here are some examples of how to use Sei Global Wallet with some popular libraries: Dynamic, WalletConnect and RainbowKit.
+3. **Use Sei Global Wallet**
 
-### Dynamic
+   Wrap your app’s existing providers with the global wallet providers to enable all required functionality.
 
-        ```tsx copy filename="layout.tsx"
-        "use client";
+---
 
-        import "./globals.css";
+## Integration Examples
 
-        import { Inter } from "next/font/google";
-        import Providers from "@/lib/providers";
+Sei Global Wallet support can be added to most applications using various popular libraries. The key is to wrap your
+provider stack with the global wallet providers. Here are examples demonstrating integrations using **Generic (Dynamic/Wagmi)**,
+**Dynamic (Next.js)**, **WalletConnectKit**, and **RainbowKit** as well as web3-react hooks.
 
-        const inter = Inter({ subsets: ["latin"] });
+<details>
+  <summary><strong>Generic (Dynamic/Wagmi)</strong></summary>
 
-        import '@sei-js/sei-global-wallet/eip6963';
+  ```tsx copy filename="Web3Provider.tsx"
+  import { Buffer } from 'buffer';
+  import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+  import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+  import type { ReactNode } from 'react';
+  import { http, WagmiProvider, createConfig } from 'wagmi';
 
-        export default function RootLayout({
-        children,
-    }: {
-         children: React.ReactNode;
-    }) {
-        return (
-            <html lang="en">
-              <body className={inter.className}>
-                <Providers>{children}</Providers>
-              </body>
-            </html>
-          );
-        }
-     ```
-### WalletConnectKit
-        ```tsx copy filename="main.tsx"
-        import { FC, PropsWithChildren, StrictMode } from "react";
-        import { createRoot } from "react-dom/client";
-        import "./index.css";
-        import { WagmiProvider, createConfig, http } from "wagmi";
-        import { seiTestnet } from "wagmi/chains";
-        import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-        import {
-          ConnectKitButton,
-          ConnectKitProvider,
-          getDefaultConfig,
-    } from "connectkit";
+  import { EthereumWalletConnectors } from '@dynamic-labs/ethereum';
+  import { DynamicContextProvider, RemoveWallets, SortWallets } from '@dynamic-labs/sdk-react-core';
+  import { DynamicWagmiConnector } from '@dynamic-labs/wagmi-connector';
+  import { pipe } from '@dynamic-labs/utils';
+  import { useComputedColorScheme } from '@mantine/core';
 
-        import "@sei-js/sei-global-wallet/eip6963";
+  // Import the global wallet implementation
+  import '@sei-js/sei-global-wallet/eip6963';
+  import { sei, seiTestnet, seiDevnet } from 'viem/chains';
 
-        const config = createConfig(
-        getDefaultConfig({
-          // Your dApps chains
-          chains: [seiTestnet],
-          transports: {
-            // RPC URL for each chain
-            [seiTestnet.id]: http(),
-          },
+  const queryClient = new QueryClient();
 
-          // Required API Keys
-          walletConnectProjectId: "",
+  interface Web3ProviderProps {
+    children: ReactNode;
+  }
 
-          // Required App Info
-          appName: "Your App Name",
+  function Web3Provider({ children }: Web3ProviderProps) {
+    const colorScheme = useComputedColorScheme();
 
-          // Optional App Info
-          appDescription: "Your App Description",
-          appUrl: "https://family.co", // your app's url
-          appIcon: "https://family.co/logo.png", // your app's icon, no bigger than 1024x1024px (max. 1MB)
-      })
-    );
+    // Buffer polyfill for browser environments
+    if (typeof window !== 'undefined') {
+      window.Buffer = window.Buffer ?? Buffer;
+    }
 
-        const queryClient = new QueryClient();
-
-        export const Web3Provider: FC<PropsWithChildren> = ({ children }) => {
-        return (
-          <WagmiProvider config={config}>
-            <QueryClientProvider client={queryClient}>
-              <ConnectKitProvider>{children}</ConnectKitProvider>
-            </QueryClientProvider>
-          </WagmiProvider>
-          );
-        };
-
-        createRoot(document.getElementById("root")!).render(
-          <StrictMode>
-              <Web3Provider>
-                  <ConnectKitButton />
-              </Web3Provider>
-          </StrictMode>
-        );
-        ```
-### RainbowKit
-        ```tsx copy filename="main.tsx"
-        import { StrictMode } from "react";
-        import { createRoot } from "react-dom/client";
-        import "./index.css";
-
-        import "@rainbow-me/rainbowkit/styles.css";
-        import {
-          ConnectButton,
-          getDefaultConfig,
-          RainbowKitProvider,
-    } from "@rainbow-me/rainbowkit";
-        import { WagmiProvider } from "wagmi";
-        import { seiTestnet } from "wagmi/chains";
-        import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
-
-        import "@sei-js/sei-global-wallet/eip6963";
-
-        const queryClient = new QueryClient();
-
-        const config = getDefaultConfig({
-          appName: "My RainbowKit App",
-          projectId: "YOUR_PROJECT_ID",
-          chains: [seiTestnet],
-          ssr: true, // If your dApp uses server side rendering (SSR)
+    const config = createConfig({
+      chains: [sei, seiDevnet, seiTestnet],
+      multiInjectedProviderDiscovery: false,
+      transports: {
+        [sei.id]: http(),
+        [seiDevnet.id]: http(),
+        [seiTestnet.id]: http(),
+      },
     });
 
-        createRoot(document.getElementById("root")!).render(
-          <StrictMode>
-              <WagmiProvider config={config}>
-                  <QueryClientProvider client={queryClient}>
-                      <RainbowKitProvider>
-                          <ConnectButton />
-                      </RainbowKitProvider>
-                  </QueryClientProvider>
-              </WagmiProvider>
-          </StrictMode>
-        );
-        ```
+    return (
+      <DynamicContextProvider
+        theme={colorScheme === 'dark' ? 'dark' : 'light'}
+        settings={{
+          environmentId: '<env_id>',
+          walletConnectors: [EthereumWalletConnectors],
+          walletsFilter: pipe(SortWallets(['metamask', 'okxwallet', 'rabby', 'compasswallet', 'coinbase'])).pipe(RemoveWallets(['phantomevm'])),
+        }}
+      >
+        <WagmiProvider config={config}>
+          <QueryClientProvider client={queryClient}>
+            <DynamicWagmiConnector>{children}</DynamicWagmiConnector>
+            <ReactQueryDevtools initialIsOpen={false} />
+          </QueryClientProvider>
+        </WagmiProvider>
+      </DynamicContextProvider>
+    );
+  }
+
+  export default Web3Provider;
+  ```
+
+  **Explanation:**
+
+  - **Global Wallet Wrapping:**  
+    The global wallet functionality is activated by wrapping the providers with `DynamicContextProvider` and
+    `DynamicWagmiConnector`. This injects all the required context for the embedded wallet.
+  
+  - **Provider Stack:**  
+    The example uses `WagmiProvider` for blockchain connections and `QueryClientProvider` for managing async state,
+    all nested inside the global wallet providers.
+  ```
+</details>
+
+<details>
+  <summary><strong>Dynamic (Next.js)</strong></summary>
+
+  ```tsx copy filename="layout.tsx"
+  "use client";
+
+  import "./globals.css";
+  import { Inter } from "next/font/google";
+  import Providers from "@/lib/providers";
+
+  const inter = Inter({ subsets: ["latin"] });
+
+  // Import the global wallet implementation
+  import '@sei-js/sei-global-wallet/eip6963';
+
+  export default function RootLayout({
+    children,
+  }: {
+    children: React.ReactNode;
+  }) {
+    return (
+      <html lang="en">
+        <body className={inter.className}>
+          <Providers>{children}</Providers>
+        </body>
+      </html>
+    );
+  }
+  ```
+  
+  **Note:** In this Dynamic example the global wallet provider wrapping is handled inside the
+  `Providers` component.
+  ```
+</details>
+
+<details>
+  <summary><strong>WalletConnectKit</strong></summary>
+
+  ```tsx copy filename="main.tsx"
+  import { FC, PropsWithChildren, StrictMode } from "react";
+  import { createRoot } from "react-dom/client";
+  import "./index.css";
+  import { WagmiProvider, createConfig, http } from "wagmi";
+  import { seiTestnet } from "wagmi/chains";
+  import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+  import {
+    ConnectKitButton,
+    ConnectKitProvider,
+    getDefaultConfig,
+  } from "connectkit";
+
+  // Import the global wallet implementation
+  import "@sei-js/sei-global-wallet/eip6963";
+
+  const config = createConfig(
+    getDefaultConfig({
+      // Your dApp's chains
+      chains: [seiTestnet],
+      transports: {
+        // RPC URL for each chain
+        [seiTestnet.id]: http(),
+      },
+
+      // Required API Keys
+      walletConnectProjectId: "",
+
+      // Required App Info
+      appName: "Your App Name",
+
+      // Optional App Info
+      appDescription: "Your App Description",
+      appUrl: "https://family.co",
+      appIcon: "https://family.co/logo.png",
+    })
+  );
+
+  const queryClient = new QueryClient();
+
+  export const Web3Provider: FC<PropsWithChildren> = ({ children }) => {
+    return (
+      <WagmiProvider config={config}>
+        <QueryClientProvider client={queryClient}>
+          <ConnectKitProvider>{children}</ConnectKitProvider>
+        </QueryClientProvider>
+      </WagmiProvider>
+    );
+  };
+
+  createRoot(document.getElementById("root")!).render(
+    <StrictMode>
+      <Web3Provider>
+        <ConnectKitButton />
+      </Web3Provider>
+    </StrictMode>
+  );
+  ```
+</details>
+
+<details>
+  <summary><strong>RainbowKit</strong></summary>
+
+  ```tsx copy filename="main.tsx"
+  import { StrictMode } from "react";
+  import { createRoot } from "react-dom/client";
+  import "./index.css";
+
+  import "@rainbow-me/rainbowkit/styles.css";
+  import {
+    ConnectButton,
+    getDefaultConfig,
+    RainbowKitProvider,
+  } from "@rainbow-me/rainbowkit";
+  import { WagmiProvider } from "wagmi";
+  import { seiTestnet } from "wagmi/chains";
+  import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
+
+  // Import the global wallet implementation
+  import "@sei-js/sei-global-wallet/eip6963";
+
+  const queryClient = new QueryClient();
+
+  const config = getDefaultConfig({
+    appName: "My RainbowKit App",
+    projectId: "YOUR_PROJECT_ID",
+    chains: [seiTestnet],
+    ssr: true, // If your dApp uses server side rendering (SSR)
+  });
+
+  createRoot(document.getElementById("root")!).render(
+    <StrictMode>
+      <WagmiProvider config={config}>
+        <QueryClientProvider client={queryClient}>
+          <RainbowKitProvider>
+            <ConnectButton />
+          </RainbowKitProvider>
+        </QueryClientProvider>
+      </WagmiProvider>
+    </StrictMode>
+  );
+  ```
+</details>
+
+<details>
+  <summary><strong>web3‑react (hook‑based)</strong></summary>
+
+  ```tsx copy filename="src/App.web3react.tsx"
+  // 1) Register the Sei Global Wallet under EIP‑6963 discovery
+  import '@sei-js/sei-global-wallet/eip6963'
+
+  import React, { useEffect } from 'react'
+  import { Web3ReactProvider, useWeb3React } from '@web3-react/core'
+  import { EIP1193Connector }     from '@web3-react/eip1193'
+  import { Web3Provider as EthersProvider } from '@ethersproject/providers'
+
+  // Create a connector that auto‑discovers EIP‑6963 providers
+  const eip6963 = new EIP1193Connector()
+
+  // Wrap your app in Web3ReactProvider, supplying an ethers.js getLibrary fn
+  function getLibrary(provider: any): EthersProvider {
+    return new EthersProvider(provider)
+  }
+
+  function InnerApp() {
+    const { activate, active, account, library, error } = useWeb3React()
+
+    // Auto‑connect on mount
+    useEffect(() => {
+      activate(eip6963).catch((err) => {
+        console.error('Failed to connect Sei Global Wallet', err)
+      })
+    }, [activate])
+
+    if (error) {
+      return <div style={{ color: 'red' }}>Error: {error.message}</div>
+    }
+    if (!active) {
+      return <div>Connecting to Sei Global Wallet…</div>
+    }
+
+    return (
+      <div>
+        <h2>✅ Connected!</h2>
+        <p>Account: <code>{account}</code></p>
+        <p>Chain ID: <code>{library?.network?.chainId}</code></p>
+      </div>
+    )
+  }
+
+  export default function App() {
+    return (
+      <Web3ReactProvider getLibrary={getLibrary}>
+        <InnerApp />
+      </Web3ReactProvider>
+    )
+  }
+  ```
+  
+  **Explanation:**
+  - **Global‑wallet shim:** Importing `@sei-js/sei-global-wallet/eip6963` registers the wallet under the standard EIP‑6963 discovery events.  
+  - **EIP‑1193 connector:** `@web3-react/eip1193` listens for those events and exposes any injected providers via `activate(connector)`.  
+  - **Hook‑based flow:** Wrapping in `Web3ReactProvider` and calling `activate(eip6963)` on mount (or behind a “Connect” button) gives you a familiar hook API (`useWeb3React`) and an `ethers.js` provider.  
+
+  ———
+
+  #### Filtering only the Sei Global Wallet
+
+  If you need to ignore other injected wallets, you can pass a custom `getProvider` to the connector:
+
+  ```ts
+  const seiConnector = new EIP1193Connector({
+    getProvider: () => {
+      const all = (window as any).eip6963Providers as Array<{
+        info: { name: string }
+        provider: any
+      }>
+      const found = all.find((d) => d.info.name === 'Sei Global Wallet')
+      if (!found) throw new Error('Sei Global Wallet not found')
+      return found.provider
+    },
+  })
+  // then: activate(seiConnector)
+  ```
+</details>
+
+---
 
 ## FAQ
 
@@ -197,31 +384,31 @@ Here are some examples of how to use Sei Global Wallet with some popular librari
 Sei Global Wallets are an embedded wallet experience for the Sei network, enabling wallet creation and authentication
 through social logins. Unlike traditional embedded wallets, Sei Global Wallets offer greater flexibility by allowing
 users to carry their wallets across different apps within the Sei ecosystem. They also enable Sei to integrate
-themselves as a login method across ecosystem apps.
+as a login method across ecosystem apps.
 
 #### Q: What are the key benefits of Sei Global Wallets for developers and users?
 
 **For Developers:**
 - **Sei ecosystem front and center:** Developers can add Sei as a login method to their app ("Log in with Sei"),
-enhancing brand visibility and creating a unified user experience across the Sei ecosystem.
+  enhancing brand visibility and creating a unified user experience across the Sei ecosystem.
 - **Simple integration:** The Global Wallet Kit is compatible with tools like RainbowKit, ConnectKit, and Appkit,
-simplifying the process for developers to integrate Sei Global Wallets into their applications.
+  simplifying the process for developers to integrate Sei Global Wallets into their applications.
 - **Enhanced security:** The kit provides robust security features, including multi-factor authentication (MFA) and
-secure key management
+  secure key management.
 
-**For Users**
-- **Simplified onboarding:** Users can create wallets and authenticate using familiar social logins, eliminating the
-need for browser extensions or prior crypto knowledge.
+**For Users:**
+- **Simplified onboarding:** Users can create wallets and authenticate using familiar social logins, eliminating the need for browser extensions or prior crypto knowledge.
 - **Cross-app connectivity:** Users can navigate seamlessly across various applications within the Sei ecosystem using
-a single wallet, enhancing interoperability and user experience.
+  a single wallet, enhancing interoperability and user experience.
 - **User-friendly flows:** Features like transaction simulation help users understand the impact of each transaction
-before confirmation, reducing risks and enhancing transparency.
+  before confirmation, reducing risks and enhancing transparency.
 
 #### Q: What login methods are currently supported?
 
-Sei Global Wallets support an extensive list of social logins, such as email, Google, X and Telegram.
+Sei Global Wallets support an extensive list of social logins, such as email, Google, X, and Telegram.
 
 #### Q: Do Sei Global Wallets conform to EIP standards?
+
 Yes, Sei Global Wallets conform to a specific EIP standard (EIP-6963) for injecting wallets, ensuring compatibility
 with aggregated wallet services like RainbowKit and ConnectKit.
 
@@ -231,76 +418,67 @@ Unlike traditional wallets, which often rely on client-side storage of private k
 secure, encrypted interactions. Key differences include:
 
 - **Secure encrypted communication:** All communication between an application and the Sei Global Wallet pop-up is
-encrypted, ensuring that there is no exposure of sensitive data during transmission. Decryption only happens within
-the wallet pop-up, and private keys are never exposed to the client or any external parties.
-- **Protection against replay attacks:** Sei Global Wallets implement encrypted messaging, eliminating opportunities for
-replay attacks. This means any intercepted data cannot be reused maliciously.
-- **Trusted Execution Environments (TEEs):** Encryption and decryption operations take place inside secure TEEs,
-preventing unauthorized access to sensitive material. Even Dynamic, as the wallet provider, does not have access to
-private keys, which remain secure within these isolated environments.
-- **Only verified origins allowed:** To further enhance security, only verified origins are allowed to interact with
-Sei Global Wallets. This ensures that all transactions and requests are made from trusted sources,
+  encrypted, ensuring that sensitive data is never exposed during transmission. Decryption only happens within
+  the wallet pop-up, and private keys remain secure.
+- **Protection against replay attacks:** Encrypted messaging eliminates opportunities for replay attacks,
+  preventing intercepted data from being maliciously reused.
+- **Trusted Execution Environments (TEEs):** Encryption and decryption operations occur within secure TEEs,
+  preventing unauthorized access. Even Dynamic—the wallet provider—never has access to the private keys.
+- **Verified origins:** Only verified origins can interact with Sei Global Wallets, ensuring all transactions come from trusted sources.
 
-
-In addition to these, Dynamic-powered embedded wallets share the same principles of non-custodial security, ensuring
-that only the user has access to their private keys. Dynamic’s multi-layered security architecture includes encrypted
-key storage, third-party audits, and ongoing bug bounty programs. Furthermore, wallets are always end-user controlled,
-with the option for users to export their private keys to a different provider at any time.
+In addition to these measures, Dynamic-powered embedded wallets maintain non-custodial security, ensuring that only the user controls their private keys. Dynamic’s multi-layered security architecture includes encrypted key storage, third-party audits, and continuous bug bounty programs.
 
 #### Q: Are Sei Global Wallets self-custodial or custodial?
-Sei Global Wallets and all Dynamic embedded wallets are self-custodial, giving full control and ownership to the
-end-user. An end user can export their keys at any time and import them into a MetaMask or other external wallet.
+
+Sei Global Wallets and all Dynamic embedded wallets are self-custodial, giving full control and ownership to the end-user. Users can export their keys at any time and import them into other wallets, such as MetaMask.
 
 #### Q: Do Sei Global Wallets require browser extensions?
-No, they do not require browser extensions. They function as an embedded wallet that can be taken across the Sei
-ecosystem.
+
+No, they do not require browser extensions. They operate as embedded wallets that travel across the Sei ecosystem.
 
 #### Q: Can I link my existing external wallet to my Sei Global Wallet?
-Not at the moment. In the future you will be able to link external wallets to a Sei global account.
+
+Not at the moment. In the future, you will be able to link external wallets to a Sei global account.
 
 #### Q: Can I put extra protections on my Sei Global Wallet?
-While Global Wallets are self-custodial, we always recommend practicing good security hygiene. Here are some ways to
-add additional protections:
 
-- **Enable multi-factor authentication (MFA):** Adding an extra authentication layer for sensitive actions can further
-secure your account.
-- **Be cautious of phishing attempts:** Stay alert when entering security codes online, especially if prompted
-unexpectedly. Always verify the source before sharing any sensitive information or interacting with unfamiliar requests.
-- **Add additional backup options:** Link additional email or social login methods to your account. This ensures you’ll
-always have a way to recover access, even if your primary login method becomes unavailable.
+While Global Wallets are self-custodial, we recommend practicing good security hygiene:
+- **Enable multi-factor authentication (MFA):** Adds an extra authentication layer for sensitive actions.
+- **Be cautious of phishing attempts:** Verify security codes and sources before sharing any sensitive information.
+- **Add backup options:** Link additional email or social login methods to ensure account recovery if needed.
 
 #### Q: Have Sei Global Wallets been audited?
-Yes, Sei Global Wallets, built by Dynamic, have been independently audited by Cure53, a leading security firm.
-The audit included a comprehensive review of Dynamic’s SDK, backend, and dashboard, with a specific focus on
-cryptographic implementations. The auditors concluded that the codebase demonstrates a strong security posture,
-modern architecture, and effective protection against common vulnerabilities such as XSS and SQL injection.
 
-#### Q: A user or developer has reported a bug, such as a UI issue. How should they report it?
+Yes, Sei Global Wallets—built by Dynamic—have been independently audited by Cure53, a leading security firm. The audit reviewed Dynamic’s SDK, backend, and dashboard, focusing on cryptographic implementations and overall security posture.
 
-The person reporting should provide this info:
-- Device
-- Browser
-- Description of the issue
-- If possible, a Loom or screen recording
+#### Q: A user or developer has reported a bug, such as a UI issue. How should it be reported?
 
-### Integration and Access
+Please provide the following information:
+- Device details
+- Browser information
+- A clear description of the issue
+- If possible, a Loom video or screen recording
+
+---
+
+## Integration and Access
 
 #### Q: How can developers using RainbowKit or WalletConnect integrate Sei Global Wallets into their application?
 
 Developers using RainbowKit or WalletConnect can integrate Sei Global Wallets by installing and importing the
-Sei Global Wallet. See full docs [here](#library-specific-examples).
+Sei Global Wallet package. See full docs [here](#integration-examples).
 
 #### Q: How can RainbowKit and WalletConnect developers make their Sei Global Wallet a recommended wallet?
-You can follow the walkthrough in [Dynamic's docs to guide](https://docs.dynamic.xyz/global-wallets/web3-libraries)
-your partners to add Sei Global Wallet as a recommended
-wallet in their app.
+
+Follow the walkthrough in [Dynamic's docs](https://docs.dynamic.xyz/global-wallets/web3-libraries) to guide your partners on adding Sei Global Wallet as a recommended option.
 
 #### Q: What should developers do if they have filtering issues with their wallet list?
-If Sei Global Wallets do not appear in a developer’s wallet list, they should check whether they have applied a custom
-filter that might exclude it. Some wallet providers allow developers to modify which wallets are displayed, which could
-cause integration issues.
 
-## References and links
+If Sei Global Wallets do not appear in the wallet list, ensure that no custom filters are excluding them. Some wallet providers allow modifications of the displayed wallet list, which might cause integration issues.
 
-- [<ins>Dynamic Global Wallet Documentation</ins>](https://docs.dynamic.xyz/global-wallets/overview)
-- [<ins>Creating Dynamic based example app</ins>](https://docs.dynamic.xyz/example-apps)
+---
+
+## References and Links
+
+- [Dynamic Global Wallet Documentation](https://docs.dynamic.xyz/global-wallets/overview)
+- [Creating Dynamic based example app](https://docs.dynamic.xyz/example-apps)
