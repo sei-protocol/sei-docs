@@ -4,6 +4,7 @@ export default {
 		title: 'Getting Started'
 	},
 	index: 'About Sei',
+	'sei-giga': 'Sei Giga Overview',
 	'user-quickstart': 'User Quickstart',
 	'dev-chains': 'Chain Info',
 	'dev-token-standards': 'Token Standards',
@@ -24,6 +25,7 @@ export default {
 		type: 'separator',
 		title: 'Consensus'
 	},
+	'twin-turbo-consensus': 'Twin Turbo Consensus',
 	'general-staking': 'Staking',
 	'general-governance': 'Governance',
 	proposals: 'Proposal Process',
