@@ -25,6 +25,7 @@ export default {
 		type: 'separator',
 		title: 'Consensus'
 	},
+	'twin-turbo-consensus': 'Twin Turbo Consensus',
 	'general-staking': 'Staking',
 	'general-governance': 'Governance',
 	proposals: 'Proposal Process',
