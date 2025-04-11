@@ -5,25 +5,32 @@ import { Callout, Tabs } from 'nextra/components';
 <Callout type="error">By logging in with Sei Global Wallet, you agree to our [Terms of Use](https://app.sei.io/terms)</Callout>
 
 Sei Global Wallet is a cross-application embedded crypto wallet powered by [Dynamic Global Wallets](https://docs.dynamic.xyz/global-wallets/overview). It gives users a persistent wallet experience across any integrated app within the Sei ecosystem, allowing them to authenticate and interact using familiar login methods like Google, Twitter, or Telegram—no browser extension or prior crypto knowledge required.  
-[*Other auth methods exist, but are not enabled at this time*]
-
-Integration is as lightweight as possible. Using EIP-6963-compatible libraries such as RainbowKit, WalletConnectKit, or Dynamic, setup requires only a few lines of code. Simply import the wallet package and wrap your provider stack appropriately.
-
-<Tabs items={['Integrating', 'FAQ']}>
-<Tabs.Tab>
-
-### Benefits
-- Simple onboarding with familiar login methods (email, Google, X, Telegram)
-- Persistent wallet experience across all applications
-- No browser extension or crypto wallet installation required
-- Non-custodial
-- Quick integration via RainbowKit, WalletConnect, or Dynamic
-- Familiar Popup-based interactions for secure transaction signing
+[*Additional auth methods such as existing wallet apps (Metamask, ..) are possible through Dynamic, but are not currently enabled*]
 
 ---
 
 ## EIP-6963
-EIP-6963 standardizes wallet discovery, authentication, and transaction signing for embedded wallets. It allows decentralized applications (dApps) to seamlessly interact with embedded wallets across different applications.
+EIP-6963 standardizes wallet discovery, authentication, and transaction signing for embedded wallets. It allows for seamless interaction with all wallet applications that meet the standard without any input from the app developer themselves..
+
+Integration is as lightweight as possible. Using EIP-6963-compatible libraries such as RainbowKit, WalletConnectKit, or Dynamic, setup requires only a few lines of code. Simply import the wallet package and wrap your provider stack appropriately.
+
+---
+
+<Tabs items={['Integrating', 'FAQ']}>
+<Tabs.Tab>
+
+### Benefits for Developers
+- **Simplified Integration:** Works with any EIP-6963 compatible wallet library
+- **No additional configuration:** Environment ID and other settings are pre-configured
+- **Flexible implementation:** Compatible with RainbowKit, ConnectKit, Dynamic, and web3-react
+- **Standardized interface:** Uses the same provider patterns developers are familiar with
+
+### Benefits for Users
+- **Persistent wallet:** Same key+address across all Sei ecosystem applications
+- **No browser extension:** Built-in wallet requires no installation
+- **Self-custodial:** Users maintain full control of their keys
+- **Familiar authentication:** Login with existing social accounts (Google, X, Telegram)
+- **Secure interactions:** Popup-based signing for all transactions
 
 ---
 
@@ -38,22 +45,21 @@ npm install @sei-js/sei-global-wallet
 ```
 
 2. **Importing Sei Global Wallet**
-Import the custom wallet:
+Import the package to register the wallet:
 ```js copy
 import "@sei-js/sei-global-wallet/eip6963";
 ```
-> **Important:** Simply importing the package is not enough. Ensure you wrap your provider stack with appropriate global wallet components.
+> **Important:** Simply importing the package registers the wallet for discovery, but you'll need to ensure your application's provider stack is properly configured to interact with it. Most wallet connection libraries that support EIP-6963 will automatically detect the wallet after import.
 
 ---
 
 ## Integration Examples
-Provided below are several integration examples demonstrating several setups ranigng from basic to slightly advanced - using Dynamic, Wagmi, WalletConnectKit, RainbowKit, or Web3-react.
+Below are integration examples for different frameworks and wallet provider libraries. Each example demonstrates how to properly integrate the pre-configured Sei Global Wallet package.
 
 <details>
   <summary><strong>Dynamic (Next.js)</strong></summary>
 
-**Note:** In this Dynamic example the global wallet provider wrapping is handled inside the
-`Providers` component, which would include the DynamicContextProvider.
+**Note:** In this example with Next.js app router, the wallet implementation is imported at the layout level while the provider wrapping happens inside a client component.
 
 ```tsx copy filename="layout.tsx"
 "use client";
@@ -74,7 +80,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        {/* The Providers component wraps your app with the Dynamic context */}
+        {/* The Providers component contains the Dynamic context provider setup */}
         <Providers>{children}</Providers>
       </body>
     </html>
@@ -82,9 +88,30 @@ export default function RootLayout({
 }
 ```
 
+For reference, a simplified version of what your `Providers` component might look like:
+
+```tsx copy filename="lib/providers.tsx"
+"use client";
+
+import { DynamicContextProvider } from "@dynamic-labs/sdk-react-core";
+import { ReactNode } from "react";
+
+export default function Providers({ children }: { children: ReactNode }) {
+  return (
+    <DynamicContextProvider
+      settings={{
+        // All Dynamic settings are pre-configured in the Sei Global Wallet
+        // You don't need to specify environmentId or other Dynamic-specific settings
+      }}
+    >
+      {children}
+    </DynamicContextProvider>
+  );
+}
+```
+
 </details>
 
----
 ---
 
 <details>
@@ -100,7 +127,7 @@ import { sei, seiTestnet } from 'viem/chains';
 import { DynamicContextProvider } from '@dynamic-labs/sdk-react-core';
 import { DynamicWagmiConnector } from '@dynamic-labs/wagmi-connector';
 
-// Import the global wallet implementation
+// Import the Sei Global Wallet implementation
 import '@sei-js/sei-global-wallet/eip6963';
 
 // Create query client for React Query
@@ -120,8 +147,7 @@ function Web3Provider({ children }) {
     // Step 1: Wrap with DynamicContextProvider
     <DynamicContextProvider
       settings={{
-        // Your Dynamic environment ID
-        environmentId: '<env_id>',
+        // No need to specify environmentId - this is pre-configured in the Sei Global Wallet
       }}
     >
       {/* Step 2: Add Wagmi provider */}
@@ -141,9 +167,9 @@ export default Web3Provider;
 ```
 
 **Explanation:**
-- The global wallet is integrated by wrapping providers with `DynamicContextProvider` and `DynamicWagmiConnector`
-- This example shows a simplified integration between Wagmi and Dynamic
-- Be mindful of the nesting order - it is important: Dynamic → Wagmi → QueryClient → DynamicWagmiConnector
+- Simply importing `@sei-js/sei-global-wallet/eip6963` registers the wallet for discovery
+- The correct provider nesting is crucial: Dynamic → Wagmi → QueryClient → DynamicWagmiConnector
+- This pattern works for both new projects and existing Wagmi applications
 </details>
 
 ---
@@ -156,7 +182,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import { WagmiProvider, createConfig, http } from "wagmi";
-import { seiTestnet } from "wagmi/chains";
+import { sei, seiTestnet } from "wagmi/chains";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   ConnectKitButton,
@@ -164,16 +190,18 @@ import {
   getDefaultConfig,
 } from "connectkit";
 
-// Import the global wallet implementation - this makes the wallet discoverable
+// Import the Sei Global Wallet for EIP-6963 discovery
 import "@sei-js/sei-global-wallet/eip6963";
 
+// Configure Wagmi with ConnectKit
 const config = createConfig(
   getDefaultConfig({
-    chains: [seiTestnet],
+    chains: [sei, seiTestnet],
     transports: {
+      [sei.id]: http(),
       [seiTestnet.id]: http(),
     },
-    walletConnectProjectId: "",
+    walletConnectProjectId: "YOUR_PROJECT_ID", // Required for WalletConnect
     appName: "Your App Name",
   })
 );
@@ -184,7 +212,9 @@ export const Web3Provider = ({ children }) => {
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
-        <ConnectKitProvider>{children}</ConnectKitProvider>
+        <ConnectKitProvider>
+          {children}
+        </ConnectKitProvider>
       </QueryClientProvider>
     </WagmiProvider>
   );
@@ -198,6 +228,11 @@ createRoot(document.getElementById("root")).render(
   </StrictMode>
 );
 ```
+
+**Key points:**
+- Just importing `@sei-js/sei-global-wallet/eip6963` makes the wallet discoverable
+- No additional configuration needed for the wallet itself
+- The Sei Global Wallet will appear in the ConnectKit modal alongside other wallets
 
 </details>
 
@@ -217,19 +252,20 @@ import {
   RainbowKitProvider,
 } from "@rainbow-me/rainbowkit";
 import { WagmiProvider } from "wagmi";
-import { seiTestnet } from "wagmi/chains";
+import { sei, seiTestnet } from "wagmi/chains";
 import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
 
-// Import the global wallet implementation
+// Import the Sei Global Wallet for EIP-6963 discovery
 import "@sei-js/sei-global-wallet/eip6963";
 
 const queryClient = new QueryClient();
 
+// Configure RainbowKit with Wagmi
 const config = getDefaultConfig({
   appName: "My RainbowKit App",
-  projectId: "YOUR_PROJECT_ID",
-  chains: [seiTestnet],
-  ssr: true,
+  projectId: "YOUR_PROJECT_ID", // Required for WalletConnect
+  chains: [sei, seiTestnet],
+  ssr: true, // Set to false if not using server-side rendering
 });
 
 createRoot(document.getElementById("root")).render(
@@ -244,6 +280,11 @@ createRoot(document.getElementById("root")).render(
   </StrictMode>
 );
 ```
+
+**Key points:**
+- Importing the Sei Global Wallet package registers it with the browser via EIP-6963
+- RainbowKit will automatically detect and display the wallet in its interface
+- No custom wallet configuration is needed
 
 </details>
 
@@ -332,7 +373,11 @@ const seiConnector = new EIP1193Connector({
 
 ## References and Links
 - [Dynamic Global Wallet Documentation](https://docs.dynamic.xyz/global-wallets/overview)
-- [Creating Dynamic based example app](https://docs.dynamic.xyz/example-apps)
+- [EIP-6963 Standard](https://eips.ethereum.org/EIPS/eip-6963)
+- [Creating Dynamic-Based Example App](https://docs.dynamic.xyz/example-apps)
+- [Wagmi Documentation](https://wagmi.sh/)
+- [RainbowKit Documentation](https://www.rainbowkit.com/docs/introduction)
+- [ConnectKit Documentation](https://docs.family.co/connectkit)
 
 </Tabs.Tab>
 <Tabs.Tab>
