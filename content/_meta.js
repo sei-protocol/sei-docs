@@ -15,8 +15,8 @@ export default {
 		title: 'EVM',
 		type: 'page'
 	},
-	cosmwasm: {
-		title: 'CosmWasm',
+	cosmos: {
+		title: 'Cosmos-SDK',
 		type: 'page'
 	},
 	node: {
