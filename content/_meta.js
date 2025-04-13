@@ -15,7 +15,7 @@ export default {
 		title: 'EVM',
 		type: 'page'
 	},
-	cosmos: {
+	'cosmos-sdk': {
 		title: 'Cosmos-SDK',
 		type: 'page'
 	},
