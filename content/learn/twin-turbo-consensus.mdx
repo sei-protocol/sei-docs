@@ -1,260 +1,162 @@
-import { Callout } from 'nextra/components';
-import { IconRocket, IconShieldCheck, IconClock, IconServer } from '@tabler/icons-react';
-
 # Twin Turbo Consensus
 
-## Overview
+## Introduction
 
-Twin Turbo Consensus is an advanced blockchain consensus mechanism that achieves 400-millisecond block times while maintaining security and decentralization. The system implements a dual-phase, pipelined architecture optimized for high-throughput transaction processing in Ethereum-compatible environments.
+Sei's consensus mechanism, often referred to as Twin Turbo Consensus, represents a suite of optimizations designed to achieve exceptionally low block finality times, targeting approximately 400 milliseconds. This rapid finality is not achieved through a completely novel consensus algorithm but rather through significant enhancements to the underlying Tendermint Byzantine Fault Tolerant (BFT) consensus engine, aggressive configuration tuning, and tight integration with Sei's parallel execution layer and SeiDB storage system. The goal is to provide near-instant transaction confirmation, enabling a new class of high-performance decentralized applications, particularly those built for the EVM.
 
-<Callout type="info" emoji={<IconRocket className="h-5 w-5 mt-1" />}>
-  Twin Turbo Consensus is a core innovation developed by Sei Labs that implements improvements to Byzantine Fault Tolerant (BFT) consensus with a focus on low-latency finality. This consensus mechanism is responsible for Sei's industry-leading transaction finality times.
-</Callout>
+## Core Concept: Pipelined & Parallelized Consensus
 
-## Technical Specifications
+The key to achieving sub-second finality lies in aggressively optimizing and parallelizing the standard BFT consensus flow. While traditional Tendermint proceeds through distinct rounds of propose, prevote, precommit, and commit somewhat sequentially for each block height, Sei's approach heavily pipelines these operations and integrates them closely with parallel transaction execution.
 
-<div className="overflow-auto">
-  <table className="min-w-full divide-y divide-neutral-200 dark:divide-neutral-800">
-    <thead>
-      <tr>
-        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-500 dark:text-neutral-400">Parameter</th>
-        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-500 dark:text-neutral-400">Value</th>
-        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-500 dark:text-neutral-400">Notes</th>
-      </tr>
-    </thead>
-    <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
-      <tr>
-        <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">Block Time</td>
-        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">400ms</td>
-        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Fixed interval</td>
-      </tr>
-      <tr>
-        <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">Transaction Finality</td>
-        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">400-800ms</td>
-        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Typically one to two blocks</td>
-      </tr>
-      <tr>
-        <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">Maximum Throughput</td>
-        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">20,000+ TPS</td>
-        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">With parallel execution</td>
-      </tr>
-      <tr>
-        <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">Validator Set Size</td>
-        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">120-200</td>
-        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Configurable parameter</td>
-      </tr>
-      <tr>
-        <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">Consensus Fault Tolerance</td>
-        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">33%</td>
-        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Byzantine fault tolerance</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
+This optimized flow involves several key enhancements:
 
-<Callout type="default" emoji={<IconClock className="h-5 w-5 mt-1" />}>
-  Sei's time to finality of 400ms represents a significant improvement over other blockchain networks. For comparison, Ethereum takes approximately 13 minutes to reach finality, making Sei's consensus mechanism roughly 2,000 times faster.
-</Callout>
+1.  **Aggressive Timeout Configuration:** Sei utilizes heavily tuned Tendermint consensus parameters. Configuration settings (e.g., `UnsafeProposeTimeoutOverride`, `UnsafeCommitTimeoutOverride`) enforce much shorter durations for block proposal, voting, and commit rounds compared to standard Tendermint configurations, directly contributing to the sub-second target block time. Faster gossip propagation for consensus messages further reduces communication latency between validators.
+2.  **Intelligent Mempool Management & Transaction Preparation:** Even before a block proposal is formally initiated for height `H`, validators can begin processing transactions intended for that block. This involves collecting transactions from the network, decoding them concurrently (`DecodeTransactionsConcurrently`), analyzing potential state dependencies (`GenerateEstimatedWritesets`), and potentially pre-fetching required state data from SeiDB. This "pre-consensus" preparation minimizes the work needed once the actual proposal for height `H` arrives.
+3.  **Optimized BFT Rounds with Parallel Execution Integration:** The critical optimization is the deep integration with Sei's parallelization engine. When a validator receives a block proposal for height `H`, it doesn't necessarily wait for the prevote/precommit rounds to complete before starting execution. Instead:
+    *   The block's transactions are dispatched to the parallel execution engine (`ProcessTXsWithOCC`, `DeliverTxBatch`).
+    *   Transaction execution proceeds *optimistically and concurrently* using multiple worker goroutines, managed via mechanisms like `CacheMultiStore` for state buffering.
+    *   Simultaneously, the validator participates in the standard BFT prevote and precommit voting rounds for the proposed block `H`.
+4.  **Rapid Finalization and Commit:** Because transaction execution overlaps significantly with the consensus voting process, the time delta between achieving 2/3+ precommits for block `H` and having the resulting state changes ready for commitment is drastically reduced. Once consensus is reached, the validated state changes buffered during parallel execution are efficiently committed to the underlying SeiDB storage layer, leveraging its high I/O capabilities.
 
-## System Architecture
-
-Twin Turbo Consensus employs a dual-phase, pipelined architecture that provides significant performance improvements over traditional consensus mechanisms:
-
-<div className="p-6 border border-neutral-200 dark:border-neutral-800 rounded-lg my-8 bg-neutral-50 dark:bg-neutral-900/60 shadow-sm">
-  <div className="w-full border border-neutral-200 dark:border-neutral-700 rounded-lg p-5 bg-white dark:bg-neutral-900 mb-2 shadow-sm">
-    <div className="text-center font-bold mb-4 text-neutral-900 dark:text-neutral-100">Dual-Phase Pipeline</div>
-    
-    <div className="grid grid-cols-2 gap-5 mb-6">
-      <div className="border rounded-lg p-4 bg-gradient-to-br from-red-50 to-red-100 dark:from-red-950/30 dark:to-red-900/20 border-red-200 dark:border-red-800/60 shadow-sm">
-        <div className="text-center font-semibold mb-3 text-red-800 dark:text-red-400">Block Production Phase</div>
+<div className="p-6 border border-neutral-200 dark:border-neutral-800 rounded-lg my-8 bg-black shadow-sm">
+  <div className="text-center font-bold mb-6 text-white text-xl">Optimized & Pipelined Consensus</div>
+  
+  <div className="border border-neutral-700 rounded-lg p-4 mb-6">
+    <div className="grid grid-cols-2 divide-x divide-dashed divide-neutral-700">
+      <div className="pr-4">
+        <div className="text-center text-neutral-400 mb-4">Pre-Consensus<br/>(TX Preparation)</div>
         
-        <div className="border rounded-md p-2 mb-3 bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 shadow-sm hover:shadow-md transition-shadow">
-          <div className="text-center text-sm font-medium">Transaction Batching</div>
+        <div className="border border-neutral-700 rounded p-3 mb-4 bg-neutral-900 relative">
+          <div className="text-white text-center">Transaction Collection & Analysis</div>
+          <div className="absolute bottom-[-20px] left-1/2 transform -translate-x-1/2 text-neutral-600">↓</div>
+          <div className="absolute right-[-20px] top-1/2 transform -translate-y-1/2 text-neutral-600">→</div>
         </div>
         
-        <div className="border rounded-md p-2 mb-3 bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 shadow-sm hover:shadow-md transition-shadow">
-          <div className="text-center text-sm font-medium">Optimistic Execution</div>
-        </div>
-        
-        <div className="border rounded-md p-2 bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 shadow-sm hover:shadow-md transition-shadow">
-          <div className="text-center text-sm font-medium">Block Proposal</div>
+        <div className="border border-neutral-700 rounded p-3 mt-4 bg-neutral-900 relative">
+          <div className="text-white text-center">State Prefetching<br/>(SeiDB)</div>
+          <div className="absolute right-[-20px] top-1/2 transform -translate-y-1/2 text-neutral-600">↔</div>
         </div>
       </div>
       
-      <div className="border rounded-lg p-4 bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-950/30 dark:to-amber-900/20 border-amber-200 dark:border-amber-800/60 shadow-sm">
-        <div className="text-center font-semibold mb-3 text-amber-800 dark:text-amber-400">Block Validation Phase</div>
+      <div className="pl-4">
+        <div className="text-center text-neutral-400 mb-4">Optimized BFT Consensus<br/>(Voting & Concurrent Execution)</div>
         
-        <div className="border rounded-md p-2 mb-3 bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 shadow-sm hover:shadow-md transition-shadow">
-          <div className="text-center text-sm font-medium">Signature Verification</div>
+        <div className="border border-neutral-700 rounded p-3 mb-4 bg-neutral-900 relative">
+          <div className="text-white text-center">Block Proposal Reception & Initial Validation</div>
+          <div className="absolute bottom-[-20px] left-1/4 transform -translate-x-1/2 text-neutral-600">↓</div>
+          <div className="absolute bottom-[-20px] right-1/4 transform translate-x-1/2 text-neutral-600">↓</div>
         </div>
         
-        <div className="border rounded-md p-2 mb-3 bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 shadow-sm hover:shadow-md transition-shadow">
-          <div className="text-center text-sm font-medium">State Validation</div>
+        <div className="grid grid-cols-2 gap-4 mt-8">
+          <div className="border border-neutral-700 rounded p-3 bg-neutral-900 relative">
+            <div className="text-white text-center">BFT Voting<br/>(Prevote/Precommit)</div>
+            <div className="absolute bottom-[-36px] left-1/2 transform -translate-x-1/2 text-neutral-600">↓</div>
+          </div>
+          <div className="border border-neutral-700 rounded p-3 bg-neutral-900 relative">
+            <div className="text-white text-center">Parallel TX Execution<br/>(Optimistic)</div>
+            <div className="absolute bottom-[-36px] left-1/2 transform -translate-x-1/2 text-neutral-600">↓</div>
+             <div className="absolute left-[-20px] top-1/2 transform -translate-y-1/2 text-neutral-600">←</div>
+          </div>
         </div>
-        
-        <div className="border rounded-md p-2 bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 shadow-sm hover:shadow-md transition-shadow">
-          <div className="text-center text-sm font-medium">Commitment Aggregation</div>
-        </div>
-      </div>
-    </div>
-    
-    <div className="flex flex-col items-center justify-center">
-      <svg className="w-8 h-8 text-neutral-400 dark:text-neutral-600 mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-      </svg>
-      
-      <div className="w-full border rounded-md p-3 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950/30 dark:to-green-900/20 border-green-200 dark:border-green-800/60 shadow-sm">
-        <div className="text-center text-sm font-medium text-green-800 dark:text-green-400">Block Finalization (400ms)</div>
       </div>
     </div>
   </div>
+  
+  <div className="flex justify-center mb-4">
+    <div className="text-neutral-600 text-xs">(Consensus Reached)</div>
+  </div>
+   <div className="flex justify-center mb-4">
+    <div className="text-neutral-600">↓</div>
+  </div>
+  
+  <div className="border border-neutral-700 rounded p-3 bg-neutral-900 max-w-xs mx-auto">
+    <div className="text-white text-center">Finalize State &<br/>Commit to SeiDB</div>
+  </div>
 </div>
 
-This dual-phase architecture allows for:
+This diagram illustrates the conceptual overlap. Transaction preparation feeds into a process where BFT voting happens *alongside* parallel transaction execution. The final commit to SeiDB occurs rapidly after consensus is achieved, enabled by the preceding concurrent work.
 
-- **Parallel Processing**: Each phase operates concurrently, maximizing throughput
-- **Optimistic Execution**: Transactions are processed before final validation
-- **Efficient Resource Utilization**: Critical path operations are prioritized
-- **Reduced Latency**: Communication patterns are optimized to minimize delays
+## Performance Impact for EVM Developers
 
-Unlike traditional consensus protocols that process blocks sequentially, Twin Turbo's pipelined approach allows the next block to begin processing before the previous block is fully finalized. This continuous flow is key to achieving the 400ms block times.
+This highly optimized consensus flow translates directly into tangible benefits:
 
-## Key Innovations
+*   **Near-Instant Finality:** The ~400ms target block time means transactions achieve probabilistic finality almost immediately, confirmed within a single block. Deterministic finality typically follows within two blocks (~800ms). This eliminates the long confirmation waits common on other chains.
+*   **Responsive Applications:** The low latency transforms the user experience. Interactions feel instantaneous, bridging the gap between decentralized applications and traditional web services.
+*   **Advanced Use Cases:** The speed enables applications previously impractical on-chain, such as high-frequency trading components, real-time price oracles critical for stable DeFi, and responsive on-chain games.
+*   **Efficient Multi-Step Operations:** Complex DeFi workflows (e.g., approve-swap-stake) that involve multiple transactions can execute in sequence within roughly a second, boosting capital efficiency and simplifying user interactions.
 
-Twin Turbo Consensus builds upon Tendermint consensus with two key innovations:
+These performance gains are delivered while preserving core EVM compatibility, including standard gas models and support for Solidity/Vyper and common Ethereum development tools.
 
-### 1. Intelligent Block Propagation
+### Leveraging Fast Finality in Solidity
 
-Traditional block propagation transmits the same transaction data twice: first during transaction gossiping and again during block propagation. This is inefficient and wastes network bandwidth.
+The rapid block times enable and encourage specific development patterns:
 
-Sei's intelligent block propagation optimizes this process:
+**1. Minimal Confirmation Waits:** Off-chain applications and scripts should rely on just one block confirmation (`txResponse.wait(1)`) for probabilistic finality, significantly speeding up application logic that depends on transaction inclusion.
 
-- Block proposers send compact block proposals containing only transaction identifiers and a reference to the full block
-- The block is broken into smaller parts and randomly gossiped to validators
-- Validators with the necessary transactions in their mempools can immediately reconstruct the block locally
-- Validators without all transactions wait until they receive the complete block content
+```javascript
+// Fast transaction submission leveraging ~400ms finality
+async function sendTransaction(tx) {
+  // ... prepare transaction ...
+  const signedTx = await wallet.signTransaction(transaction);
+  const txResponse = await provider.sendTransaction(signedTx);
 
-This optimization improves network performance by approximately 40% and significantly reduces propagation delays.
+  // Wait for ONE block confirmation
+  const receipt = await txResponse.wait(1); // Returns quickly
 
-### 2. Optimistic Block Processing
+  console.log(`Tx ${receipt.transactionHash} confirmed in block ${receipt.blockNumber} (~400ms)`);
+  return receipt; // Proceed with logic assuming finality
+}
+```
 
-In traditional consensus mechanisms, transaction processing only begins after the completion of prevote and precommit phases. Optimistic block processing improves on this by:
+**2. Practical Multi-Step Interactions:** Complex sequences involving multiple dependent transactions become efficient and user-friendly.
 
-- Processing transactions immediately as a valid block proposal is received
-- Running simultaneous processing during prevote and precommit phases
-- Writing candidate state to a cache that can be quickly committed or discarded
-- Committing the candidate state instantly if the block is accepted
-- Discarding the cache and resetting if the block is rejected
+```javascript
+// Example: Multi-step DeFi operation (Approve + Swap + Deposit)
+async function executeDeFiStrategy(tokenAddress, amount) {
+  const approveTx = await erc20.approve(ROUTER_ADDRESS, amount);
+  await approveTx.wait(1); // ~400ms
 
-This optimization improves network performance by approximately 33% and significantly reduces processing time.
+  const swapTx = await router.swapExactTokensForETH(/* ... */);
+  await swapTx.wait(1); // ~400ms
 
-<Callout type="warning" emoji={<IconShieldCheck className="h-5 w-5 mt-1" />}>
-  <div className="font-medium mb-1">Trade-off: Communication Complexity</div>
-  <p>Twin Turbo Consensus involves each validator communicating with every other validator to reach consensus. This creates quadratic communication complexity, meaning the number of messages grows significantly as more validators join the network. This trade-off makes it more challenging to increase the validator set size without impacting network performance.</p>
-</Callout>
+  const depositTx = await lendingPool.deposit(/* ... */);
+  await depositTx.wait(1); // ~400ms
 
-## Pipeline Architecture
+  // Total time ~1.2 seconds
+  console.log("Multi-step strategy completed.");
+  return { /* ... results ... */ };
+}
+```
 
-Twin Turbo Consensus achieves 400ms block times through pipelined processing:
+**3. Time-Sensitive Contract Logic:** Smart contracts can implement logic sensitive to short time intervals, measured reliably in blocks.
 
-<div className="overflow-auto mb-8">
-  <table className="min-w-full divide-y divide-neutral-200 dark:divide-neutral-800">
-    <thead>
-      <tr>
-        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-500 dark:text-neutral-400">Pipeline Stage</th>
-        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-500 dark:text-neutral-400">Duration (ms)</th>
-        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-500 dark:text-neutral-400">Parallel Operations</th>
-      </tr>
-    </thead>
-    <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
-      <tr>
-        <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">Transaction Collection</td>
-        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">0-100</td>
-        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Mempool organization, transaction prioritization</td>
-      </tr>
-      <tr>
-        <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">Block Production</td>
-        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">100-200</td>
-        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Transaction execution, Merkle proof generation</td>
-      </tr>
-      <tr>
-        <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">Block Propagation</td>
-        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">200-250</td>
-        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Network distribution, signature verification</td>
-      </tr>
-      <tr>
-        <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">Validation</td>
-        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">250-350</td>
-        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Parallel state transition verification</td>
-      </tr>
-      <tr>
-        <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">Commitment</td>
-        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">350-400</td>
-        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Commitment aggregation, finalization preparation</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
+*   **Short-Duration Auctions/Votes:** Contracts can define processes that resolve within seconds or minutes, using `block.number` for precise timing based on the ~400ms block interval.
+*   **High-Frequency Oracles:** Oracles can push updates much more frequently (e.g., every few seconds, corresponding to a small number of blocks), providing fresher data to DeFi protocols.
 
-## Performance Benchmarks
+```solidity
+// Example: High-Frequency Oracle Update Constraint
+contract HighFrequencyOracle {
+    uint256 public lastUpdateBlock;
+    // Allow update every 5 blocks (~2 seconds)
+    uint256 public updateFrequency = 5;
 
-Measured transaction confirmation times from submission to confirmation:
+    function updatePrice(bytes32 asset, uint256 price) external /* ... */ {
+        // Enforce minimum block interval between updates
+        require(block.number >= lastUpdateBlock + updateFrequency, "Update too frequent");
+        // ... update price state ...
+        lastUpdateBlock = block.number;
+        // ... emit event ...
+    }
 
-<div className="overflow-auto">
-  <table className="min-w-full divide-y divide-neutral-200 dark:divide-neutral-800">
-    <thead>
-      <tr>
-        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-500 dark:text-neutral-400">Transaction Type</th>
-        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-500 dark:text-neutral-400">Average Time (ms)</th>
-        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-500 dark:text-neutral-400">P95 Time (ms)</th>
-        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-500 dark:text-neutral-400">P99 Time (ms)</th>
-      </tr>
-    </thead>
-    <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
-      <tr>
-        <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">Simple Transfer</td>
-        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">450</td>
-        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">650</td>
-        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">800</td>
-      </tr>
-      <tr>
-        <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">ERC-20 Transfer</td>
-        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">480</td>
-        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">680</td>
-        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">850</td>
-      </tr>
-      <tr>
-        <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">ERC-721 Mint</td>
-        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">520</td>
-        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">720</td>
-        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">900</td>
-      </tr>
-      <tr>
-        <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">DEX Swap</td>
-        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">550</td>
-        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">750</td>
-        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">950</td>
-      </tr>
-      <tr>
-        <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">Complex Contract</td>
-        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">620</td>
-        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">820</td>
-        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">1100</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
+    // Check price freshness (e.g., < 25 blocks = ~10 seconds)
+    function isPriceFresh(bytes32 asset) external view returns (bool) {
+        return block.number - lastUpdateBlock < 25;
+    }
+}
+```
 
-<Callout type="default" emoji={<IconServer className="h-5 w-5 mt-1" />}>
-  <div className="font-medium mb-1">Byzantine Fault Tolerance</div>
-  <p>Twin Turbo Consensus maintains the same Byzantine Fault Tolerance (BFT) security properties as traditional Tendermint consensus, tolerating up to 1/3 of validators being malicious while ensuring safety and liveness guarantees.</p>
-</Callout>
+### Compatibility and Future Directions
 
-## How It Enables Sei's Speed
+Sei's consensus optimizations are implemented while maintaining full compatibility with the EVM standard. Existing smart contracts, dApps, and developer tools function smoothly.
 
-Twin Turbo Consensus is a foundational component of Sei's high-performance architecture, enabling:
-
-- **Web2-like user experiences**: With sub-400ms finality, applications can provide responsive interfaces that feel as immediate as centralized services
-- **High-frequency trading**: Near-instant transaction finality makes Sei suitable for time-sensitive financial applications
-- **Optimistic execution**: The consensus mechanism allows for advanced techniques like parallel execution and state caching
-- **Lower infrastructure costs**: By maximizing throughput with minimal communication overhead, the network can operate efficiently 
+Ongoing and future work focuses on further optimizing the pipeline, including advanced state management techniques (predictive loading, EVM-specific caching integrated with SeiDB), potential bytecode optimizations or JIT compilation for the EVM execution layer, and building cross-chain communication protocols that leverage Sei's fast finality.
