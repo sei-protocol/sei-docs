@@ -4,7 +4,6 @@ export default {
 		title: 'Getting Started'
 	},
 	index: 'About Sei',
-	'sei-giga': 'Sei Giga Overview',
 	'user-quickstart': 'User Quickstart',
 	'dev-chains': 'Chain Info',
 	'dev-token-standards': 'Token Standards',
@@ -21,11 +20,20 @@ export default {
 	faucet: 'Faucet',
 	indexers: 'Indexers',
 	oracles: 'Oracles',
+
+	'-- Platform Architecture': {
+		type: 'separator',
+		title: 'Platform Architecture'
+	},
+	'twin-turbo-consensus': 'Twin Turbo Consensus',
+	'parallelization-engine': 'Parallelization Engine',
+	seidb: 'SeiDB',
+	'sei-giga': 'Sei Giga',
+
 	'-- Consensus': {
 		type: 'separator',
 		title: 'Consensus'
 	},
-	'twin-turbo-consensus': 'Twin Turbo Consensus',
 	'general-staking': 'Staking',
 	'general-governance': 'Governance',
 	proposals: 'Proposal Process',
