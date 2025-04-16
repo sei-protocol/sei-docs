@@ -76,7 +76,6 @@ export default async function RootLayout({ children }) {
 			<body style={{ width: '100%', height: '100%' }}>
 				<Toaster position='bottom-left' />
 				<DocsProviders pageMap={await getPageMap()}>{children}</DocsProviders>
-				<Script id='ze-snippet' src='https://static.zdassets.com/ekr/snippet.js?key=95ec0096-4a77-48ad-b645-f010d3cb8971' />
 			</body>
 			<GoogleAnalytics gaId='G-G33FDB53X5' />
 		</html>
