@@ -1,0 +1,311 @@
+import { Callout } from 'nextra/components';
+import { IconRocket, IconDatabase, IconServer, IconCpu, IconArrowsShuffle } from '@tabler/icons-react';
+
+# SeiDB
+
+## Introduction
+
+SeiDB is a specialized database system designed to optimize blockchain state storage for the Ethereum Virtual Machine (EVM). It addresses fundamental performance constraints in traditional blockchain storage systems through targeted optimizations for EVM's specific state access patterns. This document explains the technical design and key components of SeiDB.
+
+## Core Technical Design
+
+Traditional blockchain databases store state in structures optimized for cryptographic verification rather than transaction execution speed. SeiDB uses a hybrid architecture that preserves cryptographic verifiability while accelerating state access operations.
+
+Key design goals include:
+
+- Minimizing storage slot access latency even at peak load
+- Maximizing state operation throughput for both reads and writes
+- Enabling parallel execution for non-conflicting state operations
+- Maintaining consistent performance under variable workloads
+
+## System Architecture
+
+SeiDB implements a multi-layered architecture optimized for EVM state management:
+
+<div className="p-6 border border-neutral-200 dark:border-neutral-800 rounded-lg bg-black shadow-sm my-8">
+  <div className="text-center font-bold mb-6 text-white text-xl">SeiDB Core</div>
+
+  <div className="grid grid-cols-3 gap-8 mb-8">
+    <div className="relative">
+      <div className="border-2 border-blue-700/30 dark:border-blue-900/40 rounded-lg p-4">
+        <div className="bg-neutral-900 rounded p-3">
+          <div className="text-center text-white">EVM Cache System</div>
+        </div>
+      </div>
+      <div className="absolute right-[-24px] top-1/2 transform -translate-y-1/2 text-white z-10">↔</div>
+    </div>
+
+    <div className="relative">
+      <div className="border-2 border-teal-700/30 dark:border-teal-900/40 rounded-lg p-4">
+        <div className="bg-neutral-900 rounded p-3">
+          <div className="text-center text-white">Query Processor</div>
+        </div>
+      </div>
+      <div className="absolute right-[-24px] top-1/2 transform -translate-y-1/2 text-white z-10">↔</div>
+    </div>
+
+    <div>
+      <div className="border-2 border-teal-700/30 dark:border-teal-900/40 rounded-lg p-4">
+        <div className="bg-neutral-900 rounded p-3">
+          <div className="text-center text-white">Storage Engine</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div className="grid grid-cols-3 gap-8 mb-8">
+    <div className="relative">
+      <div className="border-2 border-blue-700/30 dark:border-blue-900/40 rounded-lg p-4">
+        <div className="bg-neutral-900 rounded p-3">
+          <div className="text-center text-white">Merkle Trie Optimizer</div>
+        </div>
+      </div>
+      <div className="absolute right-[-24px] top-1/2 transform -translate-y-1/2 text-white z-10">↔</div>
+    </div>
+
+    <div className="relative">
+      <div className="border-2 border-teal-700/30 dark:border-teal-900/40 rounded-lg p-4">
+        <div className="bg-neutral-900 rounded p-3">
+          <div className="text-center text-white">Storage Indexer</div>
+        </div>
+      </div>
+      <div className="absolute right-[-24px] top-1/2 transform -translate-y-1/2 text-white z-10">↔</div>
+    </div>
+
+    <div>
+      <div className="border-2 border-teal-700/30 dark:border-teal-900/40 rounded-lg p-4">
+        <div className="bg-neutral-900 rounded p-3">
+          <div className="text-center text-white">LSM-Tree Manager</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div className="grid grid-cols-3 gap-8 mb-8">
+    <div className="relative">
+      <div className="border-2 border-blue-700/30 dark:border-blue-900/40 rounded-lg p-4">
+        <div className="bg-neutral-900 rounded p-3">
+          <div className="text-center text-white">Concurrency Control</div>
+        </div>
+      </div>
+      <div className="absolute right-[-24px] top-1/2 transform -translate-y-1/2 text-white z-10">↔</div>
+    </div>
+
+    <div className="relative">
+      <div className="border-2 border-teal-700/30 dark:border-teal-900/40 rounded-lg p-4">
+        <div className="bg-neutral-900 rounded p-3">
+          <div className="text-center text-white">Version Manager</div>
+        </div>
+      </div>
+      <div className="absolute right-[-24px] top-1/2 transform -translate-y-1/2 text-white z-10">↔</div>
+    </div>
+
+    <div>
+      <div className="border-2 border-teal-700/30 dark:border-teal-900/40 rounded-lg p-4">
+        <div className="bg-neutral-900 rounded p-3">
+          <div className="text-center text-white">I/O Scheduler</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div className="border-2 border-indigo-900/40 bg-indigo-950/30 rounded-lg p-6">
+    <div className="text-center text-indigo-400">Ethereum Compatibility Layer</div>
+  </div>
+</div>
+
+Each component in this architecture addresses specific performance bottlenecks found in traditional blockchain storage systems. The integrated design enables specialized optimization at each level while maintaining a cohesive system.
+
+### EVM-Optimized Storage Engine
+
+The storage engine forms the foundation of SeiDB and represents its most significant departure from traditional blockchain state databases. While standard Ethereum implementations use a single Merkle Patricia Trie for all storage, SeiDB employs a hybrid approach combining cryptographic verification with performance optimizations from modern database systems.
+
+Key technical innovations include:
+
+- **Enhanced Merkle Patricia Trie**: The implementation preserves cryptographic properties required for consensus validation while addressing performance bottlenecks. SeiDB's node caching dramatically reduces I/O overhead. Hot nodes remain in memory through a priority retention system that analyzes access frequency and recency patterns across multiple blocks.
+
+- **Incremental State Root Calculation**: The system employs specialized techniques that avoid recalculating entire trie branches when only leaf nodes change. This method accelerates block finalization for blocks with transactions affecting different state areas. The calculation process intelligently reuses intermediate hash values from unchanged subtrees, allowing rapid state root derivation even after thousands of storage modifications.
+
+- **Direct Storage Slot Indexing**: SeiDB provides mapping between composite keys (address + slot) and their storage location. This technique reduces lookup complexity from O(log n) to near-constant time for most operations. The indexing system maintains consistency through a dual-update mechanism that modifies both the index and underlying trie atomically.
+
+- **Account-Level Optimizations**: The system applies different strategies to external accounts (user wallets) and contract accounts. Contract accounts receive specialized treatment with code caching and execution context preservation. The code caching mechanism exploits the immutability of contract bytecode once deployed, keeping frequently accessed contracts in memory with custom deserialization to minimize runtime overhead.
+
+- **Optimized Bloom Filters**: The storage engine accelerates negative lookups (checking for non-existent keys) during contract execution. These filters use multi-layer filtering with dynamic sizing based on the active working set to minimize false positives during typical workloads.
+
+### Multi-Level Cache Architecture
+
+The caching system implements multiple specialized caches optimized for particular EVM access patterns, unlike general-purpose databases that employ uniform caching strategies.
+
+The system includes:
+
+- **Hot Slot Cache**: This component maintains frequently used storage slots in memory using a frequency-recency hybrid eviction policy tuned for blockchain workloads. This adaptive approach achieves improved hit rates compared to static caching policies. The cache intelligently separates frequently accessed slots from burst-access slots to prevent cache thrashing during high-intensity operations.
+
+- **Account State Cache**: This cache maintains complete information for recently accessed addresses, including code, balance, nonce, and metadata. It implements predictive loading based on transaction analysis for improved hit rates during smart contract interactions. The predictive engine analyzes calldata patterns and historical interaction graphs to preload likely-to-be-accessed contract accounts.
+
+- **Execution Context Cache**: This specialized cache preserves partial execution environments for frequently called contracts. When the same contract executes repeatedly with similar call patterns, this contextual caching reduces setup overhead compared to cold execution. The context includes pre-validated jump destinations, resolved address references, and warmed storage slots.
+
+### Concurrency Management
+
+SeiDB's concurrency control system employs optimistic concurrency control (OCC) adapted specifically for EVM's state access patterns. The system incorporates semantic knowledge of common smart contract behavior to minimize conflicts.
+
+The transaction execution process follows these steps:
+
+1. Analysis of transaction targets, calldata patterns, and historical access data to create an initial dependency graph
+2. Parallel execution of transactions without overlapping state dependencies in isolated worker threads
+3. Monitoring of actual storage accesses during execution to identify conflicts against predictions
+4. Selective reexecution of minimal conflict sets in sequential order when conflicts occur
+
+For common operations like token transfers, SeiDB applies specialized conflict handlers that understand operation semantics. The semantic analysis identifies token sender and recipient addresses from calldata and method signatures. This understanding reduces false conflicts for common ERC-20 token operations.
+
+The worker pool adjusts parallelism dynamically based on observed conflict rates. During periods with few conflicts, the system increases worker count to maximize throughput. When conflict rates rise, it reduces parallelism to avoid wasting resources on speculative execution that might require reversion. The scheduler incorporates a feedback loop that monitors aborted transactions and adjusts the parallelism factor within milliseconds of detecting changing workload patterns.
+
+### I/O Optimization
+
+SeiDB implements storage I/O optimizations designed specifically for blockchain workloads, which typically involve append-heavy state changes.
+
+Key optimization techniques include:
+
+- **Log-Structured Storage**: The system organizes state into multiple levels, with recent changes in memory and older state in progressively larger but slower storage tiers. This architecture transforms random writes into sequential operations, improving write throughput. The storage layer maintains a memory-resident delta table that captures recent modifications and periodically flushes these changes to persistent storage in optimized batches.
+
+- **Priority-Based I/O Scheduling**: The I/O subsystem prioritizes operations based on critical path status. State reads required for transaction validation receive highest priority, followed by state updates, and background operations receive lowest priority. The scheduler also employs operation batching techniques that combine multiple small I/O operations into more efficient larger operations.
+
+- **State Versioning**: SeiDB uses multi-version concurrency control designed for blockchain's block-based execution model. Each block creates a new state version, using full state snapshots at epoch boundaries and delta encoding between intermediate blocks. The versioning system enables point-in-time queries against historical state with minimal storage overhead through a combination of differential storage and periodic compaction.
+
+- **Configurable Persistence**: The database offers adjustable durability guarantees based on node type and network requirements, from fully synchronous writes to asynchronous persistence with periodic checkpoints. The configuration system allows operators to make explicit tradeoffs between performance and durability based on their specific node's role in the network.
+
+## Performance Characteristics
+
+SeiDB is designed to deliver substantial performance improvements compared to traditional EVM state implementations. The architecture focuses on enhancing both throughput and latency across various operation types.
+
+<Callout type="info">**Note:** Performance characteristics described in this section represent design targets rather than verified benchmarks. Actual performance will vary based on hardware configuration, workload patterns, and network conditions. Production deployments should conduct their own benchmarking to validate performance in their specific environment.</Callout>
+
+### Storage Operation Throughput
+
+SeiDB is architected to significantly improve operation throughput across all major storage operation categories, particularly for storage reads and account lookups. These improvements result from architectural innovations rather than hardware scaling, with performance gains across all operation types.
+
+### Latency Profile
+
+The system is designed to maintain consistent low latency across different load conditions, from low to peak usage. This latency stability represents one of SeiDB's most significant advantages for applications requiring predictable performance. The system aims to maintain relatively stable response times even at high utilization levels, unlike traditional implementations that may exhibit severe latency spikes during high network activity.
+
+## Optimization Patterns
+
+Understanding certain storage access patterns allows developers to take maximum advantage of SeiDB's architecture. While existing contracts work without modification, those designed with these patterns achieve even greater performance.
+
+### Localized Storage Access
+
+SeiDB's caching mechanisms work most effectively when related data exists in localized regions:
+
+```solidity
+// Suboptimal: Random storage access pattern
+contract BasicStorage {
+    mapping(uint256 => uint256) public values;
+
+    function processValues(uint256[] calldata keys) external {
+        for (uint i = 0; i < keys.length; i++) {
+            values[keys[i]] = values[keys[i]] + 1;
+        }
+    }
+}
+
+// Optimized: Localized storage access
+contract OptimizedStorage {
+    mapping(uint256 => mapping(uint256 => uint256)) public valuesByBucket;
+
+    function processValuesBatch(uint256 bucket, uint256[] calldata keys, uint256[] calldata vals) external {
+        for (uint i = 0; i < keys.length; i++) {
+            valuesByBucket[bucket][keys[i]] = vals[i];
+        }
+    }
+}
+```
+
+In the optimized version, related values cluster under common bucket keys. This organization aligns with SeiDB's caching strategy, which loads entire buckets into memory as a unit. The pattern improves performance compared to randomized access, particularly for operations processing many values in a single transaction.
+
+### Contention Reduction
+
+Smart contracts handling high transaction volumes benefit from storage designs that minimize contentious storage locations:
+
+```solidity
+// Suboptimal: High contention design
+contract HighContentionContract {
+    uint256 public totalOperations;
+
+    function recordOperation() external {
+        totalOperations++; // High contention point
+        // Other operation logic
+    }
+}
+
+// Optimized: Sharded counter design
+contract LowContentionContract {
+    mapping(uint256 => uint256) public operationsByDay;
+
+    function recordOperation() external {
+        uint256 today = block.timestamp / 86400;
+        operationsByDay[today]++; // Temporal sharding reduces contention
+        // Other operation logic
+    }
+
+    function getTotalOperations(uint256 daysToInclude) external view returns (uint256) {
+        uint256 total = 0;
+        uint256 today = block.timestamp / 86400;
+
+        for (uint256 i = 0; i < daysToInclude; i++) {
+            total += operationsByDay[today - i];
+        }
+
+        return total;
+    }
+}
+```
+
+The optimized contract shards the counter across time-based buckets, dramatically reducing contention when multiple transactions execute concurrently. SeiDB's concurrency control system recognizes these sharded patterns and executes transactions affecting different shards in parallel. This approach increases throughput for high-volume contracts during peak load conditions.
+
+## Technical Integration
+
+### EVM Compatibility
+
+SeiDB maintains complete compatibility with the Ethereum protocol specifications while delivering performance enhancements:
+
+- Full support for all EVM opcodes and precompiled contracts
+- Identical state transition logic to standard Ethereum implementations
+- Consistent gas cost model for all operations
+- Complete compatibility with JSON-RPC API endpoints
+
+These compatibility guarantees ensure existing smart contracts, development tools, and infrastructure components work without modification. The system undergoes extensive compatibility testing against the official Ethereum test suites to verify identical results compared to reference implementations.
+
+### Developer Tooling
+
+SeiDB includes analysis tools that provide insights into contract storage behavior:
+
+```javascript
+// Storage analysis integration
+async function analyzeContractStorage(contractAddress) {
+  const provider = new ethers.providers.JsonRpcProvider('https://sei-evm-rpc.com');
+
+  const stats = await provider.send('sei_getStorageStats', [contractAddress, { blockCount: 1000 }]);
+
+  console.log('Access Hotspots:', stats.hotSlots);
+  console.log('Access Pattern Type:', stats.accessPattern);
+  console.log('Contention Points:', stats.contentionPoints);
+  console.log('Optimization Suggestions:', stats.optimizationSuggestions);
+
+  return stats;
+}
+```
+
+These tools integrate with standard development environments and provide actionable insights into storage usage patterns. The analysis examines actual on-chain behavior over specified time ranges and identifies patterns that might not be obvious from code inspection alone.
+
+### Deployment Configurations
+
+SeiDB's architecture supports various deployment configurations optimized for different node roles:
+
+- **Validator nodes** prioritize state consistency and durability through synchronous I/O operations and redundant state verification
+- **API service nodes** optimize for query throughput and low latency responses with larger cache allocations and specialized read paths
+- **Archive nodes** employ specialized storage strategies for efficient historical state access, including custom indexing for time-based queries
+- **Light clients** benefit from optimized state proof generation with compact inclusion proofs for partial state verification
+
+Each configuration tunes the SeiDB components to match specific requirements while maintaining protocol compatibility. The configuration framework provides fine-grained control over cache sizes, worker pools, I/O policies, and persistence strategies to match the operational needs of different node types.

@@ -10,7 +10,7 @@ import DocsProviders from '../src/providers/DocsProviders';
 import '@radix-ui/themes/styles.css';
 import 'nextra-theme-docs/style.css';
 import './globals.css';
-import Script from 'next/script';
+import 'katex/dist/katex.min.css';
 
 export const metadata: Metadata = {
 	title: {
