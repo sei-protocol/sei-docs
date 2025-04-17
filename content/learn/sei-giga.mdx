@@ -2,7 +2,7 @@
 
 ## Introduction
 
-Sei Giga is a decentralized, permissionless Proof-of-Stake blockchain designed to address the persistent challenges of the "blockchain trilemma": the difficulty to simultaneously optimize for security, decentralization, and performance. 
+Sei Giga is a decentralized, permissionless Proof-of-Stake blockchain designed to address the persistent challenges of the "blockchain trilemma": the difficulty to simultaneously optimize for security, decentralization, and performance.
 
 Through the Autobahn consensus protocol, Sei Giga achieves up to 5 gigagas throughput with sub-second finality while maintaining standard Byzantine Fault Tolerance (BFT) security assumptions. This performance profile enables Sei Giga to support web2-scale usage on a verifiable and secure public ledger.
 
@@ -14,18 +14,18 @@ Sei Giga's architecture rests on three key innovations that together enable its 
 
 ### 1. Asynchronous Execution Model
 
-A fundamental design principle of Sei Giga is the separation of consensus and execution. Unlike traditional blockchains where these processes are tightly coupled, Sei Giga reaches consensus solely on the *ordering* of transactions within a block, not the resulting state change.
+A fundamental design principle of Sei Giga is the separation of consensus and execution. Unlike traditional blockchains where these processes are tightly coupled, Sei Giga reaches consensus solely on the _ordering_ of transactions within a block, not the resulting state change.
 
 This approach leverages a key property of deterministic execution:
 
-**Lemma 1 (Deterministic Execution):** Given the same initial state (S_init) and the same ordered sequence of transactions (tx₁, tx₂, ..., txₙ), all honest nodes executing these transactions will arrive at the exact same final state (S_final).
+**Lemma 1 (Deterministic Execution):** Given the same initial state ($S_{init}$) and the same ordered sequence of transactions $(t_{x_1}, t_{x_2}, ..., t_{x_n})$, all honest nodes executing these transactions will arrive at the exact same final state ($S_{final}$).
 
 This property enables Sei Giga to decouple the ordering of transactions from their execution:
 
-1. **Consensus:** Validators agree on transaction ordering in block `n`
-2. **Finalization:** Block `n` is finalized quickly
-3. **Asynchronous Execution:** Execution nodes process the transactions from block `n` in parallel with ongoing consensus for subsequent blocks
-4. **State Commitment:** The resulting state root from executing block `n` is committed in a later block (`n+x`)
+1. **Consensus:** Validators agree on transaction ordering in block $n$
+2. **Finalization:** Block $n$ is finalized quickly
+3. **Asynchronous Execution:** Execution nodes process the transactions from block $n$ in parallel with ongoing consensus for subsequent blocks
+4. **State Commitment:** The resulting state root from executing block $n$ is committed in a later block ($n+x$)
 
 This model prevents computation-heavy blocks from delaying the consensus process. The chain maintains consistent forward progress even during periods of high computational demand.
 
@@ -36,7 +36,8 @@ The execution process is fully pipelined with parallel parsing, address recovery
 Sei Giga employs Autobahn, a Byzantine Fault Tolerant (BFT) consensus protocol designed for high performance in the partial synchrony model. Autobahn addresses the limitations of traditional view-based protocols that struggle during network disruptions and DAG-based protocols that often show non-optimal latency.
 
 The protocol operates under standard BFT assumptions:
-- Network of `n = 3f + 1` replicas (validators), tolerating up to `f` Byzantine failures
+
+- Network of $n = 3f + 1$ replicas (validators), tolerating up to $f$ Byzantine failures
 - Secure point-to-point communication channels with unforgeable cryptographic signatures
 - Safety guarantees hold unconditionally, while liveness requires eventual network synchrony
 
@@ -44,12 +45,13 @@ Autobahn's key innovation is its separation of data dissemination from ordering 
 
 #### Data Dissemination Layer (Lanes)
 
-Data dissemination occurs through independent lanes. Each replica `r` maintains its own lane `ℓr` where it sequentially proposes batches of transactions (ℓr₀, ℓr₁, ℓr₂, ...).
+Data dissemination occurs through independent lanes. Each replica $r$ maintains its own lane $\ell_r$ where it sequentially proposes batches of transactions $({\ell}_{r_0}, {\ell}_{r_1}, {\ell}_{r_2}, ...)$.
 
 The proposal and certification process follows three steps:
-1. **Propose:** Replica `r` creates a data proposal `Prop = ⟨pos, B, parentRef⟩ᵣ` containing position, transaction batch, and a reference to the previous proposal
-2. **Vote:** Replicas receiving a valid `Prop` return a vote `Vote = ⟨digest(Prop)⟩`
-3. **Proof of Availability (PoA):** Once replica `r` collects `f+1` matching votes, it forms a PoA that certifies at least one correct replica can serve the proposal data
+
+1. **Propose:** Replica $r$ creates a data proposal $\text{Prop} = ⟨pos, B, parentRef⟩{}_r$ $ containing position, transaction batch, and a reference to the previous proposal
+2. **Vote:** Replicas receiving a valid $\text{Vote}$ return a vote $\text{Vote} = ⟨\text{digest}(\text{Prop})⟩$
+3. **Proof of Availability (PoA):** Once replica $r$ collects $f+1$ matching votes, it forms a PoA that certifies at least one correct replica can serve the proposal data
 
 Since proposals within a lane are chained, referencing a tip (latest proposal with PoA) implicitly confirms the availability of all preceding proposals in that lane.
 
@@ -57,20 +59,22 @@ Since proposals within a lane are chained, referencing a tip (latest proposal wi
 
 The consensus layer periodically orders the latest certified tips from all lanes into a **Cut**, which creates a single globally ordered sequence of transaction batches. This happens through a two-phase BFT agreement protocol:
 
-1. **Prepare:** The leader for the current slot collects the latest certified tips from all lanes, forms a `Cut = {ℓ₁[tip], ..., ℓₙ[tip]}`, and broadcasts it
-2. **Commit (Fast Path):** If the leader receives `n` prepare votes (from all replicas), the Cut is committed immediately
-3. **Confirm (Slow Path):** If the leader receives at least `n-f` (2f+1) but fewer than `n` votes, it enters a second "Confirm" phase
+1. **Prepare:** The leader for the current slot collects the latest certified tips from all lanes, forms a $\text{Cut} = {\ell_1[\text{tip}], ..., \ell_n[\text{tip}]}$, and broadcasts it
+2. **Commit (Fast Path):** If the leader receives $n$ prepare votes (from all replicas), the Cut is committed immediately
+3. **Confirm (Slow Path):** If the leader receives at least $n-f=2f+1$ but fewer than $n$ votes, it enters a second "Confirm" phase
 
-Autobahn also pipelines consensus slots. A replica can begin working on slot `s+1` after seeing the Prepare message for slot `s`, without waiting for `s` to be fully committed. This minimizes delays while maintaining safety through quorum intersection.
+Autobahn also pipelines consensus slots. A replica can begin working on slot $s+1$ after seeing the Prepare message for slot $s$, without waiting for $s$ to be fully committed. This minimizes delays while maintaining safety through quorum intersection.
 
 ### 3. Parallel Execution Engine
 
 Once a block's transaction order is finalized, Sei Giga executes transactions in parallel across multiple CPU cores using an Optimistic Concurrency Control (OCC) mechanism inspired by Block-STM.
 
-For a block containing transactions t₁, t₂, ..., tₙ, where each transaction reads from a set Rᵢ and writes to a set Wᵢ of state variables:
-- A dependency `tⱼ → tᵢ` exists if `j > i` and Wᵢ intersects with `Rⱼ ∪ Wⱼ`
+For a block containing transactions $t_1, t_2, ..., t_n$, where each transaction reads from a set $R_i$ and writes to a set $W_i$ of state variables:
+
+- A dependency $t_j -> t_i$ exists if $j > i$ and $W_i$ intersects with $R_j ∪ W_j$
 
 The parallel execution process follows four steps:
+
 1. **Parallel Execution:** Transactions execute concurrently across multiple threads, each maintains private read/write sets
 2. **Validation:** Each transaction validates that no already-committed transaction has modified its read/write sets
 3. **Conflict Resolution:** If conflicts are detected, the transaction is rolled back and re-executed
@@ -87,18 +91,21 @@ Sei Giga uses a specialized storage architecture that departs from traditional M
 ### Key Components
 
 1. **Flat Key-Value Store:**
+
    - Global state stored in a Log-Structured Merge (LSM) tree implementation
    - Efficient for write-intensive workloads
    - Reduces structural overhead compared to Merkle trees
    - Simplifies concurrency control (locking individual keys vs. tree branches)
 
 2. **Cryptographic Accumulators:**
+
    - Replace traditional Merkle paths with cryptographic accumulators
    - Provide compact proofs of membership/non-membership across many keys
    - Updates can be batched and performed asynchronously
    - Maintain verifiability without the overhead of frequent tree updates
 
 3. **Tiered Storage:**
+
    - Hot Storage: Recent blocks and frequently accessed state on high-performance SSDs
    - Cold Storage: Historical data migrated to distributed, potentially columnar, database systems
    - Reduces hardware requirements for validators
@@ -129,6 +136,7 @@ Sei Giga's economic model centers on the native SEI token, with a total supply o
 ### Slashing
 
 Validators face penalties (loss of staked SEI) for misbehavior:
+
 - **Liveness Failures:** Penalties for excessive downtime
 - **Safety Violations:** More severe penalties for double-signing blocks
 - Penalties increase for repeated offenses
@@ -146,9 +154,11 @@ Sei Giga features an on-chain governance mechanism that enables staked SEI holde
 
 Sei Giga implements a multi-dimensional fee market to price transactions based on their actual resource consumption:
 
-- **Resource Vector:** Each transaction `t` has a usage vector r_t = (r_t(cpu), r_t(storage), r_t(io), ...)
-- **Price Vector:** The network maintains a dynamic price vector p = (p_cpu, p_storage, p_io, ...)
-- **Fee Calculation:** Fee(t) = Σ (p_dimension * r_t(dimension)) + F_priority
+**Resource Vector:** Each transaction $t$ has a usage vector $r_t = (r_t(\text{cpu}), r_t(\text{storage}), r_t(\text{io}), \ldots)$
+
+**Price Vector:** The network maintains a dynamic price vector $p = (p_{\text{cpu}}, p_{\text{storage}}, p_{\text{io}}, \ldots)$
+
+**Fee Calculation:** $\text{Fee}(t) = \sum (p_{\text{dimension}} \cdot r_t(\text{dimension})) + F_{\text{priority}}$
 
 This approach creates more efficient resource allocation by ensuring prices accurately reflect the scarcity of each resource dimension independently.
 
