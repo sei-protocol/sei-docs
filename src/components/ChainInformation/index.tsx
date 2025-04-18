@@ -3,7 +3,8 @@
 import { Flex, Table } from '@radix-ui/themes';
 import React from 'react';
 import { CopyButton } from '../CopyText';
-import { networks } from './config';
+import { addOrSwitchSeiNetwork, networks } from './config';
+import { IconChevronRight } from '@tabler/icons-react';
 
 type NetworkType = 'Cosmos' | 'EVM';
 
@@ -73,5 +74,27 @@ export const ChainInformation = ({ networkType }: { networkType: NetworkType }) 
 				</Table.Row>
 			</Table.Body>
 		</Table.Root>
+	);
+};
+
+export const AddSeiButton = () => {
+	const onClick = async (e: React.MouseEvent) => {
+		e.preventDefault();
+		try {
+			await addOrSwitchSeiNetwork();
+			console.log('Sei Network added/switched!');
+		} catch (err) {
+			console.error('Failed to add/switch network:', err);
+		}
+	};
+
+	return (
+		<a
+			href='#'
+			onClick={onClick}
+			className='flex items-center text-sm text-neutral-700 dark:text-neutral-300 hover:text-red-500 dark:hover:text-red-400 transition-colors'>
+			<IconChevronRight className='h-3 w-3 mr-1' />
+			<span>Add Sei EVM to MetaMask</span>
+		</a>
 	);
 };

@@ -59,3 +59,40 @@ export const networks: NetworkEntry[] = [
 		explorerLinks: [{ name: 'SeiTrace', url: 'https://seitrace.com/?chain=arctic-1' }]
 	}
 ];
+
+// For Adding Sei to MetaMask
+export const SEI_CHAIN_PARAMS = {
+	chainId: '0x531', // 1329 in decimal
+	chainName: 'Sei Network',
+	rpcUrls: ['https://evm-rpc.sei-apis.com'],
+	nativeCurrency: {
+		name: 'Sei',
+		symbol: 'SEI',
+		decimals: 18
+	},
+	blockExplorerUrls: ['https://seitrace.com']
+};
+
+export async function addOrSwitchSeiNetwork() {
+	if (!window.ethereum) {
+		throw new Error('MetaMask is not installed');
+	}
+	try {
+		// Try switching to Sei
+		await window.ethereum.request({
+			method: 'wallet_switchEthereumChain',
+			params: [{ chainId: SEI_CHAIN_PARAMS.chainId }]
+		});
+	} catch (switchError: any) {
+		// This error code indicates the chain has not been added to MetaMask
+		if (switchError.code === 4902) {
+			await window.ethereum.request({
+				method: 'wallet_addEthereumChain',
+				params: [SEI_CHAIN_PARAMS]
+			});
+		} else {
+			// Some other error
+			throw switchError;
+		}
+	}
+}
