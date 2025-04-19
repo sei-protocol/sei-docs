@@ -1,5 +1,44 @@
 import { NetworkEntry } from './types';
 
+// For Adding Sei to MetaMask
+export const SEI_MAINNET_CHAIN_PARAMS = {
+	chainId: '0x531', // 1329 in decimal
+	chainName: 'Sei Network',
+	rpcUrls: ['https://evm-rpc.sei-apis.com'],
+	nativeCurrency: {
+		name: 'Sei',
+		symbol: 'SEI',
+		decimals: 18
+	},
+	blockExplorerUrls: ['https://seitrace.com']
+};
+
+// Testnet (atlantic-2)
+export const SEI_TESTNET_CHAIN_PARAMS = {
+	chainId: '0x530', // 1328 in decimal
+	chainName: 'Sei Testnet',
+	rpcUrls: ['https://evm-rpc-testnet.sei-apis.com'],
+	nativeCurrency: {
+		name: 'Sei',
+		symbol: 'SEI',
+		decimals: 18
+	},
+	blockExplorerUrls: ['https://seitrace.com/?chain=atlantic-2']
+};
+
+// Devnet (arctic-1)
+export const SEI_DEVNET_CHAIN_PARAMS = {
+	chainId: '0xAE3F3', // 713715 in decimal
+	chainName: 'Sei Devnet',
+	rpcUrls: ['https://evm-rpc-arctic-1.sei-apis.com'],
+	nativeCurrency: {
+		name: 'Sei',
+		symbol: 'SEI',
+		decimals: 18
+	},
+	blockExplorerUrls: ['https://seitrace.com/?chain=arctic-1']
+};
+
 export const networks: NetworkEntry[] = [
 	{
 		type: 'EVM',
@@ -10,7 +49,8 @@ export const networks: NetworkEntry[] = [
 		explorerLinks: [
 			{ name: 'SeiTrace', url: 'https://seitrace.com/?chain=pacific-1' },
 			{ name: 'SeiScan', url: 'https://www.seiscan.app/?chain=pacific-1' }
-		]
+		],
+		chainParams: SEI_DEVNET_CHAIN_PARAMS
 	},
 	{
 		type: 'EVM',
@@ -21,7 +61,8 @@ export const networks: NetworkEntry[] = [
 		explorerLinks: [
 			{ name: 'SeiTrace', url: 'https://seitrace.com/?chain=atlantic-2' },
 			{ name: 'SeiScan', url: 'https://www.seiscan.app/?chain=atlantic-2' }
-		]
+		],
+		chainParams: SEI_DEVNET_CHAIN_PARAMS
 	},
 	{
 		type: 'EVM',
@@ -29,7 +70,8 @@ export const networks: NetworkEntry[] = [
 		chainId: '713715',
 		hexChainId: '0xAE3F3',
 		rpcUrl: 'https://evm-rpc-arctic-1.sei-apis.com',
-		explorerLinks: [{ name: 'SeiTrace', url: 'https://seitrace.com/?chain=arctic-1' }]
+		explorerLinks: [{ name: 'SeiTrace', url: 'https://seitrace.com/?chain=arctic-1' }],
+		chainParams: SEI_DEVNET_CHAIN_PARAMS
 	},
 	{
 		type: 'Cosmos',
@@ -60,20 +102,7 @@ export const networks: NetworkEntry[] = [
 	}
 ];
 
-// For Adding Sei to MetaMask
-export const SEI_CHAIN_PARAMS = {
-	chainId: '0x531', // 1329 in decimal
-	chainName: 'Sei Network',
-	rpcUrls: ['https://evm-rpc.sei-apis.com'],
-	nativeCurrency: {
-		name: 'Sei',
-		symbol: 'SEI',
-		decimals: 18
-	},
-	blockExplorerUrls: ['https://seitrace.com']
-};
-
-export async function addOrSwitchSeiNetwork() {
+export async function addOrSwitchSeiNetwork(chain_params: any) {
 	if (!window.ethereum) {
 		throw new Error('MetaMask is not installed');
 	}
@@ -81,14 +110,14 @@ export async function addOrSwitchSeiNetwork() {
 		// Try switching to Sei
 		await window.ethereum.request({
 			method: 'wallet_switchEthereumChain',
-			params: [{ chainId: SEI_CHAIN_PARAMS.chainId }]
+			params: [{ chainId: chain_params.chainId }]
 		});
 	} catch (switchError: any) {
 		// This error code indicates the chain has not been added to MetaMask
 		if (switchError.code === 4902) {
 			await window.ethereum.request({
 				method: 'wallet_addEthereumChain',
-				params: [SEI_CHAIN_PARAMS]
+				params: [chain_params]
 			});
 		} else {
 			// Some other error
