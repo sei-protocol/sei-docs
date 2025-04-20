@@ -15,10 +15,10 @@ export default {
 		type: 'separator',
 		title: 'Frontend Development'
 	},
-	'building-a-frontend': 'Building a Frontend',
 	'sei-global-wallet': {
 		title: 'Sei Global Wallet'
 	},
+	'building-a-frontend': 'Building a Frontend',
 
 	'-- Smart Contracts': {
 		type: 'separator',

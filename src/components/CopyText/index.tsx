@@ -17,7 +17,7 @@ export const CopyButton = ({ value, copyDisabled = false }: { value: string; cop
 
 	return (
 		<div onClick={copyToClipboard} className='cursor-pointer flex items-center gap-2 font-bold'>
-			<Code color='gray' variant='soft' size='4' className='text-nowrap'>
+			<Code color='gray' variant='soft' size='3' className='text-nowrap'>
 				{value}
 			</Code>
 			{!copyDisabled ? (
