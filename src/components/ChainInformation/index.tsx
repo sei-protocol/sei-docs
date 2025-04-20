@@ -6,6 +6,7 @@ import { CopyButton } from '../CopyText';
 import { addOrSwitchSeiNetwork, networks } from './config';
 import { IconChevronRight } from '@tabler/icons-react';
 import { NetworkEntry } from './types';
+import { Link } from 'nextra-theme-docs';
 
 type NetworkType = 'Cosmos' | 'EVM';
 
@@ -31,7 +32,7 @@ export const ChainInformation = ({ networkType }: { networkType: NetworkType }) 
 						<Table.RowHeaderCell>{net.name}</Table.RowHeaderCell>
 
 						<Table.RowHeaderCell>
-							<Flex direction='column' className='gap-2'>
+							<Flex direction='column' gap='2'>
 								<CopyButton value={net.chainId} />
 								{net.hexChainId && <CopyButton value={net.hexChainId} />}
 							</Flex>
@@ -44,9 +45,9 @@ export const ChainInformation = ({ networkType }: { networkType: NetworkType }) 
 						<Table.Cell>
 							<Flex direction='column' className='gap-2'>
 								{net.explorerLinks.map((explorer) => (
-									<a key={explorer.name} href={explorer.url} target='_blank' className='!underline hover:!opacity-50'>
+									<Link key={explorer.name} href={explorer.url} target='_blank' className='!underline hover:!opacity-50'>
 										{explorer.name}
-									</a>
+									</Link>
 								))}
 							</Flex>
 						</Table.Cell>
@@ -58,23 +59,20 @@ export const ChainInformation = ({ networkType }: { networkType: NetworkType }) 
 						</Table.Cell>
 					</Table.Row>
 				))}
-		</Table.Body>
-
-		<Table.Body>
 			<Table.Row>
 				<Table.RowHeaderCell />
 				<Table.RowHeaderCell />
 				<Table.Cell>
 					<Flex direction='column' className='gap-2'>
-						<a href='/learn/rpc-providers' className='text-[#9e1f19] !underline'>
+						<Link href='/learn/rpc-providers' className='text-[#9e1f19]'>
 							View more RPC providers
-						</a>
+						</Link>
 					</Flex>
 				</Table.Cell>
 				<Table.Cell>
-					<a href='/learn/explorers' className='text-[#9e1f19] !underline'>
+					<Link href='/learn/explorers' className='text-[#9e1f19]'>
 						See more explorers
-					</a>
+					</Link>
 				</Table.Cell>
 			</Table.Row>
 		</Table.Body>
