@@ -1,517 +1,322 @@
-# Node Operations
-
+import { IconServer, IconGauge, IconArrowRight, IconUserCircle, IconSettings, IconRefresh, IconNetwork, IconShield, IconPlug, IconChartBar, IconTerminal2, IconBuildingBridge, IconAlertCircle, IconChevronRight, IconDatabase, IconCpu } from '@tabler/icons-react';
 import VersionTable from '../../src/components/VersionFetcher/VersionTable';
 
-## Current Binary versions & Genesis Files
-
-<VersionTable />
-
-## 1. System Requirements
-
-Before beginning your Sei node setup, verify that your system meets the
-following minimum requirements:
-
-### Hardware Specifications
-
-| Component   | Minimum      | Recommended  | Notes                                                      |
-| ----------- | ------------ | ------------ | ---------------------------------------------------------- |
-| **CPU**     | 8 cores      | 16 cores     | Modern processor (Intel Xeon/Core i7/i9 or AMD Epyc/Ryzen) |
-| **RAM**     | 32GB         | 64GB         | DDR4 or better                                             |
-| **Storage** | 1TB NVMe SSD | 2TB NVMe SSD | High IOPS required; SATA SSDs are not recommended          |
-| **Network** | 1Gbps        | 2Gbps        | Low latency connection is critical                         |
-
-### **Base System Setup**
-
-#### **1. Update and Upgrade System**
-
-Before installing any dependencies, ensure your system is up to date:
-
-```bash copy
-sudo apt update && sudo apt upgrade -y
-```
-
-#### **2. Install Essential Packages**
-
-Install required system dependencies:
-
-```bash copy
-sudo apt install make gcc git jq chrony curl lz4 wget tar build-essential -y
-```
-
-#### **3. Synchronize System Time**
-
-Ensure your system clock is synchronized to prevent issues with block verification, IBC transfers, and Tendermint-based chains.
-
-- **Set Timezone to UTC** (Recommended)
-
-```bash copy
-sudo timedatectl set-timezone UTC
-```
-
-- **Enable and Start Chrony**
-
-```bash copy
-sudo systemctl enable --now chronyd
-```
-
-If you're using **ntpd** instead:
-
-```bash copy
-sudo apt install ntp -y
-sudo systemctl enable --now ntp
-```
-
-Verify time synchronization:
-
-```bash copy
-timedatectl
-```
-
----
-
-## **4. Install Go (Golang)**
-
-### **Suggested Version: `Go 1.22.x`**
-
-- **Do NOT use Go 1.23.x** (incompatible).
-- Older versions **may work** but are not recommended.
-
-#### **Check for Existing Go Installation**
-
-Run:
-
-```bash copy
-go version
-```
-
-If a version **lower than 1.21** or **equal to / higher than 1.23** is installed, remove it:
-
-```bash copy
-sudo rm -rf /usr/local/go
-```
-
-#### **Download and Install Go 1.22.x**
-
-- Download the latest **Go 1.22.x** release:
-
-```bash copy
-wget https://go.dev/dl/go1.22.0.linux-amd64.tar.gz
-```
-
-- Extract and install:
-
-```bash copy
-sudo tar -C /usr/local -xzf go1.22.0.linux-amd64.tar.gz
-```
-
-- Add Go to your environment variables (for Bash or Zsh):
-
-```bash copy
-echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
-source ~/.bashrc
-```
-
-- Verify installation:
-
-```bash copy
-go version
-```
-
-Expected output:
-
-```bash copy
-go version go1.22.0 linux/amd64
-```
-
----
-
-## 2. Quick Start Options
-
-### 2.1 Automated Setup Script (Development/Testing)
-
-For rapid deployment or testing environments, use our automated setup script.
-This option is ideal when you want a quick way to spin up a node without diving
-deep into manual configuration:
-
-```bash copy
-git clone https://github.com/sei-protocol/sei-chain
-cd sei-chain
-python3 scripts/run-node.py
-```
-
-The script will guide you through selecting:
-
-- **Network:** (mainnet, testnet, or local)
-- **Database backend:** (with `sei-db` recommended)
-- **Basic configuration options**
-
-### 2.2 Production Setup Overview
-
-In general, setup follows this sequence:
-
-1. **Install the `seid` Binary**
-2. **Configure Your Node**
-3. **Initialize the Chain**
-4. **Set Up and Start the Node Service**
-
----
-
-## 3. Installation of the Sei Binary
-
-Choose one of the following methods:
-
-### Option 1: Pre-built Binary
-
-```bash copy
-wget -O seid https://github.com/sei-protocol/sei-chain/releases/download/[version]/seid-[version]-linux-amd64
-sudo mv seid /usr/local/bin/
-sudo chmod +x /usr/local/bin/seid
-```
-
-### Option 2: Build from Source
-
-```bash copy
-git clone https://github.com/sei-protocol/sei-chain
-cd sei-chain
-git checkout [version]  # See below for version reference
-make install
-```
-
-To determine the correct version for any given network (mainnet/testnet/devnet)
-please refer to [this table](#current-binary-versions--genesis-files)
-
----
-
-## 4. Node Initialization and Basic Configuration
-
-### 4.1 Initialize Your Node
-
-Set your node’s moniker and chain ID, then initialize the node:
-
-```bash copy
-# Set a "name" name and the relevant chain-id [pacific-1 / atlantic-2 / arctic-1]
-MONIKER="your-node-name"
-CHAIN_ID="pacific-1"
-
-## Initialize node
-seid init $MONIKER --chain-id $CHAIN_ID
-```
-
-### 4.2 Update Essential Settings
-
-Confirm the minimum gas prices (min 0.02usei) by updating the `app.toml` file:
-
-```bash copy
-sed -i 's/minimum-gas-prices = ""/minimum-gas-prices = "0.02usei"/g' ~/.sei/config/app.toml
-```
-
----
-
-## 5. Advanced Synchronization Options
-
-Depending on your operational requirements, choose one of the following
-synchronization methods:
-
-### 5.1 State Sync Configuration (Non-Archive Nodes)
-
-State sync enables your node to rapidly catch up by fetching a recent snapshot
-from trusted peers rather than replaying all historical blocks.
-
-#### Steps
-
-**Edit the `[statesync]` Section:**
-In `~/.sei/config/config.toml`, update or add the following persistent peers:
-
-```toml copy
-d7ad900ff4bd1cdb37b69ce0ae631b98ef2506e7@p2p.state-sync-0.pacific-1.seinetwork.io:26656,
-c79ecbb4f2f139b5a0eb3a3b323ea77e3b11387c@p2p.state-sync-1.pacific-1.seinetwork.io:26656,
-ce46d5f39f30b62bc2f899a914f971daf53519dc@p2p.state-sync-2.pacific-1.seinetwork.io:26656
-```
-
-**Automate Trust Parameter Configuration:**
-
-Use the following script to dynamically set the trust height and hash based on a
-provided RPC endpoint:
-
-<details>
-<summary>click to expand</summary>
-
-```bash
-#!/bin/bash
-
-# Check if RPC URL or IP:PORT is provided
-if [ -z "$1" ]; then
-  echo "Usage: $0 <rpc_url_or_ip:port>"
-  exit 1
-fi
-
-RPCADDR=$1
-CONFIG_FILE="$HOME/.sei/config/config.toml"
-
-# Fetch current height and latest block hash from /status
-STATUS_DATA=$(curl -s "$RPCADDR/status" | jq -r '.sync_info.latest_block_height + " " + .sync_info.latest_block_hash')
-CURRENT_HEIGHT=$(echo "$STATUS_DATA" | cut -d' ' -f1)
-LATEST_HASH=$(echo "$STATUS_DATA" | cut -d' ' -f2)
-
-if [ -z "$CURRENT_HEIGHT" ] || [ -z "$LATEST_HASH" ]; then
-  echo "Error: Could not fetch current height or latest block hash from $RPCADDR"
-  exit 1
-fi
-
-# Adjust the current height for safety
-ADJUSTED_HEIGHT=$((CURRENT_HEIGHT - 9000))
-ROUNDED_HEIGHT=$(( (ADJUSTED_HEIGHT / 10000) * 10000 + 1 ))
-TRUST_HEIGHT=$ROUNDED_HEIGHT
-
-# Fetch trust hash for the calculated trust height
-BLOCK_DATA=$(curl -s "$RPCADDR/block?height=$TRUST_HEIGHT" | jq -r '.block_id.hash')
-TRUST_HASH=$BLOCK_DATA
-
-if [ -z "$TRUST_HASH" ]; then
-  echo "Error: Could not fetch trust hash for height $TRUST_HEIGHT from $RPCADDR"
-  exit 1
-fi
-
-# Update the config.toml file
-if [ -f "$CONFIG_FILE" ]; then
-  sed -i "s/^enable = .*/enable = true/" "$CONFIG_FILE"
-  sed -i "s/^use-p2p = .*/use-p2p = true/" "$CONFIG_FILE"
-  sed -i "s/^trust-height = .*/trust-height = $TRUST_HEIGHT/" "$CONFIG_FILE"
-  sed -i "s/^trust-hash = .*/trust-hash = \"$TRUST_HASH\"/" "$CONFIG_FILE"
-
-  echo "Updated $CONFIG_FILE with the following values:"
-  echo "  trust-height = $TRUST_HEIGHT"
-  echo "  trust-hash = $TRUST_HASH"
-else
-  echo "Error: Config file $CONFIG_FILE not found."
-  exit 1
-fi
-```
-
-</details>
-
-**Usage:**
-
-```bash copy
-chmod +x script.sh
-./script.sh <rpc_url>
-```
-
-_Engsure that the `[statesync]` section already contains the persistent peers
-listed above._
-
----
-
-### 5.2 Archive Node Configuration
-
-An archive node maintains the complete historical record of the chain. This
-requires disabling state sync and starting with a pre-existing database using a
-"snapshot".
-
-**Disable State Sync:**
-In `~/.sei/config/config.toml`, modify the `[statesync]` section as follows:
-
-```toml copy
-#######################################################
-###         State Sync Configuration Options        ###
-#######################################################
-[statesync]
-enable = false
-```
-
-**Configure Archive Node Peers:**
-To sync from the height your snapshot was created at, you need peers retaining
-a large amount of historical blocks. The node will require specific peers during
-initial sync, which can be changed at a later time.
-This is due to the fact that most nodes do not keep a large amount of historical data.
-
-
-**Restore from Snapshot:**
-Archive nodes must restore from a trusted, full historical snapshot. There may
-be several providers, here is one of them:
-
-### Archive Snapshot Resources
-
-Not available at this time
-
-#### Snapshot Restoration
-
-- Stop the node service
-
-```bash copy
-  sudo systemctl stop seid
-```
-
-- Remove Existing Data Directory
-
-```bash copy
-mv ~/.sei/data ~/.sei/data_backup_$(date +%s)
-```
-
-- Download and Extract the Snapshot: Follow the instructions from the linked
-  markdown file or use a command similar to:
-
-```bash copy
-wget -O snapshot.tar.lz4 "path_to_snap"
-lz4 -d snapshot.tar.lz4 | tar -x -C ~/.sei
-```
-
-- Restart the node service
-
-```bash copy
-sudo systemctl start seid
-```
-
-Additional guidance can be found
-[here](https://github.com/cryptocrew-validators/CryptoCrew-Validators/blob/main/chains/sei/service_Archive_Snapshot.md).
-
----
-
-## 6. Mempool Configuration Tuning
-
-For optimal transaction handling and resource management, it is suggested to
-update the mempool settings in your `config.toml` file as follows:
-
-```toml copy
-#######################################################
-###          Mempool Configuration Option          ###
-#######################################################
-[mempool]
-
-# Broadcast transactions to other nodes
-broadcast = true
-
-# Maximum number of transactions in the mempool
-size = 5000
-
-# Limit the total size of all txs in the mempool.
-max-txs-bytes = 10737418240
-
-# Size of the cache (used to filter duplicate transactions)
-cache-size = 10000
-
-# Do not remove invalid transactions from the cache
-keep-invalid-txs-in-cache = true
-
-# Maximum size of a single transaction
-max-tx-bytes = 2048576
-
-# Maximum size of a batch of transactions to send to a peer
-max-batch-bytes = 0
-
-# Time-to-live duration for transactions in the mempool
-ttl-duration = "3s"
-
-# Maximum number of blocks a transaction can remain in the mempool
-ttl-num-blocks = 5
-
-tx-notify-threshold = 0
-
-check-tx-error-blacklist-enabled = true
-
-check-tx-error-threshold = 50
-
-pending-size = 5000
-
-max-pending-txs-bytes = 1073741824
-
-pending-ttl-duration = "3s"
-
-pending-ttl-num-blocks = 5
-```
-
-> **Notice:** Adjust these parameters if you encounter performance or resource issues.
-
----
-
-## 7. Service Setup with systemd
-
-Setting up a systemd service ensures that your node starts automatically on boot
-and restarts if it crashes.
-
-```bash copy
-sudo tee /etc/systemd/system/seid.service > /dev/null << EOF
-[Unit]
-Description=Sei Node
-After=network-online.target
-
-[Service]
-User=$USER
-ExecStart=$(which seid) start
-Restart=always
-RestartSec=3
-LimitNOFILE=65535
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-sudo systemctl daemon-reload
-sudo systemctl enable seid
-sudo systemctl start seid
-```
-
-> **Note:** Verify that the `User` field is correct for your environment. If
-> running under a different user, update accordingly.
-
----
-
-## 8. Verification and Troubleshooting
-
-### 8.1 Verify Your Setup
-
-Run the following commands to confirm your node’s status:
-
-```bash copy
-# View sync status
-seid status | jq .SyncInfo
-
-# Check live logs
-journalctl -u seid -f -o cat
-```
-
-Your node is properly set up when:
-
-- The sync status shows `"catching_up": false`
-- Logs indicate blocks are being processed
-
-### 8.2 Common Troubleshooting Tips
-
-#### Sync Issues
-
-- Verify that you have sufficient disk space.
-- Ensure stable network connectivity.
-- Confirm that system time is correctly synchronized.
-- Use state sync for a rapid initial sync (note: not applicable for archive
-  nodes).
-
-#### Performance Problems
-
-- Monitor system resources (CPU, RAM, I/O).
-- Evaluate disk performance and network bandwidth.
-- Adjust mempool and persistent-peer settings if necessary.
-
-#### Network Connectivity
-
-- Confirm that firewall rules allow required ports (e.g., 26656, 26657, 9090).
-- Check that DNS resolution is working correctly.
-- Verify peer connectivity by reviewing system logs and node info through the
-  RPC [localhost:26657/net_info]
-
----
-
-## 9. Next Steps
-
-After your node is up and running, consider the following:
-
-1. **Monitoring & Alerting:** Set up tools to monitor node health and
-   performance.
-2. **Security Best Practices:** Harden your server (firewall, SSH keys, etc.).
-3. **Backup Procedures:** Regularly backup your configuration and data
-   directories.
-
-Additional documentation is available in:
-
-- [Advanced Configuration & Monitoring Guide](node/advanced-config-monitoring)
-- [Node Operations Guide](node/node-operators)
-- [Validator Operations Guide](node/validators)
+export const metadata = { title: 'Node Operations on Sei' };
+
+<div className="flex flex-col gap-12">
+
+  <div className="flex flex-col gap-8 pt-8 border-t border-neutral-200 dark:border-neutral-800/50 px-1 md:px-0">
+    <div className="flex flex-col md:flex-row items-start gap-5">
+      <div className="w-16 h-16 rounded-lg bg-red-500/10 flex items-center justify-center shrink-0">
+         <IconServer className="h-8 w-8 text-red-500" />
+      </div>
+      <div>
+        <h1 className="text-4xl font-bold text-neutral-800 dark:text-neutral-100 mb-1">Node Operations</h1>
+        <p className="text-red-700 dark:text-red-400 font-medium text-base">Power the Sei Network Infrastructure</p>
+        <p className="mt-3 text-neutral-600 dark:text-neutral-300 text-base max-w-3xl">
+          This section provides comprehensive guides for running, maintaining, and optimizing Sei network nodes. Whether you're setting up a validator, an RPC node, or an IBC relayer, you'll find detailed instructions and best practices to ensure optimal performance and security.
+        </p>
+      </div>
+    </div>
+
+    <div className="rounded-lg p-6 bg-neutral-50/50 dark:bg-neutral-900/20 border border-neutral-200 dark:border-neutral-800/40 shadow-sm">
+      <h2 className="text-2xl font-bold mb-6 text-neutral-800 dark:text-neutral-100">Getting Started</h2>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-8">
+
+        <div className="flex flex-col gap-5">
+          <h3 className="text-xl font-semibold pb-1 text-neutral-700 dark:text-neutral-300">Node Setup</h3>
+          <a href="/node/node-operators" className="flex items-start gap-3 group">
+             <IconServer className="h-5 w-5 text-neutral-500 dark:text-neutral-400 shrink-0 group-hover:text-red-500 transition-colors mt-0.5" />
+             <div>
+               <h4 className="font-medium text-neutral-700 dark:text-neutral-300 group-hover:text-red-500 dark:group-hover:text-red-400 transition-colors mb-0.5">Node Operations Guide</h4>
+               <p className="text-sm text-neutral-500 dark:text-neutral-500">Complete guide to setting up and running a Sei node with hardware requirements and configuration steps.</p>
+             </div>
+           </a>
+           <a href="/node/validators" className="flex items-start gap-3 group">
+             <IconShield className="h-5 w-5 text-neutral-500 dark:text-neutral-400 shrink-0 group-hover:text-red-500 transition-colors mt-0.5" />
+             <div>
+               <h4 className="font-medium text-neutral-700 dark:text-neutral-300 group-hover:text-red-500 dark:group-hover:text-red-400 transition-colors mb-0.5">Validator Operations Guide</h4>
+               <p className="text-sm text-neutral-500 dark:text-neutral-500">Specialized instructions for validators, including staking, commission settings, and security best practices.</p>
+             </div>
+           </a>
+           <a href="/node/ibc-relayer" className="flex items-start gap-3 group">
+             <IconBuildingBridge className="h-5 w-5 text-neutral-500 dark:text-neutral-400 shrink-0 group-hover:text-red-500 transition-colors mt-0.5" />
+             <div>
+               <h4 className="font-medium text-neutral-700 dark:text-neutral-300 group-hover:text-red-500 dark:group-hover:text-red-400 transition-colors mb-0.5">IBC Relayers</h4>
+               <p className="text-sm text-neutral-500 dark:text-neutral-500">Set up and manage IBC relayers to enable cross-chain communication with Sei.</p>
+             </div>
+           </a>
+        </div>
+
+        <div className="flex flex-col gap-5">
+          <h3 className="text-xl font-semibold pb-1 text-neutral-700 dark:text-neutral-300">Advanced Operations</h3>
+          <a href="/node/advanced-config-monitoring" className="flex items-start gap-3 group">
+             <IconSettings className="h-5 w-5 text-neutral-500 dark:text-neutral-400 shrink-0 group-hover:text-red-500 transition-colors mt-0.5" />
+             <div>
+               <h4 className="font-medium text-neutral-700 dark:text-neutral-300 group-hover:text-red-500 dark:group-hover:text-red-400 transition-colors mb-0.5">Advanced Configuration & Monitoring</h4>
+               <p className="text-sm text-neutral-500 dark:text-neutral-500">Optimize your node's performance with advanced settings and monitoring tools.</p>
+             </div>
+           </a>
+           <a href="/node/technical-reference" className="flex items-start gap-3 group">
+             <IconTerminal2 className="h-5 w-5 text-neutral-500 dark:text-neutral-400 shrink-0 group-hover:text-red-500 transition-colors mt-0.5" />
+             <div>
+               <h4 className="font-medium text-neutral-700 dark:text-neutral-300 group-hover:text-red-500 dark:group-hover:text-red-400 transition-colors mb-0.5">Technical Reference</h4>
+               <p className="text-sm text-neutral-500 dark:text-neutral-500">Detailed technical specifications, API endpoints, and commands for node operators.</p>
+             </div>
+           </a>
+        </div>
+
+      </div>
+    </div>
+
+    <h2 className="text-2xl font-bold text-neutral-800 dark:text-neutral-100 pt-8 border-t border-neutral-200 dark:border-neutral-800/50">Sei Node Ecosystem</h2>
+
+    <div className="pt-6">
+      <h3 className="text-xl font-semibold text-red-700 dark:text-red-400 mb-4 px-1">Node Types & Roles</h3>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 px-1">
+        <div className="flex items-start gap-3 p-1">
+          <div className="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center mr-1 flex-shrink-0 mt-0.5">
+            <IconShield className="h-4 w-4 text-red-500" />
+          </div>
+          <div>
+            <h4 className="text-base font-semibold text-neutral-800 dark:text-neutral-100 mb-1">Validator Nodes</h4>
+            <p className="text-sm text-neutral-600 dark:text-neutral-400">Actively participate in consensus and block production on the Sei network.</p>
+          </div>
+        </div>
+        <div className="flex items-start gap-3 p-1">
+          <div className="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center mr-1 flex-shrink-0 mt-0.5">
+            <IconNetwork className="h-4 w-4 text-red-500" />
+          </div>
+          <div>
+            <h4 className="text-base font-semibold text-neutral-800 dark:text-neutral-100 mb-1">RPC/API Nodes</h4>
+            <p className="text-sm text-neutral-600 dark:text-neutral-400">Provide blockchain data and transaction submission endpoints for applications.</p>
+          </div>
+        </div>
+        <div className="flex items-start gap-3 p-1">
+          <div className="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center mr-1 flex-shrink-0 mt-0.5">
+            <IconDatabase className="h-4 w-4 text-red-500" />
+          </div>
+          <div>
+            <h4 className="text-base font-semibold text-neutral-800 dark:text-neutral-100 mb-1">Archive Nodes</h4>
+            <p className="text-sm text-neutral-600 dark:text-neutral-400">Store the complete history of the Sei blockchain for data availability.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div className="w-full border border-neutral-200 dark:border-neutral-800/50 rounded-xl bg-gradient-to-br from-neutral-50/70 via-white to-neutral-50/70 dark:from-neutral-900/70 dark:via-neutral-900/30 dark:to-neutral-900/70 p-8 my-8">
+      <div className="text-center font-bold mb-6 text-neutral-900 dark:text-neutral-100 text-2xl">System Requirements</div>
+
+      <div className="max-w-4xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          <div className="border-2 border-neutral-200/80 dark:border-neutral-700/50 rounded-xl bg-white dark:bg-neutral-900/80 shadow-md p-6">
+            <div className="flex items-center mb-4">
+              <div className="w-10 h-10 rounded-full bg-red-100/80 dark:bg-red-900/20 flex items-center justify-center mr-3 shrink-0">
+                <IconCpu className="h-5 w-5 text-red-500 dark:text-red-400" />
+              </div>
+              <h4 className="font-bold text-neutral-800 dark:text-neutral-200 text-lg">Hardware Specifications</h4>
+            </div>
+            <div className="space-y-3">
+              <div className="flex justify-between">
+                <span className="text-sm font-medium text-neutral-600 dark:text-neutral-400">CPU:</span>
+                <span className="text-sm font-semibold text-neutral-800 dark:text-neutral-200">8+ cores (16 recommended)</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm font-medium text-neutral-600 dark:text-neutral-400">RAM:</span>
+                <span className="text-sm font-semibold text-neutral-800 dark:text-neutral-200">32GB (64GB recommended)</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm font-medium text-neutral-600 dark:text-neutral-400">Storage:</span>
+                <span className="text-sm font-semibold text-neutral-800 dark:text-neutral-200">1TB+ NVMe SSD</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm font-medium text-neutral-600 dark:text-neutral-400">Network:</span>
+                <span className="text-sm font-semibold text-neutral-800 dark:text-neutral-200">1Gbps+ connection</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="border-2 border-neutral-200/80 dark:border-neutral-700/50 rounded-xl bg-white dark:bg-neutral-900/80 shadow-md p-6">
+            <div className="flex items-center mb-4">
+              <div className="w-10 h-10 rounded-full bg-red-100/80 dark:bg-red-900/20 flex items-center justify-center mr-3 shrink-0">
+                <IconGauge className="h-5 w-5 text-red-500 dark:text-red-400" />
+              </div>
+              <h4 className="font-bold text-neutral-800 dark:text-neutral-200 text-lg">Performance Requirements</h4>
+            </div>
+            <div className="space-y-3">
+              <div className="flex justify-between">
+                <span className="text-sm font-medium text-neutral-600 dark:text-neutral-400">Uptime:</span>
+                <span className="text-sm font-semibold text-neutral-800 dark:text-neutral-200">99.9%+ for validators</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm font-medium text-neutral-600 dark:text-neutral-400">Latency:</span>
+                <span className="text-sm font-semibold text-neutral-800 dark:text-neutral-200">Low network latency (&lt;100ms)</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm font-medium text-neutral-600 dark:text-neutral-400">Storage I/O:</span>
+                <span className="text-sm font-semibold text-neutral-800 dark:text-neutral-200">High IOPS required</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm font-medium text-neutral-600 dark:text-neutral-400">Time Sync:</span>
+                <span className="text-sm font-semibold text-neutral-800 dark:text-neutral-200">NTP/Chrony required</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="relative mb-8">
+          <div className="absolute left-0 right-0 top-1/2 transform -translate-y-1/2 h-px bg-gradient-to-r from-transparent via-neutral-300 dark:via-neutral-700 to-transparent"></div>
+          <div className="flex justify-center">
+            <div className="bg-white dark:bg-neutral-900 px-8 py-2 rounded-full border border-neutral-200 dark:border-neutral-700 text-sm font-semibold text-neutral-700 dark:text-neutral-300 z-10 shadow-sm">
+              Current Versions
+            </div>
+          </div>
+        </div>
+
+        <div className="pt-4 overflow-auto">
+          <table className="min-w-full divide-y divide-neutral-200 dark:divide-neutral-800 border border-neutral-200 dark:border-neutral-800 rounded-lg bg-white dark:bg-neutral-900">
+            <thead>
+              <tr>
+                <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Network</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Version</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Chain ID</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Genesis URL</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
+              <tr>
+                <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">Mainnet</td>
+                <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">v6.0.5</td>
+                <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">pacific-1</td>
+                <td className="px-4 py-3 text-sm whitespace-nowrap">
+                  <a href="https://github.com/sei-protocol/sei-chain/releases" className="text-red-600 dark:text-red-400 hover:underline">Genesis</a>
+                </td>
+              </tr>
+              <tr>
+                <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">Testnet</td>
+                <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">v6.0.5</td>
+                <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">atlantic-2</td>
+                <td className="px-4 py-3 text-sm whitespace-nowrap">
+                  <a href="https://github.com/sei-protocol/sei-chain/releases" className="text-red-600 dark:text-red-400 hover:underline">Genesis</a>
+                </td>
+              </tr>
+              <tr>
+                <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">Devnet</td>
+                <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">v6.0.5</td>
+                <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">arctic-1</td>
+                <td className="px-4 py-3 text-sm whitespace-nowrap">
+                  <a href="https://github.com/sei-protocol/sei-chain/releases" className="text-red-600 dark:text-red-400 hover:underline">Genesis</a>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    
+    <div className="pt-6">
+      <h3 className="text-xl font-semibold text-red-700 dark:text-red-400 mb-6 px-1">Quick Start Guide</h3>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="rounded-xl p-5 bg-neutral-900/5 dark:bg-neutral-900/20 border border-neutral-200/50 dark:border-neutral-800/50">
+          <div className="mb-4 flex items-center">
+            <div className="h-8 w-8 rounded-full bg-green-500/10 flex items-center justify-center mr-3">
+              <span className="text-green-600 dark:text-green-400 font-bold">1</span>
+            </div>
+            <h3 className="text-base font-bold text-neutral-800 dark:text-neutral-200">Set Up Environment</h3>
+          </div>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center text-sm text-neutral-700 dark:text-neutral-300">
+              <IconChevronRight className="h-3 w-3 mr-1" />
+              <span>Install Go 1.22.x</span>
+            </div>
+            <div className="flex items-center text-sm text-neutral-700 dark:text-neutral-300">
+              <IconChevronRight className="h-3 w-3 mr-1" />
+              <span>Install system dependencies</span>
+            </div>
+            <div className="flex items-center text-sm text-neutral-700 dark:text-neutral-300">
+              <IconChevronRight className="h-3 w-3 mr-1" />
+              <span>Configure NTP synchronization</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-xl p-5 bg-neutral-900/5 dark:bg-neutral-900/20 border border-neutral-200/50 dark:border-neutral-800/50">
+          <div className="mb-4 flex items-center">
+            <div className="h-8 w-8 rounded-full bg-green-500/10 flex items-center justify-center mr-3">
+              <span className="text-green-600 dark:text-green-400 font-bold">2</span>
+            </div>
+            <h3 className="text-base font-bold text-neutral-800 dark:text-neutral-200">Install Sei Software</h3>
+          </div>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center text-sm text-neutral-700 dark:text-neutral-300">
+              <IconChevronRight className="h-3 w-3 mr-1" />
+              <span>Install seid binary</span>
+            </div>
+            <div className="flex items-center text-sm text-neutral-700 dark:text-neutral-300">
+              <IconChevronRight className="h-3 w-3 mr-1" />
+              <span>Initialize chain files</span>
+            </div>
+            <div className="flex items-center text-sm text-neutral-700 dark:text-neutral-300">
+              <IconChevronRight className="h-3 w-3 mr-1" />
+              <span>Download genesis file</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-xl p-5 bg-neutral-900/5 dark:bg-neutral-900/20 border border-neutral-200/50 dark:border-neutral-800/50">
+          <div className="mb-4 flex items-center">
+            <div className="h-8 w-8 rounded-full bg-green-500/10 flex items-center justify-center mr-3">
+              <span className="text-green-600 dark:text-green-400 font-bold">3</span>
+            </div>
+            <h3 className="text-base font-bold text-neutral-800 dark:text-neutral-200">Run Your Node</h3>
+          </div>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center text-sm text-neutral-700 dark:text-neutral-300">
+              <IconChevronRight className="h-3 w-3 mr-1" />
+              <span>Configure app.toml & config.toml</span>
+            </div>
+            <div className="flex items-center text-sm text-neutral-700 dark:text-neutral-300">
+              <IconChevronRight className="h-3 w-3 mr-1" />
+              <span>Set up systemd service</span>
+            </div>
+            <div className="flex items-center text-sm text-neutral-700 dark:text-neutral-300">
+              <IconChevronRight className="h-3 w-3 mr-1" />
+              <span>Synchronize with the network</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="flex justify-center mt-6">
+        <a href="/node/node-operators" className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-red-500 hover:bg-red-600 text-white text-sm font-medium transition-colors">
+          <span>Node Setup Guide</span>
+          <IconArrowRight className="h-3.5 w-3.5" />
+        </a>
+      </div>
+    </div>
+
+    <div className="pt-8 border-t border-neutral-200 dark:border-neutral-800/50">
+      <h3 className="text-xl font-semibold text-red-700 dark:text-red-400 mb-6 px-1">Important Considerations</h3>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 px-1">
+        <div className="flex items-start gap-3 p-4 bg-yellow-50 dark:bg-yellow-900/10 rounded-lg border border-yellow-200 dark:border-yellow-800/30">
+          <div className="w-8 h-8 rounded-full bg-yellow-100 dark:bg-yellow-700/20 flex items-center justify-center mr-1 flex-shrink-0 mt-0.5">
+            <IconAlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+          </div>
+          <div>
+            <h4 className="text-base font-semibold text-neutral-800 dark:text-neutral-100 mb-1">Security First</h4>
+            <p className="text-sm text-neutral-600 dark:text-neutral-400">Validators must implement proper key management, firewall rules, and server hardening to prevent security breaches.</p>
+          </div>
+        </div>
+        <div className="flex items-start gap-3 p-4 bg-yellow-50 dark:bg-yellow-900/10 rounded-lg border border-yellow-200 dark:border-yellow-800/30">
+          <div className="w-8 h-8 rounded-full bg-yellow-100 dark:bg-yellow-700/20 flex items-center justify-center mr-1 flex-shrink-0 mt-0.5">
+            <IconRefresh className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+          </div>
+          <div>
+            <h4 className="text-base font-semibold text-neutral-800 dark:text-neutral-100 mb-1">Stay Updated</h4>
+            <p className="text-sm text-neutral-600 dark:text-neutral-400">Regularly check for network upgrades and software updates to avoid missing critical updates and potential downtime.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
