@@ -28,7 +28,6 @@ export default {
 	'twin-turbo-consensus': 'Twin Turbo Consensus',
 	'parallelization-engine': 'Parallelization Engine',
 	seidb: 'SeiDB',
-	'sei-giga': 'Sei Giga',
 
 	'-- Consensus': {
 		type: 'separator',
