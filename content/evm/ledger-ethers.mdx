@@ -1,111 +1,194 @@
 # Using Ledger wallet with ethers on Sei
 
-Prerequisites:
+## Prerequisites & Setup
 
-1. Make sure you have a Ethereum app installed on your Ledger device.
-2. Enable blind signing in the Ethereum app settings (needed for precompile
-   examples and working with contracts in general).
-3. Linux users may need to add a udev rule to allow access to the device. You
-   can find the script to add a rule in the Ledger repo
-   [here](https://github.com/LedgerHQ/udev-rules).
+1. **Ledger App Installation**
 
-## Sending funds example
+   - On your Ledger device, open the Manager in Ledger Live and install **either** the **Sei** app **or** the **Ethereum** app.
+   - The Ethereum app on Ledger supports any EVM chain (like Sei), but the native Sei app may provide optimal compatibility.
+
+2. **Enable Blind Signing**
+
+   - Still in the Ledger device’s Ethereum or Sei app settings, **enable “Blind signing”**.
+   - This permits the device to sign arbitrary EVM transactions and contract calls (e.g. precompiles), which would otherwise be rejected for safety.
+
+3. **USB Permissions on Linux**
+
+   - If you’re on Linux, you’ll likely need a **udev rule** so your process can talk to the Ledger over USB/HID.
+   - Clone the official rules from → https://github.com/LedgerHQ/udev-rules
+   - Copy the provided `49-ledger.rules` into `/etc/udev/rules.d/`, then `sudo udevadm control --reload-rules` and replug your Ledger.
+
+4. **Install Dependencies**
+   ```bash copy
+   npm install ethers @ethers-ext/signer-ledger @sei-js/evm @ledgerhq/hw-transport-node-hid
+   ```
+   - `@ethers-ext/signer-ledger` provides a `LedgerSigner` that wraps Ledger’s USB/HID transport for Ethers.js.
+   - `@sei-js/evm` exports each precompile’s address & ABI.
+
+## Connecting Your Ledger to Sei via Ethers.js
+
+**Why this matters:**
+
+- The **provider** connects to the blockchain RPC.
+- The **LedgerSigner** injects `signTransaction`/`signMessage` calls to your device.
+- Every contract call or tx will require your physical confirmation on the Ledger.
 
 ```tsx copy
 import { LedgerSigner } from '@ethers-ext/signer-ledger';
-import Transport from '@ledgerhq/hw-transport-node-hid';
+import TransportNodeHid from '@ledgerhq/hw-transport-node-hid';
 import { ethers } from 'ethers';
 
-const send = async (signer: LedgerSigner, amount: string, toAddress: string) => {
-  // Create a transaction
-  const transaction = {
-    to: toAddress,
-    value: ethers.parseEther(amount),
-    gasPrice: ethers.parseUnits('200', 'gwei')
-  };
+// 1. Create an RPC provider (here: Sei testnet)
+const rpcUrl = 'https://evm-rpc-testnet.sei-apis.com';
+const provider = new ethers.JsonRpcProvider(rpcUrl);
 
-  // Send the transaction
-  signer.sendTransaction(transaction).then((tx) => {
-    console.log(tx);
-  });
-};
+// 2. Initialize the LedgerSigner
+//    - TransportNodeHid handles the low-level USB/HID connection.
+//    - The signer will prompt your Ledger for each transaction.
+const signer = new LedgerSigner(TransportNodeHid, provider);
 
-const testApp = async () => {
-  const rpcUrl = 'https://evm-rpc-testnet.sei-apis.com';
-
-  const provider = new ethers.JsonRpcProvider(rpcUrl);
-  const signer = new LedgerSigner(Transport, provider);
-
-  await send(signer, '5', '<0xAddress>'); // Send 5 Sei
-};
+// 3. (Optional) Confirm the address on-device
+(async () => {
+  const addr = await signer.getAddress();
+  console.log('Using Ledger address:', addr);
+})();
 ```
 
-## Send funds to Cosmos `sei1..` address via precompile
+## Governance Precompile Example
+
+**Key points before you code:**
+
+- **Precompiles** are optimized, built-in contracts—no external contract deployment needed.
+- You must supply the **`value`** field in overrides to attach SEI.
+- Every transaction pauses to let you **approve** on Ledger.
 
 ```tsx copy
-import { LedgerSigner } from '@ethers-ext/signer-ledger';
-import Transport from '@ledgerhq/hw-transport-node-hid';
+import { GOVERNANCE_PRECOMPILE_ADDRESS, GOVERNANCE_PRECOMPILE_ABI } from '@sei-js/evm';
 import { ethers } from 'ethers';
 
-import { BANK_PRECOMPILE_ABI, BANK_PRECOMPILE_ADDRESS } from '@sei-js/evm';
+/**
+ * Deposit SEI into a governance proposal.
+ *
+ * @param signer     – an initialized LedgerSigner
+ * @param proposalId – the on-chain ID of the proposal you’re participating in
+ * @param amount     – how many SEI to lock (as a decimal string, e.g. "5")
+ */
+async function depositToProposal(signer: LedgerSigner, proposalId: number, amount: string) {
+  // 1. Instantiate the precompile contract
+  const gov = new ethers.Contract(GOVERNANCE_PRECOMPILE_ADDRESS, GOVERNANCE_PRECOMPILE_ABI, signer);
 
-const sendNative = async (signer: LedgerSigner, amount: string, nativeAddress: string) => {
-  const contract = new ethers.Contract(BANK_PRECOMPILE_ADDRESS, BANK_PRECOMPILE_ABI, signer);
+  // 2. Prepare overrides to include SEI value
   const overrides = {
     value: ethers.parseEther(amount)
   };
 
   try {
-    const result = await contract.sendNative(nativeAddress, overrides);
-    console.log('SendNativeResult: ', result);
-  } catch (e) {
-    console.log(e);
+    // 3. Send the tx (this will prompt your Ledger to confirm)
+    const tx = await gov.deposit(proposalId, overrides);
+    console.log('Deposit TX sent:', tx.hash);
+    await tx.wait(); // wait for on-chain confirmation
+    console.log('✅ Deposit confirmed!');
+  } catch (err) {
+    console.error('❌ Deposit failed:', err);
   }
-};
+}
 
-const testApp = async () => {
-  const rpcUrl = 'https://evm-rpc-testnet.sei-apis.com';
+/**
+ * Cast a vote on a governance proposal.
+ *
+ * @param signer     – LedgerSigner
+ * @param proposalId – the proposal ID
+ * @param option     – vote choice (1=Yes, 2=Abstain, 3=No, 4=NoWithVeto)
+ */
+async function castVote(signer: LedgerSigner, proposalId: number, option: number) {
+  const gov = new ethers.Contract(GOVERNANCE_PRECOMPILE_ADDRESS, GOVERNANCE_PRECOMPILE_ABI, signer);
+  try {
+    const tx = await gov.vote(proposalId, option);
+    console.log('Vote TX sent:', tx.hash);
+    await tx.wait();
+    console.log('✅ Vote recorded!');
+  } catch (err) {
+    console.error('❌ Vote failed:', err);
+  }
+}
 
-  const nativeAddress = 'seiAddress';
-  const provider = new ethers.JsonRpcProvider(rpcUrl);
-  const signer = new LedgerSigner(Transport, provider);
+// Bring it all together
+async function runGovernanceDemo() {
+  const proposalId = 1; // ← your target proposal
+  const depositAmount = '5'; // ← e.g. "5" SEI
+  const voteOption = 1; // ← Yes
 
-  await sendNative(signer, '5', nativeAddress);
-};
+  // Deposit then vote
+  await depositToProposal(signer, proposalId, depositAmount);
+  await castVote(signer, proposalId, voteOption);
+}
+
+runGovernanceDemo();
 ```
 
-## Staking via precompile example
+## Staking via Precompile Example
+
+**Before you run the code:**
+
+- The staking precompile is simply another in-chain contract that handles delegation logic.
+- You must set both `value` (SEI to lock) **and** `from` (your EVM address).
+- Gas limits on precompiles can be very low—start small and raise if you hit errors.
 
 ```tsx copy
-import { LedgerSigner } from '@ethers-ext/signer-ledger';
-import Transport from '@ledgerhq/hw-transport-node-hid';
-import { ethers, toUtf8String } from 'ethers';
+import { STAKING_PRECOMPILE_ADDRESS, STAKING_PRECOMPILE_ABI } from '@sei-js/evm';
+import { toUtf8String } from 'ethers';
 
-import { STAKING_PRECOMPILE_ABI, STAKING_PRECOMPILE_ADDRESS } from '@sei-js/evm';
+/**
+ * Stake SEI to a validator via the staking precompile.
+ *
+ * @param signer            – LedgerSigner
+ * @param amount            – decimal string of SEI to stake
+ * @param fromAddress       – your EVM account address (for ‘from’ override)
+ * @param validatorAddress  – the `seivaloper…` address of your validator
+ */
+async function stake(signer: LedgerSigner, amount: string, fromAddress: string, validatorAddress: string) {
+  const staking = new ethers.Contract(STAKING_PRECOMPILE_ADDRESS, STAKING_PRECOMPILE_ABI, signer);
 
-const stake = async (signer: LedgerSigner, amount: string, fromAddress: string, validatorAddress: string) => {
-  const contract = new ethers.Contract(STAKING_PRECOMPILE_ADDRESS, STAKING_PRECOMPILE_ABI, signer);
+  // Attach SEI and explicitly set the ‘from’ so the precompile knows who's delegating
   const overrides = {
     from: fromAddress,
-    value: ethers.parseEther(amount), //staking 3.5 sei
-    gasLimit: ethers.parseEther('0.00000000001')
+    value: ethers.parseEther(amount),
+    // A minimal gas limit; adjust if you get underpriced errors
+    gasLimit: 100_000
   };
 
-  console.log('Staking ', overrides);
-  contract.delegate(validatorAddress, overrides).then((result) => {
-    console.log('DelegateResult: ', toUtf8String(result));
-  });
-};
+  console.log(`Staking ${amount} SEI → ${validatorAddress}`);
+  try {
+    const tx = await staking.delegate(validatorAddress, overrides);
+    console.log('Stake TX sent:', tx.hash);
+    await tx.wait();
+    console.log('✅ Stake confirmed!');
+  } catch (err) {
+    console.error('❌ Staking failed:', err);
+  }
+}
 
-const testApp = async () => {
-  const validatorAddress = 'seivaloperAddress';
-  const rpcUrl = 'https://evm-rpc-testnet.sei-apis.com';
-
-  const provider = new ethers.JsonRpcProvider(rpcUrl);
-  const signer = new LedgerSigner(Transport, provider);
-
+// Demo runner
+async function runStakingDemo() {
+  const validatorAddress = 'seivaloper…'; // ← your chosen validator
   const defaultAddress = await signer.getAddress();
 
-  await stake(signer, '5', defaultAddress, validatorAddress); // stake 5 Sei
-};
+  // Stake 5 SEI
+  await stake(signer, '5', defaultAddress, validatorAddress);
+}
+
+runStakingDemo();
 ```
+
+## Additional Tips
+
+- **Error Handling:**
+
+  - If the Ledger **times out**, increase the HID timeouts or ensure the device stays awake.
+  - If you see “blind signing required” errors, double-check the app settings on the device itself.
+
+- **Reading Events & Logs:**  
+  You can attach an `on("receipt", …)` or use `provider.getTransactionReceipt(tx.hash)` to inspect events emitted by the precompile for richer UX.
+
+- **Security Reminder:**  
+  Always verify the **contract address** and **ABI** match official Sei docs. Using a wrong address can lead to lost funds.

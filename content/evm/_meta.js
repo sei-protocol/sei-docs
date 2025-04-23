@@ -39,17 +39,17 @@ export default {
 	reference: 'RPC Reference',
 	tokens: 'View Tokens',
 
+	'-- Hardware Wallets': {
+		type: 'separator',
+		title: 'Hardware Wallets'
+	},
+	'ledger-ethers': 'Using Ledger with Ethers',
+
 	'-- CosmWasm Interoperability': {
 		type: 'separator',
 		title: 'CosmWasm Interoperability'
 	},
 	precompiles: 'Precompiles',
 	pointers: 'Pointer Contracts',
-	'ibc-protocol': 'IBC on EVM',
-
-	'-- Hardware Wallets': {
-		type: 'separator',
-		title: 'Hardware Wallets'
-	},
-	'ledger-ethers': 'Using Ledger with Ethers'
+	'ibc-protocol': 'IBC on EVM'
 };
