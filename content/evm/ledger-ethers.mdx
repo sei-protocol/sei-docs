@@ -2,76 +2,67 @@
 
 Prerequisites:
 
-1. Make sure you have a Ethereum app installed on your Ledger device.
-2. Enable blind signing in the Ethereum app settings (needed for precompile
+1. Make sure you have the Sei app or Ethereum app installed on your Ledger device.
+2. Enable blind signing in the Sei or Ethereum app settings (needed for precompile
    examples and working with contracts in general).
 3. Linux users may need to add a udev rule to allow access to the device. You
    can find the script to add a rule in the Ledger repo
    [here](https://github.com/LedgerHQ/udev-rules).
 
-## Sending funds example
+## Governance precompile example
 
 ```tsx copy
 import { LedgerSigner } from '@ethers-ext/signer-ledger';
 import Transport from '@ledgerhq/hw-transport-node-hid';
 import { ethers } from 'ethers';
+import { GOVERNANCE_PRECOMPILE_ADDRESS, GOVERNANCE_PRECOMPILE_ABI } from '@sei-js/evm';
 
-const send = async (signer: LedgerSigner, amount: string, toAddress: string) => {
-  // Create a transaction
-  const transaction = {
-    to: toAddress,
-    value: ethers.parseEther(amount),
-    gasPrice: ethers.parseUnits('200', 'gwei')
-  };
-
-  // Send the transaction
-  signer.sendTransaction(transaction).then((tx) => {
-    console.log(tx);
-  });
-};
-
-const testApp = async () => {
-  const rpcUrl = 'https://evm-rpc-testnet.sei-apis.com';
-
-  const provider = new ethers.JsonRpcProvider(rpcUrl);
-  const signer = new LedgerSigner(Transport, provider);
-
-  await send(signer, '5', '<0xAddress>'); // Send 5 Sei
-};
-```
-
-## Send funds to Cosmos `sei1..` address via precompile
-
-```tsx copy
-import { LedgerSigner } from '@ethers-ext/signer-ledger';
-import Transport from '@ledgerhq/hw-transport-node-hid';
-import { ethers } from 'ethers';
-
-import { BANK_PRECOMPILE_ABI, BANK_PRECOMPILE_ADDRESS } from '@sei-js/evm';
-
-const sendNative = async (signer: LedgerSigner, amount: string, nativeAddress: string) => {
-  const contract = new ethers.Contract(BANK_PRECOMPILE_ADDRESS, BANK_PRECOMPILE_ABI, signer);
+/// Deposit SEI into a governance proposal
+const depositToProposal = async (signer: LedgerSigner, proposalId: number, amount: string) => {
+  const gov = new ethers.Contract(GOVERNANCE_PRECOMPILE_ADDRESS, GOVERNANCE_PRECOMPILE_ABI, signer);
   const overrides = {
+    // attach SEI to the call
     value: ethers.parseEther(amount)
   };
-
   try {
-    const result = await contract.sendNative(nativeAddress, overrides);
-    console.log('SendNativeResult: ', result);
-  } catch (e) {
-    console.log(e);
+    const tx = await gov.deposit(proposalId, overrides);
+    console.log('DepositResult:', tx);
+  } catch (err) {
+    console.error('Deposit failed:', err);
   }
 };
 
-const testApp = async () => {
-  const rpcUrl = 'https://evm-rpc-testnet.sei-apis.com';
+/// Cast a vote on a governance proposal
+const castVote = async (
+  signer: LedgerSigner,
+  proposalId: number,
+  option: number // e.g. 1 = Yes, 2 = Abstain, 3 = No, 4 = No with Veto
+) => {
+  const gov = new ethers.Contract(GOVERNANCE_PRECOMPILE_ADDRESS, GOVERNANCE_PRECOMPILE_ABI, signer);
+  try {
+    const tx = await gov.vote(proposalId, option);
+    console.log('VoteResult:', tx);
+  } catch (err) {
+    console.error('Vote failed:', err);
+  }
+};
 
-  const nativeAddress = 'seiAddress';
+const testGovernance = async () => {
+  const rpcUrl = 'https://evm-rpc-testnet.sei-apis.com';
   const provider = new ethers.JsonRpcProvider(rpcUrl);
   const signer = new LedgerSigner(Transport, provider);
 
-  await sendNative(signer, '5', nativeAddress);
+  const proposalId = 1; // replace with your target proposal ID
+  const depositAmount = '5'; // SEI to deposit
+  const voteOption = 1; // your vote choice
+
+  // deposit SEI into the proposal
+  await depositToProposal(signer, proposalId, depositAmount);
+  // then cast your vote
+  await castVote(signer, proposalId, voteOption);
 };
+
+testGovernance();
 ```
 
 ## Staking via precompile example
@@ -97,7 +88,7 @@ const stake = async (signer: LedgerSigner, amount: string, fromAddress: string, 
   });
 };
 
-const testApp = async () => {
+const testStaking = async () => {
   const validatorAddress = 'seivaloperAddress';
   const rpcUrl = 'https://evm-rpc-testnet.sei-apis.com';
 
@@ -108,4 +99,6 @@ const testApp = async () => {
 
   await stake(signer, '5', defaultAddress, validatorAddress); // stake 5 Sei
 };
+
+testStaking();
 ```
