@@ -30,6 +30,7 @@ export default {
 	'evm-wizard': 'EVM Contract Wizard',
 	'solidity-resources': 'Solidity Resources',
 	'nft-contract-tutorial': 'ERC721 (NFT) Contracts',
+	precompiles: 'Precompiles',
 
 	'-- Reference': {
 		type: 'separator',
@@ -49,7 +50,7 @@ export default {
 		type: 'separator',
 		title: 'CosmWasm Interoperability'
 	},
-	precompiles: 'Precompiles',
+	'cosmwasm-precompiles': 'Precompiles',
 	pointers: 'Pointer Contracts',
 	'ibc-protocol': 'IBC on EVM'
 };
