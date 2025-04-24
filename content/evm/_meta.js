@@ -15,11 +15,10 @@ export default {
 		type: 'separator',
 		title: 'Frontend Development'
 	},
-	'building-a-frontend': 'Building a Frontend',
 	'sei-global-wallet': {
-		title: 'Sei Global Wallet',
-		display: 'hidden'
+		title: 'Sei Global Wallet'
 	},
+	'building-a-frontend': 'Building a Frontend',
 
 	'-- Smart Contracts': {
 		type: 'separator',
@@ -31,6 +30,7 @@ export default {
 	'evm-wizard': 'EVM Contract Wizard',
 	'solidity-resources': 'Solidity Resources',
 	'nft-contract-tutorial': 'ERC721 (NFT) Contracts',
+	precompiles: 'Precompiles',
 
 	'-- Reference': {
 		type: 'separator',
@@ -40,17 +40,17 @@ export default {
 	reference: 'RPC Reference',
 	tokens: 'View Tokens',
 
-	'-- CosmWasm Interoperability': {
-		type: 'separator',
-		title: 'CosmWasm Interoperability'
-	},
-	precompiles: 'Precompiles',
-	pointers: 'Pointer Contracts',
-	'ibc-protocol': 'IBC on EVM',
-
 	'-- Hardware Wallets': {
 		type: 'separator',
 		title: 'Hardware Wallets'
 	},
-	'ledger-ethers': 'Using Ledger with Ethers'
+	'ledger-ethers': 'Using Ledger with Ethers',
+
+	'-- CosmWasm Interoperability': {
+		type: 'separator',
+		title: 'CosmWasm Interoperability'
+	},
+	'cosmwasm-precompiles': 'Precompiles',
+	pointers: 'Pointer Contracts',
+	'ibc-protocol': 'IBC on EVM'
 };

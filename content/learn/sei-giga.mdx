@@ -1,0 +1,142 @@
+# Sei Giga
+
+## Introduction
+
+Sei Giga is a decentralized, permissionless Proof-of-Stake blockchain designed to address the persistent challenges of the "blockchain trilemma": the difficulty to simultaneously optimize for security, decentralization, and performance.
+
+Through the Autobahn consensus protocol, Sei Giga achieves up to 5 gigagas throughput with sub-second finality while maintaining standard Byzantine Fault Tolerance (BFT) security assumptions. This performance profile enables Sei Giga to support web2-scale usage on a verifiable and secure public ledger.
+
+Sei Giga offers full EVM compatibility for standard smart contracts written in Solidity and Vyper with minimal modifications. The implementation maintains near-parity with Ethereum, with specific exceptions for EIP-4844, PREVRANDAO opcode behavior, state root mechanisms, block gas limits, and the Transaction Fee Mechanism (TFM).
+
+## Architectural Foundations
+
+Sei Giga's architecture rests on three key innovations that together enable its performance characteristics:
+
+### 1. Asynchronous Execution Model
+
+A fundamental design principle of Sei Giga is the separation of consensus and execution. Unlike traditional blockchains where these processes are tightly coupled, Sei Giga reaches consensus solely on the _ordering_ of transactions within a block, not the resulting state change.
+
+This approach leverages a key property of deterministic execution:
+
+**Lemma 1 (Deterministic Execution):** Given the same initial state ($S_{\text{init}}$) and the same ordered sequence of transactions $(t_{x_1}, t_{x_2}, ..., t_{x_n})$, all honest nodes executing these transactions will arrive at the exact same final state ($S_{\text{final}}$).
+
+This property enables Sei Giga to decouple the ordering of transactions from their execution:
+
+1. **Consensus:** Validators agree on transaction ordering in block $n$
+2. **Finalization:** Block $n$ is finalized quickly
+3. **Asynchronous Execution:** Execution nodes process the transactions from block $n$ in parallel with ongoing consensus for subsequent blocks
+4. **State Commitment:** The resulting state root from executing block $n$ is committed in a later block ($n+x$)
+
+This model prevents computation-heavy blocks from delaying the consensus process. The chain maintains consistent forward progress even during periods of high computational demand.
+
+The execution process is fully pipelined with parallel parsing, address recovery, and signature verification. Sei Giga also uses a flat encoding format for transactions: a length-prefixed layout that avoids nested structures, enables fast, single-pass, zero-copy decoding, and reduces serialization overhead.
+
+### 2. Autobahn Consensus Protocol
+
+Sei Giga employs Autobahn, a Byzantine Fault Tolerant (BFT) consensus protocol designed for high performance in the partial synchrony model. Autobahn addresses the limitations of traditional view-based protocols that struggle during network disruptions and DAG-based protocols that often show non-optimal latency.
+
+The protocol operates under standard BFT assumptions:
+
+- Network of $n = 3f + 1$ replicas (validators), tolerating up to $f$ Byzantine failures
+- Secure point-to-point communication channels with unforgeable cryptographic signatures
+- Safety guarantees hold unconditionally, while liveness requires eventual network synchrony
+
+Autobahn's key innovation is its separation of data dissemination from ordering consensus through two complementary layers:
+
+#### Data Dissemination Layer (Lanes)
+
+Data dissemination occurs through independent lanes. Each replica $r$ maintains its own lane $\ell_r$ where it sequentially proposes batches of transactions $({\ell}_{r_0}, {\ell}_{r_1}, {\ell}_{r_2}, ...)$.
+
+The proposal and certification process follows three steps:
+
+1. **Propose:** Replica $r$ creates a data proposal $\text{Prop} = ⟨pos, B, parentRef⟩{}_r$ containing position, transaction batch, and a reference to the previous proposal
+2. **Vote:** Replicas receiving a valid $\text{Vote}$ return a vote $\text{Vote} = ⟨\text{digest}(\text{Prop})⟩$
+3. **Proof of Availability (PoA):** Once replica $r$ collects $f+1$ matching votes, it forms a PoA that certifies at least one correct replica can serve the proposal data
+
+Since proposals within a lane are chained, referencing a tip (latest proposal with PoA) implicitly confirms the availability of all preceding proposals in that lane.
+
+#### Consensus Layer (Cut of Tips)
+
+The consensus layer periodically orders the latest certified tips from all lanes into a **Cut**, which creates a single globally ordered sequence of transaction batches. This happens through a two-phase BFT agreement protocol:
+
+1. **Prepare:** The leader for the current slot collects the latest certified tips from all lanes, forms a $\text{Cut} = {\ell_1[\text{tip}], ..., \ell_n[\text{tip}]}$, and broadcasts it
+2. **Commit (Fast Path):** If the leader receives $n$ prepare votes (from all replicas), the Cut is committed immediately
+3. **Confirm (Slow Path):** If the leader receives at least $n-f=2f+1$ but fewer than $n$ votes, it enters a second "Confirm" phase
+
+Autobahn also pipelines consensus slots. A replica can begin working on slot $s+1$ after seeing the Prepare message for slot $s$, without waiting for $s$ to be fully committed. This minimizes delays while maintaining safety through quorum intersection.
+
+### 3. Parallel Execution Engine
+
+Once a block's transaction order is finalized, Sei Giga executes transactions in parallel across multiple CPU cores using an Optimistic Concurrency Control (OCC) mechanism inspired by Block-STM.
+
+For a block containing transactions $t_1, t_2, ..., t_n$, where each transaction reads from a set $R_i$ and writes to a set $W_i$ of state variables:
+
+- A dependency $t_j -> t_i$ exists if $j > i$ and $W_i$ intersects with $R_j ∪ W_j$
+
+The parallel execution process follows four steps:
+
+1. **Parallel Execution:** Transactions execute concurrently across multiple threads, each maintains private read/write sets
+2. **Validation:** Each transaction validates that no already-committed transaction has modified its read/write sets
+3. **Conflict Resolution:** If conflicts are detected, the transaction is rolled back and re-executed
+4. **Commit:** Upon successful validation, changes are applied to the global EVM state
+
+This approach ensures that transactions only commit once all dependencies are satisfied. It preserves execution semantics identical to a sequential model while dramatically improving performance on modern multi-core hardware.
+
+Research has shown that approximately 64.85% of Ethereum transactions can be executed in parallel without conflicts. This makes the approach particularly effective for typical blockchain workloads.
+
+## Storage Architecture
+
+Sei Giga uses a specialized storage architecture that departs from traditional Merkle tree-based designs to optimize for high throughput and parallelism:
+
+### Key Components
+
+1. **Flat Key-Value Store:**
+
+   - Global state stored in a Log-Structured Merge (LSM) tree implementation
+   - Efficient for write-intensive workloads
+   - Reduces structural overhead compared to Merkle trees
+   - Simplifies concurrency control (locking individual keys vs. tree branches)
+
+2. **Cryptographic Accumulators:**
+
+   - Replace traditional Merkle paths with cryptographic accumulators
+   - Provide compact proofs of membership/non-membership across many keys
+   - Updates can be batched and performed asynchronously
+   - Maintain verifiability without the overhead of frequent tree updates
+
+3. **Tiered Storage:**
+
+   - Hot Storage: Recent blocks and frequently accessed state on high-performance SSDs
+   - Cold Storage: Historical data migrated to distributed, potentially columnar, database systems
+   - Reduces hardware requirements for validators
+   - Provides scalable solution for analytics and audits
+
+4. **Write-Ahead Log (WAL):**
+   - Append-only WAL for durability
+   - Updates logged first, then applied to main state
+   - Ensures data integrity and recovery after crashes
+
+This hybrid approach significantly reduces I/O bottlenecks while maintaining strong cryptographic guarantees of state correctness and managing long-term data growth.
+
+## Economic Model
+
+Sei Giga's economic model centers on the native SEI token, with a total supply of 10 billion (10,000,000,000) SEI. The token serves multiple functions:
+
+- **Gas and Transaction Fees:** Paying for execution and state usage
+- **Staking:** Validators stake SEI to participate in consensus and secure the network
+- **Rewards:** Compensating validators for participation
+
+### Staking and Validation
+
+- **Validators:** Run nodes that participate in consensus and execution
+- **Delegators:** Stake their SEI with chosen validators
+- **Bonding Period:** A 21-day unbonding period applies to both validators' self-stake and delegated stake
+- **Rewards:** Block rewards are aggregated over epochs and distributed among eligible validators
+
+### Slashing
+
+Validators face penalties (loss of staked SEI) for misbehavior:
+
+- **Liveness Failures:** Penalties for excessive downtime
+- **Safety Violations:** More severe penalties for double-signing blocks
+- Penalties increase for repeated offenses

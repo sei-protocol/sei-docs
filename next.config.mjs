@@ -1,7 +1,7 @@
 import nextra from 'nextra';
 
 const withNextra = nextra({
-	latex: true,
+	latex: { renderer: 'katex' },
 	search: {
 		codeblocks: false
 	},
@@ -471,7 +471,12 @@ export default withNextra({
 			},
 			{
 				source: '/dev-ecosystem-providers/faucets',
-				destination: '/providers/faucets',
+				destination: '/learn/faucet',
+				permanent: true
+			},
+			{
+				source: '/providers/faucets',
+				destination: '/learn/faucet',
 				permanent: true
 			},
 			{

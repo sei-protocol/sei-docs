@@ -3,98 +3,68 @@ import { Callout } from 'nextra/components';
 # Example Usage
 
 The Sei precompiles can be used like any standard smart contract on the EVM. For
-example, using [ethers.js](https://docs.ethers.org/v6/), you can query and
-execute actions on a CosmWasm contract as follows:
+example, using [ethers.js](https://docs.ethers.org/v6/), you can interact with
+Sei’s staking module via the staking precompile.
 
 ## Setup
 
-To install `ethers`, run the following command in your project directory
-terminal:
+To install `ethers` and the Sei EVM bindings, run:
 
-    ```bash copy
-    npm install ethers
-    npm install @sei-js/evm
-    ```
+```bash copy
+npm install ethers
+npm install @sei-js/evm
+```
 
-Next, you'll need to use one of the precompiles in `EVM Precompiles` section. In
-this example, we're going to be using the [CosmWasm precompile](/evm/precompiles/cosmwasm):
+Next, import the staking precompile’s address and ABI:
 
-    ```typescript copy
-    // Import Wasm precompile address and ABI
-    // View the entire ABI here: https://github.com/sei-protocol/sei-chain/tree/evm/precompiles/wasmd
-    import { WASM_PRECOMPILE_ABI, WASM_PRECOMPILE_ADDRESS } from '@sei-js/evm';
-    ```
+```typescript copy
+// Import Staking precompile address and ABI
+// View the entire ABI here: https://github.com/sei-protocol/sei-chain/tree/evm/precompiles/staking
+import { STAKING_PRECOMPILE_ABI, STAKING_PRECOMPILE_ADDRESS } from '@sei-js/evm';
+```
 
 ## Using the contract
 
-Next, we'll set up a provider and contract to interact with the blockchain:
+Set up your provider, signer, and contract instance:
 
 ```typescript copy
-import { ethers, toUtf8Bytes, toUtf8String } from 'ethers';
+import { ethers } from 'ethers';
 
 // Using MetaMask as the signer and provider
 const provider = new ethers.BrowserProvider(window.ethereum);
+await provider.send('eth_requestAccounts', []);
 const signer = await provider.getSigner();
 
-// Create a contract with the signer
-const contract = new ethers.Contract(WASM_PRECOMPILE_ADDRESS, WASM_PRECOMPILE_ABI, signer);
+// Create a contract instance for the staking precompile
+const staking = new ethers.Contract(STAKING_PRECOMPILE_ADDRESS, STAKING_PRECOMPILE_ABI, signer);
 ```
 
-<Callout type="info">If using MetaMask, the wallet must be switched to the Sei EVM Devnet chain. Information to import the Sei EVM Devnet chain can be found [here](/learn/wallets).</Callout>
-
-#### Querying & Executing a CosmWasm Contract
-
-Once you have the contract, you can query and execute messages to any CosmWasm
-smart contract.
+### Delegate tokens
 
 ```typescript copy
-// Counter CosmWasm contract (used for testing on arctic-1)
-// Replace with your contract as needed
-const COUNTER_CONTRACT_ADDRESS = 'sei1eyfccmjm6732k7wp4p6gdjwhxjwsvje44j0hfx8nkgrm8fs7vqfsy2jxff';
+// Sei validator address you want to delegate to
+const validatorAddress = 'seivaloper1xyz...';
 
-// Query to get the count on the counter contract
-const queryMsg = { get_count: {} };
-const queryResponse = await contract.query(COUNTER_CONTRACT_ADDRESS, toUtf8Bytes(JSON.stringify(queryMsg)));
-console.log(toUtf8String(queryResponse));
+// Delegate 1 SEI (convert to 1 SEI = 1_000_000_000_000_000_000 wei = 10^18 wei)
+const amountToDelegate = ethers.parseUnits('1000000000000000000', 0);
 
-// Execute message to increment the count on the contract.
-// No funds are attached since the increment method does not require sei.
-const executeMsg = { increment: {} };
-const executeResponse = await contract.execute(
-  COUNTER_CONTRACT_ADDRESS,
-  toUtf8Bytes(JSON.stringify(executeMsg)),
-  toUtf8Bytes(JSON.stringify([])) // Used for sending funds if needed
-);
+const tx = await staking.delegate(validatorAddress, { value: amountToDelegate });
 
-// Wait for the transaction to be confirmed
-await executeResponse.wait();
-console.log(executeResponse);
+const receipt = await tx.wait();
+console.log('Delegation completed:', receipt);
 ```
 
-### Executing a payable function
-
-In this example, we execute the 'donate' method on our contract. This is similar
-to the `increment` method, but also receives funds from the user and stores it
-in the contract.
+### Query a delegation
 
 ```typescript copy
-// Execute a message to donate to the contract.
-const executeMsg = { donate: {} };
+// Get your EVM address as the delegator
+const delegator = await signer.getAddress();
 
-// Funds are attached via overrides. This example is specific to ethers.js
-const overrides = {
-  value: ethers.parseEther('3.2') // Sending 3.2 sei
-};
-const executeResponse = await contract.execute(
-  COUNTER_CONTRACT_ADDRESS,
-  toUtf8Bytes(JSON.stringify(executeJSON)),
-  toUtf8Bytes(JSON.stringify({ denom: 'usdc', amount: '100' })), // Also send 100 usdc
-  overrides
-);
+const delegationInfo = await staking.delegation(delegator, validatorAddress);
 
-await executeResponse.wait();
-const receipt = await provider.getTransactionReceipt(executionResponse.hash);
+console.log('Delegation details:', {
+  amount: delegationInfo.balance.amount.toString(),
+  denom: delegationInfo.balance.denom,
+  shares: delegationInfo.delegation.shares.toString()
+});
 ```
-
-For payable contracts, Sei amounts have to be sent directly to the contract
-while other denoms should use the `coins` field.
