@@ -4,5 +4,6 @@ export default {
 	governance: 'Governance',
 	json: 'JSON',
 	oracle: 'Oracle',
-	staking: 'Staking'
+	staking: 'Staking',
+	ct: 'Confidential Transfers'
 };

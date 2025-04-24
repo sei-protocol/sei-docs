@@ -1,0 +1,197 @@
+import { Callout } from 'nextra/components';
+
+# Confidential Transfers Precompile
+
+**Address:** `00x000000000000000000000000000000000001010`
+
+This precompile enables EVM clients to manage **confidential token transfers** on Sei by leveraging ElGamal and AES encryption. It supports:
+
+- **Account Initialization**
+- **Encrypted Transfers** (with optional auditor participation)
+- **Deposits & Withdrawals**
+- **Pending‐to‐Available Balance Application**
+- **Account Closure**
+- **On‐chain Queries** of encrypted account state
+
+## Functions
+
+### Transactions
+
+- `initializeAccount`  
+  Initializes a confidential account for a given address and denomination, storing public key, encrypted balances, and validation proofs.
+
+  ```solidity copy
+  /// Initializes a confidential account.
+  /// @param fromAddress      The 0x or Sei address of the account owner.
+  /// @param denom            The token denomination.
+  /// @param publicKey        Serialized ElGamal public key.
+  /// @param decryptableBalance AES-encrypted available balance.
+  /// @param pendingBalanceLo Low bits of the ElGamal-encrypted pending balance.
+  /// @param pendingBalanceHi High bits of the ElGamal-encrypted pending balance.
+  /// @param availableBalance ElGamal-encrypted available balance.
+  /// @param proofs           Zero-knowledge proofs validating the initial state.
+  /// @return success         Whether initialization succeeded.
+  function initializeAccount(
+      string fromAddress,
+      string denom,
+      bytes publicKey,
+      string decryptableBalance,
+      bytes pendingBalanceLo,
+      bytes pendingBalanceHi,
+      bytes availableBalance,
+      bytes proofs
+  ) external returns (bool success);
+  ```
+
+- `transfer`  
+  Performs a confidential transfer between two accounts.
+
+  ```solidity copy
+  /// Executes an encrypted transfer.
+  /// @param toAddress       The recipient’s 0x or Sei address.
+  /// @param denom           The token denomination.
+  /// @param fromAmountLo    Low bits of the sender’s ElGamal-encrypted amount.
+  /// @param fromAmountHi    High bits of the sender’s ElGamal-encrypted amount.
+  /// @param toAmountLo      Low bits of the recipient’s ElGamal-encrypted amount.
+  /// @param toAmountHi      High bits of the recipient’s ElGamal-encrypted amount.
+  /// @param remainingBalance ElGamal-encrypted remaining balance of sender.
+  /// @param decryptableBalance AES-encrypted available balance after transfer.
+  /// @param proofs          Proofs validating the transfer correctness.
+  /// @return success        Whether the transfer succeeded.
+  function transfer(
+      string toAddress,
+      string denom,
+      bytes fromAmountLo,
+      bytes fromAmountHi,
+      bytes toAmountLo,
+      bytes toAmountHi,
+      bytes remainingBalance,
+      string decryptableBalance,
+      bytes proofs
+  ) external returns (bool success);
+  ```
+
+- `transferWithAuditors`  
+  Same as `transfer`, with the addition of auditor commitments for third-party verification.
+
+  ```solidity copy
+  /// Executes an encrypted transfer with auditor participation.
+  /// @param toAddress       The recipient’s 0x or Sei address.
+  /// @param denom           The token denomination.
+  /// @param fromAmountLo    Low bits of the sender’s encrypted amount.
+  /// @param fromAmountHi    High bits of the sender’s encrypted amount.
+  /// @param toAmountLo      Low bits of the recipient’s encrypted amount.
+  /// @param toAmountHi      High bits of the recipient’s encrypted amount.
+  /// @param remainingBalance ElGamal-encrypted remaining balance of sender.
+  /// @param decryptableBalance AES-encrypted available balance after transfer.
+  /// @param proofs          Proofs validating the transfer.
+  /// @param auditors        Array of Auditor structs for on-chain audit.
+  /// @return success        Whether the transfer succeeded.
+  function transferWithAuditors(
+      string toAddress,
+      string denom,
+      bytes fromAmountLo,
+      bytes fromAmountHi,
+      bytes toAmountLo,
+      bytes toAmountHi,
+      bytes remainingBalance,
+      string decryptableBalance,
+      bytes proofs,
+      Auditor[] auditors
+  ) external returns (bool success);
+  ```
+
+- `deposit`  
+  Deposits plain tokens into the confidential balance.
+
+  <Callout type="warning">Amounts are treated as 6-decimal tokens instead of the full 18-decimal EVM default.</Callout>
+
+  ```solidity copy
+  /// Deposits tokens into the confidential account.
+  /// @param denom   The token denomination.
+  /// @param amount  The plaintext token amount (18-decimals).
+  /// @return success Whether the deposit succeeded.
+  function deposit(
+      string denom,
+      uint64 amount
+  ) external returns (bool success);
+  ```
+
+- `applyPendingBalance`  
+  Moves funds from the pending balance to the available balance after on-chain verification.
+
+  ```solidity copy
+  /// Applies a pending credit to the available balance.
+  /// @param denom                       The token denomination.
+  /// @param decryptableBalance         AES-encrypted new available balance.
+  /// @param pendingBalanceCreditCounter The updated pending balance counter.
+  /// @param availableBalance           ElGamal-encrypted new available balance.
+  /// @return success                   Whether the operation succeeded.
+  function applyPendingBalance(
+      string denom,
+      string decryptableBalance,
+      uint32 pendingBalanceCreditCounter,
+      bytes availableBalance
+  ) external returns (bool success);
+  ```
+
+- `withdraw`  
+  Withdraws plain tokens from a confidential account, providing encrypted proofs of remaining balance.
+
+  ```solidity copy
+  /// Withdraws tokens from the confidential account.
+  /// @param denom                      The token denomination.
+  /// @param amount                     The plaintext amount to withdraw.
+  /// @param decryptableBalance         AES-encrypted new available balance.
+  /// @param remainingBalanceCommitment ElGamal commitment to remaining balance.
+  /// @param proofs                     Proofs validating the withdrawal.
+  /// @return success                   Whether the withdrawal succeeded.
+  function withdraw(
+      string denom,
+      uint256 amount,
+      string decryptableBalance,
+      bytes remainingBalanceCommitment,
+      bytes proofs
+  ) external returns (bool success);
+  ```
+
+- `closeAccount`  
+  Closes a confidential account, releasing final proofs.
+
+  ```solidity copy
+  /// Closes the confidential account.
+  /// @param denom  The token denomination.
+  /// @param proofs Proofs validating account closure.
+  /// @return success Whether the account was closed successfully.
+  function closeAccount(
+      string denom,
+      bytes proofs
+  ) external returns (bool success);
+  ```
+
+### Queries
+
+- `account`  
+  Retrieves on-chain encrypted account state for a given address and denomination.
+
+  ```solidity copy
+  struct CtAccount {
+      bytes publicKey;                   // Serialized ElGamal public key
+      bytes pendingBalanceLo;            // Low bits of pending balance
+      bytes pendingBalanceHi;            // High bits of pending balance
+      uint32 pendingBalanceCreditCounter;// Pending balance update counter
+      bytes availableBalance;            // ElGamal-encoded available balance
+      string decryptableAvailableBalance;// AES-encrypted available balance
+  }
+
+  /// Queries confidential account data.
+  /// @param addr   The 0x or Sei address of the account owner.
+  /// @param denom  The token denomination.
+  /// @return account The CtAccount struct with encrypted balances and metadata.
+  function account(
+      string addr,
+      string denom
+  ) external view returns (CtAccount account);
+  ```
+
+<Callout type="info">View the Confidential Transfers precompile source code and ABI [here](https://github.com/sei-protocol/sei-chain/blob/main/precompiles/confidentialtransfers/CT.sol).</Callout>
