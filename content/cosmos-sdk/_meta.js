@@ -29,11 +29,6 @@ export default {
 	'cosm-wasm-general': 'Tutorial',
 	'nft-contract-tutorial': 'CW721 (NFT) Contracts',
 
-	'-- Interoperability': {
-		type: 'separator',
-		title: 'Interoperability'
-	},
-
 	'-- Modules': {
 		type: 'separator',
 		title: 'Modules'

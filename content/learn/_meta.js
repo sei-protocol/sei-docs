@@ -58,14 +58,5 @@ export default {
 	},
 	'user-FAQ': 'FAQ',
 	'general-brand-kit': 'Brand Kit',
-	'general-submit-feedback': 'Submit Feedback',
-	'wallet-integrations': {
-		display: 'hidden'
-	},
-	'indexer-providers': {
-		display: 'hidden'
-	},
-	'wrapped-sei': {
-		display: 'hidden'
-	}
+	'general-submit-feedback': 'Submit Feedback'
 };
