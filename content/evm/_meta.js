@@ -32,6 +32,14 @@ export default {
 	'nft-contract-tutorial': 'ERC721 (NFT) Contracts',
 	precompiles: 'Precompiles',
 
+	'-- Ecosystem Tutorials': {
+		type: 'separator',
+		title: 'Ecosystem Tutorials'
+	},
+	'indexer-providers': 'Indexers',
+	'wallet-integrations': 'Wallet Integrations',
+	bridging: 'Bridging',
+
 	'-- Reference': {
 		type: 'separator',
 		title: 'Reference'
