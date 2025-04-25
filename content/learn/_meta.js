@@ -58,8 +58,5 @@ export default {
 	},
 	'user-FAQ': 'FAQ',
 	'general-brand-kit': 'Brand Kit',
-	'general-submit-feedback': 'Submit Feedback',
-	'wrapped-sei': {
-		display: 'hidden'
-	}
+	'general-submit-feedback': 'Submit Feedback'
 };

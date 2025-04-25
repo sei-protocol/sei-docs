@@ -1,5 +1,5 @@
 export default {
-	'third-web': {
-		title: 'Third Web'
+	thirdweb: {
+		title: 'Thirdweb'
 	}
 };
