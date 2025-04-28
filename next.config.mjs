@@ -90,6 +90,16 @@ export default withNextra({
 				permanent: true
 			},
 			{
+				source: '/learn/bridging',
+				destination: '/evm/bridging',
+				permanent: true
+			},
+			{
+				source: '/evm/bridging/third-web',
+				destination: '/evm/bridging/thirdweb',
+				permanent: true
+			},
+			{
 				source: '/user-guides/wrapped-sei',
 				destination: '/learn/wrapped-sei',
 				permanent: true
