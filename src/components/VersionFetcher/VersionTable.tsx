@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import VersionFetcher from './VersionFetcher';
+import { CopyButton } from '../CopyButton';
 
 const VersionTable: React.FC = () => {
 	const [mainnetVersion, setMainnetVersion] = useState('');
@@ -29,35 +30,46 @@ const VersionTable: React.FC = () => {
 						<td className='px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400'>{mainnetVersion || 'Fetching...'}</td>
 						<td className='px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400'>pacific-1</td>
 						<td className='px-4 py-3 text-sm'>
-							<a
-								href='https://raw.githubusercontent.com/sei-protocol/testnet/main/pacific-1/genesis.json'
-								className='text-red-500 hover:text-red-600 dark:hover:text-red-400'>
-								Get Genesis
-							</a>
+							<div className='inline-flex items-center space-x-2'>
+								<a
+									href='https://raw.githubusercontent.com/sei-protocol/testnet/main/pacific-1/genesis.json'
+									className='text-red-500 hover:text-red-600 dark:hover:text-red-400'>
+									Genesis
+								</a>
+								<CopyButton textToCopy='https://raw.githubusercontent.com/sei-protocol/testnet/main/pacific-1/genesis.json' />
+							</div>
 						</td>
 					</tr>
+
 					<tr>
 						<td className='px-4 py-3 text-sm font-medium text-neutral-900 dark:text-neutral-100'>Testnet</td>
 						<td className='px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400'>{testnetVersion || 'Fetching...'}</td>
 						<td className='px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400'>atlantic-2</td>
 						<td className='px-4 py-3 text-sm'>
-							<a
-								href='https://raw.githubusercontent.com/sei-protocol/testnet/main/atlantic-2/genesis.json'
-								className='text-red-500 hover:text-red-600 dark:hover:text-red-400'>
-								Get Genesis
-							</a>
+							<div className='inline-flex items-center space-x-2'>
+								<a
+									href='https://raw.githubusercontent.com/sei-protocol/testnet/main/atlantic-2/genesis.json'
+									className='text-red-500 hover:text-red-600 dark:hover:text-red-400'>
+									Genesis
+								</a>
+								<CopyButton textToCopy='https://raw.githubusercontent.com/sei-protocol/testnet/main/atlantic-2/genesis.json' />
+							</div>
 						</td>
 					</tr>
+
 					<tr>
 						<td className='px-4 py-3 text-sm font-medium text-neutral-900 dark:text-neutral-100'>Devnet</td>
 						<td className='px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400'>{devnetVersion || 'Fetching...'}</td>
 						<td className='px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400'>arctic-1</td>
 						<td className='px-4 py-3 text-sm'>
-							<a
-								href='https://raw.githubusercontent.com/sei-protocol/testnet/main/arctic-1/genesis.json'
-								className='text-red-500 hover:text-red-600 dark:hover:text-red-400'>
-								Get Genesis
-							</a>
+							<div className='inline-flex items-center space-x-2'>
+								<a
+									href='https://raw.githubusercontent.com/sei-protocol/testnet/main/arctic-1/genesis.json'
+									className='text-red-500 hover:text-red-600 dark:hover:text-red-400'>
+									Genesis
+								</a>
+								<CopyButton textToCopy='https://raw.githubusercontent.com/sei-protocol/testnet/main/arctic-1/genesis.json' />
+							</div>
 						</td>
 					</tr>
 				</tbody>
