@@ -27,7 +27,14 @@ export default {
 	'evm-general': 'EVM (General)',
 	'evm-hardhat': 'EVM with Hardhat',
 	'evm-foundry': 'EVM with Foundry',
-	'evm-wizard': 'EVM Contract Wizard',
+	'evm-wizard': {
+		title: 'EVM Contract Wizard',
+		theme: {
+			sidebar: true,
+			toc: false,
+			layout: 'full'
+		}
+	},
 	'solidity-resources': 'Solidity Resources',
 	'nft-contract-tutorial': 'ERC721 (NFT) Contracts',
 	precompiles: 'Precompiles',
