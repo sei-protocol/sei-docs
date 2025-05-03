@@ -77,7 +77,7 @@ Click the **Verify & Publish** button and wait for the response.
 
 If all goes well, you will see a checkmark ✅ next to Code in the code tab, and an additional tab called `Read Contract`.
 
-The contract name will now appear in BlockScout with any transactions related to your contract.
+The contract name will now appear in SeiTrace with any transactions related to your contract.
 
 ### Vyper Multi-part files and standard json input
 
@@ -93,3 +93,194 @@ Unfortunately, there are many reasons this may be the case. Here are a few thing
     Check all version digits - for example `0.5.1` is different from `0.5.10`
 2.  Check that an extra space has not been added to the end of the contract. When pasting in, an extra space may be added. Delete this and attempt to recompile.
 3.  Copy, paste, and verify your source code in Remix. You may find some exceptions here.
+
+## Hardhat Verification Plugin
+
+Hardhat is a full-featured development environment for contract compilation, deployment and verification. The Hardhat Verification Plugin supports contract verification on Seitrace.
+
+Get started
+Install Hardhat
+
+npm instructions
+
+```bash copy
+npm install --save-dev hardhat
+```
+
+yarn instructions
+
+```bash copy
+yarn add --dev hardhat
+```
+
+2. **Create a project**
+   Run `npx hardhat` in your project folder and follow the instructions to create (more info here).
+3. **Install plugin**
+   Install the [hardhat-etherscan](https://hardhat.org/plugins/nomiclabs-hardhat-etherscan.html) plugin (requires `v3.0.0+`).
+   npm
+
+   ```bash copy
+   npm install --save-dev @nomiclabs/hardhat-etherscan
+   ```
+
+   yarn
+
+   ```bash copy
+   yarn add --dev @nomiclabs/hardhat-etherscan
+   ```
+
+4. **Add plugin reference to config file:**
+   Add the following statement to your hardhat.config.js.
+   ```bash copy
+   require("@nomiclabs/hardhat-etherscan");
+   ```
+   If using TypeScript, add this to your `hardhat.config.ts`. More info on using typescript with hardhat available here.
+   ```bash copy
+   import "@nomiclabs/hardhat-etherscan";
+   ```
+
+## Config File
+
+      Your basic Hardhat config file (hardhat.config.js or hardhat.config.ts) will be setup to support the network you are working on. In this example we use the Sokol test network and a .js file.
+      Here we add an RPC url without an API key, however some value is still required. You can use any arbitrary string. More info.
+      If you prefer, you can migrate to hardhat-toolbox to use a plugin bundle.
+
+```ts copy
+import dotenv from 'dotenv';
+import { HardhatUserConfig } from 'hardhat/config';
+import '@nomicfoundation/hardhat-toolbox';
+import 'tsconfig-paths/register';
+import '@openzeppelin/hardhat-upgrades';
+
+/**
+ * Config dotenv first
+ */
+dotenv.config();
+
+/**
+ * Default hardhat configs
+ */
+const config: HardhatUserConfig = {
+  solidity: {
+    compilers: [
+      {
+        version: '0.8.20',
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 200
+          }
+        }
+      }
+    ]
+  }
+};
+
+/**
+ * Extract env vars
+ */
+const privateKey = process.env.PRIVATE_KEY || '';
+
+/**
+ * If private key is available, attach network configs
+ */
+if (privateKey) {
+  config.networks = {
+    sei_arctic_1: {
+      url: 'https://evm-rpc.arctic-1.seinetwork.io/',
+      chainId: 713715,
+      accounts: [privateKey],
+      gas: 'auto',
+      gasPrice: 'auto'
+    }
+  };
+}
+
+/**
+ * Load etherscan key
+ */
+const seitraceKey = process.env.SEITRACE_KEY || '';
+
+if (seitraceKey) {
+  config.etherscan = {
+    apiKey: {
+      sei_arctic_1: seitraceKey
+    },
+    customChains: [
+      {
+        network: 'sei_arctic_1',
+        chainId: 713715,
+        urls: {
+          apiURL: 'https://seitrace.com/arctic-1/api',
+          browserURL: 'https://seitrace.com'
+        }
+      }
+    ]
+  };
+}
+
+export default config;
+```
+
+Set up env. file
+
+PRIVATE_KEY: Wallet private key
+
+SEITRACE_KEY: You can also use a random string
+
+```bash copy
+PRIVATE_KEY="4c1a9ffd2dce9ed5b5f464c6b6a38efceb051855d123c9e6aeec751c35762d91"
+SEITRACE_KEY="can-be-any-string"
+```
+
+## Deploy and Verify
+
+1. Deploy
+
+```bash copy
+npx hardhat run .\scripts\<path>\deploy.multicall.ts --network sei_arctic_1
+```
+
+2. Verify
+
+```bash copy
+npx hardhat verify --network sei_arctic_1 <contract_address> "Constructor argument"
+```
+
+example
+
+```bash copy
+PS D:\verify-contract> npx hardhat verify --network sei_arctic_1 0xaa338AbfB92e7476596D4cCb98b29700BDcA2a6E "0xc99259dE8f9ec4cd443C0CF5D45D547c513E03be"
+Successfully submitted source code for contract
+contracts/VuNFT721.sol:VuSEI721 at 0xaa338AbfB92e7476596D4cCb98b29700BDcA2a6E
+for verification on the block explorer. Waiting for verification result...
+
+Successfully verified contract VuSEI721 on the block explorer.
+https://seitrace.com/address/0xaa338AbfB92e7476596D4cCb98b29700BDcA2a6E#code
+```
+
+# Confirm Verification on Seitrace
+
+## Custom ABI
+
+The Custom ABI feature is useful for debugging and testing newly deployed smart contracts. This feature can be used with verified or unverified contracts.
+Once a custom ABI is added, the user can test methods using the Write Custom feature.
+Add Custom ABI
+
+1. [Login to My Account](https://seitrace.com/?chain=pacific-1) in Seitrace to get started. Once logged in:
+
+   a. Go to `Custom ABI` in the My Account menu.
+
+   b. Press the `Add Custom ABI` button
+
+2. Fill in the fields.
+
+   a. **Smart Contract Address:** Enter the correct 0x address of the deployed contract.
+
+   b. **Project Name:** Create a name for your own reference.
+
+   c. **Custom ABI:** Copy and paste in the ABI for the contract from your development environment (truffle, hardhat, remix etc) or if the contract is verified you can copy from Seitrace.
+
+   d. Press **Create custom ABI.**
+
+3. **Custom ABI added to the home screen:** You can edit or remove current custom ABIs or add additional custom ABIs from here.
