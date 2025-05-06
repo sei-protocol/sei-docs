@@ -1,7 +1,7 @@
 'use client';
 
-import { IconChevronRight, IconExternalLink } from '@tabler/icons-react';
 import React, { useEffect, useState } from 'react';
+import { IconChevronRight, IconExternalLink } from '@tabler/icons-react';
 
 type TabType = 'mainnet' | 'testnet' | 'devnet' | 'localnet';
 
