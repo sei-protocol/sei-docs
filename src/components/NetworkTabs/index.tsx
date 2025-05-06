@@ -272,8 +272,8 @@ export function NetworkTabs({}: NetworkTabsProps) {
 								<div className='flex flex-col'>
 									<div className={labelClass}>Chain ID:</div>
 									<div className='flex items-center justify-between'>
-										<span className={valueClass}>1327 (0x52F)</span>
-										<button className={iconButtonClass} title='Copy to clipboard' aria-label='Copy Chain ID' onClick={() => handleCopy('1327')}>
+										<span className={valueClass}>713715 (0xAE3F3)</span>
+										<button className={iconButtonClass} title='Copy to clipboard' aria-label='Copy Chain ID' onClick={() => handleCopy('713715')}>
 											<IconExternalLink className='w-4 h-4' />
 										</button>
 									</div>
@@ -370,8 +370,8 @@ export function NetworkTabs({}: NetworkTabsProps) {
 								<div className='flex flex-col'>
 									<div className={labelClass}>Chain ID:</div>
 									<div className='flex items-center justify-between'>
-										<span className={valueClass}>4242 (0x1092)</span>
-										<button className={iconButtonClass} title='Copy to clipboard' aria-label='Copy Chain ID' onClick={() => handleCopy('4242')}>
+										<span className={valueClass}>713715 (0xAE3F3)</span>
+										<button className={iconButtonClass} title='Copy to clipboard' aria-label='Copy Chain ID' onClick={() => handleCopy('713715')}>
 											<IconExternalLink className='w-4 h-4' />
 										</button>
 									</div>
