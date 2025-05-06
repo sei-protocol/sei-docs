@@ -30,6 +30,13 @@ export default {
 	seidb: 'SeiDB',
 	'sei-giga': 'Sei Giga',
 
+	'-- MEV': {
+		type: 'separator',
+		title: 'MEV'
+	},
+	mev: 'MEV on Sei',
+	'mev-plugins': 'MEV Plugins',
+
 	'-- Consensus': {
 		type: 'separator',
 		title: 'Consensus'
