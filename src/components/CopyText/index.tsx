@@ -21,7 +21,7 @@ export const CopyButton = ({ value, copyDisabled = false }: { value: string; cop
 				{value}
 			</Code>
 			{!copyDisabled ? (
-				<div className='flex justify-center items-center hover:opacity-75 min-w-5 w-5 min-h-5 h-5'>
+				<div className='flex justify-center items-center hover:opacity-75 min-w-5 w-5 min-h-5 h-5' title={copied ? 'Copied!' : 'Copy to clipboard'}>
 					{copied ? <CheckIcon width={40} height={40} color='green' /> : <CopyIcon width={40} height={40} color='grey' />}
 				</div>
 			) : null}
