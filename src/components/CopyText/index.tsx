@@ -3,6 +3,7 @@
 import { Code } from '@radix-ui/themes';
 import { CopyIcon, CheckIcon } from '@radix-ui/react-icons';
 import { useState } from 'react';
+import { IconCheck, IconCopy } from '@tabler/icons-react';
 
 export const CopyButton = ({ value, copyDisabled = false }: { value: string; copyDisabled?: boolean }) => {
 	const [copied, setCopied] = useState(false);
@@ -16,16 +17,21 @@ export const CopyButton = ({ value, copyDisabled = false }: { value: string; cop
 	};
 
 	return (
-		<div onClick={copyToClipboard} className='cursor-pointer flex items-center gap-2 font-bold'>
-			<Code color='gray' variant='soft' size='3' className='text-nowrap'>
-				{value}
-			</Code>
-			{!copyDisabled ? (
-				<div className='flex justify-center items-center hover:opacity-75 min-w-5 w-5 min-h-5 h-5' title={copied ? 'Copied!' : 'Copy to clipboard'}>
-					{copied ? <CheckIcon width={40} height={40} color='green' /> : <CopyIcon width={40} height={40} color='grey' />}
-				</div>
-			) : null}
-		</div>
+		<>
+			<div onClick={copyToClipboard} className='cursor-pointer flex items-center gap-2 font-bold'>
+				<Code color='gray' variant='soft' size='3' className='text-nowrap'>
+					{value}
+				</Code>
+				{!copyDisabled ? (
+					<button
+						onClick={copyToClipboard}
+						className='p-1 rounded-md text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200 hover:bg-neutral-200/50 dark:hover:bg-neutral-700/50 transition-colors'
+						title='Copy to clipboard'>
+						{copied ? <IconCheck className='h-4 w-4 text-green-500' /> : <IconCopy className='h-4 w-4' />}
+					</button>
+				) : null}
+			</div>
+		</>
 	);
 };
 
