@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { IconExternalLink, IconChevronRight } from '@tabler/icons-react';
+import { CopyButton } from '../CopyButton';
 
 type TabType = 'mainnet' | 'testnet' | 'devnet' | 'localnet';
 
@@ -26,10 +27,6 @@ export function NetworkTabs({}: NetworkTabsProps) {
 		window.addEventListener('hashchange', handleHashChange);
 		return () => window.removeEventListener('hashchange', handleHashChange);
 	}, []);
-
-	const handleCopy = (value: string): void => {
-		navigator.clipboard.writeText(value);
-	};
 
 	const tabButtonClass = (tab: TabType): string =>
 		`px-3 py-1.5 text-sm rounded-md transition-colors ${
@@ -77,9 +74,7 @@ export function NetworkTabs({}: NetworkTabsProps) {
 									<div className={labelClass}>Chain ID:</div>
 									<div className='flex items-center justify-between'>
 										<span className={valueClass}>1329 (0x531)</span>
-										<button className={iconButtonClass} title='Copy to clipboard' aria-label='Copy Chain ID' onClick={() => handleCopy('1329')}>
-											<IconExternalLink className='w-4 h-4' />
-										</button>
+										<CopyButton textToCopy='1329' />
 									</div>
 								</div>
 
@@ -89,13 +84,7 @@ export function NetworkTabs({}: NetworkTabsProps) {
 										<a href='https://evm-rpc.sei-apis.com' target='_blank' rel='noopener noreferrer' className={linkClass}>
 											https://evm-rpc.sei-apis.com
 										</a>
-										<button
-											className={iconButtonClass}
-											title='Copy to clipboard'
-											aria-label='Copy RPC URL'
-											onClick={() => handleCopy('https://evm-rpc.sei-apis.com')}>
-											<IconExternalLink className='w-4 h-4' />
-										</button>
+										<CopyButton textToCopy='https://evm-rpc.sei-apis.com' />
 									</div>
 								</div>
 
@@ -123,9 +112,7 @@ export function NetworkTabs({}: NetworkTabsProps) {
 									<div className={labelClass}>Chain ID:</div>
 									<div className='flex items-center justify-between'>
 										<span className={valueClass}>pacific-1</span>
-										<button className={iconButtonClass} title='Copy to clipboard' aria-label='Copy Chain ID' onClick={() => handleCopy('pacific-1')}>
-											<IconExternalLink className='w-4 h-4' />
-										</button>
+										<CopyButton textToCopy='pacific-1' />
 									</div>
 								</div>
 
@@ -135,13 +122,7 @@ export function NetworkTabs({}: NetworkTabsProps) {
 										<a href='https://rpc.pacific-1.sei.io' target='_blank' rel='noopener noreferrer' className={linkClass}>
 											https://rpc.pacific-1.sei.io
 										</a>
-										<button
-											className={iconButtonClass}
-											title='Copy to clipboard'
-											aria-label='Copy RPC URL'
-											onClick={() => handleCopy('https://rpc.pacific-1.sei.io')}>
-											<IconExternalLink className='w-4 h-4' />
-										</button>
+										<CopyButton textToCopy='https://rpc.pacific-1.sei.io' />
 									</div>
 								</div>
 
@@ -175,9 +156,7 @@ export function NetworkTabs({}: NetworkTabsProps) {
 									<div className={labelClass}>Chain ID:</div>
 									<div className='flex items-center justify-between'>
 										<span className={valueClass}>1328 (0x530)</span>
-										<button className={iconButtonClass} title='Copy to clipboard' aria-label='Copy Chain ID' onClick={() => handleCopy('1328')}>
-											<IconExternalLink className='w-4 h-4' />
-										</button>
+										<CopyButton textToCopy='1328' />
 									</div>
 								</div>
 
@@ -187,13 +166,7 @@ export function NetworkTabs({}: NetworkTabsProps) {
 										<a href='https://evm-rpc-atlantic-2.sei-apis.com' target='_blank' rel='noopener noreferrer' className={linkClass}>
 											https://evm-rpc-atlantic-2.sei-apis.com
 										</a>
-										<button
-											className={iconButtonClass}
-											title='Copy to clipboard'
-											aria-label='Copy RPC URL'
-											onClick={() => handleCopy('https://evm-rpc-atlantic-2.sei-apis.com')}>
-											<IconExternalLink className='w-4 h-4' />
-										</button>
+										<CopyButton textToCopy='https://evm-rpc-atlantic-2.sei-apis.com' />
 									</div>
 								</div>
 
@@ -221,9 +194,7 @@ export function NetworkTabs({}: NetworkTabsProps) {
 									<div className={labelClass}>Chain ID:</div>
 									<div className='flex items-center justify-between'>
 										<span className={valueClass}>atlantic-2</span>
-										<button className={iconButtonClass} title='Copy to clipboard' aria-label='Copy Chain ID' onClick={() => handleCopy('atlantic-2')}>
-											<IconExternalLink className='w-4 h-4' />
-										</button>
+										<CopyButton textToCopy='atlantic-2' />
 									</div>
 								</div>
 
@@ -233,13 +204,7 @@ export function NetworkTabs({}: NetworkTabsProps) {
 										<a href='https://rpc.atlantic-2.sei.io' target='_blank' rel='noopener noreferrer' className={linkClass}>
 											https://rpc.atlantic-2.sei.io
 										</a>
-										<button
-											className={iconButtonClass}
-											title='Copy to clipboard'
-											aria-label='Copy RPC URL'
-											onClick={() => handleCopy('https://rpc.atlantic-2.sei.io')}>
-											<IconExternalLink className='w-4 h-4' />
-										</button>
+										<CopyButton textToCopy='https://rpc.atlantic-2.sei.io' />
 									</div>
 								</div>
 
@@ -273,9 +238,7 @@ export function NetworkTabs({}: NetworkTabsProps) {
 									<div className={labelClass}>Chain ID:</div>
 									<div className='flex items-center justify-between'>
 										<span className={valueClass}>713715 (0xAE3F3)</span>
-										<button className={iconButtonClass} title='Copy to clipboard' aria-label='Copy Chain ID' onClick={() => handleCopy('713715')}>
-											<IconExternalLink className='w-4 h-4' />
-										</button>
+										<CopyButton textToCopy='713715' />
 									</div>
 								</div>
 
@@ -285,13 +248,7 @@ export function NetworkTabs({}: NetworkTabsProps) {
 										<a href='https://evm-rpc-arctic-1.sei-apis.com' target='_blank' rel='noopener noreferrer' className={linkClass}>
 											https://evm-rpc-arctic-1.sei-apis.com
 										</a>
-										<button
-											className={iconButtonClass}
-											title='Copy to clipboard'
-											aria-label='Copy RPC URL'
-											onClick={() => handleCopy('https://evm-rpc-arctic-1.sei-apis.com')}>
-											<IconExternalLink className='w-4 h-4' />
-										</button>
+										<CopyButton textToCopy='https://evm-rpc-arctic-1.sei-apis.com' />
 									</div>
 								</div>
 
@@ -319,9 +276,7 @@ export function NetworkTabs({}: NetworkTabsProps) {
 									<div className={labelClass}>Chain ID:</div>
 									<div className='flex items-center justify-between'>
 										<span className={valueClass}>arctic-1</span>
-										<button className={iconButtonClass} title='Copy to clipboard' aria-label='Copy Chain ID' onClick={() => handleCopy('arctic-1')}>
-											<IconExternalLink className='w-4 h-4' />
-										</button>
+										<CopyButton textToCopy='arctic-1' />
 									</div>
 								</div>
 
@@ -331,13 +286,7 @@ export function NetworkTabs({}: NetworkTabsProps) {
 										<a href='https://rpc.arctic-1.sei.io' target='_blank' rel='noopener noreferrer' className={linkClass}>
 											https://rpc.arctic-1.sei.io
 										</a>
-										<button
-											className={iconButtonClass}
-											title='Copy to clipboard'
-											aria-label='Copy RPC URL'
-											onClick={() => handleCopy('https://rpc.arctic-1.sei.io')}>
-											<IconExternalLink className='w-4 h-4' />
-										</button>
+										<CopyButton textToCopy='https://rpc.arctic-1.sei.io' />
 									</div>
 								</div>
 
@@ -371,9 +320,7 @@ export function NetworkTabs({}: NetworkTabsProps) {
 									<div className={labelClass}>Chain ID:</div>
 									<div className='flex items-center justify-between'>
 										<span className={valueClass}>713715 (0xAE3F3)</span>
-										<button className={iconButtonClass} title='Copy to clipboard' aria-label='Copy Chain ID' onClick={() => handleCopy('713715')}>
-											<IconExternalLink className='w-4 h-4' />
-										</button>
+										<CopyButton textToCopy='713715' />
 									</div>
 								</div>
 
@@ -381,9 +328,7 @@ export function NetworkTabs({}: NetworkTabsProps) {
 									<div className={labelClass}>RPC URL:</div>
 									<div className='flex items-center justify-between'>
 										<span className={valueClass}>http://localhost:8545</span>
-										<button className={iconButtonClass} title='Copy to clipboard' aria-label='Copy RPC URL' onClick={() => handleCopy('http://localhost:8545')}>
-											<IconExternalLink className='w-4 h-4' />
-										</button>
+										<CopyButton textToCopy='http://localhost:8545' />
 									</div>
 								</div>
 
@@ -407,9 +352,7 @@ export function NetworkTabs({}: NetworkTabsProps) {
 									<div className={labelClass}>Chain ID:</div>
 									<div className='flex items-center justify-between'>
 										<span className={valueClass}>sei-local</span>
-										<button className={iconButtonClass} title='Copy to clipboard' aria-label='Copy Chain ID' onClick={() => handleCopy('sei-local')}>
-											<IconExternalLink className='w-4 h-4' />
-										</button>
+										<CopyButton textToCopy='sei-local' />
 									</div>
 								</div>
 
@@ -417,9 +360,7 @@ export function NetworkTabs({}: NetworkTabsProps) {
 									<div className={labelClass}>RPC URL:</div>
 									<div className='flex items-center justify-between'>
 										<span className={valueClass}>http://localhost:26657</span>
-										<button className={iconButtonClass} title='Copy to clipboard' aria-label='Copy RPC URL' onClick={() => handleCopy('http://localhost:26657')}>
-											<IconExternalLink className='w-4 h-4' />
-										</button>
+										<CopyButton textToCopy='http://localhost:26657' />
 									</div>
 								</div>
 

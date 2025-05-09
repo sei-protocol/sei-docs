@@ -1,6 +1,6 @@
 'use client';
 
-import { IconCopy } from '@tabler/icons-react';
+import { IconCheck, IconCopy } from '@tabler/icons-react';
 import { useState } from 'react';
 
 interface CopyButtonProps {
@@ -18,11 +18,11 @@ export const CopyButton = ({ textToCopy }: CopyButtonProps) => {
 
 	return (
 		<button
-			className='text-neutral-500 hover:text-red-9 dark:hover:text-red-7 transition-colors focus:outline-none'
 			onClick={handleCopy}
+			className='p-1 rounded-md text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200 hover:bg-neutral-200/50 dark:hover:bg-neutral-700/50 transition-colors'
 			title='Copy to clipboard'
 			aria-label='Copy to clipboard'>
-			<IconCopy className={`w-4 h-4 ${copied ? 'text-green-500' : ''}`} />
+			{copied ? <IconCheck className='h-4 w-4 text-green-500' /> : <IconCopy className='h-4 w-4' />}
 		</button>
 	);
 };
