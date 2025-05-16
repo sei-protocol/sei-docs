@@ -163,10 +163,10 @@ export function NetworkTabs({}: NetworkTabsProps) {
 								<div className='flex flex-col'>
 									<div className={labelClass}>RPC URL:</div>
 									<div className='flex items-center justify-between'>
-										<a href='https://evm-rpc-atlantic-2.sei-apis.com' target='_blank' rel='noopener noreferrer' className={linkClass}>
-											https://evm-rpc-atlantic-2.sei-apis.com
+										<a href='https://evm-rpc-testnet.sei-apis.com' target='_blank' rel='noopener noreferrer' className={linkClass}>
+											https://evm-rpc-testnet.sei-apis.com
 										</a>
-										<CopyButton textToCopy='https://evm-rpc-atlantic-2.sei-apis.com' />
+										<CopyButton textToCopy='https://evm-rpc-testnet.sei-apis.com' />
 									</div>
 								</div>
 
