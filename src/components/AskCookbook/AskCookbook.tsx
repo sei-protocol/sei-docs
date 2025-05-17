@@ -10,5 +10,5 @@ const COOKBOOK_PUBLIC_API_KEY =
 
 export const AskCookbook = () => {
 	// @ts-ignore
-	return <BaseAskCookbook apiKey={COOKBOOK_PUBLIC_API_KEY} />;
+	return <BaseAskCookbook apiKey={COOKBOOK_PUBLIC_API_KEY} noFastMode={false} />;
 };
