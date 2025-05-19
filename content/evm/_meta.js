@@ -36,6 +36,7 @@ export default {
 		}
 	},
 	'solidity-resources': 'Solidity Resources',
+	'evm-verify-contracts': 'Verify Contracts',
 	'nft-contract-tutorial': 'ERC721 (NFT) Contracts',
 	precompiles: 'Precompiles',
 
