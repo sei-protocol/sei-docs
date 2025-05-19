@@ -44,9 +44,9 @@ export default function DocsProviders({ children, pageMap }) {
 			darkMode={true}
 			search={null}
 			nextThemes={{ attribute: 'class' }}
-			navbar={<ConditionalNavbar />}
 			pageMap={pageMap}>
 			<Theme accentColor='red' grayColor='gray' scaling='100%'>
+				<ConditionalNavbar />
 				{children}
 			</Theme>
 		</Layout>

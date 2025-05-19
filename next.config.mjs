@@ -534,6 +534,11 @@ export default withNextra({
 				source: '/providers/wallets',
 				destination: '/learn/wallets',
 				permanent: true
+			},
+			{
+				source: '/learn/differences-with-ethereum',
+				destination: '/evm/differences-with-ethereum',
+				permanent: true
 			}
 		];
 	}
