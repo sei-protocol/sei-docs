@@ -1,0 +1,119 @@
+---
+title: 'How to Build and Run MEV Plugins on Sei'
+description: 'A practical guide for developers and operators to implement, register, and operate MEV plugins on Sei, with annotated code and visual process flows.'
+keywords: ['MEV', 'plugin', 'Sei', 'developer guide', 'block production', 'transaction ordering']
+---
+
+# How to Build and Run MEV Plugins on Sei
+
+## Introduction
+
+Sei's MEV system is designed to make value extraction programmable, auditable, and operationally transparent. This guide provides a step-by-step walkthrough for experienced developers and node operators who want to implement, register, and operate MEV plugins on Sei. The approach here mirrors the technical rigor and visual clarity of Sei's core protocol explainers.
+
+## Prerequisites
+
+Before you begin, ensure you have:
+
+- Proficiency with Go
+- [Access to the Sei node source code and build environment](/node)
+- Familiarity with MEV concepts and block production
+
+## MEV Plugin Interface
+
+A Sei MEV plugin is a Go module that implements the following interface:
+
+```go
+// MEVPlugin defines the required methods for a plugin.
+type MEVPlugin interface {
+    Init(config PluginConfig) error
+    OnBundleSubmission(bundle MEVBundle) (BundleResult, error)
+    OnBlockProposal(ctx BlockContext, txs []Tx) ([]Tx, error)
+    Shutdown() error
+}
+```
+
+- `Init`: Called at plugin startup for initialization and configuration.
+- `OnBundleSubmission`: Handles incoming MEV bundles. Use this for validation, filtering, or other custom logic.
+- `OnBlockProposal`: Allows transaction reordering, filtering, or injection during block proposal.
+- `Shutdown`: Cleanup logic on node shutdown.
+
+## Example: Minimal Plugin Implementation
+
+Below is a minimal example of a plugin that accepts all bundles and does not reorder transactions. You can extend this structure to implement custom logic as needed.
+
+```go
+package mymevplugin
+
+import "github.com/sei-protocol/sei-chain/x/mev"
+
+type MyPlugin struct{}
+
+func (p *MyPlugin) Init(config mev.PluginConfig) error {
+    // Initialization logic
+    return nil
+}
+
+func (p *MyPlugin) OnBundleSubmission(bundle mev.MEVBundle) (mev.BundleResult, error) {
+    // Accept all bundles (example)
+    return mev.BundleResult{Accepted: true}, nil
+}
+
+func (p *MyPlugin) OnBlockProposal(ctx mev.BlockContext, txs []mev.Tx) ([]mev.Tx, error) {
+    // No reordering (pass-through)
+    return txs, nil
+}
+
+func (p *MyPlugin) Shutdown() error {
+    // Cleanup logic
+    return nil
+}
+```
+
+## Plugin Registration and Deployment
+
+To register and deploy your MEV plugin:
+
+1. **Place your plugin code** in the `x/mev/plugins/` directory of the Sei node source.
+2. **Register the plugin** in the node configuration file or via a CLI flag.
+3. **Rebuild the node binary** to include your plugin.
+4. **Restart your node** to load the new plugin.
+
+After these steps, your plugin will be loaded and invoked as part of block production.
+
+## Submitting MEV Bundles
+
+You can submit MEV bundles to the node using the `/mev/submitBundle` RPC endpoint. For example:
+
+```json
+{
+  "bundle": [{ "tx": "0xabc123...", "metadata": { "searcher": "alice" } }, { "tx": "0xdef456..." }]
+}
+```
+
+POST this JSON to the node's `/mev/submitBundle` endpoint. The plugin's `OnBundleSubmission` method will process the bundle. To query plugin status, use the `/mev/pluginStatus` endpoint.
+
+import { Callout } from 'nextra/components';
+
+<Callout type="info" title="Best Practices">
+  <ul>
+    <li>- Log plugin activity and errors for operational visibility.</li>
+    <li>- Track relevant metrics, such as bundle acceptance rate and processing time.</li>
+    <li>- Use standard monitoring tools to observe node and plugin health.</li>
+    <li>- Test plugins on a staging node before deploying to production.</li>
+  </ul>
+</Callout>
+
+## Security Considerations
+
+<Callout type="warning" title="Security Checklist">
+  <ul>
+    <li>- Only run plugins that have been reviewed and audited.</li>
+    <li>- Restrict access to MEV RPC endpoints by using IP allowlists or API keys.</li>
+    <li>- Log and rate-limit bundle submissions to prevent abuse.</li>
+    <li>- Review plugin code for panics, resource leaks, and unsafe operations.</li>
+  </ul>
+</Callout>
+
+## Troubleshooting
+
+If a plugin fails to load, verify registration and compatibility with the node version. Node crashes may indicate panics or resource exhaustion in plugin code. Rejected bundles may be due to invalid payloads or plugin logic errors. Use profiling tools to diagnose performance issues.
