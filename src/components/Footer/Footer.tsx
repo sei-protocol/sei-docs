@@ -44,7 +44,7 @@ export function Footer() {
 							</a>
 						</li>
 						<li>
-							<a href='https://t.me/+-KTScIwnnJFmYTQ1' style={{ textDecoration: 'none', color: 'inherit', fontSize: '0.8125rem' }}>
+							<a href='https://t.me/+KZdhZ1eE-G01NmZk' style={{ textDecoration: 'none', color: 'inherit', fontSize: '0.8125rem' }}>
 								Sei Builder&apos;s Chat
 							</a>
 						</li>
