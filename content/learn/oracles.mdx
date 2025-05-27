@@ -1,48 +1,155 @@
 ---
-title: "Sei Network Oracle Solutions"
-description: "Explore Sei's native oracle module and provider ecosystem for reliable asset price feeds. Learn how to query exchange rates, TWAPs, and other price data on-chain."
-keywords: ["blockchain oracles", "price feeds", "native oracle", "exchange rates", "asset pricing"]
+title: "Oracle System on Sei: Technical Overview and Architecture"
+description: "A comprehensive guide to Sei's native oracle module, including validator voting mechanisms, price aggregation, TWAP calculations, and integration patterns."
+keywords: ["oracle", "price feeds", "validator voting", "TWAP", "exchange rates", "DeFi infrastructure"]
 ---
 
 import { AppCardsGridCategory } from '../../src/components';
+import { Callout } from 'nextra/components';
 
-# Oracles
+# Oracle System on Sei
 
-## Providers
+## Introduction
+
+Oracles are the bridge between blockchain networks and real-world data. On Sei, the native oracle module provides a decentralized, secure, and efficient mechanism for bringing off-chain price data on-chain. Unlike third-party oracle solutions, Sei's native oracle is deeply integrated into the consensus layer, making it a critical component of the network's infrastructure.
+
+Sei's Oracle system is designed for:
+
+- **Validator Participation:** All validators are expected to participate in price voting as part of their duties
+- **High Frequency Updates:** Price updates occur every block through an efficient voting mechanism
+- **Weighted Aggregation:** Uses stake-weighted median calculations to resist manipulation
+- **Time-Weighted Averages:** Built-in TWAP support for DeFi protocols requiring smoothed prices
+- **Spam Resistance:** Multiple security layers prevent vote manipulation and overflow attacks
+
+### Intended Users
+
+- **Validators:** Must run oracle feeders to submit price votes and maintain good standing
+- **DeFi Developers:** Can query real-time prices and TWAPs for liquidations and trading
+- **dApp Builders:** Access reliable price feeds for any on-chain application
+- **Infrastructure Providers:** Can build enhanced oracle services on top of the native module
+
+## System Architecture
+
+The Oracle system operates as a core module within Sei's consensus mechanism. Validators submit price votes that are aggregated each block to produce reliable exchange rates.
+
+```mermaid
+graph TD
+    subgraph External Data Sources
+        A1[Binance API]
+        A2[Coinbase API]
+        A3[Kraken API]
+        A4[Other CEXs]
+    end
+    
+    subgraph Validator Infrastructure
+        B1[Oracle Feeder 1]
+        B2[Oracle Feeder 2]
+        B3[Oracle Feeder N]
+        A1 & A2 & A3 & A4 --> B1
+        A1 & A2 & A3 & A4 --> B2
+        A1 & A2 & A3 & A4 --> B3
+    end
+    
+    subgraph Sei Consensus Layer
+        C[Oracle Module]
+        D[Vote Aggregation]
+        E[Price Store]
+        F[TWAP Engine]
+        B1 & B2 & B3 -->|Submit Votes| C
+        C -->|Validate & Store| D
+        D -->|Calculate Median| E
+        E -->|Update History| F
+    end
+    
+    subgraph Consumers
+        G[DeFi Protocols]
+        H[Price Queries]
+        I[EVM Precompile]
+        E --> G & H & I
+        F --> G & H & I
+    end
+```
+
+### Component Breakdown
+
+**Oracle Feeders** are off-chain services run by validators that fetch prices from multiple exchanges, aggregate them locally, and submit votes to the chain. Each validator typically runs their own feeder with custom logic.
+
+**Vote Submission** occurs through `MsgAggregateExchangeRateVote` transactions. Validators must submit votes for all whitelisted denoms each voting period or face penalties.
+
+**Vote Aggregation** happens at the end of each voting period (typically every block). The module calculates a stake-weighted median of all valid votes to determine the final exchange rate.
+
+**Price Store** maintains the current exchange rates and historical data needed for TWAP calculations. Prices are stored with block height timestamps for auditability.
+
+**TWAP Engine** calculates time-weighted average prices over configurable lookback periods. This provides smoothed prices that are resistant to short-term manipulation.
+
+## Voting Mechanism
+
+The Oracle voting process follows a commit-reveal pattern to prevent front-running and ensure vote independence.
+
+<div className="grid grid-cols-5 gap-4 my-8">
+  <div className="col-span-1 flex flex-col items-center">
+    <div className="bg-blue-900 text-white rounded-full w-10 h-10 flex items-center justify-center font-bold mb-2">1</div>
+    <div className="text-center text-xs">Price Collection</div>
+  </div>
+  <div className="col-span-1 flex flex-col items-center">
+    <div className="bg-blue-900 text-white rounded-full w-10 h-10 flex items-center justify-center font-bold mb-2">2</div>
+    <div className="text-center text-xs">Local Aggregation</div>
+  </div>
+  <div className="col-span-1 flex flex-col items-center">
+    <div className="bg-blue-900 text-white rounded-full w-10 h-10 flex items-center justify-center font-bold mb-2">3</div>
+    <div className="text-center text-xs">Vote Submission</div>
+  </div>
+  <div className="col-span-1 flex flex-col items-center">
+    <div className="bg-blue-900 text-white rounded-full w-10 h-10 flex items-center justify-center font-bold mb-2">4</div>
+    <div className="text-center text-xs">Aggregation</div>
+  </div>
+  <div className="col-span-1 flex flex-col items-center">
+    <div className="bg-blue-900 text-white rounded-full w-10 h-10 flex items-center justify-center font-bold mb-2">5</div>
+    <div className="text-center text-xs">Price Update</div>
+  </div>
+</div>
+
+1. **Price Collection:** Oracle feeders continuously fetch prices from configured exchanges
+2. **Local Aggregation:** Feeders apply their own logic to aggregate prices (median, weighted average, etc.)
+3. **Vote Submission:** Aggregated prices are submitted on-chain as validator votes
+4. **Aggregation:** The oracle module calculates stake-weighted median of all votes
+5. **Price Update:** New exchange rates are stored and made available for queries
+
+## Oracle Providers
+
+While Sei has a powerful native oracle, the ecosystem also supports third-party oracle providers for specialized use cases:
 
 <AppCardsGridCategory category="oracle" />
 
-## Native Oracles
+## Querying Oracle Data
 
-Sei supports both multiple oracles, including a native solution that runs directly on-chain.
+### Active Denoms
 
-Sei has a native oracle module to support asset exchange rate pricing for use by
-other modules and contracts. When validating for the network, participation as
-an Oracle is expected and required in order to ensure the most reliable and
-accurate pricing for assets.
+Query the currently supported assets with exchange rate feeds:
 
-Below are some helpful APIs to interact with the native Oracle module
-
-### Actives
-
-Returns the current active denoms for which there are exchange rates
-
-```bash copy {1}
+```bash
 seid q oracle actives
+```
+
+Example response:
+```yaml
 actives:
 - uatom
-- ubtc
+- ubtc  
 - ueth
 - usei
 ```
 
-### Exchange Rates
+### Current Exchange Rates
 
-Returns the current exchange rates for supported assets. Optionally can query
-for a specific denom by entering it as an additional param.
+Get the latest exchange rates for all supported assets:
 
-```bash copy {1}
+```bash
 seid q oracle exchange-rates
+```
+
+Example response:
+```yaml
 - denom: uatom
   oracle_exchange_rate:
     exchange_rate: "10.813741474077133110"
@@ -51,48 +158,132 @@ seid q oracle exchange-rates
   oracle_exchange_rate:
     exchange_rate: "28378.473894707711800815"
     last_update: "7806841"
-- denom: ueth
-  oracle_exchange_rate:
-    exchange_rate: "1865.245279694096497292"
-    last_update: "7809045"
 ```
 
-### TWAPs
+### Time-Weighted Average Prices (TWAP)
 
-Returns the time weighted average price for a given time interval in seconds.
-The maximum lookback is determined by oracle parameters.
+Query TWAP for a specific lookback period:
 
-```bash copy {1}
+```bash
 seid q oracle twaps $LOOKBACK_SECONDS
+```
+
+Example with 300-second (5-minute) lookback:
+```yaml
 oracle_twaps:
 - denom: uatom
-  lookback_seconds: "12"
+  lookback_seconds: "300"
   twap: "10.820090685543308091"
 - denom: ubtc
-  lookback_seconds: "12"
+  lookback_seconds: "300"
   twap: "28356.159567933482758461"
-- denom: ueth
-  lookback_seconds: "12"
-  twap: "1865.748268727863484183"
 ```
 
-### Params
+### Oracle Parameters
 
-Returns the current parameters for the oracle module
+View the current oracle module configuration:
 
-```bash copy {1}
+```bash
 seid q oracle params
-params:
-lookback_duration: "3600"
-min_valid_per_window: "0.050000000000000000"
-reward_band: "0.020000000000000000"
-slash_fraction: "0.000100000000000000"
-slash_window: "201600"
-vote_period: "1"
-vote_threshold: "0.667000000000000000"
-whitelist:
-  - name: uatom
-  - name: usei
-  - name: ueth
-  - name: ubtc
 ```
+
+Key parameters include:
+- `vote_period`: How often votes are aggregated (in blocks)
+- `vote_threshold`: Minimum voting power required for valid price
+- `reward_band`: Acceptable deviation from weighted median for rewards
+- `slash_window`: Period for calculating miss rates
+- `min_valid_per_window`: Minimum participation rate to avoid slashing
+
+## Integration Patterns
+
+### For Smart Contracts
+
+Access oracle prices through the EVM precompile:
+
+```solidity
+interface IOracle {
+    function getExchangeRates() external view returns (
+        string[] memory denoms,
+        uint256[] memory rates
+    );
+    
+    function getOracleTwaps(uint64 lookbackSeconds) external view returns (
+        string[] memory denoms,
+        uint256[] memory twaps
+    );
+}
+
+contract PriceConsumer {
+    IOracle constant oracle = IOracle(0x0000000000000000000000000000000000001002);
+    
+    function getPrice(string memory denom) external view returns (uint256) {
+        (string[] memory denoms, uint256[] memory rates) = oracle.getExchangeRates();
+        
+        for (uint i = 0; i < denoms.length; i++) {
+            if (keccak256(bytes(denoms[i])) == keccak256(bytes(denom))) {
+                return rates[i];
+            }
+        }
+        revert("Denom not found");
+    }
+}
+```
+
+### For CosmWasm Contracts
+
+Query oracle prices using the native module:
+
+```rust
+use cosmwasm_std::{Deps, StdResult};
+use sei_cosmwasm::{SeiQuerier, SeiQueryWrapper};
+
+pub fn query_exchange_rate(
+    deps: Deps<SeiQueryWrapper>,
+    denom: String,
+) -> StdResult<Decimal> {
+    let querier = SeiQuerier::new(&deps.querier);
+    let rates = querier.query_exchange_rates()?;
+    
+    rates
+        .iter()
+        .find(|r| r.denom == denom)
+        .map(|r| r.exchange_rate)
+        .ok_or_else(|| StdError::generic_err("Denom not found"))
+}
+```
+
+## Best Practices
+
+<Callout type="info">
+**For Validators:**
+- Run redundant price sources with fallback logic
+- Monitor feeder health and submission success rate
+- Use volume-weighted aggregation for more accurate prices
+- Implement circuit breakers for extreme price movements
+</Callout>
+
+<Callout type="warning">
+**For DeFi Protocols:**
+- Always use TWAP for liquidation calculations
+- Implement staleness checks before using prices
+- Handle missing prices gracefully with fallbacks
+- Consider multiple oracle sources for critical operations
+</Callout>
+
+## Troubleshooting
+
+Common issues and solutions:
+
+**Missing Prices**: Check if the denom is whitelisted and has active validators voting
+
+**Stale Prices**: Verify the `last_update` field and compare with current block height
+
+**High Deviation**: Monitor the spread between validator votes to detect potential issues
+
+**Integration Errors**: Ensure proper error handling for missing or invalid prices
+
+## Related Resources
+
+- [Oracle Security & Spam Prevention](/learn/oracle-security)
+- [Oracle Precompile Reference](/evm/precompiles/oracle)
+- [Validator Operations Guide](/node/validators)
