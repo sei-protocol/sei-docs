@@ -18,7 +18,7 @@ export default {
 	'twin-turbo-consensus': 'Consensus',
 	'parallelization-engine': 'Execution',
 	seidb: 'Storage',
-	'sei-giga-developers': 'Developer Guide',
+	'sei-giga-builders': 'Sei Giga for Builders',
 
 	'-- Network Tools & Providers': {
 		type: 'separator',
