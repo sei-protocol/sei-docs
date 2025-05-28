@@ -10,6 +10,18 @@ export default {
 	'dev-gas': 'Gas',
 	accounts: 'Account Linking',
 
+	'-- Platform Architecture': {
+		type: 'separator',
+		title: 'Platform Architecture'
+	},
+	'sei-giga': 'Sei Giga Overview',
+	'twin-turbo-consensus': 'Consensus',
+	'parallelization-engine': 'Execution',
+	seidb: 'Storage',
+	'sei-giga-performance': 'Performance',
+	'sei-giga-developers': 'Developer Guide',
+	'sei-giga-migration': 'Architecture Roadmap',
+
 	'-- Network Tools & Providers': {
 		type: 'separator',
 		title: 'Network Tools & Providers'
@@ -19,16 +31,6 @@ export default {
 	explorers: 'Block Explorers',
 	faucet: 'Faucet',
 	indexers: 'Indexers',
-	oracles: 'Oracles',
-
-	'-- Platform Architecture': {
-		type: 'separator',
-		title: 'Platform Architecture'
-	},
-	'twin-turbo-consensus': 'Twin Turbo Consensus',
-	'parallelization-engine': 'Parallelization Engine',
-	seidb: 'SeiDB',
-	'sei-giga': 'Sei Giga',
 
 	'-- MEV': {
 		type: 'separator',
