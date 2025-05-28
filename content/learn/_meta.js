@@ -21,6 +21,13 @@ export default {
 	indexers: 'Indexers',
 	oracles: 'Oracles',
 
+	'-- Oracles': {
+		type: 'separator',
+		title: 'Oracles'
+	},
+	oracles: 'Oracle System Overview',
+	'oracle-security': 'Security & Spam Prevention',
+
 	'-- Platform Architecture': {
 		type: 'separator',
 		title: 'Platform Architecture'
