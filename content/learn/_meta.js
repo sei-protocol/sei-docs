@@ -18,9 +18,7 @@ export default {
 	'twin-turbo-consensus': 'Consensus',
 	'parallelization-engine': 'Execution',
 	seidb: 'Storage',
-	'sei-giga-performance': 'Performance',
 	'sei-giga-developers': 'Developer Guide',
-	'sei-giga-migration': 'Architecture Roadmap',
 
 	'-- Network Tools & Providers': {
 		type: 'separator',
@@ -31,6 +29,13 @@ export default {
 	explorers: 'Block Explorers',
 	faucet: 'Faucet',
 	indexers: 'Indexers',
+
+	'-- Oracles': {
+		type: 'separator',
+		title: 'Oracles'
+	},
+	oracles: 'Oracle System Overview',
+	'oracle-security': 'Security & Spam Prevention',
 
 	'-- MEV': {
 		type: 'separator',
