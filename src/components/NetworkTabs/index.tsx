@@ -339,8 +339,8 @@ export function NetworkTabs({}: NetworkTabsProps) {
 								<div className='flex flex-col'>
 									<div className={labelClass}>Chain ID:</div>
 									<div className='flex items-center justify-between'>
-										<span className={valueClass}>713715 (0xAE3F3)</span>
-										<CopyButton textToCopy='713715' />
+										<span className={valueClass}>713714 (0xAE3F2)</span>
+										<CopyButton textToCopy='713714' />
 									</div>
 								</div>
 
