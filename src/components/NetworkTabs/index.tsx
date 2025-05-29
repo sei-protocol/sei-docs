@@ -180,6 +180,16 @@ export function NetworkTabs({}: NetworkTabsProps) {
 										</a>
 									</div>
 								</div>
+								<div className='flex flex-col'>
+									<div className={labelClass}>Faucet:</div>
+									<div className='flex items-center justify-between'>
+										<span className={valueClass}>Testnet faucet</span>
+										<a href='/learn/faucet' rel='noopener noreferrer' className={visitLinkClass}>
+											Visit
+											<IconChevronRight className='w-4 h-4 ml-1' />
+										</a>
+									</div>
+								</div>
 							</div>
 						</div>
 
@@ -213,6 +223,16 @@ export function NetworkTabs({}: NetworkTabsProps) {
 									<div className='flex items-center justify-between'>
 										<span className={valueClass}>seitrace.com</span>
 										<a href='https://seitrace.com/?chain=atlantic-2' target='_blank' rel='noopener noreferrer' className={visitLinkClass}>
+											Visit
+											<IconChevronRight className='w-4 h-4 ml-1' />
+										</a>
+									</div>
+								</div>
+								<div className='flex flex-col'>
+									<div className={labelClass}>Faucet:</div>
+									<div className='flex items-center justify-between'>
+										<span className={valueClass}>Testnet faucet</span>
+										<a href='/learn/faucet' rel='noopener noreferrer' className={visitLinkClass}>
 											Visit
 											<IconChevronRight className='w-4 h-4 ml-1' />
 										</a>
