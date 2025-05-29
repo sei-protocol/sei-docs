@@ -48,7 +48,7 @@ export const networks: NetworkEntry[] = [
 		rpcUrl: 'https://evm-rpc.sei-apis.com',
 		explorerLinks: [
 			{ name: 'SeiTrace', url: 'https://seitrace.com/?chain=pacific-1' },
-			{ name: 'SeiScan', url: 'https://www.seiscan.app/?chain=pacific-1' }
+			{ name: 'SeiStream', url: 'https://seistream.app' }
 		],
 		chainParams: SEI_DEVNET_CHAIN_PARAMS
 	},
@@ -60,7 +60,7 @@ export const networks: NetworkEntry[] = [
 		rpcUrl: 'https://evm-rpc-testnet.sei-apis.com',
 		explorerLinks: [
 			{ name: 'SeiTrace', url: 'https://seitrace.com/?chain=atlantic-2' },
-			{ name: 'SeiScan', url: 'https://www.seiscan.app/?chain=atlantic-2' }
+			{ name: 'SeiStream', url: 'https://testnet.seistream.app' }
 		],
 		chainParams: SEI_DEVNET_CHAIN_PARAMS
 	},
@@ -70,7 +70,10 @@ export const networks: NetworkEntry[] = [
 		chainId: '713715',
 		hexChainId: '0xAE3F3',
 		rpcUrl: 'https://evm-rpc-arctic-1.sei-apis.com',
-		explorerLinks: [{ name: 'SeiTrace', url: 'https://seitrace.com/?chain=arctic-1' }],
+		explorerLinks: [
+			{ name: 'SeiTrace', url: 'https://seitrace.com/?chain=arctic-1' },
+			{ name: 'SeiStream', url: 'https://devnet.seistream.app' }
+		],
 		chainParams: SEI_DEVNET_CHAIN_PARAMS
 	},
 	{
@@ -78,20 +81,14 @@ export const networks: NetworkEntry[] = [
 		name: 'Mainnet',
 		chainId: 'pacific-1',
 		rpcUrl: 'https://rpc.sei-apis.com',
-		explorerLinks: [
-			{ name: 'SeiTrace', url: 'https://seitrace.com/?chain=pacific-1' },
-			{ name: 'SeiScan', url: 'https://www.seiscan.app/?chain=pacific-1' }
-		]
+		explorerLinks: [{ name: 'SeiTrace', url: 'https://seitrace.com/?chain=pacific-1' }]
 	},
 	{
 		type: 'Cosmos',
 		name: 'Testnet',
 		chainId: 'atlantic-2',
 		rpcUrl: 'https://rpc-testnet.sei-apis.com',
-		explorerLinks: [
-			{ name: 'SeiTrace', url: 'https://seitrace.com/?chain=atlantic-2' },
-			{ name: 'SeiScan', url: 'https://www.seiscan.app/?chain=atlantic-2' }
-		]
+		explorerLinks: [{ name: 'SeiTrace', url: 'https://seitrace.com/?chain=atlantic-2' }]
 	},
 	{
 		type: 'Cosmos',
