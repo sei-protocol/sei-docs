@@ -16,19 +16,6 @@ export default {
 	transactions: 'Transaction Overview',
 	'execute-multiple': 'Executing Multiple Transactions',
 
-	'-- Frontend Development': {
-		type: 'separator',
-		title: 'Frontend Development'
-	},
-	'building-a-frontend': 'Building a Frontend',
-
-	'-- Smart Contracts': {
-		type: 'separator',
-		title: 'Smart Contracts'
-	},
-	'cosm-wasm-general': 'Tutorial',
-	'nft-contract-tutorial': 'CW721 (NFT) Contracts',
-
 	'-- Modules': {
 		type: 'separator',
 		title: 'Modules'
