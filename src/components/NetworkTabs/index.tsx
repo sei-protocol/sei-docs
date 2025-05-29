@@ -129,8 +129,8 @@ export function NetworkTabs({}: NetworkTabsProps) {
 								<div className='flex flex-col'>
 									<div className={labelClass}>Explorer:</div>
 									<div className='flex items-center justify-between'>
-										<span className={valueClass}>seiscan.app</span>
-										<a href='https://www.seiscan.app/pacific-1' target='_blank' rel='noopener noreferrer' className={visitLinkClass}>
+										<span className={valueClass}>seitrace.com</span>
+										<a href='https://seitrace.com/?chain=pacific-1' target='_blank' rel='noopener noreferrer' className={visitLinkClass}>
 											Visit
 											<IconChevronRight className='w-4 h-4 ml-1' />
 										</a>
@@ -211,8 +211,8 @@ export function NetworkTabs({}: NetworkTabsProps) {
 								<div className='flex flex-col'>
 									<div className={labelClass}>Explorer:</div>
 									<div className='flex items-center justify-between'>
-										<span className={valueClass}>seiscan.app</span>
-										<a href='https://www.seiscan.app/atlantic-2' target='_blank' rel='noopener noreferrer' className={visitLinkClass}>
+										<span className={valueClass}>seitrace.com</span>
+										<a href='https://seitrace.com/?chain=atlantic-2' target='_blank' rel='noopener noreferrer' className={visitLinkClass}>
 											Visit
 											<IconChevronRight className='w-4 h-4 ml-1' />
 										</a>
@@ -293,8 +293,8 @@ export function NetworkTabs({}: NetworkTabsProps) {
 								<div className='flex flex-col'>
 									<div className={labelClass}>Explorer:</div>
 									<div className='flex items-center justify-between'>
-										<span className={valueClass}>seiscan.app</span>
-										<a href='https://www.seiscan.app/arctic-1' target='_blank' rel='noopener noreferrer' className={visitLinkClass}>
+										<span className={valueClass}>seitrace.com</span>
+										<a href='https://seitrace.com/?chain=arctic-1' target='_blank' rel='noopener noreferrer' className={visitLinkClass}>
 											Visit
 											<IconChevronRight className='w-4 h-4 ml-1' />
 										</a>
