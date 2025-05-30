@@ -5,7 +5,7 @@ import { Button, Flex, Select } from '@radix-ui/themes';
 import { toast } from 'sonner';
 import { IconDroplet, IconShieldCheck, IconHourglass, IconCheck, IconLoader2, IconWorld } from '@tabler/icons-react';
 import { isAddress } from 'viem';
-import { isValidSeiCosmosAddress } from '@sei-js/cosmjs';
+import { isValidSeiCosmosAddress } from '../../utils/sei-utils';
 import HCaptcha from '@hcaptcha/react-hcaptcha';
 import { sendGAEvent } from '@next/third-parties/google';
 
