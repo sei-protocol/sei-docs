@@ -19,7 +19,7 @@ export const ChainInformation = ({ networkType }: { networkType: NetworkType }) 
 				<Table.ColumnHeaderCell>Chain Id</Table.ColumnHeaderCell>
 				<Table.ColumnHeaderCell>RPC URL</Table.ColumnHeaderCell>
 				<Table.ColumnHeaderCell className='text-nowrap'>Explorer URL</Table.ColumnHeaderCell>
-				<Table.ColumnHeaderCell className='text-nowrap'>MetaMask</Table.ColumnHeaderCell>
+				{networkType === 'EVM' && <Table.ColumnHeaderCell className='text-nowrap'>MetaMask</Table.ColumnHeaderCell>}
 			</Table.Row>
 		</Table.Header>
 
@@ -51,12 +51,14 @@ export const ChainInformation = ({ networkType }: { networkType: NetworkType }) 
 								))}
 							</Flex>
 						</Table.Cell>
-						<Table.Cell>
-							<Flex direction='column' className='gap-2'>
-								{/* only for EVM rows */}
-								{net.type === 'EVM' && net.chainParams && <AddSeiButton chainParams={net.chainParams} label={`Add Sei ${net.name} to MetaMask`} />}
-							</Flex>
-						</Table.Cell>
+						{net.type === 'EVM' && net.chainParams && (
+							<Table.Cell>
+								<Flex direction='column' className='gap-2'>
+									{/* only for EVM rows */}
+									<AddSeiButton chainParams={net.chainParams} label={`Add Sei ${net.name} to MetaMask`} />
+								</Flex>
+							</Table.Cell>
+						)}
 					</Table.Row>
 				))}
 			<Table.Row>
