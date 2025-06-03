@@ -59,6 +59,12 @@ export default {
 	'hardware-wallets': 'Using Hardware Wallets',
 	'ledger-setup': 'Ledger Integration',
 
+	'-- AI Tools': {
+		type: 'separator',
+		title: 'AI Tools'
+	},
+	'ai-mcp-server': 'MCP Server',
+
 	'-- Additional Resources': {
 		type: 'separator',
 		title: 'Additional Resources'
