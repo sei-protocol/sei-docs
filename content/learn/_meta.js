@@ -21,6 +21,12 @@ export default {
 	indexers: 'Indexers',
 	oracles: 'Oracles',
 
+	'-- AI Tools': {
+		type: 'separator',
+		title: 'AI Tools'
+	},
+	'mcp-server': 'MCP Server',
+
 	'-- Platform Architecture': {
 		type: 'separator',
 		title: 'Platform Architecture'
