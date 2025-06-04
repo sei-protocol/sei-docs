@@ -35,20 +35,22 @@ export default function DocsProviders({ children, pageMap }) {
 	};
 
 	return (
-		<Layout
-			docsRepositoryBase='https://github.com/sei-protocol/sei-docs/tree/main'
-			sidebar={{ defaultMenuCollapseLevel: 1, toggleButton: true }}
-			editLink='Edit this page'
-			feedback={{ content: 'Question? Give us feedback →', labels: 'https://github.com/sei-protocol/sei-docs/issues/new' }}
-			footer={<Footer />}
-			darkMode={true}
-			search={null}
-			nextThemes={{ attribute: 'class' }}
-			pageMap={pageMap}>
-			<Theme accentColor='red' grayColor='gray' scaling='100%'>
+		<>
+			<Layout
+				docsRepositoryBase='https://github.com/sei-protocol/sei-docs/tree/main'
+				sidebar={{ defaultMenuCollapseLevel: 1, toggleButton: true }}
+				editLink='Edit this page'
+				feedback={{ content: 'Question? Give us feedback →', labels: 'https://github.com/sei-protocol/sei-docs/issues/new' }}
+				footer={<Footer />}
+				darkMode={true}
+				search={null}
+				nextThemes={{ attribute: 'class' }}
+				pageMap={pageMap}>
 				<ConditionalNavbar />
-				{children}
-			</Theme>
-		</Layout>
+				<Theme accentColor='red' grayColor='gray' scaling='100%'>
+					{children}
+				</Theme>
+			</Layout>
+		</>
 	);
 }
