@@ -1,5 +1,3 @@
-export * from './APIEndpoint';
-export * from './APIEndpointRoute';
 export * from './APIModule';
 export * from './APIModulePaths';
 export * from './AppCard';
