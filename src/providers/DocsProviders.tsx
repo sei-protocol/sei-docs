@@ -26,6 +26,15 @@ export default function DocsProviders({ children, pageMap }) {
 						<div className='flex-grow flex justify-start'>
 							<AskCookbook />
 						</div>
+						<a 
+							href='https://support.sei.io/hc/en-us' 
+							target='_blank' 
+							rel='noopener noreferrer'
+							className='text-sm hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors'
+							style={{ textDecoration: 'none' }}
+						>
+							Support
+						</a>
 						<Search placeholder='Search docs...' />
 						{isHomepage && <ThemeSwitch />}
 					</div>
@@ -35,22 +44,20 @@ export default function DocsProviders({ children, pageMap }) {
 	};
 
 	return (
-		<>
-			<Layout
-				docsRepositoryBase='https://github.com/sei-protocol/sei-docs/tree/main'
-				sidebar={{ defaultMenuCollapseLevel: 1, toggleButton: true }}
-				editLink='Edit this page'
-				feedback={{ content: 'Question? Give us feedback →', labels: 'https://github.com/sei-protocol/sei-docs/issues/new' }}
-				footer={<Footer />}
-				darkMode={true}
-				search={null}
-				nextThemes={{ attribute: 'class' }}
-				pageMap={pageMap}>
+		<Layout
+			docsRepositoryBase='https://github.com/sei-protocol/sei-docs/tree/main'
+			sidebar={{ defaultMenuCollapseLevel: 1, toggleButton: true }}
+			editLink='Edit this page'
+			feedback={{ content: 'Question? Give us feedback →', labels: 'https://github.com/sei-protocol/sei-docs/issues/new' }}
+			footer={<Footer />}
+			darkMode={true}
+			search={null}
+			nextThemes={{ attribute: 'class' }}
+			pageMap={pageMap}>
+			<Theme accentColor='red' grayColor='gray' scaling='100%'>
 				<ConditionalNavbar />
-				<Theme accentColor='red' grayColor='gray' scaling='100%'>
-					{children}
-				</Theme>
-			</Layout>
-		</>
+				{children}
+			</Theme>
+		</Layout>
 	);
 }
