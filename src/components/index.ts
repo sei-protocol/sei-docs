@@ -24,7 +24,7 @@ export { NetworkTabs } from './NetworkTabs';
 export * from './OfficeHoursCard';
 export { RpcSelector } from './RpcSelector';
 export * from './SwitchNetwork';
-export { Tabs } from './Tabs';
+export * from './Tabs';
 export { ThemeToggle } from './ThemeToggle';
 export { MCPDemo } from './MCPDemo/MCPDemo';
 export { Footer } from './Footer/Footer';
