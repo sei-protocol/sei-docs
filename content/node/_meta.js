@@ -6,7 +6,14 @@ export default {
 		type: 'separator',
 		title: 'Getting Started'
 	},
-	'node-operators': 'Node Operations Guide',
+	'-- Node Operations': {
+		type: 'separator',
+		title: 'Node Operations'
+	},
+	'node-operators': 'Overview',
+	swagger: 'API configuration',
+	statesync: 'Statesync',
+	'node-types': 'Node Types',
 	validators: 'Validator Operations Guide',
 
 	'-- Advanced Operations': {
