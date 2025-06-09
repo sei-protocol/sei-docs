@@ -1,0 +1,89 @@
+---
+title: 'Troubleshooting'
+description: 'Detailed guide for troubleshooting node problems.'
+keywords: ['sei node', 'blockchain node', 'node configuration', 'bug', 'troubleshooting']
+---
+
+# Troubleshooting Nodes
+
+## Common Issues and Fixes
+
+1. **Sync Problems**
+
+   - Check available disk space (`df -h`)
+   - Ensure proper peer connections (`seid net info`)
+   - Verify firewall settings (port 26656 open)
+
+2. **Performance Issues**
+
+   - Monitor system resources (`htop` or `iotop`)
+   - Check disk I/O performance (`iostat`)
+   - Analyze network traffic (`iftop`)
+
+3. **Database Issues**
+
+   - Run database integrity checks using:
+
+     ```bash copy
+     seid debug dump-db | grep -i error
+     ```
+
+     If errors are detected, consider restoring from a recent backup.
+
+   - Consider pruning excessive historical data by adjusting `ss-keep-recent` in
+     `app.toml` or running:
+
+     ```bash copy
+     seid unsafe-reset-all --home=$HOME/.sei --keep-addr-book
+     ```
+
+     Alternatively, manually remove old state snapshots to free up space:
+
+     ```bash copy
+     rm -rf $HOME/.sei/data/snapshots/*
+     ```
+
+## Node Rollback
+
+To rollback a node from an AppHashed state, you need to stop the node first.
+Do this in your preferred way.
+
+Next, do a soft rollback with:
+
+```bash
+seid rollback
+```
+
+And then a hard rollback with:
+
+```bash
+seid rollback --hard
+```
+
+Then, restart the node.
+
+In case you see the following error while trying to rollback:
+
+```bash
+failed to initialize database: resource temporarily unavailable
+```
+
+This means that you did not shutdown the node properly. Try to shutdown or kill the `seid` process directly in that case. If this doesn't help, restart your machine.
+
+Then try the rollback steps again.
+
+## Diagnostic Commands
+
+```bash copy
+# Check sync status
+seid status | jq .SyncInfo
+
+# View peer count
+seid net info | jq '.n_peers'
+
+# Check validator status
+seid query staking validator $(seid keys show -a $VALIDATOR_KEY)
+
+# View recent blocks
+seid query blocks recent
+```
