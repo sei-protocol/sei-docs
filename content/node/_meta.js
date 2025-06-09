@@ -11,6 +11,7 @@ export default {
 		title: 'Node Operations'
 	},
 	'node-operators': 'Overview',
+	troubleshooting: 'Troubleshooting',
 	swagger: 'API configuration',
 	statesync: 'Statesync',
 	'node-types': 'Node Types',
