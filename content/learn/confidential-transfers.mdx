@@ -1,0 +1,446 @@
+import { Callout } from 'nextra/components';
+import { ImageWithCaption } from '../../src/components';
+
+import ConfidentialTransferFlow from '../../public/assets/confidential-transfer-flow.png';
+
+# Confidential Transfers (Beta)
+
+Sei’s Confidential Transfers module introduces a new way to send SEI privately on-chain. Unlike traditional token transfers where amounts and balances are publicly visible, this module allows users to transfer SEI with amounts that are hidden from the public — only the sender, recipient, and optionally some trusted auditors (designated by the sender) can see the details.
+
+With Confidential Transfers, you can:
+- Keep your SEI token balances private
+- Send tokens without revealing the exact amount
+- Share view access with trusted auditors (like compliance teams or financial partners)
+
+<Callout>
+Important: Confidential Transfers hide the token amounts, not the fact that a transaction occurred. You’ll still see the sender and receiver on-chain, but not how much was sent.
+</Callout>
+
+As this module is still in Beta, this feature is only available for use with native Sei tokens. This will be expanded to include native denoms (IBC/Tokenfactory) in the future.
+
+---
+
+## How it works
+
+Confidential Transfers on Sei allow users to send SEI tokens to each other without revealing the amount being transferred. Even validators processing the transaction can't see how much was sent — only the sender and recipient know the true value.
+
+### Confidential Balances
+On Sei, confidential token balances are stored independently from your regular on-chain token balances. That means your confidential SEI (or any other native denom) is held in a separate encrypted account that operates under a different set of rules. This separation ensures that confidential operations remain private, while still allowing users to move freely between the confidential and public sides of the system.
+
+Before making or receiving confidential transfers, users must first initialize a confidential balance for the token (denom) they want to use. This step sets up an on-chain balance and generates a unique encryption public key that will be used to secure all future transactions. Each denom requires its own confidential balance. If you want to send or receive confidential transfers in multiple tokens, you’ll need to initialize a separate balance for each.
+
+### Lifecycle of a Transaction
+<ImageWithCaption img={ConfidentialTransferFlow} alt="How Confidential Transfers Work" caption="Flow of a Confidential Transfer" />
+
+#### 1. Create a Confidential Token Balance
+Before using confidential transfers for a given denom (e.g. SEI), the user must first initialize a confidential token balance.
+This creates a special account tied to their address, which includes a public encryption key that will be used for all private transfers involving that denom.
+
+You only need to initialize once per denom.
+
+#### 2. Deposit Public Tokens into the Confidential Balance
+Once the confidential balance is set up, the user can deposit tokens from their regular balance into it.
+This action moves the tokens into the confidential balance, but it is a public transaction — the deposited amount will be visible on-chain.
+
+#### 3. Apply Incoming Funds
+Deposited tokens are first placed into the users `pending balance`, where they cannot yet be sent.
+To make them usable, the user must `apply` the pending balance, which moves tokens into the `available balance`.
+The separation of a user's `pending` (incoming) and `available` (outgoing) balances prevent front running attacks that would prevent a user from making transfers.
+
+#### 4. Transfer Tokens Confidentially
+The user can now send tokens to another user’s confidential balance.
+This process involves:
+
+- Encrypting the transfer amount using their own, as well as the recipient’s public key (off-chain)
+
+- Generating zero-knowledge proofs to prove validity. These are special cryptographic proofs that show they have enough balance to make the transfer and the transaction is consistent (e.g., no tokens are created or lost). All of this is done without revealing the transfer amount or the users balances.
+
+- Submitting a transfer transaction with the encrypted amount and proofs
+
+- The chain verifies the proofs and, if everything checks out, updates the confidential balances of the sender and the recipient — all without knowing how much was sent.
+
+<Callout>
+The recipient must already have initialized a confidential balance for this denom to receive tokens.
+</Callout>
+
+#### 5. Apply and Withdraw to Public Balance (Optional)
+The recipient receives the funds into their pending confidential balance. To use them:
+
+They must first apply their pending balances to make their incoming balances available.
+
+Then, they can withdraw from their confidential balance back into their public balance, if needed.
+
+<Callout>
+Note: Withdrawals are public — the amount being moved back into the regular token balance is visible on-chain.
+</Callout>
+
+### Key Takeaways
+
+- Only the sender and recipient know the transferred amount.
+
+- All transactions are publicly visible, but the amounts remain hidden.
+
+- Zero-knowledge proofs ensure security and correctness without compromising privacy.
+
+Confidential Transfers combine strong privacy guarantees with the performance and transparency of Sei, making them ideal for users who want privacy without giving up the speed, atomicity and decentralization nature of transactions on Sei.
+
+# Tutorial
+In this tutorial, we will walk through the steps of creating a confidential token balance, depositing funds, then confidentially transferring funds to another wallet.
+
+## Requirements
+
+Before you begin, ensure you have the following:
+
+- The `seid` CLI installed.
+- 2 wallets with SEI tokens on testnet.
+
+> You can obtain testnet tokens [from the faucet](/learn/faucet)
+
+---
+
+<Callout>
+For a smoother experience, set your variables in the terminal. For example:
+
+```bash copy
+DENOM=usei
+ACCOUNT=your_account_name
+```
+
+Replace `your_account_name` with your actual account name. You can then
+reference `$DENOM` and `$ACCOUNT` throughout this guide.
+
+</Callout>
+
+## 1. Initializing a confidential balance
+The first step is to initialize our confidential token balances. We will need to do so for 2 accounts so we can transfer tokens confidentially between them for this tutorial
+```bash copy
+seid tx ct init-account $DENOM --from=$ACCOUNT \
+  --chain-id=atlantic-2 --node=https://rpc-testnet.sei-apis.com \
+  --broadcast-mode=block --fees=20000usei
+```
+
+Once done, you can verify instantiation by querying the account
+```bash copy
+seid q ct account $DENOM $(seid keys show -a $ACCOUNT) \
+  --chain-id=atlantic-2 --node=https://rpc-testnet.sei-apis.com
+```
+
+We should see our account details similar to this:
+```
+available_balance:
+  c: ZBebe9bJYaaRmvNFT5i3/jBQATfsLsf7ZG5GRsE9ZNU=
+  d: 6n9vsQ5zujztKthV6rTr30qMuHUa3PN9zAM8T2I4sMQ=
+decryptable_available_balance: rnGD68yPeDQG0NXf9/0dpiSaAy63yDkn2iJhpg==
+pending_balance_credit_counter: 0
+pending_balance_hi:
+  c: NVsrH+9f1ODu6A3DWikQp+HJcBhX1z9cuVkC9J8oZl8=
+  d: O+AusWKG4lyMYNKOpAxMwYgq1JsZW6WBgHi719lsris=
+pending_balance_lo:
+  c: XFYLktaYoxbE9KIPWrH0KSlpbMbzATqlp7ls1aUsf8k=
+  d: AF41D/aPWYuo1xIhpTEz0L/RxRB1HTzLv7N1eJB0yiQ=
+public_key: m/v3e6OUm8BFyNVxcwjCdIzdqjOUslRJb+4jJg5EqUg=
+```
+If you can't tell how much you have from this query, it's very much by design! These balances are encrypted so nobody can tell what those balances correspond to.
+In order to decrypt the values, you can run the same query but with the decryptor flag
+```bash copy
+seid q ct account $DENOM $(seid keys show -a $ACCOUNT) --decryptor $ACCOUNT \
+  --chain-id=atlantic-2 --node=https://rpc-testnet.sei-apis.com
+```
+
+This should show you the decrypted account state:
+```
+available_balance: not decrypted
+combined_pending_balance: "0"
+decryptable_available_balance: "0"
+pending_balance_credit_counter: 0
+pending_balance_hi: "0"
+pending_balance_lo: "0"
+public_key: m/v3e6OUm8BFyNVxcwjCdIzdqjOUslRJb+4jJg5EqUg=
+```
+
+The `combined_pending_balance` and `decryptable_available_balance` show the simplified pending balance and available balance of the account respectively.
+
+---
+
+## 2. Deposit to the Confidential Balance
+
+The deposit command allows us to deposit funds into our account's confidential balance
+
+```bash copy
+seid tx ct deposit 500000$DENOM --from=$ACCOUNT \
+  --chain-id=atlantic-2 --node=https://rpc-testnet.sei-apis.com \
+  --broadcast-mode=block --fees=20000usei
+```
+
+If we query the decrypted state of our account now, we should see that our pending balances have increased
+```bash copy
+seid q ct account $DENOM $(seid keys show -a $ACCOUNT) --decryptor $ACCOUNT \
+  --chain-id=atlantic-2 --node=https://rpc-testnet.sei-apis.com
+```
+
+```
+available_balance: not decrypted
+combined_pending_balance: "500000"
+decryptable_available_balance: "0"
+pending_balance_credit_counter: 1
+pending_balance_hi: "458752"
+pending_balance_lo: "41248"
+public_key: m/v3e6OUm8BFyNVxcwjCdIzdqjOUslRJb+4jJg5EqUg=
+```
+
+We should see that the `combined_pending_balance` has increased by the deposit amount. 
+
+Additional Notes:
+- `pending_balance_hi` and `pending_balance_lo` are the actual values stored on chain and denote the lo and hi bits of the pending balance
+- `pending_balance_credit_counter` denotes the number of incoming transfers that have not been applied to the available balance. This has a maximum value of 65536 (at which point the pending balances must be applied before the account can receive more transfers or deposits).
+- This transaction is not private - anyone can see the deposit amounts on chain.
+
+---
+
+## 3. Apply Pending Balances
+
+The apply pending balances command transfers the pending balances of the account into the available balance, making the funds available for transfer or withdrawals.
+The separation of pending and available balances help us avoid front running attacks - Making transfers or withdrawals require us to create proofs on the remaining amounts in the account. This means we need to know the exact amount we have in our balance at the time of transfer. Splitting the balances allows us to do that since we have full control over our available balance (while the pending balance can be increased by incoming transfers).
+
+```bash copy
+seid tx ct apply-pending-balance $DENOM --from=$ACCOUNT \
+  --chain-id=atlantic-2 --node=https://rpc-testnet.sei-apis.com \
+  --broadcast-mode=block --fees=20000usei
+```
+
+If we query the decrypted state of our account now, we should see that our pending balances have been transferred to our available balance
+```bash copy
+seid q ct account $DENOM $(seid keys show -a $ACCOUNT) --decryptor $ACCOUNT \
+  --chain-id=atlantic-2 --node=https://rpc-testnet.sei-apis.com
+```
+
+```
+available_balance: not decrypted
+combined_pending_balance: "0"
+decryptable_available_balance: "500000"
+pending_balance_credit_counter: 0
+pending_balance_hi: "0"
+pending_balance_lo: "0"
+public_key: m/v3e6OUm8BFyNVxcwjCdIzdqjOUslRJb+4jJg5EqUg=
+```
+
+Additional Notes:
+- Pending balances have been set to 0. `pending_balance_credit_counter` is also reset to 0
+- The `available_balance` field is encrypted using a homomorphic encryption scheme that allows us to add and subtract from it without decrypting it. The tradeoff is that it takes a long time to decrypt as the amount gets larger. Because of this, we refrain from decrypting this unless absolutely neccessary. 
+- To optimize things, we save a copy of the `available_balance` encrypted using a more efficient symmetric encryption scheme. This allows us to know our `available_balance` without spending time decrypting the actual encrypted value.
+
+## 4. Making a Transfer
+
+The Transfer instruction allows us to transfer tokens confidentially from one address to another. A pre-requisite is that both accounts should already have a confidential token balance set up for the specifeid denom.
+
+If you have not already done so, follow the instructions in step 1 to instantiate a confidential balance for the second account 
+
+Set variables for the second wallet in the terminal
+```bash copy
+RECIPIENT=your_other_account_name
+```
+
+```bash copy
+seid tx ct transfer $(seid keys show -a $RECIPIENT) 100000$DENOM --from=$ACCOUNT \
+  --chain-id=atlantic-2 --node=https://rpc-testnet.sei-apis.com \
+  --broadcast-mode=block --fees=60000usei --gas=3000000
+```
+
+You should see the txhash resulting from this:
+```
+txhash: CB740E398AC85D63CF413E1F0767BA7E37D9B79C0CDC42AD590629E460EED626
+```
+
+Verify that your accounts available balance has decreased
+```bash copy
+seid q ct account $DENOM $(seid keys show -a $ACCOUNT) --decryptor $ACCOUNT \
+  --chain-id=atlantic-2 --node=https://rpc-testnet.sei-apis.com
+```
+
+```
+available_balance: not decrypted
+combined_pending_balance: "0"
+decryptable_available_balance: "400000"
+pending_balance_credit_counter: 0
+pending_balance_hi: "0"
+pending_balance_lo: "0"
+public_key: m/v3e6OUm8BFyNVxcwjCdIzdqjOUslRJb+4jJg5EqUg=
+```
+
+Also verify that the recipients pending balance has increased
+```bash copy
+seid q ct account $DENOM $(seid keys show -a $RECIPIENT) --decryptor $RECIPIENT \
+  --chain-id=atlantic-2 --node=https://rpc-testnet.sei-apis.com
+```
+Note: This is for the purpose of this tutorial only. You would not be able to decrypt the recipients account balances without access to their private keys
+```
+available_balance: not decrypted
+combined_pending_balance: "100000"
+decryptable_available_balance: "0"
+pending_balance_credit_counter: 1
+pending_balance_hi: "65536"
+pending_balance_lo: "34464"
+public_key: vco3RunNsTo6peTzBrJnVBYwsfXONCmnj8+rJQPGo+8=
+```
+
+### Confidentiality (Extra)
+Since all transactions are on-chain, you will be able to query the tx hash normally.
+```bash copy
+seid q tx --type=hash CB740E398AC85D63CF413E1F0767BA7E37D9B79C0CDC42AD590629E460EED626 \
+  --chain-id=atlantic-2 --node=https://rpc-testnet.sei-apis.com
+```
+
+This should show you the encrypted transfer message. This provides a view into the encrypted fields and proofs that go into making a transfer.
+```
+    - '@type': /seiprotocol.seichain.confidentialtransfers.MsgTransfer
+      auditors: []
+      decryptable_balance: GzRCoU5HiWbhUnneGLZQv59EOWfMtrY6Q59D27wrsQ==
+      denom: usei
+      from_address: sei146n0ggt0ylp05w8j8n59530jqhp959efkt0ad4
+      from_amount_hi:
+        c: kD/9ukCJnLWRFYXjNisCwvl+FlT+nw7JG8rL6cGDBo4=
+        d: Y4cy6gTQuwNgxUY9qWp5P6vEjIIAK5ph4hZ7bGPK0SI=
+      from_amount_lo:
+        c: /hEIX+xIBfIAWvYkIRYxTKUE7SJmQWyNzv2otID0f0U=
+        d: Wpyxe6vu0gViCw9JCWRGVeF4eNTQ4yvpWOauE8MwRsk=
+      proofs:
+        recipient_transfer_amount_hi_validity_proof:
+          commitment_1: E2Oyc+HW7Ak3xNJmzBjKnkIpd0l6E02MS4ZiOvztXso=
+          commitment_2: YDWyvjqtIXZfRkQjnwmnAppR8+Rn/Ime5O04nfqwTGM=
+          response_1: Ow5sP72VMn2aBTLjODFbeOeOCEZ02AotplnvcCXEZwo=
+          response_2: j2nprIjmLOav7sefVjtdHvMs0jUc49iMeiwfOmL1dAw=
+        recipient_transfer_amount_lo_validity_proof:
+          commitment_1: hsZ1Bc7sVfhFFXmUi5+DyaQWjkfQhEBjrmanNBpre7A=
+          commitment_2: 4z9qPoZhDfi3Cy1En0qx7SB7K+TraXlKnAmn9DTZ6Gg=
+          response_1: GxVBmkHAn6rmsxtkCXyORi1Mt2w1SXOP0FNgNak8OAg=
+          response_2: JO3wRsSVY/auYyhEJe/93Xxrf0QDOrnPaGCz/NQesQk=
+        remaining_balance_commitment_validity_proof:
+          commitment_1: p1bvXzYNepkexiyXIp22KWL3MOGxc5IreTNgvmgbVws=
+          commitment_2: rWb10gugX/RPf1OeEmWWCrAtMoqxrOLH4Fl9TmUZuW8=
+          response_1: HIb/VrP7sLvlZkumbhwetl+yrKbu+RfTHG3SJgGW9QE=
+          response_2: yYKs6ClB0eD/4NJ76CTdBEjHzOzoTbiqW2MjZYZicgA=
+        remaining_balance_equality_proof:
+          y0: Gwiug0dJpjPYOOgR9fPEA+oYhFeaS11juckBSTc3EvE=
+          y1: vcDWhW054XVBvHphyF4d6Mk2as1+YgtoK5136J+p7hE=
+          y2: xFHpBfdleQeKlxGmlWmRtlBvqdvmbfBxK5LGiVeFrmw=
+          zr: eSFPVyfSfDQIq7LzU+4s7wACn4j5S6UXxemaDpRV4wQ=
+          zs: DN17krgbIlCykR+e3i7eal4mBH5vyuvfUbWFMYQw9Qk=
+          zx: g4mw/w8WDUWYvK++xsfG4HlDJyWZXyljjZJWaptNxwI=
+        remaining_balance_range_proof:
+          proof: TaDkf4U77Hr20LVX+mtIRqB007wcvQrO/DgBJddkGae3eFwQ7BUImX7fFUf2uYdUqvRdkGcnivBGtTf7D6vSoBTC7nIIwyuW1LwkWTxjPUcAgdAIL3TQ5ybQ4GBQQTJllhoNvQmYZ612VEfgus3DEVCjXmaOaLe5r5E8lB9mUksJ9q8vilbcw5BZ8N3AsP59jPNr8Ls8Y9vkhrRBX8YECNcdclkdbgUKA9L7v38ceMlQz7r2m9ZaaOyIlPHCJAsBh5fAICRSgVFkHxkl6q79ekpnT+iDvWnNpjO3Qs4IYAly6R14bnD6lao54A5ZxoykkYzcIcLZ+cz1qpueldWxAqEyos2LIgXVW5Rali59NE6ae41JvAYSBKMPRfgsYW8PIhqD3a2aZo1JKfuIbF14NwGJnY6Vq9ogpNefkpG4NK6jO0FIXXYxY9nUI8KIYS5PxTMSMTvUQBh2Z7BI2l7GaQYS+uHAOf/rhR0T3om6P6+V0rJIXJSZB/mnbTu8N/kTPjzP16miBBmr60OsRzqakatVe3b36XDPHaUsIqW5hLwzdXg676B50/AmvW0QyyVDu8Vc29q2QZEX0h/hSIObazeNNFhY1NgCtL9Vtlf+1pEyW67Fo8HOvx9edFYnGrP27cTWkxGrAlShwv6NtDoPWZ94JtiyH70O/QfkRnznvylz/j7O33Rw4RVD04iKsHK+xxsevOxrF0JrI/RUeIT5SgMdBkxkLXHgGLkmd5vArQBA6KnmAA6fe57LF5I2YLRIAqeTt8L4ebbF5EnRBznM17E4BTPiOMKt2lynvf6qbbmkuS8T2M4+rN4Xp44nFH7xjRmOMyCC0jlJwlGw/kxAYkn2f8A77G+ojved3vvFHryMg/DkigR0Ve5MxiDcz1Vp66eWMefbv2dcmWrvnk1c09HI2IjSkpi5Yudr/WclJTgoB2SP809X56McEOgIiPpffnY0R1iy2JkEWEETZYV9LA==
+          randomness: cLGQk88uYwSujtz0gAOuyQWpePZhPnNEMIFD+SnCdzw=
+          upper_bound: "128"
+        sender_transfer_amount_hi_validity_proof:
+          commitment_1: 4K5wdeXh81y8sSh1RtvySd1gcRsSSIu8mGJrhkdOLIw=
+          commitment_2: BkKowyB8QZflFVfM1vvRO4H/OlnD4bWISQZ2u4Kwo1M=
+          response_1: dMx0KXnaXRe9GOS25fkU23/oQroCm7xsGEmzfLSdqQk=
+          response_2: 5+QdFnOaHNtBTZlmiPg5VUPh/By66PWm513yFHmXZAA=
+        sender_transfer_amount_lo_validity_proof:
+          commitment_1: mdXCh9Tc3O9XJOewd7RH7OIP39iTK6pAzE12MXaU0KA=
+          commitment_2: WJrBRZSlUJvxntCppJKjdnlTfMrFq67DPQ/ghZ9Rw5U=
+          response_1: AutFOmepMurip8Lo7YgNrzW7rRTY2w6IxHbIYK6Q+wU=
+          response_2: L0xfH2p2QKjAhRxFplJnM33766sdTYkcf1AGQQchPwA=
+        transfer_amount_hi_equality_proof:
+          y0: lvSPSchC+TcfnjyGr91UnGZOD/UvXa1+ecfB3MJLzgU=
+          y1: cvipm1iqLJimZyfRXVq2I8/6mvzWi8H1J9ozSpHmwgw=
+          y2: oaHkoqUkzbckUvk1yfC4g8RLcGWnrG1Yz3g4NTUmlyc=
+          y3: drOqGsMZSyTxkDpYlEWMudfXovgrgz0SsYwrw8cMwHk=
+          zr: AHL7bf1bMCcWU8O1YoRcLcdWbtB2J7qjUYMrgoS/TwE=
+          zs: zKb7PW3tFeuWzaOcWOXvKl1MKDi0JvqVMIJgPWjDnQg=
+          zx: k2zWKIRM2fxP+fz74p2p/hBkpCL+tHitRVj5yN7lEAw=
+        transfer_amount_hi_range_proof:
+          proof: jUBRTQeUB+ASL2tlXuuyexnSSBGBm/uyBQhnO+O4qet9LRtJvupKKmdc7oqumcvPZqTGo4nfy3lfCFLCnwl+mlHWwWbvtf31nterUmlLacf+R0O1VOwsfbbWchnxHJ8UnEYKH6wmuAxVWg7OFysIqLfDEZdPQxk1IeJhB1pKKaLSwiuAlr71mK3jIvtJX/31zGax65aSXV+UngnsoL2SDyd/7C0cgqhwHHwJbHwb9tJfAIOX2UlE438CzrmhJQkLHXIGZaOaoYkulP6Nvx0to/HrUZCJf4rxIyFXiYpR2gM0V1Szu5QqIf9XUNgkJhakDiZYtfPU69/4yMOzmX7tD8EikzxS74A1uq2HSYMLj7Lt992z+z5GpPWG2iNvAXwDW/OlVuqQ0PCabBXx7PpFF6+G2j4jvg4AjeAgJKkZZtIglHKYaPMLjltvk78N6QVP0r+i7DUhJ6oPXB1kcUod9tEvDK41bfasWqRzltKjilU6nmc+jALU4QhsS47hVY+F4A3XAqXawRl8SNAWChTqppMApeY6BifcxbirpLNQQBKQR0uIo664BnlJ0DL1BvWnla08xVxePO1envLaSdgNttwF0JhNTHYSp2RwMDTW/5Z6d4YTU3y8ETFmlh0DtndeusrLwSZsATKf8OTDSb8cfshfDi4EcSzhDNkxNJEe4ecRqL9BexU5N5BypO3wLIi98LxzPhTTYWc0AX8c83jtifLEMnHdWt0UOKaV3uRBeoMaXFWF0TpukPxCa15a7RcUDzRT03BvtqB58bLrXuPCCCt+84gzWXEsC/Ge5xcgpmg=
+          randomness: gHp6c4JyipkVFG10hM6wiTaafwZLw3aY6VbdobsTbQM=
+          upper_bound: "32"
+        transfer_amount_lo_equality_proof:
+          y0: 8ShRYnT56QniEHGFgAT13aAw/r8mRjpYT8r5cr2CnlA=
+          y1: j6vJo9d4zHWj2IQON94g2w2Eiyy8ulUYtHJHrv28Y+A=
+          y2: MHn2bV8RX4rweHgq7y4go+xdGrV5ayCJgNBoAphBsOg=
+          y3: aRKsoSGmQjpCvAloiVUgoFQYfKnsC2S2AL4/QuaXbQ8=
+          zr: eBBZAXgL4mhC+l3Q5umZyQy2g1vmzxjpSPkWlGMSpAQ=
+          zs: i0Ee7oH4UrTev4UNrH9iyqByi47S7xXdVQZjifRvsQY=
+          zx: 0Mxyf7hGcZOF3xdeoEPna7CAHxCFzu291GpVXY4Gpgk=
+        transfer_amount_lo_range_proof:
+          proof: O+xdwmQqMTqsl/hkUsU1QU4SQugf8pfgxo7TWmazV39QjUEn+z+H9YK+jCw71YG/bG9uy6qjhRfk4yb053hkLcb/TyJr5seTlH71nKYkHIadkLkFYPOtpw32PvT+IAV8M4/CTu3BM11Uby8KnaZ5JJVbnZ8w1O07cWE5O4ZO0b4G2B7ID6nH7OYAhz3qElU3aWRufxKbAovjEB1+/D7aDJiPhhXQFWbBpHgEC8jBf9IFYxkQ5rnLxk8WYPg5dWUOW3zAxVUbZQ6hLLGbBxwTC+Aznm3gOwbjzgmxA2T3FgzXdUlJb8E4BRI7U75ucxvPEzon52zLGM34xCfSFP3rCOqNC5exk655Hb7X/M4ZtwjSsCQKge7Cvm/TdC6+zrQPEHDnjq5Qpqgp4f0TFOU0CxfZG8bWsGiqjkIxfMIIwMJttSGNaZ57sWtVIAqYDnZsk+ZzMgbFxPRrENGvyROu9i3uXWH0l29++8m0f6jPLSVk1RYpoTVV2IlOPD/FmKwmOGhq5Na0lAnGVdDEfy17+dX1r0jNx5pk4jjX3wrKYxTIuO/30KfWfmRQivwfZvfe5BS7ycbS1Ye123i6rFukJhHxHWhXcVH9XQ0nLqHud3oHn/4loqKaUZP/cDhO1fUjzXi7lpHwzsZDZz1t087kZwi87vcN52BxHTmlYRCSQkCxpBYNmYdOZGPnIiWntwXWJkiJwO8Hdo94xJ9whRmE2A==
+          randomness: /U2d6bdh9g/06VV/msEubS0bQ3zlM954Yc1kxj8yUxg=
+          upper_bound: "16"
+      remaining_balance:
+        c: W9mtTT9Dv5eSDc6UV8zSB84wQ8zHPpVorvmQAbXSAJs=
+        d: mY/iWiZnJnHT2Ag+jn0+//k2xG4LQZe3VfWVkfybMUQ=
+      to_address: sei12xc6tru0q3r6fg4tealjgxnwa7qvvax2my9c5s
+      to_amount_hi:
+        c: YX5LzZFa09CiOoyhY3r+spxLvQEGTpB90rDcxnUFxI4=
+        d: N4gZvEC1wYZrWM4VBmL0eEz8mBUi8Z6RAJziFVKBcRU=
+      to_amount_lo:
+        c: H7B6KRahohYrQprhDLtlCCNyYKP4ZOtM6oy034cqlXo=
+        d: 3dTLxjn44Ml0QkJP6ZHPVdhoqk99XV46p5P/DpoiRHs=
+```
+
+For debuggability, all senders, recipients and auditors on a transaction will be able to decrypt the transfer message using the `seid q ct tx` command
+```bash copy
+seid q ct tx CB740E398AC85D63CF413E1F0767BA7E37D9B79C0CDC42AD590629E460EED626 --decryptor $RECIPIENT \
+  --chain-id=atlantic-2 --node=https://rpc-testnet.sei-apis.com
+```
+
+```
+auditors: []
+decryptable_balance: not decrypted
+denom: usei
+from_address: sei146n0ggt0ylp05w8j8n59530jqhp959efkt0ad4
+proofs:
+ ...
+remaining_balance_commitment: not decrypted
+to_address: sei12xc6tru0q3r6fg4tealjgxnwa7qvvax2my9c5s
+total_transfer_amount: "100000"
+transfer_amount_hi: 1
+transfer_amount_lo: 34464
+```
+
+If the decryptor is valid, it provides the `total_transfer_amount` as plaintext. It also decrypts any other fields that should be visible to the decryptor, such as `decryptable_balance`
+
+## 5. Withdrawing
+To withdraw funds from your confidential balance into your regular token balance, we can use the withdraw instruction.
+
+Note: We can only withdraw from the `available_balance`. If there is insufficient funds in the `available_balance`, try applying the pending balances first before attempting to withdraw.
+
+```bash copy
+seid tx ct withdraw 21000$DENOM --from=$ACCOUNT \
+  --chain-id=atlantic-2 --node=https://rpc-testnet.sei-apis.com \
+  --broadcast-mode=block --fees=60000usei --gas=3000000
+```
+
+Now we verify that the `available_balance` has been decreased:
+```bash copy
+seid q ct account $DENOM $(seid keys show -a $ACCOUNT) --decryptor $ACCOUNT \
+  --chain-id=atlantic-2 --node=https://rpc-testnet.sei-apis.com
+```
+
+```
+combined_pending_balance: "0"
+decryptable_available_balance: "379000"
+pending_balance_credit_counter: 0
+pending_balance_hi: "0"
+pending_balance_lo: "0"
+public_key: m/v3e6OUm8BFyNVxcwjCdIzdqjOUslRJb+4jJg5EqUg=
+```
+
+Also verify that your bank balances have increased
+```bash copy
+seid q bank balances $(seid keys show -a $ACCOUNT) \
+  --chain-id=atlantic-2 --node=https://rpc-testnet.sei-apis.com
+```
+
+## Next Steps
+
+🎉 Congratulations on completing the Confidential Transfers tutorial! You've learned how
+to:
+
+- Initialize a confidential token balance
+- Deposit to your confidential token balance
+- Apply your pending token balances
+- Make a confidential transfer to another wallets confidential token balance
+- Withdraw from your confidential token balance
+
+For complete technical details, refer to the
+[Confidential Transfers Module](https://github.com/sei-protocol/sei-chain/tree/main/x/confidentialtransfers)
+on github.
