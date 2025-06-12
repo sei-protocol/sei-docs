@@ -55,7 +55,7 @@ Commands:
 - curl localhost:26657/net_info
 ```
 
-#### Database Errors
+### Database Errors
 
 Database corruption can require immediate attention:
 
@@ -85,7 +85,77 @@ journalctl -u seid -f -o cat
 top -p $(pgrep seid)
 ```
 
-### Other common Issues and Fixes
+## AppHash Mismatch Errors
+
+If you encounter an AppHash mismatch, you'll need to capture the state for comparison with a known good version:
+
+```bash copy
+# For SeiDB (most non-archive nodes):
+git clone https://github.com/sei-protocol/sei-db.git
+cd sei-db/tools
+make install
+systemctl stop seid
+seidb dump-iavl -d $HOME/.sei/data/committer.db -o /home/ubuntu/iavl-dump
+systemctl restart seid
+
+# For Legacy IAVL DB:
+seid debug dump-iavl <latest height>
+```
+
+Always include the app hash, commit hash, and block height from your logs when reporting issues.
+
+## Crash and Panic Debugging
+
+For crashes, panics, or nil pointer exceptions:
+
+- Capture at least 1,000 lines of logs leading up to the crash
+- Or collect 15 minutes of log data, whichever provides more context
+- Include the full stack trace if available
+
+### Logging Configuration
+
+Proper logging configuration is essential for debugging and monitoring:
+
+```toml copy
+# In config.toml
+# Set appropriate log level
+log_level = "debug"  # Use "trace" for maximum detail
+
+# Choose log format
+log_format = "json"  # Use "plain" for human-readable logs
+```
+
+Configure log rotation to manage storage effectively:
+
+```bash copy
+# Example logrotate configuration
+sudo tee /etc/logrotate.d/seid << EOF
+/var/log/seid/*.log {
+    daily
+    rotate 14
+    compress
+    delaycompress
+    notifempty
+    create 0640 sei sei
+    sharedscripts
+    postrotate
+        systemctl reload seid
+    endscript
+}
+EOF
+```
+
+Enable core dumps for crash analysis:
+
+```bash copy
+# Set unlimited core dump size
+ulimit -c unlimited
+
+# Configure core dump location
+echo "/tmp/core.%e.%p" > /proc/sys/kernel/core_pattern
+```
+
+## Other common Issues and Fixes
 
 1. **Sync Problems**
 
