@@ -4,14 +4,163 @@ description: 'Detailed guide for troubleshooting node problems.'
 keywords: ['sei node', 'blockchain node', 'node configuration', 'bug', 'troubleshooting']
 ---
 
-# Troubleshooting Nodes
+# Error Codes and Troubleshooting of Nodes
 
-## Common Issues and Fixes
+Understanding common errors and their solutions helps maintain a healthy node
+operation.
+
+## Common Error Codes
+
+Here are the most frequent errors you might encounter and their solutions:
+
+### Consensus Errors
+
+When you encounter consensus errors, quick and appropriate action is essential:
+
+```text copy
+Error: "Consensus failure - height halted"
+Solution: Check for network upgrades or chain halts
+Command: seid status | jq .SyncInfo
+```
+
+```text copy
+Error: "Private validator file not found"
+Solution: Restore validator key or check file permissions
+Location: $HOME/.sei/config/priv_validator_key.json
+```
+
+```text copy
+Error: "Duplicate signature"
+Solution: IMMEDIATELY STOP NODE - potential double signing risk
+Action: Check validator operation on other machines
+```
+
+### Network Errors
+
+Network errors can prevent your node from participating in consensus:
+
+```text copy
+Error: "Dial tcp connection refused"
+Solution: Check network connectivity and firewall rules
+Commands:
+  - netstat -tulpn | grep seid
+  - ufw status
+```
+
+```text copy
+Error: "No peers available"
+Solution: Verify peer connections and network config
+Commands:
+
+- curl localhost:26657/net_info
+```
+
+### Database Errors
+
+Database corruption can require immediate attention:
+
+```text copy
+Error: "Database is corrupted"
+Solution: Reset database or restore from backup
+Commands:
+  - seid tendermint unsafe-reset-all
+  - cp -r backup/data $HOME/.sei/
+```
+
+### Diagnostic Commands
+
+These commands help you investigate issues and monitor your node:
+
+```bash copy
+# Check node synchronization
+seid status | jq '.sync_info'
+
+# Check validator status
+seid query staking validator $(seid tendermint show-validator)
+
+# Monitor real-time logs
+journalctl -u seid -f -o cat
+
+# View system resource usage
+top -p $(pgrep seid)
+```
+
+## AppHash Mismatch Errors
+
+If you encounter an AppHash mismatch, you'll need to capture the state for comparison with a known good version:
+
+```bash copy
+# For SeiDB (most non-archive nodes):
+git clone https://github.com/sei-protocol/sei-db.git
+cd sei-db/tools
+make install
+systemctl stop seid
+seidb dump-iavl -d $HOME/.sei/data/committer.db -o /home/ubuntu/iavl-dump
+systemctl restart seid
+
+# For Legacy IAVL DB:
+seid debug dump-iavl <latest height>
+```
+
+Always include the app hash, commit hash, and block height from your logs when reporting issues.
+
+## Crash and Panic Debugging
+
+For crashes, panics, or nil pointer exceptions:
+
+- Capture at least 1,000 lines of logs leading up to the crash
+- Or collect 15 minutes of log data, whichever provides more context
+- Include the full stack trace if available
+
+### Logging Configuration
+
+Proper logging configuration is essential for debugging and monitoring:
+
+```toml copy
+# In config.toml
+# Set appropriate log level
+log_level = "debug"  # Use "trace" for maximum detail
+
+# Choose log format
+log_format = "json"  # Use "plain" for human-readable logs
+```
+
+Configure log rotation to manage storage effectively:
+
+```bash copy
+# Example logrotate configuration
+sudo tee /etc/logrotate.d/seid << EOF
+/var/log/seid/*.log {
+    daily
+    rotate 14
+    compress
+    delaycompress
+    notifempty
+    create 0640 sei sei
+    sharedscripts
+    postrotate
+        systemctl reload seid
+    endscript
+}
+EOF
+```
+
+Enable core dumps for crash analysis:
+
+```bash copy
+# Set unlimited core dump size
+ulimit -c unlimited
+
+# Configure core dump location
+echo "/tmp/core.%e.%p" > /proc/sys/kernel/core_pattern
+```
+
+## Other common Issues and Fixes
 
 1. **Sync Problems**
 
    - Check available disk space (`df -h`)
-   - Ensure proper peer connections (`seid net info`)
+   - Ensure proper peer connections (`curl http://localhost:26657/net_info`)
    - Verify firewall settings (port 26656 open)
 
 2. **Performance Issues**
@@ -71,19 +220,3 @@ failed to initialize database: resource temporarily unavailable
 This means that you did not shutdown the node properly. Try to shutdown or kill the `seid` process directly in that case. If this doesn't help, restart your machine.
 
 Then try the rollback steps again.
-
-## Diagnostic Commands
-
-```bash copy
-# Check sync status
-seid status | jq .SyncInfo
-
-# View peer count
-seid net info | jq '.n_peers'
-
-# Check validator status
-seid query staking validator $(seid keys show -a $VALIDATOR_KEY)
-
-# View recent blocks
-seid query blocks recent
-```
