@@ -36,6 +36,7 @@ export default {
 		}
 	},
 	'solidity-resources': 'Solidity Resources',
+	'debug-tracing': 'Debug Tracing',
 	'evm-verify-contracts': 'Verify Contracts',
 	precompiles: 'Precompiles',
 
@@ -52,7 +53,6 @@ export default {
 		title: 'Reference'
 	},
 	transactions: 'Transaction Overview',
-	'debug-tracing': 'Debug Tracing',
 	reference: 'RPC Reference',
 	tokens: 'View Tokens',
 
