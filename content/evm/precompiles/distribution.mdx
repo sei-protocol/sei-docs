@@ -1,16 +1,16 @@
 ---
-title: "Distribution Precompile"
+title: 'Distribution Precompile'
 description: "Manage staking rewards through Sei's distribution precompile, allowing EVM applications to withdraw rewards, query accumulated rewards, and interact with the distribution module."
-keywords: ["distribution precompile", "staking rewards", "validator commissions", "sei rewards", "evm staking"]
+keywords: ['distribution precompile', 'staking rewards', 'validator commissions', 'sei rewards', 'evm staking']
 ---
+
 import { Callout } from 'nextra/components';
 
 # Distribution Precompile
 
 **Address**: `0x0000000000000000000000000000000000001007`
 
-This precompile enables EVM clients to withdraw distributions and staking
-rewards.
+This precompile enables EVM clients to withdraw staking rewards, manage withdrawal addresses, and query reward information.
 
 ## Functions
 
@@ -20,60 +20,87 @@ rewards.
   account.
 
   ```solidity copy
-    /// Sets the EVM address to withdraw funds to.
-    /// @param address The EVM Address that withdrawals should go to.
-    /// @return Whether the operation was a success.
+    /// Sets the withdrawal address for the caller's staking rewards.
+    /// The caller must have a valid associated Sei address.
+    /// @param withdrawAddr The EVM address where rewards should be sent.
+    /// @return success True if the withdrawal address was set successfully.
     function setWithdrawAddress(
         address withdrawAddr
     ) external returns (bool success);
   ```
 
-- `withdrawDelegationRewards`: Withdraws delegation rewards from the given
-  validator.
+- `withdrawDelegationRewards`: Withdraws delegation rewards from a specific validator.
+
   ```solidity copy
-    /// Withdraws delegation rewards from the given validator.
-    /// @param validator The Sei address of the validator to withdraw rewards from.
-    /// @return Whether the operation was a success.
+    /// Withdraws delegation rewards from a specific validator.
+    /// The caller must be a delegator to the specified validator.
+    /// @param validator The validator's Sei address (e.g., "seivaloper1...").
+    /// @return success True if rewards were withdrawn successfully.
     function withdrawDelegationRewards(
         string memory validator
     ) external returns (bool success);
   ```
-- `withdrawMultipleDelegationRewards`: Withdraws delegation rewards from the
-  given validators.
+
+- `withdrawMultipleDelegationRewards`: Withdraws delegation rewards from multiple validators in a single transaction.
 
 ```solidity copy
-  /// Withdraws delegation rewards from the given validators.
-  /// @param validators The Sei addresses of the validators to withdraw rewards from.
-  /// @return Whether the operation was a success.
+  /// Withdraws delegation rewards from multiple validators in a single transaction.
+  /// More gas efficient than calling withdrawDelegationRewards multiple times.
+  /// @param validators Array of validator Sei addresses.
+  /// @return success True if all rewards were withdrawn successfully.
   function withdrawMultipleDelegationRewards(
         string[] memory validators
   ) external returns (bool success);
 ```
 
-### Queries
-
-- `rewards`: Queries rewards available for a given delegator address.
+- `withdrawValidatorCommission`: Withdraws validator commission (only callable by the validator operator).
 
 ```solidity copy
+  /// Withdraws validator commission (only callable by the validator operator).
+  /// Only the validator operator can withdraw their commission.
+  /// @param validator The validator's Sei address (must match caller's validator).
+  /// @return success True if commission was withdrawn successfully.
+  function withdrawValidatorCommission(
+        string memory validator
+  ) external returns (bool success);
+```
+
+### Queries
+
+- `rewards`: Gets all pending rewards for a delegator.
+
+```solidity copy
+  /// Represents a coin/token with amount, decimals, and denomination
   struct Coin {
+      /// The amount of tokens (as a big integer)
       uint256 amount;
+      /// Number of decimal places for display purposes
       uint256 decimals;
+      /// Token denomination (e.g., "usei", "uatom")
       string denom;
   }
 
+  /// Represents rewards from a specific validator
   struct Reward {
+      /// Array of different coin types earned as rewards
       Coin[] coins;
+      /// The validator's Sei address that generated these rewards
       string validator_address;
   }
 
+  /// Aggregated rewards information for a delegator
   struct Rewards {
+      /// Array of rewards from each validator
       Reward[] rewards;
+      /// Total rewards summed across all validators
       Coin[] total;
   }
-  /// Queries rewards available for a given delegator address.
-  /// @param delegatorAddress The x0 or Sei address of the delegator.
-  /// @return the Rewards object. Rewards are usually returned as decimals.
-  /// To calculate the actual amount, divide the amount by decimals.
+
+  /// Gets all pending rewards for a delegator.
+  /// Returns rewards from all validators the address has delegated to.
+  /// @param delegatorAddress The EVM address of the delegator.
+  /// @return rewards Structured data containing all pending rewards.
+  /// Rewards are usually returned as decimals. To calculate the actual amount, divide the amount by decimals.
   function rewards(
       address delegatorAddress
   ) external view returns (Rewards rewards);
