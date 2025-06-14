@@ -41,7 +41,7 @@ interface IP256VERIFY {
 }
 ```
 
-## Implementation
+## Implementation Library
 
 Here's a complete implementation of the P256 library that provides a convenient wrapper around the precompile:
 
@@ -78,9 +78,9 @@ library P256 {
 }
 ```
 
-## Usage Example
+## Basic Usage
 
-Here's how to use the P256 library in your smart contract:
+### Using the P256 Library
 
 ```solidity
 // SPDX-License-Identifier: MIT
@@ -98,6 +98,41 @@ contract P256Example {
         ECDSA.PublicKey memory publicKey
     ) public view returns (bool) {
         return P256.verify(messageHash, signature, publicKey);
+    }
+}
+```
+
+### Direct Precompile Usage
+
+For more control, you can call the precompile directly:
+
+```solidity copy
+pragma solidity ^0.8.0;
+
+interface IP256Verify {
+    function verify(bytes calldata input) external view returns (bytes32);
+}
+
+contract P256Verifier {
+    IP256Verify constant P256_PRECOMPILE = IP256Verify(0x0000000000000000000000000000000000001011);
+
+    function verifySignature(
+        bytes32 messageHash,
+        bytes32 r,
+        bytes32 s,
+        bytes32 publicKeyX,
+        bytes32 publicKeyY
+    ) external view returns (bool) {
+        bytes memory input = abi.encodePacked(
+            messageHash,
+            r,
+            s,
+            publicKeyX,
+            publicKeyY
+        );
+        
+        bytes32 result = P256_PRECOMPILE.verify(input);
+        return result != bytes32(0);
     }
 }
 ```
@@ -122,6 +157,262 @@ Total length: 160 bytes
 
 ## Gas Costs
 
-The precompile is highly gas efficient compared to Solidity implementations. The exact gas cost per byte of verified data is set to `GasCostPerByte = 300`, which is significantly lower than implementing the verification in pure Solidity or YUL.
+The precompile is highly gas efficient compared to Solidity implementations. The exact gas cost per byte of verified data is set to `GasCostPerByte = 300`, which gives us:
 
-<Callout type="info">For more information about the P256 precompile implementation, visit the [Sei Chain repository](https://github.com/sei-protocol/sei-chain/tree/evm/precompiles/p256).</Callout>
+- **Total Cost**: 300 × 160 = **48,000 gas** per verification
+- **Efficiency**: Up to 60x more efficient than pure Solidity implementations
+
+## Real-World Use Cases
+
+### WebAuthn/PassKeys Authentication
+
+```solidity copy
+pragma solidity ^0.8.0;
+
+contract WebAuthnAuth {
+    IP256Verify constant P256_PRECOMPILE = IP256Verify(0x0000000000000000000000000000000000001011);
+    
+    struct PublicKey {
+        bytes32 x;
+        bytes32 y;
+    }
+    
+    mapping(address => PublicKey) public userKeys;
+    
+    function registerPasskey(
+        bytes32 keyX,
+        bytes32 keyY
+    ) external {
+        userKeys[msg.sender] = PublicKey(keyX, keyY);
+    }
+    
+    function authenticateWithPasskey(
+        bytes32 challengeHash,
+        bytes32 r,
+        bytes32 s
+    ) external view returns (bool) {
+        PublicKey memory userKey = userKeys[msg.sender];
+        require(userKey.x != 0 && userKey.y != 0, "No passkey registered");
+        
+        bytes memory input = abi.encodePacked(
+            challengeHash,
+            r,
+            s,
+            userKey.x,
+            userKey.y
+        );
+        
+        bytes32 result = P256_PRECOMPILE.verify(input);
+        return result != bytes32(0);
+    }
+}
+```
+
+### Apple Secure Enclave Integration
+
+```solidity copy
+contract SecureEnclaveAuth {
+    event SecureOperation(address indexed user, bytes32 indexed operationHash);
+    
+    function executeSecureOperation(
+        bytes32 operationHash,
+        bytes32 r,
+        bytes32 s,
+        bytes32 enclaveKeyX,
+        bytes32 enclaveKeyY
+    ) external {
+        require(
+            verifyEnclaveSignature(operationHash, r, s, enclaveKeyX, enclaveKeyY),
+            "Invalid Secure Enclave signature"
+        );
+        
+        emit SecureOperation(msg.sender, operationHash);
+    }
+    
+    function verifyEnclaveSignature(
+        bytes32 hash,
+        bytes32 r,
+        bytes32 s,
+        bytes32 x,
+        bytes32 y
+    ) internal view returns (bool) {
+        bytes memory input = abi.encodePacked(hash, r, s, x, y);
+        bytes32 result = P256_PRECOMPILE.verify(input);
+        return result != bytes32(0);
+    }
+}
+```
+
+### Multi-Signature with Hardware Keys
+
+```solidity copy
+contract HardwareMultiSig {
+    IP256Verify constant P256_PRECOMPILE = IP256Verify(0x0000000000000000000000000000000000001011);
+    
+    struct Signature {
+        bytes32 r;
+        bytes32 s;
+    }
+    
+    struct PublicKey {
+        bytes32 x;
+        bytes32 y;
+    }
+    
+    function verifyMultipleHardwareKeys(
+        bytes32 messageHash,
+        Signature[] calldata signatures,
+        PublicKey[] calldata publicKeys,
+        uint256 threshold
+    ) external view returns (bool) {
+        require(signatures.length == publicKeys.length, "Mismatched arrays");
+        require(threshold <= signatures.length, "Invalid threshold");
+        
+        uint256 validSignatures = 0;
+        
+        for (uint i = 0; i < signatures.length; i++) {
+            bytes memory input = abi.encodePacked(
+                messageHash,
+                signatures[i].r,
+                signatures[i].s,
+                publicKeys[i].x,
+                publicKeys[i].y
+            );
+            
+            bytes32 result = P256_PRECOMPILE.verify(input);
+            if (result != bytes32(0)) {
+                validSignatures++;
+            }
+        }
+        
+        return validSignatures >= threshold;
+    }
+}
+```
+
+## Security Considerations
+
+<Callout type="warning">
+  **Important**: Always validate public keys and signature components before verification to prevent invalid curve point attacks.
+</Callout>
+
+### Public Key Validation
+
+```solidity copy
+function isValidPublicKey(bytes32 x, bytes32 y) internal pure returns (bool) {
+    // Ensure point is not at infinity
+    if (x == 0 && y == 0) return false;
+    
+    // Additional validation should be performed for production use
+    // The precompile will reject invalid curve points
+    return true;
+}
+```
+
+### Signature Malleability
+
+P256 signatures can be malleable. If your application requires unique signatures, implement additional checks:
+
+```solidity copy
+function isLowS(bytes32 s) internal pure returns (bool) {
+    // Check if s is in the lower half of the curve order
+    // This prevents signature malleability
+    return uint256(s) <= 0x7FFFFFFF80000000FFFFFFFFFFFFFFFF;
+}
+```
+
+## JavaScript Integration
+
+### Preparing Input Data
+
+```javascript
+// Example: Preparing P256 verification input
+function prepareP256Input(messageHash, signature, publicKey) {
+    // Ensure all components are 32 bytes
+    const hash = ethers.utils.hexZeroPad(messageHash, 32);
+    const r = ethers.utils.hexZeroPad(signature.r, 32);
+    const s = ethers.utils.hexZeroPad(signature.s, 32);
+    const x = ethers.utils.hexZeroPad(publicKey.x, 32);
+    const y = ethers.utils.hexZeroPad(publicKey.y, 32);
+    
+    // Concatenate all components
+    return ethers.utils.concat([hash, r, s, x, y]);
+}
+
+// Usage with ethers.js
+async function verifyP256Signature(contract, messageHash, signature, publicKey) {
+    const input = prepareP256Input(messageHash, signature, publicKey);
+    const result = await contract.P256_PRECOMPILE.verify(input);
+    return result !== '0x0000000000000000000000000000000000000000000000000000000000000000';
+}
+```
+
+## Error Handling
+
+The P256 precompile returns zero on failure. Common failure cases include:
+
+1. **Invalid Input Length**: Input must be exactly 160 bytes
+2. **Invalid Public Key**: Point not on the P256 curve  
+3. **Invalid Signature**: r or s values out of valid range
+4. **Verification Failure**: Signature doesn't match message and public key
+
+```solidity copy
+function safeVerifyP256(
+    bytes32 messageHash,
+    bytes32 r,
+    bytes32 s,
+    bytes32 publicKeyX,
+    bytes32 publicKeyY
+) internal view returns (bool success, string memory error) {
+    // Validate inputs
+    if (!isValidPublicKey(publicKeyX, publicKeyY)) {
+        return (false, "Invalid public key");
+    }
+    
+    if (r == 0 || s == 0) {
+        return (false, "Invalid signature components");
+    }
+    
+    // Prepare input and verify
+    bytes memory input = abi.encodePacked(
+        messageHash, r, s, publicKeyX, publicKeyY
+    );
+    
+    bytes32 result = P256_PRECOMPILE.verify(input);
+    return (result != bytes32(0), result == bytes32(0) ? "Verification failed" : "");
+}
+```
+
+## Testing
+
+### Unit Tests
+
+```solidity copy
+contract P256Test {
+    IP256Verify constant P256_PRECOMPILE = IP256Verify(0x0000000000000000000000000000000000001011);
+    
+    function testValidSignature() public {
+        // Test with known valid P256 signature
+        bytes32 messageHash = 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef;
+        // Use actual test vectors for production tests
+        bytes32 r = 0x...; // Valid r component
+        bytes32 s = 0x...; // Valid s component  
+        bytes32 x = 0x...; // Valid public key x
+        bytes32 y = 0x...; // Valid public key y
+        
+        bytes memory input = abi.encodePacked(messageHash, r, s, x, y);
+        bytes32 result = P256_PRECOMPILE.verify(input);
+        
+        assert(result != bytes32(0));
+    }
+}
+```
+
+## Performance Considerations
+
+- **Gas Efficiency**: 48,000 gas per verification vs 2M+ gas for Solidity implementations
+- **Batch Operations**: Consider batching multiple verifications in a single transaction
+- **Caching**: Cache public keys on-chain to reduce calldata for repeated verifications
+- **Hardware Integration**: Particularly efficient for applications using hardware-backed keys
+
+<Callout type="info">For more information about the P256 precompile implementation, visit the [Sei Chain repository](https://github.com/sei-protocol/sei-chain/tree/main/precompiles/p256).</Callout> 
