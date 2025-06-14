@@ -1,0 +1,127 @@
+---
+title: 'P256 Precompile'
+description: 'Use the P256 precompile to verify secp256r1/P-256 signatures directly from EVM smart contracts, enabling efficient passkey-based authentication and signature verification.'
+keywords: ['p256 precompile', 'secp256r1', 'signature verification', 'passkey', 'webauthn', 'secure enclave']
+---
+
+import { Callout } from 'nextra/components';
+
+# P256 Precompile
+
+**Address**: `0x0000000000000000000000000000000000001011`
+
+This is the implementation of [RIP-7212](https://github.com/ethereum/RIPs/blob/master/RIPS/rip-7212.md), which provides a precompiled contract for verifying signatures in the `secp256r1` or `P-256` elliptic curve.
+
+## Overview
+
+The P256 precompile enables efficient signature verification for the `secp256r1` curve, which is widely used in modern security systems including:
+
+- Apple's Secure Enclave
+- WebAuthn/FIDO2
+- Android Keychain
+- Various hardware security modules (HSMs)
+- PassKeys
+
+This precompile implementation is significantly more gas efficient (up to 60x) compared to Solidity-based implementations.
+
+## Interface
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+address constant P256VERIFY_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000001011;
+
+IP256VERIFY constant P256VERIFY_CONTRACT = IP256VERIFY(P256VERIFY_PRECOMPILE_ADDRESS);
+
+interface IP256VERIFY {
+    function verify(
+        bytes memory signature
+    ) external view returns (bytes memory response);
+}
+```
+
+## Implementation
+
+Here's a complete implementation of the P256 library that provides a convenient wrapper around the precompile:
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.23;
+
+import "./ECDSA.sol";
+import "./P256Verify.sol";
+
+/// @title P256
+/// @author klkvr <https://github.com/klkvr>
+/// @author jxom <https://github.com/jxom>
+/// @notice Wrapper function to abstract low level details of call to the P256
+///         signature verification precompile as defined in EIP-7212, see
+///         <https://eips.ethereum.org/EIPS/eip-7212>.
+library P256 {
+    /// @notice P256VERIFY operation
+    /// @param digest 32 bytes of the signed data hash
+    /// @param signature Signature of the signer
+    /// @param publicKey Public key of the signer
+    /// @return success Represents if the operation was successful
+    function verify(bytes32 digest, ECDSA.Signature memory signature, ECDSA.PublicKey memory publicKey)
+        internal
+        view
+        returns (bool)
+    {
+        bytes memory input = abi.encode(digest, signature.r, signature.s, publicKey.x, publicKey.y);
+        bytes memory output = P256VERIFY_CONTRACT.verify(input);
+        bool success = output.length == 32 && output[31] == 0x01;
+
+        return success;
+    }
+}
+```
+
+## Usage Example
+
+Here's how to use the P256 library in your smart contract:
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.23;
+
+import "./P256.sol";
+import "./ECDSA.sol";
+
+contract P256Example {
+    using P256 for bytes32;
+
+    function verifySignature(
+        bytes32 messageHash,
+        ECDSA.Signature memory signature,
+        ECDSA.PublicKey memory publicKey
+    ) public view returns (bool) {
+        return P256.verify(messageHash, signature, publicKey);
+    }
+}
+```
+
+## Signature Format
+
+The signature verification requires the following components:
+
+- `digest`: 32 bytes of the signed data hash
+- `signature`: Contains the r and s components of the signature
+- `publicKey`: Contains the x and y coordinates of the public key
+
+The precompile expects these components to be encoded in a specific format:
+
+- First 32 bytes: message hash
+- Next 32 bytes: `r` component of the signature
+- Next 32 bytes: `s` component of the signature
+- Next 32 bytes: `x` coordinate of the public key
+- Next 32 bytes: `y` coordinate of the public key
+
+Total length: 160 bytes
+
+## Gas Costs
+
+The precompile is highly gas efficient compared to Solidity implementations. The exact gas cost per byte of verified data is set to `GasCostPerByte = 300`, which is significantly lower than implementing the verification in pure Solidity or YUL.
+
+<Callout type="info">For more information about the P256 precompile implementation, visit the [Sei Chain repository](https://github.com/sei-protocol/sei-chain/tree/evm/precompiles/p256).</Callout>
