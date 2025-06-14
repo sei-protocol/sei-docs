@@ -1,0 +1,685 @@
+---
+title: "Debug Tracing & JavaScript Tracers"
+description: "Advanced debugging capabilities for Sei EVM including JavaScript tracers, transaction analysis tools, and enhanced debug methods for comprehensive blockchain debugging."
+keywords: ["debug tracing", "javascript tracers", "transaction debugging", "evm debugging", "sei tracing"]
+---
+import { Callout, Tabs } from 'nextra/components';
+
+# Debug Tracing & JavaScript Tracers
+
+Sei provides powerful debugging capabilities that enable developers to analyze transaction execution, trace state changes, and debug smart contract interactions with detailed insights.
+
+## Overview
+
+Debug tracing provides insights into:
+
+- **Transaction Execution Flow**: Step-by-step execution analysis
+- **Gas Usage Analysis**: Detailed gas consumption breakdown  
+- **Contract Interactions**: Trace cross-contract calls
+- **Custom Analysis**: JavaScript-based custom tracing logic
+- **State Access Patterns**: Track all state reads and writes
+
+## Debug Methods
+
+### debug_traceTransaction
+
+Traces a transaction's execution with configurable tracers.
+
+```bash copy
+curl -X POST -H "Content-Type: application/json" \
+  --data '{
+    "jsonrpc": "2.0",
+    "method": "debug_traceTransaction",
+    "params": [
+      "0x1234567890abcdef...",
+      {
+        "tracer": "callTracer",
+        "tracerConfig": {
+          "withLog": true
+        }
+      }
+    ],
+    "id": 1
+  }' \
+  http://localhost:8545
+```
+
+### debug_traceBlockByNumber / debug_traceBlockByHash
+
+Trace all transactions in a block.
+
+```bash copy
+curl -X POST -H "Content-Type: application/json" \
+  --data '{
+    "jsonrpc": "2.0",
+    "method": "debug_traceBlockByNumber",
+    "params": [
+      "latest",
+      {
+        "tracer": "callTracer"
+      }
+    ],
+    "id": 1
+  }' \
+  http://localhost:8545
+```
+
+### debug_traceCall
+
+Trace a call without executing it on-chain.
+
+```bash copy
+curl -X POST -H "Content-Type: application/json" \
+  --data '{
+    "jsonrpc": "2.0",
+    "method": "debug_traceCall",
+    "params": [
+      {
+        "to": "0x...",
+        "data": "0x..."
+      },
+      "latest",
+      {
+        "tracer": "callTracer"
+      }
+    ],
+    "id": 1
+  }' \
+  http://localhost:8545
+```
+
+### debug_traceStateAccess
+
+Traces state access patterns during transaction execution.
+
+```bash copy
+curl -X POST -H "Content-Type: application/json" \
+  --data '{
+    "jsonrpc": "2.0",
+    "method": "debug_traceStateAccess",
+    "params": [
+      "0x1234567890abcdef...",
+      {
+        "enableMemory": true,
+        "enableReturnData": true
+      }
+    ],
+    "id": 1
+  }' \
+  http://localhost:8545
+```
+
+## Built-in Tracers
+
+### Call Tracer
+
+Traces contract calls and their hierarchy.
+
+<Tabs items={['Request', 'Response']}>
+<Tabs.Tab>
+```bash copy
+curl -X POST -H "Content-Type: application/json" \
+  --data '{
+    "jsonrpc": "2.0",
+    "method": "debug_traceTransaction",
+    "params": [
+      "0xabcdef...",
+      {
+        "tracer": "callTracer",
+        "tracerConfig": {
+          "withLog": true,
+          "timeout": "60s"
+        }
+      }
+    ],
+    "id": 1
+  }' \
+  http://localhost:8545
+```
+</Tabs.Tab>
+<Tabs.Tab>
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "type": "CALL",
+    "from": "0x123...",
+    "to": "0xabc...",
+    "value": "0x0",
+    "gas": "0x5208",
+    "gasUsed": "0x5208",
+    "input": "0x",
+    "output": "0x",
+    "calls": [
+      {
+        "type": "CALL",
+        "from": "0xabc...",
+        "to": "0xdef...",
+        "gas": "0x3e8",
+        "gasUsed": "0x1a4",
+        "input": "0xa9059cbb...",
+        "output": "0x0000000000000000000000000000000000000000000000000000000000000001"
+      }
+    ]
+  }
+}
+```
+</Tabs.Tab>
+</Tabs>
+
+### Opcode Tracer
+
+Provides detailed opcode-level execution trace.
+
+```bash copy
+curl -X POST -H "Content-Type: application/json" \
+  --data '{
+    "jsonrpc": "2.0",
+    "method": "debug_traceTransaction",
+    "params": [
+      "0xabcdef...",
+      {
+        "tracer": "opcodeTracer",
+        "tracerConfig": {
+          "enableMemory": true,
+          "enableStack": true,
+          "enableStorage": true
+        }
+      }
+    ],
+    "id": 1
+  }' \
+  http://localhost:8545
+```
+
+## JavaScript Tracers
+
+### Basic JavaScript Tracer
+
+Create custom tracing logic with JavaScript:
+
+```javascript copy
+// Basic tracer that tracks all SSTORE operations
+{
+  "tracer": `{
+    data: [],
+    step: function(log, db) {
+      if (log.op.toString() == "SSTORE") {
+        this.data.push({
+          pc: log.getPC(),
+          op: log.op.toString(),
+          stack: log.stack.peek(0).toString(16),
+          storage: log.stack.peek(1).toString(16),
+          gas: log.getGas(),
+          cost: log.getCost()
+        });
+      }
+    },
+    fault: function(log, db) {
+      return {};
+    },
+    result: function(ctx, db) {
+      return {
+        storeOperations: this.data,
+        totalOperations: this.data.length
+      };
+    }
+  }`
+}
+```
+
+### Gas Analysis Tracer
+
+Track gas usage patterns:
+
+```javascript copy
+{
+  "tracer": `{
+    gasUsed: 0,
+    gasDetails: {},
+    
+    step: function(log, db) {
+      var op = log.op.toString();
+      var gasCost = log.getCost();
+      
+      this.gasUsed += gasCost;
+      
+      if (!this.gasDetails[op]) {
+        this.gasDetails[op] = {
+          count: 0,
+          totalGas: 0
+        };
+      }
+      
+      this.gasDetails[op].count++;
+      this.gasDetails[op].totalGas += gasCost;
+    },
+    
+    result: function(ctx, db) {
+      return {
+        totalGasUsed: this.gasUsed,
+        operationBreakdown: this.gasDetails,
+        efficiency: this.gasUsed / ctx.gasUsed
+      };
+    }
+  }`
+}
+```
+
+### State Change Tracker
+
+Monitor all state modifications:
+
+```javascript copy
+{
+  "tracer": `{
+    stateChanges: {},
+    
+    step: function(log, db) {
+      if (log.op.toString() == "SSTORE") {
+        var key = log.stack.peek(0).toString(16);
+        var value = log.stack.peek(1).toString(16);
+        var address = log.contract.getAddress().toString();
+        
+        if (!this.stateChanges[address]) {
+          this.stateChanges[address] = {};
+        }
+        
+        this.stateChanges[address][key] = {
+          oldValue: db.getState(address, key),
+          newValue: value,
+          pc: log.getPC()
+        };
+      }
+    },
+    
+    result: function(ctx, db) {
+      return {
+        modifiedAccounts: Object.keys(this.stateChanges).length,
+        stateChanges: this.stateChanges
+      };
+    }
+  }`
+}
+```
+
+## Example Use Cases
+
+### DeFi Transaction Analysis
+
+Analyze complex DeFi transactions with multiple contract interactions:
+
+```javascript copy
+// DeFi swap analysis tracer
+const defiTracer = `{
+  swapEvents: [],
+  transfers: [],
+  
+  step: function(log, db) {
+    // Track token transfers
+    if (log.op.toString() == "LOG3") {
+      var topic0 = log.stack.peek(2).toString(16);
+      // ERC20 Transfer event signature
+      if (topic0 == "ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef") {
+        this.transfers.push({
+          from: log.stack.peek(3).toString(16),
+          to: log.stack.peek(4).toString(16),
+          value: log.memory.slice(log.stack.peek(0), log.stack.peek(1)),
+          contract: log.contract.getAddress().toString()
+        });
+      }
+    }
+  },
+  
+  result: function(ctx, db) {
+    return {
+      totalTransfers: this.transfers.length,
+      transfers: this.transfers,
+      gasEfficiency: ctx.gasUsed / this.transfers.length
+    };
+  }
+}`;
+```
+
+### Security Analysis
+
+Detect suspicious patterns and potential vulnerabilities:
+
+```javascript copy
+const securityTracer = `{
+  suspiciousOps: [],
+  externalCalls: 0,
+  selfDestructs: 0,
+  
+  step: function(log, db) {
+    var op = log.op.toString();
+    
+    // Track external calls
+    if (op == "CALL" || op == "DELEGATECALL" || op == "STATICCALL") {
+      this.externalCalls++;
+      
+      // Check for suspicious delegate calls
+      if (op == "DELEGATECALL") {
+        this.suspiciousOps.push({
+          type: "DELEGATECALL",
+          target: log.stack.peek(1).toString(16),
+          pc: log.getPC()
+        });
+      }
+    }
+    
+    // Track self-destructs
+    if (op == "SELFDESTRUCT") {
+      this.selfDestructs++;
+      this.suspiciousOps.push({
+        type: "SELFDESTRUCT",
+        beneficiary: log.stack.peek(0).toString(16),
+        pc: log.getPC()
+      });
+    }
+  },
+  
+  result: function(ctx, db) {
+    return {
+      riskScore: this.suspiciousOps.length * 10 + this.selfDestructs * 50,
+      externalCalls: this.externalCalls,
+      suspiciousOperations: this.suspiciousOps,
+      recommendations: this.suspiciousOps.length > 0 ? 
+        ["Review delegate calls", "Verify contract security"] : 
+        ["Transaction appears safe"]
+    };
+  }
+}`;
+```
+
+## Integration Examples
+
+### Web3.js Integration
+
+```javascript copy
+const Web3 = require('web3');
+const web3 = new Web3('http://localhost:8545');
+
+async function traceTransaction(txHash) {
+  const trace = await web3.eth.extend({
+    methods: [{
+      name: 'traceTransaction',
+      call: 'debug_traceTransaction',
+      params: 2
+    }]
+  }).traceTransaction(txHash, {
+    tracer: 'callTracer',
+    tracerConfig: {
+      withLog: true
+    }
+  });
+  
+  return trace;
+}
+
+// Usage
+traceTransaction('0xabcdef...')
+  .then(trace => console.log('Call trace:', trace))
+  .catch(err => console.error('Tracing failed:', err));
+```
+
+### Ethers.js Integration
+
+```javascript copy
+const { ethers } = require('ethers');
+
+const provider = new ethers.providers.JsonRpcProvider('http://localhost:8545');
+
+async function analyzeTransaction(txHash) {
+  const traceResult = await provider.send('debug_traceTransaction', [
+    txHash,
+    {
+      tracer: `{
+        gasUsed: 0,
+        operations: [],
+        
+        step: function(log, db) {
+          this.gasUsed += log.getCost();
+          this.operations.push({
+            op: log.op.toString(),
+            gas: log.getGas(),
+            cost: log.getCost()
+          });
+        },
+        
+        result: function(ctx, db) {
+          return {
+            totalGas: this.gasUsed,
+            operationCount: this.operations.length,
+            operations: this.operations.slice(0, 10) // First 10 ops
+          };
+        }
+      }`
+    }
+  ]);
+  
+  return traceResult;
+}
+```
+
+## Configuration Options
+
+### Timeout and Performance
+
+Configure timeouts and performance settings for production use:
+
+```bash copy
+curl -X POST -H "Content-Type: application/json" \
+  --data '{
+    "jsonrpc": "2.0",
+    "method": "debug_traceTransaction", 
+    "params": [
+      "0x...",
+      {
+        "tracer": "callTracer",
+        "tracerConfig": {
+          "timeout": "30s",
+          "enableMemory": false,
+          "enableStack": false
+        }
+      }
+    ],
+    "id": 1
+  }' \
+  http://localhost:8545
+```
+
+### Memory and Storage Options
+
+Control what data is collected during tracing:
+
+```json
+{
+  "tracerConfig": {
+    "enableMemory": true,     // Include memory snapshots
+    "enableStack": true,      // Include stack snapshots  
+    "enableStorage": true,    // Include storage changes
+    "enableReturnData": true, // Include return data
+    "timeout": "60s"          // Maximum execution time
+  }
+}
+```
+
+## Performance Considerations
+
+### Tracer Optimization
+
+<Callout type="warning">
+  **Performance**: JavaScript tracers can significantly slow down tracing. Optimize your tracer code and use timeouts for production use.
+</Callout>
+
+```javascript copy
+// Optimized tracer - avoid expensive operations in step function
+const optimizedTracer = `{
+  // Use arrays instead of objects for better performance
+  data: [],
+  counter: 0,
+  
+  step: function(log, db) {
+    // Only track specific operations to reduce overhead
+    if (log.op.toString() == "SSTORE" || log.op.toString() == "SLOAD") {
+      // Use counter instead of array.length for better performance
+      if (this.counter < 1000) { // Limit data collection
+        this.data.push([
+          log.getPC(),
+          log.op.toString(),
+          log.getCost()
+        ]);
+        this.counter++;
+      }
+    }
+  },
+  
+  result: function(ctx, db) {
+    return {
+      operations: this.data,
+      truncated: this.counter >= 1000
+    };
+  }
+}`;
+```
+
+### Memory Management
+
+```javascript copy
+// Memory-efficient tracer
+const memoryEfficientTracer = `{
+  summary: {
+    totalGas: 0,
+    operationCounts: {},
+    maxStackDepth: 0
+  },
+  
+  step: function(log, db) {
+    // Update summary instead of storing all data
+    this.summary.totalGas += log.getCost();
+    
+    var op = log.op.toString();
+    this.summary.operationCounts[op] = (this.summary.operationCounts[op] || 0) + 1;
+    
+    var stackDepth = log.stack.length();
+    if (stackDepth > this.summary.maxStackDepth) {
+      this.summary.maxStackDepth = stackDepth;
+    }
+  },
+  
+  result: function(ctx, db) {
+    return this.summary;
+  }
+}`;
+```
+
+## Debugging Workflows
+
+### Transaction Failure Analysis
+
+```bash copy
+#!/bin/bash
+
+# 1. Get failed transaction details
+TX_HASH="0x..."
+seid q tx $TX_HASH --output json | jq '.logs'
+
+# 2. Trace the transaction
+curl -X POST -H "Content-Type: application/json" \
+  --data "{
+    \"jsonrpc\": \"2.0\",
+    \"method\": \"debug_traceTransaction\",
+    \"params\": [
+      \"$TX_HASH\",
+      {
+        \"tracer\": \"callTracer\",
+        \"tracerConfig\": {
+          \"withLog\": true
+        }
+      }
+    ],
+    \"id\": 1
+  }" \
+  http://localhost:8545 | jq '.'
+```
+
+### Gas Optimization Analysis
+
+```javascript copy
+// Gas optimization tracer
+const gasOptimizationTracer = `{
+  expensive: [],
+  threshold: 1000, // Gas cost threshold
+  
+  step: function(log, db) {
+    var cost = log.getCost();
+    if (cost > this.threshold) {
+      this.expensive.push({
+        pc: log.getPC(),
+        op: log.op.toString(),
+        cost: cost,
+        gas: log.getGas()
+      });
+    }
+  },
+  
+  result: function(ctx, db) {
+    // Sort by cost descending
+    this.expensive.sort((a, b) => b.cost - a.cost);
+    
+    return {
+      expensiveOperations: this.expensive.slice(0, 20),
+      totalExpensiveCost: this.expensive.reduce((sum, op) => sum + op.cost, 0),
+      optimizationPotential: this.expensive.length > 0
+    };
+  }
+}`;
+```
+
+## Best Practices
+
+1. **Limit Trace Data**: Use filters and limits to prevent excessive memory usage
+2. **Optimize JavaScript**: Write efficient tracer code to minimize performance impact
+3. **Use Built-in Tracers**: Prefer built-in tracers when possible for better performance
+4. **Enable Selectively**: Only enable detailed tracing when debugging
+5. **Monitor Resources**: Watch memory and CPU usage during tracing operations
+6. **Set Timeouts**: Always use timeouts for production tracing
+
+## Troubleshooting
+
+### Common Issues
+
+#### Tracer Timeout
+```json
+{
+  "tracerConfig": {
+    "timeout": "120s"  // Increase timeout for complex traces
+  }
+}
+```
+
+#### Memory Limits
+```json
+{
+  "tracerConfig": {
+    "enableMemory": false,  // Disable memory tracing to reduce overhead
+    "enableStack": false
+  }
+}
+```
+
+#### JavaScript Errors
+- Validate JavaScript syntax before using
+- Test tracers on simple transactions first  
+- Use try-catch blocks in tracer code
+
+<Callout type="success">
+  **Debug Power**: Master these tracing tools to become an expert at analyzing and optimizing Sei EVM transactions.
+</Callout>
+
+## Resources
+
+- [Geth Debug API](https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-debug)
+- [JavaScript Tracer Examples](https://github.com/ethereum/go-ethereum/tree/master/eth/tracers/js)  

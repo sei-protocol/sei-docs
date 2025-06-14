@@ -52,6 +52,7 @@ export default {
 		title: 'Reference'
 	},
 	transactions: 'Transaction Overview',
+	'debug-tracing': 'Debug Tracing',
 	reference: 'RPC Reference',
 	tokens: 'View Tokens',
 
