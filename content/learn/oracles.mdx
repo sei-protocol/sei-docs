@@ -23,7 +23,7 @@ Sei's Oracle system is designed for:
 
 ### Intended Users
 
-- **Validators:** Run oracle feeders to submit price votes and maintain good standing
+- **Validators:** Must run oracle feeders to submit price votes and maintain good standing
 - **DeFi Developers:** Can query real-time prices and TWAPs for liquidations and trading
 - **dApp Builders:** Access reliable price feeds for any on-chain application
 - **Infrastructure Providers:** Can build enhanced oracle services on top of the native module
@@ -84,7 +84,7 @@ graph TD
 
 ## Voting Mechanism
 
-The Oracle voting process follows a commit-reveal pattern to prevent front-running and ensure vote independence.
+The Oracle voting process uses direct vote submission with aggregation at the end of each voting period to ensure reliable price discovery.
 
 <div className="grid grid-cols-5 gap-4 my-8">
   <div className="col-span-1 flex flex-col items-center">
@@ -187,12 +187,28 @@ View the current oracle module configuration:
 seid q oracle params
 ```
 
+Example response:
+```yaml
+params:
+  lookback_duration: "3600"
+  min_valid_per_window: "0.050000000000000000"
+  reward_band: "0.020000000000000000"
+  slash_fraction: "0.000000000000000000"
+  slash_window: "201600"
+  vote_period: "2"
+  vote_threshold: "0.667000000000000000"
+  whitelist:
+    - name: uatom
+    - name: ueth
+```
+
 Key parameters include:
-- `vote_period`: How often votes are aggregated (in blocks)
-- `vote_threshold`: Minimum voting power required for valid price
-- `reward_band`: Acceptable deviation from weighted median for rewards
-- `slash_window`: Period for calculating miss rates
-- `min_valid_per_window`: Minimum participation rate to avoid slashing
+- `vote_period`: How often votes are aggregated (default: 2 blocks)
+- `vote_threshold`: Minimum voting power required for valid price (default: 66.7%)
+- `reward_band`: Acceptable deviation from weighted median for rewards (default: 2%)
+- `slash_window`: Period for calculating miss rates (default: 201,600 blocks ≈ 2 days)
+- `min_valid_per_window`: Minimum participation rate to avoid slashing (default: 5%)
+- `lookback_duration`: Maximum TWAP lookback period (default: 3,600 seconds)
 
 ## Integration Patterns
 
@@ -202,26 +218,36 @@ Access oracle prices through the EVM precompile:
 
 ```solidity
 interface IOracle {
-    function getExchangeRates() external view returns (
-        string[] memory denoms,
-        uint256[] memory rates
-    );
-    
-    function getOracleTwaps(uint64 lookbackSeconds) external view returns (
-        string[] memory denoms,
-        uint256[] memory twaps
-    );
+    struct OracleExchangeRate {
+        string exchangeRate;
+        string lastUpdate;
+        int64 lastUpdateTimestamp;
+    }
+
+    struct DenomOracleExchangeRatePair {
+        string denom;
+        OracleExchangeRate oracleExchangeRateVal;
+    }
+
+    struct OracleTwap {
+        string denom;
+        string twap;
+        int64 lookbackSeconds;
+    }
+
+    function getExchangeRates() external view returns (DenomOracleExchangeRatePair[] memory);
+    function getOracleTwaps(uint64 lookbackSeconds) external view returns (OracleTwap[] memory);
 }
 
 contract PriceConsumer {
-    IOracle constant oracle = IOracle(0x0000000000000000000000000000000000001002);
+    IOracle constant oracle = IOracle(0x0000000000000000000000000000000000001008);
     
-    function getPrice(string memory denom) external view returns (uint256) {
-        (string[] memory denoms, uint256[] memory rates) = oracle.getExchangeRates();
+    function getPrice(string memory denom) external view returns (string memory) {
+        IOracle.DenomOracleExchangeRatePair[] memory rates = oracle.getExchangeRates();
         
-        for (uint i = 0; i < denoms.length; i++) {
-            if (keccak256(bytes(denoms[i])) == keccak256(bytes(denom))) {
-                return rates[i];
+        for (uint i = 0; i < rates.length; i++) {
+            if (keccak256(bytes(rates[i].denom)) == keccak256(bytes(denom))) {
+                return rates[i].oracleExchangeRateVal.exchangeRate;
             }
         }
         revert("Denom not found");
@@ -231,10 +257,10 @@ contract PriceConsumer {
 
 ### For CosmWasm Contracts
 
-Query oracle prices using the native module:
+Query oracle prices using Sei's custom bindings:
 
 ```rust
-use cosmwasm_std::{Deps, StdResult};
+use cosmwasm_std::{Deps, StdResult, StdError, Decimal};
 use sei_cosmwasm::{SeiQuerier, SeiQueryWrapper};
 
 pub fn query_exchange_rate(
@@ -242,13 +268,30 @@ pub fn query_exchange_rate(
     denom: String,
 ) -> StdResult<Decimal> {
     let querier = SeiQuerier::new(&deps.querier);
-    let rates = querier.query_exchange_rates()?;
+    let rates_response = querier.query_exchange_rates()?;
     
-    rates
+    rates_response
+        .denom_oracle_exchange_rate_pairs
         .iter()
-        .find(|r| r.denom == denom)
-        .map(|r| r.exchange_rate)
+        .find(|pair| pair.denom == denom)
+        .map(|pair| pair.oracle_exchange_rate.exchange_rate)
         .ok_or_else(|| StdError::generic_err("Denom not found"))
+}
+
+pub fn query_twap(
+    deps: Deps<SeiQueryWrapper>,
+    denom: String,
+    lookback_seconds: u64,
+) -> StdResult<Decimal> {
+    let querier = SeiQuerier::new(&deps.querier);
+    let twaps_response = querier.query_oracle_twaps(lookback_seconds)?;
+    
+    twaps_response
+        .oracle_twaps
+        .iter()
+        .find(|twap| twap.denom == denom)
+        .map(|twap| twap.twap)
+        .ok_or_else(|| StdError::generic_err("TWAP not found for denom"))
 }
 ```
 

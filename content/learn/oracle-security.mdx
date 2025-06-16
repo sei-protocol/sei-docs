@@ -72,7 +72,7 @@ func (k Keeper) CheckAndSetSpamPreventionCounter(
     if k.getSpamPreventionCounter(ctx, validatorAddr) == ctx.BlockHeight() {
         return sdkerrors.Wrap(
             sdkerrors.ErrAlreadyExists, 
-            fmt.Sprintf("validator already submitted vote at height=%d", 
+            fmt.Sprintf("the validator has already submitted a vote at the current height=%d", 
                 ctx.BlockHeight())
         )
     }
@@ -169,6 +169,8 @@ func (VoteAloneDecorator) AnteHandle(
         switch msg.(type) {
         case *types.MsgAggregateExchangeRateVote:
             oracleVote = true
+        case *types.MsgDelegateFeedConsent:
+            oracleVote = true
         default:
             otherMsg = true
         }
@@ -191,45 +193,55 @@ func (VoteAloneDecorator) AnteHandle(
 - **MEV Prevention**: Votes cannot be bundled with trading transactions
 - **Simplified Validation**: Each vote transaction stands alone
 - **Reduced Attack Surface**: No cross-message dependencies to exploit
+- **Delegation Support**: Feed consent messages also require isolation
 
-## Overflow Protection
+## Input Validation & Protection
 
-The Oracle system implements comprehensive overflow protection to prevent arithmetic errors that could compromise price calculations.
+The Oracle system implements comprehensive input validation to prevent malformed data and ensure reliable price calculations.
 
-### Safe Arithmetic Operations
+### Exchange Rate Parsing
 
 ```go
-// Safe multiplication with overflow detection
-func SafeMultiply(a, b sdk.Dec) (sdk.Dec, error) {
-    if a.IsZero() || b.IsZero() {
-        return sdk.ZeroDec(), nil
+// From x/oracle/types/vote.go
+func ParseExchangeRateTuples(tuplesStr string) (ExchangeRateTuples, error) {
+    tuplesStr = strings.TrimSpace(tuplesStr)
+    if len(tuplesStr) == 0 {
+        return nil, nil
     }
+
+    tupleStrs := strings.Split(tuplesStr, ",")
+    tuples := make(ExchangeRateTuples, len(tupleStrs))
+    duplicateCheckMap := make(map[string]bool)
     
-    // Check if multiplication would overflow
-    maxValue := sdk.NewDecFromInt(sdk.NewIntFromUint64(math.MaxUint64))
-    if a.Abs().GT(maxValue.Quo(b.Abs())) {
-        return sdk.ZeroDec(), ErrOverflow
+    for i, tupleStr := range tupleStrs {
+        // Uses Cosmos SDK's built-in decimal validation
+        decCoin, err := sdk.ParseDecCoin(tupleStr)
+        if err != nil {
+            return nil, err
+        }
+
+        // Prevent duplicate denoms in single vote
+        if _, ok := duplicateCheckMap[decCoin.Denom]; ok {
+            return nil, fmt.Errorf("duplicated denom %s", decCoin.Denom)
+        }
+        
+        tuples[i] = ExchangeRateTuple{
+            Denom:        decCoin.Denom,
+            ExchangeRate: decCoin.Amount,
+        }
+        duplicateCheckMap[decCoin.Denom] = true
     }
-    
-    return a.Mul(b), nil
+
+    return tuples, nil
 }
 ```
 
-### Exchange Rate Validation
+### Validation Features
 
-```go
-// Validate exchange rate is within reasonable bounds
-func ValidateExchangeRate(rate sdk.Dec) error {
-    minRate := sdk.NewDecWithPrec(1, 10)  // 0.0000000001
-    maxRate := sdk.NewDecWithPrec(1, -10) // 10,000,000,000
-    
-    if rate.LT(minRate) || rate.GT(maxRate) {
-        return ErrInvalidExchangeRate
-    }
-    
-    return nil
-}
-```
+- **Decimal Precision**: Uses Cosmos SDK's `sdk.Dec` type with built-in overflow protection
+- **Format Validation**: Ensures exchange rates follow DecCoin format (e.g., "123.45uatom")
+- **Duplicate Prevention**: Rejects votes with duplicate denoms
+- **Abstain Support**: Allows zero values for abstaining from specific denoms
 
 ## Validator Penalties
 
@@ -323,7 +335,11 @@ oracle:
 func MonitorOracleHealth(validator sdk.ValAddress) {
     counter := GetVotePenaltyCounter(validator)
     
-    totalVotes := counter.MissCount + counter.SuccessCount
+    totalVotes := counter.MissCount + counter.AbstainCount + counter.SuccessCount
+    if totalVotes == 0 {
+        return // No votes to analyze
+    }
+    
     missRate := float64(counter.MissCount) / float64(totalVotes)
     
     if missRate > 0.1 { // 10% miss rate threshold
@@ -410,7 +426,7 @@ alerts:
 ## Future Enhancements
 
 <Callout type="info">
-The Oracle security system continues to evolve. Enhancements can/will include:
+The Oracle security system continues to evolve. Potential enhancements being considered include:
 - **Cross-chain price verification** using IBC
 - **Zero-knowledge proofs** for price source privacy
 - **Decentralized price aggregation** protocols
