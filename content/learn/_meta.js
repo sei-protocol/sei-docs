@@ -21,7 +21,14 @@ export default {
 	indexers: 'Indexers',
 	oracles: 'Oracles',
 
-	'-- AI Tools': {
+	'-- Oracles': {
+		type: 'separator',
+		title: 'Oracles'
+	},
+	oracles: 'Oracle System Overview',
+	'oracle-security': 'Security & Spam Prevention',
+	
+  '-- AI Tools': {
 		type: 'separator',
 		title: 'AI Tools'
 	},
