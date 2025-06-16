@@ -40,7 +40,7 @@ export default withNextra({
 			{
 				source: '/:path*', // every route in the site
 				headers: [
-					{ key: 'Cache-Control', value: 'public, s-maxage=1, must-revalidate' },
+					{ key: 'Cache-Control', value: 'public, max-age=0, s-maxage=0, must-revalidate' },
 					{ key: 'CDN-Cache-Control', value: 'public, s-maxage=60, stale-while-revalidate=30' },
 					{ key: 'Vercel-CDN-Cache-Control', value: 'public, s-maxage=1200' }
 				]
