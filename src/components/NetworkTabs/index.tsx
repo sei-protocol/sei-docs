@@ -129,8 +129,8 @@ export function NetworkTabs({}: NetworkTabsProps) {
 								<div className='flex flex-col'>
 									<div className={labelClass}>Explorer:</div>
 									<div className='flex items-center justify-between'>
-										<span className={valueClass}>seiscan.app</span>
-										<a href='https://www.seiscan.app/pacific-1' target='_blank' rel='noopener noreferrer' className={visitLinkClass}>
+										<span className={valueClass}>seitrace.com</span>
+										<a href='https://seitrace.com/?chain=pacific-1' target='_blank' rel='noopener noreferrer' className={visitLinkClass}>
 											Visit
 											<IconChevronRight className='w-4 h-4 ml-1' />
 										</a>
@@ -180,6 +180,16 @@ export function NetworkTabs({}: NetworkTabsProps) {
 										</a>
 									</div>
 								</div>
+								<div className='flex flex-col'>
+									<div className={labelClass}>Faucet:</div>
+									<div className='flex items-center justify-between'>
+										<span className={valueClass}>Testnet faucet</span>
+										<a href='/learn/faucet' rel='noopener noreferrer' className={visitLinkClass}>
+											Visit
+											<IconChevronRight className='w-4 h-4 ml-1' />
+										</a>
+									</div>
+								</div>
 							</div>
 						</div>
 
@@ -211,8 +221,18 @@ export function NetworkTabs({}: NetworkTabsProps) {
 								<div className='flex flex-col'>
 									<div className={labelClass}>Explorer:</div>
 									<div className='flex items-center justify-between'>
-										<span className={valueClass}>seiscan.app</span>
-										<a href='https://www.seiscan.app/atlantic-2' target='_blank' rel='noopener noreferrer' className={visitLinkClass}>
+										<span className={valueClass}>seitrace.com</span>
+										<a href='https://seitrace.com/?chain=atlantic-2' target='_blank' rel='noopener noreferrer' className={visitLinkClass}>
+											Visit
+											<IconChevronRight className='w-4 h-4 ml-1' />
+										</a>
+									</div>
+								</div>
+								<div className='flex flex-col'>
+									<div className={labelClass}>Faucet:</div>
+									<div className='flex items-center justify-between'>
+										<span className={valueClass}>Testnet faucet</span>
+										<a href='/learn/faucet' rel='noopener noreferrer' className={visitLinkClass}>
 											Visit
 											<IconChevronRight className='w-4 h-4 ml-1' />
 										</a>
@@ -293,8 +313,8 @@ export function NetworkTabs({}: NetworkTabsProps) {
 								<div className='flex flex-col'>
 									<div className={labelClass}>Explorer:</div>
 									<div className='flex items-center justify-between'>
-										<span className={valueClass}>seiscan.app</span>
-										<a href='https://www.seiscan.app/arctic-1' target='_blank' rel='noopener noreferrer' className={visitLinkClass}>
+										<span className={valueClass}>seitrace.com</span>
+										<a href='https://seitrace.com/?chain=arctic-1' target='_blank' rel='noopener noreferrer' className={visitLinkClass}>
 											Visit
 											<IconChevronRight className='w-4 h-4 ml-1' />
 										</a>
@@ -319,8 +339,8 @@ export function NetworkTabs({}: NetworkTabsProps) {
 								<div className='flex flex-col'>
 									<div className={labelClass}>Chain ID:</div>
 									<div className='flex items-center justify-between'>
-										<span className={valueClass}>713715 (0xAE3F3)</span>
-										<CopyButton textToCopy='713715' />
+										<span className={valueClass}>713714 (0xAE3F2)</span>
+										<CopyButton textToCopy='713714' />
 									</div>
 								</div>
 

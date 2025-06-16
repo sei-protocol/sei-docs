@@ -1,8 +1,9 @@
 ---
-title: "Governance Precompile"
+title: 'Governance Precompile'
 description: "Interact with Sei's governance system from EVM applications using the governance precompile, enabling proposal voting, token deposits, and governance information queries."
-keywords: ["governance precompile", "proposal voting", "blockchain governance", "on-chain voting", "evm governance"]
+keywords: ['governance precompile', 'proposal voting', 'blockchain governance', 'on-chain voting', 'evm governance']
 ---
+
 import { Callout } from 'nextra/components';
 
 # Governance Precompile
@@ -30,7 +31,34 @@ governance information.
     ) external returns (bool success);
   ```
 
+- `voteWeighted`: Allows a user to cast a weighted vote on a governance proposal
+
+  ```solidity copy
+
+    struct WeightedVoteOption {
+      int32 option;   // Vote option (1=Yes, 2=Abstain, 3=No, 4=NoWithVeto)
+      string weight;  // Weight as decimal string (e.g., "0.7")
+    }
+
+    /// Cast a weighted vote on a governance proposal (vote splitting)
+    /// @param proposalID The ID of the proposal to vote on
+    /// @param options Array of weighted vote options, weights must sum to 1.0
+    /// @return success Whether the vote was successfully cast
+    ///
+    /// Example:
+    /// WeightedVoteOption[] memory options = new WeightedVoteOption[](2);
+    /// options[0] = WeightedVoteOption({option: 1, weight: "0.7"}); // 70% Yes
+    /// options[1] = WeightedVoteOption({option: 2, weight: "0.3"}); // 30% Abstain
+    /// GOV_CONTRACT.voteWeighted(proposalID, options);
+    function voteWeighted(
+        uint64 proposalID,
+        WeightedVoteOption[] calldata options
+    ) external returns (bool success);
+
+  ```
+
 - `deposit`: Enables a user to deposit tokens into a governance proposal
+
   ```solidity copy
     /// Deposit funds into the specified proposal.
     /// @param proposalId The ID of the proposal to vote on.
@@ -38,6 +66,22 @@ governance information.
     function deposit(
         uint64 proposalID,
     ) payable external returns (bool success);
+  ```
+
+- `submitProposal`: Allows a user to submit a new governance proposal
+  ```solidity copy
+    /// Submit a new governance proposal. Deposit should be provided via msg.value
+    /// @param proposalJSON JSON string containing proposal details e.g.:
+    ///        {
+    ///          "title": "Proposal Title",
+    ///          "description": "Proposal Description",
+    ///          "type": "Text", // Optional, defaults to "Text" if empty
+    ///          "is_expedited": false // Optional
+    ///        }
+    /// @return proposalID The ID of the created proposal
+    function submitProposal(
+        string calldata proposalJSON
+    ) payable external returns (uint64 proposalID);
   ```
 
 <Callout type="info">View the Governance precompile source code and the contract ABI [here](https://github.com/sei-protocol/sei-chain/tree/main/precompiles/gov).</Callout>

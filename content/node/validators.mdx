@@ -1,8 +1,10 @@
 ---
-title: "Sei Validator Operations Guide"
-description: "Learn how to set up and maintain a validator node on Sei Network, including hardware security configuration, key management, monitoring practices, and governance participation requirements."
-keywords: ["sei validator", "validator node", "blockchain validator", "staking", "sei network", "consensus participation"]
+title: 'Sei Validator Operations Guide'
+description: 'Learn how to set up and maintain a validator node on Sei Network, including hardware security configuration, key management, monitoring practices, and governance participation requirements.'
+keywords: ['sei validator', 'validator node', 'blockchain validator', 'staking', 'sei network', 'consensus participation']
 ---
+
+import { Callout } from 'nextra/components';
 
 # Validator Operations Guide
 
@@ -205,97 +207,15 @@ seid tx gov vote 1 yes \
     --gas-prices 0.01usei
 ```
 
-## Validator Economics
-
-Understanding validator economics is crucial for long-term success. Consider these key aspects:
-
-- Commission Rate Strategy: Set competitive rates while ensuring operational sustainability
-- Delegation Management: Maintain good delegator relationships through transparent communication
-- Reward Distribution: Rewards are distributed in real-time as blocks are produced
-- Slashing Risks: Understand and mitigate risks of slashing through proper operation
-- Economic Security: Maintain adequate self-bonding to align incentives with delegators
-
-## Node Debugging and Logging
-
-### Debugging Procedures
-
-When encountering node issues, proper debugging information is crucial for resolution. Different types of issues require different debugging approaches:
-
-#### AppHash Mismatch Errors
-
-If you encounter an AppHash mismatch, you'll need to capture the state for comparison with a known good version:
-
-```bash copy
-# For SeiDB (most non-archive nodes):
-git clone https://github.com/sei-protocol/sei-db.git
-cd sei-db/tools
-make install
-systemctl stop seid
-seidb dump-iavl -d ~/.sei/data/committer.db -o /home/ubuntu/iavl-dump
-systemctl restart seid
-
-# For Legacy IAVL DB:
-seid debug dump-iavl <latest height>
-```
-
-Always include the app hash, commit hash, and block height from your logs when reporting issues.
-
-#### Crash and Panic Debugging
-
-For crashes, panics, or nil pointer exceptions:
-
-- Capture at least 1,000 lines of logs leading up to the crash
-- Or collect 15 minutes of log data, whichever provides more context
-- Include the full stack trace if available
-
-### Logging Configuration
-
-Proper logging configuration is essential for debugging and monitoring:
-
-```toml copy
-# In config.toml
-# Set appropriate log level
-log_level = "debug"  # Use "trace" for maximum detail
-
-# Choose log format
-log_format = "json"  # Use "plain" for human-readable logs
-```
-
-Configure log rotation to manage storage effectively:
-
-```bash copy
-# Example logrotate configuration
-sudo tee /etc/logrotate.d/seid << EOF
-/var/log/seid/*.log {
-    daily
-    rotate 14
-    compress
-    delaycompress
-    notifempty
-    create 0640 sei sei
-    sharedscripts
-    postrotate
-        systemctl reload seid
-    endscript
-}
-EOF
-```
-
-Enable core dumps for crash analysis:
-
-```bash copy
-# Set unlimited core dump size
-ulimit -c unlimited
-
-# Configure core dump location
-echo "/tmp/core.%e.%p" > /proc/sys/kernel/core_pattern
-```
-
 ## Recovery Procedures
 
 ### Critical Warning: Double-Signing Prevention
 
-Double-signing is a severe violation that results in permanent validator tombstoning (irreversible jailing). Never run your validator keys on more than one machine simultaneously. If your primary validator goes offline:
+<Callout emoji="‼" type="error">
+  Double-signing is a severe violation that results in permanent validator tombstoning (irreversible jailing).
+</Callout>
+
+Never run your validator keys on more than one machine simultaneously. If your primary validator goes offline:
 
 1. DO NOT start another validator with the same keys
 2. Either recover the original machine or properly migrate keys with absolute certainty the original is offline

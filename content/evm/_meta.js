@@ -36,8 +36,8 @@ export default {
 		}
 	},
 	'solidity-resources': 'Solidity Resources',
+	'debug-tracing': 'Debug Tracing',
 	'evm-verify-contracts': 'Verify Contracts',
-	'nft-contract-tutorial': 'ERC721 (NFT) Contracts',
 	precompiles: 'Precompiles',
 
 	'-- Ecosystem Tutorials': {

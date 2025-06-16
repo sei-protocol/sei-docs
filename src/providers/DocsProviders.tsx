@@ -26,6 +26,14 @@ export default function DocsProviders({ children, pageMap }) {
 						<div className='flex-grow flex justify-start'>
 							<AskCookbook />
 						</div>
+						<a
+							href='https://support.sei.io/hc/en-us'
+							target='_blank'
+							rel='noopener noreferrer'
+							className='text-sm hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors'
+							style={{ textDecoration: 'none' }}>
+							Support
+						</a>
 						<Search placeholder='Search docs...' />
 						{isHomepage && <ThemeSwitch />}
 					</div>
@@ -45,8 +53,8 @@ export default function DocsProviders({ children, pageMap }) {
 			search={null}
 			nextThemes={{ attribute: 'class' }}
 			pageMap={pageMap}>
+			<ConditionalNavbar />
 			<Theme accentColor='red' grayColor='gray' scaling='100%'>
-				<ConditionalNavbar />
 				{children}
 			</Theme>
 		</Layout>

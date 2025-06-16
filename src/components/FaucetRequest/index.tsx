@@ -5,7 +5,7 @@ import { Button, Flex, Select } from '@radix-ui/themes';
 import { toast } from 'sonner';
 import { IconDroplet, IconShieldCheck, IconHourglass, IconCheck, IconLoader2, IconWorld } from '@tabler/icons-react';
 import { isAddress } from 'viem';
-import { isValidSeiCosmosAddress } from '@sei-js/cosmjs';
+import { isValidSeiCosmosAddress } from '../../utils/sei-utils';
 import HCaptcha from '@hcaptcha/react-hcaptcha';
 import { sendGAEvent } from '@next/third-parties/google';
 
@@ -123,7 +123,9 @@ const RequestFaucetCard = () => {
 					</Select.Trigger>
 					<Select.Content className='bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 text-lg rounded-md shadow-lg'>
 						<Select.Item value='atlantic-2'>Testnet (atlantic-2)</Select.Item>
-						<Select.Item value='arctic-1'>Devnet (arctic-1)</Select.Item>
+						{
+							//<Select.Item value='arctic-1'>Devnet (arctic-1)</Select.Item>
+						}
 					</Select.Content>
 				</Select.Root>
 			</div>

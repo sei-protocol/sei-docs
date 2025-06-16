@@ -27,6 +27,12 @@ export default {
 	},
 	oracles: 'Oracle System Overview',
 	'oracle-security': 'Security & Spam Prevention',
+	
+  '-- AI Tools': {
+		type: 'separator',
+		title: 'AI Tools'
+	},
+	'mcp-server': 'MCP Server',
 
 	'-- Platform Architecture': {
 		type: 'separator',

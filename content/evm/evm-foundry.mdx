@@ -1,48 +1,369 @@
 ---
-title: "Sei EVM Smart Contract Development with Foundry"
-description: "Learn how to develop, test, and deploy smart contracts on Sei EVM using Foundry, with step-by-step examples of contract creation, testing, deployment, and interaction using both CLI and ethers.js."
-keywords: ["sei evm", "foundry", "forge", "smart contract", "web3 development"]
+title: 'Sei EVM Smart Contract Development with Foundry'
+description: 'Learn how to develop, test, and deploy smart contracts on Sei EVM using Foundry, with step-by-step examples of contract creation, testing, deployment, and interaction using both CLI and ethers.js.'
+keywords: ['sei evm', 'foundry', 'forge', 'smart contract', 'web3 development', 'nft', 'erc721', 'erc20']
 ---
+
+import { Tabs } from 'nextra/components';
+import { Callout } from 'nextra/components';
+import { IconAlertTriangle } from '@tabler/icons-react';
 
 # Sei EVM Smart Contract Development with Foundry
 
-Since Sei is an EVM compatible chain, existing EVM tooling like [foundry forge](https://book.getfoundry.sh/) or other could be re-used.
+This tutorial will guide you through setting up Foundry for Sei EVM development and using OpenZeppelin contracts to build secure, standardized smart contracts. We'll cover environment setup, contract creation, deployment, and show how to leverage OpenZeppelin's pre-built components with the powerful Foundry toolkit.
 
-In this example we will be using [foundry tooling](https://book.getfoundry.sh/).
+<Callout emoji="🚀" title="Deploy to Testnet First">
+  It is <strong>highly recommended</strong> that you deploy to <em>testnet (atlantic-2)</em> first and verify everything works as expected before committing to mainnet. Doing so helps you catch bugs early, avoid unnecessary gas costs, and keep your users safe.
+</Callout>
 
-Install the [foundry tooling](https://book.getfoundry.sh/) by following this [Installation guide](https://book.getfoundry.sh/getting-started/installation.html).
+## Table of Contents
 
-Create a new project following the [Creating New Project Guide](https://book.getfoundry.sh/projects/creating-a-new-project).
+- [Prerequisites](#prerequisites)
+- [Setting Up Your Development Environment](#setting-up-your-development-environment)
+- [Configuring Foundry for Sei EVM](#configuring-foundry-for-sei-evm)
+- [Using OpenZeppelin Contracts](#using-openzeppelin-contracts)
+- [Creating and Deploying Smart Contracts](#creating-and-deploying-smart-contracts)
+- [Testing Your Smart Contracts](#testing-your-smart-contracts)
+- [Deploying to Sei Testnet and Mainnet](#deploying-to-sei-testnet-and-mainnet)
+- [Interacting with Deployed Contracts](#interacting-with-deployed-contracts)
+- [Creating Pointer Contracts](#creating-pointer-contracts)
 
-Also make sure you have a wallet on Sei network.
+## Prerequisites
 
-Once project is created, tweak the contract code to the following, by adding a `getCounter` function:
+Before we begin, ensure you have the following:
 
-```solidity copy
+- [Foundry](https://book.getfoundry.sh/) installed on your system
+- A basic understanding of Solidity and smart contract development
+- A wallet with SEI tokens for gas fees
+- [Node.js](https://nodejs.org/) (v16.0.0 or later) for ethers.js interactions
+
+## Setting Up Your Development Environment
+
+First, let's install Foundry if you haven't already. Follow the [installation guide](https://book.getfoundry.sh/getting-started/installation) or use the quick install command:
+
+```bash copy
+curl -L https://foundry.paradigm.xyz | bash
+foundryup
+```
+
+Create a new Foundry project:
+
+```bash copy
+# Create a new directory for your project
+mkdir sei-foundry-project
+cd sei-foundry-project
+
+# Initialize a new Foundry project
+forge init --no-git
+
+# Initialize git repository (required for installing dependencies)
+git init
+```
+
+This will create a standard Foundry project structure with `src/`, `test/`, and `script/` directories.
+
+## Configuring Foundry for Sei EVM
+
+Create a `foundry.toml` file in your project root to configure Foundry for Sei networks:
+
+```toml copy filename="foundry.toml"
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+solc_version = "0.8.28"
+optimizer = true
+optimizer_runs = 200
+
+# Sei testnet configuration
+[rpc_endpoints]
+sei_testnet = "https://evm-rpc-testnet.sei-apis.com"
+sei_mainnet = "https://evm-rpc.sei-apis.com"
+```
+
+Create a `.env` file to store your private key and other sensitive information:
+
+```bash copy filename=".env"
+PRIVATE_KEY=your_private_key_here
+SEI_TESTNET_RPC=https://evm-rpc-testnet.sei-apis.com
+SEI_MAINNET_RPC=https://evm-rpc.sei-apis.com
+```
+
+<div className="mt-4 mb-8">
+  <Callout type="warning" emoji={<IconAlertTriangle className="h-5 w-5 mt-1" />}>
+    Add `.env` to your `.gitignore` file to prevent committing sensitive information such as your `PRIVATE_KEY` and potentially lose funds.
+  </Callout>
+</div>
+
+## Using OpenZeppelin Contracts
+
+OpenZeppelin provides a library of secure, tested smart contract components. Let's install OpenZeppelin contracts:
+
+```bash copy
+forge install OpenZeppelin/openzeppelin-contracts --no-commit
+```
+
+Create a `remappings.txt` file to properly map the imports:
+
+```bash copy
+forge remappings > remappings.txt
+```
+
+## Creating and Deploying Smart Contracts
+
+Let's create different types of smart contracts. Choose from the tabs below based on what you want to build:
+
+<Tabs items={['Counter Contract', 'ERC20 Token', 'ERC721 NFT']}>
+  <Tabs.Tab>
+
+Let's start with a simple counter contract. Update the default `src/Counter.sol` file:
+
+```solidity copy filename="src/Counter.sol"
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.22;
 
 contract Counter {
     uint256 public number;
+    address public owner;
+
+    event NumberChanged(uint256 newNumber, address changedBy);
+
+    constructor() {
+        owner = msg.sender;
+    }
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only owner can call this function");
+        _;
+    }
 
     function setNumber(uint256 newNumber) public {
         number = newNumber;
+        emit NumberChanged(newNumber, msg.sender);
     }
 
     function increment() public {
         number++;
+        emit NumberChanged(number, msg.sender);
     }
 
     function getCount() public view returns (uint256) {
         return number;
     }
-}
 
+    function reset() public onlyOwner {
+        number = 0;
+        emit NumberChanged(0, msg.sender);
+    }
+}
 ```
 
-And the test code to the following:
+Create a deployment script in `script/DeployCounter.s.sol`:
 
-```solidity copy
+```solidity copy filename="script/DeployCounter.s.sol"
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.22;
+
+import {Script} from "forge-std/Script.sol";
+import {Counter} from "../src/Counter.sol";
+
+contract DeployCounter is Script {
+    function run() external returns (Counter) {
+        vm.startBroadcast();
+        Counter counter = new Counter();
+        vm.stopBroadcast();
+        return counter;
+    }
+}
+```
+
+  </Tabs.Tab>
+  <Tabs.Tab>
+
+Create an ERC20 token using OpenZeppelin. Create `src/SeiToken.sol`:
+
+```solidity copy filename="src/SeiToken.sol"
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.22;
+
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+contract SeiToken is ERC20, Ownable {
+    constructor(address initialOwner)
+        ERC20("Sei Token", "SEI")
+        Ownable(initialOwner)
+    {
+        // Mint 1 million tokens to the contract deployer (with 18 decimals)
+        _mint(msg.sender, 1000000 * 10 ** decimals());
+    }
+
+    // Function to mint new tokens (only owner)
+    function mint(address to, uint256 amount) public onlyOwner {
+        _mint(to, amount);
+    }
+
+    // Function to burn tokens
+    function burn(uint256 amount) public {
+        _burn(msg.sender, amount);
+    }
+
+    // Function to burn tokens from another account (with allowance)
+    function burnFrom(address from, uint256 amount) public {
+        _spendAllowance(from, msg.sender, amount);
+        _burn(from, amount);
+    }
+}
+```
+
+Create a deployment script in `script/DeploySeiToken.s.sol`:
+
+```solidity copy filename="script/DeploySeiToken.s.sol"
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.22;
+
+import {Script} from "forge-std/Script.sol";
+import {SeiToken} from "../src/SeiToken.sol";
+
+contract DeploySeiToken is Script {
+    function run() external returns (SeiToken) {
+        vm.startBroadcast();
+        SeiToken token = new SeiToken(msg.sender);
+        vm.stopBroadcast();
+        return token;
+    }
+}
+```
+
+  </Tabs.Tab>
+  <Tabs.Tab>
+
+Create an ERC721 NFT contract using OpenZeppelin. Create `src/SeiNFT.sol`:
+
+```solidity copy filename="src/SeiNFT.sol"
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.22;
+
+import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+contract SeiNFT is ERC721, ERC721Enumerable, ERC721URIStorage, Ownable {
+    uint256 private _nextTokenId;
+    string private _baseTokenURI;
+
+    constructor(address initialOwner, string memory baseTokenURI)
+        ERC721("Sei NFT Collection", "SEINFT")
+        Ownable(initialOwner)
+    {
+        _baseTokenURI = baseTokenURI;
+    }
+
+    // Function to update the base URI (only owner)
+    function setBaseURI(string memory baseTokenURI) public onlyOwner {
+        _baseTokenURI = baseTokenURI;
+    }
+
+    // Override the baseURI function
+    function _baseURI() internal view override returns (string memory) {
+        return _baseTokenURI;
+    }
+
+    function safeMint(address to, string memory uri) public onlyOwner returns (uint256) {
+        uint256 tokenId = _nextTokenId++;
+        _safeMint(to, tokenId);
+        _setTokenURI(tokenId, uri);
+        return tokenId;
+    }
+
+    // Public mint function with a fee
+    function publicMint(string memory uri) public payable returns (uint256) {
+        require(msg.value >= 0.01 ether, "Insufficient payment");
+        uint256 tokenId = _nextTokenId++;
+        _safeMint(msg.sender, tokenId);
+        _setTokenURI(tokenId, uri);
+        return tokenId;
+    }
+
+    // Withdraw contract balance (only owner)
+    function withdraw() public onlyOwner {
+        uint256 balance = address(this).balance;
+        require(balance > 0, "No funds to withdraw");
+        payable(owner()).transfer(balance);
+    }
+
+    // The following functions are overrides required by Solidity
+    function _update(address to, uint256 tokenId, address auth)
+        internal
+        override(ERC721, ERC721Enumerable)
+        returns (address)
+    {
+        return super._update(to, tokenId, auth);
+    }
+
+    function _increaseBalance(address account, uint128 value)
+        internal
+        override(ERC721, ERC721Enumerable)
+    {
+        super._increaseBalance(account, value);
+    }
+
+    function tokenURI(uint256 tokenId)
+        public
+        view
+        override(ERC721, ERC721URIStorage)
+        returns (string memory)
+    {
+        return super.tokenURI(tokenId);
+    }
+
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        override(ERC721, ERC721Enumerable, ERC721URIStorage)
+        returns (bool)
+    {
+        return super.supportsInterface(interfaceId);
+    }
+}
+```
+
+Create a deployment script in `script/DeploySeiNFT.s.sol`:
+
+```solidity copy filename="script/DeploySeiNFT.s.sol"
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.22;
+
+import {Script} from "forge-std/Script.sol";
+import {SeiNFT} from "../src/SeiNFT.sol";
+
+contract DeploySeiNFT is Script {
+    function run() external returns (SeiNFT) {
+        string memory baseURI = "https://your-metadata-server.com/metadata/";
+
+        vm.startBroadcast();
+        SeiNFT nft = new SeiNFT(msg.sender, baseURI);
+        vm.stopBroadcast();
+
+        return nft;
+    }
+}
+```
+
+  </Tabs.Tab>
+</Tabs>
+
+## Testing Your Smart Contracts
+
+Foundry provides excellent testing capabilities. Let's create comprehensive tests for our contracts.
+
+<Tabs items={['Counter Tests', 'ERC20 Tests', 'ERC721 Tests']}>
+  <Tabs.Tab>
+
+Update `test/Counter.t.sol`:
+
+```solidity copy filename="test/Counter.t.sol"
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.22;
 
@@ -51,8 +372,12 @@ import {Counter} from "../src/Counter.sol";
 
 contract CounterTest is Test {
     Counter public counter;
+    address public owner;
+    address public user;
 
     function setUp() public {
+        owner = address(this);
+        user = address(0x1);
         counter = new Counter();
         counter.setNumber(0);
     }
@@ -62,9 +387,9 @@ contract CounterTest is Test {
         assertEq(counter.number(), 1);
     }
 
-    function testFuzz_SetNumber(uint256 x) public {
-        counter.setNumber(x);
-        assertEq(counter.number(), x);
+    function test_SetNumber() public {
+        counter.setNumber(42);
+        assertEq(counter.number(), 42);
     }
 
     function test_GetCount() public {
@@ -72,125 +397,279 @@ contract CounterTest is Test {
         counter.increment();
         assertEq(counter.getCount(), initialCount + 1);
     }
+
+    function test_Reset() public {
+        counter.setNumber(100);
+        counter.reset();
+        assertEq(counter.number(), 0);
+    }
+
+    function test_OnlyOwnerCanReset() public {
+        vm.prank(user);
+        vm.expectRevert("Only owner can call this function");
+        counter.reset();
+    }
+
+    function test_EventEmitted() public {
+        vm.expectEmit(true, true, false, true);
+        emit Counter.NumberChanged(42, address(this));
+        counter.setNumber(42);
+    }
+
+    function testFuzz_SetNumber(uint256 x) public {
+        counter.setNumber(x);
+        assertEq(counter.number(), x);
+    }
 }
 ```
 
-Run the tests with the following command:
+  </Tabs.Tab>
+  <Tabs.Tab>
 
-```bash copy
-$ forge test
+Create `test/SeiToken.t.sol`:
+
+```solidity copy filename="test/SeiToken.t.sol"
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.22;
+
+import {Test} from "forge-std/Test.sol";
+import {SeiToken} from "../src/SeiToken.sol";
+
+contract SeiTokenTest is Test {
+    SeiToken public token;
+    address public owner;
+    address public user1;
+    address public user2;
+
+    function setUp() public {
+        owner = address(this);
+        user1 = address(0x1);
+        user2 = address(0x2);
+        token = new SeiToken(owner);
+    }
+
+    function test_InitialSupply() public {
+        assertEq(token.totalSupply(), 1000000 * 10 ** 18);
+        assertEq(token.balanceOf(owner), 1000000 * 10 ** 18);
+    }
+
+    function test_Transfer() public {
+        token.transfer(user1, 1000);
+        assertEq(token.balanceOf(user1), 1000);
+        assertEq(token.balanceOf(owner), 1000000 * 10 ** 18 - 1000);
+    }
+
+    function test_Mint() public {
+        token.mint(user1, 500);
+        assertEq(token.balanceOf(user1), 500);
+        assertEq(token.totalSupply(), 1000000 * 10 ** 18 + 500);
+    }
+
+    function test_Burn() public {
+        token.burn(1000);
+        assertEq(token.totalSupply(), 1000000 * 10 ** 18 - 1000);
+    }
+
+    function test_OnlyOwnerCanMint() public {
+        vm.prank(user1);
+        vm.expectRevert();
+        token.mint(user2, 1000);
+    }
+}
 ```
 
-If tests pass, deploy the contract to the Sei chain with the following command:
+  </Tabs.Tab>
+  <Tabs.Tab>
 
-```bash copy
-$ forge create --rpc-url $SEI_NODE_URI --mnemonic $MNEMONIC src/Counter.sol:Counter --broadcast
+Create `test/SeiNFT.t.sol`:
+
+```solidity copy filename="test/SeiNFT.t.sol"
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.22;
+
+import {Test} from "forge-std/Test.sol";
+import {SeiNFT} from "../src/SeiNFT.sol";
+
+contract SeiNFTTest is Test {
+    SeiNFT public nft;
+    address public owner;
+    address public user1;
+    string public baseURI = "https://example.com/metadata/";
+
+    function setUp() public {
+        owner = address(this);
+        user1 = address(0x1);
+        nft = new SeiNFT(owner, baseURI);
+    }
+
+    function test_SafeMint() public {
+        uint256 tokenId = nft.safeMint(user1, "1.json");
+        assertEq(nft.ownerOf(tokenId), user1);
+        assertEq(nft.tokenURI(tokenId), string(abi.encodePacked(baseURI, "1.json")));
+    }
+
+    function test_PublicMint() public {
+        vm.deal(user1, 1 ether);
+        vm.prank(user1);
+        uint256 tokenId = nft.publicMint{value: 0.01 ether}("2.json");
+        assertEq(nft.ownerOf(tokenId), user1);
+    }
+
+    function test_PublicMintInsufficientPayment() public {
+        vm.deal(user1, 0.005 ether);
+        vm.prank(user1);
+        vm.expectRevert("Insufficient payment");
+        nft.publicMint{value: 0.005 ether}("3.json");
+    }
+
+    function test_TotalSupply() public {
+        assertEq(nft.totalSupply(), 0);
+        nft.safeMint(user1, "1.json");
+        assertEq(nft.totalSupply(), 1);
+    }
+
+    function test_Withdraw() public {
+        vm.deal(user1, 1 ether);
+        vm.prank(user1);
+        nft.publicMint{value: 0.01 ether}("1.json");
+
+        uint256 contractBalance = address(nft).balance;
+        assertEq(contractBalance, 0.01 ether);
+
+        nft.withdraw();
+        assertEq(address(nft).balance, 0);
+    }
+}
 ```
 
-Where `$SEI_NODE_URI` is the URI of the Sei node and `$MNEMONIC` is the mnemonic of the account that will deploy the contract. If you run local Sei node, the address will be `http://localhost:8545` , otherwise you could grab a `evm_rpc` url from the [registry](https://github.com/sei-protocol/chain-registry/blob/main/chains.json). If deployment is successful, you will get the EVM contract address in the output.
+  </Tabs.Tab>
+</Tabs>
+
+Run your tests with:
 
 ```bash copy
+forge test
+```
+
+For more verbose output:
+
+```bash copy
+forge test -vvv
+```
+
+## Deploying to Sei Testnet and Mainnet
+
+Now let's deploy our contracts to the Sei networks. You can use either Forge scripts or direct deployment commands.
+
+### Using Forge Scripts (Recommended)
+
+Deploy to Sei testnet:
+
+```bash copy
+forge script script/DeployCounter.s.sol --rpc-url $SEI_TESTNET_RPC --private-key $PRIVATE_KEY --broadcast
+```
+
+Deploy to Sei mainnet:
+
+```bash copy
+forge script script/DeployCounter.s.sol --rpc-url $SEI_MAINNET_RPC --private-key $PRIVATE_KEY --broadcast
+```
+
+### Using Direct Forge Create Commands
+
+Alternatively, you can deploy directly:
+
+```bash copy
+# Deploy Counter to testnet
+forge create --rpc-url $SEI_TESTNET_RPC --private-key $PRIVATE_KEY src/Counter.sol:Counter
+
+# Deploy SeiToken to testnet
+forge create --rpc-url $SEI_TESTNET_RPC --private-key $PRIVATE_KEY src/SeiToken.sol:SeiToken --constructor-args $(cast abi-encode "constructor(address)" "YOUR_ADDRESS")
+
+# Deploy SeiNFT to testnet
+forge create --rpc-url $SEI_TESTNET_RPC --private-key $PRIVATE_KEY src/SeiNFT.sol:SeiNFT --constructor-args $(cast abi-encode "constructor(address,string)" "YOUR_ADDRESS" "https://your-metadata-server.com/metadata/")
+```
+
+Successful deployment will output:
+
+```bash
 [⠒] Compiling...
 No files changed, compilation skipped
-Deployer: $0X_DEPLOYER_ADDRESS
-Deployed to: $0X_CONTRACT_ADDRESS
-Transaction hash: $0X_TX_HASH
+Deployer: 0xYOUR_DEPLOYER_ADDRESS
+Deployed to: 0xYOUR_CONTRACT_ADDRESS
+Transaction hash: 0xYOUR_TX_HASH
 ```
 
-Let's use the `cast` command to query the contract:
+## Interacting with Deployed Contracts
+
+Once deployed, you can interact with your contracts using Foundry's `cast` tool or ethers.js.
+
+### Using Cast Commands
 
 ```bash copy
-$ cast call $0X_CONTRACT_ADDRESS "getCount()(uint256)" --rpc-url $SEI_NODE_URI
+# Query the counter value
+cast call $CONTRACT_ADDRESS "getCount()(uint256)" --rpc-url $SEI_TESTNET_RPC
+
+# Increment the counter
+cast send $CONTRACT_ADDRESS "increment()" --private-key $PRIVATE_KEY --rpc-url $SEI_TESTNET_RPC
+
+# Set a specific number
+cast send $CONTRACT_ADDRESS "setNumber(uint256)" 42 --private-key $PRIVATE_KEY --rpc-url $SEI_TESTNET_RPC
+
+# Check ERC20 token balance
+cast call $TOKEN_ADDRESS "balanceOf(address)(uint256)" $YOUR_ADDRESS --rpc-url $SEI_TESTNET_RPC
+
+# Transfer ERC20 tokens
+cast send $TOKEN_ADDRESS "transfer(address,uint256)" $RECIPIENT_ADDRESS 1000 --private-key $PRIVATE_KEY --rpc-url $SEI_TESTNET_RPC
 ```
 
-The command should return `0` as the initial value of the counter.
+### Using ethers.js
 
-Now we can use the `cast` command to call the `increment` function:
+Create a Node.js script to interact with your deployed contracts:
 
-```bash copy
-$ cast send $0X_CONTRACT_ADDRESS "increment()" --mnemonic $MNEMONIC --rpc-url $SEI_NODE_URI
-```
-
-If command is successful, you will get the transaction hash and other info back.
-
-Now let's call the `getCount` function again and this case it should return `1`.
-
-```bash copy
-$ cast call $0X_CONTRACT_ADDRESS "getCount()(uint256)" --rpc-url $SEI_NODE_URI
-```
-
-> Foundry generates the ABI for the contract in the `out` folder. You can use this ABI to interact with the contract from other tools like `ethers.js` or `web3.js`.
-
-## Calling contract using ethers.js
-
-To call or query the contract from a frontend or a NodeJS script, you could use `ethers.js` like:
-
-```tsx copy
+```tsx copy filename="interact.js"
 import { ethers } from 'ethers';
 
-const privateKey = YOUR_PRIVATE_KEY;
-const evmRpcEndpoint = YOUR_EVM_RPC_ENDPOINT;
+const privateKey = process.env.PRIVATE_KEY;
+const evmRpcEndpoint = process.env.SEI_TESTNET_RPC;
 const provider = new ethers.JsonRpcProvider(evmRpcEndpoint);
 const signer = new ethers.Wallet(privateKey, provider);
 
-if (!signer) {
-    console.log('No signer found');
-    return;
-}
-const abi = [
- {
-      "type": "function",
-      "name": "setNumber",
-      "inputs": [
-        {
-          "name": "newNumber",
-          "type": "uint256",
-          "internalType": "uint256"
-        }
-      ],
-      "outputs": [],
-      "stateMutability": "nonpayable"
-    },
-    {
-        "type": "function",
-        "name": "getCount",
-        "inputs": [],
-        "outputs": [
-            {
-                "name": "",
-                "type": "int256",
-                "internalType": "int256"
-            }
-        ],
-        "stateMutability": "view"
-    },
-    {
-        "type": "function",
-        "name": "increment",
-        "inputs": [],
-        "outputs": [],
-        "stateMutability": "nonpayable"
-    }
-];
+// Counter contract interaction
+const counterAbi = ['function getCount() public view returns (uint256)', 'function increment() public', 'function setNumber(uint256 newNumber) public', 'event NumberChanged(uint256 newNumber, address changedBy)'];
 
-// Define the address of the deployed contract
-const contractAddress = `0X_CONTRACT_ADDRESS`;
+const counterAddress = 'YOUR_COUNTER_CONTRACT_ADDRESS';
+const counterContract = new ethers.Contract(counterAddress, counterAbi, signer);
 
-// Create a new instance of the ethers.js Contract object
-const contract = new ethers.Contract(contractAddress, abi, signer);
+// ERC20 token interaction
+const tokenAbi = ['function balanceOf(address owner) view returns (uint256)', 'function transfer(address to, uint256 amount) returns (bool)', 'function mint(address to, uint256 amount)', 'event Transfer(address indexed from, address indexed to, uint256 value)'];
 
-// Call the contract's functions
-async function getCount() {
-    const count = await contract.getCount();
-    console.log(count.toString());
+const tokenAddress = 'YOUR_TOKEN_CONTRACT_ADDRESS';
+const tokenContract = new ethers.Contract(tokenAddress, tokenAbi, signer);
+
+async function interactWithContracts() {
+  try {
+    // Counter interactions
+    console.log('Current count:', await counterContract.getCount());
+
+    const incrementTx = await counterContract.increment();
+    await incrementTx.wait();
+    console.log('Incremented! New count:', await counterContract.getCount());
+
+    // Token interactions
+    const balance = await tokenContract.balanceOf(signer.address);
+    console.log('Token balance:', ethers.formatEther(balance));
+
+    // Transfer tokens
+    const transferTx = await tokenContract.transfer('0xRecipientAddress', ethers.parseEther('100'));
+    await transferTx.wait();
+    console.log('Tokens transferred!');
+  } catch (error) {
+    console.error('Error:', error);
+  }
 }
 
-async function increment() {
-    const txResponse = await contract.increment();
-    const mintedTx = await txResponse.wait();
-    console.log(mintedTx);
-}
-
-await increment();
-await getCount();
+interactWithContracts();
 ```
+
+<Callout type="info">Foundry generates the ABI for contracts in the `out` folder. You can use this ABI to interact with contracts from other tools like `ethers.js` or `web3.js`.</Callout>

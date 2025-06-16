@@ -17,8 +17,9 @@ const withNextra = nextra({
 });
 
 export default withNextra({
+	productionBrowserSourceMaps: false,
 	images: {
-		unoptimized: true,
+		unoptimized: false,
 		contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
 		remotePatterns: [
 			{

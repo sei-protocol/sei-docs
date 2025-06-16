@@ -47,6 +47,14 @@ const rpcEndpoints: RpcEndpoint[] = [
 		rateLimit: '5 req/s'
 	},
 	{
+		url: 'https://seievm-rpc.polkachu.com',
+		type: 'public',
+		provider: 'Polkachu',
+		network: 'mainnet',
+		description: 'Community maintained RPC endpoint',
+		latency: 'Medium'
+	},
+	{
 		url: 'https://evm-rpc-testnet.sei-apis.com',
 		type: 'public',
 		provider: 'Sei Foundation',
@@ -60,6 +68,22 @@ const rpcEndpoints: RpcEndpoint[] = [
 		url: 'https://evm-rpc-testnet-sei.stingray.plus',
 		type: 'public',
 		provider: 'Staketab',
+		network: 'testnet',
+		description: 'Community maintained RPC endpoint',
+		latency: 'Medium'
+	},
+	{
+		url: 'https://seievm-testnet-rpc.polkachu.com',
+		type: 'public',
+		provider: 'Polkachu',
+		network: 'testnet',
+		description: 'Community maintained RPC endpoint',
+		latency: 'Medium'
+	},
+	{
+		url: 'https://sei-testnet.drpc.org',
+		type: 'public',
+		provider: 'dRPC',
 		network: 'testnet',
 		description: 'Community maintained RPC endpoint',
 		latency: 'Medium'
@@ -81,14 +105,6 @@ const rpcEndpoints: RpcEndpoint[] = [
 		description: 'Community maintained devnet RPC endpoint',
 		latency: 'Medium',
 		rateLimit: '10 req/s'
-	},
-	{
-		url: 'https://evm-rpc-devnet-sei.stingray.plus',
-		type: 'public',
-		provider: 'Staketab',
-		network: 'devnet',
-		description: 'Community maintained RPC endpoint',
-		latency: 'Medium'
 	},
 	{
 		url: 'http://localhost:8545',
