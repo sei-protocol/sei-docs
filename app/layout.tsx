@@ -12,13 +12,6 @@ import 'nextra-theme-docs/style.css';
 import './globals.css';
 import 'katex/dist/katex.min.css';
 
-/* ──────────────────────────────────────────────────────────
-   🔑  Global cache policy for everything under this layout
-   ──────────────────────────────────────────────────────────*/
-export const revalidate = 60; // never store in Next.js / Vercel edge cache
-export const dynamic = 'force-dynamic'; // force SSR on every request
-/* ──────────────────────────────────────────────────────────*/
-
 export const metadata: Metadata = {
 	title: {
 		default: 'Sei Documentation | Developer Guides & Resources',
