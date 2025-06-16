@@ -39,12 +39,36 @@ export default withNextra({
 			{
 				source: '/:path*',
 				headers: [
-					// For browsers - no caching
+					// Standard cache control - no caching
 					{ key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' },
-					// For CDNs that respect this header
-					{ key: 'CDN-Cache-Control', value: 'max-age=60' },
-					// Some CDNs use this instead
-					{ key: 'Surrogate-Control', value: 'max-age=60' }
+
+					// Older HTTP/1.0 caches
+					{ key: 'Pragma', value: 'no-cache' },
+
+					// Force expiration
+					{ key: 'Expires', value: '0' },
+
+					// CloudFront-specific headers
+					{ key: 'CloudFront-Cache-Control', value: 'no-cache, no-store' },
+
+					// Akamai/Fastly style
+					{ key: 'Surrogate-Control', value: 'no-store' },
+
+					// Another CDN variant
+					{ key: 'CDN-Cache-Control', value: 'no-cache' },
+
+					// Cloudflare
+					{ key: 'CF-Cache-Status', value: 'BYPASS' },
+
+					// Generic edge control
+					{ key: 'Edge-Control', value: 'no-store' },
+
+					// Force revalidation
+					{ key: 'ETag', value: `"${Date.now()}"` },
+					{ key: 'Last-Modified', value: new Date().toUTCString() },
+
+					// Vary on everything to break caching
+					{ key: 'Vary', value: '*' }
 				]
 			}
 		];
