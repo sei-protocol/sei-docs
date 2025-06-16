@@ -34,6 +34,19 @@ export default withNextra({
 			}
 		]
 	},
+	async headers() {
+		// Next.js header hook
+		return [
+			{
+				source: '/:path*', // every route in the site
+				headers: [
+					{ key: 'Cache-Control', value: 'public, s-maxage=1, must-revalidate' },
+					{ key: 'CDN-Cache-Control', value: 'public, s-maxage=60, stale-while-revalidate=30' },
+					{ key: 'Vercel-CDN-Cache-Control', value: 'public, s-maxage=1200' }
+				]
+			}
+		];
+	},
 	async redirects() {
 		return [
 			{
