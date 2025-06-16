@@ -35,14 +35,16 @@ export default withNextra({
 		]
 	},
 	async headers() {
-		// Next.js header hook
 		return [
 			{
-				source: '/:path*', // every route in the site
+				source: '/:path*',
 				headers: [
-					{ key: 'Cache-Control', value: 'public, max-age=0, s-maxage=0, must-revalidate' },
-					{ key: 'CDN-Cache-Control', value: 'public, s-maxage=60, stale-while-revalidate=30' },
-					{ key: 'Vercel-CDN-Cache-Control', value: 'public, s-maxage=1200' }
+					// For browsers - no caching
+					{ key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' },
+					// For CDNs that respect this header
+					{ key: 'CDN-Cache-Control', value: 'max-age=60' },
+					// Some CDNs use this instead
+					{ key: 'Surrogate-Control', value: 'max-age=60' }
 				]
 			}
 		];
