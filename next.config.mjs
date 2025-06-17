@@ -37,10 +37,10 @@ export default withNextra({
 	async headers() {
 		return [
 			{
-				source: '/:path*',
+				source: '/(.*)',
 				headers: [
 					// Standard cache control - no caching
-					{ key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' },
+					{ key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate, max-age=0' },
 
 					// Older HTTP/1.0 caches
 					{ key: 'Pragma', value: 'no-cache' },
@@ -48,23 +48,11 @@ export default withNextra({
 					// Force expiration
 					{ key: 'Expires', value: '0' },
 
-					// CloudFront-specific headers
-					{ key: 'CloudFront-Cache-Control', value: 'no-cache, no-store' },
-
-					// Akamai/Fastly style
+					// CDN cache control (Fastly, KeyCDN, etc.)
 					{ key: 'Surrogate-Control', value: 'no-store' },
 
-					// Another CDN variant
-					{ key: 'CDN-Cache-Control', value: 'no-cache' },
-
-					// Cloudflare
-					{ key: 'CF-Cache-Status', value: 'BYPASS' },
-
-					// Generic edge control
-					{ key: 'Edge-Control', value: 'no-store' },
-
-					// Force revalidation
-					{ key: 'ETag', value: `"${Date.now()}"` },
+					// Force revalidation with dynamic values
+					{ key: 'ETag', value: `"${Date.now()}-${Math.random()}"` },
 					{ key: 'Last-Modified', value: new Date().toUTCString() },
 
 					// Vary on everything to break caching
