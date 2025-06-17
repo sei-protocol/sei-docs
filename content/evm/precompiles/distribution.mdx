@@ -1,7 +1,7 @@
 ---
 title: 'Distribution Precompile'
-description: "Manage staking rewards through Sei's distribution precompile, allowing EVM applications to withdraw rewards, query accumulated rewards, and interact with the distribution module."
-keywords: ['distribution precompile', 'staking rewards', 'validator commissions', 'sei rewards', 'evm staking']
+description: "Manage staking rewards and validator commissions through Sei's distribution precompile. EVM applications can withdraw rewards, set withdrawal addresses, and interact with Cosmos SDK distribution functionality."
+keywords: ['distribution precompile', 'staking rewards', 'validator commissions', 'sei rewards', 'evm staking', 'cosmos distribution']
 ---
 
 import { Callout } from 'nextra/components';
@@ -10,100 +10,300 @@ import { Callout } from 'nextra/components';
 
 **Address**: `0x0000000000000000000000000000000000001007`
 
-This precompile enables EVM clients to withdraw staking rewards, manage withdrawal addresses, and query reward information.
+The distribution precompile provides EVM access to Cosmos SDK's distribution module. Smart contracts can manage staking rewards, validator commissions, and withdrawal addresses. This precompile is essential for DeFi applications that need to handle staking rewards programmatically.
 
-## Functions
+## Key Features
 
-### Transactions
+- **Reward Management**: Withdraw delegation rewards from validators
+- **Commission Handling**: Validators can withdraw earned commissions
+- **Batch Operations**: Withdraw from multiple validators efficiently
+- **Flexible Withdrawals**: Set custom withdrawal addresses
+- **Comprehensive Queries**: Access detailed reward information
 
-- `setWithdrawAddress`: Sets the EVM Address to withdraw funds to for the
-  account.
+## Interface Overview
 
-  ```solidity copy
-    /// Sets the withdrawal address for the caller's staking rewards.
-    /// The caller must have a valid associated Sei address.
-    /// @param withdrawAddr The EVM address where rewards should be sent.
-    /// @return success True if the withdrawal address was set successfully.
-    function setWithdrawAddress(
-        address withdrawAddr
-    ) external returns (bool success);
-  ```
+```solidity
+interface IDistr {
+    // Transaction Methods
+    function setWithdrawAddress(address withdrawAddr) external returns (bool);
+    function withdrawDelegationRewards(string memory validator) external returns (bool);
+    function withdrawMultipleDelegationRewards(string[] memory validators) external returns (bool);
+    function withdrawValidatorCommission(string memory validator) external returns (bool);
 
-- `withdrawDelegationRewards`: Withdraws delegation rewards from a specific validator.
-
-  ```solidity copy
-    /// Withdraws delegation rewards from a specific validator.
-    /// The caller must be a delegator to the specified validator.
-    /// @param validator The validator's Sei address (e.g., "seivaloper1...").
-    /// @return success True if rewards were withdrawn successfully.
-    function withdrawDelegationRewards(
-        string memory validator
-    ) external returns (bool success);
-  ```
-
-- `withdrawMultipleDelegationRewards`: Withdraws delegation rewards from multiple validators in a single transaction.
-
-```solidity copy
-  /// Withdraws delegation rewards from multiple validators in a single transaction.
-  /// More gas efficient than calling withdrawDelegationRewards multiple times.
-  /// @param validators Array of validator Sei addresses.
-  /// @return success True if all rewards were withdrawn successfully.
-  function withdrawMultipleDelegationRewards(
-        string[] memory validators
-  ) external returns (bool success);
+    // Query Methods
+    function rewards(address delegatorAddress) external view returns (Rewards);
+}
 ```
 
-- `withdrawValidatorCommission`: Withdraws validator commission (only callable by the validator operator).
+## Transaction Methods
 
-```solidity copy
-  /// Withdraws validator commission (only callable by the validator operator).
-  /// Only the validator operator can withdraw their commission.
-  /// @param validator The validator's Sei address (must match caller's validator).
-  /// @return success True if commission was withdrawn successfully.
-  function withdrawValidatorCommission(
-        string memory validator
-  ) external returns (bool success);
+### setWithdrawAddress
+
+Sets the withdrawal address for staking rewards. By default, rewards are sent to the delegator's address, but this can be customized.
+
+```solidity
+function setWithdrawAddress(address withdrawAddr) external returns (bool success);
 ```
 
-### Queries
+**Parameters:**
 
-- `rewards`: Gets all pending rewards for a delegator.
+- `withdrawAddr`: EVM address where future rewards should be sent
 
-```solidity copy
-  /// Represents a coin/token with amount, decimals, and denomination
-  struct Coin {
-      /// The amount of tokens (as a big integer)
-      uint256 amount;
-      /// Number of decimal places for display purposes
-      uint256 decimals;
-      /// Token denomination (e.g., "usei", "uatom")
-      string denom;
-  }
+**Gas Cost**: ~30,000 gas
 
-  /// Represents rewards from a specific validator
-  struct Reward {
-      /// Array of different coin types earned as rewards
-      Coin[] coins;
-      /// The validator's Sei address that generated these rewards
-      string validator_address;
-  }
+**Example:**
 
-  /// Aggregated rewards information for a delegator
-  struct Rewards {
-      /// Array of rewards from each validator
-      Reward[] rewards;
-      /// Total rewards summed across all validators
-      Coin[] total;
-  }
-
-  /// Gets all pending rewards for a delegator.
-  /// Returns rewards from all validators the address has delegated to.
-  /// @param delegatorAddress The EVM address of the delegator.
-  /// @return rewards Structured data containing all pending rewards.
-  /// Rewards are usually returned as decimals. To calculate the actual amount, divide the amount by decimals.
-  function rewards(
-      address delegatorAddress
-  ) external view returns (Rewards rewards);
+```solidity
+// Set rewards to go to a treasury contract
+bool success = DISTR_CONTRACT.setWithdrawAddress(0x742d35Cc6634C0532925a3b8D4C9db96590c6C8C);
+require(success, "Failed to set withdraw address");
 ```
 
-<Callout type="info">View the distribution precompile source code and the contract ABI [here](https://github.com/sei-protocol/sei-chain/tree/main/precompiles/distribution).</Callout>
+### withdrawDelegationRewards
+
+Withdraws accumulated rewards from a specific validator.
+
+```solidity
+function withdrawDelegationRewards(string memory validator) external returns (bool success);
+```
+
+**Parameters:**
+
+- `validator`: Sei validator address (e.g., "seivaloper1...")
+
+**Gas Cost**: ~50,000-80,000 gas (varies by reward amount)
+
+**Example:**
+
+```solidity
+string memory validator = "seivaloper1xyz...";
+bool success = DISTR_CONTRACT.withdrawDelegationRewards(validator);
+require(success, "Failed to withdraw rewards");
+```
+
+### withdrawMultipleDelegationRewards
+
+Efficiently withdraws rewards from multiple validators in a single transaction.
+
+```solidity
+function withdrawMultipleDelegationRewards(string[] memory validators) external returns (bool success);
+```
+
+**Parameters:**
+
+- `validators`: Array of Sei validator addresses
+
+**Gas Cost**: ~40,000 + (30,000 × number of validators)
+
+**Example:**
+
+```solidity
+string[] memory validators = new string[](3);
+validators[0] = "seivaloper1abc...";
+validators[1] = "seivaloper1def...";
+validators[2] = "seivaloper1ghi...";
+
+bool success = DISTR_CONTRACT.withdrawMultipleDelegationRewards(validators);
+require(success, "Failed to withdraw multiple rewards");
+```
+
+<Callout type="info">**Batch Efficiency**: Using `withdrawMultipleDelegationRewards` is significantly more gas-efficient than multiple individual calls, especially when withdrawing from 3+ validators.</Callout>
+
+### withdrawValidatorCommission
+
+Allows validators to withdraw their earned commission. Only callable by the validator operator.
+
+```solidity
+function withdrawValidatorCommission(string memory validator) external returns (bool success);
+```
+
+**Parameters:**
+
+- `validator`: Sei validator address (must match caller's validator)
+
+**Gas Cost**: ~60,000-90,000 gas
+
+**Example:**
+
+```solidity
+// Only works if caller is the validator operator
+string memory myValidator = "seivaloper1myvalidator...";
+bool success = DISTR_CONTRACT.withdrawValidatorCommission(myValidator);
+require(success, "Failed to withdraw commission");
+```
+
+<Callout type="warning">**Validator Only**: This method can only be called by the validator's operator address. Attempting to withdraw commission for a validator you don't operate will fail.</Callout>
+
+## Query Methods
+
+### rewards
+
+Retrieves comprehensive reward information for a delegator across all validators.
+
+```solidity
+function rewards(address delegatorAddress) external view returns (Rewards rewards);
+```
+
+**Data Structures:**
+
+```solidity
+struct Coin {
+    uint256 amount;    // Token amount (raw units)
+    uint256 decimals;  // Decimal places for display
+    string denom;      // Token denomination
+}
+
+struct Reward {
+    Coin[] coins;              // Reward coins from this validator
+    string validator_address;  // Validator's Sei address
+}
+
+struct Rewards {
+    Reward[] rewards;  // Per-validator breakdown
+    Coin[] total;      // Total rewards across all validators
+}
+```
+
+**Example:**
+
+```solidity
+Rewards memory userRewards = DISTR_CONTRACT.rewards(msg.sender);
+
+// Check total rewards
+for (uint i = 0; i < userRewards.total.length; i++) {
+    Coin memory coin = userRewards.total[i];
+    uint256 displayAmount = coin.amount / (10 ** coin.decimals);
+    // Process reward amount for coin.denom
+}
+
+// Check per-validator rewards
+for (uint i = 0; i < userRewards.rewards.length; i++) {
+    Reward memory reward = userRewards.rewards[i];
+    // Process rewards from reward.validator_address
+}
+```
+
+## Practical Examples
+
+### DeFi Yield Aggregator
+
+```solidity
+contract YieldAggregator {
+    IDistr constant DISTR = IDistr(0x0000000000000000000000000000000000001007);
+
+    mapping(address => string[]) public userValidators;
+
+    function harvestRewards() external {
+        string[] memory validators = userValidators[msg.sender];
+        require(validators.length > 0, "No validators to harvest from");
+
+        // Efficiently withdraw from all validators
+        bool success = DISTR.withdrawMultipleDelegationRewards(validators);
+        require(success, "Harvest failed");
+
+        // Additional logic to compound or distribute rewards
+    }
+
+    function checkPendingRewards(address user) external view returns (uint256 totalSei) {
+        Rewards memory rewards = DISTR.rewards(user);
+
+        for (uint i = 0; i < rewards.total.length; i++) {
+            if (keccak256(bytes(rewards.total[i].denom)) == keccak256(bytes("usei"))) {
+                totalSei = rewards.total[i].amount;
+                break;
+            }
+        }
+    }
+}
+```
+
+### Validator Commission Manager
+
+```solidity
+contract ValidatorManager {
+    IDistr constant DISTR = IDistr(0x0000000000000000000000000000000000001007);
+
+    string public validatorAddress;
+    address public treasury;
+
+    constructor(string memory _validator, address _treasury) {
+        validatorAddress = _validator;
+        treasury = _treasury;
+
+        // Set commission withdrawals to go to treasury
+        DISTR.setWithdrawAddress(treasury);
+    }
+
+    function withdrawCommission() external {
+        bool success = DISTR.withdrawValidatorCommission(validatorAddress);
+        require(success, "Commission withdrawal failed");
+    }
+}
+```
+
+## Error Handling
+
+Common error scenarios and how to handle them:
+
+```solidity
+contract SafeDistribution {
+    IDistr constant DISTR = IDistr(0x0000000000000000000000000000000000001007);
+
+    function safeWithdrawRewards(string memory validator) external returns (bool) {
+        // Check if there are rewards to withdraw first
+        Rewards memory rewards = DISTR.rewards(msg.sender);
+
+        bool hasRewards = false;
+        for (uint i = 0; i < rewards.rewards.length; i++) {
+            if (keccak256(bytes(rewards.rewards[i].validator_address)) ==
+                keccak256(bytes(validator))) {
+                hasRewards = rewards.rewards[i].coins.length > 0;
+                break;
+            }
+        }
+
+        if (!hasRewards) {
+            return false; // No rewards to withdraw
+        }
+
+        try DISTR.withdrawDelegationRewards(validator) returns (bool success) {
+            return success;
+        } catch {
+            return false; // Handle withdrawal failure gracefully
+        }
+    }
+}
+```
+
+## Gas Optimization Tips
+
+1. **Batch Operations**: Use `withdrawMultipleDelegationRewards` for multiple validators
+2. **Check Before Withdraw**: Query rewards first to avoid unnecessary transactions
+3. **Set Withdraw Address Once**: Avoid repeated `setWithdrawAddress` calls
+4. **Commission Timing**: Withdraw validator commission when amounts are substantial
+
+## Integration Patterns
+
+### Auto-Compounding Strategy
+
+```solidity
+// Automatically reinvest rewards back into staking
+function autoCompound() external {
+    // 1. Withdraw rewards
+    DISTR.withdrawMultipleDelegationRewards(getMyValidators());
+
+    // 2. Use staking precompile to re-delegate
+    // (Implementation depends on staking precompile integration)
+}
+```
+
+### Treasury Management
+
+```solidity
+// Route all rewards to a DAO treasury
+function setupTreasuryWithdrawals(address treasury) external onlyOwner {
+    DISTR.setWithdrawAddress(treasury);
+}
+```
+
+<Callout type="info">View the complete distribution precompile source code and ABI [here](https://github.com/sei-protocol/sei-chain/tree/main/precompiles/distribution).</Callout>
