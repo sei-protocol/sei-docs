@@ -12,7 +12,7 @@ import 'nextra-theme-docs/style.css';
 import './globals.css';
 import 'katex/dist/katex.min.css';
 
-export const revalidate = 0;
+export const revalidate = 1;
 
 export const metadata: Metadata = {
 	title: {
