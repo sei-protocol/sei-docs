@@ -1,7 +1,7 @@
 ---
-title: "Oracle System on Sei: Technical Overview and Architecture"
+title: 'Oracle System on Sei: Technical Overview and Architecture'
 description: "A comprehensive guide to Sei's native oracle module, including validator voting mechanisms, price aggregation, TWAP calculations, and integration patterns."
-keywords: ["oracle", "price feeds", "validator voting", "TWAP", "exchange rates", "DeFi infrastructure"]
+keywords: ['oracle', 'price feeds', 'validator voting', 'TWAP', 'exchange rates', 'DeFi infrastructure']
 ---
 
 import { AppCardsGridCategory } from '../../src/components';
@@ -40,7 +40,7 @@ graph TD
         A3[Kraken API]
         A4[Other CEXs]
     end
-    
+
     subgraph Validator Infrastructure
         B1[Oracle Feeder 1]
         B2[Oracle Feeder 2]
@@ -49,7 +49,7 @@ graph TD
         A1 & A2 & A3 & A4 --> B2
         A1 & A2 & A3 & A4 --> B3
     end
-    
+
     subgraph Sei Consensus Layer
         C[Oracle Module]
         D[Vote Aggregation]
@@ -60,7 +60,7 @@ graph TD
         D -->|Calculate Median| E
         E -->|Update History| F
     end
-    
+
     subgraph Consumers
         G[DeFi Protocols]
         H[Price Queries]
@@ -132,12 +132,13 @@ seid q oracle actives
 ```
 
 Example response:
+
 ```yaml
 actives:
-- uatom
-- ubtc  
-- ueth
-- usei
+  - uatom
+  - ubtc
+  - ueth
+  - usei
 ```
 
 ### Current Exchange Rates
@@ -149,15 +150,16 @@ seid q oracle exchange-rates
 ```
 
 Example response:
+
 ```yaml
 - denom: uatom
   oracle_exchange_rate:
-    exchange_rate: "10.813741474077133110"
-    last_update: "7809045"
+    exchange_rate: '10.813741474077133110'
+    last_update: '7809045'
 - denom: ubtc
   oracle_exchange_rate:
-    exchange_rate: "28378.473894707711800815"
-    last_update: "7806841"
+    exchange_rate: '28378.473894707711800815'
+    last_update: '7806841'
 ```
 
 ### Time-Weighted Average Prices (TWAP)
@@ -169,14 +171,15 @@ seid q oracle twaps $LOOKBACK_SECONDS
 ```
 
 Example with 300-second (5-minute) lookback:
+
 ```yaml
 oracle_twaps:
-- denom: uatom
-  lookback_seconds: "300"
-  twap: "10.820090685543308091"
-- denom: ubtc
-  lookback_seconds: "300"
-  twap: "28356.159567933482758461"
+  - denom: uatom
+    lookback_seconds: '300'
+    twap: '10.820090685543308091'
+  - denom: ubtc
+    lookback_seconds: '300'
+    twap: '28356.159567933482758461'
 ```
 
 ### Oracle Parameters
@@ -188,21 +191,23 @@ seid q oracle params
 ```
 
 Example response:
+
 ```yaml
 params:
-  lookback_duration: "3600"
-  min_valid_per_window: "0.050000000000000000"
-  reward_band: "0.020000000000000000"
-  slash_fraction: "0.000000000000000000"
-  slash_window: "201600"
-  vote_period: "2"
-  vote_threshold: "0.667000000000000000"
+  lookback_duration: '3600'
+  min_valid_per_window: '0.050000000000000000'
+  reward_band: '0.020000000000000000'
+  slash_fraction: '0.000000000000000000'
+  slash_window: '201600'
+  vote_period: '2'
+  vote_threshold: '0.667000000000000000'
   whitelist:
     - name: uatom
     - name: ueth
 ```
 
 Key parameters include:
+
 - `vote_period`: How often votes are aggregated (default: 2 blocks)
 - `vote_threshold`: Minimum voting power required for valid price (default: 66.7%)
 - `reward_band`: Acceptable deviation from weighted median for rewards (default: 2%)
@@ -241,10 +246,10 @@ interface IOracle {
 
 contract PriceConsumer {
     IOracle constant oracle = IOracle(0x0000000000000000000000000000000000001008);
-    
+
     function getPrice(string memory denom) external view returns (string memory) {
         IOracle.DenomOracleExchangeRatePair[] memory rates = oracle.getExchangeRates();
-        
+
         for (uint i = 0; i < rates.length; i++) {
             if (keccak256(bytes(rates[i].denom)) == keccak256(bytes(denom))) {
                 return rates[i].oracleExchangeRateVal.exchangeRate;
@@ -255,62 +260,27 @@ contract PriceConsumer {
 }
 ```
 
-### For CosmWasm Contracts
-
-Query oracle prices using Sei's custom bindings:
-
-```rust
-use cosmwasm_std::{Deps, StdResult, StdError, Decimal};
-use sei_cosmwasm::{SeiQuerier, SeiQueryWrapper};
-
-pub fn query_exchange_rate(
-    deps: Deps<SeiQueryWrapper>,
-    denom: String,
-) -> StdResult<Decimal> {
-    let querier = SeiQuerier::new(&deps.querier);
-    let rates_response = querier.query_exchange_rates()?;
-    
-    rates_response
-        .denom_oracle_exchange_rate_pairs
-        .iter()
-        .find(|pair| pair.denom == denom)
-        .map(|pair| pair.oracle_exchange_rate.exchange_rate)
-        .ok_or_else(|| StdError::generic_err("Denom not found"))
-}
-
-pub fn query_twap(
-    deps: Deps<SeiQueryWrapper>,
-    denom: String,
-    lookback_seconds: u64,
-) -> StdResult<Decimal> {
-    let querier = SeiQuerier::new(&deps.querier);
-    let twaps_response = querier.query_oracle_twaps(lookback_seconds)?;
-    
-    twaps_response
-        .oracle_twaps
-        .iter()
-        .find(|twap| twap.denom == denom)
-        .map(|twap| twap.twap)
-        .ok_or_else(|| StdError::generic_err("TWAP not found for denom"))
-}
-```
-
 ## Best Practices
 
 <Callout type="info">
-**For Validators:**
-- Run redundant price sources with fallback logic
-- Monitor feeder health and submission success rate
-- Use volume-weighted aggregation for more accurate prices
-- Implement circuit breakers for extreme price movements
+<strong>For Validators:</strong>
+<ul>
+  <li>Run redundant price sources with fallback logic</li>
+  <li>Monitor feeder health and submission success rate</li>
+  <li>Use volume-weighted aggregation for more accurate prices</li>
+  <li>Implement circuit breakers for extreme price movements</li>
+</ul>
+
 </Callout>
 
 <Callout type="warning">
-**For DeFi Protocols:**
-- Always use TWAP for liquidation calculations
-- Implement staleness checks before using prices
-- Handle missing prices gracefully with fallbacks
-- Consider multiple oracle sources for critical operations
+  <strong>For DeFi Protocols:</strong>
+  <ul>
+    <li>Always use TWAP for liquidation calculations</li>
+    <li>Implement staleness checks before using prices</li>
+    <li>Handle missing prices gracefully with fallbacks</li>
+    <li>Consider multiple oracle sources for critical operations</li>
+  </ul>
 </Callout>
 
 ## Troubleshooting
