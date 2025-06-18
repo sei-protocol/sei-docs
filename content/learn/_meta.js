@@ -19,7 +19,13 @@ export default {
 	explorers: 'Block Explorers',
 	faucet: 'Faucet',
 	indexers: 'Indexers',
-	oracles: 'Oracles',
+
+	'-- Oracles': {
+		type: 'separator',
+		title: 'Oracles'
+	},
+	oracles: 'Oracle System Overview',
+	'oracle-security': 'Security & Spam Prevention',
 
 	'-- AI Tools': {
 		type: 'separator',
