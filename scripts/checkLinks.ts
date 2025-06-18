@@ -5,7 +5,8 @@ import * as fs from 'node:fs';
 // Custom exclusion list for URLs that should be skipped (blocked for robots, etc.)
 const EXCLUDED_URLS = [
 	// Add URLs or URL patterns that should be excluded
-	'https://etherscan.io/contractsVerified'
+	'https://etherscan.io/contractsVerified',
+	'https://www.getarculus.com/'
 ];
 
 // Function to check if a URL should be excluded
