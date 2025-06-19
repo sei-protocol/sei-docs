@@ -2,10 +2,6 @@ export default {
 	index: {
 		title: 'Home'
 	},
-	'-- Getting Started': {
-		type: 'separator',
-		title: 'Getting Started'
-	},
 	'-- Node Operations': {
 		type: 'separator',
 		title: 'Node Operations'
