@@ -10,6 +10,7 @@ export default {
 	troubleshooting: 'Troubleshooting',
 	swagger: 'API configuration',
 	statesync: 'Statesync',
+	snapshot: 'Snapshot Sync',
 	'node-types': 'Node Types',
 	validators: 'Validator Operations Guide',
 
