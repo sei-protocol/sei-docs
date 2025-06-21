@@ -7,11 +7,11 @@ export default {
 		title: 'Node Operations'
 	},
 	'node-operators': 'Overview',
-	troubleshooting: 'Troubleshooting',
-	swagger: 'API configuration',
 	statesync: 'Statesync',
 	snapshot: 'Snapshot Sync',
 	'node-types': 'Node Types',
+	troubleshooting: 'Troubleshooting',
+	swagger: 'API configuration',
 	validators: 'Validator Operations Guide',
 
 	'-- Advanced Operations': {
