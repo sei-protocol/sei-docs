@@ -36,7 +36,7 @@ export default {
 		}
 	},
 	'solidity-resources': 'Solidity Resources',
-	'debug-tracing': 'Debug Tracing',
+	tracing: 'Debug Tracing',
 	'evm-verify-contracts': 'Verify Contracts',
 	precompiles: 'Precompiles',
 
