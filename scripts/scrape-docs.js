@@ -499,6 +499,8 @@ async function launchBrowser() {
 	const chromium = require('@sparticuz/chromium');
 	// v137+: executablePath is *sync*; v135-: it’s a function.
 
+	process.env.AWS_EXECUTION_ENV = 'nodejs22.x';
+
 	chromium.setHeadlessMode = true; // optional tuning
 	chromium.setGraphicsMode = false; // optional tuning
 
