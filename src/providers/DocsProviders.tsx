@@ -2,7 +2,7 @@
 
 import { Layout, Navbar } from 'nextra-theme-docs';
 import { AskCookbook, Logo } from '../../src/components';
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Footer } from '../components/Footer/Footer';
 import { Theme } from '@radix-ui/themes';
 import { Search } from 'nextra/components';
@@ -10,6 +10,19 @@ import { ThemeSwitch } from 'nextra-theme-docs';
 import { usePathname } from 'next/navigation';
 
 export default function DocsProviders({ children, pageMap }) {
+	const [isMobile, setIsMobile] = useState(false);
+
+	useEffect(() => {
+		const checkIfMobile = () => {
+			setIsMobile(window.innerWidth < 768);
+		};
+
+		checkIfMobile();
+		window.addEventListener('resize', checkIfMobile);
+
+		return () => window.removeEventListener('resize', checkIfMobile);
+	}, []);
+
 	if (!pageMap) return <div className='bg-neutral-950 h-full w-full' />;
 
 	const ConditionalNavbar = () => {
@@ -53,8 +66,9 @@ export default function DocsProviders({ children, pageMap }) {
 			search={null}
 			nextThemes={{ attribute: 'class' }}
 			pageMap={pageMap}>
-			<ConditionalNavbar />
+			{isMobile && <ConditionalNavbar />}
 			<Theme accentColor='red' grayColor='gray' scaling='100%'>
+				{!isMobile && <ConditionalNavbar />}
 				{children}
 			</Theme>
 		</Layout>
