@@ -1,0 +1,344 @@
+---
+title: 'Debug Tracing Overview'
+description: 'Comprehensive guide to debugging and tracing EVM transactions on Sei. Learn to analyze transaction execution, optimize gas usage, and troubleshoot smart contracts with real examples and end-to-end workflows.'
+keywords: ['debug tracing', 'evm debugging', 'transaction analysis', 'gas optimization', 'sei tracing', 'blockchain debugging']
+---
+
+import { Callout, Tabs } from 'nextra/components';
+
+# Debug Tracing Overview
+
+## Requirements
+
+Install Ethers.js v6.14.4+:
+
+```bash
+npm install ethers@^6.14.4
+```
+
+All examples use modern ES6 modules and TypeScript patterns.
+
+Debug tracing is your primary tool for understanding EVM transaction execution on Sei. This comprehensive system allows you to analyze transaction flow, optimize gas usage, debug smart contract interactions, and troubleshoot production issues.
+
+## What You Can Trace
+
+### Transaction Execution
+
+- Step-by-step opcode execution
+- Contract call hierarchy
+- Gas consumption breakdown
+- State changes and storage access
+
+### Contract Interactions
+
+- Cross-contract calls and returns
+- Event emission analysis
+- Precompile usage tracking
+- External library calls
+
+### Performance Analysis
+
+- Gas optimization opportunities
+- Bottleneck identification
+- Cache hit/miss patterns
+- State access efficiency
+
+### Security Analysis
+
+- Suspicious operation detection
+- Reentrancy pattern analysis
+- Access control verification
+- Vulnerability scanning
+
+## Available Tracing Methods
+
+| Method                     | Purpose                    | Use Case                      |
+| -------------------------- | -------------------------- | ----------------------------- |
+| `debug_traceTransaction`   | Trace specific transaction | Debugging failed transactions |
+| `debug_traceBlockByNumber` | Trace entire block         | Block-level analysis          |
+| `debug_traceCall`          | Simulate and trace         | Testing before execution      |
+| `debug_traceStateAccess`   | State access patterns      | Performance optimization      |
+
+## Transaction Analysis Example
+
+Tracing an ERC-20 transfer transaction:
+
+<Tabs items={['Transaction Details', 'Basic Trace', 'Gas Analysis']}>
+<Tabs.Tab>
+```bash copy
+# Real transaction on Sei mainnet
+TRANSACTION_HASH="0x7c8b8f5e4d3c2a1b9e8f7d6c5a4b3e2d1c9b8a7f6e5d4c3b2a1f9e8d7c6b5a4"
+
+# Transaction details
+
+curl -X POST -H "Content-Type: application/json" \
+ --data '{
+"jsonrpc": "2.0",
+"method": "eth_getTransactionByHash",
+"params": ["'$TRANSACTION_HASH'"],
+"id": 1
+}' \
+ https://evm-rpc.sei-apis.com
+
+````
+
+**Response:**
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "hash": "0x7c8b8f5e4d3c2a1b9e8f7d6c5a4b3e2d1c9b8a7f6e5d4c3b2a1f9e8d7c6b5a4",
+    "from": "0x742d35Cc6634C0532925a3b8D4C9db96590c6C8C",
+    "to": "0xE30feDd158A2e3b13e9badaeABaFc5516e963441",
+    "value": "0x0",
+    "gas": "0x5208",
+    "gasPrice": "0x59682f00",
+    "input": "0xa9059cbb000000000000000000000000742d35cc6634c0532925a3b8d4c9db96590c6c8c0000000000000000000000000000000000000000000000000de0b6b3a7640000"
+  }
+}
+````
+
+</Tabs.Tab>
+<Tabs.Tab>
+```bash copy
+# Trace the transaction execution
+curl -X POST -H "Content-Type: application/json" \
+  --data '{
+    "jsonrpc": "2.0",
+    "method": "debug_traceTransaction",
+    "params": [
+      "'$TRANSACTION_HASH'",
+      {
+        "tracer": "callTracer",
+        "tracerConfig": {
+          "withLog": true
+        }
+      }
+    ],
+    "id": 1
+  }' \
+  https://evm-rpc.sei-apis.com
+```
+
+**Response:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "type": "CALL",
+    "from": "0x742d35cc6634c0532925a3b8d4c9db96590c6c8c",
+    "to": "0xe30fedd158a2e3b13e9badaeabafac5516e963441",
+    "value": "0x0",
+    "gas": "0x5208",
+    "gasUsed": "0x5208",
+    "input": "0xa9059cbb000000000000000000000000742d35cc6634c0532925a3b8d4c9db96590c6c8c0000000000000000000000000000000000000000000000000de0b6b3a7640000",
+    "output": "0x0000000000000000000000000000000000000000000000000000000000000001",
+    "logs": [
+      {
+        "address": "0xe30fedd158a2e3b13e9badaeabafac5516e963441",
+        "topics": ["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef", "0x000000000000000000000000742d35cc6634c0532925a3b8d4c9db96590c6c8c", "0x000000000000000000000000742d35cc6634c0532925a3b8d4c9db96590c6c8c"],
+        "data": "0x0000000000000000000000000000000000000000000000000de0b6b3a7640000"
+      }
+    ]
+  }
+}
+```
+
+</Tabs.Tab>
+<Tabs.Tab>
+```bash copy
+# Analyze gas usage patterns
+curl -X POST -H "Content-Type: application/json" \
+  --data '{
+    "jsonrpc": "2.0",
+    "method": "debug_traceTransaction",
+    "params": [
+      "'$TRANSACTION_HASH'",
+      {
+        "tracer": "'{
+          gasUsed: 0,
+          operations: {},
+          step: function(log, db) {
+            var op = log.op.toString();
+            var cost = log.getCost();
+            this.gasUsed += cost;
+            if (!this.operations[op]) {
+              this.operations[op] = { count: 0, totalGas: 0 };
+            }
+            this.operations[op].count++;
+            this.operations[op].totalGas += cost;
+          },
+          result: function(ctx, db) {
+            return {
+              totalGas: this.gasUsed,
+              operations: this.operations,
+              efficiency: this.gasUsed / ctx.gasUsed
+            };
+          }
+        }'"
+      }
+    ],
+    "id": 1
+  }' \
+  https://evm-rpc.sei-apis.com
+```
+
+**Response:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "totalGas": 21000,
+    "operations": {
+      "SLOAD": { "count": 3, "totalGas": 2100 },
+      "SSTORE": { "count": 2, "totalGas": 10000 },
+      "CALL": { "count": 1, "totalGas": 700 },
+      "LOG3": { "count": 1, "totalGas": 1875 }
+    },
+    "efficiency": 1.0
+  }
+}
+```
+
+</Tabs.Tab>
+</Tabs>
+
+## Debugging Failed Transactions
+
+Steps to analyze and resolve transaction failures:
+
+### Step 1: Identify the Problem
+
+```bash copy
+# Get transaction receipt
+FAILED_TX="0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+
+curl -X POST -H "Content-Type: application/json" \
+  --data '{
+    "jsonrpc": "2.0",
+    "method": "eth_getTransactionReceipt",
+    "params": ["'$FAILED_TX'"],
+    "id": 1
+  }' \
+  https://evm-rpc.sei-apis.com
+```
+
+### Step 2: Trace the Execution
+
+```bash copy
+# Trace to see where it failed
+curl -X POST -H "Content-Type: application/json" \
+  --data '{
+    "jsonrpc": "2.0",
+    "method": "debug_traceTransaction",
+    "params": [
+      "'$FAILED_TX'",
+      {
+        "tracer": "callTracer",
+        "tracerConfig": {
+          "withLog": true
+        }
+      }
+    ],
+    "id": 1
+  }' \
+  https://evm-rpc.sei-apis.com
+```
+
+### Step 3: Analyze State Access
+
+```bash copy
+# Check state access patterns
+curl -X POST -H "Content-Type: application/json" \
+  --data '{
+    "jsonrpc": "2.0",
+    "method": "debug_traceStateAccess",
+    "params": ["'$FAILED_TX'"],
+    "id": 1
+  }' \
+  https://evm-rpc.sei-apis.com
+```
+
+### Step 4: Fix and Test
+
+```bash copy
+# Simulate the fix with debug_traceCall
+curl -X POST -H "Content-Type: application/json" \
+  --data '{
+    "jsonrpc": "2.0",
+    "method": "debug_traceCall",
+    "params": [
+      {
+        "from": "0x742d35Cc6634C0532925a3b8D4C9db96590c6C8C",
+        "to": "0xE30feDd158A2e3b13e9badaeABaFc5516e963441",
+        "data": "0xa9059cbb000000000000000000000000742d35cc6634c0532925a3b8d4c9db96590c6c8c0000000000000000000000000000000000000000000000000de0b6b3a7640000",
+        "gas": "0x5208"
+      },
+      "latest",
+      {
+        "tracer": "callTracer"
+      }
+    ],
+    "id": 1
+  }' \
+  https://evm-rpc.sei-apis.com
+```
+
+## Common Debugging Scenarios
+
+### Transaction Reverted
+
+**Problem**: Transaction failed with revert
+**Solution**: Use `callTracer` to find the exact revert reason
+
+### Out of Gas
+
+**Problem**: Transaction ran out of gas
+**Solution**: Use gas analysis tracer to optimize gas usage
+
+### Unexpected Behavior
+
+**Problem**: Transaction succeeded but wrong result
+**Solution**: Use opcode tracer for step-by-step analysis
+
+### Slow Performance
+
+**Problem**: Transaction uses too much gas
+**Solution**: Use state access tracer to find inefficiencies
+
+## Quick Reference
+
+### Essential Commands
+
+```bash copy
+# Trace transaction
+debug_traceTransaction(hash, {tracer: "callTracer"})
+
+# Trace block
+debug_traceBlockByNumber("latest", {tracer: "callTracer"})
+
+# Simulate call
+debug_traceCall(tx, "latest", {tracer: "callTracer"})
+
+# State access
+debug_traceStateAccess(hash)
+```
+
+### Common Tracers
+
+- **`callTracer`**: Contract call hierarchy
+- **`opcodeTracer`**: Opcode-level execution
+- **Custom JS**: Custom analysis logic
+
+## Next Steps
+
+1. **[JavaScript Tracers](./javascript-tracers)** - Custom analysis scripts
+2. **[Complete Workflows](./end-to-end-examples)** - Real-world debugging scenarios
+3. **[Troubleshooting](./troubleshooting)** - Common issues and solutions
+
+<Callout type="info">Start with `callTracer` for general debugging, then use specialized tracers for specific analysis needs.</Callout>
