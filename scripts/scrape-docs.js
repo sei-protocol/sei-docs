@@ -495,8 +495,9 @@ async function startDevServer(port = 3001) {
 }
 
 async function launchBrowser() {
-	const puppeteer = require('puppeteer-core');
-	const chromium = require('@sparticuz/chromium');
+	const puppeteerCore = require('puppeteer-core');
+	const puppeteer = require('puppeteer');
+	const chromium = require('@sparticuz/chromium-min');
 	// v137+: executablePath is *sync*; v135-: it’s a function.
 
 	process.env.AWS_EXECUTION_ENV = 'nodejs22.x';
@@ -522,17 +523,19 @@ async function launchBrowser() {
 		'--single-process'
 	];
 
-	const exe = typeof chromium.executablePath === 'function' ? await chromium.executablePath() : chromium.executablePath;
-
-	if (!exe) throw new Error('Sparticuz Chromium binary not found - check version & deps');
-
-	return puppeteer.launch({
-		args: puppeteer.defaultArgs({ args: [...chromium.args, ...extraFlags], headless: 'shell' }),
-		executablePath: exe,
-		headless: 'shell', // required by v137+
-		defaultViewport: chromium.defaultViewport,
-		ignoreHTTPSErrors: true
-	});
+	if (process.env.NEXT_PUBLIC_VERCEL_ENVIRONMENT === 'production') {
+		browser = await puppeteerCore.launch({
+			args: chromium.args,
+			executablePath: await chromium.executablePath(remoteExecutablePath),
+			headless: true
+		});
+	} else {
+		browser = await puppeteer.launch({
+			args: extraFlags,
+			headless: true
+		});
+	}
+	return browser;
 }
 
 // Run the scraper
