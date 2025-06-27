@@ -1,4 +1,4 @@
-const puppeteer = require('puppeteer');
+const puppeteer = require('puppeteer-core');
 const fs = require('fs').promises;
 const path = require('path');
 const { URL } = require('url');
@@ -70,7 +70,7 @@ async function scrapeUrlsConcurrently(browser, urls, localBaseUrl, prodBaseUrl, 
 
 	// Use conservative processing settings optimized for performance
 	const batchSize = 3; // Smaller batches for better stability
-	const pauseTime = 3000; // Longer pauses for better reliability
+	const pauseTime = 500; // Longer pauses for better reliability
 
 	console.log(`📊 Using batch size: ${batchSize}, pause time: ${pauseTime}ms`);
 
@@ -87,8 +87,8 @@ async function scrapeUrlsConcurrently(browser, urls, localBaseUrl, prodBaseUrl, 
 				await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36');
 
 				// Set longer timeout for better reliability
-				page.setDefaultTimeout(90000); // 90 seconds
-				page.setDefaultNavigationTimeout(90000);
+				page.setDefaultTimeout(10000); // 90 seconds
+				page.setDefaultNavigationTimeout(10000);
 
 				const pageData = await scrapeSinglePage(page, url, localBaseUrl, prodBaseUrl);
 
@@ -495,72 +495,62 @@ async function startDevServer(port = 3001) {
 }
 
 async function launchBrowser() {
-	try {
-		// Try to use @sparticuz/chromium for optimized performance
-		const chromium = require('@sparticuz/chromium');
+	const isServerless = process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.VERCEL;
+	// ─── 1.   try Sparticuz Chromium (works only on AWS-Linux-2) ───
+	const chromium = require('@sparticuz/chromium');
 
-		// Configure chromium for optimal performance
-		chromium.setHeadlessMode = true;
+	chromium.setHeadlessMode = true; // always headless in Lambda
+	// chromium.setGraphicsMode = false; // uncomment to disable GPU compositing
 
-		// Keep graphics mode enabled for proper JS rendering (required for layout calculations)
-		// Optimize memory usage through other means
+	const extraFlags = [
+		'--no-sandbox',
+		'--disable-setuid-sandbox',
+		'--disable-dev-shm-usage',
+		'--window-size=1280x720',
+		'--memory-pressure-off',
+		'--max_old_space_size=4096',
+		'--disable-background-networking',
+		'--disable-default-apps',
+		'--disable-extensions',
+		'--disable-sync',
+		'--disable-translate',
+		'--hide-scrollbars',
+		'--mute-audio',
+		'--no-first-run',
+		'--safebrowsing-disable-auto-update',
+		'--single-process'
+	];
 
-		const args = [
-			...chromium.args,
-			'--no-sandbox',
-			'--disable-setuid-sandbox',
-			'--disable-dev-shm-usage',
-			'--window-size=1280x720', // Smaller viewport to save memory
-			'--memory-pressure-off',
-			'--max_old_space_size=4096',
-			'--disable-background-networking',
-			'--disable-default-apps',
-			'--disable-extensions',
-			'--disable-sync',
-			'--disable-translate',
-			'--hide-scrollbars',
-			'--mute-audio',
-			'--no-first-run',
-			'--safebrowsing-disable-auto-update',
-			'--single-process' // Use single process to reduce memory overhead
-		];
+	const chromiumExecutable =
+		typeof chromium.executablePath === 'function'
+			? await chromium.executablePath() // ≤ v135
+			: chromium.executablePath; // ≥ v136 (string or null)
 
-		return await puppeteer.launch({
-			args,
+	if (chromiumExecutable) {
+		const puppeteerCore = require('puppeteer-core');
+
+		return puppeteerCore.launch({
+			args: [...chromium.args, ...extraFlags],
 			defaultViewport: chromium.defaultViewport,
-			executablePath: await chromium.executablePath(),
+			executablePath: chromiumExecutable,
 			headless: chromium.headless,
 			ignoreHTTPSErrors: true
 		});
-	} catch (error) {
-		console.warn('⚠️  @sparticuz/chromium not available, falling back to regular puppeteer...');
-		console.warn('   Install @sparticuz/chromium for better performance: npm install @sparticuz/chromium');
-
-		// Fallback to regular puppeteer with optimized settings
-		try {
-			const fallbackArgs = [
-				'--no-sandbox',
-				'--disable-setuid-sandbox',
-				'--disable-dev-shm-usage',
-				'--window-size=1280x720',
-				'--memory-pressure-off',
-				'--disable-background-networking',
-				'--disable-default-apps',
-				'--disable-extensions',
-				'--disable-sync',
-				'--mute-audio',
-				'--single-process'
-			];
-
-			return await puppeteer.launch({
-				args: fallbackArgs,
-				headless: true,
-				ignoreHTTPSErrors: true
-			});
-		} catch (fallbackError) {
-			throw new Error(`Failed to launch browser: ${fallbackError.message}`);
-		}
 	}
+
+	// ─── 2.   local fallback: full Puppeteer with your own Chrome ───
+	console.warn('⚠️  Sparticuz Chromium not available on this platform; using full puppeteer instead.');
+
+	const puppeteer = require('puppeteer'); // downloads its own Chrome (or uses channel=chrome on >=22)
+
+	return puppeteer.launch({
+		args: extraFlags,
+		headless: true,
+		// fastest on puppeteer ≥22:  headless: 'new'
+		// If you already have Chrome installed and want to skip the download:
+		// channel: 'chrome',
+		ignoreHTTPSErrors: true
+	});
 }
 
 // Run the scraper
