@@ -495,12 +495,12 @@ async function startDevServer(port = 3001) {
 }
 
 async function launchBrowser() {
-	const isServerless = process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.VERCEL;
-	// ─── 1.   try Sparticuz Chromium (works only on AWS-Linux-2) ───
+	const puppeteer = require('puppeteer-core');
 	const chromium = require('@sparticuz/chromium');
+	// v137+: executablePath is *sync*; v135-: it’s a function.
 
-	chromium.setHeadlessMode = true; // always headless in Lambda
-	// chromium.setGraphicsMode = false; // uncomment to disable GPU compositing
+	chromium.setHeadlessMode = true; // optional tuning
+	chromium.setGraphicsMode = false; // optional tuning
 
 	const extraFlags = [
 		'--no-sandbox',
@@ -508,7 +508,6 @@ async function launchBrowser() {
 		'--disable-dev-shm-usage',
 		'--window-size=1280x720',
 		'--memory-pressure-off',
-		'--max_old_space_size=4096',
 		'--disable-background-networking',
 		'--disable-default-apps',
 		'--disable-extensions',
@@ -521,34 +520,15 @@ async function launchBrowser() {
 		'--single-process'
 	];
 
-	const chromiumExecutable =
-		typeof chromium.executablePath === 'function'
-			? await chromium.executablePath() // ≤ v135
-			: chromium.executablePath; // ≥ v136 (string or null)
+	const exe = typeof chromium.executablePath === 'function' ? await chromium.executablePath() : chromium.executablePath;
 
-	if (chromiumExecutable) {
-		const puppeteerCore = require('puppeteer-core');
-
-		return puppeteerCore.launch({
-			args: [...chromium.args, ...extraFlags],
-			defaultViewport: chromium.defaultViewport,
-			executablePath: chromiumExecutable,
-			headless: chromium.headless,
-			ignoreHTTPSErrors: true
-		});
-	}
-
-	// ─── 2.   local fallback: full Puppeteer with your own Chrome ───
-	console.warn('⚠️  Sparticuz Chromium not available on this platform; using full puppeteer instead.');
-
-	const puppeteer = require('puppeteer'); // downloads its own Chrome (or uses channel=chrome on >=22)
+	if (!exe) throw new Error('Sparticuz Chromium binary not found - check version & deps');
 
 	return puppeteer.launch({
-		args: extraFlags,
-		headless: true,
-		// fastest on puppeteer ≥22:  headless: 'new'
-		// If you already have Chrome installed and want to skip the download:
-		// channel: 'chrome',
+		args: puppeteer.defaultArgs({ args: [...chromium.args, ...extraFlags], headless: 'shell' }),
+		executablePath: exe,
+		headless: 'shell', // required by v137+
+		defaultViewport: chromium.defaultViewport,
 		ignoreHTTPSErrors: true
 	});
 }
