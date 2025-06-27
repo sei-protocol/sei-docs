@@ -28,10 +28,7 @@ async function scrapeSeiDocs() {
 
 		// Launch browser
 		console.log('🌐 Launching browser...');
-		const browser = await puppeteer.launch({
-			headless: true,
-			args: ['--no-sandbox', '--disable-setuid-sandbox']
-		});
+		const browser = await launchBrowser();
 
 		// Get all possible URLs from file structure
 		const allUrls = await generateUrlsFromFileStructure(localBaseUrl);
@@ -71,8 +68,12 @@ async function scrapeSeiDocs() {
 async function scrapeUrlsConcurrently(browser, urls, localBaseUrl, prodBaseUrl, scrapedPages) {
 	console.log(`🔄 Scraping ${urls.length} URLs with controlled concurrency`);
 
-	// Process URLs in batches to avoid overwhelming the server
-	const batchSize = 10; // Process 10 URLs at a time
+	// Use conservative processing settings optimized for performance
+	const batchSize = 3; // Smaller batches for better stability
+	const pauseTime = 3000; // Longer pauses for better reliability
+
+	console.log(`📊 Using batch size: ${batchSize}, pause time: ${pauseTime}ms`);
+
 	for (let i = 0; i < urls.length; i += batchSize) {
 		const batch = urls.slice(i, i + batchSize);
 		console.log(`📦 Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(urls.length / batchSize)} (${batch.length} URLs)`);
@@ -85,16 +86,25 @@ async function scrapeUrlsConcurrently(browser, urls, localBaseUrl, prodBaseUrl, 
 				await page.setViewport({ width: 1200, height: 800 });
 				await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36');
 
+				// Set longer timeout for better reliability
+				page.setDefaultTimeout(90000); // 90 seconds
+				page.setDefaultNavigationTimeout(90000);
+
 				const pageData = await scrapeSinglePage(page, url, localBaseUrl, prodBaseUrl);
 
 				if (pageData) {
 					scrapedPages.push(pageData);
-					console.log(`✅ Scraped: ${localBaseUrl}`);
+					console.log(`✅ Scraped: ${url}`);
 				}
 			} catch (error) {
 				console.warn(`⚠️  Failed to scrape ${url}:`, error.message);
 			} finally {
-				await page.close();
+				// Ensure page is properly closed
+				try {
+					await page.close();
+				} catch (closeError) {
+					console.warn(`⚠️  Error closing page: ${closeError.message}`);
+				}
 			}
 		});
 
@@ -118,11 +128,11 @@ async function scrapeSinglePage(page, url, localBaseUrl, prodBaseUrl) {
 
 	try {
 		await page.goto(url, {
-			waitUntil: 'domcontentloaded', // Less strict than networkidle0
-			timeout: 60000 // Increased timeout
+			waitUntil: 'networkidle0', // Faster loading for better performance
+			timeout: 30000 // Optimized timeout for reliability
 		});
 
-		// Wait for content to load and any dynamic rendering
+		// Wait for content to load
 		await new Promise((resolve) => setTimeout(resolve, 1000));
 
 		// Extract page content
@@ -482,6 +492,75 @@ async function startDevServer(port = 3001) {
 			}
 		}, 45000);
 	});
+}
+
+async function launchBrowser() {
+	try {
+		// Try to use @sparticuz/chromium for optimized performance
+		const chromium = require('@sparticuz/chromium');
+
+		// Configure chromium for optimal performance
+		chromium.setHeadlessMode = true;
+
+		// Keep graphics mode enabled for proper JS rendering (required for layout calculations)
+		// Optimize memory usage through other means
+
+		const args = [
+			...chromium.args,
+			'--no-sandbox',
+			'--disable-setuid-sandbox',
+			'--disable-dev-shm-usage',
+			'--window-size=1280x720', // Smaller viewport to save memory
+			'--memory-pressure-off',
+			'--max_old_space_size=4096',
+			'--disable-background-networking',
+			'--disable-default-apps',
+			'--disable-extensions',
+			'--disable-sync',
+			'--disable-translate',
+			'--hide-scrollbars',
+			'--mute-audio',
+			'--no-first-run',
+			'--safebrowsing-disable-auto-update',
+			'--single-process' // Use single process to reduce memory overhead
+		];
+
+		return await puppeteer.launch({
+			args,
+			defaultViewport: chromium.defaultViewport,
+			executablePath: await chromium.executablePath(),
+			headless: chromium.headless,
+			ignoreHTTPSErrors: true
+		});
+	} catch (error) {
+		console.warn('⚠️  @sparticuz/chromium not available, falling back to regular puppeteer...');
+		console.warn('   Install @sparticuz/chromium for better performance: npm install @sparticuz/chromium');
+
+		// Fallback to regular puppeteer with optimized settings
+		try {
+			const fallbackArgs = [
+				'--no-sandbox',
+				'--disable-setuid-sandbox',
+				'--disable-dev-shm-usage',
+				'--window-size=1280x720',
+				'--memory-pressure-off',
+				'--disable-background-networking',
+				'--disable-default-apps',
+				'--disable-extensions',
+				'--disable-sync',
+				'--mute-audio',
+				'--single-process'
+			];
+
+			return await puppeteer.launch({
+				args: fallbackArgs,
+				headless: true,
+				ignoreHTTPSErrors: true
+			});
+		} catch (fallbackError) {
+			throw new Error(`Failed to launch browser: ${fallbackError.message}`);
+		}
+	}
 }
 
 // Run the scraper
