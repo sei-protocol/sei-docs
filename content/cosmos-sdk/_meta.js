@@ -7,7 +7,6 @@ export default {
 		title: 'Essentials'
 	},
 	networks: 'Network Information',
-	'querying-state': 'Querying Blockchain State',
 
 	'-- Transactions': {
 		type: 'separator',
