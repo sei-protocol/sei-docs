@@ -2,20 +2,29 @@ const puppeteer = require('puppeteer');
 const fs = require('fs').promises;
 const path = require('path');
 const { URL } = require('url');
+const { spawn } = require('child_process');
+const net = require('net');
 
 async function scrapeSeiDocs() {
-	const baseUrl = 'http://localhost:3000';
-	const outputPath = './scraped-docs';
+	// Find an available port starting from 3001
+	const port = await findAvailablePort(3001);
+	const localBaseUrl = `http://localhost:${port}`;
+	const prodBaseUrl = 'https://docs.sei.io'; // Use production URL for final output
+	const outputPath = './public/_scraped-docs';
 	const visitedUrls = new Set();
 	const scrapedPages = [];
-	const concurrencyLimit = 5; // Number of parallel pages
+	let devServer = null;
 
 	try {
 		console.log('🚀 Starting documentation scraping...');
-		console.log('Make sure your dev server is running on http://localhost:3000');
 
 		// Ensure output directory exists
 		await fs.mkdir(outputPath, { recursive: true });
+
+		// Start dedicated server for scraping
+		console.log(`🌟 Starting dedicated server on port ${port}...`);
+		devServer = await startDevServer(port);
+		console.log('✅ Dedicated server is ready!');
 
 		// Launch browser
 		console.log('🌐 Launching browser...');
@@ -25,17 +34,17 @@ async function scrapeSeiDocs() {
 		});
 
 		// Get all possible URLs from file structure
-		const allUrls = await generateUrlsFromFileStructure(baseUrl);
+		const allUrls = await generateUrlsFromFileStructure(localBaseUrl);
 
 		// Add main sections to ensure they're included
-		const mainSections = [baseUrl, `${baseUrl}/learn`, `${baseUrl}/evm`, `${baseUrl}/cosmos-sdk`, `${baseUrl}/node`, `${baseUrl}`];
+		const mainSections = [`${localBaseUrl}/learn`, `${localBaseUrl}/evm`, `${localBaseUrl}/cosmos-sdk`, `${localBaseUrl}/node`, `${localBaseUrl}`];
 
 		// Combine and deduplicate URLs
 		const urlsToScrape = [...new Set([...mainSections, ...allUrls])];
 		console.log(`📋 Total URLs to scrape: ${urlsToScrape.length}`);
 
-		// Scrape URLs in parallel with controlled concurrency
-		await scrapeUrlsInParallel(browser, urlsToScrape, baseUrl, scrapedPages, concurrencyLimit);
+		// Scrape all URLs concurrently
+		await scrapeUrlsConcurrently(browser, urlsToScrape, localBaseUrl, prodBaseUrl, scrapedPages);
 
 		await browser.close();
 
@@ -48,25 +57,27 @@ async function scrapeSeiDocs() {
 	} catch (error) {
 		console.error('❌ Error scraping documentation:', error);
 		process.exit(1);
+	} finally {
+		// Clean up: stop the dedicated server
+		if (devServer) {
+			console.log('🛑 Stopping dedicated server...');
+			devServer.kill();
+			// Give it a moment to clean up
+			await new Promise((resolve) => setTimeout(resolve, 1000));
+		}
 	}
 }
 
-async function scrapeUrlsInParallel(browser, urls, baseUrl, scrapedPages, concurrencyLimit) {
-	const chunks = [];
+async function scrapeUrlsConcurrently(browser, urls, localBaseUrl, prodBaseUrl, scrapedPages) {
+	console.log(`🔄 Scraping ${urls.length} URLs with controlled concurrency`);
 
-	// Split URLs into chunks for controlled concurrency
-	for (let i = 0; i < urls.length; i += concurrencyLimit) {
-		chunks.push(urls.slice(i, i + concurrencyLimit));
-	}
+	// Process URLs in batches to avoid overwhelming the server
+	const batchSize = 10; // Process 10 URLs at a time
+	for (let i = 0; i < urls.length; i += batchSize) {
+		const batch = urls.slice(i, i + batchSize);
+		console.log(`📦 Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(urls.length / batchSize)} (${batch.length} URLs)`);
 
-	console.log(`🔄 Scraping ${urls.length} URLs in ${chunks.length} batches of ${concurrencyLimit}`);
-
-	for (let i = 0; i < chunks.length; i++) {
-		const chunk = chunks[i];
-		console.log(`📦 Processing batch ${i + 1}/${chunks.length} (${chunk.length} URLs)`);
-
-		// Create promises for this batch
-		const batchPromises = chunk.map(async (url) => {
+		const batchPromises = batch.map(async (url) => {
 			const page = await browser.newPage();
 
 			try {
@@ -74,10 +85,11 @@ async function scrapeUrlsInParallel(browser, urls, baseUrl, scrapedPages, concur
 				await page.setViewport({ width: 1200, height: 800 });
 				await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36');
 
-				const pageData = await scrapeSinglePage(page, url, baseUrl);
+				const pageData = await scrapeSinglePage(page, url, localBaseUrl, prodBaseUrl);
 
 				if (pageData) {
 					scrapedPages.push(pageData);
+					console.log(`✅ Scraped: ${localBaseUrl}`);
 				}
 			} catch (error) {
 				console.warn(`⚠️  Failed to scrape ${url}:`, error.message);
@@ -86,19 +98,19 @@ async function scrapeUrlsInParallel(browser, urls, baseUrl, scrapedPages, concur
 			}
 		});
 
-		// Wait for this batch to complete before starting the next
+		// Wait for current batch to complete before starting next batch
 		await Promise.all(batchPromises);
 
-		// Small delay between batches to be gentle on the server
-		if (i < chunks.length - 1) {
-			await new Promise((resolve) => setTimeout(resolve, 500));
+		// Brief pause between batches to let server breathe
+		if (i + batchSize < urls.length) {
+			await new Promise((resolve) => setTimeout(resolve, 2000));
 		}
 	}
 }
 
-async function scrapeSinglePage(page, url, baseUrl) {
+async function scrapeSinglePage(page, url, localBaseUrl, prodBaseUrl) {
 	// Skip if not a docs URL
-	if (!url.startsWith(baseUrl)) {
+	if (!url.startsWith(localBaseUrl)) {
 		return null;
 	}
 
@@ -106,12 +118,12 @@ async function scrapeSinglePage(page, url, baseUrl) {
 
 	try {
 		await page.goto(url, {
-			waitUntil: 'networkidle0',
-			timeout: 30000
+			waitUntil: 'domcontentloaded', // Less strict than networkidle0
+			timeout: 60000 // Increased timeout
 		});
 
-		// Wait for content to load
-		await new Promise((resolve) => setTimeout(resolve, 200));
+		// Wait for content to load and any dynamic rendering
+		await new Promise((resolve) => setTimeout(resolve, 1000));
 
 		// Extract page content
 		const pageData = await page.evaluate(() => {
@@ -153,16 +165,124 @@ async function scrapeSinglePage(page, url, baseUrl) {
 
 		// Only return pages with substantial content
 		if (pageData.content && pageData.content.length > 50) {
+			// Convert localhost URL to production URL
+			const prodUrl = url.replace(localBaseUrl, prodBaseUrl);
+
+			// Get original metadata from source file
+			const originalMetadata = await getOriginalMetadata(url, localBaseUrl);
+
 			return {
-				url,
-				title: pageData.title,
-				content: pageData.content
+				url: prodUrl,
+				title: originalMetadata?.title || pageData.title,
+				description: originalMetadata?.description || null,
+				keywords: originalMetadata?.keywords || null,
+				content: pageData.content,
+				originalMetadata
 			};
 		}
 
 		return null;
 	} catch (error) {
 		throw error;
+	}
+}
+
+async function getOriginalMetadata(url, localBaseUrl) {
+	try {
+		// Convert URL to file path
+		const urlPath = url.replace(localBaseUrl, '');
+		let filePath = path.join('./content', urlPath);
+
+		// Handle index files
+		if (urlPath === '' || urlPath === '/') {
+			filePath = './content/index.mdx';
+		} else if (!urlPath.includes('.')) {
+			// Try both direct file and index file
+			const directFile = filePath + '.mdx';
+			const indexFile = path.join(filePath, 'index.mdx');
+
+			// Check which file exists
+			try {
+				await fs.access(directFile);
+				filePath = directFile;
+			} catch {
+				try {
+					await fs.access(indexFile);
+					filePath = indexFile;
+				} catch {
+					return null; // No source file found
+				}
+			}
+		}
+
+		// Read the source file
+		const fileContent = await fs.readFile(filePath, 'utf8');
+
+		// Extract frontmatter
+		const frontmatterMatch = fileContent.match(/^---\n([\s\S]*?)\n---/);
+		if (!frontmatterMatch) {
+			return null; // No frontmatter found
+		}
+
+		const frontmatterContent = frontmatterMatch[1];
+		const metadata = {};
+
+		// Parse YAML-like frontmatter manually (basic parsing)
+		const lines = frontmatterContent.split('\n');
+		let currentKey = null;
+		let currentValue = '';
+		let inArray = false;
+
+		for (const line of lines) {
+			const trimmedLine = line.trim();
+			if (!trimmedLine) continue;
+
+			if (trimmedLine.startsWith('- ')) {
+				// Array item
+				if (inArray && currentKey) {
+					if (!metadata[currentKey]) metadata[currentKey] = [];
+					metadata[currentKey].push(trimmedLine.slice(2).replace(/['"]/g, ''));
+				}
+			} else if (trimmedLine.includes(':')) {
+				// Save previous key-value pair
+				if (currentKey && currentValue) {
+					metadata[currentKey] = currentValue.replace(/['"]/g, '');
+				}
+
+				// New key-value pair
+				const [key, ...valueParts] = trimmedLine.split(':');
+				currentKey = key.trim();
+				currentValue = valueParts.join(':').trim();
+
+				// Check if this starts an array
+				if (currentValue === '' || currentValue === '[') {
+					inArray = true;
+					metadata[currentKey] = [];
+				} else {
+					inArray = false;
+					if (currentValue.startsWith('[') && currentValue.endsWith(']')) {
+						// Inline array
+						const items = currentValue
+							.slice(1, -1)
+							.split(',')
+							.map((item) => item.trim().replace(/['"]/g, ''));
+						metadata[currentKey] = items;
+						currentKey = null;
+						currentValue = '';
+					}
+				}
+			}
+		}
+
+		// Save the last key-value pair
+		if (currentKey && currentValue && !inArray) {
+			metadata[currentKey] = currentValue.replace(/['"]/g, '');
+		}
+
+		return metadata;
+	} catch (error) {
+		console.warn(`⚠️  Could not read metadata for ${url}:`, error.message);
+		return null;
 	}
 }
 
@@ -174,10 +294,32 @@ async function saveScrapedContent(scrapedPages, outputPath) {
 
 	for (const page of scrapedPages) {
 		const fileName = generateFileName(page.url);
-		const mdxContent = `---
+
+		// Build frontmatter with original metadata
+		let frontmatter = `---
 title: "${page.title}"
-url: "${page.url}"
----
+url: "${page.url}"`;
+
+		if (page.description) {
+			// Escape quotes in description
+			const escapedDescription = page.description.replace(/"/g, '\\"');
+			frontmatter += `
+description: "${escapedDescription}"`;
+		}
+
+		if (page.keywords && Array.isArray(page.keywords) && page.keywords.length > 0) {
+			frontmatter += `
+keywords:`;
+			page.keywords.forEach((keyword) => {
+				frontmatter += `
+  - "${keyword}"`;
+			});
+		}
+
+		frontmatter += `
+---`;
+
+		const mdxContent = `${frontmatter}
 
 # ${page.title}
 
@@ -187,8 +329,15 @@ ${page.content}
 		// Save individual file
 		await fs.writeFile(path.join(outputPath, `${fileName}.mdx`), mdxContent, 'utf8');
 
-		// Add to consolidated content
-		consolidatedContent += `# ${page.title}\n\nURL: ${page.url}\n\n${page.content}\n\n---\n\n`;
+		// Add to consolidated content with metadata
+		consolidatedContent += `# ${page.title}\n\nURL: ${page.url}\n`;
+		if (page.description) {
+			consolidatedContent += `Description: ${page.description}\n`;
+		}
+		if (page.keywords && page.keywords.length > 0) {
+			consolidatedContent += `Keywords: ${page.keywords.join(', ')}\n`;
+		}
+		consolidatedContent += `\n${page.content}\n\n---\n\n`;
 	}
 
 	// Save consolidated content
@@ -254,6 +403,85 @@ async function generateUrlsFromFileStructure(baseUrl) {
 	}
 
 	return Array.from(urls);
+}
+
+async function findAvailablePort(startPort = 3001) {
+	return new Promise((resolve, reject) => {
+		const server = net.createServer();
+
+		server.listen(startPort, () => {
+			const port = server.address().port;
+			server.close(() => {
+				resolve(port);
+			});
+		});
+
+		server.on('error', (err) => {
+			if (err.code === 'EADDRINUSE') {
+				// Port is in use, try the next one
+				resolve(findAvailablePort(startPort + 1));
+			} else {
+				reject(err);
+			}
+		});
+	});
+}
+
+async function startDevServer(port = 3001) {
+	return new Promise((resolve, reject) => {
+		// Start the Next.js development server on specified port
+		const server = spawn('npx', ['next', 'start', '--port', port.toString()], {
+			stdio: ['ignore', 'pipe', 'pipe'],
+			env: { ...process.env, PORT: port.toString() }
+		});
+
+		let serverReady = false;
+
+		// Listen for server output to detect when it's ready
+		server.stdout.on('data', (data) => {
+			const output = data.toString();
+			console.log(`📡 Server (${port}):`, output.trim());
+
+			// Check if server is ready
+			if (output.includes('Ready in') || output.includes('ready') || output.includes(`http://localhost:${port}`)) {
+				if (!serverReady) {
+					serverReady = true;
+					// Wait a bit more to ensure server is fully ready
+					setTimeout(() => resolve(server), 3000);
+				}
+			}
+		});
+
+		server.stderr.on('data', (data) => {
+			const errorOutput = data.toString();
+			console.error(`📡 Server Error (${port}):`, errorOutput);
+
+			// Don't reject on warnings, only on actual startup failures
+			if (errorOutput.includes('EADDRINUSE') || errorOutput.includes('Error:')) {
+				if (!serverReady) {
+					reject(new Error(`Server startup failed: ${errorOutput}`));
+				}
+			}
+		});
+
+		server.on('error', (error) => {
+			reject(new Error(`Failed to start server: ${error.message}`));
+		});
+
+		server.on('exit', (code) => {
+			if (!serverReady) {
+				reject(new Error(`Server exited with code ${code} before becoming ready`));
+			}
+		});
+
+		// Timeout after 45 seconds (longer for potential build time)
+		setTimeout(() => {
+			if (!serverReady) {
+				server.kill();
+				reject(new Error('Server startup timeout - check if port is available'));
+			}
+		}, 45000);
+	});
 }
 
 // Run the scraper
