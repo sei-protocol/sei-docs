@@ -18,7 +18,7 @@ This documentation is created using [Nextra](https://nextra.site).
 
 ### Structure
 
-Each page is generated from a single `.mdx` file under the `./pages` directory.
+Each page is generated from a single `.mdx` file under the `./content` directory.
 
 Each directory represents a page grouping. Each directory contains a `_meta.json` file, which dictates the order and name of the items in the navbar.
 
@@ -54,8 +54,8 @@ To propose changes directly, you can open a Pull Request against this repository
 
 Alternatively, if you have more general suggestions on how we can improve or correct these docs, you can [open an issue](https://github.com/sei-protocol/sei-docs/issues).
 
-
 ### Local Development
 
 #### Generating Cosmos API Reference Docs
+
 Run the script in the data directory to generate the Cosmos API reference docs. If you need to get an updated openapi json file, that can be generated from the `sei-chain` repo using IgniteCLI.
