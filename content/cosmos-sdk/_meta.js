@@ -21,7 +21,6 @@ export default {
 		title: 'Modules'
 	},
 	'multi-sig-accounts': 'Multi-Sig Accounts',
-	'fee-grants': 'Fee Grants',
 	'-- Reference': {
 		type: 'separator',
 		title: 'Reference'
