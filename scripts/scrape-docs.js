@@ -11,7 +11,6 @@ async function scrapeSeiDocs() {
 	const localBaseUrl = `http://localhost:${port}`;
 	const prodBaseUrl = 'https://docs.sei.io'; // Use production URL for final output
 	const outputPath = './public/_scraped-docs';
-	const visitedUrls = new Set();
 	const scrapedPages = [];
 	let devServer = null;
 
@@ -495,28 +494,22 @@ async function startDevServer(port = 3001) {
 }
 
 async function launchBrowser() {
-	const isVercel = Boolean(process.env.VERCEL || process.env.NOW_BUILDER);
-
-	if (!isVercel) {
-		// ---------- local ----------
-		const puppeteer = require('puppeteer');
-		return puppeteer.launch({ headless: 'new' });
-	}
-
 	// ---------- serverless (Vercel) ----------
 	const puppeteerCore = require('puppeteer-core');
-	const chromium = require('@sparticuz/chromium-min');
+	let chromium = require('@sparticuz/chromium-min');
+	chromium = chromium.default ?? chromium;
 
 	// Optional tweaks
 	chromium.setHeadlessMode = true; // use '--headless=new'
 	chromium.setGraphicsMode = false;
 
 	// Remote .tar bundle (keeps deployment under 50 MB)
-	const remotePack = 'https://github.com/Sparticuz/chromium/releases/download/' + 'v137.0.1/chromium-v137.0.1-pack.tar';
+	const remotePack = 'https://github.com/Sparticuz/chromium/releases/download/' + 'v137.0.1/chromium-v137.0.1-pack.x64.tar';
 
 	// Works for both new & legacy chromium-min APIs
 	const executablePath = typeof chromium.executablePath === 'function' ? await chromium.executablePath(remotePack) : await chromium.executablePath;
 
+	console.log(chromium);
 	console.log('🎯 Using Chromium executable at:', executablePath);
 
 	return puppeteerCore.launch({
