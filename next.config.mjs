@@ -39,24 +39,13 @@ export default withNextra({
 			{
 				source: '/(.*)',
 				headers: [
-					// Standard cache control - no caching
-					{ key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate, max-age=0' },
-
-					// Older HTTP/1.0 caches
-					{ key: 'Pragma', value: 'no-cache' },
-
-					// Force expiration
-					{ key: 'Expires', value: '0' },
-
-					// CDN cache control (Fastly, KeyCDN, etc.)
-					{ key: 'Surrogate-Control', value: 'no-store' },
-
-					// Force revalidation with dynamic values
-					{ key: 'ETag', value: `"${Date.now()}-${Math.random()}"` },
-					{ key: 'Last-Modified', value: new Date().toUTCString() },
-
-					// Vary on everything to break caching
-					{ key: 'Vary', value: '*' }
+					{
+						source: '/(.*)',
+						headers: [
+							{ key: 'Cache-Control', value: 'public, max-age=3600, must-revalidate' },
+							{ key: 'Vercel-CDN-Cache-Control', value: 'public, max-age=3600, must-revalidate' }
+						]
+					}
 				]
 			}
 		];
