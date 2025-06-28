@@ -39,13 +39,8 @@ export default withNextra({
 			{
 				source: '/(.*)',
 				headers: [
-					{
-						source: '/(.*)',
-						headers: [
-							{ key: 'Cache-Control', value: 'public, max-age=3600, must-revalidate' },
-							{ key: 'Vercel-CDN-Cache-Control', value: 'public, max-age=3600, must-revalidate' }
-						]
-					}
+					{ key: 'Cache-Control', value: 'public, max-age=3600, must-revalidate' },
+					{ key: 'Vercel-CDN-Cache-Control', value: 'public, max-age=3600, must-revalidate' }
 				]
 			}
 		];
