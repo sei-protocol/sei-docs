@@ -29,6 +29,11 @@ async function scrapeSeiDocs() {
 		console.log('🌐 Launching browser...');
 		const browser = await launchBrowser();
 
+		browser.on('disconnected', async () => {
+			console.warn('⚠️  Chrome died – relaunching...');
+			browser = await launchBrowser(); // reuse your existing helper
+		});
+
 		// Get all possible URLs from file structure
 		const allUrls = await generateUrlsFromFileStructure(localBaseUrl);
 
@@ -68,8 +73,8 @@ async function scrapeUrlsConcurrently(browser, urls, localBaseUrl, prodBaseUrl, 
 	console.log(`🔄 Scraping ${urls.length} URLs with controlled concurrency`);
 
 	// Use conservative processing settings optimized for performance
-	const batchSize = 3; // Smaller batches for better stability
-	const pauseTime = 500; // Longer pauses for better reliability
+	const batchSize = 2; // Smaller batches for better stability
+	const pauseTime = 50; // Longer pauses for better reliability
 
 	console.log(`📊 Using batch size: ${batchSize}, pause time: ${pauseTime}ms`);
 
@@ -86,7 +91,7 @@ async function scrapeUrlsConcurrently(browser, urls, localBaseUrl, prodBaseUrl, 
 				await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36');
 
 				// Set longer timeout for better reliability
-				page.setDefaultTimeout(10000); // 90 seconds
+				page.setDefaultTimeout(10000); // 10 seconds
 				page.setDefaultNavigationTimeout(10000);
 
 				const pageData = await scrapeSinglePage(page, url, localBaseUrl, prodBaseUrl);
@@ -494,6 +499,14 @@ async function startDevServer(port = 3001) {
 }
 
 async function launchBrowser() {
+	const isVercel = Boolean(process.env.VERCEL || process.env.NOW_BUILDER);
+
+	if (!isVercel) {
+		// ---------- local ----------
+		const puppeteer = require('puppeteer');
+		return puppeteer.launch({ headless: 'new' });
+	}
+
 	// ---------- serverless (Vercel) ----------
 	const puppeteerCore = require('puppeteer-core');
 	let chromium = require('@sparticuz/chromium-min');
