@@ -5,121 +5,127 @@ const { URL } = require('url');
 const { spawn } = require('child_process');
 const net = require('net');
 
+/**
+ * Top‑level entry
+ */
 async function scrapeSeiDocs() {
-	// Find an available port starting from 3001
-	const port = await findAvailablePort(3001);
+	const port = 3000;
 	const localBaseUrl = `http://localhost:${port}`;
-	const prodBaseUrl = 'https://docs.sei.io'; // Use production URL for final output
+	const prodBaseUrl = 'https://docs.sei.io';
 	const outputPath = './public/_scraped-docs';
 	const scrapedPages = [];
-	let devServer = null;
+	let devServer;
 
 	try {
-		console.log('🚀 Starting documentation scraping...');
-
-		// Ensure output directory exists
+		console.log('🚀  Starting documentation scraping…');
 		await fs.mkdir(outputPath, { recursive: true });
 
-		// Start dedicated server for scraping
-		console.log(`🌟 Starting dedicated server on port ${port}...`);
+		console.log(`🌟  Booting Next.js server on :${port}`);
 		devServer = await startDevServer(port);
-		console.log('✅ Dedicated server is ready!');
 
-		// Launch browser
-		console.log('🌐 Launching browser...');
 		const browser = await launchBrowser();
 
-		browser.on('disconnected', async () => {
-			console.warn('⚠️  Chrome died – relaunching...');
-			browser = await launchBrowser(); // reuse your existing helper
-		});
-
-		// Get all possible URLs from file structure
+		// Generate list of URLs to scrape
 		const allUrls = await generateUrlsFromFileStructure(localBaseUrl);
+		const main = [`${localBaseUrl}/learn`, `${localBaseUrl}/evm`, `${localBaseUrl}/cosmos-sdk`, `${localBaseUrl}/node`, `${localBaseUrl}`];
+		const urls = [...new Set([...main, ...allUrls])];
 
-		// Add main sections to ensure they're included
-		const mainSections = [`${localBaseUrl}/learn`, `${localBaseUrl}/evm`, `${localBaseUrl}/cosmos-sdk`, `${localBaseUrl}/node`, `${localBaseUrl}`];
-
-		// Combine and deduplicate URLs
-		const urlsToScrape = [...new Set([...mainSections, ...allUrls])];
-		console.log(`📋 Total URLs to scrape: ${urlsToScrape.length}`);
-
-		// Scrape all URLs concurrently
-		await scrapeUrlsConcurrently(browser, urlsToScrape, localBaseUrl, prodBaseUrl, scrapedPages);
+		console.log(`📋  Total URLs: ${urls.length}`);
+		await scrapeUrlsSequential(browser, urls, localBaseUrl, prodBaseUrl, scrapedPages);
 
 		await browser.close();
+		console.log(`✅  Scraped ${scrapedPages.length} pages`);
 
-		console.log(`✅ Successfully scraped ${scrapedPages.length} pages`);
-
-		// Save individual files and create consolidated content
 		await saveScrapedContent(scrapedPages, outputPath);
-
-		console.log('✨ Documentation scraping complete!');
-	} catch (error) {
-		console.error('❌ Error scraping documentation:', error);
+	} catch (err) {
+		console.error('❌  Fatal error:', err);
 		process.exit(1);
 	} finally {
-		// Clean up: stop the dedicated server
 		if (devServer) {
-			console.log('🛑 Stopping dedicated server...');
+			console.log('🛑  Shutting dev server');
 			devServer.kill();
-			// Give it a moment to clean up
-			await new Promise((resolve) => setTimeout(resolve, 1000));
+			await new Promise((r) => setTimeout(r, 1_000));
 		}
 	}
 }
 
-async function scrapeUrlsConcurrently(browser, urls, localBaseUrl, prodBaseUrl, scrapedPages) {
-	console.log(`🔄 Scraping ${urls.length} URLs with controlled concurrency`);
+/**
+ * Sequential scraping with a single re‑used page (Rec. #4),
+ * blocking images/fonts/css (Rec. #3) and retry/back‑off.
+ */
+async function scrapeUrlsSequential(browser, urls, localBaseUrl, prodBaseUrl, scrapedPages) {
+	const page = await browser.newPage();
 
-	// Use conservative processing settings optimized for performance
-	const batchSize = 2; // Smaller batches for better stability
-	const pauseTime = 50; // Longer pauses for better reliability
+	// Intercept requests – drop heavy assets (Rec. #3)
+	await page.setRequestInterception(true);
+	page.on('request', (req) => {
+		const type = req.resourceType();
+		if (['image', 'font', 'stylesheet', 'media'].includes(type)) {
+			return req.abort();
+		}
+		req.continue();
+	});
 
-	console.log(`📊 Using batch size: ${batchSize}, pause time: ${pauseTime}ms`);
+	const MAX_RETRIES = 3;
 
-	for (let i = 0; i < urls.length; i += batchSize) {
-		const batch = urls.slice(i, i + batchSize);
-		console.log(`📦 Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(urls.length / batchSize)} (${batch.length} URLs)`);
+	for (let i = 0; i < urls.length; i++) {
+		const url = urls[i];
+		console.log(`➡️  (${i + 1}/${urls.length}) ${url}`);
 
-		const batchPromises = batch.map(async (url) => {
-			const page = await browser.newPage();
-
+		for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
 			try {
-				// Set viewport and user agent
-				await page.setViewport({ width: 1200, height: 800 });
-				await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36');
+				await page.goto(url, {
+					waitUntil: 'domcontentloaded', // lighter than networkidle
+					timeout: 60_000
+				});
 
-				// Set longer timeout for better reliability
-				page.setDefaultTimeout(10000); // 10 seconds
-				page.setDefaultNavigationTimeout(10000);
-
-				const pageData = await scrapeSinglePage(page, url, localBaseUrl, prodBaseUrl);
-
+				const pageData = await extractPageData(page, url, localBaseUrl, prodBaseUrl);
 				if (pageData) {
 					scrapedPages.push(pageData);
-					console.log(`✅ Scraped: ${url}`);
+					console.log(`   ✅  Done (${pageData.content.length} chars)`);
 				}
-			} catch (error) {
-				console.warn(`⚠️  Failed to scrape ${url}:`, error.message);
-			} finally {
-				// Ensure page is properly closed
-				try {
-					await page.close();
-				} catch (closeError) {
-					console.warn(`⚠️  Error closing page: ${closeError.message}`);
-				}
+				break; // success – break retry loop
+			} catch (err) {
+				console.warn(`   ⏳  Attempt ${attempt}/${MAX_RETRIES} failed: ${err.message}`);
+				if (attempt === MAX_RETRIES) console.warn(`   ❌  Giving up on ${url}`);
+				else await new Promise((r) => setTimeout(r, attempt * 2_000)); // back‑off
 			}
-		});
-
-		// Wait for current batch to complete before starting next batch
-		await Promise.all(batchPromises);
-
-		// Brief pause between batches to let server breathe
-		if (i + batchSize < urls.length) {
-			await new Promise((resolve) => setTimeout(resolve, 2000));
 		}
 	}
+
+	await page.close();
+}
+
+/**
+ * Extract text + metadata once the page is loaded.
+ */
+async function extractPageData(page, url, localBaseUrl, prodBaseUrl) {
+	// Only docs URLs
+	if (!url.startsWith(localBaseUrl)) return null;
+
+	const pageData = await page.evaluate(() => {
+		const selectorsToNuke = ['nav', 'header', 'footer', '.nx-sidebar', '.nx-toc', '[data-nextra-nav]', '[data-nextra-sidebar]', 'button', '.search', '#search'];
+		selectorsToNuke.forEach((sel) => document.querySelectorAll(sel).forEach((el) => el.remove()));
+
+		const main = document.querySelector('main') || document.body;
+		return {
+			title: document.title || (document.querySelector('h1')?.textContent ?? 'Untitled'),
+			content: main.innerText.trim()
+		};
+	});
+
+	// filter empty pages
+	if (!pageData.content || pageData.content.length < 50) return null;
+	const prodUrl = url.replace(localBaseUrl, prodBaseUrl);
+	const originalMetadata = await getOriginalMetadata(url, localBaseUrl);
+
+	return {
+		url: prodUrl,
+		title: originalMetadata?.title || pageData.title,
+		description: originalMetadata?.description || null,
+		keywords: originalMetadata?.keywords || null,
+		content: pageData.content
+	};
 }
 
 async function scrapeSinglePage(page, url, localBaseUrl, prodBaseUrl) {
@@ -419,28 +425,6 @@ async function generateUrlsFromFileStructure(baseUrl) {
 	return Array.from(urls);
 }
 
-async function findAvailablePort(startPort = 3001) {
-	return new Promise((resolve, reject) => {
-		const server = net.createServer();
-
-		server.listen(startPort, () => {
-			const port = server.address().port;
-			server.close(() => {
-				resolve(port);
-			});
-		});
-
-		server.on('error', (err) => {
-			if (err.code === 'EADDRINUSE') {
-				// Port is in use, try the next one
-				resolve(findAvailablePort(startPort + 1));
-			} else {
-				reject(err);
-			}
-		});
-	});
-}
-
 async function startDevServer(port = 3001) {
 	return new Promise((resolve, reject) => {
 		// Start the Next.js development server on specified port
@@ -500,47 +484,65 @@ async function startDevServer(port = 3001) {
 
 async function launchBrowser() {
 	const isVercel = Boolean(process.env.VERCEL || process.env.NOW_BUILDER);
+	let browser;
 
 	if (!isVercel) {
-		// ---------- local ----------
 		const puppeteer = require('puppeteer');
-		return puppeteer.launch({ headless: 'new' });
+		browser = await puppeteer.launch({
+			headless: 'new',
+			protocolTimeout: 120_000,
+			args: [
+				'--single-process',
+				'--no-zygote',
+				'--disable-gpu',
+				'--disable-dev-shm-usage',
+				'--no-sandbox',
+				'--disable-setuid-sandbox',
+				'--disable-background-networking',
+				'--disable-extensions'
+			],
+			defaultViewport: { width: 1280, height: 720 }
+		});
+	} else {
+		const puppeteerCore = require('puppeteer-core');
+		let chromium = require('@sparticuz/chromium-min');
+		chromium = chromium.default ?? chromium;
+		chromium.setHeadlessMode = true;
+		chromium.setGraphicsMode = false;
+		const remotePack = 'https://github.com/Sparticuz/chromium/releases/download/v137.0.1/chromium-v137.0.1-pack.x64.tar';
+		const executablePath = typeof chromium.executablePath === 'function' ? await chromium.executablePath(remotePack) : await chromium.executablePath;
+
+		browser = await puppeteerCore.launch({
+			executablePath,
+			headless: 'shell',
+			protocolTimeout: 120_000,
+			ignoreHTTPSErrors: true,
+			args: [
+				...chromium.args,
+				'--single-process',
+				'--no-zygote',
+				'--disable-gpu',
+				'--disable-dev-shm-usage',
+				'--no-sandbox',
+				'--disable-setuid-sandbox',
+				'--disable-background-networking',
+				'--disable-extensions'
+			],
+			defaultViewport: { width: 1280, height: 720 }
+		});
 	}
 
-	// ---------- serverless (Vercel) ----------
-	const puppeteerCore = require('puppeteer-core');
-	let chromium = require('@sparticuz/chromium-min');
-	chromium = chromium.default ?? chromium;
+	// Fatal‑error diagnostics (Rec. #5)
+	if (browser.process && browser.process()) {
+		browser.process().stderr.on('data', (buf) => {
+			const msg = buf.toString();
+			if (/FATAL|OOM|zygote/i.test(msg)) {
+				console.error('⚠️  Chromium fatal error:', msg);
+			}
+		});
+	}
 
-	// Optional tweaks
-	chromium.setHeadlessMode = true; // use '--headless=new'
-	chromium.setGraphicsMode = false;
-
-	// Remote .tar bundle (keeps deployment under 50 MB)
-	const remotePack = 'https://github.com/Sparticuz/chromium/releases/download/' + 'v137.0.1/chromium-v137.0.1-pack.x64.tar';
-
-	// Works for both new & legacy chromium-min APIs
-	const executablePath = typeof chromium.executablePath === 'function' ? await chromium.executablePath(remotePack) : await chromium.executablePath;
-
-	console.log(chromium);
-	console.log('🎯 Using Chromium executable at:', executablePath);
-
-	return puppeteerCore.launch({
-		executablePath,
-		headless: 'shell', // recommended flag for Chrome ≥ 118
-		args: [
-			...chromium.args, // sparticuz’ minimal serverless flags
-			'--no-sandbox',
-			'--disable-setuid-sandbox',
-			'--disable-dev-shm-usage'
-		],
-		ignoreHTTPSErrors: true,
-		defaultViewport: {
-			// Lambda has no default viewport any more
-			width: 1280,
-			height: 720
-		}
-	});
+	return browser;
 }
 
 // Run the scraper
