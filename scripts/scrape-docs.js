@@ -68,12 +68,11 @@ async function scrapeSeiDocs() {
 async function scrapeUrlsConcurrently(browser, urls, localBaseUrl, prodBaseUrl, scrapedPages) {
 	console.log(`🔄 Scraping ${urls.length} URLs with controlled concurrency`);
 
-	// Use even more conservative settings for Vercel build environment
-	const isVercel = process.env.VERCEL || process.env.VERCEL_ENV;
-	const batchSize = isVercel ? 1 : 3; // Process one at a time on Vercel
-	const pauseTime = isVercel ? 1000 : 500; // Longer pauses on Vercel
+	// Use conservative processing settings optimized for performance
+	const batchSize = 3; // Smaller batches for better stability
+	const pauseTime = 500; // Longer pauses for better reliability
 
-	console.log(`📊 Using batch size: ${batchSize}, pause time: ${pauseTime}ms (Vercel: ${isVercel})`);
+	console.log(`📊 Using batch size: ${batchSize}, pause time: ${pauseTime}ms`);
 
 	for (let i = 0; i < urls.length; i += batchSize) {
 		const batch = urls.slice(i, i + batchSize);
@@ -87,10 +86,9 @@ async function scrapeUrlsConcurrently(browser, urls, localBaseUrl, prodBaseUrl, 
 				await page.setViewport({ width: 1200, height: 800 });
 				await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36');
 
-				// Set longer timeout for Vercel
-				const timeout = isVercel ? 30000 : 10000;
-				page.setDefaultTimeout(timeout);
-				page.setDefaultNavigationTimeout(timeout);
+				// Set longer timeout for better reliability
+				page.setDefaultTimeout(10000); // 90 seconds
+				page.setDefaultNavigationTimeout(10000);
 
 				const pageData = await scrapeSinglePage(page, url, localBaseUrl, prodBaseUrl);
 
@@ -115,7 +113,7 @@ async function scrapeUrlsConcurrently(browser, urls, localBaseUrl, prodBaseUrl, 
 
 		// Brief pause between batches to let server breathe
 		if (i + batchSize < urls.length) {
-			await new Promise((resolve) => setTimeout(resolve, pauseTime));
+			await new Promise((resolve) => setTimeout(resolve, 2000));
 		}
 	}
 }
@@ -497,36 +495,63 @@ async function startDevServer(port = 3001) {
 }
 
 async function launchBrowser() {
-	const puppeteerCore = require('puppeteer-core');
-	const puppeteer = require('puppeteer');
-
-	// Check if running on Vercel
-	const isVercel = process.env.VERCEL || process.env.VERCEL_ENV;
+	const isVercel = process.env.VERCEL || process.env.NOW_BUILDER;
 
 	if (isVercel) {
-		console.log('🚀 Launching browser in Vercel environment...');
+		// Use chromium-min for Vercel deployment
+		const puppeteerCore = require('puppeteer-core');
+		const chromium = require('@sparticuz/chromium-min');
 
-		// Use the full chromium package for Vercel
-		const chromium = require('@sparticuz/chromium');
-
-		// Optional: If the chromium binary is not found, it will download it
+		// Set chromium options for serverless
 		chromium.setHeadlessMode = true;
 		chromium.setGraphicsMode = false;
 
-		const browser = await puppeteerCore.launch({
-			args: chromium.args,
-			defaultViewport: chromium.defaultViewport,
-			executablePath: await chromium.executablePath(),
-			headless: chromium.headless,
-			ignoreHTTPSErrors: true
-		});
+		// Remote executable path for chromium binary
+		const remoteExecutablePath = 'https://github.com/Sparticuz/chromium/releases/download/v137.0.1/chromium-v137.0.1-pack.tar';
 
-		return browser;
+		try {
+			const executablePath = await chromium.executablePath(remoteExecutablePath);
+			console.log('🎯 Using Chromium executable at:', executablePath);
+
+			const browser = await puppeteerCore.launch({
+				args: [
+					...chromium.args,
+					'--no-sandbox',
+					'--disable-setuid-sandbox',
+					'--disable-dev-shm-usage',
+					'--disable-gpu',
+					'--disable-web-security',
+					'--disable-features=IsolateOrigins',
+					'--disable-site-isolation-trials'
+				],
+				executablePath: executablePath,
+				headless: chromium.headless
+			});
+
+			return browser;
+		} catch (error) {
+			console.error('❌ Failed to launch browser with chromium-min:', error);
+			throw error;
+		}
 	} else {
-		console.log('🚀 Launching browser in local environment...');
-		// Local development - use regular puppeteer
+		// Use regular puppeteer for local development
+		const puppeteer = require('puppeteer');
+
 		const browser = await puppeteer.launch({
-			args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+			args: [
+				'--no-sandbox',
+				'--disable-setuid-sandbox',
+				'--disable-dev-shm-usage',
+				'--window-size=1280x720',
+				'--disable-background-networking',
+				'--disable-default-apps',
+				'--disable-extensions',
+				'--disable-sync',
+				'--disable-translate',
+				'--hide-scrollbars',
+				'--mute-audio',
+				'--no-first-run'
+			],
 			headless: true
 		});
 
