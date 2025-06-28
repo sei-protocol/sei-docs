@@ -495,68 +495,46 @@ async function startDevServer(port = 3001) {
 }
 
 async function launchBrowser() {
-	const isVercel = process.env.VERCEL || process.env.NOW_BUILDER;
+	const isVercel = Boolean(process.env.VERCEL || process.env.NOW_BUILDER);
 
-	if (isVercel) {
-		// Use chromium-min for Vercel deployment
-		const puppeteerCore = require('puppeteer-core');
-		const chromium = require('@sparticuz/chromium-min');
-
-		// Set chromium options for serverless
-		chromium.setHeadlessMode = true;
-		chromium.setGraphicsMode = false;
-
-		// Remote executable path for chromium binary
-		const remoteExecutablePath = 'https://github.com/Sparticuz/chromium/releases/download/v137.0.1/chromium-v137.0.1-pack.tar';
-
-		try {
-			const executablePath = await chromium.executablePath(remoteExecutablePath);
-			console.log('🎯 Using Chromium executable at:', executablePath);
-
-			const browser = await puppeteerCore.launch({
-				args: [
-					...chromium.args,
-					'--no-sandbox',
-					'--disable-setuid-sandbox',
-					'--disable-dev-shm-usage',
-					'--disable-gpu',
-					'--disable-web-security',
-					'--disable-features=IsolateOrigins',
-					'--disable-site-isolation-trials'
-				],
-				executablePath: executablePath,
-				headless: chromium.headless
-			});
-
-			return browser;
-		} catch (error) {
-			console.error('❌ Failed to launch browser with chromium-min:', error);
-			throw error;
-		}
-	} else {
-		// Use regular puppeteer for local development
+	if (!isVercel) {
+		// ---------- local ----------
 		const puppeteer = require('puppeteer');
-
-		const browser = await puppeteer.launch({
-			args: [
-				'--no-sandbox',
-				'--disable-setuid-sandbox',
-				'--disable-dev-shm-usage',
-				'--window-size=1280x720',
-				'--disable-background-networking',
-				'--disable-default-apps',
-				'--disable-extensions',
-				'--disable-sync',
-				'--disable-translate',
-				'--hide-scrollbars',
-				'--mute-audio',
-				'--no-first-run'
-			],
-			headless: true
-		});
-
-		return browser;
+		return puppeteer.launch({ headless: 'new' });
 	}
+
+	// ---------- serverless (Vercel) ----------
+	const puppeteerCore = require('puppeteer-core');
+	const chromium = require('@sparticuz/chromium-min');
+
+	// Optional tweaks
+	chromium.setHeadlessMode = true; // use '--headless=new'
+	chromium.setGraphicsMode = false;
+
+	// Remote .tar bundle (keeps deployment under 50 MB)
+	const remotePack = 'https://github.com/Sparticuz/chromium/releases/download/' + 'v137.0.1/chromium-v137.0.1-pack.tar';
+
+	// Works for both new & legacy chromium-min APIs
+	const executablePath = typeof chromium.executablePath === 'function' ? await chromium.executablePath(remotePack) : await chromium.executablePath;
+
+	console.log('🎯 Using Chromium executable at:', executablePath);
+
+	return puppeteerCore.launch({
+		executablePath,
+		headless: 'shell', // recommended flag for Chrome ≥ 118
+		args: [
+			...chromium.args, // sparticuz’ minimal serverless flags
+			'--no-sandbox',
+			'--disable-setuid-sandbox',
+			'--disable-dev-shm-usage'
+		],
+		ignoreHTTPSErrors: true,
+		defaultViewport: {
+			// Lambda has no default viewport any more
+			width: 1280,
+			height: 720
+		}
+	});
 }
 
 // Run the scraper
