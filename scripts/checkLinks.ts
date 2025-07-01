@@ -6,7 +6,8 @@ import * as fs from 'node:fs';
 const EXCLUDED_URLS = [
 	// Add URLs or URL patterns that should be excluded
 	'https://etherscan.io/contractsVerified',
-	'https://www.getarculus.com/'
+	'https://www.getarculus.com/',
+	'https://forum.openzeppelin.com/'
 ];
 
 // Function to check if a URL should be excluded
