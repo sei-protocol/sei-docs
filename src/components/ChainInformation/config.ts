@@ -50,7 +50,7 @@ export const networks: NetworkEntry[] = [
 			{ name: 'SeiTrace', url: 'https://seitrace.com/?chain=pacific-1' },
 			{ name: 'SeiStream', url: 'https://seistream.app' }
 		],
-		chainParams: SEI_DEVNET_CHAIN_PARAMS
+		chainParams: SEI_MAINNET_CHAIN_PARAMS
 	},
 	{
 		type: 'EVM',
@@ -62,7 +62,7 @@ export const networks: NetworkEntry[] = [
 			{ name: 'SeiTrace', url: 'https://seitrace.com/?chain=atlantic-2' },
 			{ name: 'SeiStream', url: 'https://testnet.seistream.app' }
 		],
-		chainParams: SEI_DEVNET_CHAIN_PARAMS
+		chainParams: SEI_TESTNET_CHAIN_PARAMS
 	},
 	{
 		type: 'EVM',
