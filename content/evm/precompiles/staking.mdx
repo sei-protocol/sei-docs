@@ -1,135 +1,583 @@
 ---
-title: 'Staking Precompile'
-description: "Use the staking precompile to interact with Sei's staking module directly from EVM smart contracts, enabling token delegation, redelegation, validator creation, and querying validator information."
-keywords: ['staking precompile', 'token delegation', 'validator interactions', 'sei staking', 'redelegation', 'validator creation']
+title: 'Staking Precompile Usage'
+description: "Learn how to interact with Sei's staking precompile through ethers.js, including setup, delegation, undelegation, redelegation, validator management, and queries for seamless integration between EVM and Cosmos staking functionality."
+keywords: ['staking precompile', 'ethers.js', 'delegation', 'sei staking', 'cosmos staking', 'evm integration', 'validators']
 ---
 
 import { Callout } from 'nextra/components';
 
-# Staking Precompile
+# Staking Precompile Usage
 
-**Address**: `0x0000000000000000000000000000000000001005`
+**Address:** `0x0000000000000000000000000000000000001005`
 
-This precompile allows EVM contracts to interact with Sei's staking module,
-enabling functionalities such as delegating tokens, creating and managing validators, querying validators, and more.
+The Sei staking precompile allows EVM applications to interact directly with Sei's native staking module through standard smart contract calls. This enables delegation, undelegation, redelegation, validator management, and staking queries directly from your dApps without needing separate Cosmos SDK integration.
+
+<Callout type="info">**What is a precompile?** A precompile is a special smart contract deployed at a fixed address by the Sei protocol itself, that exposes custom native chain logic to EVM-based applications. It acts like a regular contract from the EVM's perspective, but executes privileged, low-level logic efficiently.</Callout>
+
+## How Does the Staking Precompile Work?
+
+The staking precompile at address `0x0000000000000000000000000000000000001005` exposes functions like `delegate()`, `undelegate()`, `redelegate()`, `createValidator()`, and `delegation()`.
+
+- **Direct Integration:** EVM contracts and dApps can call staking functions like any other smart contract method.
+- **Native Execution:** Operations are executed at the Cosmos SDK level for maximum efficiency and security.
+- **Seamless Bridge:** No need for separate wallet integrations or complex cross-chain interactions.
+
+## Use Cases
+
+- **DeFi Integration:** Build liquid staking protocols and yield farming strategies.
+- **Delegation Services:** Create user-friendly interfaces for staking operations.
+- **Portfolio Management:** Automate staking strategies and delegation rebalancing.
+- **Validator Management:** Create and manage validators programmatically.
+- **Governance Tools:** Enable voting and governance participation through EVM interfaces.
 
 ## Functions
 
-### Transactions
+The staking precompile exposes the following functions:
 
-- `delegate`: Allows a user to delegate a specified amount of tokens to a validator. This function will truncate the `msg.value` to 6 decimals.
+### Transaction Functions
 
-  ```solidity copy
-  /// Delegates Sei to the specified validator.
-  /// @dev This function truncates msg.value to 6 decimal places for interaction with the staking module
-  /// @param valAddress The Sei address of the validator.
-  /// @return Whether the delegation was successful.
-  function delegate(
-      string memory valAddress,
-  ) payable external returns (bool success);
-  ```
+```solidity
+/// Delegates Sei to the specified validator.
+/// @dev This function truncates msg.value to 6 decimal places for interaction with the staking module
+/// @param valAddress The Sei address of the validator.
+/// @return Whether the delegation was successful.
+function delegate(
+    string memory valAddress
+) payable external returns (bool success);
 
-- `redelegate`: Enables the redelegation of tokens from one validator to another.
+/// Redelegates Sei from one validator to another.
+/// @dev The amount should be in 6 decimal precision, not 18. 1 SEI = 1_000_000 uSEI
+/// @param srcAddress The Sei address of the validator to move delegations from.
+/// @param dstAddress The Sei address of the validator to move delegations to.
+/// @param amount The amount of Sei to move from srcAddress to dstAddress.
+/// @return Whether the redelegation was successful.
+function redelegate(
+    string memory srcAddress,
+    string memory dstAddress,
+    uint256 amount
+) external returns (bool success);
 
-  ```solidity copy
-  /// Redelegates Sei from one validator to another.
-  /// @dev The amount should be in 6 decimal precision, not 18. 1 SEI = 1_000_000 uSEI
-  /// @param srcAddress The Sei address of the validator to move delegations from.
-  /// @param dstAddress The Sei address of the validator to move delegations to.
-  /// @param amount The amount of Sei to move from srcAddress to dstAddress.
-  /// @return Whether the redelegation was successful.
-  function redelegate(
-      string memory srcAddress,
-      string memory dstAddress,
-      uint256 amount
-  ) external returns (bool success);
-  ```
+/// Undelegates Sei from the specified validator.
+/// @dev The amount should be in 6 decimal precision, not 18. 1 SEI = 1_000_000 uSEI
+/// @param valAddress The Sei address of the validator to undelegate from.
+/// @param amount The amount of Sei to undelegate.
+/// @return Whether the undelegation was successful.
+function undelegate(
+    string memory valAddress,
+    uint256 amount
+) external returns (bool success);
 
-- `undelegate`: Provides the functionality for a user to withdraw a specified amount of tokens from a validator.
+/// Creates a new validator. Delegation amount must be provided as value in wei
+/// @param pubKeyHex Ed25519 public key in hex format (64 characters)
+/// @param moniker Validator display name
+/// @param commissionRate Initial commission rate (e.g. "0.05" for 5%)
+/// @param commissionMaxRate Maximum commission rate (e.g. "0.20" for 20%)
+/// @param commissionMaxChangeRate Maximum commission change rate per day (e.g. "0.01" for 1%)
+/// @param minSelfDelegation Minimum self-delegation amount in base units
+/// @return success True if validator creation was successful
+function createValidator(
+    string memory pubKeyHex,
+    string memory moniker,
+    string memory commissionRate,
+    string memory commissionMaxRate,
+    string memory commissionMaxChangeRate,
+    uint256 minSelfDelegation
+) payable external returns (bool success);
 
-  ```solidity copy
-  /// Undelegates Sei from the specified validator.
-  /// @dev The amount should be in 6 decimal precision, not 18. 1 SEI = 1_000_000 uSEI
-  /// @param valAddress The Sei address of the validator to undelegate from.
-  /// @param amount The amount of Sei to undelegate.
-  /// @return Whether the undelegation was successful.
-  function undelegate(
-      string memory valAddress,
-      uint256 amount
-  ) external returns (bool success);
-  ```
+/// Edit an existing validator's parameters
+/// @param moniker New validator display name
+/// @param commissionRate New commission rate (e.g. "0.10" for 10%)
+/// Pass empty string "" to not change commission rate
+/// Note: Commission can only be changed once per 24 hours
+/// @param minSelfDelegation New minimum self-delegation amount in base units
+/// Pass 0 to not change minimum self-delegation
+/// Note: Can only increase, cannot decrease below current value
+/// @return success True if validator edit was successful
+function editValidator(
+    string memory moniker,
+    string memory commissionRate,
+    uint256 minSelfDelegation
+) external returns (bool success);
+```
 
-- `createValidator`: Creates a new validator on the Sei network.
+### Query Functions
 
-  ```solidity copy
-  /// Creates a new validator. Delegation amount must be provided as value in wei
-  /// @param pubKeyHex Ed25519 public key in hex format (64 characters)
-  /// @param moniker Validator display name
-  /// @param commissionRate Initial commission rate (e.g. "0.05" for 5%)
-  /// @param commissionMaxRate Maximum commission rate (e.g. "0.20" for 20%)
-  /// @param commissionMaxChangeRate Maximum commission change rate per day (e.g. "0.01" for 1%)
-  /// @param minSelfDelegation Minimum self-delegation amount in base units
-  /// @return success True if validator creation was successful
-  function createValidator(
-      string memory pubKeyHex,
-      string memory moniker,
-      string memory commissionRate,
-      string memory commissionMaxRate,
-      string memory commissionMaxChangeRate,
-      uint256 minSelfDelegation
-  ) payable external returns (bool success);
-  ```
+```solidity
+struct Delegation {
+    Balance balance;
+    DelegationDetails delegation;
+}
 
-- `editValidator`: Modifies an existing validator's parameters.
+struct Balance {
+    uint256 amount;
+    string denom;
+}
 
-  ```solidity copy
-  /// Edit an existing validator's parameters
-  /// @param moniker New validator display name
-  /// @param commissionRate New commission rate (e.g. "0.10" for 10%)
-  ///                      Pass empty string "" to not change commission rate
-  ///                      Note: Commission can only be changed once per 24 hours
-  /// @param minSelfDelegation New minimum self-delegation amount in base units
-  ///                         Pass 0 to not change minimum self-delegation
-  ///                         Note: Can only increase, cannot decrease below current value
-  /// @return success True if validator edit was successful
-  function editValidator(
-      string memory moniker,
-      string memory commissionRate,
-      uint256 minSelfDelegation
-  ) external returns (bool success);
-  ```
+struct DelegationDetails {
+    string delegator_address;
+    uint256 shares;
+    uint256 decimals;
+    string validator_address;
+}
 
-### Queries
+/// Queries delegation for a given delegator and validator address.
+/// @param delegatorAddress The x0 or Sei address of the delegator.
+/// @param valAddress The Sei address of the validator.
+/// @return The delegation information. Shares in DelegationDetails are usually returned as decimals.
+/// To calculate the actual amount, divide the shares by decimals.
+function delegation(
+    address delegator,
+    string memory valAddress
+) external view returns (Delegation delegation);
+```
 
-- `delegation`: Queries delegation for a given delegator and validator address.
+## Important Notes
 
-  ```solidity copy
-  struct Delegation {
-      Balance balance;
-      DelegationDetails delegation;
+<Callout type="warning">**Key Points to Remember:** - **MetaMask Connection:** Ensure you're connected to the correct Sei network - **Decimal Precision:** `delegate()` uses 18 decimals (wei), while `undelegate()`/`redelegate()` use 6 decimals - **Gas Fees:** All transactions require SEI for gas fees - **Validator Addresses:** Use valid Sei validator addresses (seivaloper...)</Callout>
+
+## Using the Contract
+
+### Setup
+
+#### Prerequisites
+
+Before getting started, ensure you have:
+
+- **Node.js** (v16 or higher)
+- **npm** or **yarn** package manager
+- **MetaMask** or compatible EVM wallet
+- **SEI tokens** for gas fees and staking operations
+
+#### Install Dependencies
+
+Install the required packages for interacting with Sei precompiles:
+
+```bash copy
+# Install ethers.js for smart contract interactions
+npm install ethers
+
+# Install Sei EVM bindings for precompile addresses and ABIs
+npm install @sei-js/evm
+```
+
+#### Network Configuration
+
+Add Sei networks to your MetaMask or configure your provider:
+
+##### Sei Mainnet
+
+```typescript copy
+const seiMainnet = {
+  chainId: '0x531', // 1329 in decimal
+  chainName: 'Sei Network',
+  nativeCurrency: {
+    name: 'SEI',
+    symbol: 'SEI',
+    decimals: 18
+  },
+  rpcUrls: ['https://evm-rpc.sei-apis.com'],
+  blockExplorerUrls: ['https://seitrace.com']
+};
+```
+
+##### Sei Testnet (Atlantic-2)
+
+```typescript copy
+const seiTestnet = {
+  chainId: '0xae3f3', // 713715 in decimal
+  chainName: 'Sei Testnet',
+  nativeCurrency: {
+    name: 'SEI',
+    symbol: 'SEI',
+    decimals: 18
+  },
+  rpcUrls: ['https://evm-rpc-testnet.sei-apis.com'],
+  blockExplorerUrls: ['https://seitrace.com/?chain=atlantic-2']
+};
+```
+
+#### Add Network to MetaMask Programmatically
+
+```typescript copy
+async function addSeiNetwork() {
+  try {
+    await window.ethereum.request({
+      method: 'wallet_addEthereumChain',
+      params: [seiMainnet] // or seiTestnet
+    });
+    console.log('Sei network added successfully');
+  } catch (error) {
+    console.error('Failed to add network:', error);
+  }
+}
+```
+
+#### Import Precompile Components
+
+```typescript copy
+// Import Staking precompile address and ABI
+// View the entire ABI here: https://github.com/sei-protocol/sei-chain/tree/evm/precompiles/staking
+import { STAKING_PRECOMPILE_ABI, STAKING_PRECOMPILE_ADDRESS } from '@sei-js/evm';
+import { ethers } from 'ethers';
+```
+
+<Callout type="info">**Precompile Address:** The staking precompile is deployed at `0x0000000000000000000000000000000000001005`</Callout>
+
+#### Get SEI Tokens
+
+##### For Testnet
+
+Use the official Sei faucet to get testnet tokens:
+
+- **Faucet URL:** [https://www.sei.io/faucet](https://www.sei.io/faucet)
+- **Requirements:** Valid wallet address on Sei testnet
+
+##### For Mainnet
+
+Purchase SEI tokens from supported exchanges or bridge from other networks.
+
+#### Verify Setup
+
+Test your setup with this verification script:
+
+```typescript copy
+async function verifySetup() {
+  try {
+    // Check if MetaMask is installed
+    if (!window.ethereum) {
+      throw new Error('MetaMask not installed');
+    }
+
+    // Connect to provider
+    const provider = new ethers.BrowserProvider(window.ethereum);
+
+    // Request account access
+    await provider.send('eth_requestAccounts', []);
+
+    // Get network info
+    const network = await provider.getNetwork();
+    console.log('Connected to network:', network.name, 'Chain ID:', network.chainId);
+
+    // Check SEI chain
+    const seiChainIds = [1329n, 713715n]; // mainnet, testnet
+    if (!seiChainIds.includes(network.chainId)) {
+      console.warn('Not connected to Sei network');
+    }
+
+    // Get account info
+    const signer = await provider.getSigner();
+    const address = await signer.getAddress();
+    const balance = await provider.getBalance(address);
+
+    console.log('Account:', address);
+    console.log('Balance:', ethers.formatEther(balance), 'SEI');
+
+    // Test precompile connection
+    const staking = new ethers.Contract(STAKING_PRECOMPILE_ADDRESS, STAKING_PRECOMPILE_ABI, signer);
+
+    console.log('Staking precompile connected at:', STAKING_PRECOMPILE_ADDRESS);
+    console.log('Setup verification complete ✅');
+  } catch (error) {
+    console.error('Setup verification failed:', error);
+  }
+}
+
+// Run verification
+verifySetup();
+```
+
+### Contract Initialization
+
+Set up your provider, signer, and contract instance:
+
+```typescript copy
+// Using MetaMask as the signer and provider
+const provider = new ethers.BrowserProvider(window.ethereum);
+await provider.send('eth_requestAccounts', []);
+const signer = await provider.getSigner();
+
+// Create a contract instance for the staking precompile
+const staking = new ethers.Contract(STAKING_PRECOMPILE_ADDRESS, STAKING_PRECOMPILE_ABI, signer);
+```
+
+## Step-by-Step Guide: Using the Staking Precompile
+
+### Delegate Tokens
+
+<Callout type="info">**Important:** The `delegate()` function truncates `msg.value` to 6 decimal places for interaction with the staking module.</Callout>
+
+```typescript copy
+// Sei validator address you want to delegate to
+const validatorAddress = 'seivaloper1xyz...';
+
+// Delegate 1 SEI (value in wei, will be truncated to 6 decimals)
+const amountToDelegate = ethers.parseUnits('1', 18);
+
+const tx = await staking.delegate(validatorAddress, { value: amountToDelegate });
+
+const receipt = await tx.wait();
+console.log('Delegation completed:', receipt);
+```
+
+### Undelegate Tokens
+
+<Callout type="warning">**Precision Note:** For `undelegate()`, the amount should be in 6 decimal precision. 1 SEI = 1,000,000 uSEI</Callout>
+
+```typescript copy
+// Undelegate 1 SEI from a validator
+const validatorAddress = 'seivaloper1xyz...';
+const amountToUndelegate = 1000000; // 1 SEI in 6 decimal precision
+
+const tx = await staking.undelegate(validatorAddress, amountToUndelegate);
+const receipt = await tx.wait();
+
+console.log('Undelegation started:', receipt);
+```
+
+### Redelegate Tokens
+
+```typescript copy
+// Redelegate 0.5 SEI from one validator to another
+const srcValidator = 'seivaloper1abc...';
+const dstValidator = 'seivaloper1xyz...';
+const amountToRedelegate = 500000; // 0.5 SEI in 6 decimal precision
+
+const tx = await staking.redelegate(srcValidator, dstValidator, amountToRedelegate);
+const receipt = await tx.wait();
+
+console.log('Redelegation completed:', receipt);
+```
+
+### Query a Delegation
+
+```typescript copy
+// Get your EVM address as the delegator
+const delegator = await signer.getAddress();
+
+const delegationInfo = await staking.delegation(delegator, validatorAddress);
+
+console.log('Delegation details:', {
+  amount: delegationInfo.balance.amount.toString(),
+  denom: delegationInfo.balance.denom,
+  shares: delegationInfo.delegation.shares.toString(),
+  decimals: delegationInfo.delegation.decimals.toString(),
+  delegator_address: delegationInfo.delegation.delegator_address,
+  validator_address: delegationInfo.delegation.validator_address
+});
+
+// Calculate actual delegation amount from shares
+const actualAmount = delegationInfo.delegation.shares / delegationInfo.delegation.decimals;
+console.log('Actual delegation amount:', actualAmount);
+```
+
+### Create a Validator
+
+```typescript copy
+// Create a new validator
+const pubKeyHex = 'your_ed25519_public_key_64_chars'; // 64 character hex string
+const moniker = 'My Validator';
+const commissionRate = '0.05'; // 5%
+const commissionMaxRate = '0.20'; // 20%
+const commissionMaxChangeRate = '0.01'; // 1% per day
+const minSelfDelegation = 1000000; // 1 SEI in base units
+const selfDelegationAmount = ethers.parseUnits('1', 18); // 1 SEI in wei
+
+const tx = await staking.createValidator(pubKeyHex, moniker, commissionRate, commissionMaxRate, commissionMaxChangeRate, minSelfDelegation, { value: selfDelegationAmount });
+
+const receipt = await tx.wait();
+console.log('Validator created:', receipt);
+```
+
+### Edit a Validator
+
+```typescript copy
+// Edit existing validator parameters
+const newMoniker = 'Updated Validator Name';
+const newCommissionRate = '0.10'; // 10% (can only change once per 24 hours)
+const newMinSelfDelegation = 2000000; // 2 SEI (can only increase)
+
+const tx = await staking.editValidator(newMoniker, newCommissionRate, newMinSelfDelegation);
+
+const receipt = await tx.wait();
+console.log('Validator updated:', receipt);
+```
+
+## Advanced Usage Examples
+
+### Batch Operations
+
+```typescript copy
+async function batchDelegate(validators: string[], amounts: number[]) {
+  const transactions = [];
+
+  for (let i = 0; i < validators.length; i++) {
+    const tx = await staking.delegate(validators[i], {
+      value: ethers.parseUnits(amounts[i].toString(), 18),
+      gasLimit: 250000
+    });
+    transactions.push(tx);
   }
 
-  struct Balance {
-      uint256 amount;
-      string denom;
+  // Wait for all transactions
+  const receipts = await Promise.all(transactions.map((tx) => tx.wait()));
+  return receipts;
+}
+
+// Usage
+const validators = ['seivaloper1abc...', 'seivaloper1def...'];
+const amounts = [1, 2]; // SEI amounts
+await batchDelegate(validators, amounts);
+```
+
+### Portfolio Rebalancing
+
+```typescript copy
+async function rebalanceStaking(
+  fromValidator: string,
+  toValidator: string,
+  amount: number // Amount in SEI
+) {
+  try {
+    // Convert to 6 decimal precision for redelegate
+    const amountIn6Decimals = amount * 1000000;
+
+    const tx = await staking.redelegate(fromValidator, toValidator, amountIn6Decimals);
+
+    const receipt = await tx.wait();
+    console.log('Rebalancing completed:', receipt);
+
+    return receipt;
+  } catch (error) {
+    console.error('Rebalancing failed:', error);
+    throw error;
   }
+}
+```
 
-  struct DelegationDetails {
-      string delegator_address;
-      uint256 shares;
-      uint256 decimals;
-      string validator_address;
+### Complete Integration Example
+
+```typescript copy
+async function comprehensiveStakingExample() {
+  // Setup
+  const provider = new ethers.BrowserProvider(window.ethereum);
+  await provider.send('eth_requestAccounts', []);
+  const signer = await provider.getSigner();
+  const staking = new ethers.Contract(STAKING_PRECOMPILE_ADDRESS, STAKING_PRECOMPILE_ABI, signer);
+
+  const delegator = await signer.getAddress();
+  const validatorAddress = 'seivaloper1xyz...';
+
+  try {
+    // 1. Check current delegation
+    console.log('=== Checking Current Delegation ===');
+    const currentDelegation = await staking.delegation(delegator, validatorAddress);
+    console.log('Current delegation amount:', currentDelegation.balance.amount.toString());
+
+    // 2. Delegate additional tokens
+    console.log('=== Delegating Tokens ===');
+    const amountToDelegate = ethers.parseUnits('1', 18);
+    const delegateTx = await staking.delegate(validatorAddress, {
+      value: amountToDelegate,
+      gasLimit: 300000
+    });
+    await delegateTx.wait();
+    console.log('Delegation successful:', delegateTx.hash);
+
+    // 3. Check updated delegation
+    const updatedDelegation = await staking.delegation(delegator, validatorAddress);
+    console.log('Updated delegation amount:', updatedDelegation.balance.amount.toString());
+
+    // 4. Undelegate partial amount
+    console.log('=== Undelegating Tokens ===');
+    const undelegateAmount = 500000; // 0.5 SEI in 6 decimal precision
+    const undelegateTx = await staking.undelegate(validatorAddress, undelegateAmount);
+    await undelegateTx.wait();
+    console.log('Undelegation successful:', undelegateTx.hash);
+  } catch (error) {
+    console.error('Operation failed:', error);
   }
+}
+```
 
-  /// Queries delegation for a given delegator and validator address.
-  /// @param delegatorAddress The x0 or Sei address of the delegator.
-  /// @param valAddress The Sei address of the validator.
-  /// @return The delegation information. Shares in DelegationDetails are usually returned as decimals.
-  /// To calculate the actual amount, divide the shares by decimals.
-  function delegation(
-      address delegator,
-      string memory valAddress
-  ) external view returns (Delegation delegation);
-  ```
+## Troubleshooting
 
-<Callout type="info">View the Staking precompile source code and the contract ABI [here](https://github.com/sei-protocol/sei-chain/tree/evm/precompiles/staking).</Callout>
+<Callout type="error">**Common Issues and Solutions**</Callout>
+
+### Decimal Precision Issues
+
+```typescript copy
+// ❌ Incorrect: Using wrong decimal precision
+const wrongAmount = ethers.parseUnits('1', 18); // Wrong for undelegate/redelegate
+
+// ✅ Correct: Use appropriate precision for each function
+// For delegate() - use wei (18 decimals), gets truncated to 6
+const delegateAmount = ethers.parseUnits('1', 18);
+
+// For undelegate()/redelegate() - use 6 decimal precision directly
+const undelegateAmount = 1000000; // 1 SEI = 1,000,000 uSEI
+```
+
+### Gas-Related Issues
+
+```typescript copy
+// Set appropriate gas limits for different operations
+const delegateTx = await staking.delegate(validatorAddress, {
+  value: amount,
+  gasLimit: 300000
+});
+
+const createValidatorTx = await staking.createValidator(...params, {
+  value: selfDelegation,
+  gasLimit: 500000 // Higher gas for complex operations
+});
+```
+
+### Validator Address Validation
+
+```typescript copy
+async function validateValidator(validatorAddress: string) {
+  try {
+    // Check if validator exists by querying delegation
+    const testAddress = '0x0000000000000000000000000000000000000000';
+    await staking.delegation(testAddress, validatorAddress);
+    return true;
+  } catch (error) {
+    console.error('Invalid validator:', error);
+    return false;
+  }
+}
+```
+
+### Error Code Reference
+
+| Error                            | Cause                          | Solution                        |
+| -------------------------------- | ------------------------------ | ------------------------------- |
+| `insufficient funds`             | Not enough SEI for operation   | Check balance and reduce amount |
+| `validator does not exist`       | Invalid validator address      | Verify validator address format |
+| `invalid delegation amount`      | Amount formatting issue        | Use correct decimal precision   |
+| `commission rate too high`       | Commission above max rate      | Lower commission rate           |
+| `commission change too frequent` | Changing commission within 24h | Wait 24 hours between changes   |
+| `self delegation too low`        | Below minimum self-delegation  | Increase self-delegation amount |
+
+### Amount Conversion Helpers
+
+```typescript copy
+// Helper functions for amount conversion
+function seiToUsei(seiAmount: number): number {
+  return seiAmount * 1000000; // Convert SEI to 6 decimal precision
+}
+
+function useiToSei(useiAmount: number): number {
+  return useiAmount / 1000000; // Convert 6 decimal precision to SEI
+}
+
+function seiToWei(seiAmount: number): bigint {
+  return ethers.parseUnits(seiAmount.toString(), 18); // Convert SEI to wei
+}
+
+// Usage examples
+const delegateAmount = seiToWei(1); // For delegate()
+const undelegateAmount = seiToUsei(0.5); // For undelegate()
+```
+
+<Callout type="info">**Need Help?** If you encounter issues not covered here, check the [Sei Discord](https://discord.gg/sei) or [GitHub repository](https://github.com/sei-protocol/sei-chain) for community support.</Callout>
