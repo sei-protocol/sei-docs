@@ -11,6 +11,12 @@ export default {
 	'installing-seid': 'Installing seid CLI',
 	'evm-transactions': 'EVM with seid',
 
+	'-- CLI': {
+		type: 'separator',
+		title: 'CLI'
+	},
+	'seid-cli': `SEID CLI`,
+
 	'-- Frontend Development': {
 		type: 'separator',
 		title: 'Frontend Development'
