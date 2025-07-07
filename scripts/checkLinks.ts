@@ -85,6 +85,7 @@ function isInternal(url: string) {
 }
 
 async function processPage(page: Page, path: string, url: string) {
+	if (url.includes('t.me')) return;
 	// Skip excluded URLs
 	if (isExcluded(url)) {
 		console.info(`Skipping excluded URL: ${url}`);
