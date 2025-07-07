@@ -2,6 +2,25 @@
 import { Browser, chromium, Page, Response } from '@playwright/test';
 import * as fs from 'node:fs';
 
+// Custom exclusion list for URLs that should be skipped (blocked for robots, etc.)
+const EXCLUDED_URLS = [
+	// Add URLs or URL patterns that should be excluded
+	'https://etherscan.io/contractsVerified',
+	'https://www.getarculus.com/',
+	'https://forum.openzeppelin.com/'
+];
+
+// Function to check if a URL should be excluded
+function isExcluded(url: string): boolean {
+	return EXCLUDED_URLS.some((excludedUrl) => {
+		// Support both exact matches and pattern matching
+		if (excludedUrl.endsWith('/')) {
+			return url.startsWith(excludedUrl);
+		}
+		return url.includes(excludedUrl);
+	});
+}
+
 const brokenLinks = new Set<string>();
 const visitedLinks = new Set<string>();
 const linkQueue: { url: string; path: string }[] = [];
@@ -66,12 +85,18 @@ function isInternal(url: string) {
 }
 
 async function processPage(page: Page, path: string, url: string) {
+	// Skip excluded URLs
+	if (isExcluded(url)) {
+		console.info(`Skipping excluded URL: ${url}`);
+		return;
+	}
+
 	if (isInternal(url)) {
 		const isBroken = await isLinkBroken(page, url, path);
 		if (!isBroken) {
 			const links = await getLinksFromPage(page, path);
 			links.forEach((link) => {
-				if (!visitedLinks.has(link)) {
+				if (!visitedLinks.has(link) && !isExcluded(link)) {
 					linkQueue.push({ url: link, path: `${path} => ${link}` });
 				}
 			});
@@ -115,6 +140,7 @@ async function getLinksFromPage(page: Page, path: string) {
 	const linksOnPage = await page.$$eval(node, (links) => links.map((link) => link.href));
 	return linksOnPage
 		.filter((href) => !visitedLinks.has(href))
+		.filter((href) => !isExcluded(href))
 		.filter((href) => {
 			if (isInternal(href)) return !href.includes('#');
 			return true;
