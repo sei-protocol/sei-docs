@@ -66,7 +66,6 @@ function isInternal(url: string) {
 }
 
 async function processPage(page: Page, path: string, url: string) {
-	if (url.includes('t.me')) return;
 	if (isInternal(url)) {
 		const isBroken = await isLinkBroken(page, url, path);
 		if (!isBroken) {
