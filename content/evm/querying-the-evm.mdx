@@ -1,62 +1,146 @@
 ---
 title: 'Querying the EVM'
-description: 'Learn how to query EVM data and contracts using the Sei CLI (seid). Comprehensive guide covering address queries, contract interactions, and pointer lookups.'
-keywords: ['seid query', 'evm queries', 'address lookup', 'erc20 query', 'contract pointer']
+description: 'Accurate guide to querying EVM data and contracts using the seid CLI, including address lookups, ERC20 queries, payload generation, and pointer resolution.'
+keywords: ['seid query', 'evm query', 'erc20 balance', 'payload generation', 'pointer contract']
 ---
 
 import { Callout } from 'nextra/components';
-import { IconInfoCircle } from '@tabler/icons-react';
+import { IconInfoCircle, IconAlertTriangle } from '@tabler/icons-react';
 
 # Querying the EVM
 
-You can query or send transactions to Sei easily via `seid` once you have the `seid` command installed.
+<Callout type="info" emoji={<IconInfoCircle className="h-5 w-5 mt-1" />}>
+  **Quick Navigation:**
 
-## Network Configuration
+    - [What is EVM Querying?](#what-is-evm-querying)
+    - [Prerequisites](#prerequisites)
+    - [Network Configuration](#network-configuration)
+    - [Address Mapping](#address-mapping)
+    - [ERC20 Contract Queries](#erc20-contract-queries)
+    - [Payload Generation](#payload-generation)
+    - [Pointer Contract Lookup](#pointer-contract-lookup)
 
-If the machine you run these commands from are not running a node of the network, you'll need to append `--node http://url-to-sei-cosmos-rpc` to your command. Refer to the [RPC endpoints](/) at the bottom of the for a list of RPC endpoints.
+</Callout>
 
-## EVM Query Commands
+## What is EVM Querying?
 
-### Get Associated Sei Address
+EVM querying allows you to interact with Ethereum-compatible smart contracts and state on Sei using read-only methods. These queries can extract data such as balances, token information, and contract configurations without initiating a transaction.
 
-Gets the associated Sei address of the queried EVM address, if it exists on-chain:
+## Prerequisites
 
-```bash copy
-seid q evm sei-addr [some EVM address]
-```
+If your machine is **not running a Sei node**, you'll need to append the following to all query commands:
 
-### Get Associated EVM Address
-
-Gets the associated EVM address of the queried Sei address, if it exists on-chain:
-
-```bash copy
-seid q evm evm-addr [some Sei address]
-```
-
-### Query ERC20 Contract
-
-Query the ERC20 contract at given address using the given method/arguments:
-
-```bash copy
-seid q evm erc20 [erc20 address] [method] [arguments...]
+```bash
+--node http://<sei-cosmos-rpc-url>
 ```
 
 <Callout type="info" emoji={<IconInfoCircle className="h-5 w-5 mt-1" />}>
-  Use standard ERC20 method names like `balanceOf`, `totalSupply`, or `symbol` when querying contracts.
+  Refer to the [RPC endpoints](/rpc-endpoints) for a list of available Sei Cosmos RPC endpoints.
 </Callout>
 
-### Generate Payload
+## Network Configuration
 
-Generate the hexadecimal payload of the requested method call given an ABI:
+You must specify the correct RPC node if you are not running a local node:
+
+```bash
+--node http://<sei-cosmos-rpc-url>
+```
+
+Use this flag with all `seid q evm` commands.
+
+---
+
+## Address Mapping
+
+### Get Sei Address from EVM Address
+
+```bash copy
+seid q evm sei-addr [evm address]
+```
+
+**Example:**
+
+```bash copy
+seid q evm sei-addr 0x1234abcd5678ef...
+```
+
+---
+
+### Get EVM Address from Sei Address
+
+```bash copy
+seid q evm evm-addr [sei address]
+```
+
+**Example:**
+
+```bash copy
+seid q evm evm-addr sei1xyz...
+```
+
+---
+
+## ERC20 Contract Queries
+
+Query standard ERC20 contract methods using:
+
+```bash copy
+seid q evm erc20 [contract address] [method] [arguments...]
+```
+
+**Example:**
+
+```bash copy
+seid q evm erc20 0xabc123... balanceOf 0xuser456...
+```
+
+<Callout type="info" emoji={<IconInfoCircle className="h-5 w-5 mt-1" />}>
+  Supported methods include `balanceOf`, `totalSupply`, `symbol`, `decimals`, and `name`.
+</Callout>
+
+---
+
+## Payload Generation
+
+Generate the raw call data for a contract method using its ABI:
 
 ```bash copy
 seid q evm payload [abi-filepath] [method] [arguments...]
 ```
 
-### Get Pointer Contract
+**Example:**
 
-Gets the pointer contract of the requested pointee. The `type` parameter can be one of "NATIVE", "CW20", "CW721", "ERC20", or "ERC721", and `pointee` is the target contract address. For "NATIVE" type, `pointee` would be the native denom name instead:
+```bash copy
+seid q evm payload ./erc20.abi.json transfer 0xrecipient... 1000
+```
+
+<Callout type="info" emoji={<IconInfoCircle className="h-5 w-5 mt-1" />}>
+  This is useful for manually crafting `call-contract` transactions.
+</Callout>
+
+---
+
+## Pointer Contract Lookup
+
+Retrieve pointer contracts that bridge tokens between EVM and other environments (e.g. CosmWasm):
 
 ```bash copy
 seid q evm pointer [type] [pointee]
 ```
+
+- **type**: `NATIVE`, `CW20`, `CW721`, `ERC20`, or `ERC721`
+- **pointee**: For tokens, this is the contract address; for `NATIVE`, use the denom (e.g., `usei`)
+
+**Examples:**
+
+```bash copy
+# Get pointer for native denom
+seid q evm pointer NATIVE usei
+
+# Get pointer for an ERC20 token
+seid q evm pointer ERC20 0xabc123...
+```
+
+<Callout type="info" emoji={<IconInfoCircle className="h-5 w-5 mt-1" />}>
+  Pointer contracts allow cross-environment interoperability between CosmWasm and EVM.
+</Callout>

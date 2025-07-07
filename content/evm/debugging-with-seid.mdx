@@ -5,20 +5,35 @@ keywords: ['seid debugging', 'transaction templates', 'foundry cast', 'evm analy
 ---
 
 import { Callout } from 'nextra/components';
-import { IconInfoCircle } from '@tabler/icons-react';
+import { IconInfoCircle, IconAlertTriangle } from '@tabler/icons-react';
 
 # Debugging with seid
 
+## Overview
+
+Debugging EVM transactions on Sei requires understanding both the transaction creation process and how to analyze transaction behavior. This guide covers advanced debugging techniques using transaction template generation, analysis tools, and comprehensive transaction inspection methods to help developers identify and resolve issues in their EVM interactions.
+
+<Callout type="info" emoji={<IconInfoCircle className="h-5 w-5 mt-1" />}>
+  **Quick Navigation:**
+
+    - [Transaction Template Generation](#transaction-template-generation)
+    - [Analyzing EVM Transactions](#analyzing-evm-transactions-with-cast)
+    - [Template Generation Examples](#template-generation-for-different-transaction-types)
+
+</Callout>
+
+---
+
 ## Transaction Template Generation
 
-The `--generate-only` flag transforms any Sei CLI transaction command into a template generator, creating complete transaction structures without broadcasting them. Through the `--generate-only` flag and Foundry's `cast` tool, developers can craft, analyze, and debug transactions across in the EVM environment.
+The `--generate-only` flag transforms any Sei CLI transaction command into a template generator, creating complete transaction structures without broadcasting them. Through the `--generate-only` flag and Foundry's `cast` tool, developers can craft, analyze, and debug transactions across the EVM environment.
 
 ### Basic Command Pattern
 
 The general pattern follows this structure:
 
 ```bash copy
-seid tx <module> <action> <parameters> --from <key> --generate-only
+seid tx <module> <action> <parameters> --from <key> --evm-rpc http://url-to-sei-evm-rpc --generate-only
 ```
 
 ### Generating EVM Transaction Templates
@@ -30,14 +45,16 @@ seid tx evm register-evm-pointer NATIVE \
 factory/sei1ep3f207kt7julz9tjwxp2x8kluj0y9l6u0fume/gptw \
 --gas-fee-cap=100000000000 \
 --gas-limit=2500000 \
---evm-rpc=https://localhost:8545 \
---from tf \
+--evm-rpc=http://url-to-sei-evm-rpc \
+--from=mykey \
 --generate-only
 ```
 
 <Callout type="info" emoji={<IconInfoCircle className="h-5 w-5 mt-1" />}>
-  This command returns a transaction hash that you can analyze further using Foundry's `cast` tool.
+  This command returns a transaction template that you can analyze before broadcasting. The template includes all transaction details without executing the actual transaction.
 </Callout>
+
+---
 
 ## Analyzing EVM Transactions with Cast
 
@@ -45,10 +62,10 @@ Once you have a transaction hash, you can use Foundry's `cast` command to inspec
 
 ```bash copy
 cast tx 0x5010e6600e67f04a9bc3d3b670a7c2de380b180713d9a014a5dbd76b7e2190f1 \
---rpc-url=https://localhost:8545
+--rpc-url=http://url-to-sei-evm-rpc
 ```
 
-This provides detailed transaction information:
+**Example Output:**
 
 ```text copy
 blockHash               0x4696d63a9a9ae88b03bcc94ccbd87f407e994b309d1dff9c0626de51ac57b76e
@@ -64,23 +81,26 @@ input                   0xc31d960f0000...
 maxFeePerGas            100000000000
 maxPriorityFeePerGas    100000000000
 nonce                   3
-r                       0x92313277d1ffad9a18260303081671a2d40035016ac83740486dee916c964db7
-s                       0x158de03cac836b1fad26770274cffdb06b0809961811eb0b66aebfff95186417
 to                      0x000000000000000000000000000000000000100b
 type                    2
 value                   0
-yParity                 1
 ```
 
-## Template Generation for Different Transaction Types
+### Additional Analysis Commands
 
-Generate templates for various transaction types:
+**Get transaction receipt:**
 
 ```bash copy
-# EVM contract interaction
-seid tx evm send-tx \
---evm-rpc=http://localhost:8545 \
---gas-limit=2500000 \
---from=mykey \
---generate-only > evm_template.json
+cast receipt 0x5010e6600e67f04a9bc3d3b670a7c2de380b180713d9a014a5dbd76b7e2190f1 \
+--rpc-url=http://url-to-sei-evm-rpc
 ```
+
+**Decode transaction input data:**
+
+```bash copy
+cast 4byte-decode 0xc31d960f0000...
+```
+
+<Callout type="info" emoji={<IconInfoCircle className="h-5 w-5 mt-1" />}>
+  All template generation commands create JSON files that you can inspect, modify, and use for debugging before executing the actual transactions.
+</Callout>
