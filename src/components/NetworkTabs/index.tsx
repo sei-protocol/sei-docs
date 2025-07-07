@@ -211,10 +211,10 @@ export function NetworkTabs({}: NetworkTabsProps) {
 								<div className='flex flex-col'>
 									<div className={labelClass}>RPC URL:</div>
 									<div className='flex items-center justify-between'>
-										<a href='https://rpc.atlantic-2.sei.io' target='_blank' rel='noopener noreferrer' className={linkClass}>
-											https://rpc.atlantic-2.sei.io
+										<a href='https://rpc-testnet.sei-apis.com' target='_blank' rel='noopener noreferrer' className={linkClass}>
+											https://rpc-testnet.sei-apis.com
 										</a>
-										<CopyButton textToCopy='https://rpc.atlantic-2.sei.io' />
+										<CopyButton textToCopy='https://rpc-testnet.sei-apis.com' />
 									</div>
 								</div>
 
@@ -303,10 +303,10 @@ export function NetworkTabs({}: NetworkTabsProps) {
 								<div className='flex flex-col'>
 									<div className={labelClass}>RPC URL:</div>
 									<div className='flex items-center justify-between'>
-										<a href='https://rpc.arctic-1.sei.io' target='_blank' rel='noopener noreferrer' className={linkClass}>
-											https://rpc.arctic-1.sei.io
+										<a href='https://rpc-arctic-1.sei-apis.com' target='_blank' rel='noopener noreferrer' className={linkClass}>
+											https://rpc-arctic-1.sei-apis.com
 										</a>
-										<CopyButton textToCopy='https://rpc.arctic-1.sei.io' />
+										<CopyButton textToCopy='https://rpc-arctic-1.sei-apis.com' />
 									</div>
 								</div>
 

@@ -79,7 +79,7 @@ seid status | jq '.sync_info'
 seid query staking validator $(seid tendermint show-validator)
 
 # Monitor real-time logs
-journalctl -u seid -f -o cat
+journalctl -fu seid -o cat
 
 # View system resource usage
 top -p $(pgrep seid)
@@ -103,6 +103,158 @@ seid debug dump-iavl <latest height>
 ```
 
 Always include the app hash, commit hash, and block height from your logs when reporting issues.
+
+### Identifying AppHash Errors
+
+AppHash errors typically appear in logs as:
+
+```text copy
+ERR wrong Block.Header.AppHash. Expected [EXPECTED_HASH], got [ACTUAL_HASH]
+block_id={"hash":"...","parts":{"hash":"...","total":1}} height=[HEIGHT]
+```
+
+**Common Causes:**
+
+- Using incorrect node version during sync (ensure you're on the latest version)
+- Corrupted or incorrectly applied snapshots
+- Database inconsistencies from improper shutdowns
+- Syncing with outdated or incompatible peers
+
+**Resolution Steps:**
+
+1. **Stop the node immediately.**
+2. **Try a node rollback first:**, see [here](/node/troubleshooting#node-rollback)
+3. **If rollback fails, restore from a fresh snapshot:**
+
+   - Download a recent snapshot from trusted providers (Polkachu, PublicNode)
+   - Ensure you're using the correct node version
+   - Verify peer configurations are up to date
+
+4. **Restart the node and monitor logs for continued errors**
+
+### Peer Connection Issues as AppHash Red Herrings
+
+**Important Note:** Peer connection failures are often symptoms of underlying AppHash errors, not the root cause.
+
+When you see extensive peer connection errors like:
+
+```text copy
+ERR failed to handshake with peer
+ERR failed to send request for peers
+ERR peer handshake failed endpoint={} err=EOF
+```
+
+**Don't focus solely on fixing peer connections first.** Instead:
+
+1. **Scan your logs carefully** for AppHash errors that may appear intermittently
+2. **Look for the actual error pattern:**
+   ```text copy
+   ERR wrong Block.Header.AppHash. Expected [HASH], got [HASH]
+   ```
+3. **Check if your node is stuck** at a specific height despite peer connection attempts
+
+**Why This Happens:**
+
+- AppHash mismatches prevent proper block validation
+- Node cannot advance to new blocks due to state inconsistency
+- Peers may reject connections from nodes with corrupted state
+- Network appears to be the problem when it's actually a local state issue
+
+**Debugging Approach:**
+
+1. **First, check for AppHash errors** in your logs (search for "wrong Block.Header.AppHash")
+2. **If AppHash errors are found**, treat this as the primary issue
+3. **Only focus on peer connection fixes** if no AppHash errors exist
+
+This approach can save hours of debugging time by addressing the root cause rather than symptoms.
+
+### Peer Connection and Handshake Issues
+
+**Identifying Peer Issues:**
+
+Look for these error patterns in your logs:
+
+```text copy
+ERR failed to handshake with peer err="expected to connect with peer \"[EXPECTED_ID]\", got \"[ACTUAL_ID]\""
+ERR failed to send request for peers err="no available peers to send a PEX request to (retrying)"
+ERR peer handshake failed endpoint={} err=EOF module=p2p
+```
+
+**Common Causes:**
+
+- Outdated peer configurations with mismatched node IDs
+- Network infrastructure changes on peer side
+- Firewall blocking connections on port 26656
+- DNS resolution issues
+
+**Resolution Steps:**
+
+1. **Update peer configurations** with current node IDs:
+
+   ```toml copy
+   # Example updated persistent peers for Sei mainnet
+   persistent-peers = "3be6b24cf86a5938cce7d48f44fb6598465a9924@p2p.state-sync-0.pacific-1.seinetwork.io:26656,b21279d7092fde2e41770832a1cacc7d0051e9dc@p2p.state-sync-1.pacific-1.seinetwork.io:26656,616c05e9ba24acc89c0de630b5e3adbedaebb478@p2p.state-sync-2.pacific-1.seinetwork.io:26656"
+   ```
+
+2. **Verify network connectivity:**
+
+   ```bash copy
+   # Test connection to peer endpoints
+   nc -zv p2p.state-sync-0.pacific-1.seinetwork.io 26656
+
+   # Check if port 26656 is open for inbound connections
+   netstat -tulpn | grep :26656
+   ```
+
+3. **Check current peer status:**
+   ```bash copy
+   curl http://localhost:26657/net_info | jq '.result.peers | length'
+   curl http://localhost:26657/lag_status | jq .
+   ```
+
+### Sync Performance Issues
+
+**Identifying Sync Problems:**
+
+Monitor these indicators:
+
+```bash copy
+# Check sync status and lag
+curl http://localhost:26657/lag_status | jq .
+
+# Monitor if height is progressing
+curl http://localhost:26657/status | jq '.result.sync_info'
+```
+
+**Common Solutions:**
+
+1. **Increase packet payload size** for large block processing:
+
+   ```toml copy
+   # In config.toml [p2p] section
+   max-packet-msg-payload-size = 1024000  # Increase from default 102400
+   ```
+
+2. **Optimize mempool settings** in `config.toml`:
+
+   ```toml copy
+   # In [mempool] section
+   keep-invalid-txs-in-cache = true
+   ttl-duration = "5s"
+   ttl-num-blocks = 5
+   ```
+
+3. **If node gets stuck at specific height:**
+   - Try restarting the node
+   - If restart doesn't help, perform rollback
+   - Consider taking a fresh snapshot
+
+**Warning Signs to Watch For:**
+
+- Current height not increasing over time
+- Increasing lag between current height and max peer height
+- Repeated timeout errors in logs
+- Mempool size consistently reaching limits
 
 ## Crash and Panic Debugging
 

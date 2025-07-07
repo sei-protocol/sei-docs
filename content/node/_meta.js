@@ -2,19 +2,16 @@ export default {
 	index: {
 		title: 'Home'
 	},
-	'-- Getting Started': {
-		type: 'separator',
-		title: 'Getting Started'
-	},
 	'-- Node Operations': {
 		type: 'separator',
 		title: 'Node Operations'
 	},
 	'node-operators': 'Overview',
+	statesync: 'Statesync',
+	snapshot: 'Snapshot Sync',
+	'node-types': 'Node Types',
 	troubleshooting: 'Troubleshooting',
 	swagger: 'API configuration',
-	statesync: 'Statesync',
-	'node-types': 'Node Types',
 	validators: 'Validator Operations Guide',
 
 	'-- Advanced Operations': {
