@@ -1,10 +1,10 @@
 //@ts-nocheck
-import { Browser, chromium, Page, Response } from "@playwright/test";
-import * as fs from "node:fs";
+import { Browser, chromium, Page, Response } from '@playwright/test';
+import * as fs from 'node:fs';
 
 const brokenLinks = new Set<string>();
 const visitedLinks = new Set<string>();
-const linkQueue: { url: string, path: string }[] = [];
+const linkQueue: { url: string; path: string }[] = [];
 const MAX_PAGES = 5;
 let activeCount = 0;
 
@@ -29,13 +29,13 @@ async function main() {
 }
 
 async function processLink(browser: Browser, workerId: number) {
-	const ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36 Edg/116.0.1938.81";
+	const ua = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36 Edg/116.0.1938.81';
 	while (true) {
 		const currentTask = linkQueue.shift();
 
 		if (!currentTask) {
 			if (linkQueue.length === 0 && activeCount === 0) break;
-			await new Promise(res => setTimeout(res, 100));
+			await new Promise((res) => setTimeout(res, 100));
 			continue;
 		}
 
@@ -65,12 +65,13 @@ function isInternal(url: string) {
 	return url.includes('docs.sei') || url.includes('localhost:3000');
 }
 
-async function processPage(page: Page, path: string, url:string) {
+async function processPage(page: Page, path: string, url: string) {
+	if (url.includes('t.me')) return;
 	if (isInternal(url)) {
 		const isBroken = await isLinkBroken(page, url, path);
 		if (!isBroken) {
 			const links = await getLinksFromPage(page, path);
-			links.forEach(link => {
+			links.forEach((link) => {
 				if (!visitedLinks.has(link)) {
 					linkQueue.push({ url: link, path: `${path} => ${link}` });
 				}
@@ -105,19 +106,17 @@ async function retryPageLoadIfTimeout(page: Page, url: string, path: string) {
 	try {
 		console.warn(`Retrying page load for ${path}`);
 		return await page.goto(url, { waitUntil: 'load', timeout: 45000 });
-	} catch(e: any) {
+	} catch (e: any) {
 		return undefined;
 	}
 }
 
 async function getLinksFromPage(page: Page, path: string) {
 	const node = path === 'main' ? 'a' : 'main a';
-	const linksOnPage = await page.$$eval(node, links =>
-		links.map(link => link.href)
-	);
+	const linksOnPage = await page.$$eval(node, (links) => links.map((link) => link.href));
 	return linksOnPage
-		.filter(href => !visitedLinks.has(href))
-		.filter(href => {
+		.filter((href) => !visitedLinks.has(href))
+		.filter((href) => {
 			if (isInternal(href)) return !href.includes('#');
 			return true;
 		});
