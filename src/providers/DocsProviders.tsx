@@ -1,7 +1,8 @@
 'use client';
 
 import { Layout, Navbar } from 'nextra-theme-docs';
-import { AskCookbook, Logo } from '../../src/components';
+import { AskCookbook } from '../components';
+import { Logo, LogoMobile } from '../components/Logo';
 import React, { useState, useEffect } from 'react';
 import { Footer } from '../components/Footer/Footer';
 import { Theme } from '@radix-ui/themes';
@@ -31,7 +32,7 @@ export default function DocsProviders({ children, pageMap }) {
 
 		return (
 			<Navbar
-				logo={<Logo />}
+				logo={isMobile ? <LogoMobile /> : <Logo />}
 				logoLink='/'
 				className='flex items-center justify-between px-4 w-full dark:bg-neutral-900 bg-neutral-100'
 				children={
