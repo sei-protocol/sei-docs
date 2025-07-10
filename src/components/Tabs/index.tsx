@@ -62,18 +62,29 @@ export const TabsTrigger = React.forwardRef<HTMLButtonElement, TabsTriggerProps>
 ));
 TabsTrigger.displayName = 'TabsTrigger';
 
-export const TabsContent = React.forwardRef<HTMLDivElement, TabsContentProps>(({ className, value, children }, ref) => (
-	<TabsPrimitive.Content
-		ref={ref}
-		value={value}
-		className={
-			className ||
-			`mt-0 p-6 
-				border border-neutral-200 dark:border-neutral-800 rounded-lg 
-				bg-white dark:bg-neutral-900/30
-				animate-in fade-in-0 zoom-in-95 duration-200`
-		}>
-		{children}
-	</TabsPrimitive.Content>
-));
+// TabsContent that renders both regular Radix content AND always visible content for indexing
+export const TabsContent = React.forwardRef<HTMLDivElement, TabsContentProps>(({ className, value, children }, ref) => {
+	return (
+		<>
+			{/* Regular Radix TabsContent for interactive behavior */}
+			<TabsPrimitive.Content
+				ref={ref}
+				value={value}
+				className={
+					className ||
+					`mt-0 p-6 
+						border border-neutral-200 dark:border-neutral-800 rounded-lg 
+						bg-white dark:bg-neutral-900/30
+						animate-in fade-in-0 zoom-in-95 duration-200`
+				}>
+				{children}
+			</TabsPrimitive.Content>
+
+			{/* Always visible content for search indexing (hidden visually but accessible to crawlers) */}
+			<div data-search-content data-tab-value={value} className='sr-only' aria-hidden='true'>
+				{children}
+			</div>
+		</>
+	);
+});
 TabsContent.displayName = 'TabsContent';
