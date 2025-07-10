@@ -11,7 +11,7 @@ import { Link } from 'nextra-theme-docs';
 type NetworkType = 'Cosmos' | 'EVM';
 
 export const ChainInformation = ({ networkType }: { networkType: NetworkType }) => (
-	<Table.Root size='3' variant='surface' className='mt-8'>
+	<Table.Root size='1' variant='surface' className='mt-8'>
 		{/* top‑level header */}
 		<Table.Header>
 			<Table.Row>
