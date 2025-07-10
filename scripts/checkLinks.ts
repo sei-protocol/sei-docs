@@ -6,7 +6,8 @@ import * as fs from 'node:fs';
 const EXCLUDED_URLS = [
 	// Add URLs or URL patterns that should be excluded
 	'https://etherscan.io/contractsVerified',
-	'https://www.getarculus.com/'
+	'https://www.getarculus.com/',
+	'https://forum.openzeppelin.com/'
 ];
 
 // Function to check if a URL should be excluded
@@ -84,6 +85,7 @@ function isInternal(url: string) {
 }
 
 async function processPage(page: Page, path: string, url: string) {
+	if (url.includes('t.me')) return;
 	// Skip excluded URLs
 	if (isExcluded(url)) {
 		console.info(`Skipping excluded URL: ${url}`);

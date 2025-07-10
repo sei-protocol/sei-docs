@@ -9,7 +9,7 @@ import { isValidSeiCosmosAddress } from '../../utils/sei-utils';
 import HCaptcha from '@hcaptcha/react-hcaptcha';
 import { sendGAEvent } from '@next/third-parties/google';
 
-const VITE_FAUCET_API_URL = 'https://staging-faucet-v3.seinetwork.io';
+const VITE_FAUCET_API_URL = 'https://faucet-v3.seinetwork.io';
 
 const RequestFaucetCard = () => {
 	const [sendingRequest, setSendingRequest] = useState(false);
