@@ -34,7 +34,9 @@ export const Tabs = React.forwardRef<HTMLDivElement, TabsProps>(({ defaultValue,
 Tabs.displayName = 'Tabs';
 
 export const TabsList = React.forwardRef<HTMLDivElement, TabsListProps>(({ className, children }, ref) => (
-	<TabsPrimitive.List ref={ref} className={className || 'flex w-full border border-neutral-200 dark:border-neutral-800 rounded-lg overflow-hidden mb-4'}>
+	<TabsPrimitive.List
+		ref={ref}
+		className={className || 'flex w-full border border-neutral-200 dark:border-neutral-800 rounded-lg overflow-x-auto overflow-y-hidden flex-nowrap mb-4'}>
 		{children}
 	</TabsPrimitive.List>
 ));
@@ -46,7 +48,7 @@ export const TabsTrigger = React.forwardRef<HTMLButtonElement, TabsTriggerProps>
 		value={value}
 		className={
 			className ||
-			`flex-1 py-3 px-4 
+			`flex-none sm:flex-1 min-w-max whitespace-nowrap py-3 px-4 
 				bg-white dark:bg-neutral-900/30 
 				data-[state=active]:bg-neutral-50 dark:data-[state=active]:bg-neutral-800
 				border-r border-neutral-200 dark:border-neutral-800 last:border-r-0
@@ -60,18 +62,29 @@ export const TabsTrigger = React.forwardRef<HTMLButtonElement, TabsTriggerProps>
 ));
 TabsTrigger.displayName = 'TabsTrigger';
 
-export const TabsContent = React.forwardRef<HTMLDivElement, TabsContentProps>(({ className, value, children }, ref) => (
-	<TabsPrimitive.Content
-		ref={ref}
-		value={value}
-		className={
-			className ||
-			`mt-0 p-6 
-				border border-neutral-200 dark:border-neutral-800 rounded-lg 
-				bg-white dark:bg-neutral-900/30
-				animate-in fade-in-0 zoom-in-95 duration-200`
-		}>
-		{children}
-	</TabsPrimitive.Content>
-));
+// TabsContent that renders both regular Radix content AND always visible content for indexing
+export const TabsContent = React.forwardRef<HTMLDivElement, TabsContentProps>(({ className, value, children }, ref) => {
+	return (
+		<>
+			{/* Regular Radix TabsContent for interactive behavior */}
+			<TabsPrimitive.Content
+				ref={ref}
+				value={value}
+				className={
+					className ||
+					`mt-0 p-6 
+						border border-neutral-200 dark:border-neutral-800 rounded-lg 
+						bg-white dark:bg-neutral-900/30
+						animate-in fade-in-0 zoom-in-95 duration-200`
+				}>
+				{children}
+			</TabsPrimitive.Content>
+
+			{/* Always visible content for search indexing (hidden visually but accessible to crawlers) */}
+			<div data-search-content data-tab-value={value} className='sr-only' aria-hidden='true'>
+				{children}
+			</div>
+		</>
+	);
+});
 TabsContent.displayName = 'TabsContent';
