@@ -29,6 +29,8 @@ async function scrapeBuiltHtml() {
 
 		console.log(`✅ Successfully processed ${scrapedPages.length} pages out of ${htmlFiles.length} total files`);
 		await saveScrapedContent(scrapedPages, outputPath);
+		// Generate llms.txt and llms-full.txt following the llms.txt specification
+		await createLlmsFiles(scrapedPages, outputPath);
 	} catch (err) {
 		console.error('❌ Fatal error:', err);
 		process.exit(1);
@@ -732,6 +734,49 @@ ${page.content}
 	console.log(`📄 Created consolidated text file: ${outputPath}/sei-docs-consolidated.txt`);
 	console.log(`📋 Created structured JSON file: ${outputPath}/sei-docs-structured.json`);
 	console.log(`📁 Created ${scrapedPages.length} individual .mdx files`);
+}
+
+/**
+ * Create llms.txt (summary) and llms-full.txt (summary + full context) files
+ * following the https://llmstxt.org specification.
+ */
+async function createLlmsFiles(scrapedPages, outputPath) {
+	try {
+		console.log('📝 Generating llms.txt and llms-full.txt...');
+
+		const projectName = 'Sei Docs';
+		const projectSummary = 'Comprehensive documentation for the Sei Network, including guides, tutorials, reference material, and API docs.';
+
+		// Build llms.txt content (high-level summary plus a list of pages)
+		let llmsTxt = `# ${projectName}\n\n`;
+		llmsTxt += `> ${projectSummary}\n\n`;
+
+		llmsTxt += '## Docs\n\n';
+		scrapedPages.forEach((page) => {
+			llmsTxt += `- [${page.title}](${page.url})\n`;
+		});
+
+		// Build llms-full.txt content (llms.txt + complete page text)
+		let llmsFull = llmsTxt + '\n---\n\n';
+		scrapedPages.forEach((page) => {
+			llmsFull += `# ${page.title}\n\n`;
+			llmsFull += `URL: ${page.url}\n`;
+			if (page.description) {
+				llmsFull += `Description: ${page.description}\n`;
+			}
+			if (page.keywords && page.keywords.length > 0) {
+				llmsFull += `Keywords: ${page.keywords.join(', ')}\n`;
+			}
+			llmsFull += `\n${page.content}\n\n---\n\n`;
+		});
+
+		// Write files in parallel
+		await Promise.all([fs.writeFile(path.join(outputPath, 'llms.txt'), llmsTxt, 'utf8'), fs.writeFile(path.join(outputPath, 'llms-full.txt'), llmsFull, 'utf8')]);
+
+		console.log('📄 Created llms.txt and llms-full.txt');
+	} catch (error) {
+		console.error('❌ Error generating llms.txt files:', error.message);
+	}
 }
 
 /**
