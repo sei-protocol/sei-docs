@@ -67,6 +67,5 @@ export default {
 		title: 'CosmWasm Interoperability'
 	},
 	'cosmwasm-precompiles': 'Precompiles',
-	pointers: 'Pointer Contracts',
 	'ibc-protocol': 'IBC on EVM'
 };
