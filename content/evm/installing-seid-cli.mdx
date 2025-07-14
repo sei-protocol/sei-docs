@@ -13,14 +13,6 @@ import { IconInfoCircle, IconAlertTriangle, IconShieldCheck } from '@tabler/icon
 
 The `seid` CLI is the command-line tool for interacting with the Sei blockchain. It allows you to manage wallets, send transactions, query network data, and perform validator operations.
 
-## Uninstalling seid
-
-If you need to remove `seid` from your system, you can delete the binary from your `$GOPATH/bin` directory:
-
-```bash copy
-rm $(go env GOPATH)/bin/seid
-```
-
 ## Prerequisites
 
 - Go 1.23+: Installation instructions are available [here](https://go.dev/doc/install).
@@ -58,12 +50,77 @@ export PATH=$PATH:$GOPATH/bin
 
 For more information see [here](https://pkg.go.dev/cmd/go#hdr-GOPATH_environment_variable).
 
+## Command Overview
+
+Seid supports all the commands you need to interact with the chain. To see a list of available commands and explanations of what they do, run seid:
+
+```bash copy
+seid
+Start sei app
+
+Usage:
+  seid [command]
+
+Available Commands:
+  add-genesis-account      Add a genesis account to genesis.json
+  add-wasm-genesis-message Wasm genesis subcommands
+  blocktest                run EF blocktest
+  collect-gentxs           Collect genesis txs and output a genesis.json file
+  compact                  Compact the application DB fully (only if it is a levelDB)
+  config                   Create or query an application CLI configuration file
+  debug                    Tool for helping with debugging your application
+  ethreplay                replay EVM transactions
+  export                   Export state to JSON
+  gentx                    Generate a genesis tx carrying a self delegation
+  help                     Help about any command
+  init                     Initialize private validator, p2p, genesis, and application configuration files
+  keys                     Manage your application's keys
+  latest_version           Prints the latest version of the app DB
+  migrate                  Migrate genesis to a specified target version
+  prune                    Prune app history states by keeping the recent heights and deleting old heights
+  query                    Querying subcommands
+  rollback                 rollback cosmos-sdk and tendermint state by one height
+  start                    Run the full node
+  status                   Query remote node for status
+  tendermint               Tendermint subcommands
+  tools                    A set of useful tools for sei chain
+  tx                       Transactions subcommands
+  validate-genesis         validates the genesis file at the default location or at the location passed as an arg
+  version                  Print the application binary version information
+
+Flags:
+  -h, --help                help for seid
+      --home string         directory for config and data (default "/Users/shreyas/.sei")
+      --log_format string   The logging format (json|plain)
+      --log_level string    The logging level (trace|debug|info|warn|error|fatal|panic)
+      --trace               print out full stack trace on errors
+
+Use "seid [command] --help" for more information about a command.
+```
+
 ## Adding a Wallet
 
 You can create a new wallet using the seid keys command:
 
 ```bash copy
 seid keys add $NAME
+```
+
+Output:
+
+```bash
+- name: [YOUR_KEY_NAME]
+  type: local
+  address: sei1[GENERATED_ADDRESS]
+  evm_address: ""
+  pubkey: '{"@type":"/cosmos.crypto.secp256k1.PubKey","key":"[PUBLIC_KEY]"}'
+  mnemonic: ""
+
+**Important** write this mnemonic phrase in a safe place.
+It is the only way to recover your account if you ever forget your password.
+
+[YOUR_24_WORD_MNEMONIC_PHRASE]
+
 ```
 
 <Callout type="info" emoji={<IconInfoCircle className="h-5 w-5 mt-1" />}>
@@ -80,20 +137,82 @@ Alternatively, if you would like to import an existing seed phrase, you can add 
 seid keys add $NAME --recover
 ```
 
-You will then be prompted to input your seed phrase.
+Output:
 
-## EVM Wallet Import
+This will prompt you to enter your seed phrase, allowing you to import an existing wallet into the CLI.
 
-If you are importing from an EVM wallet like MetaMask, you may need to specify the coin type. Ethereum (EVM) based wallets use coin type `60`, while the default on Sei is `118`.
+```bash
+> Enter your bip39 mnemonic
+[ENTER_YOUR_EXISTING_MNEMONIC_PHRASE_HERE]
 
-For example:
+- name: [YOUR_WALLET_NAME]
+  type: local
+  address: sei1[RECOVERED_ADDRESS]
+  evm_address: ""
+  pubkey: '{"@type":"/cosmos.crypto.secp256k1.PubKey","key":"[PUBLIC_KEY]"}'
+  mnemonic: ""
+```
 
-```bash copy
+## EVM Wallet Compatibility
+
+### Understanding Coin Types
+
+Sei supports two coin types:
+
+- Coin type 118 (default): Standard Cosmos address format
+- Coin type 60: Ethereum-compatible address format for EVM wallets
+
+### Creating an EVM-Compatible Wallet
+
+To create a new wallet that's compatible with EVM wallets like MetaMask:
+
+```bash
 seid keys add $NAME --coin-type=60
 ```
 
+Output:
+
+```bash
+- name: [YOUR_KEY_NAME]
+  type: local
+  address: sei1[GENERATED_ADDRESS]
+  evm_address: ""
+  pubkey: '{"@type":"/cosmos.crypto.secp256k1.PubKey","key":"[PUBLIC_KEY]"}'
+  mnemonic: ""
+
+**Important** write this mnemonic phrase in a safe place.
+It is the only way to recover your account if you ever forget your password.
+
+[YOUR_24_WORD_MNEMONIC_PHRASE]
+
+```
+
+### Importing an Existing EVM Wallet
+
+To import an existing wallet from MetaMask or other EVM wallets:
+
+```bash
+seid keys add $NAME --coin-type=60 --recover
+```
+
+Output:
+
+```bash
+> Enter your bip39 mnemonic
+> [ENTER_YOUR_EXISTING_MNEMONIC_PHRASE_HERE]
+
+- name: [YOUR_WALLET_NAME]
+  type: local
+  address: sei1[RECOVERED_ADDRESS]
+  evm_address: ""
+  pubkey: '{"@type":"/cosmos.crypto.secp256k1.PubKey","key":"[PUBLIC_KEY]"}'
+  mnemonic: ""
+```
+
+You'll be prompted to enter your existing 12 or 24-word mnemonic phrase.
+
 <Callout type="info" emoji={<IconInfoCircle className="h-5 w-5 mt-1" />}>
-  This will generate a different address than the default coin type of `118`.
+  Use coin type 60 when you want to use the same address across EVM-compatible chains or import from MetaMask. Use the default coin type 118 for standard Cosmos operations.
 </Callout>
 
 ## Managing Wallets
@@ -104,10 +223,58 @@ To see your local wallets, you can run:
 seid keys list
 ```
 
+Output:
+
+```bash
+- name: [YOUR_WALLET_NAME]
+  type: local
+  address: sei1[WALLET_ADDRESS]
+  evm_address: [EVM_ADDRESS]
+  pubkey: '{"@type":"/cosmos.crypto.secp256k1.PubKey","key":"[PUBLIC_KEY]"}'
+  mnemonic: ""
+  ...
+```
+
 to see a list of all wallets added, or
 
 ```bash copy
 seid keys show $NAME
 ```
 
+Output:
+
+```bash
+- name: [YOUR_WALLET_NAME]
+  type: local
+  address: sei1[WALLET_ADDRESS]
+  evm_address: [EVM_ADDRESS]
+  pubkey: '{"@type":"/cosmos.crypto.secp256k1.PubKey","key":"[PUBLIC_KEY]"}'
+  mnemonic: ""
+```
+
 to see details about a specific wallet.
+
+## Deleting Wallets
+
+To delete a wallet/key, you can use the following command:
+
+```bash copy
+seid keys delete $NAME
+```
+
+Output:
+
+```bash
+Key reference will be deleted. Continue? [y/N]: y
+Key deleted forever (uh oh!)
+```
+
+This will remove the specified wallet from your local keyring. Be cautious, as this action cannot be undone.
+
+## Uninstalling seid
+
+If you need to remove `seid` from your system, you can delete the binary from your `$GOPATH/bin` directory:
+
+```bash copy
+rm $(go env GOPATH)/bin/seid
+```
