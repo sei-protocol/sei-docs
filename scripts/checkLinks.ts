@@ -109,22 +109,38 @@ async function processPage(page: Page, path: string, url: string) {
 	}
 }
 
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = 5000; // 5 seconds
+
 async function isLinkBroken(page: Page, url: string, path: string) {
 	if ((url.includes('localhost') && !url.includes(':3000')) || url.includes('.tar.gz')) return false;
 
-	let pageResponse: Response;
-	try {
-		pageResponse = await page.goto(url, { waitUntil: 'load', timeout: 45000 });
-	} catch (error: any) {
-		pageResponse = await retryPageLoadIfTimeout(page, url, path);
-	} finally {
-		if (!pageResponse || [404, 403].includes(pageResponse.status())) {
-			console.warn(`Broken link detected: ${path} (Status ${pageResponse ? pageResponse.status() : 'page not opened'})`);
-			brokenLinks.add(path);
-			return true;
+	for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+		let pageResponse: Response | undefined;
+		try {
+			pageResponse = await page.goto(url, { waitUntil: 'load', timeout: 45000 });
+		} catch (error: any) {
+			// Treat navigation errors as failed attempts.
 		}
-		return false;
+
+		// Successful response with acceptable status
+		if (pageResponse && ![404, 403].includes(pageResponse.status())) {
+			return false;
+		}
+
+		// If not the last attempt, wait before retrying
+		if (attempt < MAX_RETRIES) {
+			console.warn(
+				`Attempt ${attempt} failed for ${path} (Status ${pageResponse ? pageResponse.status() : 'page not opened'}). Retrying in ${RETRY_DELAY_MS / 1000}s…`
+			);
+			await new Promise((res) => setTimeout(res, RETRY_DELAY_MS));
+		}
 	}
+
+	// Exhausted retries, mark as broken
+	console.warn(`Broken link detected after ${MAX_RETRIES} attempts: ${path}`);
+	brokenLinks.add(path);
+	return true;
 }
 
 async function retryPageLoadIfTimeout(page: Page, url: string, path: string) {
