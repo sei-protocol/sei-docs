@@ -6,6 +6,7 @@ keywords: ['seid query', 'evm query', 'erc20 balance', 'payload generation', 'po
 
 import { Callout } from 'nextra/components';
 import { IconInfoCircle, IconAlertTriangle } from '@tabler/icons-react';
+import { Tabs } from 'nextra/components';
 
 # Querying the EVM
 
@@ -49,6 +50,15 @@ seid q evm sei-addr [evm address]
 seid q evm sei-addr 0x1234abcd5678ef...
 ```
 
+**Output:**
+
+```json
+{
+  "sei_address": "sei1xyz...",
+  "associated": true
+}
+```
+
 ### Get EVM Address from Sei Address
 
 ```bash copy
@@ -59,6 +69,15 @@ seid q evm evm-addr [sei address]
 
 ```bash copy
 seid q evm evm-addr sei1xyz...
+```
+
+**Output:**
+
+```json
+{
+  "evm_address": "0x1234abcd5678ef...",
+  "associated": true
+}
 ```
 
 ## ERC20 Contract Queries
@@ -75,49 +94,358 @@ seid q evm erc20 [contract address] [method] [arguments...]
 seid q evm erc20 0xabc123... balanceOf 0xuser456...
 ```
 
+**Output:**
+
+```
+500000000000000000000
+```
+
 <Callout type="info" emoji={<IconInfoCircle className="h-5 w-5 mt-1" />}>
-  Supported methods include `balanceOf`, `totalSupply`, `symbol`, `decimals`, and `name`.
+**Supported methods:**
+
+- `name` - Get token name
+- `symbol` - Get token symbol
+- `decimals` - Get token decimals
+- `totalSupply` - Get total token supply
+- `balanceOf [address]` - Get balance of specific address
+- `allowance [owner] [spender]` - Get allowance amount
+
 </Callout>
 
 ## Payload Generation
 
-Generate the raw call data for a contract method using its ABI:
+Generate hex-encoded call data for contract methods. This is useful for crafting transactions manually.
 
-```bash copy
-seid q evm payload [method] [arguments...]
-```
+<Tabs items={['ERC20', 'ERC721', 'ERC1155', 'Custom ABI']}>
+  <Tabs.Tab>
+    ### ERC20 Payload Generation
 
-**Example:**
+    ```bash copy
+    seid q evm erc20-payload [method] [arguments...]
+    ```
 
-```bash copy
-seid q evm payload transfer 0xrecipient... 1000
-```
+    **Transfer tokens:**
+    ```bash copy
+    seid q evm erc20-payload transfer 0xrecipient... 1000000000000000000
+    ```
 
-<Callout type="info" emoji={<IconInfoCircle className="h-5 w-5 mt-1" />}>
-  This is useful for manually crafting `call-contract` transactions. Supported methods include `transfer`, `approve`, and `transferFrom`.
+    **Output:**
+    ```
+    a9059cbb000000000000000000000000recipient...0000000000000000000000000de0b6b3a7640000
+    ```
+
+    **Approve spender:**
+    ```bash copy
+    seid q evm erc20-payload approve 0xspender... 2000000000000000000
+    ```
+
+    **Output:**
+    ```
+    095ea7b3000000000000000000000000spender...0000000000000000000000001bc16d674ec80000
+    ```
+
+    **Transfer from:**
+    ```bash copy
+    seid q evm erc20-payload transferFrom 0xfrom... 0xto... 1500000000000000000
+    ```
+
+    **Output:**
+    ```
+    23b872dd000000000000000000000000from...000000000000000000000000to...00000000000000000000000014d1120d7b160000
+    ```
+
+    <Callout type="info" emoji={<IconInfoCircle className="h-5 w-5 mt-1" />}>
+
+**Supported methods:**
+
+- `transfer [to] [amount]` - Transfer tokens to address
+- `approve [spender] [amount]` - Approve spender for amount
+- `transferFrom [from] [to] [amount]` - Transfer tokens from one address to another
+
+Amounts should be specified in the token's smallest unit (e.g., wei for 18-decimal tokens).
+
 </Callout>
 
-## Pointer Contract Lookup
+  </Tabs.Tab>
+  
+  <Tabs.Tab>
+    ### ERC721 Payload Generation
 
-Retrieve pointer contracts that bridge tokens between EVM and other environments (e.g. CosmWasm):
+    ```bash copy
+    seid q evm erc721-payload [method] [arguments...]
+    ```
+
+    **Approve token:**
+    ```bash copy
+    seid q evm erc721-payload approve 0xspender... 123
+    ```
+
+    **Output:**
+    ```
+    095ea7b3000000000000000000000000spender...000000000000000000000000000000000000000000000000000000000000007b
+    ```
+
+    **Transfer token:**
+    ```bash copy
+    seid q evm erc721-payload transferFrom 0xfrom... 0xto... 123
+    ```
+
+    **Output:**
+    ```
+    23b872dd000000000000000000000000from...000000000000000000000000to...000000000000000000000000000000000000000000000000000000000000007b
+    ```
+
+    **Set approval for all:**
+    ```bash copy
+    seid q evm erc721-payload setApprovalForAll 0xoperator... true
+    ```
+
+    **Output:**
+    ```
+    a22cb465000000000000000000000000operator...0000000000000000000000000000000000000000000000000000000000000001
+    ```
+
+    <Callout type="info" emoji={<IconInfoCircle className="h-5 w-5 mt-1" />}>
+      **Supported methods:**
+      - `approve [spender] [tokenId]` - Approve specific token
+      - `transferFrom [from] [to] [tokenId]` - Transfer token
+      - `setApprovalForAll [operator] [true|false]` - Set approval for all tokens
+    </Callout>
+
+  </Tabs.Tab>
+  
+  <Tabs.Tab>
+    ### ERC1155 Payload Generation
+
+    ```bash copy
+    seid q evm erc1155-payload [method] [arguments...]
+    ```
+
+    **Safe transfer:**
+    ```bash copy
+    seid q evm erc1155-payload safeTransferFrom 0xfrom... 0xto... 123 5 0x
+    ```
+
+    **Output:**
+    ```
+    f242432a000000000000000000000000from...000000000000000000000000to...000000000000000000000000000000000000000000000000000000000000007b0000000000000000000000000000000000000000000000000000000000000005
+    ```
+
+    **Safe batch transfer:**
+    ```bash copy
+    seid q evm erc1155-payload safeBatchTransferFrom 0xfrom... 0xto... [123,456] [5,10] 0x
+    ```
+
+    **Output:**
+    ```
+    2eb2c2d6000000000000000000000000from...000000000000000000000000to...00000000000000000000000000000000000000000000000000000000000000a0...
+    ```
+
+    **Set approval for all:**
+    ```bash copy
+    seid q evm erc1155-payload setApprovalForAll 0xoperator... true
+    ```
+
+    **Output:**
+    ```
+    a22cb465000000000000000000000000operator...0000000000000000000000000000000000000000000000000000000000000001
+    ```
+
+    <Callout type="info" emoji={<IconInfoCircle className="h-5 w-5 mt-1" />}>
+      **Supported methods:**
+      - `safeTransferFrom [from] [to] [tokenId] [amount] [data]` - Transfer single token
+      - `safeBatchTransferFrom [from] [to] [tokenIds] [amounts] [data]` - Transfer multiple tokens
+      - `setApprovalForAll [operator] [true|false]` - Set approval for all tokens
+
+      For batch operations, use square brackets for arrays: `[123,456]` for token IDs and `[5,10]` for amounts.
+    </Callout>
+
+  </Tabs.Tab>
+  
+  <Tabs.Tab>
+    ### Custom ABI Payload Generation
+
+    Generate payloads from custom ABI files:
+
+    ```bash copy
+    seid q evm payload [abi-filepath] [method] [arguments...]
+    ```
+
+    **Example:**
+    ```bash copy
+    seid q evm payload ./MyContract.json myMethod arg1 arg2
+    ```
+
+    **Output:**
+    ```
+    a1b2c3d4000000000000000000000000...
+    ```
+
+    <Callout type="info" emoji={<IconInfoCircle className="h-5 w-5 mt-1" />}>
+      The ABI file should be in JSON format containing the contract's ABI definition.
+    </Callout>
+
+  </Tabs.Tab>
+</Tabs>
+
+## Pointer System
+
+The pointer system enables interoperability between different token standards (EVM, CosmWasm, Native).
+
+### Get Pointer Address
+
+Retrieve pointer contracts that bridge tokens between EVM and other environments:
 
 ```bash copy
 seid q evm pointer [type] [pointee]
 ```
 
-- **type**: `NATIVE`, `CW20`, `CW721`, `ERC20`, or `ERC721`
-- **pointee**: For tokens, this is the contract address; for `NATIVE`, use the denom (e.g., `usei`)
-
-**Examples:**
+**Example:**
 
 ```bash copy
-# Get pointer for native denom
 seid q evm pointer NATIVE usei
+```
 
-# Get pointer for an ERC20 token
-seid q evm pointer ERC20 0xabc123...
+**Output:**
+
+```json
+{
+  "pointer": "0xabc123...",
+  "version": 1,
+  "exists": true
+}
+```
+
+<Callout type="info" emoji={<IconInfoCircle className="h-5 w-5 mt-1" />}>
+  **Supported types:** `NATIVE`, `CW20`, `CW721`, `CW1155`, `ERC20`, `ERC721`, `ERC1155` **Pointee:** For tokens, use the contract address; for `NATIVE`, use the denom (e.g., `usei`)
+</Callout>
+
+### Get Pointee Address
+
+Get the original contract address from a pointer:
+
+```bash copy
+seid q evm pointee [type] [pointer]
+```
+
+**Example:**
+
+```bash copy
+seid q evm pointee ERC20 0xpointer123...
+```
+
+**Output:**
+
+```json
+{
+  "pointee": "0xoriginal456...",
+  "version": 1,
+  "exists": true
+}
+```
+
+### Get Pointer Version
+
+Query the current pointer version and stored code ID:
+
+```bash copy
+seid q evm pointer-version [type]
+```
+
+**Example:**
+
+```bash copy
+seid q evm pointer-version ERC20
+```
+
+**Output:**
+
+```json
+{
+  "version": 1,
+  "cw_code_id": "123"
+}
 ```
 
 <Callout type="info" emoji={<IconInfoCircle className="h-5 w-5 mt-1" />}>
   Pointer contracts allow cross-environment interoperability between CosmWasm and EVM.
+</Callout>
+
+## Transaction Lookup
+
+### Query Transaction by Hash
+
+Query for a transaction by its hash (equivalent to `eth_getTransactionByHash`):
+
+```bash copy
+seid q evm tx [hash] --evm-rpc [EVM RPC endpoint]
+```
+
+**Example:**
+
+```bash copy
+seid q evm tx 0x1234567890abcdef... --evm-rpc http://127.0.0.1:8545
+```
+
+**Output:**
+
+```json
+{
+  "blockHash": "0xblock123...",
+  "blockNumber": "0x123",
+  "from": "0xsender...",
+  "gas": "0x5208",
+  "gasPrice": "0x3b9aca00",
+  "hash": "0x1234567890abcdef...",
+  "input": "0x",
+  "nonce": "0x1",
+  "to": "0xrecipient...",
+  "transactionIndex": "0x0",
+  "value": "0xde0b6b3a7640000",
+  "v": "0x1c",
+  "r": "0x...",
+  "s": "0x..."
+}
+```
+
+<Callout type="info" emoji={<IconInfoCircle className="h-5 w-5 mt-1" />}>
+Note: This command is unique - it uses --evm-rpc flag with an **EVM RPC endpoint** (port 8545), not --node with a Cosmos RPC endpoint like other commands. By default, it uses http://127.0.0.1:8545. Refer to the [RPC endpoints](/) at the bottom of this page for a list of available EVM RPC endpoints.
+
+</Callout>
+
+## Common Use Cases
+
+### Check Token Balance and Info
+
+```bash copy
+# Get token info
+seid q evm erc20 0xtoken... symbol
+seid q evm erc20 0xtoken... decimals
+
+# Check balance
+seid q evm erc20 0xtoken... balanceOf 0xuser...
+```
+
+### Prepare Transaction Data
+
+```bash copy
+# Generate transfer payload
+seid q evm erc20-payload transfer 0xrecipient... 1000000000000000000
+
+# Use the output in a transaction
+seid tx evm call-contract 0xtoken... [payload-from-above] --from mykey
+```
+
+### Bridge Token Information
+
+```bash copy
+# Find EVM pointer for a native token
+seid q evm pointer NATIVE usei
+
+# Find original contract from pointer
+seid q evm pointee ERC20 0xpointer...
+```
+
+<Callout type="info" emoji={<IconInfoCircle className="h-5 w-5 mt-1" />}>
+  All payload generation commands output hex-encoded data that can be used directly in `seid tx evm call-contract` transactions.
 </Callout>
