@@ -5,13 +5,13 @@ keywords: ['seid transactions', 'evm transactions', 'contract deployment', 'toke
 ---
 
 import { Callout } from 'nextra/components';
-import { IconAlertTriangle, IconInfoCircle } from '@tabler/icons-react';
+import { IconAlertTriangle, IconInfoCircle, IconCode } from '@tabler/icons-react';
 
 # Transactions with seid
 
 ## Overview
 
-EVM transactions on Sei allow you to interact with smart contracts, transfer tokens, and manage validator delegations through the command line interface. This guide covers certain available transaction types using the `seid` CLI, from basic token transfers to complex contract interactions and validator operations.
+EVM transactions on Sei allow you to interact with smart contracts, transfer tokens, deploy contracts, and manage various blockchain operations through the command line interface. This guide covers all available transaction types using the `seid` CLI, from basic token transfers to complex contract interactions and precompile calls.
 
 ## Prerequisites
 
@@ -21,98 +21,282 @@ If you don't already have keys configured, you'll need to either generate a new 
 
 ## Network Configuration
 
-If the machine you run these commands from are not a node of the network, you'd need to append `--evm-rpc http://url-to-sei-evm-rpc` to your command. Refer to the bottom of this [page](/) for the list of available RPC endpoints.
+If the machine you run these commands from are not a node of the network, you'd need to append the following to your commands:
+
+```bash
+--evm-rpc http://<sei-evm-rpc-url>
+```
+
+Refer to the bottom of this [page](/) for the list of available RPC endpoints.
 
 <Callout type="info" emoji={<IconInfoCircle className="h-5 w-5 mt-1" />}>
-  Refer to the [RPC endpoints](/) at the bottom of the page for a list of EVM RPC endpoints.
+  Most commands support `--evm-rpc` flag to specify custom RPC endpoints. The default is `http://localhost:8545`.
 </Callout>
 
-## EVM Transaction Commands
+## Common Transaction Flags
+
+All transaction commands support these common flags:
+
+- `--from=<sender>` - Specifies the key name to use for signing
+- `--gas-fee-cap=<cap>` - Gas fee cap for the transaction (default varies by command)
+- `--gas-limit=<limit>` - Gas limit for the transaction (default varies by command)
+- `--evm-rpc=<url>` - EVM RPC endpoint URL (default: `http://localhost:8545`)
+- `--nonce=<nonce>` - Nonce override for the transaction (-1 means auto-calculate)
+
+## Address Management Commands
 
 ### Associate Address
 
-Associates the Sei address and EVM address on-chain for the sending key:
+Associates the Sei address and EVM address on-chain for the sending key. This is required for cross-layer interactions.
 
 ```bash copy
-seid tx evm associate-address
+seid tx evm associate-address [optional priv key hex] --from=<sender> --evm-rpc=<url>
 ```
 
-<Callout type="info" emoji={<IconInfoCircle className="h-5 w-5 mt-1" />}>
-  This command links your Sei and EVM addresses, enabling cross-layer interactions.
-</Callout>
+**Parameters:**
+
+- `[optional priv key hex]` - Optional private key in hex format. If not provided, uses the key from keyring.
+
+**Example:**
+
+```bash copy
+seid tx evm associate-address --from=mykey --evm-rpc=http://localhost:8545
+```
+
+**Output :**
+
+```
+Response: {"jsonrpc":"2.0","result":null,"id":"associate_addr"}
+```
+
+## Token Transfer Commands
 
 ### Send Native Tokens
 
-Sends native tokens to the target EVM address:
+Sends native tokens (usei) to the target EVM address.
 
 ```bash copy
-seid tx evm send [to EVM address] [amount in wei]
+seid tx evm send [to EVM address] [amount in wei] --from=<sender> --gas-fee-cap=<cap> --gas-limit=<limit> --evm-rpc=<url>
 ```
+
+**Parameters:**
+
+- `[to EVM address]` - Destination EVM address (0x format)
+- `[amount in wei]` - Amount to send in wei (smallest unit)
+
+**Default Flags:**
+
+- `--gas-fee-cap=1000000000000` (1000 Gwei)
+- `--gas-limit=21000`
 
 **Example:**
 
 ```bash copy
-seid tx evm send 0x1234567890abcdef... 1000000000000000000 --from=mykey --evm-rpc http://url-to-sei-evm-rpc
+seid tx evm send 0x1234567890abcdef1234567890abcdef12345678 1000000000000000000 --from=mykey
 ```
 
-### Deploy Contract
+**Output :**
 
-Deploys the EVM contract specified in `path_to_binary`:
-
-```bash copy
-seid tx evm deploy [path_to_binary]
 ```
-
-**Example:**
-
-```bash copy
-seid tx evm deploy ./contract.bin --from=mykey --evm-rpc http://url-to-sei-evm-rpc
-```
-
-### Call Contract
-
-Sends a transaction that calls contract at the target address with the provided payload:
-
-```bash copy
-seid tx evm call-contract [addr] [payload hex]
-```
-
-**Example:**
-
-```bash copy
-seid tx evm call-contract 0xabc123... 0xa9059cbb000000... --from=mykey --evm-rpc http://url-to-sei-evm-rpc
+Transaction hash: 0x...
 ```
 
 ### Send ERC20 Tokens
 
-Sends ERC20 tokens of contract at `addr` to the target recipient:
+Sends ERC20 tokens from a specific contract to a recipient.
 
 ```bash copy
-seid tx evm erc20-send [addr] [recipient] [amount]
+seid tx evm erc20-send [contract addr] [recipient] [amount] --from=<sender> --gas-fee-cap=<cap> --gas-limit=<limit> --evm-rpc=<url>
 ```
+
+**Parameters:**
+
+- `[contract addr]` - ERC20 contract address
+- `[recipient]` - Recipient EVM address
+- `[amount]` - Amount in smallest unit of the token
+
+**Default Flags:**
+
+- `--gas-fee-cap=1000000000000` (1000 Gwei)
+- `--gas-limit=7000000`
 
 **Example:**
 
 ```bash copy
-seid tx evm erc20-send 0xtoken123... 0xrecipient456... 1000 --from=mykey --evm-rpc http://url-to-sei-evm-rpc
+seid tx evm erc20-send 0xTokenContract123... 0xRecipient456... 1000000 --from=mykey
 ```
 
-### Delegate to Validator
+**Output :**
 
-Delegates specified amount to the target validator address. The validator address must be in Sei/Cosmos validator address (`seivaloper1...`) format:
+```
+Transaction hash: 0x...
+```
+
+## Contract Deployment Commands
+
+### Deploy Contract
+
+Deploys an EVM contract from a binary file.
 
 ```bash copy
-seid tx evm delegate [val-addr] [amount]
+seid tx evm deploy [path to binary] --from=<sender> --gas-fee-cap=<cap> --gas-limit=<limit> --evm-rpc=<url>
 ```
+
+**Parameters:**
+
+- `[path to binary]` - Path to the contract binary file
+
+**Default Flags:**
+
+- `--gas-fee-cap=1000000000000` (1000 Gwei)
+- `--gas-limit=5000000`
 
 **Example:**
 
 ```bash copy
-seid tx evm delegate seivaloper1xyz... 1000000usei --from=mykey --evm-rpc http://url-to-sei-evm-rpc
+seid tx evm deploy ./MyContract.bin --from=mykey --gas-limit=8000000
 ```
+
+**Output :**
+
+```
+Deployer: 0x...
+Deployed to: 0x...
+Transaction hash: 0x...
+```
+
+## Contract Interaction Commands
+
+### Call Contract
+
+Calls an EVM contract with a specific payload. You can generate payload by taking a look at docs [here](/evm/querying-the-evm#payload-generation).
+
+```bash copy
+seid tx evm call-contract [addr] [payload hex] --value=<payment> --from=<sender> --gas-fee-cap=<cap> --gas-limit=<limit> --evm-rpc=<url>
+```
+
+**Parameters:**
+
+- `[addr]` - Contract address
+- `[payload hex]` - Function call data in hex format
+
+**Default Flags:**
+
+- `--gas-fee-cap=1000000000000` (1000 Gwei)
+- `--gas-limit=7000000`
+- `--value=0` - ETH value to send with the call
+
+**Example:**
+
+```bash copy
+seid tx evm call-contract 0xContract123... 0xa9059cbb000000... --value=1000000000000000000 --from=mykey
+```
+
+**Output :**
+
+```
+Transaction hash: 0x...
+```
+
+### Call Precompile
+
+Calls a method on a precompiled contract. Precompiles provide EVM access to Cosmos-SDK functionality.
+
+```bash copy
+seid tx evm call-precompile [precompile name] [method] [args...] --value=<payment> --from=<sender> --gas-fee-cap=<cap> --gas-limit=<limit> --evm-rpc=<url>
+```
+
+**Parameters:**
+
+- `[precompile name]` - Name of the precompiled contract
+- `[method]` - Method name to call
+- `[args...]` - Method arguments
+
+**Default Flags:**
+
+- `--gas-fee-cap=1000000000000` (1000 Gwei)
+- `--gas-limit=7000000`
+- `--value=""` - ETH value to send (required for payable methods)
+
+**Examples:**
+
+_Delegate to validator (payable - uses --value):_
+
+```bash copy
+seid tx evm call-precompile staking delegate seivaloper1... --value=1000000000000000000 --from=mykey
+```
+
+**Available Precompiles:**
+
+- `distribution` - Staking rewards management
+- `json` - JSON parsing utilities
+- `oracle` - Oracle price data
+- `p256` - P256 cryptographic operations
+- `staking` - Validator delegation and staking
+
+<Callout type="info" emoji={<IconInfoCircle className="h-5 w-5 mt-1" />}>
+  For detailed information about each precompile's methods, parameters, and usage patterns, refer to the [EVM Precompiles documentation](/evm/precompiles).
+</Callout>
+
+**Output :**
+
+```
+Transaction hash: 0x...
+```
+
+## Advanced Usage
+
+### Custom Gas Settings
+
+You can customize gas settings for any transaction:
+
+```bash copy
+seid tx evm send 0x... 1000000000000000000 \
+  --gas-fee-cap=2000000000000 \
+  --gas-limit=100000 \
+  --from=mykey
+```
+
+### Nonce Management
+
+Override automatic nonce calculation:
+
+```bash copy
+seid tx evm send 0x... 1000000000000000000 \
+  --nonce=42 \
+  --from=mykey
+```
+
+## Error Handling
+
+<Callout type="warning" emoji={<IconAlertTriangle className="h-5 w-5 mt-1" />}>
+**Common Issues:**
+
+- Insufficient balance for transaction + gas fees
+- Incorrect address formats (use 0x prefix for EVM addresses)
+- Gas limit too low for complex operations
+- Nonce conflicts in rapid successive transactions
+
+</Callout>
+
+## Best Practices
+
+1. **Gas Estimation**: Start with default gas limits and adjust based on transaction complexity
+2. **Address Validation**: Always verify addresses before sending transactions
+3. **Key Management**: Use secure key storage and never expose private keys
+4. **Network Verification**: Confirm you're connected to the correct network
+5. **Transaction Monitoring**: Save transaction hashes for tracking purposes
 
 ## Transaction Requirements
 
-<Callout type="warning" emoji={<IconAlertTriangle className="h-5 w-5 mt-1" />}>
-  **Important Requirements:** Always specify the correct key with `--from=[key-name]`. Ensure sufficient balance for transaction amount plus gas fees. Use proper address formats for EVM addresses (0x...). For validator delegation, use Sei/Cosmos validator address format (`seivaloper1...`).
-</Callout>
+- **Key Configuration**: Local keyring must contain the signing key
+- **Sufficient Balance**: Account must have enough tokens for transaction amount + gas fees
+- **Address Formats**: Use proper formats (0x... for EVM, seivaloper... for validators)
+- **Network Access**: Ensure connectivity to the specified RPC endpoint
+- **Gas Limits**: Set appropriate gas limits for transaction complexity
+
+For more detailed information about specific commands, use the help flag:
+
+```bash copy
+seid tx evm [command] --help
+```
