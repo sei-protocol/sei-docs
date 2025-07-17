@@ -26,19 +26,6 @@ export const SEI_TESTNET_CHAIN_PARAMS = {
 	blockExplorerUrls: ['https://seitrace.com/?chain=atlantic-2']
 };
 
-// Devnet (arctic-1)
-export const SEI_DEVNET_CHAIN_PARAMS = {
-	chainId: '0xAE3F3', // 713715 in decimal
-	chainName: 'Sei Devnet',
-	rpcUrls: ['https://evm-rpc-arctic-1.sei-apis.com'],
-	nativeCurrency: {
-		name: 'Sei',
-		symbol: 'SEI',
-		decimals: 18
-	},
-	blockExplorerUrls: ['https://seitrace.com/?chain=arctic-1']
-};
-
 export const networks: NetworkEntry[] = [
 	{
 		type: 'EVM',
@@ -65,18 +52,6 @@ export const networks: NetworkEntry[] = [
 		chainParams: SEI_TESTNET_CHAIN_PARAMS
 	},
 	{
-		type: 'EVM',
-		name: 'Devnet',
-		chainId: '713715',
-		hexChainId: '0xAE3F3',
-		rpcUrl: 'https://evm-rpc-arctic-1.sei-apis.com',
-		explorerLinks: [
-			{ name: 'SeiTrace', url: 'https://seitrace.com/?chain=arctic-1' },
-			{ name: 'SeiStream', url: 'https://devnet.seistream.app' }
-		],
-		chainParams: SEI_DEVNET_CHAIN_PARAMS
-	},
-	{
 		type: 'Cosmos',
 		name: 'Mainnet',
 		chainId: 'pacific-1',
@@ -89,13 +64,6 @@ export const networks: NetworkEntry[] = [
 		chainId: 'atlantic-2',
 		rpcUrl: 'https://rpc-testnet.sei-apis.com',
 		explorerLinks: [{ name: 'SeiTrace', url: 'https://seitrace.com/?chain=atlantic-2' }]
-	},
-	{
-		type: 'Cosmos',
-		name: 'Devnet',
-		chainId: 'arctic-1',
-		rpcUrl: 'https://rpc-arctic-1.sei-apis.com',
-		explorerLinks: [{ name: 'SeiTrace', url: 'https://seitrace.com/?chain=arctic-1' }]
 	}
 ];
 
