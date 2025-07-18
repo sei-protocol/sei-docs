@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { IconExternalLink, IconCopy, IconCheck, IconArrowRight, IconSearch, IconChevronDown, IconServer, IconInfoCircle, IconChevronUp } from '@tabler/icons-react';
 
 type EndpointType = 'public' | 'premium' | 'community';
-type Network = 'mainnet' | 'testnet' | 'devnet' | 'localnet';
+type Network = 'mainnet' | 'testnet' | 'localnet';
 
 interface RpcEndpoint {
 	url: string;
@@ -176,7 +176,6 @@ export function RpcSelector() {
 						}`}>
 						Testnet
 					</button>
-					{/* Devnet filter removed */}
 				</div>
 			</div>
 
