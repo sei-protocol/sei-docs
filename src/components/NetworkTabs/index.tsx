@@ -1,10 +1,10 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { IconExternalLink, IconChevronRight } from '@tabler/icons-react';
+import { IconChevronRight } from '@tabler/icons-react';
 import { CopyButton } from '../CopyButton';
 
-type TabType = 'mainnet' | 'testnet' | 'devnet' | 'localnet';
+type TabType = 'mainnet' | 'testnet' | 'localnet';
 
 interface NetworkTabsProps {}
 
@@ -13,13 +13,13 @@ export function NetworkTabs({}: NetworkTabsProps) {
 
 	useEffect(() => {
 		const hash = window.location.hash.substring(1);
-		if (['mainnet', 'testnet', 'devnet', 'localnet'].includes(hash)) {
+		if (['mainnet', 'testnet', 'localnet'].includes(hash)) {
 			setActiveTab(hash as TabType);
 		}
 
 		const handleHashChange = () => {
 			const hash = window.location.hash.substring(1);
-			if (['mainnet', 'testnet', 'devnet', 'localnet'].includes(hash)) {
+			if (['mainnet', 'testnet', 'localnet'].includes(hash)) {
 				setActiveTab(hash as TabType);
 			}
 		};
@@ -51,7 +51,7 @@ export function NetworkTabs({}: NetworkTabsProps) {
 		switch (tab) {
 			case 'mainnet':
 				return (
-					<div className={contentClass} aria-hidden={ariaHidden} data-search-content data-tab-value='mainnet'>
+					<div key={tab} className={contentClass} aria-hidden={ariaHidden} data-search-content data-tab-value='mainnet'>
 						<div className='grid grid-cols-1 md:grid-cols-2 gap-8'>
 							<div>
 								<div className='flex items-center gap-2 mb-4'>
@@ -133,7 +133,7 @@ export function NetworkTabs({}: NetworkTabsProps) {
 				);
 			case 'testnet':
 				return (
-					<div className={contentClass} aria-hidden={ariaHidden} data-search-content data-tab-value='testnet'>
+					<div key={tab} className={contentClass} aria-hidden={ariaHidden} data-search-content data-tab-value='testnet'>
 						<div className='grid grid-cols-1 md:grid-cols-2 gap-8'>
 							<div>
 								<div className='flex items-center gap-2 mb-4'>
@@ -233,95 +233,13 @@ export function NetworkTabs({}: NetworkTabsProps) {
 						</div>
 					</div>
 				);
-			case 'devnet':
-				return (
-					<div className={contentClass} aria-hidden={ariaHidden} data-search-content data-tab-value='devnet'>
-						<div className='grid grid-cols-1 md:grid-cols-2 gap-8'>
-							<div>
-								<div className='flex items-center gap-2 mb-4'>
-									<div className={`${statusIndicatorClass} bg-purple-500`}></div>
-									<h3 className={sectionTitleClass}>EVM Network</h3>
-								</div>
-
-								<div className='space-y-4'>
-									<div className='flex flex-col'>
-										<div className={labelClass}>Chain ID:</div>
-										<div className='flex items-center justify-between'>
-											<span className={valueClass}>713715 (0xAE3F3)</span>
-											<CopyButton textToCopy='713715' />
-										</div>
-									</div>
-
-									<div className='flex flex-col'>
-										<div className={labelClass}>RPC URL:</div>
-										<div className='flex items-center justify-between'>
-											<a href='https://evm-rpc-arctic-1.sei-apis.com' target='_blank' rel='noopener noreferrer' className={linkClass}>
-												https://evm-rpc-arctic-1.sei-apis.com
-											</a>
-											<CopyButton textToCopy='https://evm-rpc-arctic-1.sei-apis.com' />
-										</div>
-									</div>
-
-									<div className='flex flex-col'>
-										<div className={labelClass}>Explorer:</div>
-										<div className='flex items-center justify-between'>
-											<span className={valueClass}>seitrace.com</span>
-											<a href='https://seitrace.com/?chain=arctic-1' target='_blank' rel='noopener noreferrer' className={visitLinkClass}>
-												Visit
-												<IconChevronRight className='w-4 h-4 ml-1' />
-											</a>
-										</div>
-									</div>
-								</div>
-							</div>
-
-							<div>
-								<div className='flex items-center gap-2 mb-4'>
-									<div className={`${statusIndicatorClass} bg-purple-500`}></div>
-									<h3 className={sectionTitleClass}>Cosmos Network</h3>
-								</div>
-
-								<div className='space-y-4'>
-									<div className='flex flex-col'>
-										<div className={labelClass}>Chain ID:</div>
-										<div className='flex items-center justify-between'>
-											<span className={valueClass}>arctic-1</span>
-											<CopyButton textToCopy='arctic-1' />
-										</div>
-									</div>
-
-									<div className='flex flex-col'>
-										<div className={labelClass}>RPC URL:</div>
-										<div className='flex items-center justify-between'>
-											<a href='https://rpc-arctic-1.sei-apis.com' target='_blank' rel='noopener noreferrer' className={linkClass}>
-												https://rpc-arctic-1.sei-apis.com
-											</a>
-											<CopyButton textToCopy='https://rpc-arctic-1.sei-apis.com' />
-										</div>
-									</div>
-
-									<div className='flex flex-col'>
-										<div className={labelClass}>Explorer:</div>
-										<div className='flex items-center justify-between'>
-											<span className={valueClass}>seitrace.com</span>
-											<a href='https://seitrace.com/?chain=arctic-1' target='_blank' rel='noopener noreferrer' className={visitLinkClass}>
-												Visit
-												<IconChevronRight className='w-4 h-4 ml-1' />
-											</a>
-										</div>
-									</div>
-								</div>
-							</div>
-						</div>
-					</div>
-				);
 			case 'localnet':
 				return (
-					<div className={contentClass} aria-hidden={ariaHidden} data-search-content data-tab-value='localnet'>
+					<div key={tab} className={contentClass} aria-hidden={ariaHidden} data-search-content data-tab-value='localnet'>
 						<div className='grid grid-cols-1 md:grid-cols-2 gap-8'>
 							<div>
 								<div className='flex items-center gap-2 mb-4'>
-									<div className={`${statusIndicatorClass} bg-orange-500`}></div>
+									<div className={`${statusIndicatorClass} bg-purple-500`}></div>
 									<h3 className={sectionTitleClass}>EVM Network</h3>
 								</div>
 
@@ -353,7 +271,7 @@ export function NetworkTabs({}: NetworkTabsProps) {
 
 							<div>
 								<div className='flex items-center gap-2 mb-4'>
-									<div className={`${statusIndicatorClass} bg-orange-500`}></div>
+									<div className={`${statusIndicatorClass} bg-purple-500`}></div>
 									<h3 className={sectionTitleClass}>Cosmos Network</h3>
 								</div>
 
@@ -399,9 +317,6 @@ export function NetworkTabs({}: NetworkTabsProps) {
 				<a href='#testnet' onClick={() => setActiveTab('testnet')} className={tabButtonClass('testnet')}>
 					Testnet (atlantic-2)
 				</a>
-				<a href='#devnet' onClick={() => setActiveTab('devnet')} className={tabButtonClass('devnet')}>
-					Devnet (arctic-1)
-				</a>
 				<a href='#localnet' onClick={() => setActiveTab('localnet')} className={tabButtonClass('localnet')}>
 					Local Environment
 				</a>
@@ -411,7 +326,7 @@ export function NetworkTabs({}: NetworkTabsProps) {
 			{renderTabContent(activeTab, true)}
 
 			{/* Hidden content for search indexing - render all tabs */}
-			{(['mainnet', 'testnet', 'devnet', 'localnet'] as TabType[]).map((tab) => (tab !== activeTab ? renderTabContent(tab, false) : null))}
+			{(['mainnet', 'testnet', 'localnet'] as TabType[]).map((tab) => (tab !== activeTab ? renderTabContent(tab, false) : null))}
 		</div>
 	);
 }

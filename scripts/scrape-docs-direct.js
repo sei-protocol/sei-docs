@@ -434,9 +434,6 @@ function replaceComponentsWithText(content) {
 - https://seievm-testnet-rpc.polkachu.com (Polkachu Community RPC)
 - https://sei-testnet.drpc.org (dRPC Community RPC)
 
-**Devnet (arctic-1):**
-- https://evm-rpc.arctic-1.seinetwork.io (Sei Foundation, Rate limit: 20 req/s)
-- https://evm-rpc-arctic-1.sei-apis.com (Rhino Stake Community RPC, Rate limit: 10 req/s)
 
 **Local Development:**
 - http://localhost:8545 (Local Node - For local development only)
