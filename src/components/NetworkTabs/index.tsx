@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { IconChevronRight } from '@tabler/icons-react';
 import { CopyButton } from '../CopyButton';
 
-type TabType = 'mainnet' | 'testnet' | 'devnet' | 'localnet';
+type TabType = 'mainnet' | 'testnet' | 'localnet';
 
 interface NetworkTabsProps {}
 
@@ -13,13 +13,13 @@ export function NetworkTabs({}: NetworkTabsProps) {
 
 	useEffect(() => {
 		const hash = window.location.hash.substring(1);
-		if (['mainnet', 'testnet', 'devnet', 'localnet'].includes(hash)) {
+		if (['mainnet', 'testnet', 'localnet'].includes(hash)) {
 			setActiveTab(hash as TabType);
 		}
 
 		const handleHashChange = () => {
 			const hash = window.location.hash.substring(1);
-			if (['mainnet', 'testnet', 'devnet', 'localnet'].includes(hash)) {
+			if (['mainnet', 'testnet', 'localnet'].includes(hash)) {
 				setActiveTab(hash as TabType);
 			}
 		};
@@ -51,7 +51,7 @@ export function NetworkTabs({}: NetworkTabsProps) {
 		switch (tab) {
 			case 'mainnet':
 				return (
-					<div className={contentClass} aria-hidden={ariaHidden} data-search-content data-tab-value='mainnet'>
+					<div key={tab} className={contentClass} aria-hidden={ariaHidden} data-search-content data-tab-value='mainnet'>
 						<div className='grid grid-cols-1 md:grid-cols-2 gap-8'>
 							<div>
 								<div className='flex items-center gap-2 mb-4'>
@@ -133,7 +133,7 @@ export function NetworkTabs({}: NetworkTabsProps) {
 				);
 			case 'testnet':
 				return (
-					<div className={contentClass} aria-hidden={ariaHidden} data-search-content data-tab-value='testnet'>
+					<div key={tab} className={contentClass} aria-hidden={ariaHidden} data-search-content data-tab-value='testnet'>
 						<div className='grid grid-cols-1 md:grid-cols-2 gap-8'>
 							<div>
 								<div className='flex items-center gap-2 mb-4'>
@@ -235,11 +235,11 @@ export function NetworkTabs({}: NetworkTabsProps) {
 				);
 			case 'localnet':
 				return (
-					<div className={contentClass} aria-hidden={ariaHidden} data-search-content data-tab-value='localnet'>
+					<div key={tab} className={contentClass} aria-hidden={ariaHidden} data-search-content data-tab-value='localnet'>
 						<div className='grid grid-cols-1 md:grid-cols-2 gap-8'>
 							<div>
 								<div className='flex items-center gap-2 mb-4'>
-									<div className={`${statusIndicatorClass} bg-orange-500`}></div>
+									<div className={`${statusIndicatorClass} bg-purple-500`}></div>
 									<h3 className={sectionTitleClass}>EVM Network</h3>
 								</div>
 
@@ -271,7 +271,7 @@ export function NetworkTabs({}: NetworkTabsProps) {
 
 							<div>
 								<div className='flex items-center gap-2 mb-4'>
-									<div className={`${statusIndicatorClass} bg-orange-500`}></div>
+									<div className={`${statusIndicatorClass} bg-purple-500`}></div>
 									<h3 className={sectionTitleClass}>Cosmos Network</h3>
 								</div>
 
