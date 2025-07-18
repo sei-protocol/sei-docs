@@ -55,6 +55,7 @@ export default {
 	'indexer-providers': 'Indexers',
 	'wallet-integrations': 'Wallet Integrations',
 	bridging: 'Bridging',
+	'agent-kits': 'Agent Kits',
 
 	'-- Reference': {
 		type: 'separator',
