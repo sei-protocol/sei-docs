@@ -176,12 +176,12 @@ We also log key info and handle errors:
 })();
 ```
 
-- The script uses publicClient.readContract to call the USDC contract’s balanceOf(address) and get the sender’s token balance.  
+- The script uses publicClient.readContract to call the USDC contract’s balanceOf(address) and get the sender’s token balance.
 
-- We format the balance from smallest units (6 decimals for USDC) into a human-readable number with formatUnits. The amount is set to 10 USDC in this example – you can adjust this value. We compare the desired amount to the current balance; if insufficient, it logs an error and exits.  
+- We format the balance from smallest units (6 decimals for USDC) into a human-readable number with formatUnits. The amount is set to 10 USDC in this example – you can adjust this value. We compare the desired amount to the current balance; if insufficient, it logs an error and exits.
 
 - If the balance is adequate, we use parseUnits to convert 10 USDC into the raw token amount (10 \* 10^6, since USDC has 6 decimals).  
-  Then walletClient.writeContract calls the USDC contract’s transfer(to, amount) function. This sends a transaction from our account to transfer the tokens. On success, it returns a transaction hash, which we log alongside a URL to view the transaction on the Sei block explorer.  
+  Then walletClient.writeContract calls the USDC contract’s transfer(to, amount) function. This sends a transaction from our account to transfer the tokens. On success, it returns a transaction hash, which we log alongside a URL to view the transaction on the Sei block explorer.
 
 - Errors in the try/catch (for example, RPC issues or a transaction failure) will log “Transfer failed” with the error message. The script ends with process.exit(0) to terminate after completing the async function.
 
