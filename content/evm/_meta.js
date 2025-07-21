@@ -56,7 +56,7 @@ export default {
 	'wallet-integrations': 'Wallet Integrations',
 	bridging: 'Bridging',
 	'agent-kits': 'Agent Kits',
-
+	'circle-on-sei': 'Circle on Sei',
 	'-- Reference': {
 		type: 'separator',
 		title: 'Reference'
