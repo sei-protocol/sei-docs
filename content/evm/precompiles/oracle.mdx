@@ -1,29 +1,508 @@
 ---
-title: "Oracle Precompile"
-description: "Access price feed data directly in your EVM smart contracts using Sei's Oracle precompile, enabling real-time access to exchange rates, TWAPs, and other economic data."
-keywords: ["oracle precompile", "price feeds", "exchange rates", "twap", "defi development"]
+title: 'Oracle Precompile Usage'
+description: "Learn how to interact with Sei's Oracle precompile through ethers.js, enabling real-time access to exchange rates, TWAPs, and other economic data directly in your EVM smart contracts for DeFi applications."
+keywords: ['oracle precompile', 'ethers.js', 'price feeds', 'exchange rates', 'twap', 'defi development', 'sei evm', 'blockchain oracles']
 ---
+
 import { Callout } from 'nextra/components';
 
-# Oracle Precompile
+# Oracle Precompile Usage
 
-**Address**: `0x0000000000000000000000000000000000001008`
+**Address:** `0x0000000000000000000000000000000000001008`
 
-This precompile enables EVM clients to query the Oracle module.
+The Sei Oracle precompile enables EVM applications to query real-time price feed data directly from Sei's native Oracle module. This provides access to exchange rates, Time-Weighted Average Prices (TWAPs), and other economic data essential for DeFi applications.
+
+<Callout type="info">**What is a precompile?** A precompile is a special smart contract deployed at a fixed address by the Sei protocol itself, that exposes custom native chain logic to EVM-based applications. It acts like a regular contract from the EVM's perspective, but executes privileged, low-level logic efficiently.</Callout>
+
+## How Does the Oracle Precompile Work?
+
+The Oracle precompile at address `0x0000000000000000000000000000000000001008` exposes functions like `getExchangeRates()` and `getOracleTwaps()`.
+
+- **Direct Integration:** EVM contracts and dApps can query price data like any other smart contract method.
+- **Native Execution:** Oracle queries are executed at the Cosmos SDK level for maximum efficiency.
+- **Real-Time Data:** Access live price feeds maintained by Sei's validator network.
+
+## Use Cases
+
+- **DeFi Protocols:** Build lending platforms, DEXs, and derivatives with reliable price feeds.
+- **Stablecoins:** Implement price-stable tokens with accurate exchange rate data.
+- **Liquidation Systems:** Create robust liquidation mechanisms using real-time prices.
+- **Trading Bots:** Develop automated trading strategies with TWAP data.
+- **Risk Management:** Build portfolio management tools with accurate asset valuations.
 
 ## Functions
 
-### Queries
+The Oracle precompile exposes the following functions:
 
-- `getExchangeRates`: Gets the corresponding Sei Address from the given EVM
-  Address
+### Query Functions
 
-  ```solidity copy
-    /// Retrieves the exchange rates for all denominations.
-    /// @return An array of denomination and exchange rate pairs.
-    function getExchangeRates() external view returns (DenomOracleExchangeRatePair[] memory);
+```solidity
+struct OracleExchangeRate {
+    string exchangeRate;
+    string lastUpdate;
+    int64 lastUpdateTimestamp;
+}
 
-    // Structs
+struct DenomOracleExchangeRatePair {
+    string denom;
+    OracleExchangeRate oracleExchangeRateVal;
+}
+
+/// Retrieves the exchange rates for all denominations.
+/// @return An array of denomination and exchange rate pairs.
+function getExchangeRates() external view returns (DenomOracleExchangeRatePair[] memory);
+
+struct OracleTwap {
+    string denom;
+    string twap;
+    int64 lookbackSeconds;
+}
+
+/// Retrieves Oracle Time-Weighted Average Prices (TWAPs) for the specified lookback period.
+/// @param lookback_seconds The lookback period in seconds.
+/// @return An array of denomination and TWAP pairs.
+function getOracleTwaps(
+    uint64 lookback_seconds
+) external view returns (OracleTwap[] memory);
+```
+
+## Using the Contract
+
+### Setup
+
+#### Prerequisites
+
+Before getting started, ensure you have:
+
+- **Node.js** (v16 or higher)
+- **npm** or **yarn** package manager
+- **MetaMask** or compatible EVM wallet
+- **SEI tokens** for gas fees
+
+#### Install Dependencies
+
+Install the required packages for interacting with Sei precompiles:
+
+```bash copy
+# Install ethers.js for smart contract interactions
+npm install ethers
+
+# Install Sei EVM bindings for precompile addresses and ABIs
+npm install @sei-js/evm
+
+# Install dotenv for managing private keys (optional but recommended)
+npm install dotenv
+```
+
+#### Network Configuration
+
+Add Sei networks to your MetaMask or configure your provider:
+
+##### Sei Mainnet
+
+```typescript copy
+const seiMainnet = {
+  chainId: '0x531', // 1329 in decimal
+  chainName: 'Sei Network',
+  nativeCurrency: {
+    name: 'SEI',
+    symbol: 'SEI',
+    decimals: 18
+  },
+  rpcUrls: ['https://evm-rpc.sei-apis.com'],
+  blockExplorerUrls: ['https://seitrace.com']
+};
+```
+
+##### Sei Testnet (Atlantic-2)
+
+```typescript copy
+const seiTestnet = {
+  chainId: '0xae3f3', // 713715 in decimal
+  chainName: 'Sei Testnet',
+  nativeCurrency: {
+    name: 'SEI',
+    symbol: 'SEI',
+    decimals: 18
+  },
+  rpcUrls: ['https://evm-rpc-testnet.sei-apis.com'],
+  blockExplorerUrls: ['https://seitrace.com/?chain=atlantic-2']
+};
+```
+
+#### Import Precompile Components
+
+```typescript copy
+// Import Oracle precompile address and ABI
+// View the entire ABI here: https://github.com/sei-protocol/sei-chain/tree/main/precompiles/oracle
+import { ORACLE_PRECOMPILE_ABI, ORACLE_PRECOMPILE_ADDRESS } from '@sei-js/evm';
+import { ethers } from 'ethers';
+```
+
+<Callout type="info">**Precompile Address:** The Oracle precompile is deployed at `0x0000000000000000000000000000000000001008`</Callout>
+
+#### Get SEI Tokens
+
+##### For Testnet
+
+Use the official Sei faucet to get testnet tokens:
+
+- **Faucet URL:** [https://www.sei.io/faucet](https://www.sei.io/faucet)
+- **Requirements:** Valid wallet address on Sei testnet
+
+##### For Mainnet
+
+Purchase SEI tokens from supported exchanges or bridge from other networks.
+
+### Contract Initialization
+
+Set up your provider, signer, and contract instance:
+
+```typescript copy
+// Using MetaMask as the signer and provider (browser environment)
+const provider = new ethers.BrowserProvider(window.ethereum);
+await provider.send('eth_requestAccounts', []);
+const signer = await provider.getSigner();
+
+// Or for Node.js environment
+const provider = new ethers.JsonRpcProvider('https://evm-rpc-testnet.sei-apis.com');
+const signer = new ethers.Wallet('YOUR_PRIVATE_KEY', provider);
+
+// Create a contract instance for the Oracle precompile
+const oracle = new ethers.Contract(ORACLE_PRECOMPILE_ADDRESS, ORACLE_PRECOMPILE_ABI, signer);
+```
+
+## Helper Functions
+
+Use these helper functions for price data handling:
+
+```typescript copy
+// Helper functions for Oracle data conversion
+class OracleDataHelper {
+  // Convert exchange rate string to number
+  static rateToNumber(rateString: string): number {
+    return parseFloat(rateString);
+  }
+
+  // Format timestamp to readable date
+  static formatTimestamp(timestamp: bigint): string {
+    return new Date(Number(timestamp) * 1000).toISOString();
+  }
+
+  // Calculate price from exchange rate (assuming USD base)
+  static calculatePrice(exchangeRate: string, amount: number = 1): number {
+    return this.rateToNumber(exchangeRate) * amount;
+  }
+
+  // Find specific denom in exchange rates
+  static findDenom(rates: any[], denom: string): any {
+    return rates.find((rate) => rate.denom === denom);
+  }
+}
+```
+
+## Step-by-Step Guide: Using the Oracle Precompile
+
+### Get Exchange Rates
+
+```typescript copy
+// Get all exchange rates
+const exchangeRates = await oracle.getExchangeRates();
+
+// Display rates
+exchangeRates.forEach((rate) => {
+  console.log(`${rate.denom}: ${rate.oracleExchangeRateVal.exchangeRate}`);
+  console.log(`Last Update: ${rate.oracleExchangeRateVal.lastUpdate}`);
+});
+```
+
+### Get TWAP Data
+
+```typescript copy
+// Get 1-hour TWAP (3600 seconds)
+const lookbackSeconds = 3600;
+const twaps = await oracle.getOracleTwaps(lookbackSeconds);
+
+// Display TWAPs
+twaps.forEach((twap) => {
+  console.log(`${twap.denom} TWAP: ${twap.twap}`);
+  console.log(`Lookback: ${twap.lookbackSeconds} seconds`);
+});
+```
+
+### Query Specific Token Price
+
+```typescript copy
+// Get exchange rates and find specific token
+const rates = await oracle.getExchangeRates();
+const seiRate = rates.find((r) => r.denom === 'usei');
+
+if (seiRate) {
+  const price = parseFloat(seiRate.oracleExchangeRateVal.exchangeRate);
+  console.log(`SEI Price: $${price}`);
+}
+```
+
+### Monitor Price Changes
+
+```typescript copy
+// Monitor price changes every 10 seconds
+async function monitorPrices() {
+  const previousPrices = new Map();
+
+  setInterval(async () => {
+    const rates = await oracle.getExchangeRates();
+
+    rates.forEach((rate) => {
+      const currentPrice = parseFloat(rate.oracleExchangeRateVal.exchangeRate);
+      const previousPrice = previousPrices.get(rate.denom);
+
+      if (previousPrice) {
+        const change = ((currentPrice - previousPrice) / previousPrice) * 100;
+        console.log(`${rate.denom}: $${currentPrice} (${change.toFixed(2)}%)`);
+      }
+
+      previousPrices.set(rate.denom, currentPrice);
+    });
+  }, 10000); // 10 seconds
+}
+```
+
+## Complete Integration Example
+
+Create a file named `oracle-demo.js`:
+
+```javascript copy
+// oracle-demo.js
+const { ethers } = require('ethers');
+const { ORACLE_PRECOMPILE_ABI, ORACLE_PRECOMPILE_ADDRESS } = require('@sei-js/evm');
+require('dotenv').config();
+
+async function main() {
+  try {
+    // Connect to Sei Testnet
+    console.log('Connecting to Sei Testnet...');
+    const provider = new ethers.JsonRpcProvider('https://evm-rpc-testnet.sei-apis.com');
+
+    // Use your private key from environment variable
+    const privateKey = process.env.PRIVATE_KEY;
+    if (!privateKey) {
+      throw new Error('Please set PRIVATE_KEY in .env file');
+    }
+
+    const wallet = new ethers.Wallet(privateKey, provider);
+    console.log('Wallet address:', wallet.address);
+
+    // Check balance
+    const balance = await provider.getBalance(wallet.address);
+    console.log('Wallet balance:', ethers.formatEther(balance), 'SEI\n');
+
+    // Initialize Oracle precompile contract
+    const oracle = new ethers.Contract(ORACLE_PRECOMPILE_ADDRESS, ORACLE_PRECOMPILE_ABI, wallet);
+
+    console.log('=== Oracle Precompile Demo ===\n');
+
+    // 1. Get all exchange rates
+    console.log('1. Fetching current exchange rates...');
+    const exchangeRates = await oracle.getExchangeRates();
+
+    console.log(`   Found ${exchangeRates.length} price feeds:\n`);
+
+    // Display first 3 rates for demo
+    const displayRates = exchangeRates.slice(0, 3);
+    displayRates.forEach((rate) => {
+      const price = parseFloat(rate.oracleExchangeRateVal.exchangeRate);
+      const timestamp = new Date(Number(rate.oracleExchangeRateVal.lastUpdateTimestamp) * 1000);
+
+      console.log(`   ${rate.denom}:`);
+      console.log(`   - Price: $${price.toFixed(4)}`);
+      console.log(`   - Last Update: ${timestamp.toLocaleString()}`);
+      console.log('');
+    });
+
+    // 2. Get TWAP data
+    console.log('2. Fetching 1-hour TWAP data...');
+    const lookbackSeconds = 3600; // 1 hour
+    const twaps = await oracle.getOracleTwaps(lookbackSeconds);
+
+    console.log(`   Found ${twaps.length} TWAP values:\n`);
+
+    // Display first 3 TWAPs
+    const displayTwaps = twaps.slice(0, 3);
+    displayTwaps.forEach((twap) => {
+      const twapPrice = parseFloat(twap.twap);
+      console.log(`   ${twap.denom}:`);
+      console.log(`   - 1hr TWAP: $${twapPrice.toFixed(4)}`);
+      console.log(`   - Lookback: ${twap.lookbackSeconds} seconds`);
+      console.log('');
+    });
+
+    // 3. Calculate price difference between spot and TWAP
+    console.log('3. Analyzing price movements...\n');
+
+    // Find matching denom in both results
+    const denom = exchangeRates[0]?.denom;
+    if (denom) {
+      const spotRate = exchangeRates.find((r) => r.denom === denom);
+      const twapRate = twaps.find((t) => t.denom === denom);
+
+      if (spotRate && twapRate) {
+        const spotPrice = parseFloat(spotRate.oracleExchangeRateVal.exchangeRate);
+        const twapPrice = parseFloat(twapRate.twap);
+        const difference = ((spotPrice - twapPrice) / twapPrice) * 100;
+
+        console.log(`   ${denom} Price Analysis:`);
+        console.log(`   - Current Price: $${spotPrice.toFixed(4)}`);
+        console.log(`   - 1hr TWAP: $${twapPrice.toFixed(4)}`);
+        console.log(`   - Difference: ${difference.toFixed(2)}%`);
+
+        if (Math.abs(difference) > 1) {
+          console.log(`   - Status: ${difference > 0 ? '🟢 Price trending UP' : '🔴 Price trending DOWN'}`);
+        } else {
+          console.log('   - Status: 🟡 Price stable');
+        }
+      }
+    }
+
+    // 4. Demonstrate DeFi use case
+    console.log('\n4. DeFi Example - Calculating collateral value...\n');
+
+    const collateralAmount = 100; // 100 tokens
+    const seiRate = exchangeRates.find((r) => r.denom === 'usei' || r.denom === 'sei');
+
+    if (seiRate) {
+      const seiPrice = parseFloat(seiRate.oracleExchangeRateVal.exchangeRate);
+      const collateralValue = seiPrice * collateralAmount;
+      const loanToValue = 0.5; // 50% LTV
+      const maxBorrow = collateralValue * loanToValue;
+
+      console.log('   Collateral: 100 SEI');
+      console.log(`   SEI Price: $${seiPrice.toFixed(4)}`);
+      console.log(`   Collateral Value: $${collateralValue.toFixed(2)}`);
+      console.log(`   Max Borrow (50% LTV): $${maxBorrow.toFixed(2)}`);
+    }
+
+    console.log('\n✅ Oracle demo completed successfully!');
+    console.log('\nNote: Oracle prices are maintained by Sei validators and update regularly.');
+  } catch (error) {
+    console.error('\nError:', error.message);
+
+    // Handle common errors
+    if (error.message.includes('no data')) {
+      console.log('\n⚠️  No oracle data available. This might be because:');
+      console.log('   - Oracle module is not active on this network');
+      console.log('   - No price feeds have been configured yet');
+    }
+
+    process.exit(1);
+  }
+}
+
+// Run the demo
+main().catch(console.error);
+```
+
+### Running the Example
+
+1. **Create a new directory and initialize npm:**
+
+```bash copy
+mkdir oracle-demo
+cd oracle-demo
+npm init -y
+```
+
+2. **Install dependencies:**
+
+```bash copy
+npm install ethers @sei-js/evm dotenv
+```
+
+3. **Create a `.env` file:**
+
+```bash copy
+PRIVATE_KEY=your_private_key_here
+```
+
+4. **Create the demo file:**
+   Copy the complete integration example above into `oracle-demo.js`
+
+5. **Run the script:**
+
+```bash copy
+node oracle-demo.js
+```
+
+### Expected Output
+
+When you run the script, you should see output similar to:
+
+```
+Connecting to Sei Testnet...
+Wallet address: 0x742d35Cc6634C0532925a3b844Bc6789e065f3B
+Wallet balance: 50.5 SEI
+
+=== Oracle Precompile Demo ===
+
+1. Fetching current exchange rates...
+   Found 5 price feeds:
+
+   usei:
+   - Price: $2.4500
+   - Last Update: 1/15/2024, 3:30:45 PM
+
+   uusdc:
+   - Price: $1.0002
+   - Last Update: 1/15/2024, 3:30:45 PM
+
+   uatom:
+   - Price: $10.3400
+   - Last Update: 1/15/2024, 3:30:45 PM
+
+2. Fetching 1-hour TWAP data...
+   Found 5 TWAP values:
+
+   usei:
+   - 1hr TWAP: $2.4350
+   - Lookback: 3600 seconds
+
+   uusdc:
+   - 1hr TWAP: $1.0001
+   - Lookback: 3600 seconds
+
+   uatom:
+   - 1hr TWAP: $10.2800
+   - Lookback: 3600 seconds
+
+3. Analyzing price movements...
+
+   usei Price Analysis:
+   - Current Price: $2.4500
+   - 1hr TWAP: $2.4350
+   - Difference: 0.62%
+   - Status: 🟡 Price stable
+
+4. DeFi Example - Calculating collateral value...
+
+   Collateral: 100 SEI
+   SEI Price: $2.4500
+   Collateral Value: $245.00
+   Max Borrow (50% LTV): $122.50
+
+✅ Oracle demo completed successfully!
+
+Note: Oracle prices are maintained by Sei validators and update regularly.
+```
+
+## Advanced Usage Example
+
+### DeFi Liquidation Monitor
+
+```solidity copy
+// LiquidationMonitor.sol
+pragma solidity ^0.8.0;
+
+interface IOracle {
     struct OracleExchangeRate {
         string exchangeRate;
         string lastUpdate;
@@ -34,24 +513,114 @@ This precompile enables EVM clients to query the Oracle module.
         string denom;
         OracleExchangeRate oracleExchangeRateVal;
     }
-  ```
 
-- `getOracleTwaps`: Retrieves Oracle Time-Weighted Average Prices (TWAPs) for
-  the specified lookback period.
+    function getExchangeRates() external view returns (DenomOracleExchangeRatePair[] memory);
+}
 
-  ```solidity copy
-   /// Retrieves Oracle Time-Weighted Average Prices (TWAPs) for the specified lookback period.
-   /// @param lookback_seconds The lookback period in seconds.
-   /// @return An array of denomination and TWAP pairs.
-   function getOracleTwaps(
-       uint64 lookback_seconds) external view returns (OracleTwap[] memory);
+contract LiquidationMonitor {
+    IOracle constant ORACLE = IOracle(0x0000000000000000000000000000000000001008);
 
-    // Structs
-    struct OracleTwap {
-       string denom;
-       string twap;
-       int64 lookbackSeconds;
-   }
-  ```
+    uint256 constant LIQUIDATION_THRESHOLD = 150; // 150% collateralization ratio
+    uint256 constant PRECISION = 100;
 
-<Callout type="info">View the Oracle precompile source code and the contract ABI [here](https://github.com/sei-protocol/sei-chain/tree/main/precompiles/oracle).</Callout>
+    struct Position {
+        address user;
+        uint256 collateralAmount;
+        uint256 borrowedAmount;
+        string collateralDenom;
+        string borrowDenom;
+    }
+
+    mapping(address => Position) public positions;
+
+    // Check if a position is eligible for liquidation
+    function checkLiquidation(address user) external view returns (bool shouldLiquidate, uint256 currentRatio) {
+        Position memory pos = positions[user];
+
+        // Get current prices from oracle
+        IOracle.DenomOracleExchangeRatePair[] memory rates = ORACLE.getExchangeRates();
+
+        uint256 collateralPrice = 0;
+        uint256 borrowPrice = 0;
+
+        // Find prices for both assets
+        for (uint i = 0; i < rates.length; i++) {
+            if (keccak256(bytes(rates[i].denom)) == keccak256(bytes(pos.collateralDenom))) {
+                collateralPrice = parsePrice(rates[i].oracleExchangeRateVal.exchangeRate);
+            }
+            if (keccak256(bytes(rates[i].denom)) == keccak256(bytes(pos.borrowDenom))) {
+                borrowPrice = parsePrice(rates[i].oracleExchangeRateVal.exchangeRate);
+            }
+        }
+
+        // Calculate collateralization ratio
+        uint256 collateralValue = pos.collateralAmount * collateralPrice;
+        uint256 borrowValue = pos.borrowedAmount * borrowPrice;
+
+        currentRatio = (collateralValue * PRECISION) / borrowValue;
+        shouldLiquidate = currentRatio < LIQUIDATION_THRESHOLD;
+    }
+
+    // Helper to parse price string (simplified - use proper parsing in production)
+    function parsePrice(string memory priceStr) internal pure returns (uint256) {
+        // Simplified: assumes price is an integer
+        // In production, implement proper decimal parsing
+        return 1000000; // Placeholder
+    }
+}
+```
+
+## Troubleshooting
+
+### Common Issues and Solutions
+
+#### No Oracle Data
+
+```typescript copy
+// Check if oracle data exists before processing
+const rates = await oracle.getExchangeRates();
+if (!rates || rates.length === 0) {
+  console.log('No oracle data available on this network');
+  return;
+}
+```
+
+#### Price Parsing
+
+```typescript copy
+// Safe price parsing with error handling
+function safeParsePrice(priceString) {
+  try {
+    const price = parseFloat(priceString);
+    if (isNaN(price)) throw new Error('Invalid price');
+    return price;
+  } catch (error) {
+    console.error('Failed to parse price:', priceString);
+    return 0;
+  }
+}
+```
+
+### Error Code Reference
+
+| Error              | Cause                    | Solution                    |
+| ------------------ | ------------------------ | --------------------------- |
+| `no oracle data`   | Oracle module not active | Check network configuration |
+| `denom not found`  | Asset not in oracle      | Verify supported denoms     |
+| `stale price data` | Old timestamp            | Check lastUpdateTimestamp   |
+| `invalid lookback` | Lookback too long        | Use shorter TWAP period     |
+
+## Important Notes
+
+<Callout type="warning">
+**Key Considerations:**
+
+- **Price Format:** Prices are returned as strings with decimal values
+- **Denoms:** Use the exact denomination string (e.g., "usei" for micro-SEI)
+- **TWAP Limits:** Maximum lookback period may be limited by node configuration
+- **Update Frequency:** Prices update based on validator consensus
+- **Decimal Precision:** Handle decimal parsing carefully in production code
+
+</Callout>
+
+<Callout type="info">**Need Help?** If you encounter issues not covered here, check the [Sei Discord](https://discord.gg/sei) or [GitHub repository](https://github.com/sei-protocol/sei-chain) for community support.</Callout>
