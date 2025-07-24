@@ -49,13 +49,17 @@ export default {
 	mev: 'MEV on Sei',
 	'mev-plugins': 'MEV Plugins',
 
-	'-- Consensus': {
+	'-- Governance': {
 		type: 'separator',
-		title: 'Consensus'
+		title: 'Governance'
 	},
 	'general-staking': 'Staking',
-	'general-governance': 'Governance',
-	proposals: 'Proposal Process',
+	'general-governance': 'Overview',
+	'governance-developers': 'For Developers',
+	'governance-proposal-types': 'Proposal Types Reference',
+	'governance-api-reference': 'API Reference',
+	'governance-monitoring': 'Monitoring & Metrics',
+	proposals: 'Proposal CLI Commands',
 
 	'-- EVM <> CW Interoperability': {
 		type: 'separator',
