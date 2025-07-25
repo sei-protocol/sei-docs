@@ -1,56 +1,443 @@
 ---
-title: "JSON Precompile"
-description: "Use Sei's JSON precompile to efficiently parse, manipulate, and query JSON data within EVM smart contracts, overcoming Solidity's native limitations for handling complex data structures."
-keywords: ["json precompile", "smart contract data", "json parsing", "sei evm", "blockchain data handling"]
+title: 'JSON Precompile Usage'
+description: "Learn how to interact with Sei's JSON precompile through ethers.js, enabling efficient parsing, manipulation, and querying of JSON data within EVM smart contracts to overcome Solidity's native limitations for handling complex data structures."
+keywords: ['json precompile', 'ethers.js', 'json parsing', 'smart contract data', 'sei evm', 'blockchain data handling', 'data extraction']
 ---
+
 import { Callout } from 'nextra/components';
 
-# JSON Precompile
+# JSON Precompile Usage
 
-**Address**: `0x0000000000000000000000000000000000001003`
+**Address:** `0x0000000000000000000000000000000000001003`
 
-This precompile enables EVM clients to query JSON data.
+The Sei JSON precompile allows EVM applications to efficiently parse and query JSON data directly within smart contracts. This enables complex data handling capabilities that are not natively available in Solidity, making it easier to work with structured data from external sources or APIs.
+
+<Callout type="info">**What is a precompile?** A precompile is a special smart contract deployed at a fixed address by the Sei protocol itself, that exposes custom native chain logic to EVM-based applications. It acts like a regular contract from the EVM's perspective, but executes privileged, low-level logic efficiently.</Callout>
+
+## How Does the JSON Precompile Work?
+
+The JSON precompile at address `0x0000000000000000000000000000000000001003` exposes functions like `extractAsBytes()`, `extractAsBytesList()`, and `extractAsUint256()`.
+
+- **Direct Integration:** EVM contracts and dApps can parse JSON data like any other smart contract method.
+- **Native Execution:** JSON parsing is executed at the native level for maximum efficiency.
+- **Seamless Bridge:** No need for complex workarounds or external libraries for JSON handling.
+
+## Use Cases
+
+- **Oracle Integration:** Parse complex oracle responses containing multiple data points.
+- **DeFi Applications:** Process structured price feeds and market data.
+- **Gaming:** Handle complex game state and player data stored in JSON format.
+- **Cross-Chain Communication:** Parse messages and data from other chains.
+- **NFT Metadata:** Extract and manipulate NFT metadata stored in JSON format.
 
 ## Functions
 
-### Queries
+The JSON precompile exposes the following functions:
 
-- `extractAsBytes`: Extracts data as bytes from the input using the specified
-  key.
+### Query Functions
 
-  ```solidity copy
-    /// Extracts data as bytes from the input using the specified key.
-    /// @param input The input data.
-    /// @param key The key to extract.
-    /// @return The extracted data as bytes.
-    function extractAsBytes(
-        bytes memory input,
-        string memory key) external view returns (bytes memory response);
-  ```
+```solidity
+/// Extracts data as bytes from the input using the specified key.
+/// @param input The input data.
+/// @param key The key to extract.
+/// @return The extracted data as bytes.
+function extractAsBytes(
+    bytes memory input,
+    string memory key
+) external view returns (bytes memory response);
 
-- `extractAsBytesList`: Extracts data as a list of bytes from the input using
-  the specified key.
+/// Extracts data as a list of bytes from the input using the specified key.
+/// @param input The input data.
+/// @param key The key to extract.
+/// @return The extracted data as bytes collection.
+function extractAsBytesList(
+    bytes memory input,
+    string memory key
+) external view returns (bytes[] memory response);
 
-  ```solidity copy
-  /// Extracts data as a list of bytes from the input using the specified key.
-  /// @param input The input data.
-  /// @param key The key to extract.
-  /// @return The extracted data as bytes collection.
-  function extractAsBytesList(
-        bytes memory input,
-        string memory key) external view returns (bytes[] memory response);
-  ```
+/// Extracts data as a uint256 from the input using the specified key.
+/// @param input The input data.
+/// @param key The key to extract.
+/// @return The extracted uint256.
+function extractAsUint256(
+    bytes memory input,
+    string memory key
+) external view returns (uint256 response);
+```
 
-- `extractAsUint256`: Extracts data as a uint256 from the input using the
-  specified key.
-  ```solidity copy
-  /// Extracts data as a list of bytes from the input using the specified key.
-  /// @param input The input data.
-  /// @param key The key to extract.
-  /// @return The extracted uint256.
-  function extractAsUint256(
-        bytes memory input,
-        string memory key) external view returns (uint256 response);
-  ```
+## Using the Contract
 
-<Callout type="info">View the JSON precompile source code and the contract ABI [here](https://github.com/sei-protocol/sei-chain/tree/main/precompiles/json).</Callout>
+### Setup
+
+#### Prerequisites
+
+Before getting started, ensure you have:
+
+- **Node.js** (v16 or higher)
+- **npm** or **yarn** package manager
+- **MetaMask** or compatible EVM wallet
+- **SEI tokens** for gas fees
+
+#### Install Dependencies
+
+Install the required packages for interacting with Sei precompiles:
+
+```bash copy
+# Install ethers.js for smart contract interactions
+npm install ethers
+
+# Install Sei EVM bindings for precompile addresses and ABIs
+npm install @sei-js/evm
+
+# Install dotenv for managing private keys (optional but recommended)
+npm install dotenv
+```
+
+#### Network Configuration
+
+Add Sei networks to your MetaMask or configure your provider:
+
+##### Sei Mainnet
+
+```typescript copy
+const seiMainnet = {
+  chainId: '0x531', // 1329 in decimal
+  chainName: 'Sei Network',
+  nativeCurrency: {
+    name: 'SEI',
+    symbol: 'SEI',
+    decimals: 18
+  },
+  rpcUrls: ['https://evm-rpc.sei-apis.com'],
+  blockExplorerUrls: ['https://seitrace.com']
+};
+```
+
+##### Sei Testnet (Atlantic-2)
+
+```typescript copy
+const seiTestnet = {
+  chainId: '0xae3f3', // 713715 in decimal
+  chainName: 'Sei Testnet',
+  nativeCurrency: {
+    name: 'SEI',
+    symbol: 'SEI',
+    decimals: 18
+  },
+  rpcUrls: ['https://evm-rpc-testnet.sei-apis.com'],
+  blockExplorerUrls: ['https://seitrace.com/?chain=atlantic-2']
+};
+```
+
+#### Import Precompile Components
+
+```typescript copy
+// Import JSON precompile address and ABI
+// View the entire ABI here: https://github.com/sei-protocol/sei-chain/tree/main/precompiles/json
+import { JSON_PRECOMPILE_ABI, JSON_PRECOMPILE_ADDRESS } from '@sei-js/evm';
+import { ethers } from 'ethers';
+```
+
+<Callout type="info">**Precompile Address:** The JSON precompile is deployed at `0x0000000000000000000000000000000000001003`</Callout>
+
+#### Get SEI Tokens
+
+##### For Testnet
+
+Use the official Sei faucet to get testnet tokens:
+
+- **Faucet URL:** [https://www.sei.io/faucet](https://www.sei.io/faucet)
+- **Requirements:** Valid wallet address on Sei testnet
+
+##### For Mainnet
+
+Purchase SEI tokens from supported exchanges or bridge from other networks.
+
+### Contract Initialization
+
+Set up your provider, signer, and contract instance:
+
+```typescript copy
+// Using MetaMask as the signer and provider (browser environment)
+const provider = new ethers.BrowserProvider(window.ethereum);
+await provider.send('eth_requestAccounts', []);
+const signer = await provider.getSigner();
+
+// Or for Node.js environment
+const provider = new ethers.JsonRpcProvider('https://evm-rpc-testnet.sei-apis.com');
+const signer = new ethers.Wallet('YOUR_PRIVATE_KEY', provider);
+
+// Create a contract instance for the JSON precompile
+const jsonPrecompile = new ethers.Contract(JSON_PRECOMPILE_ADDRESS, JSON_PRECOMPILE_ABI, signer);
+```
+
+## Step-by-Step Guide: Using the JSON Precompile
+
+### Extract String Data
+
+```typescript copy
+// JSON data with string values
+const data = { name: 'Sei Token', symbol: 'SEI' };
+const inputData = ethers.toUtf8Bytes(JSON.stringify(data));
+
+// Extract string
+const nameBytes = await jsonPrecompile.extractAsBytes(inputData, 'name');
+const name = ethers.toUtf8String(nameBytes);
+console.log('Name:', name); // Output: "Sei Token"
+```
+
+### Extract Numeric Data
+
+```typescript copy
+// JSON data with numbers
+const data = { price: 42, volume: 1000000 };
+const inputData = ethers.toUtf8Bytes(JSON.stringify(data));
+
+// Extract number
+const price = await jsonPrecompile.extractAsUint256(inputData, 'price');
+console.log('Price:', price.toString()); // Output: "42"
+```
+
+### Extract Array Data
+
+```typescript copy
+// JSON data with array
+const data = { tokens: ['SEI', 'USDC', 'USDT'] };
+const inputData = ethers.toUtf8Bytes(JSON.stringify(data));
+
+// Extract array
+const tokensList = await jsonPrecompile.extractAsBytesList(inputData, 'tokens');
+const tokens = tokensList.map((bytes) => ethers.toUtf8String(bytes));
+console.log('Tokens:', tokens); // Output: ["SEI", "USDC", "USDT"]
+```
+
+### Extract Nested Data
+
+```typescript copy
+// Nested JSON using dot notation
+const data = { user: { wallet: { balance: 1000 } } };
+const inputData = ethers.toUtf8Bytes(JSON.stringify(data));
+
+// Extract nested value
+const balance = await jsonPrecompile.extractAsUint256(inputData, 'user.wallet.balance');
+console.log('Balance:', balance.toString()); // Output: "1000"
+```
+
+## Complete Integration Example
+
+Create a file named `json-precompile-demo.js`:
+
+```javascript copy
+// json-precompile-demo.js
+const { ethers } = require('ethers');
+const { JSON_PRECOMPILE_ABI, JSON_PRECOMPILE_ADDRESS } = require('@sei-js/evm');
+
+async function main() {
+  try {
+    // Connect to Sei Testnet
+    console.log('Connecting to Sei Testnet...');
+    const provider = new ethers.JsonRpcProvider('https://evm-rpc-testnet.sei-apis.com');
+
+    // Use your private key (never commit this!)
+    // For production, use environment variables
+    const privateKey = 'YOUR_PRIVATE_KEY_HERE';
+    const wallet = new ethers.Wallet(privateKey, provider);
+
+    console.log('Wallet address:', wallet.address);
+
+    // Check balance
+    const balance = await provider.getBalance(wallet.address);
+    console.log('Wallet balance:', ethers.formatEther(balance), 'SEI\n');
+
+    // Initialize JSON precompile contract
+    const jsonPrecompile = new ethers.Contract(JSON_PRECOMPILE_ADDRESS, JSON_PRECOMPILE_ABI, wallet);
+
+    // Sample data - simulating an oracle response
+    const oracleData = {
+      prices: {
+        SEI: 2.5,
+        BTC: 50000,
+        ETH: 3000
+      },
+      timestamp: '2024-01-01T12:00:00Z',
+      source: 'PriceOracle',
+      tokens: ['SEI', 'BTC', 'ETH']
+    };
+
+    console.log('=== JSON Precompile Demo ===');
+    console.log('Input JSON:', JSON.stringify(oracleData, null, 2), '\n');
+
+    // Convert to bytes
+    const inputData = ethers.toUtf8Bytes(JSON.stringify(oracleData));
+
+    // 1. Extract string data
+    console.log('1. Extracting string data (source)...');
+    const sourceBytes = await jsonPrecompile.extractAsBytes(inputData, 'source');
+    const source = ethers.toUtf8String(sourceBytes);
+    console.log('   Source:', source);
+
+    // 2. Extract numeric data
+    console.log('\n2. Extracting numeric data (prices)...');
+    const seiPrice = await jsonPrecompile.extractAsUint256(inputData, 'prices.SEI');
+    const btcPrice = await jsonPrecompile.extractAsUint256(inputData, 'prices.BTC');
+    console.log('   SEI Price:', seiPrice.toString());
+    console.log('   BTC Price:', btcPrice.toString());
+
+    // 3. Extract array data
+    console.log('\n3. Extracting array data (tokens)...');
+    const tokensList = await jsonPrecompile.extractAsBytesList(inputData, 'tokens');
+    const tokens = tokensList.map((bytes) => ethers.toUtf8String(bytes));
+    console.log('   Tokens:', tokens);
+
+    // 4. Extract nested timestamp
+    console.log('\n4. Extracting nested data (timestamp)...');
+    const timestampBytes = await jsonPrecompile.extractAsBytes(inputData, 'timestamp');
+    const timestamp = ethers.toUtf8String(timestampBytes);
+    console.log('   Timestamp:', timestamp);
+
+    console.log('\n✅ JSON Precompile demo completed successfully!');
+  } catch (error) {
+    console.error('Error:', error);
+    process.exit(1);
+  }
+}
+
+// Run the demo
+main().catch(console.error);
+```
+
+### Running the Example
+
+1. **Create a new directory and initialize npm:**
+
+```bash copy
+mkdir json-precompile-demo
+cd json-precompile-demo
+npm init -y
+```
+
+2. **Install dependencies:**
+
+```bash copy
+npm install ethers @sei-js/evm
+```
+
+3. **Create the demo file:**
+   Copy the complete integration example above into `json-precompile-demo.js`
+
+4. **Update your private key:**
+   Replace `YOUR_PRIVATE_KEY_HERE` with your testnet wallet private key
+
+<Callout type="warning">
+**Security Note:** Never commit private keys to version control! Use environment variables:
+
+```javascript copy
+// Better approach using dotenv
+require('dotenv').config();
+const privateKey = process.env.PRIVATE_KEY;
+```
+
+Create a `.env` file:
+
+```
+PRIVATE_KEY=your_private_key_here
+```
+
+</Callout>
+
+5. **Run the script:**
+
+```bash copy
+node json-precompile-demo.js
+```
+
+### Expected Output
+
+When you run the script, you should see output similar to:
+
+```
+Connecting to Sei Testnet...
+Wallet address: 0x742d35Cc6634C0532925a3b844Bc6789e065f3B
+Wallet balance: 10.5 SEI
+
+=== JSON Precompile Demo ===
+Input JSON: {
+  "prices": {
+    "SEI": 2.5,
+    "BTC": 50000,
+    "ETH": 3000
+  },
+  "timestamp": "2024-01-01T12:00:00Z",
+  "source": "PriceOracle",
+  "tokens": ["SEI", "BTC", "ETH"]
+}
+
+1. Extracting string data (source)...
+   Source: PriceOracle
+
+2. Extracting numeric data (prices)...
+   SEI Price: 2
+   BTC Price: 50000
+
+3. Extracting array data (tokens)...
+   Tokens: [ 'SEI', 'BTC', 'ETH' ]
+
+4. Extracting nested data (timestamp)...
+   Timestamp: 2024-01-01T12:00:00Z
+
+✅ JSON Precompile demo completed successfully!
+```
+
+<Callout type="info">**Note:** The SEI price shows as "2" instead of "2.5" because `extractAsUint256` only handles integers. For decimal values, store them as integers with a known decimal precision (e.g., 250 for 2.5 with 2 decimal places).</Callout>
+
+## Troubleshooting
+
+### Common Issues and Solutions
+
+#### Key Not Found
+
+```typescript copy
+// Handle missing keys gracefully
+async function safeExtract(jsonPrecompile, data, key, defaultValue = null) {
+  try {
+    const inputData = ethers.toUtf8Bytes(JSON.stringify(data));
+    const result = await jsonPrecompile.extractAsBytes(inputData, key);
+    return ethers.toUtf8String(result);
+  } catch (error) {
+    console.log(`Key "${key}" not found, using default value`);
+    return defaultValue;
+  }
+}
+```
+
+#### Gas Optimization
+
+```typescript copy
+// Set appropriate gas limits
+const tx = await jsonPrecompile.extractAsBytes(inputData, key, {
+  gasLimit: 100000 // Adjust based on data size
+});
+```
+
+### Error Code Reference
+
+| Error                 | Cause                               | Solution                                      |
+| --------------------- | ----------------------------------- | --------------------------------------------- |
+| `key not found`       | Specified key doesn't exist in JSON | Verify key path and JSON structure            |
+| `invalid JSON format` | Malformed JSON input                | Use `JSON.stringify()` to ensure valid format |
+| `execution reverted`  | Gas limit too low                   | Increase gas limit for large data             |
+
+## Important Notes
+
+<Callout type="warning">
+**Key Considerations:**
+
+- **Numbers:** `extractAsUint256` only handles integers (no decimals)
+- **Key Paths:** Use dot notation for nested objects (e.g., "user.wallet.balance")
+- **Arrays:** Must use `extractAsBytesList()` for array data
+- **Gas:** Large JSON objects require higher gas limits
+- **Encoding:** Always use UTF-8 encoding
+
+</Callout>
+
+<Callout type="info">**Need Help?** If you encounter issues not covered here, check the [Sei Discord](https://discord.gg/sei) or [GitHub repository](https://github.com/sei-protocol/sei-chain) for community support.</Callout>
