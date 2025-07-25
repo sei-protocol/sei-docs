@@ -9,7 +9,7 @@ import { isValidSeiCosmosAddress } from '../../utils/sei-utils';
 import HCaptcha from '@hcaptcha/react-hcaptcha';
 import { sendGAEvent } from '@next/third-parties/google';
 
-const VITE_FAUCET_API_URL = 'https://staging-faucet-v3.seinetwork.io';
+const VITE_FAUCET_API_URL = 'https://faucet-v3.seinetwork.io';
 
 const RequestFaucetCard = () => {
 	const [sendingRequest, setSendingRequest] = useState(false);
@@ -123,9 +123,6 @@ const RequestFaucetCard = () => {
 					</Select.Trigger>
 					<Select.Content className='bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 text-lg rounded-md shadow-lg'>
 						<Select.Item value='atlantic-2'>Testnet (atlantic-2)</Select.Item>
-						{
-							//<Select.Item value='arctic-1'>Devnet (arctic-1)</Select.Item>
-						}
 					</Select.Content>
 				</Select.Root>
 			</div>

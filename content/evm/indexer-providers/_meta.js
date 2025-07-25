@@ -1,4 +1,7 @@
 export default {
+	alchemy: {
+		title: 'Alchemy Subgraphs'
+	},
 	goldrush: {
 		title: 'Goldrush by Covalent'
 	},

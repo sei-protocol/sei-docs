@@ -12,8 +12,6 @@ import 'nextra-theme-docs/style.css';
 import './globals.css';
 import 'katex/dist/katex.min.css';
 
-export const revalidate = 1;
-
 export const metadata: Metadata = {
 	title: {
 		default: 'Sei Documentation | Developer Guides & Resources',
@@ -73,6 +71,7 @@ export default async function RootLayout({ children }) {
 	return (
 		<html lang='en' dir='ltr' suppressHydrationWarning style={{ width: '100%', height: '100%' }}>
 			<head>
+				<meta name='color-scheme' content='dark light' />
 				<link rel='canonical' href='https://docs.sei.io' />
 			</head>
 			<body style={{ width: '100%', height: '100%' }}>

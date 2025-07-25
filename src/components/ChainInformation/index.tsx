@@ -11,7 +11,7 @@ import { Link } from 'nextra-theme-docs';
 type NetworkType = 'Cosmos' | 'EVM';
 
 export const ChainInformation = ({ networkType }: { networkType: NetworkType }) => (
-	<Table.Root size='3' variant='surface' className='mt-8'>
+	<Table.Root size='1' variant='surface' className='mt-8'>
 		{/* top‑level header */}
 		<Table.Header>
 			<Table.Row>
@@ -118,7 +118,7 @@ export function AddSeiButton({ chainParams, label }: { chainParams: any; label: 
 	return (
 		<button
 			onClick={onClick}
-			className='inline-flex items-center gap-1 rounded-full bg-neutral-700/50 px-2 py-1 text-xs font-medium text-neutral-200 transition-colors hover:bg-red-600/80 hover:text-white'>
+			className='inline-flex items-center gap-1 rounded-xl bg-red-800 px-2 py-1 text-xs font-medium text-white transition-colors min-w-[160px]'>
 			{label}
 		</button>
 	);

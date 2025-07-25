@@ -8,8 +8,16 @@ export default {
 	},
 	networks: 'Network Information',
 	'differences-with-ethereum': 'Divergence from Ethereum',
-	'installing-seid': 'Installing seid CLI',
-	'evm-transactions': 'EVM with seid',
+
+	'-- seid CLI': {
+		type: 'separator',
+		title: 'seid CLI'
+	},
+	'installing-seid-cli': 'Installing seid CLI',
+	'querying-the-evm': 'Querying the EVM',
+	'transactions-with-seid': 'Transactions with seid',
+	'debugging-with-seid': 'Debugging with seid',
+	'best-practices': 'Best Practices',
 
 	'-- Frontend Development': {
 		type: 'separator',
@@ -47,7 +55,8 @@ export default {
 	'indexer-providers': 'Indexers',
 	'wallet-integrations': 'Wallet Integrations',
 	bridging: 'Bridging',
-
+	'agent-kits': 'Agent Kits',
+	'usdc-on-sei': 'USDC on Sei',
 	'-- Reference': {
 		type: 'separator',
 		title: 'Reference'
@@ -67,6 +76,5 @@ export default {
 		title: 'CosmWasm Interoperability'
 	},
 	'cosmwasm-precompiles': 'Precompiles',
-	pointers: 'Pointer Contracts',
 	'ibc-protocol': 'IBC on EVM'
 };

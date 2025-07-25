@@ -12,15 +12,14 @@ import { EthereumWalletConnectors } from '@dynamic-labs/ethereum';
 import { createConfig, http, WagmiProvider } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { DynamicWagmiConnector } from '@dynamic-labs/wagmi-connector';
-import { sei, seiDevnet, seiTestnet } from 'viem/chains';
+import { sei, seiTestnet } from 'viem/chains';
 
 const wagmiConfig = createConfig({
-	chains: [sei, seiTestnet, seiDevnet],
+	chains: [sei, seiTestnet],
 	multiInjectedProviderDiscovery: false,
 	transports: {
 		[sei.id]: http(),
-		[seiTestnet.id]: http(),
-		[seiDevnet.id]: http()
+		[seiTestnet.id]: http()
 	}
 });
 

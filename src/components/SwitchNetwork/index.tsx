@@ -40,9 +40,6 @@ export const SwitchNetwork = ({}: SwitchNetworkProps) => {
 			<SegmentedControl.Item value='testnet' onClick={() => onClickSwitch('testnet')}>
 				Testnet
 			</SegmentedControl.Item>
-			<SegmentedControl.Item value='devnet' onClick={() => onClickSwitch('devnet')}>
-				Devnet
-			</SegmentedControl.Item>
 		</SegmentedControl.Root>
 	);
 };

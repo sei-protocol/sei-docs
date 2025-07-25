@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { IconExternalLink, IconCopy, IconCheck, IconArrowRight, IconSearch, IconChevronDown, IconServer, IconInfoCircle, IconChevronUp } from '@tabler/icons-react';
 
 type EndpointType = 'public' | 'premium' | 'community';
-type Network = 'mainnet' | 'testnet' | 'devnet' | 'localnet';
+type Network = 'mainnet' | 'testnet' | 'localnet';
 
 interface RpcEndpoint {
 	url: string;
@@ -87,24 +87,6 @@ const rpcEndpoints: RpcEndpoint[] = [
 		network: 'testnet',
 		description: 'Community maintained RPC endpoint',
 		latency: 'Medium'
-	},
-	{
-		url: 'https://evm-rpc.arctic-1.seinetwork.io',
-		type: 'public',
-		provider: 'Sei Foundation',
-		network: 'devnet',
-		description: 'Official Sei RPC endpoint for arctic-1 devnet',
-		latency: 'Low',
-		rateLimit: '20 req/s'
-	},
-	{
-		url: 'https://evm-rpc-arctic-1.sei-apis.com',
-		type: 'public',
-		provider: 'Rhino Stake',
-		network: 'devnet',
-		description: 'Community maintained devnet RPC endpoint',
-		latency: 'Medium',
-		rateLimit: '10 req/s'
 	},
 	{
 		url: 'http://localhost:8545',
@@ -193,18 +175,6 @@ export function RpcSelector() {
 								: 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-700'
 						}`}>
 						Testnet
-					</button>
-					<button
-						onClick={() => {
-							setSelectedNetwork('devnet');
-							setShowAllEndpoints(false);
-						}}
-						className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-							selectedNetwork === 'devnet'
-								? 'bg-neutral-200 dark:bg-neutral-700 text-neutral-900 dark:text-white'
-								: 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-700'
-						}`}>
-						Devnet
 					</button>
 				</div>
 			</div>

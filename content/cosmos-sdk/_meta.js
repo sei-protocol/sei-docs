@@ -7,7 +7,6 @@ export default {
 		title: 'Essentials'
 	},
 	networks: 'Network Information',
-	'querying-state': 'Querying Blockchain State',
 
 	'-- Transactions': {
 		type: 'separator',
@@ -21,7 +20,6 @@ export default {
 		title: 'Modules'
 	},
 	'multi-sig-accounts': 'Multi-Sig Accounts',
-	'fee-grants': 'Fee Grants',
 	'-- Reference': {
 		type: 'separator',
 		title: 'Reference'

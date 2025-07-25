@@ -30,7 +30,7 @@ cp $HOME/.sei/config/priv_validator_key.json $HOME/priv_validator_key.json
 Reset the state:
 
 ```bash
-seid tendermint unsafe-reset-all --home $HOME/.sei --keep-addr-book
+seid tendermint unsafe-reset-all --home $HOME/.sei
 ```
 
 Finally, remove the existing data and wasm folders and restore the `priv_validator_state.json`:
@@ -50,24 +50,18 @@ For `STATE_SYNC_RPC`, pick:
 - mainnet (pacific-1): `https://sei-rpc.polkachu.com:443` or `https://rpc.sei-apis.com:443`
 - testnet (atlantic-2): `https://sei-testnet-rpc.polkachu.com:443` or `https://rpc-testnet.sei-apis.com:443`
 
-For `STATE_SYNC_PEER`, pick one of these here `persistent_peers`:
+For `STATE_SYNC_PEER`, pick the below as `persistent-peers`:
 
 - mainnet (pacific-1):
 
-```
-  3be6b24cf86a5938cce7d48f44fb6598465a9924@p2p.state-sync-0.pacific-1.seinetwork.io:26656
-
-  b21279d7092fde2e41770832a1cacc7d0051e9dc@p2p.state-sync-1.pacific-1.seinetwork.io:26656
-
-  616c05e9ba24acc89c0de630b5e3adbedaebb478@p2p.state-sync-2.pacific-1.seinetwork.io:26656
+```bash
+3be6b24cf86a5938cce7d48f44fb6598465a9924@p2p.state-sync-0.pacific-1.seinetwork.io:26656,b21279d7092fde2e41770832a1cacc7d0051e9dc@p2p.state-sync-1.pacific-1.seinetwork.io:26656,616c05e9ba24acc89c0de630b5e3adbedaebb478@p2p.state-sync-2.pacific-1.seinetwork.io:26656
 ```
 
 - testnet (atlantic-2):
 
-```
-  b2664ccaa84a04b67683093fefb802b172ead6d1@sei-a2-rpc.p2p.brocha.in:30612
-
-  babc3f3f7804933265ec9c40ad94f4da8e9e0017@testnet-seed.rhinostake.com:11956
+```bash
+b2664ccaa84a04b67683093fefb802b172ead6d1@sei-a2-rpc.p2p.brocha.in:30612,babc3f3f7804933265ec9c40ad94f4da8e9e0017@testnet-seed.rhinostake.com:11956
 ```
 
 The script sets up `trust_height` and `trust_hash` automatically. Each statesync snapshot is created at a certain block height. The script uses the best practice here and sets the trust height to be earlier than the latest snapshot block height to avoid backward verifications.
@@ -97,45 +91,37 @@ cp $HOME/.sei/data/priv_validator_state.json $HOME/key_backup
 # Create a backup directory for the entire .sei configuration
 mkdir -p $HOME/.sei_backup
 
-# Move existing config, data, and wasm directories to the backup directory
-mv $HOME/.sei/config $HOME/.sei_backup
-mv $HOME/.sei/data $HOME/.sei_backup
-mv $HOME/.sei/wasm $HOME/.sei_backup
+# Copy existing config, data, and wasm directories to the backup directory
+cp -r $HOME/.sei/config $HOME/.sei_backup/
+cp -r $HOME/.sei/data $HOME/.sei_backup/
+cp -r $HOME/.sei/wasm $HOME/.sei_backup/ 2>/dev/null || true  # ignore error if wasm doesn't exist
 
-# Remove the data and wasm folder
-cd $HOME/.sei && ls | grep -xv "cosmovisor" | xargs rm -rf
-
-# Restore the validator key and state files from the backup
-mkdir -p $HOME/.sei/config
-mkdir -p $HOME/.sei/data
-cp $HOME/key_backup/priv_validator_key.json $HOME/.sei/config/
-cp $HOME/key_backup/priv_validator_state.json $HOME/.sei/data/
-
-# Set up /tmp as a 12G RAM disk to allow for more than 400 state sync chunks
-sudo umount -l /tmp && sudo mount -t tmpfs -o size=12G,mode=1777 overflow /tmp
+# Create a temp directory on the main disk  and set the path in config.toml
+mkdir -p /home/ubuntu/statesync-temp
+sed -i 's|temp-dir = ""|temp-dir = "/home/ubuntu/statesync-temp"|' ~/.sei/config/config.toml
 
 # Fetch the latest block height from the State Sync RPC endpoint
-LATEST_HEIGHT=$(curl -s $STATE_SYNC_RPC/block | jq -r .result.block.header.height)
+LATEST_HEIGHT=$(curl -s $STATE_SYNC_RPC/block | jq -r .block.header.height)
 # Calculate the trust height (rounded down to the nearest 100,000)
 BLOCK_HEIGHT=$(( (LATEST_HEIGHT / 100000) * 100000 ))
 # Fetch the block hash at the trust height
-TRUST_HASH=$(curl -s "$STATE_SYNC_RPC/block?height=$BLOCK_HEIGHT" | jq -r .result.block_id.hash)
+TRUST_HASH=$(curl -s "$STATE_SYNC_RPC/block?height=$BLOCK_HEIGHT" | jq -r .block_id.hash)
 
 # Update the config.toml file to enable state sync with the appropriate settings
 sed -i.bak -E "s|^(enable[[:space:]]+=[[:space:]]+).*$|\1true| ; \
-s|^(rpc_servers[[:space:]]+=[[:space:]]+).*$|\1\"$STATE_SYNC_RPC,$STATE_SYNC_RPC\"| ; \
-s|^(trust_height[[:space:]]+=[[:space:]]+).*$|\1$BLOCK_HEIGHT| ; \
-s|^(trust_hash[[:space:]]+=[[:space:]]+).*$|\1\"$TRUST_HASH\"|" $HOME/.sei/config/config.toml
+s|^(rpc-servers[[:space:]]+=[[:space:]]+).*$|\1\"$STATE_SYNC_RPC,$STATE_SYNC_RPC\"| ; \
+s|^(trust-height[[:space:]]+=[[:space:]]+).*$|\1$BLOCK_HEIGHT| ; \
+s|^(trust-hash[[:space:]]+=[[:space:]]+).*$|\1\"$TRUST_HASH\"|" $HOME/.sei/config/config.toml
 
 # Set the persistent peers in the config.toml file to the specified State Sync Peer
-sed -i.bak -e "s|^persistent_peers *=.*|persistent_peers = \"$STATE_SYNC_PEER\"|" \
+sed -i.bak -e "s|^persistent-peers *=.*|persistent-peers = \"$STATE_SYNC_PEER\"|" \
   $HOME/.sei/config/config.toml
+```
 
-# Restore previously backed up files
+Finally start the daemon:
 
-cp $HOME/priv_validator_state.json $HOME/.sei/data/priv_validator_state.json
-cp $HOME/priv_validator_key.json $HOME/.sei/config/priv_validator_key.json
-cp $HOME/genesis.json $HOME/.sei/config/genesis.json
+```bash
+sudo systemctl start seid
 ```
 
 ## Troubleshooting statesync

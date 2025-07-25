@@ -6,7 +6,9 @@ import * as fs from 'node:fs';
 const EXCLUDED_URLS = [
 	// Add URLs or URL patterns that should be excluded
 	'https://etherscan.io/contractsVerified',
-	'https://www.getarculus.com/'
+	'https://www.getarculus.com/',
+	'https://forum.openzeppelin.com/',
+	'http://127.0.0.1:8545/'
 ];
 
 // Function to check if a URL should be excluded
@@ -84,6 +86,7 @@ function isInternal(url: string) {
 }
 
 async function processPage(page: Page, path: string, url: string) {
+	if (url.includes('t.me')) return;
 	// Skip excluded URLs
 	if (isExcluded(url)) {
 		console.info(`Skipping excluded URL: ${url}`);
@@ -107,22 +110,38 @@ async function processPage(page: Page, path: string, url: string) {
 	}
 }
 
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = 5000; // 5 seconds
+
 async function isLinkBroken(page: Page, url: string, path: string) {
 	if ((url.includes('localhost') && !url.includes(':3000')) || url.includes('.tar.gz')) return false;
 
-	let pageResponse: Response;
-	try {
-		pageResponse = await page.goto(url, { waitUntil: 'load', timeout: 45000 });
-	} catch (error: any) {
-		pageResponse = await retryPageLoadIfTimeout(page, url, path);
-	} finally {
-		if (!pageResponse || [404, 403].includes(pageResponse.status())) {
-			console.warn(`Broken link detected: ${path} (Status ${pageResponse ? pageResponse.status() : 'page not opened'})`);
-			brokenLinks.add(path);
-			return true;
+	for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+		let pageResponse: Response | undefined;
+		try {
+			pageResponse = await page.goto(url, { waitUntil: 'load', timeout: 45000 });
+		} catch (error: any) {
+			// Treat navigation errors as failed attempts.
 		}
-		return false;
+
+		// Successful response with acceptable status
+		if (pageResponse && ![404, 403].includes(pageResponse.status())) {
+			return false;
+		}
+
+		// If not the last attempt, wait before retrying
+		if (attempt < MAX_RETRIES) {
+			console.warn(
+				`Attempt ${attempt} failed for ${path} (Status ${pageResponse ? pageResponse.status() : 'page not opened'}). Retrying in ${RETRY_DELAY_MS / 1000}s…`
+			);
+			await new Promise((res) => setTimeout(res, RETRY_DELAY_MS));
+		}
 	}
+
+	// Exhausted retries, mark as broken
+	console.warn(`Broken link detected after ${MAX_RETRIES} attempts: ${path}`);
+	brokenLinks.add(path);
+	return true;
 }
 
 async function retryPageLoadIfTimeout(page: Page, url: string, path: string) {

@@ -10,7 +10,7 @@ export * from './FaucetRequest';
 export * from './LinkCard';
 export * from './BrandKitGallery';
 export * from './ImageWithCaption';
-export { Logo } from './Logo';
+export { Logo, LogoMobile } from './Logo';
 export * from './Nfts';
 export * from './VersionFetcher';
 export { PropertyInfo } from './PropertyInfo';
