@@ -1,0 +1,688 @@
+---
+title: LayerZero V2 on SEI - Complete Integration Guide
+description: Step-by-step guide to building cross-chain applications on SEI using LayerZero V2
+---
+
+import { Callout } from 'nextra/components';
+
+# LayerZero V2 on SEI
+
+## Overview
+
+This guide provides a comprehensive, step-by-step tutorial for integrating LayerZero V2 with the SEI blockchain. By the end of this guide, you will understand how to create, deploy, and manage omnichain tokens that can seamlessly move between SEI and any other LayerZero-supported blockchain.
+
+### What This Guide Covers
+
+- **Understanding LayerZero**: Core concepts and architecture
+- **Project Setup**: Creating a LayerZero-enabled project from scratch
+- **Smart Contracts**: Building an Omnichain Fungible Token (OFT) with detailed explanations
+- **Deployment & Configuration**: Step-by-step deployment to SEI and other chains
+
+### Prerequisites
+
+- Basic knowledge of Solidity and smart contracts
+- Node.js and npm installed
+- A wallet with SEI and other chain tokens for gas fees
+- Familiarity with Hardhat or Foundry
+
+## What is LayerZero?
+
+LayerZero is an **omnichain interoperability protocol** that enables secure, permissionless communication between different blockchains. Think of it as a universal translator that allows blockchains to talk to each other.
+
+### Core Concepts
+
+- **Endpoints**: Immutable smart contracts deployed on each blockchain that serve as entry/exit points for messages
+- **Messages**: Data packets sent between blockchains containing instructions or information
+- **Security Stack**: Customizable verification system ensuring message authenticity
+- **Omnichain Applications**: Smart contracts that can operate across multiple blockchains
+
+### Key Applications
+
+- **Omnichain Fungible Tokens (OFT)**: Tokens that exist across multiple chains with unified supply
+- **Omnichain NFTs (ONFT)**: NFTs that can move between blockchains
+- **Cross-chain DeFi**: Protocols that operate across multiple networks
+- **Unified Governance**: DAOs that function across chains
+- **Message Passing**: Send arbitrary data between blockchains
+
+## SEI Network Information
+
+<Callout type="info">
+**SEI Mainnet Configuration**
+
+- Network Name: SEI EVM
+- Chain ID: 1329
+- RPC URL: https://evm-rpc.sei-apis.com
+- Explorer: https://seitrace.com/
+- Currency: SEI
+- LayerZero Endpoint ID: 30280
+
+</Callout>
+
+## Step 1: Project Setup
+
+### 1. Create a New Project
+
+```bash
+# Create a new LayerZero OFT project
+npx create-lz-oapp@latest
+
+# When prompted:
+# ? What type of example would you like to create? → OFT example
+# ? What is your project name? → sei-oft-project
+```
+
+This creates a complete project structure with:
+
+- `contracts/` - Smart contract files
+- `deploy/` - Deployment scripts
+- `tasks/` - Hardhat tasks
+- `hardhat.config.ts` - Hardhat configuration
+- `layerzero.config.ts` - LayerZero pathway configuration
+- `.env.example` - Environment variables template
+
+### 2. Install Dependencies
+
+```bash
+cd sei-oft-project
+npm install
+```
+
+### 3. Configure Environment Variables
+
+```bash
+# Copy the example environment file
+cp .env.example .env
+```
+
+Edit `.env` file:
+
+```bash filename=".env"
+# Your deployment wallet private key (without 0x prefix)
+PRIVATE_KEY=your_private_key_here
+
+# RPC URLs (optional but recommended for reliability)
+RPC_URL_SEI=https://evm-rpc.sei-apis.com
+RPC_URL_OPTIMISM=https://mainnet.optimism.io
+
+# You can add more networks as needed
+RPC_URL_ARBITRUM=https://arb1.arbitrum.io/rpc
+RPC_URL_BASE=https://mainnet.base.org
+```
+
+## Step 2: Configure Networks
+
+### Update Hardhat Configuration
+
+Edit `hardhat.config.ts`:
+
+```typescript filename="hardhat.config.ts"
+import { HardhatUserConfig } from 'hardhat/config';
+import { EndpointId } from '@layerzerolabs/lz-definitions';
+
+// This adds layerzero tasks to hardhat
+import '@layerzerolabs/toolbox-hardhat';
+
+// Import your custom tasks
+import './tasks/mint';
+import './tasks/sendOFT';
+
+const config: HardhatUserConfig = {
+  solidity: {
+    version: '0.8.22',
+    settings: {
+      optimizer: {
+        enabled: true,
+        runs: 200
+      }
+    }
+  },
+  networks: {
+    // SEI Mainnet Configuration
+    'sei-mainnet': {
+      eid: EndpointId.SEI_V2_MAINNET, // LayerZero Endpoint ID for SEI
+      url: process.env.RPC_URL_SEI || 'https://evm-rpc.sei-apis.com',
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : []
+    },
+
+    // Optimism Mainnet Configuration
+    'optimism-mainnet': {
+      eid: EndpointId.OPTIMISM_V2_MAINNET, // LayerZero Endpoint ID for Optimism
+      url: process.env.RPC_URL_OPTIMISM || 'https://mainnet.optimism.io',
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : []
+    },
+
+    // Add more networks as needed
+    'arbitrum-mainnet': {
+      eid: EndpointId.ARBITRUM_V2_MAINNET,
+      url: process.env.RPC_URL_ARBITRUM || 'https://arb1.arbitrum.io/rpc',
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : []
+    }
+  }
+};
+
+export default config;
+```
+
+### Configure LayerZero Pathways
+
+Edit `layerzero.config.ts`:
+
+```typescript filename="layerzero.config.ts"
+import { EndpointId } from '@layerzerolabs/lz-definitions';
+import type { OmniPointHardhat } from '@layerzerolabs/toolbox-hardhat';
+import { OAppEnforcedOption } from '@layerzerolabs/toolbox-hardhat';
+import { ExecutorOptionType } from '@layerzerolabs/lz-v2-utilities';
+import { TwoWayConfig, generateConnectionsConfig } from '@layerzerolabs/metadata-tools';
+
+// Define your OFT contract on SEI
+const seiContract: OmniPointHardhat = {
+  eid: EndpointId.SEI_V2_MAINNET, // SEI's endpoint ID
+  contractName: 'MyOFT' // Must match your contract name
+};
+
+// Define your OFT contract on Optimism
+const optimismContract: OmniPointHardhat = {
+  eid: EndpointId.OPTIMISM_V2_MAINNET, // Optimism's endpoint ID
+  contractName: 'MyOFT' // Same contract name
+};
+
+// Enforced options ensure minimum gas is provided for message execution
+const EVM_ENFORCED_OPTIONS: OAppEnforcedOption[] = [
+  {
+    msgType: 1, // Message type 1 = SEND
+    optionType: ExecutorOptionType.LZ_RECEIVE, // Option for receiving messages
+    gas: 80000, // Gas limit for execution
+    value: 0 // Native token value to send (0 for token transfers)
+  }
+];
+
+// Define the pathways (connections) between chains
+const pathways: TwoWayConfig[] = [
+  [
+    // Chain A contract
+    optimismContract,
+    // Chain B contract
+    seiContract,
+    // Security configuration: [required DVNs], [optional DVNs]
+    [['LayerZero Labs'], []], // Using LayerZero Labs DVN as required verifier
+    // Block confirmations: [Optimism→SEI, SEI→Optimism]
+    [1, 1], // 1 block confirmation each way
+    // Enforced options: [Optimism→SEI options, SEI→Optimism options]
+    [EVM_ENFORCED_OPTIONS, EVM_ENFORCED_OPTIONS]
+  ]
+];
+
+// Export the configuration
+export default async function () {
+  const connections = await generateConnectionsConfig(pathways);
+  return {
+    contracts: [{ contract: optimismContract }, { contract: seiContract }],
+    connections
+  };
+}
+```
+
+## Step 3: Smart Contract Development
+
+### Create the OFT Contract
+
+<Callout type="info">
+The OFT contract handles all cross-chain logic automatically. When tokens are sent:
+
+1. **Source Chain**: Burns tokens from sender's balance
+2. **LayerZero Protocol**: Verifies and relays the message
+3. **Destination Chain**: Mints equivalent tokens to recipient
+
+</Callout>
+
+Create/edit `contracts/MyOFT.sol`:
+
+```solidity filename="contracts/MyOFT.sol"
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.22;
+
+// Import OpenZeppelin's Ownable for access control
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+// Import LayerZero's OFT contract
+import { OFT } from "@layerzerolabs/oft-evm/contracts/OFT.sol";
+
+/**
+ * @title MyOFT
+ * @notice Omnichain Fungible Token that can be transferred across blockchains
+ * @dev Inherits from LayerZero's OFT contract which handles cross-chain logic
+ */
+contract MyOFT is OFT, Ownable {
+    /**
+     * @notice Constructor initializes the OFT with token details and LayerZero endpoint
+     * @param name Token name (e.g., "My Omnichain Token")
+     * @param symbol Token symbol (e.g., "MOT")
+     * @param endpoint LayerZero endpoint address on this chain
+     * @param owner Address that will own this contract
+     */
+    constructor(
+        string memory name,
+        string memory symbol,
+        address endpoint,
+        address owner
+    )
+        // Initialize the OFT parent contract
+        OFT(name, symbol, endpoint, owner)
+        // Initialize Ownable with the owner
+        Ownable(owner)
+    {
+        // The OFT contract handles:
+        // 1. ERC20 functionality (balances, transfers, etc.)
+        // 2. Cross-chain message sending via _lzSend()
+        // 3. Cross-chain message receiving via _lzReceive()
+        // 4. Token burning on source chain and minting on destination
+
+        // Optional: Mint initial supply on deployment chain
+        // Uncomment if you want to mint tokens on deployment
+        // _mint(owner, 1000000 * 10 ** decimals()); // 1 million tokens
+    }
+
+    /**
+     * @notice Mint new tokens (only owner)
+     * @param to Address to receive the minted tokens
+     * @param amount Amount of tokens to mint (with decimals)
+     */
+    function mint(address to, uint256 amount) external onlyOwner {
+        _mint(to, amount);
+    }
+}
+```
+
+### Understanding OFT Functions
+
+Key inherited functions from the OFT contract:
+
+| Function       | Description                              |
+| -------------- | ---------------------------------------- |
+| `send()`       | Initiates cross-chain token transfer     |
+| `quoteSend()`  | Estimates fees for transfer              |
+| `_lzSend()`    | Internal function that sends the message |
+| `_lzReceive()` | Internal function that receives messages |
+
+## Step 4: Deployment Process
+
+### 1. Fund Your Wallet
+
+<Callout type="warning">
+Ensure your deployment wallet has native tokens on each chain:
+
+- SEI for deployment and gas on SEI
+- ETH for deployment and gas on Optimism
+
+</Callout>
+
+### 2. Deploy to SEI
+
+```bash
+# Deploy the OFT contract to SEI mainnet
+npx hardhat lz:deploy --network sei-mainnet
+
+# You'll see:
+# Deploying MyOFT to sei-mainnet...
+# MyOFT deployed to: 0x... on sei-mainnet
+```
+
+### 3. Deploy to Optimism
+
+```bash
+# Deploy the same OFT contract to Optimism mainnet
+npx hardhat lz:deploy --network optimism-mainnet
+
+# You'll see:
+# Deploying MyOFT to optimism-mainnet...
+# MyOFT deployed to: 0x... on optimism-mainnet
+```
+
+### 4. Deploy to Additional Chains (Optional)
+
+```bash
+# Deploy to Arbitrum
+npx hardhat lz:deploy --network arbitrum-mainnet
+
+# Deploy to Base
+npx hardhat lz:deploy --network base-mainnet
+```
+
+## Step 5: Wire the Contracts
+
+After deployment, contracts need to be connected:
+
+### Set Up Cross-Chain Connections
+
+```bash
+# This command configures all the connections defined in layerzero.config.ts
+npx hardhat lz:oapp:wire --oapp-config layerzero.config.ts
+
+# This command will:
+# 1. Set peer addresses (so contracts know about each other)
+# 2. Configure DVNs (Decentralized Verifier Networks)
+# 3. Set up executors (for message execution)
+# 4. Configure security settings
+```
+
+### Verify Configuration
+
+**Check Peers:**
+
+```bash
+# Check that peers are correctly set
+npx hardhat lz:oapp:peers:get --oapp-config layerzero.config.ts
+
+# Expected output:
+# ┌─────────┬──────────────────┬──────────────────────────────────┐
+# │ Chain   │ Peer Chain       │ Peer Address                     │
+# ├─────────┼──────────────────┼──────────────────────────────────┤
+# │ sei     │ optimism         │ 0x...                            │
+# │ optimism│ sei              │ 0x...                            │
+# └─────────┴──────────────────┴──────────────────────────────────┘
+```
+
+**Full Configuration:**
+
+```bash
+# View complete configuration including DVNs and executors
+npx hardhat lz:oapp:config:get --oapp-config layerzero.config.ts
+```
+
+## Step 6: Mint Initial Tokens
+
+Before transferring, you need tokens to send:
+
+### Create Minting Task
+
+Create a new file `tasks/mint.ts`:
+
+```typescript filename="tasks/mint.ts"
+import { task } from 'hardhat/config';
+
+task('mint', 'Mint tokens to an address')
+  .addParam('to', 'Address to mint tokens to')
+  .addParam('amount', 'Amount to mint (without decimals)')
+  .setAction(async ({ to, amount }, { ethers, deployments }) => {
+    // Get the deployed contract
+    const deployment = await deployments.get('MyOFT');
+    const [signer] = await ethers.getSigners();
+
+    // Create contract instance
+    const oft = new ethers.Contract(deployment.address, deployment.abi, signer);
+
+    // Get decimals
+    const decimals = await oft.decimals();
+
+    // Convert amount to proper decimals
+    const amountWithDecimals = ethers.utils.parseUnits(amount, decimals);
+
+    // Mint tokens
+    console.log(`Minting ${amount} tokens to ${to}...`);
+    const tx = await oft.mint(to, amountWithDecimals);
+    await tx.wait();
+
+    console.log(`✅ Minted ${amount} tokens to ${to}`);
+    console.log(`Transaction hash: ${tx.hash}`);
+  });
+```
+
+### Mint Tokens on SEI
+
+```bash
+# Mint 10,000 tokens to your address on SEI
+npx hardhat mint --to 0xYourAddress --amount 10000 --network sei-mainnet
+```
+
+## Step 7: Transfer Tokens Cross-Chain
+
+### Create Send Task
+
+Create a new file `tasks/sendOFT.ts`:
+
+```typescript filename="tasks/sendOFT.ts"
+import { task } from 'hardhat/config';
+import { getNetworkNameForEid, types } from '@layerzerolabs/devtools-evm-hardhat';
+import { EndpointId } from '@layerzerolabs/lz-definitions';
+import { addressToBytes32 } from '@layerzerolabs/lz-v2-utilities';
+import { Options } from '@layerzerolabs/lz-v2-utilities';
+import { BigNumberish, BytesLike } from 'ethers';
+
+interface Args {
+  amount: string;
+  to: string;
+  toEid: EndpointId;
+}
+
+interface SendParam {
+  dstEid: EndpointId; // Destination endpoint ID, represented as a number
+  to: BytesLike; // Recipient address, represented as bytes32
+  amountLD: BigNumberish; // Amount to send in local decimals
+  minAmountLD: BigNumberish; // Minimum amount to send in local decimals (for slippage)
+  extraOptions: BytesLike; // Additional options supplied by the caller
+  composeMsg: BytesLike; // The composed message for the send() operation
+  oftCmd: BytesLike; // The OFT command to be executed
+}
+
+// Create the send task
+task('lz:oft:send', 'Sends tokens from OFT across chains')
+  .addParam('to', 'Recipient address on destination chain', undefined, types.string)
+  .addParam('toEid', 'Destination endpoint ID (e.g., 30111 for Optimism)', undefined, types.int)
+  .addParam('amount', 'Amount to transfer in token units', undefined, types.string)
+  .setAction(async (taskArgs: Args, { ethers, deployments }) => {
+    const toAddress = taskArgs.to;
+    const destinationEid = taskArgs.toEid;
+
+    // Get the deployed OFT contract
+    const oftDeployment = await deployments.get('MyOFT');
+    const [signer] = await ethers.getSigners();
+
+    // Create contract instance
+    const oftContract = new ethers.Contract(oftDeployment.address, oftDeployment.abi, signer);
+
+    // Get token decimals
+    const decimals = await oftContract.decimals();
+    const amount = ethers.utils.parseUnits(taskArgs.amount, decimals);
+
+    // Build execution options (80000 gas for execution, 0 value)
+    let options = Options.newOptions().addExecutorLzReceiveOption(65000, 0).toBytes();
+
+    // Create the send parameters
+    const sendParam: SendParam = {
+      dstEid: destinationEid,
+      to: addressToBytes32(toAddress),
+      amountLD: amount,
+      minAmountLD: amount, // No slippage for simplicity (can be adjusted)
+      extraOptions: options,
+      composeMsg: ethers.utils.arrayify('0x'), // No composed message
+      oftCmd: ethers.utils.arrayify('0x') // No OFT command
+    };
+
+    // Get the quote for the send operation
+    const feeQuote = await oftContract.quoteSend(sendParam, false);
+    const nativeFee = feeQuote.nativeFee;
+
+    console.log(`Sending ${taskArgs.amount} tokens to ${getNetworkNameForEid(destinationEid)} (EID: ${destinationEid})`);
+    console.log(`Recipient: ${toAddress}`);
+    console.log(`Fee: ${ethers.utils.formatEther(nativeFee)} native tokens`);
+
+    // Execute the send transaction
+    const tx = await oftContract.send(sendParam, { nativeFee: nativeFee, lzTokenFee: 0 }, signer.address, { value: nativeFee });
+
+    console.log(`\n✅ Send transaction initiated!`);
+    console.log(`📝 Transaction hash: ${tx.hash}`);
+    console.log(`🔍 Track your cross-chain transfer at: https://layerzeroscan.com/tx/${tx.hash}`);
+  });
+```
+
+### Alternative: Using Foundry Script
+
+If you prefer Foundry, create `script/SendOFT.s.sol`:
+
+**Foundry Script:**
+
+```solidity filename="script/SendOFT.s.sol"
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.13;
+
+import {Script, console} from "forge-std/Script.sol";
+import { IOAppCore } from "@layerzerolabs/oapp-evm/contracts/oapp/interfaces/IOAppCore.sol";
+import { SendParam, OFTReceipt } from "@layerzerolabs/oft-evm/contracts/interfaces/IOFT.sol";
+import { OptionsBuilder } from "@layerzerolabs/oapp-evm/contracts/oapp/libs/OptionsBuilder.sol";
+import { MessagingFee } from "@layerzerolabs/oapp-evm/contracts/oapp/OApp.sol";
+import { MyOFT } from "../contracts/MyOFT.sol";
+
+contract SendOFT is Script {
+    using OptionsBuilder for bytes;
+
+    /**
+     * @dev Converts an address to bytes32 format required by LayerZero
+     * @param _addr The address to convert
+     * @return The bytes32 representation of the address
+     */
+    function addressToBytes32(address _addr) internal pure returns (bytes32) {
+        return bytes32(uint256(uint160(_addr)));
+    }
+
+    function run() public {
+        // Fetching environment variables
+        address oftAddress = vm.envAddress("OFT_ADDRESS");
+        address toAddress = vm.envAddress("TO_ADDRESS");
+        uint256 tokensToSend = vm.envUint("TOKENS_TO_SEND");
+
+        // Fetch the private key from environment variable
+        uint256 privateKey = vm.envUint("PRIVATE_KEY");
+
+        // Start broadcasting transactions
+        vm.startBroadcast(privateKey);
+
+        MyOFT sourceOFT = MyOFT(oftAddress);
+
+        // Build options for execution (65000 gas, 0 native value)
+        bytes memory extraOptions = OptionsBuilder.newOptions().addExecutorLzReceiveOption(65000, 0);
+
+        // Create send parameters
+        SendParam memory sendParam = SendParam(
+            30111,                           // Destination EID (30111 = Optimism)
+            addressToBytes32(toAddress),     // Recipient address as bytes32
+            tokensToSend,                    // Amount to send
+            tokensToSend * 9 / 10,          // Minimum amount (90% - allows 10% slippage)
+            extraOptions,                    // Execution options
+            "",                             // No compose message
+            ""                              // No OFT command
+        );
+
+        // Get fee quote
+        MessagingFee memory fee = sourceOFT.quoteSend(sendParam, false);
+        console.log("Fee amount: ", fee.nativeFee);
+
+        // Send tokens with the quoted fee
+        sourceOFT.send{value: fee.nativeFee}(sendParam, fee, msg.sender);
+
+        // Stop broadcasting
+        vm.stopBroadcast();
+    }
+}
+```
+
+**Environment Setup:**
+
+```bash
+# Set environment variables
+export OFT_ADDRESS=0xYourOFTAddress
+export TO_ADDRESS=0xRecipientAddress
+export TOKENS_TO_SEND=100000000000000000000  # 100 tokens with 18 decimals
+
+# Run the script
+forge script script/SendOFT.s.sol:SendOFT --rpc-url $RPC_URL_SEI --broadcast
+```
+
+### Execute Token Transfer
+
+Using Hardhat task:
+
+```bash
+# Send 100 tokens from SEI to Optimism (EID: 30111)
+npx hardhat lz:oft:send \
+  --to 0xRecipientAddress \
+  --to-eid 30111 \
+  --amount 100 \
+  --network sei-mainnet
+```
+
+## Step 8: Monitoring and Verification
+
+### Track Your Transaction
+
+1. Visit https://layerzeroscan.com/tx/YOUR_TX_HASH
+2. You'll see:
+   - Source transaction
+   - Message status
+   - Destination transaction
+   - Time elapsed
+3. Check balances on both chains to confirm the transfer
+
+## Troubleshooting
+
+### Common Issues and Solutions
+
+<Callout type="error" emoji="🚨">
+  **Quote Send Reverts** If `quoteSend` function fails:
+
+```bash
+# Check if wiring was successful
+npx hardhat lz:oapp:config:get --oapp-config layerzero.config.ts
+
+# If you see "LzDeadDVN", update your layerzero.config.ts:
+[['LayerZero Labs', 'Google Cloud'], []]
+
+# Add more DVNs
+npx hardhat lz:oapp:wire --oapp-config layerzero.config.ts
+```
+
+</Callout>
+
+<Callout type="warning" emoji="⚠️">
+  **No Default Pathway** If no default configuration exists between chains:
+
+1. Check default pathways: https://layerzeroscan.com/tools/defaults
+2. Add specific DVN configuration in `layerzero.config.ts`
+3. Re-run wiring: `npx hardhat lz:oapp:wire --oapp-config layerzero.config.ts`
+
+</Callout>
+
+<Callout type="info" emoji="💡">
+  **Insufficient Gas** If transaction fails on destination chain:
+
+```typescript
+// Increase gas in options
+const options = Options.newOptions()
+  .addExecutorLzReceiveOption(150000, 0) // Increase from 80000 to 150000
+  .toBytes();
+```
+
+</Callout>
+
+## Next Steps
+
+- **Add More Chains**: Expand to Arbitrum, Base, Polygon, etc.
+- **Advanced Features**: Implement rate limiting, pausable transfers, fee collection
+- **Composed Messages**: Execute actions after token arrival
+- **Build a UI**: Create a frontend for easy transfers
+
+## Resources
+
+- **LayerZero Documentation**: https://docs.layerzero.network/v2
+- **LayerZero Scan**: https://layerzeroscan.com/
+- **SEI Explorer**: https://seitrace.com/
+
+## Summary
+
+You've successfully:
+
+- ✅ Created an Omnichain Fungible Token
+- ✅ Deployed it to multiple chains
+- ✅ Connected the deployments via LayerZero
+- ✅ Transferred tokens cross-chain
+- ✅ Learned how LayerZero enables omnichain applications
+
+Your tokens can now move freely between SEI and any connected chain, maintaining a unified supply and enabling true cross-chain functionality!
