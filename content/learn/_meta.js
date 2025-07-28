@@ -10,6 +10,22 @@ export default {
 	'dev-gas': 'Gas',
 	accounts: 'Account Linking',
 
+	'-- Sei Giga Platform': {
+		type: 'separator',
+		title: 'Sei Giga Platform'
+	},
+	'sei-giga': 'Overview',
+	'sei-giga-specs': 'Technical Specs',
+	'sei-giga-developers': 'Developer Guide',
+
+	'-- Core Architecture': {
+		type: 'separator',
+		title: 'Core Architecture'
+	},
+	'twin-turbo-consensus': 'Consensus',
+	'parallelization-engine': 'Parallel Execution',
+	seidb: 'Storage',
+
 	'-- Network Tools & Providers': {
 		type: 'separator',
 		title: 'Network Tools & Providers'
@@ -24,30 +40,16 @@ export default {
 		type: 'separator',
 		title: 'Oracles'
 	},
-	oracles: 'Oracle System Overview',
-	'oracle-security': 'Security & Spam Prevention',
+	oracles: 'Oracle System',
+	'oracle-security': 'Oracle Security',
 
-	'-- AI Tools': {
+	'-- Blockchain Features': {
 		type: 'separator',
-		title: 'AI Tools'
+		title: 'Blockchain Features'
 	},
-	'mcp-server': 'MCP Server',
-
-	'-- Platform Architecture': {
-		type: 'separator',
-		title: 'Platform Architecture'
-	},
-	'twin-turbo-consensus': 'Twin Turbo Consensus',
-	'parallelization-engine': 'Parallelization Engine',
-	seidb: 'SeiDB',
-	'sei-giga': 'Sei Giga',
-
-	'-- MEV': {
-		type: 'separator',
-		title: 'MEV'
-	},
-	mev: 'MEV on Sei',
+	mev: 'MEV Protection',
 	'mev-plugins': 'MEV Plugins',
+	'wrapped-sei': 'Wrapped SEI',
 
 	'-- Governance': {
 		type: 'separator',
@@ -61,25 +63,26 @@ export default {
 	proposals: 'CLI Commands',
 	'general-staking': 'Staking',
 
-	'-- EVM <> CW Interoperability': {
+	'-- Interoperability': {
 		type: 'separator',
-		title: 'EVM <> CW Interoperability'
+		title: 'Interoperability'
 	},
-	'dev-interoperability': 'Overview',
+	'dev-interoperability': 'EVM ↔ CosmWasm',
 	pointers: 'Pointer Contracts',
 
-	'-- Hardware Wallets': {
+	'-- Developer Resources': {
 		type: 'separator',
-		title: 'Hardware Wallets'
+		title: 'Developer Resources'
 	},
-	'hardware-wallets': 'Using Hardware Wallets',
-	'ledger-setup': 'Ledger Integration',
+	'mcp-server': 'MCP Server',
 
-	'-- Additional Resources': {
+	'-- Resources': {
 		type: 'separator',
-		title: 'Additional Resources'
+		title: 'Resources'
 	},
+	'hardware-wallets': 'Hardware Wallets',
+	'ledger-setup': 'Ledger Setup',
 	'user-FAQ': 'FAQ',
 	'general-brand-kit': 'Brand Kit',
-	'general-submit-feedback': 'Submit Feedback'
+	'general-submit-feedback': 'Feedback'
 };
