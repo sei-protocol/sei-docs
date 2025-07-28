@@ -1,5 +1,9 @@
 # USDC on Sei QuickStart Guide
 
+**Testnet Address**: `0x4fCF1784B31630811181f670Aea7A7bEF803eaED`
+
+**Mainnet Address**: `0xe15fC38F6D8c56aF07bbCBe3BAf5708A2Bf42392`
+
 ## Overview
 
 USDC is a digital dollar issued by [Circle](http://developers.circle.com), also known as a stablecoin, running on many of the world's leading blockchains. Designed to represent US dollars on the internet, USDC is backed 100% by highly liquid cash and cash-equivalent assets so that it's always redeemable 1:1 for USD.
