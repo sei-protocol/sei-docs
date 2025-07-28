@@ -53,13 +53,13 @@ export default {
 		type: 'separator',
 		title: 'Governance'
 	},
-	'general-staking': 'Staking',
 	'general-governance': 'Overview',
-	'governance-developers': 'For Developers',
-	'governance-proposal-types': 'Proposal Types Reference',
+	'governance-developers': 'Developer Guide',
+	'governance-proposal-types': 'Proposal Types',
 	'governance-api-reference': 'API Reference',
 	'governance-monitoring': 'Monitoring & Metrics',
-	proposals: 'Proposal CLI Commands',
+	proposals: 'CLI Commands',
+	'general-staking': 'Staking',
 
 	'-- EVM <> CW Interoperability': {
 		type: 'separator',
