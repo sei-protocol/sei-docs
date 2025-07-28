@@ -10,72 +10,62 @@ export default {
 	'dev-gas': 'Gas',
 	accounts: 'Account Linking',
 
-	'-- Network Tools & Providers': {
+	'-- Sei Giga Platform': {
 		type: 'separator',
-		title: 'Network Tools & Providers'
+		title: 'Sei Giga Platform'
+	},
+	'sei-giga': 'Overview',
+	'sei-giga-specs': 'Technical Specs',
+	'sei-giga-developers': 'Developer Guide',
+
+	'-- Core Architecture': {
+		type: 'separator',
+		title: 'Core Architecture'
+	},
+	'twin-turbo-consensus': 'Consensus',
+	'parallelization-engine': 'Parallel Execution',
+	seidb: 'Storage',
+
+	'-- Developer Tools': {
+		type: 'separator',
+		title: 'Developer Tools'
 	},
 	wallets: 'Wallets',
 	'rpc-providers': 'RPC Providers',
-	explorers: 'Block Explorers',
+	explorers: 'Explorers',
 	faucet: 'Faucet',
 	indexers: 'Indexers',
 
-	'-- Oracles': {
+	'-- Blockchain Features': {
 		type: 'separator',
-		title: 'Oracles'
+		title: 'Blockchain Features'
 	},
-	oracles: 'Oracle System Overview',
-	'oracle-security': 'Security & Spam Prevention',
-
-	'-- AI Tools': {
-		type: 'separator',
-		title: 'AI Tools'
-	},
-	'mcp-server': 'MCP Server',
-
-	'-- Platform Architecture': {
-		type: 'separator',
-		title: 'Platform Architecture'
-	},
-	'twin-turbo-consensus': 'Twin Turbo Consensus',
-	'parallelization-engine': 'Parallelization Engine',
-	seidb: 'SeiDB',
-	'sei-giga': 'Sei Giga',
-
-	'-- MEV': {
-		type: 'separator',
-		title: 'MEV'
-	},
-	mev: 'MEV on Sei',
+	oracles: 'Oracle System',
+	mev: 'MEV Protection',
 	'mev-plugins': 'MEV Plugins',
 
-	'-- Consensus': {
+	'-- Interoperability': {
 		type: 'separator',
-		title: 'Consensus'
+		title: 'Interoperability'
+	},
+	'dev-interoperability': 'EVM ↔ CosmWasm',
+	pointers: 'Pointer Contracts',
+
+	'-- Governance': {
+		type: 'separator',
+		title: 'Governance'
 	},
 	'general-staking': 'Staking',
 	'general-governance': 'Governance',
-	proposals: 'Proposal Process',
+	proposals: 'Proposals',
 
-	'-- EVM <> CW Interoperability': {
+	'-- Resources': {
 		type: 'separator',
-		title: 'EVM <> CW Interoperability'
+		title: 'Resources'
 	},
-	'dev-interoperability': 'Overview',
-	pointers: 'Pointer Contracts',
-
-	'-- Hardware Wallets': {
-		type: 'separator',
-		title: 'Hardware Wallets'
-	},
-	'hardware-wallets': 'Using Hardware Wallets',
-	'ledger-setup': 'Ledger Integration',
-
-	'-- Additional Resources': {
-		type: 'separator',
-		title: 'Additional Resources'
-	},
+	'hardware-wallets': 'Hardware Wallets',
+	'ledger-setup': 'Ledger Setup',
 	'user-FAQ': 'FAQ',
 	'general-brand-kit': 'Brand Kit',
-	'general-submit-feedback': 'Submit Feedback'
+	'general-submit-feedback': 'Feedback'
 };
