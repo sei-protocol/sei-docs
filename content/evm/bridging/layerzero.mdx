@@ -17,6 +17,7 @@ This guide provides a comprehensive, step-by-step tutorial for integrating Layer
 - **Project Setup**: Creating a LayerZero-enabled project from scratch
 - **Smart Contracts**: Building an Omnichain Fungible Token (OFT) with detailed explanations
 - **Deployment & Configuration**: Step-by-step deployment to SEI and other chains
+- **Cross-Chain Transfers**: Creating tasks and scripts for token transfers
 
 ### Prerequisites
 
@@ -60,112 +61,53 @@ LayerZero is an **omnichain interoperability protocol** that enables secure, per
 
 ## Step 1: Project Setup
 
-### 1. Create a New Project
+### Project scaffold
+
+LayerZero's CLI lets you spin up an OFT workspace in seconds:
 
 ```bash
-# Create a new LayerZero OFT project
-npx create-lz-oapp@latest
-
-# When prompted:
-# ? What type of example would you like to create? → OFT example
-# ? What is your project name? → sei-oft-project
+npx create-lz-oapp@latest # choose → "OFT example"
 ```
 
-This creates a complete project structure with:
+The wizard creates a repo with Hardhat + Foundry, sample contracts, tests and LayerZero helper scripts.
 
-- `contracts/` - Smart contract files
-- `deploy/` - Deployment scripts
-- `tasks/` - Hardhat tasks
-- `hardhat.config.ts` - Hardhat configuration
-- `layerzero.config.ts` - LayerZero pathway configuration
-- `.env.example` - Environment variables template
+### Add private keys
 
-### 2. Install Dependencies
-
-```bash
-cd sei-oft-project
-npm install
-```
-
-### 3. Configure Environment Variables
-
-```bash
-# Copy the example environment file
-cp .env.example .env
-```
-
-Edit `.env` file:
+Rename `.env.example` file to `.env` and update it with needed configurations:
 
 ```bash filename=".env"
-# Your deployment wallet private key (without 0x prefix)
-PRIVATE_KEY=your_private_key_here
-
-# RPC URLs (optional but recommended for reliability)
-RPC_URL_SEI=https://evm-rpc.sei-apis.com
-RPC_URL_OPTIMISM=https://mainnet.optimism.io
-
-# You can add more networks as needed
-RPC_URL_ARBITRUM=https://arb1.arbitrum.io/rpc
-RPC_URL_BASE=https://mainnet.base.org
+PRIVATE_KEY=your_private_key
 ```
+
+At a minimum, you need to have the `PRIVATE_KEY`. RPC URLs are optional, but strongly recommended. If you don't provide them, public RPCs will be used, but public RPCs can be unreliable or slow, leading to long waiting times for transactions to be confirmed or, at worst, cause your transactions to fail.
 
 ## Step 2: Configure Networks
 
-### Update Hardhat Configuration
+### Hardhat network config
 
-Edit `hardhat.config.ts`:
+Update your `hardhat.config.ts` file to include the networks you want to deploy your contracts to:
 
 ```typescript filename="hardhat.config.ts"
-import { HardhatUserConfig } from 'hardhat/config';
-import { EndpointId } from '@layerzerolabs/lz-definitions';
-
-// This adds layerzero tasks to hardhat
-import '@layerzerolabs/toolbox-hardhat';
-
-// Import your custom tasks
-import './tasks/mint';
-import './tasks/sendOFT';
-
-const config: HardhatUserConfig = {
-  solidity: {
-    version: '0.8.22',
-    settings: {
-      optimizer: {
-        enabled: true,
-        runs: 200
-      }
-    }
+networks: {
+  // the network you are deploying to or are already on
+  // Sei Mainnet (EID=30280)
+  'sei-mainnet': {
+    eid: EndpointId.SEI_V2_MAINNET,
+    url: process.env.RPC_URL_SEI || 'https://evm-rpc.sei-apis.com',
+    accounts,
   },
-  networks: {
-    // SEI Mainnet Configuration
-    'sei-mainnet': {
-      eid: EndpointId.SEI_V2_MAINNET, // LayerZero Endpoint ID for SEI
-      url: process.env.RPC_URL_SEI || 'https://evm-rpc.sei-apis.com',
-      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : []
-    },
-
-    // Optimism Mainnet Configuration
-    'optimism-mainnet': {
-      eid: EndpointId.OPTIMISM_V2_MAINNET, // LayerZero Endpoint ID for Optimism
-      url: process.env.RPC_URL_OPTIMISM || 'https://mainnet.optimism.io',
-      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : []
-    },
-
-    // Add more networks as needed
-    'arbitrum-mainnet': {
-      eid: EndpointId.ARBITRUM_V2_MAINNET,
-      url: process.env.RPC_URL_ARBITRUM || 'https://arb1.arbitrum.io/rpc',
-      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : []
-    }
-  }
-};
-
-export default config;
+  // another network you want to connect to
+  'optimism-mainnet': {
+    eid: EndpointId.OPTIMISM_V2_MAINNET,
+    url: process.env.RPC_URL_OPTIMISM || 'https://mainnet.optimism.io',
+    accounts,
+  },
+}
 ```
 
-### Configure LayerZero Pathways
+### LayerZero wiring config
 
-Edit `layerzero.config.ts`:
+Modify your `layerzero.config.ts` file to include the chains and channel security settings you want for each connection:
 
 ```typescript filename="layerzero.config.ts"
 import { EndpointId } from '@layerzerolabs/lz-definitions';
@@ -174,46 +116,54 @@ import { OAppEnforcedOption } from '@layerzerolabs/toolbox-hardhat';
 import { ExecutorOptionType } from '@layerzerolabs/lz-v2-utilities';
 import { TwoWayConfig, generateConnectionsConfig } from '@layerzerolabs/metadata-tools';
 
-// Define your OFT contract on SEI
 const seiContract: OmniPointHardhat = {
-  eid: EndpointId.SEI_V2_MAINNET, // SEI's endpoint ID
-  contractName: 'MyOFT' // Must match your contract name
+  eid: EndpointId.SEI_V2_MAINNET,
+  contractName: 'MyOFT'
 };
 
-// Define your OFT contract on Optimism
 const optimismContract: OmniPointHardhat = {
-  eid: EndpointId.OPTIMISM_V2_MAINNET, // Optimism's endpoint ID
-  contractName: 'MyOFT' // Same contract name
+  eid: EndpointId.OPTIMISM_V2_MAINNET,
+  contractName: 'MyOFT'
 };
 
-// Enforced options ensure minimum gas is provided for message execution
+// To connect all the above chains to each other, we need the following pathways:
+// Optimism <-> sei
+// sei <-> Optimism
+
+// For this example's simplicity, we will use the same enforced options values for sending to all chains
+// To learn more, read https://docs.layerzero.network/v2/concepts/applications/oapp-standard#execution-options-and-enforced-settings
 const EVM_ENFORCED_OPTIONS: OAppEnforcedOption[] = [
   {
-    msgType: 1, // Message type 1 = SEND
-    optionType: ExecutorOptionType.LZ_RECEIVE, // Option for receiving messages
-    gas: 80000, // Gas limit for execution
-    value: 0 // Native token value to send (0 for token transfers)
+    msgType: 1,
+    optionType: ExecutorOptionType.LZ_RECEIVE,
+    gas: 80000,
+    value: 0
   }
 ];
 
-// Define the pathways (connections) between chains
 const pathways: TwoWayConfig[] = [
   [
-    // Chain A contract
+    // 1) Chain B's contract (e.g. Optimism)
     optimismContract,
-    // Chain B contract
+    // 2) Chain A's contract (e.g. sei)
     seiContract,
-    // Security configuration: [required DVNs], [optional DVNs]
-    [['LayerZero Labs'], []], // Using LayerZero Labs DVN as required verifier
-    // Block confirmations: [Optimism→SEI, SEI→Optimism]
-    [1, 1], // 1 block confirmation each way
-    // Enforced options: [Optimism→SEI options, SEI→Optimism options]
+    // 3) Channel security settings:
+    // • first array = "required" DVN names
+    // • second array = "optional" DVN names array + threshold
+    // • third value = threshold (i.e., number of optionalDVNs that must sign)
+    // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+    [['LayerZero Labs' /* ← add more DVN names here */], []],
+    // 4) Block confirmations:
+    // [confirmations for Optimism → sei, confirmations for sei → Optimism]
+    [1, 1],
+    // 5) Enforced execution options:
+    // [options for Optimism → sei, options for sei → Optimism]
     [EVM_ENFORCED_OPTIONS, EVM_ENFORCED_OPTIONS]
   ]
 ];
 
-// Export the configuration
 export default async function () {
+  // Generate the connections config based on the pathways
   const connections = await generateConnectionsConfig(pathways);
   return {
     contracts: [{ contract: optimismContract }, { contract: seiContract }],
@@ -222,186 +172,28 @@ export default async function () {
 }
 ```
 
-## Step 3: Smart Contract Development
-
-### Create the OFT Contract
-
 <Callout type="info">
-The OFT contract handles all cross-chain logic automatically. When tokens are sent:
+It is strongly recommended to review [LayerZero's Channel Security Model](https://docs.layerzero.network/v2/concepts/protocol/message-security#layerzero's-channel-security-model) and understand the impact of each of these configuration settings.
 
-1. **Source Chain**: Burns tokens from sender's balance
-2. **LayerZero Protocol**: Verifies and relays the message
-3. **Destination Chain**: Mints equivalent tokens to recipient
+See [Next Steps](#next-steps) to review the available providers and security settings.
 
 </Callout>
 
-Create/edit `contracts/MyOFT.sol`:
+## Step 3: Create Utility Tasks
 
-```solidity filename="contracts/MyOFT.sol"
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.22;
-
-// Import OpenZeppelin's Ownable for access control
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-// Import LayerZero's OFT contract
-import { OFT } from "@layerzerolabs/oft-evm/contracts/OFT.sol";
-
-/**
- * @title MyOFT
- * @notice Omnichain Fungible Token that can be transferred across blockchains
- * @dev Inherits from LayerZero's OFT contract which handles cross-chain logic
- */
-contract MyOFT is OFT, Ownable {
-    /**
-     * @notice Constructor initializes the OFT with token details and LayerZero endpoint
-     * @param name Token name (e.g., "My Omnichain Token")
-     * @param symbol Token symbol (e.g., "MOT")
-     * @param endpoint LayerZero endpoint address on this chain
-     * @param owner Address that will own this contract
-     */
-    constructor(
-        string memory name,
-        string memory symbol,
-        address endpoint,
-        address owner
-    )
-        // Initialize the OFT parent contract
-        OFT(name, symbol, endpoint, owner)
-        // Initialize Ownable with the owner
-        Ownable(owner)
-    {
-        // The OFT contract handles:
-        // 1. ERC20 functionality (balances, transfers, etc.)
-        // 2. Cross-chain message sending via _lzSend()
-        // 3. Cross-chain message receiving via _lzReceive()
-        // 4. Token burning on source chain and minting on destination
-
-        // Optional: Mint initial supply on deployment chain
-        // Uncomment if you want to mint tokens on deployment
-        // _mint(owner, 1000000 * 10 ** decimals()); // 1 million tokens
-    }
-
-    /**
-     * @notice Mint new tokens (only owner)
-     * @param to Address to receive the minted tokens
-     * @param amount Amount of tokens to mint (with decimals)
-     */
-    function mint(address to, uint256 amount) external onlyOwner {
-        _mint(to, amount);
-    }
-}
-```
-
-### Understanding OFT Functions
-
-Key inherited functions from the OFT contract:
-
-| Function       | Description                              |
-| -------------- | ---------------------------------------- |
-| `send()`       | Initiates cross-chain token transfer     |
-| `quoteSend()`  | Estimates fees for transfer              |
-| `_lzSend()`    | Internal function that sends the message |
-| `_lzReceive()` | Internal function that receives messages |
-
-## Step 4: Deployment Process
-
-### 1. Fund Your Wallet
-
-<Callout type="warning">
-Ensure your deployment wallet has native tokens on each chain:
-
-- SEI for deployment and gas on SEI
-- ETH for deployment and gas on Optimism
-
-</Callout>
-
-### 2. Deploy to SEI
-
-```bash
-# Deploy the OFT contract to SEI mainnet
-npx hardhat lz:deploy --network sei-mainnet
-
-# You'll see:
-# Deploying MyOFT to sei-mainnet...
-# MyOFT deployed to: 0x... on sei-mainnet
-```
-
-### 3. Deploy to Optimism
-
-```bash
-# Deploy the same OFT contract to Optimism mainnet
-npx hardhat lz:deploy --network optimism-mainnet
-
-# You'll see:
-# Deploying MyOFT to optimism-mainnet...
-# MyOFT deployed to: 0x... on optimism-mainnet
-```
-
-### 4. Deploy to Additional Chains (Optional)
-
-```bash
-# Deploy to Arbitrum
-npx hardhat lz:deploy --network arbitrum-mainnet
-
-# Deploy to Base
-npx hardhat lz:deploy --network base-mainnet
-```
-
-## Step 5: Wire the Contracts
-
-After deployment, contracts need to be connected:
-
-### Set Up Cross-Chain Connections
-
-```bash
-# This command configures all the connections defined in layerzero.config.ts
-npx hardhat lz:oapp:wire --oapp-config layerzero.config.ts
-
-# This command will:
-# 1. Set peer addresses (so contracts know about each other)
-# 2. Configure DVNs (Decentralized Verifier Networks)
-# 3. Set up executors (for message execution)
-# 4. Configure security settings
-```
-
-### Verify Configuration
-
-**Check Peers:**
-
-```bash
-# Check that peers are correctly set
-npx hardhat lz:oapp:peers:get --oapp-config layerzero.config.ts
-
-# Expected output:
-# ┌─────────┬──────────────────┬──────────────────────────────────┐
-# │ Chain   │ Peer Chain       │ Peer Address                     │
-# ├─────────┼──────────────────┼──────────────────────────────────┤
-# │ sei     │ optimism         │ 0x...                            │
-# │ optimism│ sei              │ 0x...                            │
-# └─────────┴──────────────────┴──────────────────────────────────┘
-```
-
-**Full Configuration:**
-
-```bash
-# View complete configuration including DVNs and executors
-npx hardhat lz:oapp:config:get --oapp-config layerzero.config.ts
-```
-
-## Step 6: Mint Initial Tokens
-
-Before transferring, you need tokens to send:
+Before deployment, let's create a utility task for minting tokens that we'll need later.
 
 ### Create Minting Task
 
-Create a new file `tasks/mint.ts`:
+Create `tasks/mint.ts`:
 
 ```typescript filename="tasks/mint.ts"
 import { task } from 'hardhat/config';
+import { types } from '@layerzerolabs/devtools-evm-hardhat';
 
 task('mint', 'Mint tokens to an address')
-  .addParam('to', 'Address to mint tokens to')
-  .addParam('amount', 'Amount to mint (without decimals)')
+  .addParam('to', 'Address to mint tokens to', undefined, types.string)
+  .addParam('amount', 'Amount to mint (without decimals)', undefined, types.string)
   .setAction(async ({ to, amount }, { ethers, deployments }) => {
     // Get the deployed contract
     const deployment = await deployments.get('MyOFT');
@@ -426,18 +218,191 @@ task('mint', 'Mint tokens to an address')
   });
 ```
 
-### Mint Tokens on SEI
+### Update Hardhat Configuration
+
+Now update your `hardhat.config.ts` to import the mint task:
+
+```typescript filename="hardhat.config.ts"
+// Get the environment configuration from .env file
+//
+// To make use of automatic environment setup:
+// - Duplicate .env.example file and name it .env
+// - Fill in the environment variables
+import 'dotenv/config';
+
+import 'hardhat-deploy';
+import 'hardhat-contract-sizer';
+import '@nomiclabs/hardhat-ethers';
+import '@layerzerolabs/toolbox-hardhat';
+import { HardhatUserConfig, HttpNetworkAccountsUserConfig } from 'hardhat/types';
+
+import { EndpointId } from '@layerzerolabs/lz-definitions';
+
+import './tasks/sendOFT';
+import './tasks/mint';
+
+// Set your preferred authentication method
+//
+// If you prefer using a mnemonic, set a MNEMONIC environment variable
+// to a valid mnemonic
+const MNEMONIC = process.env.MNEMONIC;
+
+// If you prefer to be authenticated using a private key, set a PRIVATE_KEY environment variable
+const PRIVATE_KEY = process.env.PRIVATE_KEY;
+
+const accounts: HttpNetworkAccountsUserConfig | undefined = MNEMONIC ? { mnemonic: MNEMONIC } : PRIVATE_KEY ? [PRIVATE_KEY] : undefined;
+
+if (accounts == null) {
+  console.warn('Could not find MNEMONIC or PRIVATE_KEY environment variables. It will not be possible to execute transactions in your example.');
+}
+
+const config: HardhatUserConfig = {
+  paths: {
+    cache: 'cache/hardhat'
+  },
+  solidity: {
+    compilers: [
+      {
+        version: '0.8.22',
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 200
+          }
+        }
+      }
+    ]
+  },
+  networks: {
+    // the network you are deploying to or are already on
+    // Sei Mainnet (EID=30280)
+    'sei-mainnet': {
+      eid: EndpointId.SEI_V2_MAINNET,
+      url: process.env.RPC_URL_SEI || 'https://evm-rpc.sei-apis.com',
+      accounts
+    },
+    // another network you want to connect to
+    'optimism-mainnet': {
+      eid: EndpointId.OPTIMISM_V2_MAINNET,
+      url: process.env.RPC_URL_OPTIMISM || 'https://mainnet.optimism.io',
+      accounts
+    }
+  },
+  namedAccounts: {
+    deployer: {
+      default: 0 // wallet address of index[0], of the mnemonic in .env
+    }
+  }
+};
+
+export default config;
+```
+
+<Callout type="warning">**Important**: You must create and import the mint task before deployment, otherwise Hardhat will throw an error when trying to resolve the task dependencies during compilation.</Callout>
+
+## Step 4: Smart Contract Development
+
+### The token contract
+
+<Callout type="info">
+The OFT contract handles all cross-chain logic automatically. When tokens are sent:
+
+1. **Source Chain**: Burns tokens from sender's balance
+2. **LayerZero Protocol**: Verifies and relays the message
+3. **Destination Chain**: Mints equivalent tokens to recipient
+
+</Callout>
+
+```solidity filename="contracts/MyOFT.sol"
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.22;
+
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { OFT } from "@layerzerolabs/oft-evm/contracts/OFT.sol";
+
+contract MyOFT is OFT, Ownable {
+    constructor(string memory name, string memory symbol, address endpoint, address owner)
+        OFT(name, symbol, endpoint, owner) Ownable(owner) {}
+
+    /**
+     * @notice Mint new tokens (only owner)
+     * @param to Address to receive the minted tokens
+     * @param amount Amount of tokens to mint (with decimals)
+     */
+    function mint(address to, uint256 amount) external onlyOwner {
+        _mint(to, amount);
+    }
+}
+```
+
+<Callout type="warning">
+The OFT contract uses the ERC20 token standard. You may want to add a `mint(...)` function in the `constructor(...)` or contract body if this is your first time deploying an OFT. If you have an existing ERC20 token, you will want to use an OFT Adapter contract.
+
+You can read the general [OFT Quickstart](https://docs.layerzero.network/v2/developers/evm/oft/quickstart) for a better understanding of how OFTs work and what contracts to use.
+
+</Callout>
+
+### Understanding OFT Functions
+
+Key inherited functions from the OFT contract:
+
+| Function       | Description                              |
+| -------------- | ---------------------------------------- |
+| `send()`       | Initiates cross-chain token transfer     |
+| `quoteSend()`  | Estimates fees for transfer              |
+| `_lzSend()`    | Internal function that sends the message |
+| `_lzReceive()` | Internal function that receives messages |
+
+## Step 5: Deployment Process
+
+### Deploy
+
+```bash
+npx hardhat lz:deploy # choose sei
+```
+
+You will be presented with a list of networks to deploy to.
+
+<Callout type="warning">Fund your deployer with native gas tokens beforehand.</Callout>
+
+## Step 6: Wire the Contracts
+
+After deployment, contracts need to be connected:
+
+### Connect the chains
+
+```bash
+npx hardhat lz:oapp:wire --oapp-config layerzero.config.ts
+```
+
+### Verify Configuration
+
+Verify peers:
+
+```bash
+npx hardhat lz:oapp:peers:get --oapp-config layerzero.config.ts
+```
+
+This command will show you the current LayerZero wiring configuration, including the connected chains and their peer addresses.
+
+## Step 7: Mint Initial Tokens
+
+Before transferring, you need tokens to send. Let's mint some tokens on SEI:
 
 ```bash
 # Mint 10,000 tokens to your address on SEI
 npx hardhat mint --to 0xYourAddress --amount 10000 --network sei-mainnet
 ```
 
-## Step 7: Transfer Tokens Cross-Chain
+## Step 8: Transfer Tokens Cross-Chain
 
-### Create Send Task
+### Calling send
 
-Create a new file `tasks/sendOFT.ts`:
+Since the `send` logic has already been defined, we'll instead view how the function should be called.
+
+#### Option 1: Hardhat Task
+
+Create `tasks/sendOFT.ts`:
 
 ```typescript filename="tasks/sendOFT.ts"
 import { task } from 'hardhat/config';
@@ -454,71 +419,94 @@ interface Args {
 }
 
 interface SendParam {
-  dstEid: EndpointId; // Destination endpoint ID, represented as a number
-  to: BytesLike; // Recipient address, represented as bytes32
-  amountLD: BigNumberish; // Amount to send in local decimals
-  minAmountLD: BigNumberish; // Minimum amount to send in local decimals (for slippage)
-  extraOptions: BytesLike; // Additional options supplied by the caller
-  composeMsg: BytesLike; // The composed message for the send() operation
-  oftCmd: BytesLike; // The OFT command to be executed
+  dstEid: EndpointId; // Destination endpoint ID, represented as a number.
+  to: BytesLike; // Recipient address, represented as bytes.
+  amountLD: BigNumberish; // Amount to send in local decimals.
+  minAmountLD: BigNumberish; // Minimum amount to send in local decimals.
+  extraOptions: BytesLike; // Additional options supplied by the caller to be used in the LayerZero message.
+  composeMsg: BytesLike; // The composed message for the send() operation.
+  oftCmd: BytesLike; // The OFT command to be executed, unused in default OFT implementations.
 }
 
-// Create the send task
-task('lz:oft:send', 'Sends tokens from OFT across chains')
-  .addParam('to', 'Recipient address on destination chain', undefined, types.string)
-  .addParam('toEid', 'Destination endpoint ID (e.g., 30111 for Optimism)', undefined, types.int)
-  .addParam('amount', 'Amount to transfer in token units', undefined, types.string)
+// send tokens from a contract on one network to another
+task('lz:oft:send', 'Sends tokens from either OFT or OFTAdapter')
+  .addParam('to', 'contract address on network B', undefined, types.string)
+  .addParam('toEid', 'destination endpoint ID', undefined, types.eid)
+  .addParam('amount', 'amount to transfer in token decimals', undefined, types.string)
   .setAction(async (taskArgs: Args, { ethers, deployments }) => {
     const toAddress = taskArgs.to;
-    const destinationEid = taskArgs.toEid;
+    const eidB = taskArgs.toEid;
 
-    // Get the deployed OFT contract
+    // Get the contract factories
     const oftDeployment = await deployments.get('MyOFT');
+
     const [signer] = await ethers.getSigners();
 
-    // Create contract instance
+    // Create contract instances
     const oftContract = new ethers.Contract(oftDeployment.address, oftDeployment.abi, signer);
 
-    // Get token decimals
     const decimals = await oftContract.decimals();
     const amount = ethers.utils.parseUnits(taskArgs.amount, decimals);
-
-    // Build execution options (80000 gas for execution, 0 value)
     let options = Options.newOptions().addExecutorLzReceiveOption(65000, 0).toBytes();
 
-    // Create the send parameters
+    // Now you can interact with the correct contract
+    const oft = oftContract;
+
     const sendParam: SendParam = {
-      dstEid: destinationEid,
+      dstEid: eidB,
       to: addressToBytes32(toAddress),
       amountLD: amount,
-      minAmountLD: amount, // No slippage for simplicity (can be adjusted)
+      minAmountLD: amount,
       extraOptions: options,
-      composeMsg: ethers.utils.arrayify('0x'), // No composed message
-      oftCmd: ethers.utils.arrayify('0x') // No OFT command
+      composeMsg: ethers.utils.arrayify('0x'), // Assuming no composed message
+      oftCmd: ethers.utils.arrayify('0x') // Assuming no OFT command is needed
     };
-
     // Get the quote for the send operation
-    const feeQuote = await oftContract.quoteSend(sendParam, false);
+    const feeQuote = await oft.quoteSend(sendParam, false);
     const nativeFee = feeQuote.nativeFee;
 
-    console.log(`Sending ${taskArgs.amount} tokens to ${getNetworkNameForEid(destinationEid)} (EID: ${destinationEid})`);
-    console.log(`Recipient: ${toAddress}`);
-    console.log(`Fee: ${ethers.utils.formatEther(nativeFee)} native tokens`);
+    console.log(`sending ${taskArgs.amount} token(s) to network ${getNetworkNameForEid(eidB)} (${eidB})`);
 
-    // Execute the send transaction
-    const tx = await oftContract.send(sendParam, { nativeFee: nativeFee, lzTokenFee: 0 }, signer.address, { value: nativeFee });
+    const ERC20Factory = await ethers.getContractFactory('ERC20');
+    const innerTokenAddress = await oft.token();
 
-    console.log(`\n✅ Send transaction initiated!`);
-    console.log(`📝 Transaction hash: ${tx.hash}`);
-    console.log(`🔍 Track your cross-chain transfer at: https://layerzeroscan.com/tx/${tx.hash}`);
+    // // If the token address !== address(this), then this is an OFT Adapter
+    // if (innerTokenAddress !== oft.address) {
+    //     // If the contract is OFT Adapter, get decimals from the inner token
+    //     const innerToken = ERC20Factory.attach(innerTokenAddress);
+
+    //     // Approve the amount to be spent by the oft contract
+    //     await innerToken.approve(oftDeployment.address, amount);
+    // }
+
+    const r = await oft.send(sendParam, { nativeFee: nativeFee, lzTokenFee: 0 }, signer.address, {
+      value: nativeFee
+    });
+    console.log(`Send tx initiated. See: https://layerzeroscan.com/tx/${r.hash}`);
   });
 ```
 
-### Alternative: Using Foundry Script
+Don't forget to import the task in your `hardhat.config.ts` (if not already added):
 
-If you prefer Foundry, create `script/SendOFT.s.sol`:
+```typescript
+// Add this import to hardhat.config.ts (should already be there from Step 3)
+import './tasks/sendOFT';
+```
 
-**Foundry Script:**
+**Execute the transfer:**
+
+```bash
+# Send 100 tokens from SEI to Optimism (EID: 30111)
+npx hardhat lz:oft:send \
+  --to 0xRecipientAddress \
+  --toEid 30111 \
+  --amount 100 \
+  --network sei-mainnet
+```
+
+#### Option 2: Foundry Script
+
+Create `script/SendOFT.s.sol`:
 
 ```solidity filename="script/SendOFT.s.sol"
 // SPDX-License-Identifier: UNLICENSED
@@ -535,9 +523,9 @@ contract SendOFT is Script {
     using OptionsBuilder for bytes;
 
     /**
-     * @dev Converts an address to bytes32 format required by LayerZero
-     * @param _addr The address to convert
-     * @return The bytes32 representation of the address
+     * @dev Converts an address to bytes32.
+     * @param _addr The address to convert.
+     * @return The bytes32 representation of the address.
      */
     function addressToBytes32(address _addr) internal pure returns (bytes32) {
         return bytes32(uint256(uint160(_addr)));
@@ -547,35 +535,31 @@ contract SendOFT is Script {
         // Fetching environment variables
         address oftAddress = vm.envAddress("OFT_ADDRESS");
         address toAddress = vm.envAddress("TO_ADDRESS");
-        uint256 tokensToSend = vm.envUint("TOKENS_TO_SEND");
+        uint256 _tokensToSend = vm.envUint("TOKENS_TO_SEND");
 
         // Fetch the private key from environment variable
         uint256 privateKey = vm.envUint("PRIVATE_KEY");
 
-        // Start broadcasting transactions
+        // Start broadcasting with the private key
         vm.startBroadcast(privateKey);
 
         MyOFT sourceOFT = MyOFT(oftAddress);
 
-        // Build options for execution (65000 gas, 0 native value)
-        bytes memory extraOptions = OptionsBuilder.newOptions().addExecutorLzReceiveOption(65000, 0);
+        bytes memory _extraOptions = OptionsBuilder.newOptions().addExecutorLzReceiveOption(65000, 0);
 
-        // Create send parameters
         SendParam memory sendParam = SendParam(
-            30111,                           // Destination EID (30111 = Optimism)
-            addressToBytes32(toAddress),     // Recipient address as bytes32
-            tokensToSend,                    // Amount to send
-            tokensToSend * 9 / 10,          // Minimum amount (90% - allows 10% slippage)
-            extraOptions,                    // Execution options
-            "",                             // No compose message
-            ""                              // No OFT command
+            30111, // You can also make this dynamic if needed
+            addressToBytes32(toAddress),
+            _tokensToSend,
+            _tokensToSend * 9 / 10,
+            _extraOptions,
+            "",
+            ""
         );
 
-        // Get fee quote
         MessagingFee memory fee = sourceOFT.quoteSend(sendParam, false);
         console.log("Fee amount: ", fee.nativeFee);
 
-        // Send tokens with the quoted fee
         sourceOFT.send{value: fee.nativeFee}(sendParam, fee, msg.sender);
 
         // Stop broadcasting
@@ -596,20 +580,9 @@ export TOKENS_TO_SEND=100000000000000000000  # 100 tokens with 18 decimals
 forge script script/SendOFT.s.sol:SendOFT --rpc-url $RPC_URL_SEI --broadcast
 ```
 
-### Execute Token Transfer
+## Step 9: Done!
 
-Using Hardhat task:
-
-```bash
-# Send 100 tokens from SEI to Optimism (EID: 30111)
-npx hardhat lz:oft:send \
-  --to 0xRecipientAddress \
-  --to-eid 30111 \
-  --amount 100 \
-  --network sei-mainnet
-```
-
-## Step 8: Monitoring and Verification
+You've issued an omnichain token and bridged it from Sei Mainnet to Optimism. Customize supply logic, fees, or add more chains by applying changes to the core contract, redeploying, and repeating the wiring step.
 
 ### Track Your Transaction
 
@@ -626,38 +599,52 @@ npx hardhat lz:oft:send \
 ### Common Issues and Solutions
 
 <Callout type="error" emoji="🚨">
-  **Quote Send Reverts** If `quoteSend` function fails:
+**Quote Send Reverts**
+
+If your `quoteSend` call reverts, it usually means that your LayerZero wiring hasn't been fully configured or there's no default pathway for the chains you're trying to bridge. Here's how to diagnose and fix it:
+
+**1. Wiring Didn't Succeed:**
+
+Run the following to inspect your on‑chain wiring configuration:
 
 ```bash
-# Check if wiring was successful
 npx hardhat lz:oapp:config:get --oapp-config layerzero.config.ts
-
-# If you see "LzDeadDVN", update your layerzero.config.ts:
-[['LayerZero Labs', 'Google Cloud'], []]
-
-# Add more DVNs
-npx hardhat lz:oapp:wire --oapp-config layerzero.config.ts
 ```
 
-</Callout>
+See that your source configuration has a valid send library, DVN address, and target eid.
 
-<Callout type="warning" emoji="⚠️">
-  **No Default Pathway** If no default configuration exists between chains:
+**2. No Default Pathway:**
 
-1. Check default pathways: https://layerzeroscan.com/tools/defaults
-2. Add specific DVN configuration in `layerzero.config.ts`
-3. Re-run wiring: `npx hardhat lz:oapp:wire --oapp-config layerzero.config.ts`
+LayerZero default settings should be considered placeholders. Sometimes the LayerZero defaults will contain a `LzDeadDVN`. Those entries indicate that a default pathway setting does not exist.
+
+- **Check**: You can see if your configuration contains a LzDeadDVN by viewing the [Default Config Checker](https://layerzeroscan.com/tools/defaults?srcChainKey%5B0%5D=sei&version=V2&dstChainKey%5B0%5D=optimism) on LayerZero Scan.
+
+- **Fix**: Open your `layerzero.config.ts` and under the relevant `pathways` entry, add working DVN providers (in the `[ requiredDVN[], [ optionalDVN[], threshold ] ]` section).
+
+- Re-run your wiring command for the connections so that the wiring on both chains is live.
+
+```typescript
+[
+  optimismContract,
+  currentContract,
+  [['LayerZero Labs'], []], // required & optional DVNs
+  [1, 1], // required block confirmations
+  [EVM_ENFORCED_OPTIONS, EVM_ENFORCED_OPTIONS],
+],
+```
+
+Once you've updated your config, retry your `quoteSend` flow. It should now return a fee estimate instead of reverting.
 
 </Callout>
 
 <Callout type="info" emoji="💡">
-  **Insufficient Gas** If transaction fails on destination chain:
+**Insufficient Gas**
+
+If transaction fails on destination chain:
 
 ```typescript
 // Increase gas in options
-const options = Options.newOptions()
-  .addExecutorLzReceiveOption(150000, 0) // Increase from 80000 to 150000
-  .toBytes();
+let options = Options.newOptions().addExecutorLzReceiveOption(150000, 0).toBytes(); // Increase from 65000 to 150000
 ```
 
 </Callout>
@@ -669,6 +656,13 @@ const options = Options.newOptions()
 - **Composed Messages**: Execute actions after token arrival
 - **Build a UI**: Create a frontend for easy transfers
 
+### Learn More
+
+- See the [Configuring Pathways](https://docs.layerzero.network/v2/get-started/create-lz-oapp/configuring-pathways) section to learn more about managing your OFTs across the entire network mesh.
+- See the [Available DVNs](https://docs.layerzero.network/v2/deployments/dvn-addresses?chains=sei) and [Executor](https://docs.layerzero.network/v2/deployments/deployed-contracts?chains=sei) to configure between.
+- Learn how the protocol works by reading the [Core Concepts](https://docs.layerzero.network/v2/concepts/getting-started/what-is-layerzero) section.
+- Learn more about how the OFT contract works on the EVM by reading the [OFT Quickstart](https://docs.layerzero.network/v2/developers/evm/oft/quickstart) in the EVM section.
+
 ## Resources
 
 - **LayerZero Documentation**: https://docs.layerzero.network/v2
@@ -679,10 +673,11 @@ const options = Options.newOptions()
 
 You've successfully:
 
-- ✅ Created an Omnichain Fungible Token
-- ✅ Deployed it to multiple chains
-- ✅ Connected the deployments via LayerZero
-- ✅ Transferred tokens cross-chain
+- ✅ Created an Omnichain Fungible Token project
+- ✅ Configured networks and LayerZero pathways
+- ✅ Deployed contracts to multiple chains
+- ✅ Connected the deployments via LayerZero wiring
+- ✅ Created tasks for cross-chain token transfers
 - ✅ Learned how LayerZero enables omnichain applications
 
 Your tokens can now move freely between SEI and any connected chain, maintaining a unified supply and enabling true cross-chain functionality!
