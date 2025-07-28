@@ -7,7 +7,8 @@ const EXCLUDED_URLS = [
 	// Add URLs or URL patterns that should be excluded
 	'https://etherscan.io/contractsVerified',
 	'https://www.getarculus.com/',
-	'https://forum.openzeppelin.com/'
+	'https://forum.openzeppelin.com/',
+	'http://127.0.0.1:8545/'
 ];
 
 // Function to check if a URL should be excluded
