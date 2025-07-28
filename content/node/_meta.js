@@ -2,18 +2,23 @@ export default {
 	index: {
 		title: 'Home'
 	},
-	'-- Getting Started': {
+	'-- Node Operations': {
 		type: 'separator',
-		title: 'Getting Started'
+		title: 'Node Operations'
 	},
-	'node-operators': 'Node Operations Guide',
+	'node-operators': 'Overview',
+	statesync: 'Statesync',
+	snapshot: 'Snapshot Sync',
+	'node-types': 'Node Types',
+	troubleshooting: 'Troubleshooting',
+	swagger: 'API configuration',
 	validators: 'Validator Operations Guide',
 
 	'-- Advanced Operations': {
 		type: 'separator',
 		title: 'Advanced Operations'
 	},
-	'ibc-relayer': 'IBC Relayers',
 	'advanced-config-monitoring': 'Advanced Configuration & Monitoring',
-	'technical-reference': 'Technical Reference'
+	'technical-reference': 'Technical Reference',
+	'ibc-relayer': 'IBC Relayers'
 };

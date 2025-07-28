@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { IconExternalLink, IconCopy, IconCheck, IconArrowRight, IconSearch, IconChevronDown, IconServer, IconInfoCircle, IconChevronUp } from '@tabler/icons-react';
 
 type EndpointType = 'public' | 'premium' | 'community';
-type Network = 'mainnet' | 'testnet' | 'devnet' | 'localnet';
+type Network = 'mainnet' | 'testnet' | 'localnet';
 
 interface RpcEndpoint {
 	url: string;
@@ -47,6 +47,14 @@ const rpcEndpoints: RpcEndpoint[] = [
 		rateLimit: '5 req/s'
 	},
 	{
+		url: 'https://seievm-rpc.polkachu.com',
+		type: 'public',
+		provider: 'Polkachu',
+		network: 'mainnet',
+		description: 'Community maintained RPC endpoint',
+		latency: 'Medium'
+	},
+	{
 		url: 'https://evm-rpc-testnet.sei-apis.com',
 		type: 'public',
 		provider: 'Sei Foundation',
@@ -65,28 +73,18 @@ const rpcEndpoints: RpcEndpoint[] = [
 		latency: 'Medium'
 	},
 	{
-		url: 'https://evm-rpc.arctic-1.seinetwork.io',
+		url: 'https://seievm-testnet-rpc.polkachu.com',
 		type: 'public',
-		provider: 'Sei Foundation',
-		network: 'devnet',
-		description: 'Official Sei RPC endpoint for arctic-1 devnet',
-		latency: 'Low',
-		rateLimit: '20 req/s'
+		provider: 'Polkachu',
+		network: 'testnet',
+		description: 'Community maintained RPC endpoint',
+		latency: 'Medium'
 	},
 	{
-		url: 'https://evm-rpc-arctic-1.sei-apis.com',
+		url: 'https://sei-testnet.drpc.org',
 		type: 'public',
-		provider: 'Rhino Stake',
-		network: 'devnet',
-		description: 'Community maintained devnet RPC endpoint',
-		latency: 'Medium',
-		rateLimit: '10 req/s'
-	},
-	{
-		url: 'https://evm-rpc-devnet-sei.stingray.plus',
-		type: 'public',
-		provider: 'Staketab',
-		network: 'devnet',
+		provider: 'dRPC',
+		network: 'testnet',
 		description: 'Community maintained RPC endpoint',
 		latency: 'Medium'
 	},
@@ -177,18 +175,6 @@ export function RpcSelector() {
 								: 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-700'
 						}`}>
 						Testnet
-					</button>
-					<button
-						onClick={() => {
-							setSelectedNetwork('devnet');
-							setShowAllEndpoints(false);
-						}}
-						className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-							selectedNetwork === 'devnet'
-								? 'bg-neutral-200 dark:bg-neutral-700 text-neutral-900 dark:text-white'
-								: 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-700'
-						}`}>
-						Devnet
 					</button>
 				</div>
 			</div>

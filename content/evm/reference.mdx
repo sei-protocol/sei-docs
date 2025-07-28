@@ -1,8 +1,9 @@
 ---
-title: "Sei EVM JSON-RPC API Reference"
+title: 'Sei EVM JSON-RPC API Reference'
 description: "Comprehensive reference documentation for Sei's EVM JSON-RPC API endpoints, including standard Ethereum methods and Sei-specific extensions for developers."
-keywords: ["json-rpc", "api reference", "evm endpoints", "blockchain api", "sei development"]
+keywords: ['json-rpc', 'api reference', 'evm endpoints', 'blockchain api', 'sei development']
 ---
+
 import { Callout } from 'nextra/components';
 
 # RPC Reference Guide
@@ -727,8 +728,8 @@ Traces all transactions in a block specified by hash.
 
 - **Parameters**:
 
-| Type     | Description                 |
-| :------- | :-------------------------- |
+| Type     | Description |
+| :------- | :---------- |
 | `string` | Block hash  |
 
 - **Result**:
@@ -743,6 +744,17 @@ Traces all transactions in a block specified by hash.
 
 Sei extends the standard Ethereum JSON-RPC API with custom endpoints that enhance functionality for developers. These extensions enable better handling of cross-VM interactions, synthetic transactions, improved error reporting, and other Sei-specific features.
 
+1. Use these endpoints when you need to:
+
+   - Filter out failed transactions
+   - Get cleaner debugging output
+   - Focus on successfully executed transactions
+
+2. Consider using the standard `eth_` endpoints when you need to:
+   - See all transactions, including failures
+   - Debug specific failure cases
+   - Maintain compatibility with standard Ethereum tooling
+
 ### Synthetic Transaction Support
 
 These endpoints provide support for synthetic transactions, which represent activity from the Cosmos SDK modules in a way that is EVM client compatible:
@@ -753,6 +765,55 @@ These endpoints provide support for synthetic transactions, which represent acti
 | `sei_getLogs`          | Like `eth_getLogs` but includes synthetic logs from Cosmos events       |
 | `sei_getBlockByNumber` | Like `eth_getBlockByNumber` but includes synthetic transactions         |
 | `sei_getBlockByHash`   | Like `eth_getBlockByHash` but includes synthetic transactions           |
+
+## Transaction Index Mismatches
+
+### Overview
+
+When querying block receipts, there is a discrepancy between the transaction indices returned by `eth_getBlockReceipts` and `sei_getBlockReceipts` endpoints. This occurs because `eth_getBlockReceipts` only includes EVM transactions, while `sei_getBlockReceipts` includes both EVM and Cosmos transactions.
+
+### Example
+
+Consider a block containing the following transactions in order:
+
+```
+Block Transactions:
+1. EVM Transaction 1
+2. Cosmos Transaction 1
+3. EVM Transaction 2
+```
+
+The transaction indices will differ between endpoints:
+
+#### eth_getBlockReceipts
+
+Returns only EVM transactions with sequential indices:
+
+- EVM Transaction `1` (tx index: `0`)
+- EVM Transaction `2` (tx index: `1`)
+
+#### sei_getBlockReceipts
+
+Returns all transactions (both EVM and Cosmos) with sequential indices:
+
+- EVM Transaction `1` (tx index: `0`)
+- Cosmos Transaction `1` (tx index: `1`)
+- EVM Transaction `2` (tx index: `2`)
+
+### Important Note
+
+When working with transaction indices, be aware that:
+
+1. The same transaction will have different indices depending on which endpoint you use
+2. `eth_getBlockReceipts` indices are based only on EVM transactions
+3. `sei_getBlockReceipts` indices include all transactions in the block
+4. Applications should handle these differences appropriately based on which endpoint they're using
+
+### Best Practices
+
+- Always use the same endpoint consistently within your application
+- When switching between endpoints, be sure to account for the index differences
+- Consider using transaction hashes instead of indices when possible, as they remain consistent across endpoints
 
 <details>
 <summary>View Synthetic Transaction Support API Details</summary>
@@ -859,6 +920,10 @@ These endpoints provide variants of standard Ethereum endpoints that exclude tra
 
 Traces all transactions in a block, excluding those that fail tracing.
 
+- Enhanced version of `debug_traceBlockByNumber`
+- Excludes transactions that failed pre-state checks
+- Provides cleaner tracing output
+
 **Parameters**
 
 - `QUANTITY|TAG` - Integer block number or `latest`, `earliest` or `pending`
@@ -888,6 +953,10 @@ Traces all transactions in a block, excluding those that fail tracing.
 
 Returns the transaction receipt for a given hash, but returns null for transactions that fail tracing.
 
+- Enhanced version of `eth_getTransactionReceipt`
+- Only returns receipts for successfully executed transactions
+- Helps avoid confusion with failed transactions
+
 **Parameters**
 
 - `DATA` - Transaction hash
@@ -906,36 +975,6 @@ Returns the transaction receipt for a given hash, but returns null for transacti
   "id": 1
 }
 ```
-
-</details>
-
-### Other Sei Custom Endpoint Categories
-
-<details>
-<summary>Enhanced Querying</summary>
-
-These endpoints provide enhanced querying capabilities:
-
-| Endpoint           | Description                                             |
-| ------------------ | ------------------------------------------------------- |
-| `sei_queryStorage` | Advanced storage querying with pagination and filtering |
-| `sei_queryEvents`  | Enhanced event querying across EVM and Cosmos           |
-| `sei_queryState`   | Direct querying of account and contract state           |
-
-</details>
-
-<details>
-<summary>Cross-VM Operations</summary>
-
-These endpoints facilitate operations that span both the EVM and Cosmos environments:
-
-| Endpoint                | Description                                                        |
-| ----------------------- | ------------------------------------------------------------------ |
-| `sei_callCosmos`        | Allows calling Cosmos-SDK modules from the EVM RPC                 |
-| `sei_estimateCosmosGas` | Estimates gas for cross-VM operations                              |
-| `sei_getCosmosAddress`  | Retrieves the corresponding Cosmos address for an Ethereum address |
-
-[View complete Cross-VM Operations API details]
 
 </details>
 
@@ -1030,32 +1069,6 @@ async function getCleanBlock(blockNumber) {
     block,
     receipts
   };
-}
-```
-
-### Querying CosmWasm State from EVM dApps
-
-To query the CosmWasm contract state from an EVM dApp:
-
-```javascript copy
-const Web3 = require('web3');
-const web3 = new Web3('https://evm-rpc.sei-apis.com');
-
-async function queryCWToken(cwTokenAddress) {
-  // Get token info from Cosmos-SDK
-  const tokenInfo = await web3.eth.send('sei_callCosmos', [
-    {
-      cosmosAddress: cwTokenAddress,
-      message: { token_info: {} }
-    }
-  ]);
-
-  console.log(`Token Name: ${tokenInfo.name}`);
-  console.log(`Token Symbol: ${tokenInfo.symbol}`);
-  console.log(`Token Decimals: ${tokenInfo.decimals}`);
-  console.log(`Token Total Supply: ${tokenInfo.total_supply}`);
-
-  return tokenInfo;
 }
 ```
 

@@ -39,6 +39,11 @@ export function Footer() {
 							</a>
 						</li>
 						<li>
+							<a href='https://support.sei.io/hc/en-us' style={{ textDecoration: 'none', color: 'inherit', fontSize: '0.8125rem' }}>
+								Knowledge Base
+							</a>
+						</li>
+						<li>
 							<a href='https://github.com/sei-protocol' style={{ textDecoration: 'none', color: 'inherit', fontSize: '0.8125rem' }}>
 								GitHub
 							</a>

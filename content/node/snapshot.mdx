@@ -1,0 +1,199 @@
+---
+title: 'Join the network using Snapshots'
+description: 'Detailed guide for using snapshots to join the network'
+keywords: ['sei node', 'blockchain node', 'node configuration', 'seidb', 'node maintenance', 'system operations']
+---
+
+import { Callout } from 'nextra/components';
+
+# Join the testnet and mainnet network using Node Snapshots
+
+<Callout type="warning">Before you resync a node using snapshots, make sure that in case of a successfull resync that you _under no circumstance_ cannot double sign blocks at previous heights with your validator. Failure to do so will cause tombstoning of your validator.</Callout>
+
+Follow this guide to join an existing network through **snapshot sync**. To quickly spin up a fresh full node and join the network, it's recommended to restore from a snapshot instead of replaying all historical blocks.
+
+## Snapshot Sync
+
+Snapshot sync allows a new node to join a network by downloading a recent, compressed copy of the entire application state (including the `wasm` folder) and extracting it directly into the data directory. This reduces the initial sync time from days to minutes.
+
+Two community‑maintained sources provide reliable snapshots:
+
+- **Polkachu periodic snapshots** – lightweight node snapshots for both mainnet and testnet, published several times a day.
+- **CryptoCrew full archive snapshots** – complete, genesis‑to‑tip archives for operators who need the full transaction history.
+
+Choose the option that best fits your storage and indexing needs.
+
+## Clean Up
+
+If you are **not** starting a node from fresh, perform the following backups and clean‑ups first.
+
+<Callout type="info">Note: This step is not needed for fresh nodes.</Callout>
+
+Assuming your sei home directory is `$HOME/.sei`, back up `priv_validator_key.json` and `priv_validator_state.json`:
+
+```bash
+cp $HOME/.sei/data/priv_validator_state.json $HOME/priv_validator_state.json
+cp $HOME/.sei/config/priv_validator_key.json $HOME/priv_validator_key.json
+```
+
+Reset the state:
+
+```bash
+seid tendermint unsafe-reset-all --home $HOME/.sei
+```
+
+Finally, remove the existing data and wasm folders and restore the `priv_validator_state.json`:
+
+```bash
+rm -rf $HOME/.sei/data/\*
+rm -rf $HOME/.sei/wasm
+cp $HOME/priv_validator_state.json $HOME/.sei/data/priv_validator_state.json
+```
+
+# Download & Restore a Snapshot
+
+## Option 1 — Polkachu (recommended for most operators)
+
+### Prerequisites
+
+```bash
+sudo apt install lz4 wget
+```
+
+### Stop the daemon
+
+```bash
+sudo systemctl stop seid
+```
+
+### Download and extract snapshot
+
+First, get the latest snapshot height from Polkachu:
+
+- **Mainnet**: [Polkachu Mainnet Snapshots](https://www.polkachu.com/tendermint_snapshots/sei)
+- **Testnet**: [Polkachu Testnet Snapshots](https://www.polkachu.com/testnets/sei/snapshots)
+
+Set the HEIGHT variable with the latest snapshot height:
+
+```bash
+HEIGHT=<LATEST_HEIGHT_FROM_POLKACHU>
+```
+
+Then set the snapshot URL based on your network:
+
+For **Mainnet**:
+
+```bash
+SNAP_URL="https://snapshots.polkachu.com/snapshots/sei/sei_${HEIGHT}.tar.lz4"
+```
+
+For **Testnet**:
+
+```bash
+SNAP_URL="https://snapshots.polkachu.com/testnet-snapshots/sei/sei_${HEIGHT}.tar.lz4"
+```
+
+Download the snapshot:
+
+```bash
+wget -O sei_snapshot.tar.lz4 $SNAP_URL --inet4-only
+```
+
+Extract the snapshot to your home directory using `pv` to monitor progress:
+
+```bash
+sudo apt install pv
+pv sei_snapshot.tar.lz4 | lz4 -c -d | tar -x -C $HOME/.sei
+```
+
+Restore validator state if you backed it up:
+
+```bash
+cp $HOME/.sei/priv_validator_state.json $HOME/.sei/data/priv_validator_state.json
+```
+
+Make sure to enable sei-db:
+
+```bash
+sed -i.bak -E "/^\[state-commit\]/,/^\[.*\]/ s|^(sc-enable[[:space:]]*=[[:space:]]*).*$|\1true| ; /^\[state-store\]/,/^\[.*\]/ s|^(ss-enable[[:space:]]*=[[:space:]]*).*$|\1true|" $HOME/.sei/config/app.toml
+```
+
+Restart the daemon:
+
+```bash
+sudo systemctl start seid
+```
+
+Optional: Remove the snapshot file to free up space:
+
+```bash
+rm sei_snapshot.tar.lz4
+```
+
+## Option 2 — CryptoCrew Full Archive
+
+### Prerequisites
+
+```bash
+sudo apt install wget lz4
+```
+
+### Stop the daemon
+
+```bash
+sudo systemctl stop seid
+```
+
+### Download and stream extract
+
+Find the latest archive from Cryptocrew here and find the height of the snapshot that you want to sync to:
+https://github.com/cryptocrew-validators/CryptoCrew-Validators/blob/main/chains/sei/service_Archive_Snapshot.md
+
+Set this height as parameter:
+
+```bash
+height=<HEIGHT_NUMBER>
+```
+
+Then, set your ARCH:
+
+```bash
+ARCH_URL="https://dl-eu2.ccvalidators.com/SNAPSHOTS/archive/sei/pacific-1_${height}.tar.lz4"
+```
+
+```bash
+rm -rf $HOME/.sei/data
+rm -rf $HOME/.sei/wasm
+rm -rf $HOME/.sei/config/priv_validator_key.json
+```
+
+Stream‑extract the archive to save disk space:
+
+```bash
+wget -O - $ARCH_URL | lz4 -d | tar -xvf -
+```
+
+Restore validator state file:
+
+```bash
+rm data/priv_validator_state.json
+mv ./priv_validator_state.json.tmp data/priv_validator_state.json
+```
+
+Restart the daemon:
+
+```bash
+sudo systemctl start seid
+```
+
+Both methods leave you with a fully‑synced node in minutes. Verify the node is catching up (`journalctl -fu seid -o cat`) and compare the reported block height against a public RPC endpoint or a block explorer.
+
+## Troubleshooting snapshots
+
+**Q:** I can't download a snapshot.
+
+**A:** Try another time later as these snapshots are refreshed regularly and inform us in the [Sei Tech Chat](https://t.me/+KZdhZ1eE-G01NmZk)
+
+**Q:** The snapshot finishes, but immediately get `AppHash` errors upon regular block sycing:
+
+**A:** Make sure that you use the latest version of the node software.

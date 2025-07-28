@@ -17,8 +17,9 @@ const withNextra = nextra({
 });
 
 export default withNextra({
+	productionBrowserSourceMaps: false,
 	images: {
-		unoptimized: true,
+		unoptimized: false,
 		contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
 		remotePatterns: [
 			{
@@ -32,6 +33,17 @@ export default withNextra({
 				pathname: '/65cb43fecf24523357feada9/**'
 			}
 		]
+	},
+	async headers() {
+		return [
+			{
+				source: '/(.*)',
+				headers: [
+					{ key: 'Cache-Control', value: 'public, max-age=3600, must-revalidate' },
+					{ key: 'Vercel-CDN-Cache-Control', value: 'public, max-age=3600, must-revalidate' }
+				]
+			}
+		];
 	},
 	async redirects() {
 		return [

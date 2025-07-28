@@ -41,7 +41,6 @@ export default {
 		title: 'Blockchain Features'
 	},
 	oracles: 'Oracle System',
-	'oracle-security': 'Oracle Security',
 	mev: 'MEV Protection',
 	'mev-plugins': 'MEV Plugins',
 
