@@ -23,15 +23,11 @@ function AppCardsGridCategory({ category }: { category: EcosystemDocsCategory })
 
 	return (
 		<div>
-			<div className='flex flex-row overflow-auto gap-4 py-4'>
+			<div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 py-2'>
 				{apps.map((app) => (
 					<AppCardV2 key={app.id} app={app} />
 				))}
 			</div>
-			<small className='opacity-75'>
-				Projects listed here are developed by the Sei community. Inclusion on this site does not constitute endorsement. For questions related to each, please
-				contact the project directly.
-			</small>
 		</div>
 	);
 }
