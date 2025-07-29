@@ -59,12 +59,30 @@ struct OracleTwap {
 }
 
 /// Retrieves Oracle Time-Weighted Average Prices (TWAPs) for the specified lookback period.
-/// @param lookback_seconds The lookback period in seconds.
+/// @param lookback_seconds The lookback period in seconds (min: 60, max: 86400).
 /// @return An array of denomination and TWAP pairs.
 function getOracleTwaps(
     uint64 lookback_seconds
 ) external view returns (OracleTwap[] memory);
 ```
+
+<Callout type="info">**Price Format:** Exchange rates are returned as decimal strings (e.g., "1.234567" represents $1.234567). Prices are denominated in USD unless otherwise specified.</Callout>
+
+<Callout type="warning">**TWAP Limitations:** Lookback periods are limited to 1 minute (60 seconds) minimum and 24 hours (86400 seconds) maximum. Requesting data outside this range may result in empty results.</Callout>
+
+## Supported Denominations
+
+Common denominations available in the oracle include:
+
+- `usei` - Micro SEI (1 SEI = 1,000,000 usei)
+- `uusdc` - Micro USDC
+- `uatom` - Micro ATOM
+- `uosmo` - Micro OSMO
+- `ueth` - Micro Ethereum
+- `ubtc` - Micro Bitcoin
+- `uusdt` - Micro USDT
+
+<Callout type="info">The exact list of supported denominations may vary by network. Use `getExchangeRates()` to see all currently available price feeds.</Callout>
 
 ## Using the Contract
 
@@ -74,10 +92,10 @@ function getOracleTwaps(
 
 Before getting started, ensure you have:
 
-- **Node.js** (v16 or higher)
+- **Node.js** (v18 or higher recommended)
 - **npm** or **yarn** package manager
 - **MetaMask** or compatible EVM wallet
-- **SEI tokens** for gas fees
+- **SEI tokens** for gas fees (typically 0.001-0.01 SEI per oracle query)
 
 #### Install Dependencies
 
@@ -96,13 +114,13 @@ npm install dotenv
 
 #### Network Configuration
 
-Add Sei networks to your MetaMask or configure your provider:
+Add Sei Mainnet to your MetaMask or configure your provider:
 
-##### Sei Mainnet
+##### Sei Mainnet (Pacific-1)
 
 ```typescript copy
 const seiMainnet = {
-  chainId: '0x531', // 1329 in decimal
+  chainId: 1329,
   chainName: 'Sei Network',
   nativeCurrency: {
     name: 'SEI',
@@ -114,28 +132,12 @@ const seiMainnet = {
 };
 ```
 
-##### Sei Testnet (Atlantic-2)
-
-```typescript copy
-const seiTestnet = {
-  chainId: '0xae3f3', // 713715 in decimal
-  chainName: 'Sei Testnet',
-  nativeCurrency: {
-    name: 'SEI',
-    symbol: 'SEI',
-    decimals: 18
-  },
-  rpcUrls: ['https://evm-rpc-testnet.sei-apis.com'],
-  blockExplorerUrls: ['https://seitrace.com/?chain=atlantic-2']
-};
-```
-
 #### Import Precompile Components
 
 ```typescript copy
 // Import Oracle precompile address and ABI
 // View the entire ABI here: https://github.com/sei-protocol/sei-chain/tree/main/precompiles/oracle
-import { ORACLE_PRECOMPILE_ABI, ORACLE_PRECOMPILE_ADDRESS } from '@sei-js/evm';
+import { ORACLE_PRECOMPILE_ABI } from '@sei-js/evm';
 import { ethers } from 'ethers';
 ```
 
@@ -143,16 +145,7 @@ import { ethers } from 'ethers';
 
 #### Get SEI Tokens
 
-##### For Testnet
-
-Use the official Sei faucet to get testnet tokens:
-
-- **Faucet URL:** [https://www.sei.io/faucet](https://www.sei.io/faucet)
-- **Requirements:** Valid wallet address on Sei testnet
-
-##### For Mainnet
-
-Purchase SEI tokens from supported exchanges or bridge from other networks.
+Purchase SEI tokens from supported exchanges. You will need a small amount of SEI in your wallet to pay for gas fees when making calls to the Oracle precompile.
 
 ### Contract Initialization
 
@@ -165,7 +158,7 @@ await provider.send('eth_requestAccounts', []);
 const signer = await provider.getSigner();
 
 // Or for Node.js environment
-const provider = new ethers.JsonRpcProvider('https://evm-rpc-testnet.sei-apis.com');
+const provider = new ethers.JsonRpcProvider('https://evm-rpc.sei-apis.com');
 const signer = new ethers.Wallet('YOUR_PRIVATE_KEY', provider);
 
 // Create a contract instance for the Oracle precompile
@@ -181,12 +174,26 @@ Use these helper functions for price data handling:
 class OracleDataHelper {
   // Convert exchange rate string to number
   static rateToNumber(rateString: string): number {
-    return parseFloat(rateString);
+    try {
+      const rate = parseFloat(rateString);
+      if (isNaN(rate) || !isFinite(rate)) {
+        throw new Error(`Invalid rate: ${rateString}`);
+      }
+      return rate;
+    } catch (error) {
+      console.error('Error parsing rate:', rateString, error);
+      return 0;
+    }
   }
 
   // Format timestamp to readable date
-  static formatTimestamp(timestamp: bigint): string {
-    return new Date(Number(timestamp) * 1000).toISOString();
+  static formatTimestamp(timestamp: bigint | number): string {
+    try {
+      return new Date(Number(timestamp) * 1000).toISOString();
+    } catch (error) {
+      console.error('Error formatting timestamp:', timestamp, error);
+      return 'Invalid timestamp';
+    }
   }
 
   // Calculate price from exchange rate (assuming USD base)
@@ -197,6 +204,13 @@ class OracleDataHelper {
   // Find specific denom in exchange rates
   static findDenom(rates: any[], denom: string): any {
     return rates.find((rate) => rate.denom === denom);
+  }
+
+  // Check if price data is stale (older than 5 minutes)
+  static isPriceStale(timestamp: bigint | number): boolean {
+    const now = Math.floor(Date.now() / 1000);
+    const priceTime = Number(timestamp);
+    return now - priceTime > 300; // 5 minutes
   }
 }
 ```
@@ -211,8 +225,12 @@ const exchangeRates = await oracle.getExchangeRates();
 
 // Display rates
 exchangeRates.forEach((rate) => {
-  console.log(`${rate.denom}: ${rate.oracleExchangeRateVal.exchangeRate}`);
-  console.log(`Last Update: ${rate.oracleExchangeRateVal.lastUpdate}`);
+  const price = OracleDataHelper.rateToNumber(rate.oracleExchangeRateVal.exchangeRate);
+  const timestamp = rate.oracleExchangeRateVal.lastUpdateTimestamp;
+  const isStale = OracleDataHelper.isPriceStale(timestamp);
+
+  console.log(`${rate.denom}: $${price.toFixed(6)}${isStale ? ' (STALE)' : ''}`);
+  console.log(`Last Update: ${OracleDataHelper.formatTimestamp(timestamp)}`);
 });
 ```
 
@@ -246,25 +264,35 @@ if (seiRate) {
 ### Monitor Price Changes
 
 ```typescript copy
-// Monitor price changes every 10 seconds
+// Monitor price changes every 30 seconds (recommended minimum for mainnet)
 async function monitorPrices() {
   const previousPrices = new Map();
 
-  setInterval(async () => {
-    const rates = await oracle.getExchangeRates();
+  const monitor = async () => {
+    try {
+      const rates = await oracle.getExchangeRates();
 
-    rates.forEach((rate) => {
-      const currentPrice = parseFloat(rate.oracleExchangeRateVal.exchangeRate);
-      const previousPrice = previousPrices.get(rate.denom);
+      rates.forEach((rate) => {
+        const currentPrice = OracleDataHelper.rateToNumber(rate.oracleExchangeRateVal.exchangeRate);
+        const previousPrice = previousPrices.get(rate.denom);
 
-      if (previousPrice) {
-        const change = ((currentPrice - previousPrice) / previousPrice) * 100;
-        console.log(`${rate.denom}: $${currentPrice} (${change.toFixed(2)}%)`);
-      }
+        if (previousPrice) {
+          const change = ((currentPrice - previousPrice) / previousPrice) * 100;
+          console.log(`${rate.denom}: $${currentPrice.toFixed(6)} (${change >= 0 ? '+' : ''}${change.toFixed(2)}%)`);
+        }
 
-      previousPrices.set(rate.denom, currentPrice);
-    });
-  }, 10000); // 10 seconds
+        previousPrices.set(rate.denom, currentPrice);
+      });
+    } catch (error) {
+      console.error('Monitor error:', error);
+    }
+  };
+
+  // Initial fetch
+  await monitor();
+
+  // Monitor every 30 seconds
+  setInterval(monitor, 30000);
 }
 ```
 
@@ -278,128 +306,271 @@ const { ethers } = require('ethers');
 const { ORACLE_PRECOMPILE_ABI, ORACLE_PRECOMPILE_ADDRESS } = require('@sei-js/evm');
 require('dotenv').config();
 
+// Helper functions
+function safeParseFloat(str) {
+  try {
+    const num = parseFloat(str);
+    return isNaN(num) ? 0 : num;
+  } catch {
+    return 0;
+  }
+}
+
+function formatTimestamp(timestamp) {
+  try {
+    return new Date(Number(timestamp) * 1000).toISOString();
+  } catch {
+    return 'Invalid timestamp';
+  }
+}
+
+function isPriceStale(timestamp, maxAgeSeconds = 300) {
+  const now = Math.floor(Date.now() / 1000);
+  return now - Number(timestamp) > maxAgeSeconds;
+}
+
 async function main() {
   try {
-    // Connect to Sei Testnet
-    console.log('Connecting to Sei Testnet...');
-    const provider = new ethers.JsonRpcProvider('https://evm-rpc-testnet.sei-apis.com');
+    // Connect to Sei Mainnet
+    console.log('🔗 Connecting to Sei Mainnet...');
+    const provider = new ethers.JsonRpcProvider('https://evm-rpc.sei-apis.com');
 
-    // Use your private key from environment variable
+    // Verify connection to mainnet
+    const network = await provider.getNetwork();
+    if (Number(network.chainId) !== 1329) {
+      throw new Error(`Expected Sei Mainnet (1329), but connected to chain ${network.chainId}`);
+    }
+    console.log(`✅ Connected to Sei Mainnet (Chain ID: 1329)`);
+
+    // Setup wallet
     const privateKey = process.env.PRIVATE_KEY;
     if (!privateKey) {
       throw new Error('Please set PRIVATE_KEY in .env file');
     }
 
     const wallet = new ethers.Wallet(privateKey, provider);
-    console.log('Wallet address:', wallet.address);
+    console.log('👛 Wallet address:', wallet.address);
 
     // Check balance
     const balance = await provider.getBalance(wallet.address);
-    console.log('Wallet balance:', ethers.formatEther(balance), 'SEI\n');
+    const balanceInSei = ethers.formatEther(balance);
+    console.log('💰 Wallet balance:', balanceInSei, 'SEI');
+
+    if (parseFloat(balanceInSei) < 0.01) {
+      console.warn('⚠️  Low balance detected. You may need more SEI for gas fees.');
+      console.log('💡 Purchase SEI from supported exchanges like Binance, Coinbase, or KuCoin');
+    }
 
     // Initialize Oracle precompile contract
     const oracle = new ethers.Contract(ORACLE_PRECOMPILE_ADDRESS, ORACLE_PRECOMPILE_ABI, wallet);
 
-    console.log('=== Oracle Precompile Demo ===\n');
+    console.log('\n' + '='.repeat(50));
+    console.log('🔮 Oracle Precompile Demo - Sei Mainnet');
+    console.log('='.repeat(50));
 
     // 1. Get all exchange rates
-    console.log('1. Fetching current exchange rates...');
+    console.log('\n1️⃣ Fetching current exchange rates...');
+
     const exchangeRates = await oracle.getExchangeRates();
 
-    console.log(`   Found ${exchangeRates.length} price feeds:\n`);
+    if (!exchangeRates || exchangeRates.length === 0) {
+      console.log('📭 No exchange rates available on mainnet');
+      return;
+    }
 
-    // Display first 3 rates for demo
-    const displayRates = exchangeRates.slice(0, 3);
-    displayRates.forEach((rate) => {
-      const price = parseFloat(rate.oracleExchangeRateVal.exchangeRate);
-      const timestamp = new Date(Number(rate.oracleExchangeRateVal.lastUpdateTimestamp) * 1000);
+    console.log(`📊 Found ${exchangeRates.length} price feeds on Sei Mainnet:`);
 
-      console.log(`   ${rate.denom}:`);
-      console.log(`   - Price: $${price.toFixed(4)}`);
-      console.log(`   - Last Update: ${timestamp.toLocaleString()}`);
-      console.log('');
+    // Display all available rates
+    exchangeRates.forEach((rate, index) => {
+      const price = safeParseFloat(rate.oracleExchangeRateVal.exchangeRate);
+      const timestamp = rate.oracleExchangeRateVal.lastUpdateTimestamp;
+      const lastUpdate = formatTimestamp(timestamp);
+      const isStale = isPriceStale(timestamp);
+
+      console.log(`\n   ${index + 1}. ${rate.denom}:`);
+      console.log(`      💲 Price: $${price.toFixed(6)}${isStale ? ' ⚠️ (STALE)' : ''}`);
+      console.log(`      ⏰ Last Update: ${lastUpdate}`);
     });
 
     // 2. Get TWAP data
-    console.log('2. Fetching 1-hour TWAP data...');
+    console.log('\n2️⃣ Fetching 1-hour TWAP data...');
     const lookbackSeconds = 3600; // 1 hour
-    const twaps = await oracle.getOracleTwaps(lookbackSeconds);
 
-    console.log(`   Found ${twaps.length} TWAP values:\n`);
+    try {
+      const twaps = await oracle.getOracleTwaps(lookbackSeconds);
 
-    // Display first 3 TWAPs
-    const displayTwaps = twaps.slice(0, 3);
-    displayTwaps.forEach((twap) => {
-      const twapPrice = parseFloat(twap.twap);
-      console.log(`   ${twap.denom}:`);
-      console.log(`   - 1hr TWAP: $${twapPrice.toFixed(4)}`);
-      console.log(`   - Lookback: ${twap.lookbackSeconds} seconds`);
-      console.log('');
+      if (twaps && twaps.length > 0) {
+        console.log(`📈 Found ${twaps.length} TWAP values:`);
+
+        twaps.forEach((twap, index) => {
+          const twapPrice = safeParseFloat(twap.twap);
+          console.log(`\n   ${index + 1}. ${twap.denom}:`);
+          console.log(`      📊 1hr TWAP: $${twapPrice.toFixed(6)}`);
+          console.log(`      ⏱️  Lookback: ${twap.lookbackSeconds} seconds`);
+        });
+      } else {
+        console.log('📭 No TWAP data available for the requested period');
+      }
+    } catch (twapError) {
+      console.error('❌ Failed to fetch TWAP data:', twapError.message);
+    }
+
+    // 3. Focus on SEI price analysis
+    console.log('\n3️⃣ SEI Price Analysis...');
+
+    const seiRate = exchangeRates.find((r) => r.denom === 'usei');
+    if (seiRate) {
+      const seiPrice = safeParseFloat(seiRate.oracleExchangeRateVal.exchangeRate);
+      const timestamp = seiRate.oracleExchangeRateVal.lastUpdateTimestamp;
+
+      console.log(`\n   💎 SEI (usei) Details:`);
+      console.log(`      💲 Current Price: $${seiPrice.toFixed(6)}`);
+      console.log(`      ⏰ Last Update: ${formatTimestamp(timestamp)}`);
+      console.log(`      🔄 Price Age: ${Math.floor(Date.now() / 1000) - Number(timestamp)} seconds`);
+
+      // Market cap calculation (approximate)
+      const circulatingSupply = 3_90000000; // Approximate SEI supply
+      const marketCap = seiPrice * circulatingSupply;
+      console.log(`      📊 Est. Market Cap: $${(marketCap / 1000000).toFixed(2)}M`);
+    } else {
+      console.log('   ❌ SEI price not found in oracle data');
+    }
+
+    // 4. DeFi use case - Advanced collateral calculation
+    console.log('\n4️⃣ Advanced DeFi Example - Multi-asset portfolio...');
+
+    const portfolio = [
+      { asset: 'usei', amount: 1000 },
+      { asset: 'uusdc', amount: 500 },
+      { asset: 'uatom', amount: 50 }
+    ];
+
+    let totalPortfolioValue = 0;
+    const portfolioBreakdown = [];
+
+    console.log(`\n   💼 Portfolio Analysis:`);
+
+    portfolio.forEach(({ asset, amount }) => {
+      const assetRate = exchangeRates.find((r) => r.denom === asset);
+      if (assetRate) {
+        const price = safeParseFloat(assetRate.oracleExchangeRateVal.exchangeRate);
+        const value = price * amount;
+        totalPortfolioValue += value;
+
+        portfolioBreakdown.push({
+          asset,
+          amount,
+          price,
+          value,
+          percentage: 0 // Will calculate after total
+        });
+
+        console.log(`      🪙 ${asset}: ${amount} tokens × $${price.toFixed(6)} = $${value.toFixed(2)}`);
+      }
     });
 
-    // 3. Calculate price difference between spot and TWAP
-    console.log('3. Analyzing price movements...\n');
+    // Calculate percentages
+    portfolioBreakdown.forEach((item) => {
+      item.percentage = (item.value / totalPortfolioValue) * 100;
+    });
 
-    // Find matching denom in both results
-    const denom = exchangeRates[0]?.denom;
-    if (denom) {
-      const spotRate = exchangeRates.find((r) => r.denom === denom);
-      const twapRate = twaps.find((t) => t.denom === denom);
+    console.log(`\n   📊 Portfolio Summary:`);
+    console.log(`      💰 Total Value: $${totalPortfolioValue.toFixed(2)}`);
 
-      if (spotRate && twapRate) {
-        const spotPrice = parseFloat(spotRate.oracleExchangeRateVal.exchangeRate);
-        const twapPrice = parseFloat(twapRate.twap);
-        const difference = ((spotPrice - twapPrice) / twapPrice) * 100;
+    portfolioBreakdown.forEach(({ asset, value, percentage }) => {
+      console.log(`      📈 ${asset}: $${value.toFixed(2)} (${percentage.toFixed(1)}%)`);
+    });
 
-        console.log(`   ${denom} Price Analysis:`);
-        console.log(`   - Current Price: $${spotPrice.toFixed(4)}`);
-        console.log(`   - 1hr TWAP: $${twapPrice.toFixed(4)}`);
-        console.log(`   - Difference: ${difference.toFixed(2)}%`);
+    // Lending calculations
+    const maxLTV = 0.75; // 75% max loan-to-value
+    const maxBorrow = totalPortfolioValue * maxLTV;
+    console.log(`      🏦 Max Borrowing Power (75% LTV): $${maxBorrow.toFixed(2)}`);
 
-        if (Math.abs(difference) > 1) {
-          console.log(`   - Status: ${difference > 0 ? '🟢 Price trending UP' : '🔴 Price trending DOWN'}`);
-        } else {
-          console.log('   - Status: 🟡 Price stable');
-        }
+    // 5. Gas cost analysis
+    console.log('\n5️⃣ Gas cost analysis on mainnet...');
+
+    try {
+      const feeData = await provider.getFeeData();
+      const exchangeRateGas = await oracle.getExchangeRates.estimateGas();
+      const twapGas = await oracle.getOracleTwaps.estimateGas(3600);
+
+      const exchangeRateCost = exchangeRateGas * (feeData.gasPrice || 0n);
+      const twapCost = twapGas * (feeData.gasPrice || 0n);
+
+      console.log(`\n   ⛽ Mainnet Gas Estimates:`);
+      console.log(`      📊 getExchangeRates(): ${exchangeRateGas.toString()} gas`);
+      console.log(`      📈 getOracleTwaps(): ${twapGas.toString()} gas`);
+      console.log(`      💰 Exchange Rate Cost: ~${ethers.formatEther(exchangeRateCost)} SEI`);
+      console.log(`      💰 TWAP Cost: ~${ethers.formatEther(twapCost)} SEI`);
+
+      // Current SEI price for USD conversion
+      if (seiRate) {
+        const seiPrice = safeParseFloat(seiRate.oracleExchangeRateVal.exchangeRate);
+        const exchangeRateUSD = parseFloat(ethers.formatEther(exchangeRateCost)) * seiPrice;
+        const twapUSD = parseFloat(ethers.formatEther(twapCost)) * seiPrice;
+
+        console.log(`      💵 Exchange Rate Cost: ~$${exchangeRateUSD.toFixed(4)} USD`);
+        console.log(`      💵 TWAP Cost: ~$${twapUSD.toFixed(4)} USD`);
       }
+    } catch (gasError) {
+      console.log('   ⚠️  Could not estimate gas costs:', gasError.message);
     }
 
-    // 4. Demonstrate DeFi use case
-    console.log('\n4. DeFi Example - Calculating collateral value...\n');
+    // 6. Price monitoring setup example
+    console.log('\n6️⃣ Price monitoring setup (example)...');
 
-    const collateralAmount = 100; // 100 tokens
-    const seiRate = exchangeRates.find((r) => r.denom === 'usei' || r.denom === 'sei');
+    console.log(`\n   📊 To set up continuous monitoring, use:`);
+    console.log(`      setInterval(async () => {`);
+    console.log(`        const rates = await oracle.getExchangeRates();`);
+    console.log(`        // Process price changes`);
+    console.log(`      }, 30000); // Every 30 seconds`);
+    console.log(`\n   ⚠️  Note: Be mindful of rate limits and gas costs on mainnet`);
 
-    if (seiRate) {
-      const seiPrice = parseFloat(seiRate.oracleExchangeRateVal.exchangeRate);
-      const collateralValue = seiPrice * collateralAmount;
-      const loanToValue = 0.5; // 50% LTV
-      const maxBorrow = collateralValue * loanToValue;
-
-      console.log('   Collateral: 100 SEI');
-      console.log(`   SEI Price: $${seiPrice.toFixed(4)}`);
-      console.log(`   Collateral Value: $${collateralValue.toFixed(2)}`);
-      console.log(`   Max Borrow (50% LTV): $${maxBorrow.toFixed(2)}`);
-    }
-
-    console.log('\n✅ Oracle demo completed successfully!');
-    console.log('\nNote: Oracle prices are maintained by Sei validators and update regularly.');
+    console.log('\n' + '='.repeat(50));
+    console.log('✅ Oracle demo completed successfully on Sei Mainnet!');
+    console.log('='.repeat(50));
+    console.log('📝 Production Notes:');
+    console.log('   • Always validate price freshness before using');
+    console.log('   • Implement error handling and fallback mechanisms');
+    console.log('   • Monitor gas costs and optimize call frequency');
+    console.log('   • Consider caching for frequently accessed data');
+    console.log('   • Set up alerts for stale or missing price data');
   } catch (error) {
-    console.error('\nError:', error.message);
+    console.error('\n❌ Demo failed:', error.message);
 
-    // Handle common errors
-    if (error.message.includes('no data')) {
-      console.log('\n⚠️  No oracle data available. This might be because:');
-      console.log('   - Oracle module is not active on this network');
-      console.log('   - No price feeds have been configured yet');
+    // Enhanced error diagnostics for mainnet
+    if (error.message.includes('1329')) {
+      console.log("💡 Network issue: Make sure you're connecting to Sei Mainnet");
+      console.log('   - RPC URL: https://evm-rpc.sei-apis.com');
+      console.log('   - Chain ID: 1329');
+    } else if (error.code === 'INSUFFICIENT_FUNDS') {
+      console.log('💡 Buy SEI tokens from:');
+      console.log('   - Binance: https://www.binance.com/en/trade/SEI_USDT');
+      console.log('   - Coinbase: https://www.coinbase.com/price/sei');
+      console.log('   - KuCoin: https://www.kucoin.com/trade/SEI-USDT');
+    } else if (error.code === 'NETWORK_ERROR') {
+      console.log('💡 Network troubleshooting:');
+      console.log('   - Check internet connection');
+      console.log('   - Verify RPC endpoint is accessible');
+      console.log('   - Try alternative RPC if available');
     }
 
     process.exit(1);
   }
 }
 
+// Graceful shutdown
+process.on('SIGINT', () => {
+  console.log('\n🛑 Demo interrupted');
+  process.exit(0);
+});
+
 // Run the demo
-main().catch(console.error);
+if (require.main === module) {
+  main().catch(console.error);
+}
+
+module.exports = { main };
 ```
 
 ### Running the Example
@@ -407,8 +578,8 @@ main().catch(console.error);
 1. **Create a new directory and initialize npm:**
 
 ```bash copy
-mkdir oracle-demo
-cd oracle-demo
+mkdir sei-oracle-mainnet
+cd sei-oracle-mainnet
 npm init -y
 ```
 
@@ -421,7 +592,7 @@ npm install ethers @sei-js/evm dotenv
 3. **Create a `.env` file:**
 
 ```bash copy
-PRIVATE_KEY=your_private_key_here
+PRIVATE_KEY=your_private_key_here_without_0x_prefix
 ```
 
 4. **Create the demo file:**
@@ -433,194 +604,104 @@ PRIVATE_KEY=your_private_key_here
 node oracle-demo.js
 ```
 
-### Expected Output
-
-When you run the script, you should see output similar to:
+### Expected Output on Mainnet
 
 ```
-Connecting to Sei Testnet...
-Wallet address: 0x742d35Cc6634C0532925a3b844Bc6789e065f3B
-Wallet balance: 50.5 SEI
+🔗 Connecting to Sei Mainnet...
+✅ Connected to Sei Mainnet (Chain ID: 1329)
+👛 Wallet address: 0x742d35Cc6634C0532925a3b844Bc6789e065f3B
+💰 Wallet balance: 5.2 SEI
 
-=== Oracle Precompile Demo ===
+==================================================
+🔮 Oracle Precompile Demo - Sei Mainnet
+==================================================
 
-1. Fetching current exchange rates...
-   Found 5 price feeds:
+1️⃣ Fetching current exchange rates...
+📊 Found 12 price feeds on Sei Mainnet:
 
-   usei:
-   - Price: $2.4500
-   - Last Update: 1/15/2024, 3:30:45 PM
+   1. usei:
+      💲 Price: $0.421500
+      ⏰ Last Update: 2024-01-15T15:45:32.000Z
 
-   uusdc:
-   - Price: $1.0002
-   - Last Update: 1/15/2024, 3:30:45 PM
+   2. uusdc:
+      💲 Price: $1.000100
+      ⏰ Last Update: 2024-01-15T15:45:32.000Z
 
-   uatom:
-   - Price: $10.3400
-   - Last Update: 1/15/2024, 3:30:45 PM
+   3. uatom:
+      💲 Price: $9.875000
+      ⏰ Last Update: 2024-01-15T15:45:32.000Z
 
-2. Fetching 1-hour TWAP data...
-   Found 5 TWAP values:
+2️⃣ Fetching 1-hour TWAP data...
+📈 Found 12 TWAP values:
 
-   usei:
-   - 1hr TWAP: $2.4350
-   - Lookback: 3600 seconds
+   1. usei:
+      📊 1hr TWAP: $0.419200
+      ⏱️  Lookback: 3600 seconds
 
-   uusdc:
-   - 1hr TWAP: $1.0001
-   - Lookback: 3600 seconds
+3️⃣ SEI Price Analysis...
 
-   uatom:
-   - 1hr TWAP: $10.2800
-   - Lookback: 3600 seconds
+   💎 SEI (usei) Details:
+      💲 Current Price: $0.421500
+      ⏰ Last Update: 2024-01-15T15:45:32.000Z
+      🔄 Price Age: 45 seconds
+      📊 Est. Market Cap: $164.4M
 
-3. Analyzing price movements...
+4️⃣ Advanced DeFi Example - Multi-asset portfolio...
 
-   usei Price Analysis:
-   - Current Price: $2.4500
-   - 1hr TWAP: $2.4350
-   - Difference: 0.62%
-   - Status: 🟡 Price stable
+   💼 Portfolio Analysis:
+      🪙 usei: 1000 tokens × $0.421500 = $421.50
+      🪙 uusdc: 500 tokens × $1.000100 = $500.05
+      🪙 uatom: 50 tokens × $9.875000 = $493.75
 
-4. DeFi Example - Calculating collateral value...
+   📊 Portfolio Summary:
+      💰 Total Value: $1415.30
+      📈 usei: $421.50 (29.8%)
+      📈 uusdc: $500.05 (35.3%)
+      📈 uatom: $493.75 (34.9%)
+      🏦 Max Borrowing Power (75% LTV): $1061.48
 
-   Collateral: 100 SEI
-   SEI Price: $2.4500
-   Collateral Value: $245.00
-   Max Borrow (50% LTV): $122.50
+5️⃣ Gas cost analysis on mainnet...
 
-✅ Oracle demo completed successfully!
+   ⛽ Mainnet Gas Estimates:
+      📊 getExchangeRates(): 52341 gas
+      📈 getOracleTwaps(): 58967 gas
+      💰 Exchange Rate Cost: ~0.002617 SEI
+      💰 TWAP Cost: ~0.002948 SEI
+      💵 Exchange Rate Cost: ~$0.0011 USD
+      💵 TWAP Cost: ~$0.0012 USD
 
-Note: Oracle prices are maintained by Sei validators and update regularly.
+==================================================
+✅ Oracle demo completed successfully on Sei Mainnet!
+==================================================
+📝 Production Notes:
+   • Always validate price freshness before using
+   • Implement error handling and fallback mechanisms
+   • Monitor gas costs and optimize call frequency
+   • Consider caching for frequently accessed data
+   • Set up alerts for stale or missing price data
 ```
 
-## Advanced Usage Example
-
-### DeFi Liquidation Monitor
-
-```solidity copy
-// LiquidationMonitor.sol
-pragma solidity ^0.8.0;
-
-interface IOracle {
-    struct OracleExchangeRate {
-        string exchangeRate;
-        string lastUpdate;
-        int64 lastUpdateTimestamp;
-    }
-
-    struct DenomOracleExchangeRatePair {
-        string denom;
-        OracleExchangeRate oracleExchangeRateVal;
-    }
-
-    function getExchangeRates() external view returns (DenomOracleExchangeRatePair[] memory);
-}
-
-contract LiquidationMonitor {
-    IOracle constant ORACLE = IOracle(0x0000000000000000000000000000000000001008);
-
-    uint256 constant LIQUIDATION_THRESHOLD = 150; // 150% collateralization ratio
-    uint256 constant PRECISION = 100;
-
-    struct Position {
-        address user;
-        uint256 collateralAmount;
-        uint256 borrowedAmount;
-        string collateralDenom;
-        string borrowDenom;
-    }
-
-    mapping(address => Position) public positions;
-
-    // Check if a position is eligible for liquidation
-    function checkLiquidation(address user) external view returns (bool shouldLiquidate, uint256 currentRatio) {
-        Position memory pos = positions[user];
-
-        // Get current prices from oracle
-        IOracle.DenomOracleExchangeRatePair[] memory rates = ORACLE.getExchangeRates();
-
-        uint256 collateralPrice = 0;
-        uint256 borrowPrice = 0;
-
-        // Find prices for both assets
-        for (uint i = 0; i < rates.length; i++) {
-            if (keccak256(bytes(rates[i].denom)) == keccak256(bytes(pos.collateralDenom))) {
-                collateralPrice = parsePrice(rates[i].oracleExchangeRateVal.exchangeRate);
-            }
-            if (keccak256(bytes(rates[i].denom)) == keccak256(bytes(pos.borrowDenom))) {
-                borrowPrice = parsePrice(rates[i].oracleExchangeRateVal.exchangeRate);
-            }
-        }
-
-        // Calculate collateralization ratio
-        uint256 collateralValue = pos.collateralAmount * collateralPrice;
-        uint256 borrowValue = pos.borrowedAmount * borrowPrice;
-
-        currentRatio = (collateralValue * PRECISION) / borrowValue;
-        shouldLiquidate = currentRatio < LIQUIDATION_THRESHOLD;
-    }
-
-    // Helper to parse price string (simplified - use proper parsing in production)
-    function parsePrice(string memory priceStr) internal pure returns (uint256) {
-        // Simplified: assumes price is an integer
-        // In production, implement proper decimal parsing
-        return 1000000; // Placeholder
-    }
-}
-```
-
-## Troubleshooting
-
-### Common Issues and Solutions
-
-#### No Oracle Data
-
-```typescript copy
-// Check if oracle data exists before processing
-const rates = await oracle.getExchangeRates();
-if (!rates || rates.length === 0) {
-  console.log('No oracle data available on this network');
-  return;
-}
-```
-
-#### Price Parsing
-
-```typescript copy
-// Safe price parsing with error handling
-function safeParsePrice(priceString) {
-  try {
-    const price = parseFloat(priceString);
-    if (isNaN(price)) throw new Error('Invalid price');
-    return price;
-  } catch (error) {
-    console.error('Failed to parse price:', priceString);
-    return 0;
-  }
-}
-```
-
-### Error Code Reference
-
-| Error              | Cause                    | Solution                    |
-| ------------------ | ------------------------ | --------------------------- |
-| `no oracle data`   | Oracle module not active | Check network configuration |
-| `denom not found`  | Asset not in oracle      | Verify supported denoms     |
-| `stale price data` | Old timestamp            | Check lastUpdateTimestamp   |
-| `invalid lookback` | Lookback too long        | Use shorter TWAP period     |
-
-## Important Notes
+## Production Best Practices
 
 <Callout type="warning">
-**Key Considerations:**
+**Mainnet Production Considerations:**
 
-- **Price Format:** Prices are returned as strings with decimal values
-- **Denoms:** Use the exact denomination string (e.g., "usei" for micro-SEI)
-- **TWAP Limits:** Maximum lookback period may be limited by node configuration
-- **Update Frequency:** Prices update based on validator consensus
-- **Decimal Precision:** Handle decimal parsing carefully in production code
+- **Real Money at Risk:** Always test thoroughly on testnet first
+- **Gas Optimization:** Oracle calls cost real SEI - optimize frequency
+- **Price Validation:** Implement multiple layers of price validation
+- **Fallback Mechanisms:** Have backup price sources for critical applications
+- **Monitoring:** Set up alerts for oracle failures or stale data
+- **Security:** Never expose private keys, use hardware wallets for large amounts
+- **Rate Limiting:** Respect RPC rate limits to avoid being blocked
 
 </Callout>
 
-<Callout type="info">**Need Help?** If you encounter issues not covered here, check the [Sei Discord](https://discord.gg/sei) or [GitHub repository](https://github.com/sei-protocol/sei-chain) for community support.</Callout>
+<Callout type="info">
+
+**Production Resources:**
+
+- **SEI Mainnet Explorer:** [https://seitrace.com/](https://seitrace.com/)
+- **Discord Support:** [https://discord.gg/sei](https://discord.gg/sei)
+- **GitHub Issues:** [https://github.com/sei-protocol/sei-chain/issues](https://github.com/sei-protocol/sei-chain/issues)
+
+</Callout>
