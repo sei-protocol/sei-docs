@@ -30,6 +30,35 @@ The governance precompile at address `0x0000000000000000000000000000000000001006
 - **Automated Governance:** Smart contracts that vote based on predetermined strategies.
 - **Governance Aggregators:** Build platforms that aggregate and simplify governance participation.
 
+## Sei Governance Overview
+
+Sei governance operates on a structured timeline with specific parameters:
+
+### Governance Process
+
+1. **Proposal Submission:** Submit proposal with minimum 3,500 SEI deposit
+2. **Deposit Period:** 2 days to accumulate minimum deposit or reach expedited threshold
+3. **Voting Period:** 5 days of active voting once minimum deposit is met
+4. **Tallying:** Results calculated based on quorum and voting thresholds
+
+### Key Parameters
+
+| Parameter               | Value     | Description                         |
+| ----------------------- | --------- | ----------------------------------- |
+| **Minimum Deposit**     | 3,500 SEI | Required to move proposal to voting |
+| **Expedited Threshold** | 7,000 SEI | Enables faster processing           |
+| **Deposit Period**      | 2 days    | Time to reach minimum deposit       |
+| **Voting Period**       | 5 days    | Duration for casting votes          |
+| **Quorum**              | 33.4%     | Minimum participation required      |
+| **Veto Threshold**      | 33.4%     | NoWithVeto votes to burn deposit    |
+
+### Proposal Types
+
+- **Text Proposals:** General governance decisions
+- **Parameter Change:** Modify protocol parameters
+- **Community Pool Spend:** Allocate community funds
+- **Software Upgrade:** Network upgrade proposals
+
 ## Functions
 
 The governance precompile exposes the following functions:
@@ -38,7 +67,7 @@ The governance precompile exposes the following functions:
 
 ```solidity
 /// Cast a vote on the specified proposal.
-/// @param proposalId The ID of the proposal to vote on.
+/// @param proposalID The ID of the proposal to vote on.
 /// @param option The option to vote for. (1=Yes, 2=Abstain, 3=No, 4=NoWithVeto)
 /// @return Whether the vote was successfully cast.
 function vote(
@@ -48,12 +77,12 @@ function vote(
 
 struct WeightedVoteOption {
     int32 option;   // Vote option (1=Yes, 2=Abstain, 3=No, 4=NoWithVeto)
-    string weight;  // Weight as decimal string (e.g., "0.7")
+    string weight;  // Weight as decimal string (e.g., "0.7") - MUST sum to exactly 1.0 across all options
 }
 
 /// Cast a weighted vote on a governance proposal (vote splitting)
 /// @param proposalID The ID of the proposal to vote on
-/// @param options Array of weighted vote options, weights must sum to 1.0
+/// @param options Array of weighted vote options, weights MUST sum to exactly 1.0 or transaction will fail
 /// @return success Whether the vote was successfully cast
 function voteWeighted(
     uint64 proposalID,
@@ -61,7 +90,7 @@ function voteWeighted(
 ) external returns (bool success);
 
 /// Deposit funds into the specified proposal.
-/// @param proposalId The ID of the proposal to deposit to.
+/// @param proposalID The ID of the proposal to deposit to.
 /// @return Whether the tokens were successfully deposited.
 function deposit(
     uint64 proposalID
@@ -92,8 +121,8 @@ Before getting started, ensure you have:
 
 - **Node.js** (v16 or higher)
 - **npm** or **yarn** package manager
-- **MetaMask** or compatible EVM wallet
-- **SEI tokens** for gas fees and governance deposits
+- **MetaMask** or compatible EVM wallet configured for Sei Mainnet
+- **SEI tokens** for gas fees and governance deposits (minimum 3,500 SEI for proposals)
 
 #### Install Dependencies
 
@@ -104,7 +133,7 @@ Install the required packages for interacting with Sei precompiles:
 npm install ethers
 
 # Install Sei EVM bindings for precompile addresses and ABIs
-npm install @sei-js/evm
+npm install @sei-js/evm@^2.0.0
 
 # Install dotenv for managing private keys (optional but recommended)
 npm install dotenv
@@ -112,13 +141,11 @@ npm install dotenv
 
 #### Network Configuration
 
-Add Sei networks to your MetaMask or configure your provider:
-
-##### Sei Mainnet
+Add Sei Mainnet to your MetaMask or configure your provider:
 
 ```typescript copy
 const seiMainnet = {
-  chainId: '0x531', // 1329 in decimal
+  chainId: '1329',
   chainName: 'Sei Network',
   nativeCurrency: {
     name: 'SEI',
@@ -127,22 +154,6 @@ const seiMainnet = {
   },
   rpcUrls: ['https://evm-rpc.sei-apis.com'],
   blockExplorerUrls: ['https://seitrace.com']
-};
-```
-
-##### Sei Testnet (Atlantic-2)
-
-```typescript copy
-const seiTestnet = {
-  chainId: '0xae3f3', // 713715 in decimal
-  chainName: 'Sei Testnet',
-  nativeCurrency: {
-    name: 'SEI',
-    symbol: 'SEI',
-    decimals: 18
-  },
-  rpcUrls: ['https://evm-rpc-testnet.sei-apis.com'],
-  blockExplorerUrls: ['https://seitrace.com/?chain=atlantic-2']
 };
 ```
 
@@ -159,16 +170,13 @@ import { ethers } from 'ethers';
 
 #### Get SEI Tokens
 
-##### For Testnet
+Purchase SEI tokens from supported exchanges:
 
-Use the official Sei faucet to get testnet tokens:
+- **Centralized Exchanges:** Binance, Coinbase, KuCoin, Gate.io
+- **Decentralized Exchanges:** Astroport, Dragonswap (on Sei)
+- **Bridge Options:** Various cross-chain bridges support SEI
 
-- **Faucet URL:** [https://www.sei.io/faucet](https://www.sei.io/faucet)
-- **Requirements:** Valid wallet address on Sei testnet
-
-##### For Mainnet
-
-Purchase SEI tokens from supported exchanges or bridge from other networks.
+<Callout type="warning">**Minimum Requirements:** You need at least 3,500 SEI to submit a governance proposal, plus additional tokens for gas fees and potential additional deposits.</Callout>
 
 ### Contract Initialization
 
@@ -181,7 +189,7 @@ await provider.send('eth_requestAccounts', []);
 const signer = await provider.getSigner();
 
 // Or for Node.js environment
-const provider = new ethers.JsonRpcProvider('https://evm-rpc-testnet.sei-apis.com');
+const provider = new ethers.JsonRpcProvider('https://evm-rpc.sei-apis.com');
 const signer = new ethers.Wallet('YOUR_PRIVATE_KEY', provider);
 
 // Create a contract instance for the governance precompile
@@ -192,93 +200,485 @@ const governance = new ethers.Contract(GOVERNANCE_PRECOMPILE_ADDRESS, GOVERNANCE
 
 The governance system uses the following vote options:
 
-| Option     | Value | Description                   |
-| ---------- | ----- | ----------------------------- |
-| Yes        | 1     | Vote in favor of the proposal |
-| Abstain    | 2     | Abstain from voting           |
-| No         | 3     | Vote against the proposal     |
-| NoWithVeto | 4     | Vote against with veto        |
+| Option     | Value | Description                   | Impact                           |
+| ---------- | ----- | ----------------------------- | -------------------------------- |
+| Yes        | 1     | Vote in favor of the proposal | Proposal passes if threshold met |
+| Abstain    | 2     | Abstain from voting           | Counts toward quorum only        |
+| No         | 3     | Vote against the proposal     | Opposes proposal                 |
+| NoWithVeto | 4     | Vote against with veto        | Burns deposit if >33.4%          |
+
+### Voting Power
+
+Your voting power is determined by:
+
+- **Staked SEI:** Amount of SEI you have staked with validators
+- **Delegation:** SEI delegated to validators counts toward voting power
+- **Liquid SEI:** Unstaked SEI does not provide voting power
+
+<Callout type="info">**Important:** Only staked SEI provides voting power. You must delegate your tokens to validators to participate in governance voting.</Callout>
+
+## Validation Functions
+
+Before making governance transactions, use these helper functions to validate inputs:
+
+```typescript copy
+// Validate vote option
+function isValidVoteOption(option: number): boolean {
+  return option >= 1 && option <= 4;
+}
+
+// Validate weighted vote options sum to 1.0 - CRITICAL FOR TRANSACTION SUCCESS
+function validateWeightedOptions(options: Array<{ option: number; weight: string }>): boolean {
+  const totalWeight = options.reduce((sum, opt) => sum + parseFloat(opt.weight), 0);
+
+  // Check if total weight equals 1.0 (with small tolerance for floating point precision)
+  // Note: Sei governance is strict - even small deviations will cause transaction failure
+  const isValidTotal = Math.abs(totalWeight - 1.0) < 0.000001;
+
+  // Check if all options are valid
+  const allOptionsValid = options.every((opt) => isValidVoteOption(opt.option));
+
+  if (!isValidTotal) {
+    console.error(`Weights sum to ${totalWeight}, but MUST equal exactly 1.0`);
+  }
+
+  return isValidTotal && allOptionsValid;
+}
+
+// Validate proposal JSON structure
+function validateProposalJSON(proposalJSON: string): boolean {
+  try {
+    const proposal = JSON.parse(proposalJSON);
+    return proposal.title && proposal.description && typeof proposal.title === 'string' && typeof proposal.description === 'string' && proposal.title.length > 0 && proposal.description.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+// Check if deposit meets minimum requirement
+function validateDepositAmount(depositAmount: bigint, isExpedited: boolean = false): boolean {
+  const MINIMUM_DEPOSIT = ethers.parseUnits('3500', 18); // 3,500 SEI minimum
+  const EXPEDITED_DEPOSIT = ethers.parseUnits('7000', 18); // 7,000 SEI for expedited
+
+  const requiredAmount = isExpedited ? EXPEDITED_DEPOSIT : MINIMUM_DEPOSIT;
+  return depositAmount >= requiredAmount;
+}
+
+// Check if user has sufficient voting power
+async function checkVotingPower(userAddress: string): Promise<bigint> {
+  // This would typically query staking information
+  // Implementation depends on your specific setup
+  console.log(`Checking voting power for ${userAddress}`);
+  return ethers.parseUnits('0', 18); // Placeholder - implement actual check
+}
+```
 
 ## Step-by-Step Guide: Using the Governance Precompile
 
 ### Submit a Proposal
 
+<Callout type="warning">**Important Deposit Requirements:** - **Minimum deposit:** 3,500 SEI required for proposal to enter voting period - **Expedited processing:** 7,000 SEI enables faster timeline - **Deposit period:** 2 days to meet minimum or proposal fails and deposits are burned - **Multiple deposits:** Anyone can contribute to reach the minimum threshold</Callout>
+
 ```typescript copy
-// Proposal details
-const proposal = {
-  title: 'Increase Staking Rewards',
-  description: 'This proposal aims to increase staking rewards by 2%',
-  type: 'Text', // Optional, defaults to "Text"
-  is_expedited: false // Optional
-};
+async function submitGovernanceProposal(title: string, description: string, depositAmount: bigint, isExpedited: boolean = false): Promise<bigint> {
+  // Validate inputs
+  if (!title || !description) {
+    throw new Error('Title and description are required');
+  }
 
-// Convert to JSON string
-const proposalJSON = JSON.stringify(proposal);
+  if (title.length < 5 || title.length > 200) {
+    throw new Error('Title must be between 5 and 200 characters');
+  }
 
-// Submit with deposit (e.g., 10 SEI)
-const depositAmount = ethers.parseUnits('10', 18);
-const tx = await governance.submitProposal(proposalJSON, { value: depositAmount });
-const receipt = await tx.wait();
+  if (description.length < 20 || description.length > 10000) {
+    throw new Error('Description must be between 20 and 10,000 characters');
+  }
 
-// Get proposal ID from receipt
-const proposalId = receipt.logs[0].args.proposalID;
-console.log('Proposal ID:', proposalId.toString());
+  // Proposal details
+  const proposal = {
+    title: title.trim(),
+    description: description.trim(),
+    type: 'Text',
+    is_expedited: isExpedited
+  };
+
+  // Convert to JSON string and validate
+  const proposalJSON = JSON.stringify(proposal);
+  if (!validateProposalJSON(proposalJSON)) {
+    throw new Error('Invalid proposal JSON structure');
+  }
+
+  // Validate deposit amount
+  if (!validateDepositAmount(depositAmount, isExpedited)) {
+    const required = isExpedited ? '7,000 SEI' : '3,500 SEI';
+    const provided = ethers.formatEther(depositAmount);
+    throw new Error(`Insufficient deposit. Required: ${required}, Provided: ${provided} SEI`);
+  }
+
+  // Check balance before submitting
+  const balance = await provider.getBalance(await signer.getAddress());
+  const totalCost = depositAmount + ethers.parseUnits('0.1', 18); // Add gas buffer
+
+  if (balance < totalCost) {
+    throw new Error(`Insufficient balance. Need ${ethers.formatEther(totalCost)} SEI (including gas)`);
+  }
+
+  try {
+    console.log('Submitting governance proposal...');
+    console.log(`Title: ${title}`);
+    console.log(`Deposit: ${ethers.formatEther(depositAmount)} SEI`);
+    console.log(`Expedited: ${isExpedited}`);
+
+    const tx = await governance.submitProposal(proposalJSON, {
+      value: depositAmount,
+      gasLimit: 500000
+    });
+
+    console.log('Transaction submitted:', tx.hash);
+    console.log('Waiting for confirmation...');
+
+    const receipt = await tx.wait();
+
+    // Extract proposal ID from events
+    let proposalID: bigint | null = null;
+    for (const log of receipt.logs) {
+      try {
+        const parsed = governance.interface.parseLog(log);
+        if (parsed && parsed.name === 'ProposalSubmitted') {
+          proposalID = parsed.args.proposalID;
+          break;
+        }
+      } catch {
+        continue;
+      }
+    }
+
+    if (!proposalID) {
+      throw new Error('Could not extract proposal ID from transaction receipt');
+    }
+
+    console.log('✅ Proposal submitted successfully!');
+    console.log(`Proposal ID: ${proposalID.toString()}`);
+    console.log(`Transaction hash: ${receipt.hash}`);
+    console.log(`View proposal: https://sei.explorers.guru/proposal/${proposalID.toString()}`);
+
+    return proposalID;
+  } catch (error: any) {
+    console.error('Failed to submit proposal:', error);
+
+    if (error.message.includes('insufficient funds')) {
+      throw new Error('Insufficient funds for proposal deposit and gas fees');
+    } else if (error.message.includes('invalid deposit')) {
+      throw new Error('Deposit amount does not meet minimum requirements');
+    } else {
+      throw error;
+    }
+  }
+}
+
+// Usage example
+const proposalTitle = 'Increase Block Size Limit';
+const proposalDescription = `
+This proposal suggests increasing the block size limit from the current value to improve transaction throughput on the Sei network.
+
+## Rationale
+Current network usage patterns show we are approaching capacity limits during peak times. Increasing the block size will:
+
+1. Reduce transaction fees during high usage periods
+2. Improve user experience with faster confirmation times
+3. Support growing ecosystem adoption
+
+## Implementation
+The parameter change would be implemented through the existing governance mechanism with a 2-week transition period.
+
+## Risks
+- Slightly increased hardware requirements for validators
+- Potential centralization concerns (mitigated by current validator distribution)
+
+The benefits significantly outweigh the minimal risks involved.
+`.trim();
+
+const depositAmount = ethers.parseUnits('4000', 18); // 4,000 SEI deposit
+await submitGovernanceProposal(proposalTitle, proposalDescription, depositAmount, false);
 ```
 
 ### Vote on a Proposal
 
 ```typescript copy
-// Simple voting
-const proposalId = 1;
-const voteOption = 1; // Yes
+// Simple voting with comprehensive validation
+async function voteOnProposal(proposalID: bigint, voteOption: number): Promise<void> {
+  // Validate vote option
+  if (!isValidVoteOption(voteOption)) {
+    throw new Error('Invalid vote option. Must be 1 (Yes), 2 (Abstain), 3 (No), or 4 (NoWithVeto)');
+  }
 
-const tx = await governance.vote(proposalId, voteOption);
-const receipt = await tx.wait();
-console.log('Vote cast successfully:', receipt.hash);
+  // Check voting power (implement based on your staking setup)
+  const userAddress = await signer.getAddress();
+  console.log(`Checking voting eligibility for ${userAddress}...`);
+
+  // Verify proposal exists and is in voting period
+  try {
+    // You would typically query proposal status here
+    console.log(`Voting on proposal ${proposalID.toString()}...`);
+
+    const voteOptionNames = {
+      1: 'Yes',
+      2: 'Abstain',
+      3: 'No',
+      4: 'NoWithVeto'
+    };
+
+    console.log(`Vote option: ${voteOptionNames[voteOption as keyof typeof voteOptionNames]}`);
+
+    const tx = await governance.vote(proposalID, voteOption, {
+      gasLimit: 200000
+    });
+
+    console.log('Transaction submitted:', tx.hash);
+    const receipt = await tx.wait();
+
+    console.log('✅ Vote cast successfully!');
+    console.log(`Proposal ID: ${proposalID.toString()}`);
+    console.log(`Vote: ${voteOptionNames[voteOption as keyof typeof voteOptionNames]}`);
+    console.log(`Transaction hash: ${receipt.hash}`);
+    console.log(`View on explorer: https://seitrace.com/tx/${receipt.hash}`);
+  } catch (error: any) {
+    console.error('Failed to cast vote:', error);
+
+    if (error.message.includes('proposal does not exist')) {
+      throw new Error('Proposal does not exist or voting period has ended');
+    } else if (error.message.includes('already voted')) {
+      throw new Error('You have already voted on this proposal');
+    } else if (error.message.includes('insufficient voting power')) {
+      throw new Error('No voting power - you must stake SEI to participate in governance');
+    } else {
+      throw error;
+    }
+  }
+}
+
+// Usage examples
+const proposalID = 1n;
+
+// Vote Yes
+await voteOnProposal(proposalID, 1);
+
+// Vote No with Veto (burns deposit if >33.4% of votes)
+await voteOnProposal(proposalID, 4);
 ```
 
 ### Weighted Voting
 
+<Callout type="error">**Critical Requirement:** Weighted vote options MUST sum to exactly 1.0 or the transaction will fail. The Sei governance module enforces this strictly - even small rounding errors will cause rejection.</Callout>
+
 ```typescript copy
-// Split vote: 70% Yes, 30% Abstain
-const proposalId = 1;
-const weightedOptions = [
-  { option: 1, weight: '0.7' }, // 70% Yes
-  { option: 2, weight: '0.3' } // 30% Abstain
+// Weighted voting with comprehensive validation
+async function castWeightedVote(proposalID: bigint, weightedOptions: Array<{ option: number; weight: string }>): Promise<void> {
+  // Comprehensive validation
+  if (weightedOptions.length === 0) {
+    throw new Error('At least one vote option is required');
+  }
+
+  if (weightedOptions.length > 4) {
+    throw new Error('Cannot have more than 4 vote options');
+  }
+
+  // Validate each option and check for duplicates
+  const seenOptions = new Set<number>();
+  let totalWeight = 0;
+
+  for (const { option, weight } of weightedOptions) {
+    // Validate option
+    if (!isValidVoteOption(option)) {
+      throw new Error(`Invalid vote option: ${option}. Must be 1-4`);
+    }
+
+    // Check for duplicates
+    if (seenOptions.has(option)) {
+      throw new Error(`Duplicate vote option: ${option}`);
+    }
+    seenOptions.add(option);
+
+    // Validate weight
+    const weightNum = parseFloat(weight);
+    if (isNaN(weightNum) || weightNum <= 0 || weightNum > 1) {
+      throw new Error(`Invalid weight: ${weight}. Must be number between 0 and 1`);
+    }
+
+    totalWeight += weightNum;
+  }
+
+  // CRITICAL: Check total weight
+  if (Math.abs(totalWeight - 1.0) > 0.000001) {
+    throw new Error(`CRITICAL: Total weight must equal exactly 1.0, got ${totalWeight.toFixed(6)}. Transaction will fail.`);
+  }
+
+  try {
+    console.log('Casting weighted vote...');
+    console.log(`Proposal ID: ${proposalID.toString()}`);
+    console.log('Vote distribution:');
+
+    const voteOptionNames = { 1: 'Yes', 2: 'Abstain', 3: 'No', 4: 'NoWithVeto' };
+    let totalPercent = 0;
+
+    for (const { option, weight } of weightedOptions) {
+      const percentage = (parseFloat(weight) * 100).toFixed(1);
+      console.log(`  ${percentage}% ${voteOptionNames[option as keyof typeof voteOptionNames]}`);
+      totalPercent += parseFloat(percentage);
+    }
+
+    console.log(`Total: ${totalPercent.toFixed(1)}%`);
+
+    const tx = await governance.voteWeighted(proposalID, weightedOptions, {
+      gasLimit: 300000 // Higher gas limit for weighted voting
+    });
+
+    console.log('Transaction submitted:', tx.hash);
+    const receipt = await tx.wait();
+
+    console.log('✅ Weighted vote cast successfully!');
+    console.log(`Transaction hash: ${receipt.hash}`);
+    console.log(`View on explorer: https://seitrace.com/tx/${receipt.hash}`);
+  } catch (error: any) {
+    console.error('Failed to cast weighted vote:', error);
+
+    if (error.message.includes('weights must sum to 1')) {
+      throw new Error('Vote weights must sum to exactly 1.0. Check your weight calculations.');
+    } else {
+      throw error;
+    }
+  }
+}
+
+// Usage examples
+
+// Example 1: Split decision (60% Yes, 40% Abstain)
+const splitVote = [
+  { option: 1, weight: '0.6' }, // 60% Yes
+  { option: 2, weight: '0.4' } // 40% Abstain
+  // Total: 0.6 + 0.4 = 1.0 ✅
 ];
 
-const tx = await governance.voteWeighted(proposalId, weightedOptions);
-const receipt = await tx.wait();
-console.log('Weighted vote cast successfully:', receipt.hash);
+await castWeightedVote(proposalID, splitVote);
+
+// Example 2: Complex distribution
+const complexVote = [
+  { option: 1, weight: '0.45' }, // 45% Yes
+  { option: 2, weight: '0.25' }, // 25% Abstain
+  { option: 3, weight: '0.20' }, // 20% No
+  { option: 4, weight: '0.10' } // 10% NoWithVeto
+  // Total: 0.45 + 0.25 + 0.20 + 0.10 = 1.0 ✅
+];
+
+await castWeightedVote(proposalID, complexVote);
+
+// Example 3: This would FAIL - weights don't sum to 1.0
+const badVote = [
+  { option: 1, weight: '0.7' },
+  { option: 2, weight: '0.2' }
+  // Total: 0.7 + 0.2 = 0.9 ❌ WILL FAIL
+];
+// await castWeightedVote(proposalID, badVote); // Don't run this!
 ```
 
 ### Deposit to a Proposal
 
 ```typescript copy
-// Deposit additional tokens to meet minimum deposit
-const proposalId = 1;
-const depositAmount = ethers.parseUnits('5', 18); // 5 SEI
+// Add deposit to help proposal reach minimum threshold
+async function addDepositToProposal(proposalID: bigint, depositAmount: bigint): Promise<void> {
+  if (depositAmount <= 0) {
+    throw new Error('Deposit amount must be greater than 0');
+  }
 
-const tx = await governance.deposit(proposalId, { value: depositAmount });
-const receipt = await tx.wait();
-console.log('Deposit successful:', receipt.hash);
+  // Check balance
+  const userAddress = await signer.getAddress();
+  const balance = await provider.getBalance(userAddress);
+  const totalCost = depositAmount + ethers.parseUnits('0.05', 18); // Add gas buffer
+
+  if (balance < totalCost) {
+    throw new Error(`Insufficient balance. Need ${ethers.formatEther(totalCost)} SEI (including gas), ` + `but have ${ethers.formatEther(balance)} SEI`);
+  }
+
+  try {
+    console.log('Adding deposit to proposal...');
+    console.log(`Proposal ID: ${proposalID.toString()}`);
+    console.log(`Deposit amount: ${ethers.formatEther(depositAmount)} SEI`);
+
+    const tx = await governance.deposit(proposalID, {
+      value: depositAmount,
+      gasLimit: 200000
+    });
+
+    console.log('Transaction submitted:', tx.hash);
+    const receipt = await tx.wait();
+
+    console.log('✅ Deposit added successfully!');
+    console.log(`Proposal ID: ${proposalID.toString()}`);
+    console.log(`Amount deposited: ${ethers.formatEther(depositAmount)} SEI`);
+    console.log(`Transaction hash: ${receipt.hash}`);
+    console.log(`View proposal: https://sei.explorers.guru/proposal/${proposalID.toString()}`);
+  } catch (error: any) {
+    console.error('Failed to add deposit:', error);
+
+    if (error.message.includes('proposal does not exist')) {
+      throw new Error('Proposal does not exist');
+    } else if (error.message.includes('deposit period ended')) {
+      throw new Error('Deposit period has ended for this proposal');
+    } else {
+      throw error;
+    }
+  }
+}
+
+// Usage example
+const proposalID = 1n;
+const additionalDeposit = ethers.parseUnits('1000', 18); // 1,000 SEI
+await addDepositToProposal(proposalID, additionalDeposit);
 ```
 
 ## Complete Integration Example
 
-Create a file named `governance-demo.js`:
+Create a comprehensive governance interaction script:
 
 ```javascript copy
-// governance-demo.js
+// governance-mainnet-demo.js
 const { ethers } = require('ethers');
 const { GOVERNANCE_PRECOMPILE_ABI, GOVERNANCE_PRECOMPILE_ADDRESS } = require('@sei-js/evm');
 require('dotenv').config();
 
+// Validation functions
+function isValidVoteOption(option) {
+  return option >= 1 && option <= 4;
+}
+
+function validateWeightedOptions(options) {
+  const totalWeight = options.reduce((sum, opt) => sum + parseFloat(opt.weight), 0);
+  const isValidTotal = Math.abs(totalWeight - 1.0) < 0.000001;
+  const allOptionsValid = options.every((opt) => isValidVoteOption(opt.option));
+  return isValidTotal && allOptionsValid;
+}
+
+function validateProposalJSON(proposalJSON) {
+  try {
+    const proposal = JSON.parse(proposalJSON);
+    return proposal.title && proposal.description && typeof proposal.title === 'string' && typeof proposal.description === 'string' && proposal.title.length > 0 && proposal.description.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+function validateDepositAmount(depositAmount, isExpedited = false) {
+  const MINIMUM_DEPOSIT = ethers.parseUnits('3500', 18); // 3,500 SEI
+  const EXPEDITED_DEPOSIT = ethers.parseUnits('7000', 18); // 7,000 SEI
+  const required = isExpedited ? EXPEDITED_DEPOSIT : MINIMUM_DEPOSIT;
+  return depositAmount >= required;
+}
+
 async function main() {
   try {
-    // Connect to Sei Testnet
-    console.log('Connecting to Sei Testnet...');
-    const provider = new ethers.JsonRpcProvider('https://evm-rpc-testnet.sei-apis.com');
+    // Connect to Sei Mainnet
+    console.log('🌐 Connecting to Sei Mainnet...');
+    const provider = new ethers.JsonRpcProvider('https://evm-rpc.sei-apis.com');
 
     // Use your private key from environment variable
     const privateKey = process.env.PRIVATE_KEY;
@@ -287,97 +687,203 @@ async function main() {
     }
 
     const wallet = new ethers.Wallet(privateKey, provider);
-    console.log('Wallet address:', wallet.address);
+    const userAddress = wallet.address;
+
+    console.log(`👤 Wallet address: ${userAddress}`);
 
     // Check balance
-    const balance = await provider.getBalance(wallet.address);
-    console.log('Wallet balance:', ethers.formatEther(balance), 'SEI\n');
+    const balance = await provider.getBalance(userAddress);
+    const balanceEther = ethers.formatEther(balance);
+    console.log(`💰 Wallet balance: ${balanceEther} SEI\n`);
+
+    // Verify sufficient balance for mainnet governance
+    const minimumRequired = ethers.parseUnits('3600', 18); // 3,600 SEI (3,500 + buffer)
+    if (balance < minimumRequired) {
+      console.log('❌ Insufficient balance for mainnet governance participation');
+      console.log(`   Required: At least 3,600 SEI (3,500 for proposal + 100 buffer)`);
+      console.log(`   Current: ${balanceEther} SEI`);
+      console.log('   Please acquire more SEI tokens from exchanges or DEXs');
+      return;
+    }
 
     // Initialize governance precompile contract
     const governance = new ethers.Contract(GOVERNANCE_PRECOMPILE_ADDRESS, GOVERNANCE_PRECOMPILE_ABI, wallet);
 
-    console.log('=== Governance Precompile Demo ===\n');
+    console.log('🏛️  === Sei Mainnet Governance Demo ===\n');
 
-    // 1. Submit a proposal
-    console.log('1. Submitting a new proposal...');
+    // 1. Submit a governance proposal
+    console.log('1️⃣  Submitting a governance proposal...');
+
     const proposal = {
-      title: 'Test Proposal from EVM',
-      description: 'This is a test proposal submitted through the governance precompile',
+      title: 'Demo: EVM Governance Integration Test',
+      description: `This is a demonstration proposal submitted through the governance precompile to showcase seamless EVM-Cosmos governance integration.
+
+## Purpose
+This proposal demonstrates:
+- EVM smart contract governance participation
+- Cross-environment compatibility
+- Native governance functionality through precompiles
+
+## Technical Details
+- Submitted via governance precompile at ${GOVERNANCE_PRECOMPILE_ADDRESS}
+- Using ethers.js for transaction management
+- Mainnet deployment with real SEI deposits
+
+## Voting Recommendation
+This is a test proposal. Vote according to your preference to test the system.`,
       type: 'Text',
       is_expedited: false
     };
 
     const proposalJSON = JSON.stringify(proposal);
-    const depositAmount = ethers.parseUnits('10', 18); // 10 SEI deposit
+
+    // Validate proposal
+    if (!validateProposalJSON(proposalJSON)) {
+      throw new Error('Invalid proposal JSON structure');
+    }
+
+    // Use mainnet-appropriate deposit
+    const depositAmount = ethers.parseUnits('3500', 18); // Exactly minimum required
+
+    if (!validateDepositAmount(depositAmount)) {
+      throw new Error('Deposit amount insufficient for mainnet');
+    }
 
     try {
+      console.log(`   📋 Title: ${proposal.title}`);
+      console.log(`   💵 Deposit: ${ethers.formatEther(depositAmount)} SEI`);
+      console.log('   🚀 Submitting transaction...');
+
       const submitTx = await governance.submitProposal(proposalJSON, {
         value: depositAmount,
-        gasLimit: 500000
+        gasLimit: 500000,
+        gasPrice: ethers.parseUnits('100', 'gwei') // Set appropriate gas price
       });
 
-      console.log('   Transaction hash:', submitTx.hash);
+      console.log(`   📝 Transaction hash: ${submitTx.hash}`);
+      console.log('   ⏳ Waiting for confirmation...');
+
       const submitReceipt = await submitTx.wait();
 
-      // Extract proposal ID from events
-      const proposalId = submitReceipt.logs[0].args?.proposalID || 1;
-      console.log('   Proposal submitted! ID:', proposalId.toString());
+      // Extract proposal ID safely
+      let proposalID = null;
+      for (const log of submitReceipt.logs) {
+        try {
+          const parsed = governance.interface.parseLog(log);
+          if (parsed && parsed.name === 'ProposalSubmitted') {
+            proposalID = parsed.args.proposalID;
+            break;
+          }
+        } catch {
+          continue;
+        }
+      }
 
-      // 2. Vote on the proposal
-      console.log('\n2. Voting on proposal', proposalId.toString(), '...');
+      if (!proposalID) {
+        console.log('   ⚠️  Could not extract proposal ID. Check transaction manually.');
+        console.log(`   🔗 Transaction: https://seitrace.com/tx/${submitReceipt.hash}`);
+        return;
+      }
+
+      console.log(`   ✅ Proposal submitted successfully!`);
+      console.log(`   🆔 Proposal ID: ${proposalID.toString()}`);
+      console.log(`   🔗 View proposal: https://sei.explorers.guru/proposal/${proposalID.toString()}`);
+
+      // 2. Demonstrate voting
+      console.log(`\n2️⃣  Voting on proposal ${proposalID.toString()}...`);
+
       const voteOption = 1; // Yes
+      const voteNames = { 1: 'Yes', 2: 'Abstain', 3: 'No', 4: 'NoWithVeto' };
 
-      const voteTx = await governance.vote(proposalId, voteOption, {
-        gasLimit: 200000
+      console.log(`   🗳️  Vote option: ${voteNames[voteOption]}`);
+      console.log('   🚀 Submitting vote...');
+
+      const voteTx = await governance.vote(proposalID, voteOption, {
+        gasLimit: 200000,
+        gasPrice: ethers.parseUnits('100', 'gwei')
       });
 
-      console.log('   Transaction hash:', voteTx.hash);
+      console.log(`   📝 Transaction hash: ${voteTx.hash}`);
       await voteTx.wait();
-      console.log('   Vote cast successfully! (Voted: Yes)');
+
+      console.log('   ✅ Vote cast successfully!');
+      console.log(`   🔗 Transaction: https://seitrace.com/tx/${voteTx.hash}`);
 
       // 3. Demonstrate weighted voting
-      console.log('\n3. Casting weighted vote on proposal', proposalId.toString(), '...');
+      console.log(`\n3️⃣  Casting weighted vote on proposal ${proposalID.toString()}...`);
+
       const weightedOptions = [
-        { option: 1, weight: '0.6' }, // 60% Yes
-        { option: 2, weight: '0.3' }, // 30% Abstain
+        { option: 1, weight: '0.7' }, // 70% Yes
+        { option: 2, weight: '0.2' }, // 20% Abstain
         { option: 3, weight: '0.1' } // 10% No
+        // CRITICAL: Total = 0.7 + 0.2 + 0.1 = 1.0 ✅
       ];
 
-      const weightedTx = await governance.voteWeighted(proposalId, weightedOptions, {
-        gasLimit: 250000
+      if (!validateWeightedOptions(weightedOptions)) {
+        throw new Error('CRITICAL: Invalid weighted options - transaction would fail');
+      }
+
+      console.log('   📊 Vote distribution:');
+      weightedOptions.forEach(({ option, weight }) => {
+        const percent = (parseFloat(weight) * 100).toFixed(1);
+        console.log(`      ${percent}% ${voteNames[option]}`);
       });
 
-      console.log('   Transaction hash:', weightedTx.hash);
+      console.log('   🚀 Submitting weighted vote...');
+
+      const weightedTx = await governance.voteWeighted(proposalID, weightedOptions, {
+        gasLimit: 300000,
+        gasPrice: ethers.parseUnits('100', 'gwei')
+      });
+
+      console.log(`   📝 Transaction hash: ${weightedTx.hash}`);
       await weightedTx.wait();
-      console.log('   Weighted vote cast successfully!');
-      console.log('   Vote split: 60% Yes, 30% Abstain, 10% No');
 
-      // 4. Add deposit to proposal
-      console.log('\n4. Adding deposit to proposal', proposalId.toString(), '...');
-      const additionalDeposit = ethers.parseUnits('5', 18); // 5 SEI
+      console.log('   ✅ Weighted vote cast successfully!');
+      console.log(`   🔗 Transaction: https://seitrace.com/tx/${weightedTx.hash}`);
 
-      const depositTx = await governance.deposit(proposalId, {
+      // 4. Add additional deposit
+      console.log(`\n4️⃣  Adding deposit to proposal ${proposalID.toString()}...`);
+
+      const additionalDeposit = ethers.parseUnits('500', 18); // 500 SEI
+
+      console.log(`   💵 Additional deposit: ${ethers.formatEther(additionalDeposit)} SEI`);
+      console.log('   🚀 Submitting deposit...');
+
+      const depositTx = await governance.deposit(proposalID, {
         value: additionalDeposit,
-        gasLimit: 200000
+        gasLimit: 200000,
+        gasPrice: ethers.parseUnits('100', 'gwei')
       });
 
-      console.log('   Transaction hash:', depositTx.hash);
+      console.log(`   📝 Transaction hash: ${depositTx.hash}`);
       await depositTx.wait();
-      console.log('   Additional deposit of 5 SEI added successfully!');
+
+      console.log('   ✅ Additional deposit added successfully!');
+      console.log(`   🔗 Transaction: https://seitrace.com/tx/${depositTx.hash}`);
+
+      // Summary
+      console.log('\n🎉 === Governance Demo Completed Successfully! ===');
+      console.log(`📊 Proposal ID: ${proposalID.toString()}`);
+      console.log(`💰 Total deposited: ${ethers.formatEther(depositAmount.add(additionalDeposit))} SEI`);
+      console.log('🔗 View all governance proposals: https://sei.explorers.guru/proposals');
     } catch (error) {
       if (error.message.includes('insufficient funds')) {
-        console.log('\n⚠️  Insufficient funds for proposal submission');
-        console.log('   Please ensure your wallet has enough SEI for deposits and gas');
+        console.log('\n❌ Insufficient funds for governance participation');
+        console.log('   Ensure you have enough SEI for deposits and gas fees');
+      } else if (error.message.includes('already voted')) {
+        console.log('\n⚠️  You have already voted on this proposal');
       } else {
         throw error;
       }
     }
-
-    console.log('\n✅ Governance demo completed successfully!');
-    console.log('\nNote: You can view your proposals and votes at:');
-    console.log('https://sei.explorers.guru/proposals (for mainnet)');
   } catch (error) {
-    console.error('\nError:', error.message);
+    console.error('\n❌ Error:', error.message);
+    console.log('\n🔧 Troubleshooting tips:');
+    console.log('1. Ensure PRIVATE_KEY is set in .env file');
+    console.log('2. Verify sufficient SEI balance (minimum 3,600 SEI)');
+    console.log('3. Check network connectivity to Sei mainnet');
+    console.log('4. Confirm wallet has staked SEI for voting power');
     process.exit(1);
   }
 }
@@ -391,15 +897,15 @@ main().catch(console.error);
 1. **Create a new directory and initialize npm:**
 
 ```bash copy
-mkdir governance-demo
-cd governance-demo
+mkdir sei-governance-mainnet
+cd sei-governance-mainnet
 npm init -y
 ```
 
 2. **Install dependencies:**
 
 ```bash copy
-npm install ethers @sei-js/evm dotenv
+npm install ethers @sei-js/evm@^2.0.0 dotenv
 ```
 
 3. **Create a `.env` file:**
@@ -409,110 +915,67 @@ PRIVATE_KEY=your_private_key_here
 ```
 
 4. **Create the demo file:**
-   Copy the complete integration example above into `governance-demo.js`
+   Copy the complete integration example above into `governance-mainnet-demo.js`
 
-5. **Run the script:**
+5. **Ensure you have sufficient SEI:**
+
+   - Minimum 3,500 SEI for proposal deposit
+   - Additional SEI for gas fees and optional additional deposits
+   - Staked SEI for voting power
+
+6. **Run the script:**
 
 ```bash copy
-node governance-demo.js
+node governance-mainnet-demo.js
 ```
 
 ### Expected Output
 
-When you run the script, you should see output similar to:
-
 ```
-Connecting to Sei Testnet...
-Wallet address: 0x742d35Cc6634C0532925a3b844Bc6789e065f3B
-Wallet balance: 100.5 SEI
+🌐 Connecting to Sei Mainnet...
+👤 Wallet address: 0x742d35Cc6634C0532925a3b844Bc6789e065f3B
+💰 Wallet balance: 5000.5 SEI
 
-=== Governance Precompile Demo ===
+🏛️  === Sei Mainnet Governance Demo ===
 
-1. Submitting a new proposal...
-   Transaction hash: 0x123...abc
-   Proposal submitted! ID: 42
+1️⃣  Submitting a governance proposal...
+   📋 Title: Demo: EVM Governance Integration Test
+   💵 Deposit: 3500.0 SEI
+   🚀 Submitting transaction...
+   📝 Transaction hash: 0x123...abc
+   ⏳ Waiting for confirmation...
+   ✅ Proposal submitted successfully!
+   🆔 Proposal ID: 42
+   🔗 View proposal: https://sei.explorers.guru/proposal/42
 
-2. Voting on proposal 42 ...
-   Transaction hash: 0x456...def
-   Vote cast successfully! (Voted: Yes)
+2️⃣  Voting on proposal 42...
+   🗳️  Vote option: Yes
+   🚀 Submitting vote...
+   📝 Transaction hash: 0x456...def
+   ✅ Vote cast successfully!
+   🔗 Transaction: https://seitrace.com/tx/0x456...def
 
-3. Casting weighted vote on proposal 42 ...
-   Transaction hash: 0x789...ghi
-   Weighted vote cast successfully!
-   Vote split: 60% Yes, 30% Abstain, 10% No
+3️⃣  Casting weighted vote on proposal 42...
+   📊 Vote distribution:
+      70.0% Yes
+      20.0% Abstain
+      10.0% No
+   🚀 Submitting weighted vote...
+   📝 Transaction hash: 0x789...ghi
+   ✅ Weighted vote cast successfully!
+   🔗 Transaction: https://seitrace.com/tx/0x789...ghi
 
-4. Adding deposit to proposal 42 ...
-   Transaction hash: 0xabc...123
-   Additional deposit of 5 SEI added successfully!
+4️⃣  Adding deposit to proposal 42...
+   💵 Additional deposit: 500.0 SEI
+   🚀 Submitting deposit...
+   📝 Transaction hash: 0xabc...123
+   ✅ Additional deposit added successfully!
+   🔗 Transaction: https://seitrace.com/tx/0xabc...123
 
-✅ Governance demo completed successfully!
-
-Note: You can view your proposals and votes at:
-https://sei.explorers.guru/proposals (for mainnet)
-```
-
-## Advanced Usage Example
-
-### Governance Manager Contract
-
-Create a smart contract that manages governance participation:
-
-```solidity copy
-// GovernanceManager.sol
-pragma solidity ^0.8.0;
-
-interface IGovernance {
-    struct WeightedVoteOption {
-        int32 option;
-        string weight;
-    }
-
-    function vote(uint64 proposalID, int32 option) external returns (bool);
-    function voteWeighted(uint64 proposalID, WeightedVoteOption[] calldata options) external returns (bool);
-    function deposit(uint64 proposalID) external payable returns (bool);
-    function submitProposal(string calldata proposalJSON) external payable returns (uint64);
-}
-
-contract GovernanceManager {
-    IGovernance constant GOVERNANCE = IGovernance(0x0000000000000000000000000000000000001006);
-
-    mapping(address => bool) public members;
-    address public admin;
-
-    constructor() {
-        admin = msg.sender;
-    }
-
-    modifier onlyMember() {
-        require(members[msg.sender] || msg.sender == admin, "Not a member");
-        _;
-    }
-
-    function addMember(address member) external {
-        require(msg.sender == admin, "Only admin");
-        members[member] = true;
-    }
-
-    // Collective voting function
-    function collectiveVote(uint64 proposalID, int32 option) external onlyMember {
-        bool success = GOVERNANCE.vote(proposalID, option);
-        require(success, "Vote failed");
-    }
-
-    // Submit proposal with automatic deposit collection
-    function submitCollectiveProposal(
-        string calldata title,
-        string calldata description
-    ) external payable onlyMember returns (uint64) {
-        string memory proposalJSON = string(abi.encodePacked(
-            '{"title":"', title,
-            '","description":"', description,
-            '","type":"Text"}'
-        ));
-
-        return GOVERNANCE.submitProposal{value: msg.value}(proposalJSON);
-    }
-}
+🎉 === Governance Demo Completed Successfully! ===
+📊 Proposal ID: 42
+💰 Total deposited: 4000.0 SEI
+🔗 View all governance proposals: https://sei.explorers.guru/proposals
 ```
 
 ## Troubleshooting
@@ -522,49 +985,160 @@ contract GovernanceManager {
 #### Insufficient Deposit
 
 ```typescript copy
-// Check minimum deposit requirement before submitting
-const MIN_DEPOSIT = ethers.parseUnits('10', 18); // 10 SEI typical minimum
+// Check minimum deposit requirement based on proposal type
+const MINIMUM_DEPOSIT = ethers.parseUnits('3500', 18); // 3,500 SEI minimum
+const EXPEDITED_DEPOSIT = ethers.parseUnits('7000', 18); // 7,000 SEI for expedited
 
-if (depositAmount < MIN_DEPOSIT) {
-  console.log('Deposit too low. Minimum required:', ethers.formatEther(MIN_DEPOSIT));
+function checkDepositRequirement(depositAmount: bigint, isExpedited: boolean = false): void {
+  const requiredAmount = isExpedited ? EXPEDITED_DEPOSIT : MINIMUM_DEPOSIT;
+  const networkName = 'mainnet';
+
+  if (depositAmount < requiredAmount) {
+    const required = ethers.formatEther(requiredAmount);
+    const provided = ethers.formatEther(depositAmount);
+    throw new Error(`Deposit too low for ${networkName}${isExpedited ? ' (expedited)' : ''}. Required: ${required} SEI, Provided: ${provided} SEI`);
+  }
+}
+```
+
+#### No Voting Power
+
+```typescript copy
+// Check if user has staked SEI for voting power
+async function checkVotingEligibility(userAddress: string): Promise<void> {
+  console.log('Checking voting eligibility...');
+
+  // Note: You would typically integrate with staking queries here
+  // This is a placeholder for the actual implementation
+
+  console.log('⚠️  Reminder: You must have staked SEI to participate in governance voting');
+  console.log('   Liquid SEI does not provide voting power');
+  console.log('   Delegate your SEI to validators to gain voting power');
+  console.log('   Visit: https://app.sei.io/stake to stake your tokens');
 }
 ```
 
 #### Invalid Vote Option
 
 ```typescript copy
-// Validate vote option
-function isValidVoteOption(option) {
-  return option >= 1 && option <= 4;
-}
+// Validate vote option with descriptive error
+function validateVoteOptionWithDescription(option: number): void {
+  const voteOptions = {
+    1: 'Yes - Vote in favor of the proposal',
+    2: 'Abstain - Neutral vote that counts toward quorum',
+    3: 'No - Vote against the proposal',
+    4: 'NoWithVeto - Strong opposition that can burn deposits'
+  };
 
-const voteOption = 5; // Invalid
-if (!isValidVoteOption(voteOption)) {
-  console.error('Invalid vote option. Must be 1-4');
+  if (!(option in voteOptions)) {
+    const validOptions = Object.entries(voteOptions)
+      .map(([key, value]) => `${key}: ${value}`)
+      .join('\n');
+
+    throw new Error(`Invalid vote option: ${option}\n\nValid options:\n${validOptions}`);
+  }
+}
+```
+
+#### Weighted Vote Validation
+
+```typescript copy
+// Comprehensive weighted vote validation with helpful errors
+function validateWeightedVoteComprehensive(options: Array<{ option: number; weight: string }>): void {
+  if (options.length === 0) {
+    throw new Error('At least one vote option is required');
+  }
+
+  if (options.length > 4) {
+    throw new Error('Cannot have more than 4 vote options');
+  }
+
+  let totalWeight = 0;
+  const seenOptions = new Set<number>();
+  const voteOptionNames = { 1: 'Yes', 2: 'Abstain', 3: 'No', 4: 'NoWithVeto' };
+
+  for (let i = 0; i < options.length; i++) {
+    const { option, weight } = options[i];
+
+    // Validate option
+    if (option < 1 || option > 4 || !Number.isInteger(option)) {
+      throw new Error(
+        `Invalid vote option at index ${i}: ${option}. Must be integer 1-4\n` +
+          `Valid options: ${Object.entries(voteOptionNames)
+            .map(([k, v]) => `${k}=${v}`)
+            .join(', ')}`
+      );
+    }
+
+    // Check for duplicate options
+    if (seenOptions.has(option)) {
+      throw new Error(`Duplicate vote option: ${option} (${voteOptionNames[option as keyof typeof voteOptionNames]})\n` + `Each vote option can only be used once`);
+    }
+    seenOptions.add(option);
+
+    // Validate weight
+    const weightNum = parseFloat(weight);
+    if (isNaN(weightNum)) {
+      throw new Error(`Invalid weight at index ${i}: "${weight}" is not a valid number`);
+    }
+
+    if (weightNum <= 0) {
+      throw new Error(`Invalid weight at index ${i}: ${weight}. Weight must be greater than 0`);
+    }
+
+    if (weightNum > 1) {
+      throw new Error(`Invalid weight at index ${i}: ${weight}. Weight cannot exceed 1.0`);
+    }
+
+    totalWeight += weightNum;
+  }
+
+  // Check total weight - CRITICAL for transaction success
+  if (Math.abs(totalWeight - 1.0) > 0.000001) {
+    const weightSummary = options.map(({ option, weight }) => `${voteOptionNames[option as keyof typeof voteOptionNames]}: ${weight}`).join(', ');
+
+    throw new Error(`CRITICAL: Total weight must equal exactly 1.0, got ${totalWeight.toFixed(6)}\n` + `Current weights: ${weightSummary}\n` + `Sum: ${totalWeight.toFixed(6)}\n` + `Transaction will fail if weights don't sum to 1.0`);
+  }
 }
 ```
 
 ### Error Code Reference
 
-| Error                     | Cause                     | Solution                        |
-| ------------------------- | ------------------------- | ------------------------------- |
-| `proposal does not exist` | Invalid proposal ID       | Verify proposal ID exists       |
-| `inactive proposal`       | Voting period ended       | Check proposal status           |
-| `insufficient deposit`    | Deposit below minimum     | Increase deposit amount         |
-| `invalid vote option`     | Vote option not 1-4       | Use valid vote option           |
-| `already voted`           | Already voted on proposal | Can only vote once per proposal |
+| Error                       | Cause                                   | Solution                                                     |
+| --------------------------- | --------------------------------------- | ------------------------------------------------------------ |
+| `proposal does not exist`   | Invalid proposal ID or proposal expired | Verify proposal ID and check if voting period is active      |
+| `inactive proposal`         | Voting/deposit period ended             | Check proposal status and timeline                           |
+| `insufficient deposit`      | Deposit below 3,500 SEI                 | Increase deposit to minimum required amount                  |
+| `invalid vote option`       | Vote option not 1-4                     | Use valid vote option (1=Yes, 2=Abstain, 3=No, 4=NoWithVeto) |
+| `already voted`             | Already voted on proposal               | Each address can only vote once per proposal                 |
+| **`weights must sum to 1`** | **Weighted votes don't sum to 1.0**     | **CRITICAL:** Ensure weights sum to exactly 1.0              |
+| `insufficient voting power` | No staked SEI                           | Delegate SEI to validators for voting power                  |
+| `deposit period ended`      | Cannot add deposits anymore             | Deposit period is only 2 days after submission               |
 
 ## Important Notes
 
 <Callout type="warning">
-**Key Considerations:**
+**Critical Mainnet Considerations:**
 
-- **Minimum Deposit:** Proposals require a minimum deposit (usually 10 SEI on testnet)
-- **Vote Options:** Must be integers 1-4 (Yes, Abstain, No, NoWithVeto)
-- **Weighted Votes:** Weights must sum to exactly 1.0
-- **One Vote Per Address:** Each address can only vote once per proposal
-- **Proposal Types:** "Text" is the default type for general proposals
+- **High Stakes:** Mainnet governance involves real SEI tokens and binding decisions
+- **Minimum Deposit:** 3,500 SEI minimum (approximately $3,500+ USD at current prices)
+- **Deposit Risk:** Deposits can be burned if proposal receives >33.4% NoWithVeto votes
+- **Irreversible Votes:** Once cast, votes cannot be changed
+- **Voting Power Required:** Must stake SEI with validators to participate
+- **Time Limits:** Strict 2-day deposit period and 5-day voting period
+- **Real Impact:** Successful proposals change network parameters and protocols
 
 </Callout>
 
-<Callout type="info">**Need Help?** If you encounter issues not covered here, check the [Sei Discord](https://discord.gg/sei) or [GitHub repository](https://github.com/sei-protocol/sei-chain) for community support.</Callout>
+<Callout type="info">**Deposit Requirements Source:** These amounts are confirmed in the [official Sei governance documentation](https://docs.sei.io/learn/general-governance), which states that the minimum deposit is 3,500 SEI with an expedited threshold of 7,000 SEI.</Callout>
+
+<Callout type="info">
+
+**Need Help?** If you encounter issues:
+
+- **Discord:** [Sei Community Discord](https://discord.gg/sei)
+- **Documentation:** [Official Sei Docs](https://docs.sei.io)
+- **GitHub:** [Sei Protocol Repository](https://github.com/sei-protocol/sei-chain)
+- **Explorer:** [View Proposals on Sei Explorer](https://sei.explorers.guru/proposals)
+
+</Callout>
