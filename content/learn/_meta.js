@@ -56,10 +56,7 @@ export default {
 		title: 'Governance'
 	},
 	'general-governance': 'Overview',
-	'governance-developers': 'Developer Guide',
-	'governance-proposal-types': 'Proposal Types',
-	'governance-api-reference': 'API Reference',
-	proposals: 'CLI Commands',
+	proposals: 'Proposals',
 	'general-staking': 'Staking',
 
 	'-- Interoperability': {
