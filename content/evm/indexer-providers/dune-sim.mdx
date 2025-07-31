@@ -1,0 +1,588 @@
+---
+title: 'Sim by Dune'
+description: 'Learn how to integrate Sim by Dune real-time multichain indexing services with Sei network for blockchain data analysis and application development.'
+keywords: ['sim', 'dune', 'blockchain indexing', 'api integration', 'real-time data', 'sei network']
+---
+
+import { Callout } from 'nextra/components';
+
+## Overview
+
+Sim by Dune is a real-time, multichain developer platform that provides scalable APIs and indexing infrastructure for building onchain applications. It offers the fastest way to access live blockchain data across 60+ chains, including Sei, with zero DevOps overhead. In this tutorial, you'll learn how to set up Sim, build your first data pipeline, and create powerful onchain applications on Sei.
+
+To understand more and deep dive into how it works under the hood, please refer to the [Sim by Dune Documentation](https://docs.sim.dune.com/)
+
+## What this guide teaches you:
+
+This tutorial guides you through:
+
+- **Setup**: Get your Sim API key, install dependencies, and connect to Sei
+- **Core APIs**: Learn to use all 6 Sim APIs with practical examples
+- **End-to-End Examples**: You'll run practical code to:
+  - Fetch Sei token balances with USD values
+  - Monitor wallet transactions and activity
+  - Get token metadata and holder information
+  - Track NFT collections and metadata
+- **Production Ready**: Error handling, rate limiting, and monitoring
+
+## Some Use Cases:
+
+- **DeFi Analytics Platforms**: Real-time tracking of liquidity, volumes, and yields across Sei protocols
+- **Portfolio Trackers**: Multi-chain portfolio management with Sei integration
+- **Trading Bots**: Automated trading based on real-time onchain signals
+- **Risk Management**: Monitor positions and liquidation risks across protocols
+- **Governance Tools**: Track voting power and proposal activity
+- **MEV Analysis**: Detect and analyze MEV opportunities on Sei
+
+## Supported APIs
+
+Sim by Dune provides access to comprehensive EVM blockchain data through these core APIs:
+
+### Balances API
+
+- **Features:** All EVM token balances for a wallet or address, ordered by USD value
+- **Use cases:** Portfolio trackers, wallet applications, asset management dashboards
+
+### Transactions API
+
+- **Features:** Quick and accurate lookup of EVM transactions associated with any address
+- **Use cases:** Transaction monitoring, compliance tools, activity tracking
+
+### Token Info API
+
+- **Features:** Metadata including symbol, name, decimals, supply information, logo URLs, and realtime prices
+- **Use cases:** Token discovery, price tracking, market analysis
+
+### Token Holders API
+
+- **Features:** Holders of an ERC20 token, sorted by balance
+- **Use cases:** Governance analysis, token distribution studies, whale tracking
+
+### Activity API
+
+- **Features:** Derived activities including swaps, transfers, and approvals within transactions for any address
+- **Use cases:** DeFi analytics, trading analysis, user behavior tracking
+
+### Collectibles API
+
+- **Features:** All NFT (ERC721 and ERC1155) balances, including IDs and metadata
+- **Use cases:** NFT marketplaces, collection analytics, digital asset management
+
+## Quick Start
+
+### 1. Getting Your API Key
+
+To use Sim APIs, you'll need an API key from the Sim dashboard:
+
+1. **Visit Sim Dashboard**: Go to [sim.dune.com](https://sim.dune.com)
+2. **Sign Up/Login**: Create an account or login with your existing Dune account
+3. **Navigate to Keys**: In the left sidebar, click on "Keys"
+4. **Create New Key**: Click the "New" button to generate a new API key
+5. **Select API Type**: Choose "Sim API" as the key's purpose
+6. **Copy Your Key**: Save the generated API key securely
+
+<Callout type="warning">**Security Notes:** - Never share your API key in public repositories - Keep your API keys secure and rotate them regularly - Use environment variables to store your keys</Callout>
+
+### 2. Project Setup
+
+```bash copy
+mkdir sei-sim-tutorial
+cd sei-sim-tutorial
+npm init -y
+npm install axios dotenv
+```
+
+Create `.env` file:
+
+```env copy
+SIM_API_KEY=your_sim_api_key_here
+SEI_RPC_URL=https://evm-rpc.sei-apis.com
+TEST_WALLET_ADDRESS=0x...your_test_address
+```
+
+### 3. Your First API Call
+
+Create `index.js`:
+
+```javascript copy
+require('dotenv').config();
+const axios = require('axios');
+
+const SIM_API_BASE = 'https://api.sim.dune.com/v1';
+
+const headers = {
+  'X-Sim-Api-Key': process.env.SIM_API_KEY,
+  'Content-Type': 'application/json'
+};
+
+async function getSeiBalances() {
+  try {
+    console.log('🔍 Fetching Sei balances...');
+    console.log(`Using wallet address: ${process.env.TEST_WALLET_ADDRESS}`);
+
+    const response = await axios.get(`${SIM_API_BASE}/evm/balances/${process.env.TEST_WALLET_ADDRESS}?chain_ids=1329`, { headers });
+
+    const seiBalances = response.data.balances.filter((balance) => balance.chain === 'sei');
+
+    console.log('💰 Sei Balances:');
+    seiBalances.forEach((balance) => {
+      console.log(`  ${balance.symbol}: ${balance.amount} (${balance.value_usd} USD)`);
+    });
+  } catch (error) {
+    console.error('❌ Error fetching balances:', error.response?.data || error.message);
+  }
+}
+
+// Run the function
+getSeiBalances();
+```
+
+Run your first query:
+
+```bash copy
+node index.js
+```
+
+**Expected Output:**
+
+```
+🔍 Fetching Sei balances...
+💰 Sei Balances:
+  SEI: 1250.5 (3125.25 USD)
+  USDC: 500.0 (500.0 USD)
+```
+
+## API Examples
+
+### Balances API - Get Token Balances
+
+```javascript copy
+async function getSeiBalances() {
+  try {
+    const response = await axios.get(`${SIM_API_BASE}/evm/balances/${process.env.TEST_WALLET_ADDRESS}?chain_ids=1329`, { headers });
+
+    const seiBalances = response.data.balances.filter((balance) => balance.chain === 'sei');
+
+    console.log('💰 Sei Balances:');
+    seiBalances.forEach((balance) => {
+      console.log(`  ${balance.symbol}: ${balance.amount} (${balance.value_usd} USD)`);
+    });
+  } catch (error) {
+    console.error('❌ Error fetching balances:', error.response?.data || error.message);
+  }
+}
+```
+
+### Transactions API - Monitor Wallet Transactions
+
+```javascript copy
+async function monitorSeiTransactions(address) {
+  try {
+    console.log(`📡 Monitoring transactions for ${address}...`);
+
+    const response = await axios.get(`${SIM_API_BASE}/evm/transactions/${address}`, {
+      headers,
+      params: {
+        chain: 'sei',
+        limit: 10
+      }
+    });
+
+    const transactions = response.data.transactions;
+
+    console.log('🔄 Recent Transactions:');
+    transactions.forEach((tx) => {
+      console.log(`  Hash: ${tx.hash}`);
+      console.log(`  From: ${tx.from} → To: ${tx.to}`);
+      console.log(`  Value: ${tx.value} SEI`);
+      console.log(`  Gas Used: ${tx.gas_used}`);
+      console.log(`  Status: ${tx.success}`);
+      console.log('  ---');
+    });
+  } catch (error) {
+    console.error('❌ Error monitoring transactions:', error.message);
+  }
+}
+```
+
+### Token Info API - Get Token Metadata
+
+```javascript copy
+async function getTokenInfo(tokenAddress) {
+  try {
+    console.log('🏷️ Fetching token information...');
+
+    const response = await axios.get(`${SIM_API_BASE}/evm/token-info/${tokenAddress}?chain_ids=1329`, { headers });
+    const tokenInfo = response.data.tokens[0];
+
+    console.log('📝 Token Information:');
+    console.log(`  Name: ${tokenInfo.name}`);
+    console.log(`  Symbol: ${tokenInfo.symbol}`);
+    console.log(`  Decimals: ${tokenInfo.decimals}`);
+    console.log(`  Total Supply: ${tokenInfo.total_supply}`);
+    console.log(`  Current Price: ${tokenInfo.price_usd}`);
+    console.log(`  Logo: ${tokenInfo.logo}`);
+
+    return tokenInfo;
+  } catch (error) {
+    console.error('❌ Error fetching token info:', error.message);
+  }
+}
+
+// Example usage with USDC address
+getTokenInfo('0xe15fC38F6D8c56aF07bbCBe3BAf5708A2Bf42392');
+```
+
+### Token Holders API - Find Top Holders
+
+```javascript copy
+async function getTokenHolders(tokenAddress, limit = 20) {
+  try {
+    console.log('👥 Fetching token holders...');
+
+    const response = await axios.get(`${SIM_API_BASE}/evm/token-holders/1329/${tokenAddress}`, {
+      headers,
+      params: { limit }
+    });
+
+    const holders = response.data.holders;
+    console.log(`🏆 Top ${holders.length} holders:`);
+    holders.forEach((holder, index) => {
+      console.log(`${index + 1}. ${holder.wallet_address}`);
+      console.log(`   Balance: ${parseFloat(holder.balance)}`);
+      console.log(`   First Acquired: ${holder.first_acquired}`);
+      console.log('   ---');
+    });
+
+    return holders;
+  } catch (error) {
+    console.error('❌ Error fetching token holders:', error.message);
+  }
+}
+```
+
+### Activity API - Track Swaps and Transfers
+
+```javascript copy
+async function getWalletActivity(walletAddress, limit = 10) {
+  try {
+    console.log('⚡ Fetching wallet activity on Sei...');
+
+    const response = await axios.get(`${SIM_API_BASE}/evm/activity/${walletAddress}?chain_ids=1329`, {
+      headers,
+      params: { limit }
+    });
+
+    const activities = response.data.activity;
+
+    console.log(`📊 Recent activities (${activities.length}):`);
+    activities.forEach((activity, index) => {
+      console.log(`${index + 1}. Type: ${activity.type.toUpperCase()}`);
+      console.log(`   Hash: ${activity.tx_hash}`);
+      console.log(`   Time: ${new Date(activity.block_time).toLocaleString()}`);
+
+      if (activity.type === 'receive' && activity.asset_type === 'erc20') {
+        console.log(`   Received: ${activity.value} ${activity.token_metadata?.symbol}`);
+        console.log(`   From: ${activity.from}`);
+      }
+
+      console.log('   ---');
+    });
+
+    return activities;
+  } catch (error) {
+    console.error('❌ Error fetching activity:', error.message);
+  }
+}
+```
+
+### Collectibles API - Get NFT Collections
+
+```javascript copy
+async function getNFTCollections(walletAddress) {
+  try {
+    console.log('🖼️ Fetching NFT collections...');
+
+    const response = await axios.get(`${SIM_API_BASE}/evm/collectibles/${walletAddress}?chain_ids=1329`, { headers });
+
+    const collectibles = response.data.entries;
+
+    console.log(`🎨 NFT Collections (${collectibles.length}):`);
+
+    // Group by collection
+    const collections = {};
+    collectibles.forEach((nft) => {
+      if (!collections[nft.contract_address]) {
+        collections[nft.contract_address] = {
+          name: nft.collection_name,
+          items: []
+        };
+      }
+      collections[nft.contract_address].items.push(nft);
+    });
+
+    Object.entries(collections).forEach(([address, collection]) => {
+      console.log(`📚 ${collection.name} (${collection.items.length} items)`);
+      console.log(`   Contract: ${address}`);
+
+      collection.items.slice(0, 3).forEach((nft) => {
+        console.log(`   • Token ID: ${nft.token_id}`);
+        console.log(`     Name: ${nft.name || 'Unnamed'}`);
+        console.log(`     Image: ${nft.image_url || 'No image'}`);
+      });
+
+      if (collection.items.length > 3) {
+        console.log(`   ... and ${collection.items.length - 3} more`);
+      }
+      console.log('   ---');
+    });
+
+    return collectibles;
+  } catch (error) {
+    console.error('❌ Error fetching NFTs:', error.message);
+  }
+}
+```
+
+## Advanced Use Cases
+
+### Portfolio Analytics Dashboard
+
+```javascript copy
+require('dotenv').config();
+const axios = require('axios');
+
+const SIM_API_BASE = 'https://api.sim.dune.com/v1';
+
+const headers = {
+  'X-Sim-Api-Key': process.env.SIM_API_KEY,
+  'Content-Type': 'application/json'
+};
+
+async function buildAdvancedPortfolio(walletAddress) {
+  try {
+    console.log('📊 Building advanced portfolio analytics...');
+
+    // Get all data in parallel for better performance
+    const [balancesRes, transactionsRes, activityRes, nftsRes] = await Promise.all([
+      axios.get(`${SIM_API_BASE}/evm/balances/${walletAddress}?chain_ids=1329`, { headers }),
+      axios.get(`${SIM_API_BASE}/evm/transactions/${walletAddress}`, {
+        headers,
+        params: { limit: 50, chain: 'sei' }
+      }),
+      axios.get(`${SIM_API_BASE}/evm/activity/${walletAddress}?chain_ids=1329`, {
+        headers,
+        params: { limit: 50 }
+      }),
+      axios.get(`${SIM_API_BASE}/evm/collectibles/${walletAddress}?chain_ids=1329`, { headers })
+    ]);
+
+    const balances = balancesRes.data.balances;
+    const transactions = transactionsRes.data.transactions;
+    const activities = activityRes.data.activity;
+    const nfts = nftsRes.data.entries;
+
+    // Calculate comprehensive metrics
+    const totalValue = balances.reduce((sum, asset) => sum + parseFloat(asset.value_usd || 0), 0);
+    const seiAssets = balances.filter((b) => b.chain === 'sei');
+    const seiValue = seiAssets.reduce((sum, asset) => sum + parseFloat(asset.value_usd || 0), 0);
+
+    console.log('💼 Advanced Portfolio Analytics:');
+    console.log(`  Total Portfolio Value: $${totalValue.toFixed(2)}`);
+    console.log(`  Sei Network Value: $${seiValue.toFixed(2)} (${((seiValue / totalValue) * 100).toFixed(1)}%)`);
+    console.log(`  Total Assets: ${balances.length} tokens`);
+    console.log(`  NFT Collections: ${new Set(nfts.map((n) => n.contract_address)).size}`);
+    console.log(`  Total NFTs: ${nfts.length}`);
+
+    return { totalValue, seiValue, balances, transactions, activities, nfts };
+  } catch (error) {
+    console.error('❌ Portfolio analytics error:', error.message);
+  }
+}
+```
+
+### Token Analysis Tool
+
+```javascript
+require('dotenv').config();
+const axios = require('axios');
+
+const SIM_API_BASE = 'https://api.sim.dune.com/v1';
+
+const headers = {
+  'X-Sim-Api-Key': process.env.SIM_API_KEY,
+  'Content-Type': 'application/json'
+};
+
+async function analyzeToken(tokenAddress) {
+  try {
+    console.log(`🔍 Analyzing token: ${tokenAddress}`);
+
+    // Get comprehensive token data
+    const [infoRes, holdersRes] = await Promise.all([
+      axios.get(`${SIM_API_BASE}/evm/token-info/${tokenAddress}?chain_ids=1329`, { headers }),
+      axios.get(`${SIM_API_BASE}/evm/token-holders/1329/${tokenAddress}`, {
+        headers,
+        params: { limit: 100 }
+      })
+    ]);
+
+    const tokenInfo = infoRes.data.tokens[0];
+    const holders = holdersRes.data.holders;
+
+    // Calculate holder distribution
+    const totalSupply = parseFloat(tokenInfo.total_supply);
+    const holderAnalysis = {
+      whales: holders.filter((h) => parseFloat(h.balance) / totalSupply > 0.01).length, // >1%
+      large: holders.filter((h) => {
+        const pct = parseFloat(h.balance) / totalSupply;
+        return pct > 0.001 && pct <= 0.01; // 0.1% - 1%
+      }).length,
+      medium: holders.filter((h) => {
+        const pct = parseFloat(h.balance) / totalSupply;
+        return pct > 0.0001 && pct <= 0.001; // 0.01% - 0.1%
+      }).length
+    };
+
+    // Top holder concentration
+    const top10Concentration = holders.slice(0, 10).reduce((sum, holder) => sum + parseFloat(holder.balance) / totalSupply, 0) * 100;
+
+    console.log('📊 Token Analysis Results:');
+    console.log(`  Name: ${tokenInfo.name} (${tokenInfo.symbol})`);
+    console.log(`  Price: ${tokenInfo.price_usd}`);
+    console.log(`  Total Supply: ${parseFloat(tokenInfo.total_supply).toLocaleString()}`);
+    console.log(`  Total Holders: ${holders.length}`);
+    console.log(`  Whales (>1%): ${holderAnalysis.whales}`);
+    console.log(`  Large Holders (0.1-1%): ${holderAnalysis.large}`);
+    console.log(`  Medium Holders (0.01-0.1%): ${holderAnalysis.medium}`);
+    console.log(`  Top 10 Concentration: ${top10Concentration.toFixed(2)}%`);
+
+    return { tokenInfo, holders, holderAnalysis };
+  } catch (error) {
+    console.error('❌ Token analysis failed:', error.message);
+  }
+}
+// Run the function with a sample token address
+analyzeToken('0xe15fC38F6D8c56aF07bbCBe3BAf5708A2Bf42392'); // USDC address
+```
+
+## Error Handling & Best Practices
+
+### Comprehensive Error Handling
+
+```javascript copy
+class SimAPIClient {
+  constructor(apiKey) {
+    this.apiKey = apiKey;
+    this.baseURL = 'https://api.sim.dune.com/v1';
+    this.headers = {
+      'X-Sim-Api-Key': apiKey,
+      'Content-Type': 'application/json'
+    };
+  }
+
+  async makeRequest(endpoint, params = {}) {
+    const maxRetries = 3;
+    let retries = 0;
+
+    while (retries < maxRetries) {
+      try {
+        const response = await axios.get(`${this.baseURL}${endpoint}`, {
+          headers: this.headers,
+          params,
+          timeout: 10000 // 10 second timeout
+        });
+
+        return response.data;
+      } catch (error) {
+        retries++;
+
+        // Handle specific error types
+        if (error.response?.status === 429) {
+          console.log(`⏳ Rate limit hit. Waiting ${retries * 2} seconds...`);
+          await this.sleep(retries * 2000);
+          continue;
+        }
+
+        if (error.response?.status === 500 && retries < maxRetries) {
+          console.log(`🔄 Server error. Retrying (${retries}/${maxRetries})...`);
+          await this.sleep(1000);
+          continue;
+        }
+
+        console.error('❌ API Error:', {
+          status: error.response?.status,
+          message: error.response?.data?.message || error.message,
+          endpoint: endpoint
+        });
+
+        throw error;
+      }
+    }
+  }
+
+  sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+}
+```
+
+### Rate Limiting
+
+```javascript copy
+class RateLimitedClient {
+  constructor(apiKey, requestsPerSecond = 10) {
+    this.client = new SimAPIClient(apiKey);
+    this.requestsPerSecond = requestsPerSecond;
+    this.lastRequest = 0;
+  }
+
+  async throttledRequest(endpoint, params) {
+    const now = Date.now();
+    const timeSinceLastRequest = now - this.lastRequest;
+    const minInterval = 1000 / this.requestsPerSecond;
+
+    if (timeSinceLastRequest < minInterval) {
+      await new Promise((resolve) => setTimeout(resolve, minInterval - timeSinceLastRequest));
+    }
+
+    this.lastRequest = Date.now();
+    return this.client.makeRequest(endpoint, params);
+  }
+}
+```
+
+## Troubleshooting
+
+| Issue                    | Cause                    | Solution                      |
+| ------------------------ | ------------------------ | ----------------------------- |
+| "Invalid API key"        | Wrong or expired key     | Check API key in dashboard    |
+| "Rate limit exceeded"    | Too many requests        | Implement exponential backoff |
+| "Chain not supported"    | Using unsupported chain  | Check supported chains list   |
+| "Invalid address format" | Malformed wallet address | Validate address format       |
+| "Request timeout"        | Network issues           | Increase timeout, add retries |
+| "Insufficient data"      | New address/contract     | Wait for indexing to complete |
+
+## Resources
+
+### Official Documentation
+
+- **Sim Documentation**: [https://docs.sim.dune.com](https://docs.sim.dune.com)
+- **Sim Dashboard**: [https://sim.dune.com](https://sim.dune.com)
+- **Sei Documentation**: [https://docs.sei.io](https://docs.sei.io)
+- **Sei Explorer**: [https://seitrace.com](https://seitrace.com)
+
+### Community Resources
+
+- **Dune Discord**: [https://discord.gg/dune](https://discord.gg/dune)
+- **Sei Discord**: [https://discord.gg/sei](https://discord.gg/sei)
+
+## Next Steps
+
+1. **Scale Your Application**: Implement caching, database storage, and horizontal scaling
+2. **Build a Frontend**: Create React/Vue.js dashboards to visualize your data
+3. **Advanced Analytics**: Implement machine learning for predictive analytics
+4. **Custom Indexers**: Build specialized data pipelines for specific protocols
+5. **API Integration**: Connect with other services like price feeds, news APIs
+
+The combination of Sei's high-performance blockchain and Sim's real-time data infrastructure opens up endless possibilities for innovative onchain applications. Start building today and join the growing ecosystem of developers leveraging this powerful combination!
