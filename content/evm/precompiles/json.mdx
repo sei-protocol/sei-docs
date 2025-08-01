@@ -1,56 +1,831 @@
 ---
-title: "JSON Precompile"
-description: "Use Sei's JSON precompile to efficiently parse, manipulate, and query JSON data within EVM smart contracts, overcoming Solidity's native limitations for handling complex data structures."
-keywords: ["json precompile", "smart contract data", "json parsing", "sei evm", "blockchain data handling"]
+title: 'JSON Precompile Usage'
+description: "Learn how to interact with Sei's JSON precompile through ethers.js, enabling efficient parsing, manipulation, and querying of JSON data within EVM smart contracts to overcome Solidity's native limitations for handling complex data structures."
+keywords: ['json precompile', 'ethers.js', 'json parsing', 'smart contract data', 'sei evm', 'blockchain data handling', 'data extraction']
 ---
+
 import { Callout } from 'nextra/components';
 
-# JSON Precompile
+# JSON Precompile Usage
 
-**Address**: `0x0000000000000000000000000000000000001003`
+**Address:** `0x0000000000000000000000000000000000001003`
 
-This precompile enables EVM clients to query JSON data.
+The Sei JSON precompile allows EVM applications to efficiently parse and query JSON data directly within smart contracts. This enables complex data handling capabilities that are not natively available in Solidity, making it easier to work with structured data from external sources or APIs.
+
+<Callout type="info">**What is a precompile?** A precompile is a special smart contract deployed at a fixed address by the Sei protocol itself, that exposes custom native chain logic to EVM-based applications. It acts like a regular contract from the EVM's perspective, but executes privileged, low-level logic efficiently.</Callout>
+
+## How Does the JSON Precompile Work?
+
+The JSON precompile at address `0x0000000000000000000000000000000000001003` exposes functions like `extractAsBytes()`, `extractAsBytesList()`, and `extractAsUint256()`.
+
+- **Direct Integration:** EVM contracts and dApps can parse JSON data like any other smart contract method.
+- **Native Execution:** JSON parsing is executed at the native level for maximum efficiency.
+- **Seamless Bridge:** No need for complex workarounds or external libraries for JSON handling.
+
+## Use Cases
+
+- **Oracle Integration:** Parse complex oracle responses containing multiple data points.
+- **DeFi Applications:** Process structured price feeds and market data.
+- **Gaming:** Handle complex game state and player data stored in JSON format.
+- **Cross-Chain Communication:** Parse messages and data from other chains.
+- **NFT Metadata:** Extract and manipulate NFT metadata stored in JSON format.
 
 ## Functions
 
-### Queries
+The JSON precompile exposes the following functions:
 
-- `extractAsBytes`: Extracts data as bytes from the input using the specified
-  key.
+### Query Functions
 
-  ```solidity copy
-    /// Extracts data as bytes from the input using the specified key.
-    /// @param input The input data.
-    /// @param key The key to extract.
-    /// @return The extracted data as bytes.
-    function extractAsBytes(
-        bytes memory input,
-        string memory key) external view returns (bytes memory response);
-  ```
+```solidity
+/// Extracts data as bytes from the input using the specified key.
+/// @param input The input data.
+/// @param key The key to extract.
+/// @return The extracted data as bytes.
+function extractAsBytes(
+    bytes memory input,
+    string memory key
+) external view returns (bytes memory response);
 
-- `extractAsBytesList`: Extracts data as a list of bytes from the input using
-  the specified key.
+/// Extracts data as a list of bytes from the input using the specified key.
+/// @param input The input data.
+/// @param key The key to extract.
+/// @return The extracted data as bytes collection.
+function extractAsBytesList(
+    bytes memory input,
+    string memory key
+) external view returns (bytes[] memory response);
 
-  ```solidity copy
-  /// Extracts data as a list of bytes from the input using the specified key.
-  /// @param input The input data.
-  /// @param key The key to extract.
-  /// @return The extracted data as bytes collection.
-  function extractAsBytesList(
-        bytes memory input,
-        string memory key) external view returns (bytes[] memory response);
-  ```
+/// Extracts data as a uint256 from the input using the specified key.
+/// @param input The input data.
+/// @param key The key to extract.
+/// @return The extracted uint256.
+function extractAsUint256(
+    bytes memory input,
+    string memory key
+) external view returns (uint256 response);
+```
 
-- `extractAsUint256`: Extracts data as a uint256 from the input using the
-  specified key.
-  ```solidity copy
-  /// Extracts data as a list of bytes from the input using the specified key.
-  /// @param input The input data.
-  /// @param key The key to extract.
-  /// @return The extracted uint256.
-  function extractAsUint256(
-        bytes memory input,
-        string memory key) external view returns (uint256 response);
-  ```
+## Using the Precompile
 
-<Callout type="info">View the JSON precompile source code and the contract ABI [here](https://github.com/sei-protocol/sei-chain/tree/main/precompiles/json).</Callout>
+### Setup
+
+#### Prerequisites
+
+Before getting started, ensure you have:
+
+- **Node.js** (v16 or higher)
+- **npm** or **yarn** package manager
+- **MetaMask** or compatible EVM wallet configured for Sei Mainnet
+- **SEI tokens** for gas fees
+
+#### Install Dependencies
+
+Install the required packages for interacting with Sei precompiles:
+
+```bash copy
+# Install ethers.js for smart contract interactions
+npm install ethers
+
+# Install Sei EVM bindings for precompile addresses and ABIs
+npm install @sei-js/precompiles@^2.1.2
+
+# Install dotenv for managing private keys (recommended for security)
+npm install dotenv
+```
+
+#### Import Precompile Components
+
+```typescript copy
+// Import JSON precompile address and ABI
+// View the entire ABI here: https://github.com/sei-protocol/sei-chain/tree/main/precompiles/json
+import { JSON_PRECOMPILE_ABI, JSON_PRECOMPILE_ADDRESS } from '@sei-js/precompiles';
+import { ethers } from 'ethers';
+```
+
+<Callout type="info">**Precompile Address:** The JSON precompile is deployed at `0x0000000000000000000000000000000000001003`</Callout>
+
+### Contract Initialization
+
+Set up your provider, signer, and contract instance:
+
+```typescript copy
+// Using MetaMask as the signer and provider (browser environment)
+const provider = new ethers.BrowserProvider(window.ethereum);
+await provider.send('eth_requestAccounts', []);
+const signer = await provider.getSigner();
+
+// Or for Node.js environment
+const provider = new ethers.JsonRpcProvider('https://evm-rpc.sei-apis.com');
+const signer = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
+
+// Create a contract instance for the JSON precompile
+const jsonPrecompile = new ethers.Contract(JSON_PRECOMPILE_ADDRESS, JSON_PRECOMPILE_ABI, signer);
+```
+
+## Data Type Handling
+
+The JSON precompile has specific limitations for different data types:
+
+### Supported Data Types
+
+<div className="overflow-x-auto max-w-full">
+  <table className="w-full divide-y divide-neutral-200 dark:divide-neutral-800">
+    <thead>
+      <tr>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">
+          Function
+        </th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">
+          Supports
+        </th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">
+          Limitations
+        </th>
+      </tr>
+    </thead>
+
+    <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
+      <tr>
+        <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">
+          extractAsBytes
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">
+          Strings, Objects, Arrays
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">
+          Returns raw bytes - needs conversion
+        </td>
+      </tr>
+
+      <tr>
+        <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">
+          extractAsUint256
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">
+          Integers only
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">
+          No decimals, booleans, or negative numbers
+        </td>
+      </tr>
+
+      <tr>
+        <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">
+          extractAsBytesList
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">
+          Arrays of strings/objects
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">
+          Each element returned as bytes
+        </td>
+      </tr>
+    </tbody>
+
+  </table>
+</div>
+
+### Data Type Conversion Strategies
+
+```typescript copy
+// For decimal numbers - store as integers with known precision
+const priceData = { price: 250 }; // Represents 2.50 with 2 decimal places
+const price = await jsonPrecompile.extractAsUint256(inputData, 'price');
+const actualPrice = parseFloat(price.toString()) / 100; // Convert back to 2.50
+
+// For boolean values - use 0/1 integers
+const statusData = { isActive: 1 }; // 1 = true, 0 = false
+const isActiveInt = await jsonPrecompile.extractAsUint256(inputData, 'isActive');
+const isActive = isActiveInt === 1n;
+
+// For complex objects - extract as bytes and parse
+const userData = { user: { name: 'Alice', balance: 1000 } };
+const userBytes = await jsonPrecompile.extractAsBytes(inputData, 'user');
+const userString = ethers.toUtf8String(userBytes);
+const userObject = JSON.parse(userString);
+```
+
+## Error Handling Utilities
+
+Create comprehensive error handling for all extraction functions:
+
+```typescript copy
+// Safe extraction for bytes data
+async function safeExtractBytes(jsonPrecompile: ethers.Contract, data: any, key: string, defaultValue: string = ''): Promise<string> {
+  try {
+    const inputData = ethers.toUtf8Bytes(JSON.stringify(data));
+    const result = await jsonPrecompile.extractAsBytes(inputData, key);
+    return ethers.toUtf8String(result);
+  } catch (error: any) {
+    console.log(`Key "${key}" not found or invalid, using default value`);
+    return defaultValue;
+  }
+}
+
+// Safe extraction for uint256 data
+async function safeExtractUint256(jsonPrecompile: ethers.Contract, data: any, key: string, defaultValue: bigint = 0n): Promise<bigint> {
+  try {
+    const inputData = ethers.toUtf8Bytes(JSON.stringify(data));
+    const result = await jsonPrecompile.extractAsUint256(inputData, key);
+    return result;
+  } catch (error: any) {
+    console.log(`Key "${key}" not found or not a valid integer, using default value`);
+    return defaultValue;
+  }
+}
+
+// Safe extraction for array data
+async function safeExtractBytesList(jsonPrecompile: ethers.Contract, data: any, key: string, defaultValue: string[] = []): Promise<string[]> {
+  try {
+    const inputData = ethers.toUtf8Bytes(JSON.stringify(data));
+    const result = await jsonPrecompile.extractAsBytesList(inputData, key);
+    return result.map((bytes: any) => ethers.toUtf8String(bytes));
+  } catch (error: any) {
+    console.log(`Key "${key}" not found or not a valid array, using default value`);
+    return defaultValue;
+  }
+}
+```
+
+## Step-by-Step Guide: Using the JSON Precompile
+
+### Extract String Data
+
+```typescript copy
+// JSON data with string values
+const data = { name: 'Sei Token', symbol: 'SEI' };
+const inputData = ethers.toUtf8Bytes(JSON.stringify(data));
+
+// Extract string using safe method
+const name = await safeExtractBytes(jsonPrecompile, data, 'name');
+console.log('Name:', name); // Output: "Sei Token"
+
+// Or direct extraction with error handling
+try {
+  const symbolBytes = await jsonPrecompile.extractAsBytes(inputData, 'symbol');
+  const symbol = ethers.toUtf8String(symbolBytes);
+  console.log('Symbol:', symbol); // Output: "SEI"
+} catch (error) {
+  console.error('Failed to extract symbol:', error.message);
+}
+```
+
+### Extract Numeric Data
+
+```typescript copy
+// JSON data with numbers (integers only)
+const data = { price: 42, volume: 1000000 };
+const inputData = ethers.toUtf8Bytes(JSON.stringify(data));
+
+// Extract integer using safe method
+const price = await safeExtractUint256(jsonPrecompile, data, 'price');
+console.log('Price:', price.toString()); // Output: "42"
+
+// Handle decimal numbers by using integer representation
+const decimalData = { rate: 275 }; // Represents 2.75 with 2 decimal places
+const rate = await safeExtractUint256(jsonPrecompile, decimalData, 'rate');
+const actualRate = Number(rate) / 100; // Convert to 2.75
+console.log('Rate:', actualRate);
+```
+
+### Extract Array Data
+
+```typescript copy
+// JSON data with array
+const data = { tokens: ['SEI', 'USDC', 'USDT'] };
+const inputData = ethers.toUtf8Bytes(JSON.stringify(data));
+
+// Extract array using safe method
+const tokens = await safeExtractBytesList(jsonPrecompile, data, 'tokens');
+console.log('Tokens:', tokens); // Output: ["SEI", "USDC", "USDT"]
+
+// Handle mixed arrays by extracting as bytes and parsing
+const mixedData = { values: [42, 'test', 100] };
+const valuesBytes = await jsonPrecompile.extractAsBytes(ethers.toUtf8Bytes(JSON.stringify(mixedData)), 'values');
+const valuesString = ethers.toUtf8String(valuesBytes);
+const valuesArray = JSON.parse(valuesString);
+console.log('Mixed values:', valuesArray); // Output: [42, "test", 100]
+```
+
+### Extract Nested Data
+
+<Callout type="warning">**Important:** The JSON precompile does not support dot notation for nested objects. Instead, extract the parent object and parse it manually.</Callout>
+
+```typescript copy
+// For nested data, extract the parent object first
+const data = {
+  user: {
+    wallet: {
+      balance: 1000,
+      currency: 'SEI'
+    }
+  }
+};
+
+// Method 1: Extract parent object and parse manually (recommended)
+const userBytes = await jsonPrecompile.extractAsBytes(ethers.toUtf8Bytes(JSON.stringify(data)), 'user');
+const userData = JSON.parse(ethers.toUtf8String(userBytes));
+const balance = userData.wallet.balance;
+const currency = userData.wallet.currency;
+
+console.log('Balance:', balance); // Output: 1000
+console.log('Currency:', currency); // Output: "SEI"
+
+// Method 2: Extract deeper nested object
+const walletBytes = await jsonPrecompile.extractAsBytes(
+  ethers.toUtf8Bytes(JSON.stringify(data)),
+  'wallet' // Direct key, not dot notation
+);
+const walletData = JSON.parse(ethers.toUtf8String(walletBytes));
+console.log('Wallet data:', walletData); // Output: { balance: 1000, currency: "SEI" }
+```
+
+## Complete Integration Example
+
+Create a comprehensive JSON parsing application for mainnet:
+
+```javascript copy filename="json-precompile-mainnet.js"
+// json-precompile-mainnet.js
+const { ethers } = require('ethers');
+const { JSON_PRECOMPILE_ABI, JSON_PRECOMPILE_ADDRESS } = require('@sei-js/precompiles');
+require('dotenv').config();
+
+// Safe extraction utilities
+async function safeExtractBytes(jsonPrecompile, data, key, defaultValue = '') {
+  try {
+    const inputData = ethers.toUtf8Bytes(JSON.stringify(data));
+    const result = await jsonPrecompile.extractAsBytes(inputData, key);
+    return ethers.toUtf8String(result);
+  } catch (error) {
+    console.log(`   ⚠️  Key "${key}" not found, using default: "${defaultValue}"`);
+    return defaultValue;
+  }
+}
+
+async function safeExtractUint256(jsonPrecompile, data, key, defaultValue = 0n) {
+  try {
+    const inputData = ethers.toUtf8Bytes(JSON.stringify(data));
+    const result = await jsonPrecompile.extractAsUint256(inputData, key);
+    return result;
+  } catch (error) {
+    console.log(`   ⚠️  Key "${key}" not found or invalid integer, using default: ${defaultValue}`);
+    return defaultValue;
+  }
+}
+
+async function safeExtractBytesList(jsonPrecompile, data, key, defaultValue = []) {
+  try {
+    const inputData = ethers.toUtf8Bytes(JSON.stringify(data));
+    const result = await jsonPrecompile.extractAsBytesList(inputData, key);
+    return result.map((bytes) => ethers.toUtf8String(bytes));
+  } catch (error) {
+    console.log(`   ⚠️  Key "${key}" not found or invalid array, using default: [${defaultValue.join(', ')}]`);
+    return defaultValue;
+  }
+}
+
+async function main() {
+  try {
+    // Connect to Sei Mainnet
+    console.log('🌐 Connecting to Sei Mainnet...');
+    const provider = new ethers.JsonRpcProvider('https://evm-rpc.sei-apis.com');
+
+    // Use private key from environment variables (secure approach)
+    const privateKey = process.env.PRIVATE_KEY;
+    if (!privateKey) {
+      throw new Error('Please set PRIVATE_KEY in .env file');
+    }
+
+    const wallet = new ethers.Wallet(privateKey, provider);
+    console.log(`👤 Wallet address: ${wallet.address}`);
+
+    // Check balance
+    const balance = await provider.getBalance(wallet.address);
+    const balanceEther = ethers.formatEther(balance);
+    console.log(`💰 Wallet balance: ${balanceEther} SEI\n`);
+
+    // Initialize JSON precompile contract
+    const jsonPrecompile = new ethers.Contract(JSON_PRECOMPILE_ADDRESS, JSON_PRECOMPILE_ABI, wallet);
+
+    console.log('📄 === Sei Mainnet JSON Precompile Demo ===\n');
+
+    // Complex sample data - simulating a real-world oracle response
+    const oracleData = {
+      market: {
+        prices: {
+          SEI: 275, // 2.75 USD (stored as integer with 2 decimal places)
+          BTC: 5000000, // 50,000.00 USD
+          ETH: 300000 // 3,000.00 USD
+        },
+        volume: {
+          daily: 1500000000, // $15M daily volume
+          weekly: 8500000000 // $85M weekly volume
+        }
+      },
+      metadata: {
+        timestamp: '2024-12-27T12:00:00Z',
+        source: 'MainnetPriceOracle',
+        version: '2.1.0',
+        isLive: 1 // 1 = true, 0 = false
+      },
+      assets: ['SEI', 'BTC', 'ETH', 'USDC'],
+      validators: {
+        active: 125,
+        total: 200
+      }
+    };
+
+    console.log('📋 Input JSON Data:');
+    console.log(JSON.stringify(oracleData, null, 2));
+    console.log();
+
+    // 1. Extract string data with error handling
+    console.log('1️⃣  Extracting String Data...');
+
+    // Extract metadata object first, then parse individual fields
+    const metadataBytes = await jsonPrecompile.extractAsBytes(ethers.toUtf8Bytes(JSON.stringify(oracleData)), 'metadata');
+    const metadata = JSON.parse(ethers.toUtf8String(metadataBytes));
+
+    console.log(`   📊 Source: ${metadata.source}`);
+    console.log(`   🔢 Version: ${metadata.version}`);
+    console.log(`   ⏰ Timestamp: ${metadata.timestamp}`);
+    console.log(`   🟢 Is Live: ${metadata.isLive === 1 ? 'Yes' : 'No'}`);
+
+    // Test missing key
+    const missingKey = await safeExtractBytes(jsonPrecompile, oracleData, 'nonexistent', 'N/A');
+    console.log(`   ❓ Missing Key: ${missingKey}`);
+
+    // 2. Extract numeric data with proper object parsing
+    console.log('\n2️⃣  Extracting Numeric Data...');
+
+    // Extract market object first
+    const marketBytes = await jsonPrecompile.extractAsBytes(ethers.toUtf8Bytes(JSON.stringify(oracleData)), 'market');
+    const market = JSON.parse(ethers.toUtf8String(marketBytes));
+
+    // Extract validators object
+    const validatorsBytes = await jsonPrecompile.extractAsBytes(ethers.toUtf8Bytes(JSON.stringify(oracleData)), 'validators');
+    const validators = JSON.parse(ethers.toUtf8String(validatorsBytes));
+
+    // Convert integers back to decimals
+    const seiPrice = market.prices.SEI / 100; // 2 decimal places
+    const btcPrice = market.prices.BTC / 100; // 2 decimal places
+    const isLive = metadata.isLive === 1; // Convert to boolean
+
+    console.log(`   💰 SEI Price: ${seiPrice} (raw: ${market.prices.SEI})`);
+    console.log(`   ₿ BTC Price: ${btcPrice.toLocaleString()} (raw: ${market.prices.BTC})`);
+    console.log(`   💹 Daily Volume: ${market.volume.daily.toLocaleString()}`);
+    console.log(`   ✅ Active Validators: ${validators.active}`);
+    console.log(`   🔴 Is Live: ${isLive} (raw: ${metadata.isLive})`);
+
+    // 3. Extract array data
+    console.log('\n3️⃣  Extracting Array Data...');
+    const assets = await safeExtractBytesList(jsonPrecompile, oracleData, 'assets');
+    const invalidArray = await safeExtractBytesList(jsonPrecompile, oracleData, 'invalid.array', ['DEFAULT']);
+
+    console.log(`   🪙 Assets: [${assets.join(', ')}]`);
+    console.log(`   ❌ Invalid Array: [${invalidArray.join(', ')}]`);
+
+    // 4. Extract complex nested objects
+    console.log('\n4️⃣  Extracting Complex Nested Data...');
+    console.log('   📈 Market Data:');
+    console.log(`      Prices: SEI=${market.prices.SEI / 100}, BTC=${market.prices.BTC / 100}, ETH=${market.prices.ETH / 100}`);
+    console.log(`      Volume: Daily=${market.volume.daily.toLocaleString()}, Weekly=${market.volume.weekly.toLocaleString()}`);
+    console.log(`   👥 Validator Data:`);
+    console.log(`      Active: ${validators.active}, Total: ${validators.total}`);
+
+    // 5. Gas optimization demonstration
+    console.log('\n5️⃣  Gas Usage Analysis...');
+    const gasEstimates = {
+      small: 50000, // Simple key extraction
+      medium: 80000, // Nested object extraction
+      large: 120000 // Complex array/object processing
+    };
+
+    console.log('   ⛽ Recommended Gas Limits:');
+    console.log(`      Simple extraction: ${gasEstimates.small.toLocaleString()} gas`);
+    console.log(`      Nested extraction: ${gasEstimates.medium.toLocaleString()} gas`);
+    console.log(`      Complex processing: ${gasEstimates.large.toLocaleString()} gas`);
+
+    // 6. Performance test with corrected key extraction
+    console.log('\n6️⃣  Performance & Error Testing...');
+    const testCases = [
+      { key: 'metadata', expected: 'object', description: 'metadata object' },
+      { key: 'market', expected: 'object', description: 'market data' },
+      { key: 'assets', expected: 'array', description: 'assets array' },
+      { key: 'nonexistent', expected: 'error', description: 'missing key' }
+    ];
+
+    for (const testCase of testCases) {
+      try {
+        const start = Date.now();
+        const result = await safeExtractBytes(jsonPrecompile, oracleData, testCase.key);
+        const duration = Date.now() - start;
+        const preview = result.length > 50 ? result.substring(0, 47) + '...' : result;
+        console.log(`   ✅ ${testCase.description}: "${preview}" (${duration}ms)`);
+      } catch (error) {
+        console.log(`   ❌ ${testCase.description}: ${error.message}`);
+      }
+    }
+
+    console.log('\n🎉 === JSON Precompile Demo Completed Successfully! ===');
+  } catch (error) {
+    console.error('\n❌ Error:', error.message);
+    console.log('\n🔧 Troubleshooting tips:');
+    console.log('1. Ensure PRIVATE_KEY is set in .env file');
+    console.log('2. Verify sufficient SEI balance for gas fees');
+    console.log('3. Check network connectivity to Sei mainnet');
+    console.log('4. Validate JSON structure before processing');
+    process.exit(1);
+  }
+}
+
+// Run the demo
+main().catch(console.error);
+```
+
+### Running the Mainnet Example
+
+1. **Create a new directory and initialize npm:**
+
+```bash copy
+mkdir sei-json-mainnet
+cd sei-json-mainnet
+npm init -y
+```
+
+2. **Install dependencies:**
+
+```bash copy
+npm install ethers @sei-js/precompiles@^2.1.2 dotenv
+```
+
+3. **Create a `.env` file:**
+
+```bash copy
+PRIVATE_KEY=your_private_key_here
+```
+
+<Callout type="warning">**Security Note:** Never commit private keys to version control! The `.env` file should be added to your `.gitignore`.</Callout>
+
+4. **Create the demo file:**
+   Copy the complete integration example above into `json-precompile-mainnet.js`
+
+5. **Ensure you have SEI tokens:**
+
+   - SEI for gas fees (small amounts needed for view functions)
+
+6. **Run the script:**
+
+```bash copy
+node json-precompile-mainnet.js
+```
+
+### Expected Output
+
+```
+🌐 Connecting to Sei Mainnet...
+👤 Wallet address: 0x742d35Cc6634C0532925a3b844Bc6789e065f3B
+💰 Wallet balance: 15.5 SEI
+
+📄 === Sei Mainnet JSON Precompile Demo ===
+
+📋 Input JSON Data:
+{
+  "market": {
+    "prices": {
+      "SEI": 275,
+      "BTC": 5000000,
+      "ETH": 300000
+    },
+    "volume": {
+      "daily": 1500000000,
+      "weekly": 8500000000
+    }
+  },
+  "metadata": {
+    "timestamp": "2024-12-27T12:00:00Z",
+    "source": "MainnetPriceOracle",
+    "version": "2.1.0",
+    "isLive": 1
+  },
+  "assets": ["SEI", "BTC", "ETH", "USDC"],
+  "validators": {
+    "active": 125,
+    "total": 200
+  }
+}
+
+1️⃣  Extracting String Data...
+   📊 Source: MainnetPriceOracle
+   🔢 Version: 2.1.0
+   ⏰ Timestamp: 2024-12-27T12:00:00Z
+   ⚠️  Key "nonexistent.key" not found, using default: "N/A"
+   ❓ Missing Key: N/A
+
+2️⃣  Extracting Numeric Data...
+   💰 SEI Price: $2.75 (raw: 275)
+   ₿ BTC Price: $50,000 (raw: 5000000)
+   💹 Daily Volume: $1,500,000,000
+   ✅ Active Validators: 125
+   🔴 Is Live: true (raw: 1)
+
+3️⃣  Extracting Array Data...
+   🪙 Assets: [SEI, BTC, ETH, USDC]
+   ⚠️  Key "invalid.array" not found or invalid array, using default: [DEFAULT]
+   ❌ Invalid Array: [DEFAULT]
+
+4️⃣  Extracting Complex Nested Data...
+   📈 Market Data:
+      Prices: SEI=$2.75, BTC=$50000, ETH=$3000
+      Volume: Daily=$1,500,000,000, Weekly=$8,500,000,000
+
+5️⃣  Gas Usage Analysis...
+   ⛽ Recommended Gas Limits:
+      Simple extraction: 50,000 gas
+      Nested extraction: 80,000 gas
+      Complex processing: 120,000 gas
+
+6️⃣  Performance & Error Testing...
+   ✅ metadata.source: "MainnetPriceOracle" (15ms)
+   ✅ market.prices.SEI: "275" (12ms)
+   ✅ assets: "[\"SEI\",\"BTC\",\"ETH\",\"USDC\"]" (18ms)
+   ⚠️  Key "nonexistent.deeply.nested.key" not found, using default: ""
+   ✅ nonexistent.deeply.nested.key: "" (8ms)
+
+🎉 === JSON Precompile Demo Completed Successfully! ===
+```
+
+## Advanced Usage Examples
+
+### Oracle Price Feed Integration
+
+```typescript copy
+// Advanced oracle integration with comprehensive error handling
+class SeiPriceOracle {
+  private jsonPrecompile: ethers.Contract;
+
+  constructor(jsonPrecompile: ethers.Contract) {
+    this.jsonPrecompile = jsonPrecompile;
+  }
+
+  async parsePriceFeed(oracleResponse: any): Promise<{
+    prices: Map<string, number>;
+    timestamp: string;
+    isValid: boolean;
+  }> {
+    try {
+      // Extract timestamp
+      const timestamp = await safeExtractBytes(this.jsonPrecompile, oracleResponse, 'metadata.timestamp');
+
+      // Extract validation flag
+      const isValidRaw = await safeExtractUint256(this.jsonPrecompile, oracleResponse, 'metadata.isValid');
+      const isValid = isValidRaw === 1n;
+
+      // Extract price data
+      const prices = new Map<string, number>();
+      const assets = await safeExtractBytesList(this.jsonPrecompile, oracleResponse, 'assets');
+
+      for (const asset of assets) {
+        const priceRaw = await safeExtractUint256(this.jsonPrecompile, oracleResponse, `prices.${asset}`);
+        // Convert from integer with 6 decimal places
+        prices.set(asset, Number(priceRaw) / 1000000);
+      }
+
+      return { prices, timestamp, isValid };
+    } catch (error) {
+      console.error('Failed to parse oracle response:', error);
+      return {
+        prices: new Map(),
+        timestamp: '',
+        isValid: false
+      };
+    }
+  }
+}
+```
+
+## Troubleshooting
+
+### Common Issues and Solutions
+
+#### Key Not Found
+
+```typescript copy
+// Comprehensive error handling for missing keys
+async function handleMissingKeys(jsonPrecompile: ethers.Contract, data: any) {
+  const keys = ['required.key', 'optional.key', 'deeply.nested.key'];
+
+  for (const key of keys) {
+    try {
+      const result = await jsonPrecompile.extractAsBytes(ethers.toUtf8Bytes(JSON.stringify(data)), key);
+      console.log(`✅ ${key}: ${ethers.toUtf8String(result)}`);
+    } catch (error: any) {
+      if (error.message.includes('key not found')) {
+        console.log(`⚠️  Key "${key}" not found in JSON structure`);
+      } else {
+        console.log(`❌ Error extracting "${key}": ${error.message}`);
+      }
+    }
+  }
+}
+```
+
+### Error Code Reference
+
+<div className="overflow-x-auto max-w-full">
+  <table className="w-full divide-y divide-neutral-200 dark:divide-neutral-800">
+    <thead>
+      <tr>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">
+          Error
+        </th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">
+          Cause
+        </th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">
+          Solution
+        </th>
+      </tr>
+    </thead>
+
+    <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
+      <tr>
+        <td className="px-4 py-3 text-sm text-red-500 dark:text-red-400 whitespace-nowrap font-medium">
+          <code>key not found</code>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">
+          Specified key doesn't exist in JSON
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">
+          Verify key path and JSON structure
+        </td>
+      </tr>
+
+      <tr>
+        <td className="px-4 py-3 text-sm text-red-500 dark:text-red-400 whitespace-nowrap font-medium">
+          <code>invalid JSON format</code>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">
+          Malformed JSON input
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">
+          Use <code>JSON.stringify()</code> to ensure valid format
+        </td>
+      </tr>
+
+      <tr>
+        <td className="px-4 py-3 text-sm text-red-500 dark:text-red-400 whitespace-nowrap font-medium">
+          <code>execution reverted</code>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">
+          Gas limit too low
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">
+          Increase gas limit based on data complexity
+        </td>
+      </tr>
+
+      <tr>
+        <td className="px-4 py-3 text-sm text-red-500 dark:text-red-400 whitespace-nowrap font-medium">
+          <code>invalid integer</code>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">
+          Non-numeric value for <code>extractAsUint256</code>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">
+          Ensure the value is a valid integer
+        </td>
+      </tr>
+
+      <tr>
+        <td className="px-4 py-3 text-sm text-red-500 dark:text-red-400 whitespace-nowrap font-medium">
+          <code>out of gas</code>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">
+          Insufficient gas for large JSON
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">
+          Use <code>calculateGasLimit()</code> for dynamic estimation
+        </td>
+      </tr>
+    </tbody>
+
+  </table>
+</div>
+
+## Key Considerations and Tricks
+
+<Callout type="info">
+
+- **Integers Only:** `extractAsUint256` only handles integers - no decimals, booleans, or negative numbers
+- **Decimal Handling:** Store decimal numbers as integers with known precision (e.g., 275 for 2.75 with 2 decimal places)
+- **Boolean Values:** Use 0/1 integers to represent false/true
+- **Key Paths:** Extract parent objects first, then parse manually - dot notation may not be supported
+- **Arrays:** Must use `extractAsBytesList()` for array data
+- **Gas Costs:** Large JSON objects require higher gas limits
+- **Encoding:** Always use UTF-8 encoding with `ethers.toUtf8Bytes()`
+- **Error Handling:** Always implement fallback values for production applications
+
+</Callout>
+
+<Callout type="info">**Need Help?** If you encounter issues not covered here, check the [Sei Discord](https://discord.gg/sei) or [GitHub repository](https://github.com/sei-protocol/sei-chain) for community support.</Callout>
