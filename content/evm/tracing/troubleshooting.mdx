@@ -1,0 +1,405 @@
+---
+title: 'Troubleshooting Guide'
+description: 'Comprehensive troubleshooting guide for EVM transaction tracing on Sei. Resolve common issues with timeouts, memory limits, JavaScript errors, and performance optimization.'
+keywords: ['tracing troubleshooting', 'debug errors', 'tracer timeout', 'memory limits', 'javascript tracer errors']
+---
+
+import { Callout } from 'nextra/components';
+
+# Tracing Troubleshooting Guide
+
+This guide covers common issues encountered when using EVM transaction tracing on Sei and provides practical solutions to resolve them.
+
+## Common Error Categories
+
+### 1. Timeout Errors
+
+**Error**: `execution timeout`
+
+**Cause**: Tracer execution exceeded the configured timeout duration.
+
+**Solutions**:
+
+```json
+{
+  "tracerConfig": {
+    "timeout": "120s" // Increase timeout for complex traces
+  }
+}
+```
+
+**Best Practices**:
+
+- Start with shorter timeouts (30s) for testing
+- Increase gradually based on transaction complexity
+- Use built-in tracers when possible (they're faster)
+- Optimize JavaScript tracer code for performance
+
+### 2. Memory Limit Errors
+
+**Error**: `out of memory` or `memory limit exceeded`
+
+**Cause**: Tracer collected too much data or inefficient memory usage.
+
+**Solutions**:
+
+```json
+{
+  "tracerConfig": {
+    "enableMemory": false, // Disable memory tracing
+    "enableStack": false, // Disable stack tracing
+    "enableStorage": false // Disable storage tracing
+  }
+}
+```
+
+**Memory-Efficient Tracer Pattern**:
+
+```javascript
+{
+  "tracer": `{
+    // Use counters instead of arrays
+    summary: {
+      totalGas: 0,
+      operationCount: 0,
+      expensiveOps: 0
+    },
+
+    step: function(log, db) {
+      this.summary.totalGas += log.getCost();
+      this.summary.operationCount++;
+
+      // Only track expensive operations
+      if (log.getCost() > 1000) {
+        this.summary.expensiveOps++;
+      }
+    },
+
+    result: function(ctx, db) {
+      return this.summary; // Return summary, not raw data
+    }
+  }`
+}
+```
+
+### 3. JavaScript Tracer Errors
+
+**Error**: `SyntaxError` or `ReferenceError` in JavaScript tracer
+
+**Common Issues**:
+
+```javascript
+// ❌ Incorrect - Missing quotes
+{
+  "tracer": `{
+    step: function(log, db) {
+      var op = log.op.toString();
+      if (op == SSTORE) { // Missing quotes around SSTORE
+        // ...
+      }
+    }
+  }`
+}
+
+// ✅ Correct - Proper quotes
+{
+  "tracer": `{
+    step: function(log, db) {
+      var op = log.op.toString();
+      if (op == "SSTORE") { // Quoted properly
+        // ...
+      }
+    }
+  }`
+}
+```
+
+**Debugging JavaScript Tracers**:
+
+```javascript
+{
+  "tracer": `{
+    errors: [],
+
+    step: function(log, db) {
+      try {
+        // Your tracer logic here
+        var op = log.op.toString();
+        // ...
+      } catch (e) {
+        this.errors.push({
+          error: e.toString(),
+          pc: log.getPC(),
+          op: log.op.toString()
+        });
+      }
+    },
+
+    result: function(ctx, db) {
+      return {
+        data: this.data,
+        errors: this.errors // Check for errors
+      };
+    }
+  }`
+}
+```
+
+### 4. Network and Connection Issues
+
+**Error**: `connection refused` or `network timeout`
+
+**Solutions**:
+
+```bash
+# Check if node is running
+curl -X POST -H "Content-Type: application/json" \
+  --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
+  http://localhost:8545
+
+# Test with different timeout
+curl --connect-timeout 30 --max-time 120 \
+  -X POST -H "Content-Type: application/json" \
+  --data '{"jsonrpc":"2.0","method":"debug_traceTransaction","params":["0x..."],"id":1}' \
+  http://localhost:8545
+```
+
+### 5. Transaction Not Found
+
+**Error**: `transaction not found`
+
+**Debugging Steps**:
+
+```bash
+# 1. Verify transaction exists
+curl -X POST -H "Content-Type: application/json" \
+  --data '{"jsonrpc":"2.0","method":"eth_getTransactionByHash","params":["0x..."],"id":1}' \
+  http://localhost:8545
+
+# 2. Check if transaction is in a finalized block
+curl -X POST -H "Content-Type: application/json" \
+  --data '{"jsonrpc":"2.0","method":"eth_getTransactionReceipt","params":["0x..."],"id":1}' \
+  http://localhost:8545
+
+# 3. Ensure node is fully synced
+curl -X POST -H "Content-Type: application/json" \
+  --data '{"jsonrpc":"2.0","method":"eth_syncing","params":[],"id":1}' \
+  http://localhost:8545
+```
+
+## Performance Optimization
+
+### Tracer Performance Tips
+
+1. **Limit Data Collection**:
+
+```javascript
+{
+  "tracer": `{
+    data: [],
+    maxEntries: 1000, // Limit data collection
+
+    step: function(log, db) {
+      if (this.data.length < this.maxEntries) {
+        // Only collect limited data
+        this.data.push({
+          pc: log.getPC(),
+          op: log.op.toString(),
+          gas: log.getGas()
+        });
+      }
+    }
+  }`
+}
+```
+
+2. **Use Efficient Data Structures**:
+
+```javascript
+// ❌ Inefficient - Object lookups
+{
+  "tracer": `{
+    operations: {},
+
+    step: function(log, db) {
+      var op = log.op.toString();
+      if (!this.operations[op]) {
+        this.operations[op] = 0;
+      }
+      this.operations[op]++;
+    }
+  }`
+}
+
+// ✅ Efficient - Direct assignment
+{
+  "tracer": `{
+    operations: {},
+
+    step: function(log, db) {
+      var op = log.op.toString();
+      this.operations[op] = (this.operations[op] || 0) + 1;
+    }
+  }`
+}
+```
+
+3. **Selective Tracing**:
+
+```javascript
+{
+  "tracer": `{
+    step: function(log, db) {
+      var op = log.op.toString();
+
+      // Only trace specific operations
+      if (op == "SSTORE" || op == "SLOAD" || op == "CALL") {
+        // Process only important operations
+        this.processOperation(log, db);
+      }
+    }
+  }`
+}
+```
+
+### Node Configuration for Better Performance
+
+```toml
+# In your node configuration
+[evm]
+# Increase trace timeout
+trace-timeout = "300s"
+
+# Increase memory limits
+trace-memory-limit = "1GB"
+
+# Enable trace caching
+trace-cache-size = 1000
+```
+
+## Debugging Workflows
+
+### 1. Failed Transaction Analysis
+
+```bash
+#!/bin/bash
+
+TX_HASH="0x..."
+
+echo "1. Checking if transaction exists..."
+curl -s -X POST -H "Content-Type: application/json" \
+  --data "{\"jsonrpc\":\"2.0\",\"method\":\"eth_getTransactionByHash\",\"params\":[\"$TX_HASH\"],\"id\":1}" \
+  http://localhost:8545 | jq '.result'
+
+echo "2. Getting transaction receipt..."
+curl -s -X POST -H "Content-Type: application/json" \
+  --data "{\"jsonrpc\":\"2.0\",\"method\":\"eth_getTransactionReceipt\",\"params\":[\"$TX_HASH\"],\"id\":1}" \
+  http://localhost:8545 | jq '.result.status'
+
+echo "3. Tracing transaction..."
+curl -s -X POST -H "Content-Type: application/json" \
+  --data "{\"jsonrpc\":\"2.0\",\"method\":\"debug_traceTransaction\",\"params\":[\"$TX_HASH\",{\"tracer\":\"callTracer\"}],\"id\":1}" \
+  http://localhost:8545 | jq '.result'
+```
+
+### 2. Gas Optimization Workflow
+
+```javascript
+// Step 1: Identify expensive operations
+const expensiveOpsTracer = `{
+  expensive: [],
+  threshold: 1000,
+  
+  step: function(log, db) {
+    var cost = log.getCost();
+    if (cost > this.threshold) {
+      this.expensive.push({
+        pc: log.getPC(),
+        op: log.op.toString(),
+        cost: cost
+      });
+    }
+  },
+  
+  result: function(ctx, db) {
+    this.expensive.sort((a, b) => b.cost - a.cost);
+    return {
+      totalExpensive: this.expensive.length,
+      topExpensive: this.expensive.slice(0, 10)
+    };
+  }
+}`;
+
+// Step 2: Analyze storage operations
+const storageTracer = `{
+  storageOps: 0,
+  storageGas: 0,
+  
+  step: function(log, db) {
+    var op = log.op.toString();
+    if (op == "SSTORE" || op == "SLOAD") {
+      this.storageOps++;
+      this.storageGas += log.getCost();
+    }
+  },
+  
+  result: function(ctx, db) {
+    return {
+      storageOperations: this.storageOps,
+      storageGasCost: this.storageGas,
+      averageCost: this.storageOps > 0 ? this.storageGas / this.storageOps : 0
+    };
+  }
+}`;
+```
+
+## Error Code Reference
+
+### Common HTTP Error Codes
+
+| Code | Error                 | Solution                                     |
+| ---- | --------------------- | -------------------------------------------- |
+| 400  | Bad Request           | Check JSON-RPC format and parameters         |
+| 404  | Not Found             | Verify transaction hash and node sync status |
+| 500  | Internal Server Error | Check node logs and resource limits          |
+| 503  | Service Unavailable   | Node may be syncing or overloaded            |
+
+### Tracer-Specific Errors
+
+| Error               | Cause                         | Solution                                         |
+| ------------------- | ----------------------------- | ------------------------------------------------ |
+| `execution timeout` | Tracer took too long          | Increase timeout or optimize tracer              |
+| `out of memory`     | Too much data collected       | Reduce data collection or disable memory tracing |
+| `invalid tracer`    | JavaScript syntax error       | Validate tracer syntax                           |
+| `tracer not found`  | Built-in tracer doesn't exist | Check available tracers                          |
+
+## Best Practices Summary
+
+### ✅ Do's
+
+- **Start Simple**: Begin with built-in tracers before custom JavaScript
+- **Set Timeouts**: Always configure appropriate timeouts
+- **Limit Data**: Collect only necessary information
+- **Test Incrementally**: Test tracers on simple transactions first
+- **Monitor Resources**: Watch memory and CPU usage
+- **Cache Results**: Store expensive trace results when possible
+
+### ❌ Don'ts
+
+- **Don't Collect Everything**: Avoid tracing all operations unnecessarily
+- **Don't Ignore Errors**: Always handle tracer errors gracefully
+- **Don't Use Complex Logic**: Keep tracer step functions simple
+- **Don't Forget Timeouts**: Never run tracers without timeout limits
+- **Don't Trace in Production**: Avoid heavy tracing on production nodes
+
+## Getting Help
+
+If you encounter issues not covered in this guide:
+
+1. **Check Node Logs**: Look for error messages in your Sei node logs
+2. **Verify Configuration**: Ensure your node has tracing enabled
+3. **Test Connectivity**: Confirm RPC endpoints are accessible
+4. **Simplify Tracers**: Try built-in tracers first
+5. **Community Support**: Ask in the [Sei Discord](https://discord.gg/sei) #dev-support channel
+
+<Callout type="info">When reporting issues, include your tracer code, the transaction hash, and any error messages you receive. This helps the community provide better assistance.</Callout>
