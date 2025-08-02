@@ -26,23 +26,38 @@ export default {
 	'parallelization-engine': 'Parallel Execution',
 	seidb: 'Storage',
 
-	'-- Developer Tools': {
+	'-- Network Tools & Providers': {
 		type: 'separator',
-		title: 'Developer Tools'
+		title: 'Network Tools & Providers'
 	},
 	wallets: 'Wallets',
 	'rpc-providers': 'RPC Providers',
-	explorers: 'Explorers',
+	explorers: 'Block Explorers',
 	faucet: 'Faucet',
 	indexers: 'Indexers',
+
+	'-- Oracles': {
+		type: 'separator',
+		title: 'Oracles'
+	},
+	oracles: 'Oracle System',
+	'oracle-security': 'Oracle Security',
 
 	'-- Blockchain Features': {
 		type: 'separator',
 		title: 'Blockchain Features'
 	},
-	oracles: 'Oracle System',
 	mev: 'MEV Protection',
 	'mev-plugins': 'MEV Plugins',
+	'wrapped-sei': 'Wrapped SEI',
+
+	'-- Governance': {
+		type: 'separator',
+		title: 'Governance'
+	},
+	'general-governance': 'Overview',
+	proposals: 'Proposals',
+	'general-staking': 'Staking',
 
 	'-- Interoperability': {
 		type: 'separator',
@@ -51,13 +66,11 @@ export default {
 	'dev-interoperability': 'EVM ↔ CosmWasm',
 	pointers: 'Pointer Contracts',
 
-	'-- Governance': {
+	'-- Developer Resources': {
 		type: 'separator',
-		title: 'Governance'
+		title: 'Developer Resources'
 	},
-	'general-staking': 'Staking',
-	'general-governance': 'Governance',
-	proposals: 'Proposals',
+	'mcp-server': 'MCP Server',
 
 	'-- Resources': {
 		type: 'separator',
