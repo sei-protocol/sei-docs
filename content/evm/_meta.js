@@ -64,6 +64,7 @@ export default {
 	transactions: 'Transaction Overview',
 	reference: 'RPC Reference',
 	tokens: 'View Tokens',
+	changelog: 'Changelog',
 
 	'-- Hardware Wallets': {
 		type: 'separator',
