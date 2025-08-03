@@ -5,7 +5,6 @@ import { Callout } from 'nextra/components';
 export function RemoteChangelog() {
 	const [state, setState] = useState({
 		content: '',
-		lastUpdated: '',
 		error: null,
 		loading: true,
 		isClient: false
@@ -30,33 +29,9 @@ export function RemoteChangelog() {
 				const content = await response.text();
 				console.log('Content fetched successfully, length:', content.length);
 
-				// Try to get real last modified date
-				let lastUpdate = new Date().toLocaleDateString();
-
-				try {
-					console.log('Trying to get commit date...');
-					const commitResponse = await fetch('https://api.github.com/repos/sei-protocol/sei-chain/commits?path=CHANGELOG.md&per_page=1');
-
-					if (commitResponse.ok) {
-						const commitData = await commitResponse.json();
-						console.log('Commit response:', commitData);
-
-						if (commitData && commitData.length > 0) {
-							const commitDate = new Date(commitData[0].commit.author.date);
-							lastUpdate = commitDate.toLocaleDateString();
-							console.log('Got real commit date:', lastUpdate);
-						}
-					} else {
-						console.log('Commit API failed with status:', commitResponse.status);
-					}
-				} catch (err) {
-					console.log('Commit fetch error:', err.message);
-				}
-
 				setState((prev) => ({
 					...prev,
 					content,
-					lastUpdated: lastUpdate,
 					loading: false,
 					error: null
 				}));
@@ -454,9 +429,6 @@ export function RemoteChangelog() {
 	return (
 		<div>
 			<div className='flex items-center justify-between mb-2 pb-4 mt-4'>
-				<span className='text-sm text-gray-500'>
-					Last updated: <span className='font-medium text-gray-700'>{state.lastUpdated}</span>
-				</span>
 				<a
 					href='https://github.com/sei-protocol/sei-chain/blob/main/CHANGELOG.md'
 					target='_blank'
