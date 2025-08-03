@@ -10,5 +10,8 @@ export default {
 	},
 	'the-graph': {
 		title: 'The Graph'
+	},
+	'dune-sim': {
+		title: 'Sim by Dune'
 	}
 };
