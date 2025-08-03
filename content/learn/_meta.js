@@ -43,14 +43,6 @@ export default {
 	oracles: 'Oracle System',
 	'oracle-security': 'Oracle Security',
 
-	'-- Blockchain Features': {
-		type: 'separator',
-		title: 'Blockchain Features'
-	},
-	mev: 'MEV Protection',
-	'mev-plugins': 'MEV Plugins',
-	'wrapped-sei': 'Wrapped SEI',
-
 	'-- Governance': {
 		type: 'separator',
 		title: 'Governance'
