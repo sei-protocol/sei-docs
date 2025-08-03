@@ -26,23 +26,30 @@ export default {
 	'parallelization-engine': 'Parallel Execution',
 	seidb: 'Storage',
 
-	'-- Developer Tools': {
+	'-- Network Tools & Providers': {
 		type: 'separator',
-		title: 'Developer Tools'
+		title: 'Network Tools & Providers'
 	},
 	wallets: 'Wallets',
 	'rpc-providers': 'RPC Providers',
-	explorers: 'Explorers',
+	explorers: 'Block Explorers',
 	faucet: 'Faucet',
 	indexers: 'Indexers',
 
-	'-- Blockchain Features': {
+	'-- Oracles': {
 		type: 'separator',
-		title: 'Blockchain Features'
+		title: 'Oracles'
 	},
 	oracles: 'Oracle System',
-	mev: 'MEV Protection',
-	'mev-plugins': 'MEV Plugins',
+	'oracle-security': 'Oracle Security',
+
+	'-- Governance': {
+		type: 'separator',
+		title: 'Governance'
+	},
+	'general-governance': 'Overview',
+	proposals: 'Proposals',
+	'general-staking': 'Staking',
 
 	'-- Interoperability': {
 		type: 'separator',
@@ -51,13 +58,11 @@ export default {
 	'dev-interoperability': 'EVM ↔ CosmWasm',
 	pointers: 'Pointer Contracts',
 
-	'-- Governance': {
+	'-- Developer Resources': {
 		type: 'separator',
-		title: 'Governance'
+		title: 'Developer Resources'
 	},
-	'general-staking': 'Staking',
-	'general-governance': 'Governance',
-	proposals: 'Proposals',
+	'mcp-server': 'MCP Server',
 
 	'-- Resources': {
 		type: 'separator',
@@ -65,7 +70,5 @@ export default {
 	},
 	'hardware-wallets': 'Hardware Wallets',
 	'ledger-setup': 'Ledger Setup',
-	'user-FAQ': 'FAQ',
-	'general-brand-kit': 'Brand Kit',
-	'general-submit-feedback': 'Feedback'
+	'general-brand-kit': 'Brand Kit'
 };
