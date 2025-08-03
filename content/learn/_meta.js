@@ -70,7 +70,5 @@ export default {
 	},
 	'hardware-wallets': 'Hardware Wallets',
 	'ledger-setup': 'Ledger Setup',
-	'user-FAQ': 'FAQ',
-	'general-brand-kit': 'Brand Kit',
-	'general-submit-feedback': 'Feedback'
+	'general-brand-kit': 'Brand Kit'
 };

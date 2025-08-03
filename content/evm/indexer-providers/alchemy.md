@@ -21,7 +21,3 @@ Subgraphs handle the intricacies of data ingestion, decoding, and database manag
 - [Subgraphs Quickstart](https://www.alchemy.com/docs/reference/subgraphs-quickstart)
 - [Developing a Subgraph](https://www.alchemy.com/docs/reference/developing-a-subgraph)
 - [Moving to Production](https://www.alchemy.com/docs/reference/moving-to-production)
-
-### Help
-
-Email [subgraphs@alchemy.com](mailto:subgraphs@alchemy.com) with any questions!
