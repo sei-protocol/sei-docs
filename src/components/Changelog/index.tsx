@@ -1,55 +1,29 @@
-'use client';
-import { useEffect, useState } from 'react';
 import { Callout } from 'nextra/components';
 
-export function RemoteChangelog() {
-	const [state, setState] = useState({
-		content: '',
-		error: null,
-		loading: true,
-		isClient: false
-	});
+// Remote changelog component rendered **at build time**. We fetch the markdown
+// from the sei-chain repository during the static generation phase and render
+// the parsed result directly in the HTML that gets shipped to the client. This
+// means no runtime network requests and no need for any React client hooks.
+export async function RemoteChangelog() {
+	let content: string | null = null;
+	let error: Error | null = null;
 
-	useEffect(() => {
-		setState((prev) => ({ ...prev, isClient: true }));
-	}, []);
+	try {
+		const response = await fetch('https://raw.githubusercontent.com/sei-protocol/sei-chain/main/CHANGELOG.md');
 
-	useEffect(() => {
-		if (!state.isClient) return;
+		if (!response.ok) {
+			throw new Error(`Failed to fetch: ${response.status}`);
+		}
 
-		const loadChangelog = async () => {
-			try {
-				console.log('Starting to fetch changelog...');
+		content = await response.text();
+	} catch (err: any) {
+		error = err as Error;
+	}
 
-				// Get content first
-				const response = await fetch('https://raw.githubusercontent.com/sei-protocol/sei-chain/main/CHANGELOG.md');
-				if (!response.ok) {
-					throw new Error(`Failed to fetch: ${response.status}`);
-				}
-				const content = await response.text();
-				console.log('Content fetched successfully, length:', content.length);
+	// ---------------------------- helpers ----------------------------
 
-				setState((prev) => ({
-					...prev,
-					content,
-					loading: false,
-					error: null
-				}));
-			} catch (error) {
-				console.error('Error loading changelog:', error);
-				setState((prev) => ({
-					...prev,
-					error: error.message,
-					loading: false
-				}));
-			}
-		};
-
-		loadChangelog();
-	}, [state.isClient]);
-
-	const parseContent = (rawContent) => {
-		if (!rawContent) return [];
+	const parseContent = (rawContent: string) => {
+		if (!rawContent) return [] as Array<{ version: string; body: string; idx: number }>;
 
 		const sections = rawContent.split(/^## /gm).slice(1);
 
@@ -62,184 +36,14 @@ export function RemoteChangelog() {
 		});
 	};
 
-	const renderContent = (body) => {
-		if (!body) {
-			return <div className='text-gray-500 italic py-4'>No changes listed</div>;
-		}
-
-		// NEW: Handle markdown section headers like ### Features, ### Bug Fixes
-		const sectionComponents: Array<{ name: string; changes: string }> = [];
-
-		// Split by markdown headers (### Section Name)
-		const sections = body.split(/^### /gm);
-
-		// Process each section (skip first empty part)
-		for (let i = 1; i < sections.length; i++) {
-			const section = sections[i];
-			const lines = section.split('\n');
-			const sectionName = lines[0]?.trim();
-
-			if (sectionName) {
-				// Get all bullet points for this section
-				const bulletPoints: string[] = [];
-
-				for (let j = 1; j < lines.length; j++) {
-					const line = lines[j].trim();
-					if (line.startsWith('*') || line.startsWith('-') || line.startsWith('•')) {
-						// Clean up the bullet point - remove the bullet and any markdown links
-						let cleanLine = line
-							.replace(/^\*\s*/, '')
-							.replace(/^-\s*/, '')
-							.replace(/^•\s*/, '');
-						// Remove markdown links but keep the text
-						cleanLine = cleanLine.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
-						bulletPoints.push(cleanLine);
-					}
-				}
-
-				if (bulletPoints.length > 0) {
-					sectionComponents.push({
-						name: sectionName,
-						changes: bulletPoints.join('\n* ').replace(/^\* /, '')
-					});
-				}
-			}
-		}
-
-		if (sectionComponents.length > 0) {
-			return (
-				<div className='space-y-6'>
-					{sectionComponents.map((comp, i) => (
-						<div key={i}>
-							<div className='flex items-center gap-2 mb-3'>
-								<div className='flex items-center gap-2 bg-gray-100 px-3 py-1.5 rounded-md'>
-									<div className='w-2 h-2 bg-gray-500 rounded-full'></div>
-									<span className='font-medium text-gray-700 text-sm'>{comp.name}</span>
-								</div>
-							</div>
-							<div className='space-y-2'>
-								{comp.changes
-									.split(/\s*\*\s+/)
-									.filter((c) => c.trim())
-									.map((change, j) => (
-										<div key={j} className='flex items-start gap-3 py-2'>
-											<span className='text-base mt-0.5 text-gray-400'>•</span>
-											<div className='flex-1'>
-												<TextWithLinks content={change.trim()} componentName='sei-chain' />
-											</div>
-										</div>
-									))}
-							</div>
-						</div>
-					))}
-				</div>
-			);
-		}
-
-		// Try original component pattern (for newer changelogs with sei-chain:, sei-cosmos: etc)
-		const componentPattern = /^([a-zA-Z][a-zA-Z0-9-]*):?\s*$/gm;
-		const componentMatches = [...body.matchAll(componentPattern)];
-		const components: Array<{ name: string; changes: string }> = [];
-
-		if (componentMatches.length > 0) {
-			// Split content by component headers
-			const parts = body.split(/^([a-zA-Z][a-zA-Z0-9-]*):?\s*$/gm);
-
-			// Process the parts: [initial_content, component1_name, component1_content, component2_name, component2_content, ...]
-			for (let i = 1; i < parts.length; i += 2) {
-				const componentName = parts[i]?.trim().replace(':', '');
-				const componentContent = parts[i + 1]?.trim();
-
-				if (componentName && componentContent) {
-					// Extract bullet points and clean up content
-					const bulletPoints: string[] = [];
-					const lines = componentContent.split('\n');
-
-					for (const line of lines) {
-						const trimmedLine = line.trim();
-						if (trimmedLine.startsWith('*') || trimmedLine.startsWith('-') || trimmedLine.startsWith('•')) {
-							// Clean up the bullet point
-							let cleanLine = trimmedLine
-								.replace(/^\*\s*/, '')
-								.replace(/^-\s*/, '')
-								.replace(/^•\s*/, '');
-							// Remove markdown links but keep the text
-							cleanLine = cleanLine.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
-							bulletPoints.push(cleanLine);
-						} else if (trimmedLine && !trimmedLine.match(/^[a-zA-Z][a-zA-Z0-9-]*:?\s*$/)) {
-							// Include non-empty lines that aren't component headers
-							bulletPoints.push(trimmedLine);
-						}
-					}
-
-					if (bulletPoints.length > 0) {
-						components.push({
-							name: componentName,
-							changes: bulletPoints.join('\n* ').replace(/^\* /, '')
-						});
-					}
-				}
-			}
-		}
-
-		// If we found components using the component pattern, use that
-		if (components.length > 0) {
-			return (
-				<div className='space-y-6'>
-					{components.map((comp, i) => (
-						<div key={i}>
-							<div className='flex items-center gap-2 mb-3'>
-								<div className='flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-md'>
-									<div className='w-2 h-2 bg-blue-500 rounded-full'></div>
-									<span className='font-medium text-slate-700 text-sm'>{comp.name}</span>
-								</div>
-							</div>
-							<div className='space-y-2'>
-								{comp.changes
-									.split(/\s*\*\s+/)
-									.filter((c) => c.trim())
-									.map((change, j) => (
-										<div key={j} className='flex items-start gap-3 py-2'>
-											<span className='text-base mt-0.5 text-gray-400'>•</span>
-											<div className='flex-1'>
-												<TextWithLinks content={change.trim()} componentName={comp.name} />
-											</div>
-										</div>
-									))}
-							</div>
-						</div>
-					))}
-				</div>
-			);
-		}
-
-		// Fallback: simple list
-		const fallbackLines = body
-			.split('\n')
-			.map((l) => l.trim())
-			.filter((l) => l);
-		return (
-			<div className='space-y-2'>
-				{fallbackLines.map((line, i) => (
-					<div key={i} className='flex items-start gap-3 py-2'>
-						<span className='text-base mt-0.5 text-gray-400'>•</span>
-						<div className='flex-1'>
-							<TextWithLinks content={line} componentName='sei-chain' />
-						</div>
-					</div>
-				))}
-			</div>
-		);
-	};
-
-	const TextWithLinks = ({ content, componentName }) => {
-		if (!state.isClient || !content) {
+	const TextWithLinks = ({ content, componentName }: { content: string; componentName: string }) => {
+		if (!content) {
 			return <span className='text-base'>{content}</span>;
 		}
 
 		// Map component names to their respective repositories
-		const getRepoUrl = (compName) => {
-			const repoMap = {
+		const getRepoUrl = (compName: string) => {
+			const repoMap: Record<string, string> = {
 				'sei-chain': 'sei-protocol/sei-chain',
 				'sei-tendermint': 'sei-protocol/sei-tendermint',
 				'sei-cosmos': 'sei-protocol/sei-cosmos',
@@ -293,7 +97,7 @@ export function RemoteChangelog() {
 								href={part}
 								target='_blank'
 								rel='noopener noreferrer'
-								className='text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded font-mono text-sm font-medium transition-colors no-underline ml-1'>
+								className='text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 px-2 py-0.5 rounded font-mono text-sm font-medium transition-colors no-underline ml-1'>
 								{linkText}
 							</a>
 						);
@@ -320,7 +124,7 @@ export function RemoteChangelog() {
 									href={compareUrl}
 									target='_blank'
 									rel='noopener noreferrer'
-									className='text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded font-mono text-sm font-medium transition-colors no-underline ml-1'>
+									className='text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 px-2 py-0.5 rounded font-mono text-sm font-medium transition-colors no-underline ml-1'>
 									{displayText}
 								</a>
 							</span>
@@ -351,7 +155,7 @@ export function RemoteChangelog() {
 											href={`https://github.com/${repoPath}/pull/${num}`}
 											target='_blank'
 											rel='noopener noreferrer'
-											className='text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded font-mono text-sm font-medium transition-colors no-underline ml-1'>
+											className='text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 px-2 py-0.5 rounded font-mono text-sm font-medium transition-colors no-underline ml-1'>
 											#{num}
 										</a>
 									);
@@ -385,7 +189,7 @@ export function RemoteChangelog() {
 												href={`https://github.com/${repoPath}/pull/${num}`}
 												target='_blank'
 												rel='noopener noreferrer'
-												className='text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded font-mono text-sm font-medium transition-colors no-underline mr-1'>
+												className='text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 px-2 py-0.5 rounded font-mono text-sm font-medium transition-colors no-underline mr-1'>
 												#{num}
 											</a>
 										);
@@ -401,30 +205,187 @@ export function RemoteChangelog() {
 		);
 	};
 
-	if (!state.isClient) {
-		return <div className='animate-pulse h-64 bg-gray-100 rounded'></div>;
-	}
+	const renderContent = (body: string) => {
+		if (!body) {
+			return <div className='text-gray-500 dark:text-white italic py-4'>No changes listed</div>;
+		}
 
-	if (state.loading) {
-		return (
-			<div className='flex items-center justify-center py-12'>
-				<div className='flex items-center gap-3'>
-					<div className='animate-spin rounded-full h-6 w-6 border-2 border-blue-600 border-t-transparent'></div>
-					<span className='text-gray-600 font-medium'>Loading changelog...</span>
+		// NEW: Handle markdown section headers like ### Features, ### Bug Fixes
+		const sectionComponents: Array<{ name: string; changes: string }> = [];
+
+		// Split by markdown headers (### Section Name)
+		const sections = body.split(/^### /gm);
+
+		// Process each section (skip first empty part)
+		for (let i = 1; i < sections.length; i++) {
+			const section = sections[i];
+			const lines = section.split('\n');
+			const sectionName = lines[0]?.trim();
+
+			if (sectionName) {
+				// Get all bullet points for this section
+				const bulletPoints: string[] = [];
+
+				for (let j = 1; j < lines.length; j++) {
+					const line = lines[j].trim();
+					if (line.startsWith('*') || line.startsWith('-') || line.startsWith('•')) {
+						// Clean up the bullet point - remove the bullet and any markdown links
+						let cleanLine = line
+							.replace(/^\*\s*/, '')
+							.replace(/^-\s*/, '')
+							.replace(/^•\s*/, '');
+						// Remove markdown links but keep the text
+						cleanLine = cleanLine.replace(/\[([^\]]+)\]\([^)^]+\)/g, '$1');
+						bulletPoints.push(cleanLine);
+					}
+				}
+
+				if (bulletPoints.length > 0) {
+					sectionComponents.push({
+						name: sectionName,
+						changes: bulletPoints.join('\n* ').replace(/^\* /, '')
+					});
+				}
+			}
+		}
+
+		if (sectionComponents.length > 0) {
+			return (
+				<div className='space-y-6'>
+					{sectionComponents.map((comp, i) => (
+						<div key={i}>
+							<div className='flex items-center gap-2 mb-3'>
+								<div className='flex items-center gap-2 bg-gray-100 px-3 py-1.5 rounded-md'>
+									<div className='w-2 h-2 bg-red-500 rounded-full'></div>
+									<span className='font-medium text-gray-700 dark:text-white text-sm'>{comp.name}</span>
+								</div>
+							</div>
+							<div className='space-y-2'>
+								{comp.changes
+									.split(/\s*\*\s+/)
+									.filter((c) => c.trim())
+									.map((change, j) => (
+										<div key={j} className='flex items-start gap-3 py-2'>
+											<span className='text-base mt-0.5 text-gray-400'>•</span>
+											<div className='flex-1'>
+												<TextWithLinks content={change.trim()} componentName='sei-chain' />
+											</div>
+										</div>
+									))}
+							</div>
+						</div>
+					))}
 				</div>
+			);
+		}
+
+		// Try original component pattern (for newer changelogs with sei-chain:, sei-cosmos: etc)
+		const componentPattern = /^([a-zA-Z][a-zA-Z0-9-]*):?\s*$/gm;
+		const componentMatches = Array.from(body.matchAll(componentPattern));
+		const components: Array<{ name: string; changes: string }> = [];
+
+		if (componentMatches.length > 0) {
+			// Split content by component headers
+			const parts = body.split(/^([a-zA-Z][a-zA-Z0-9-]*):?\s*$/gm);
+
+			// Process the parts: [initial_content, component1_name, component1_content, component2_name, component2_content, ...]
+			for (let i = 1; i < parts.length; i += 2) {
+				const componentName = parts[i]?.trim().replace(':', '');
+				const componentContent = parts[i + 1]?.trim();
+
+				if (componentName && componentContent) {
+					// Extract bullet points and clean up content
+					const bulletPoints: string[] = [];
+					const lines = componentContent.split('\n');
+
+					for (const line of lines) {
+						const trimmedLine = line.trim();
+						if (trimmedLine.startsWith('*') || trimmedLine.startsWith('-') || trimmedLine.startsWith('•')) {
+							// Clean up the bullet point
+							let cleanLine = trimmedLine
+								.replace(/^\*\s*/, '')
+								.replace(/^-\s*/, '')
+								.replace(/^•\s*/, '');
+							// Remove markdown links but keep the text
+							cleanLine = cleanLine.replace(/\[([^\]]+)\]\([^)^]+\)/g, '$1');
+							bulletPoints.push(cleanLine);
+						} else if (trimmedLine && !trimmedLine.match(/^[a-zA-Z][a-zA-Z0-9-]*:?\s*$/)) {
+							// Include non-empty lines that aren't component headers
+							bulletPoints.push(trimmedLine);
+						}
+					}
+
+					if (bulletPoints.length > 0) {
+						components.push({
+							name: componentName,
+							changes: bulletPoints.join('\n* ').replace(/^\* /, '')
+						});
+					}
+				}
+			}
+		}
+
+		// If we found components using the component pattern, use that
+		if (components.length > 0) {
+			return (
+				<div className='space-y-6'>
+					{components.map((comp, i) => (
+						<div key={i}>
+							<div className='flex items-center gap-2 mb-3'>
+								<div className='flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-md'>
+									<div className='w-2 h-2 bg-red-500 rounded-full'></div>
+									<span className='font-medium text-slate-700 text-sm'>{comp.name}</span>
+								</div>
+							</div>
+							<div className='space-y-2'>
+								{comp.changes
+									.split(/\s*\*\s+/)
+									.filter((c) => c.trim())
+									.map((change, j) => (
+										<div key={j} className='flex items-start gap-3 py-2'>
+											<span className='text-base mt-0.5 text-gray-400'>•</span>
+											<div className='flex-1'>
+												<TextWithLinks content={change.trim()} componentName={comp.name} />
+											</div>
+										</div>
+									))}
+							</div>
+						</div>
+					))}
+				</div>
+			);
+		}
+
+		// Fallback: simple list
+		const fallbackLines = body
+			.split('\n')
+			.map((l) => l.trim())
+			.filter((l) => l);
+		return (
+			<div className='space-y-2'>
+				{fallbackLines.map((line, i) => (
+					<div key={i} className='flex items-start gap-3 py-2'>
+						<span className='text-base mt-0.5 text-gray-400'>•</span>
+						<div className='flex-1'>
+							<TextWithLinks content={line} componentName='sei-chain' />
+						</div>
+					</div>
+				))}
 			</div>
 		);
+	};
+
+	// ---------------------------- rendering ----------------------------
+
+	if (error) {
+		return <Callout type='error'>Failed to load changelog: {error.message}</Callout>;
 	}
 
-	if (state.error) {
-		return <Callout type='error'>Failed to load changelog: {state.error}</Callout>;
-	}
-
-	if (!state.content) {
+	if (!content) {
 		return <Callout type='warning'>No changelog content available.</Callout>;
 	}
 
-	const versions = parseContent(state.content);
+	const versions = parseContent(content);
 
 	return (
 		<div>
@@ -433,7 +394,7 @@ export function RemoteChangelog() {
 					href='https://github.com/sei-protocol/sei-chain/blob/main/CHANGELOG.md'
 					target='_blank'
 					rel='noopener noreferrer'
-					className='inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-md transition-colors font-medium no-underline'>
+					className='inline-flex items-center gap-2 text-sm text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-md transition-colors font-medium no-underline'>
 					<svg className='w-4 h-4' fill='currentColor' viewBox='0 0 20 20'>
 						<path
 							fillRule='evenodd'
@@ -449,7 +410,7 @@ export function RemoteChangelog() {
 				{versions.map((version) => (
 					<div key={version.idx} className='mb-8'>
 						<div className='flex items-center gap-3 mb-4'>
-							<h2 className='text-xl font-bold text-gray-900 m-0'>{version.version}</h2>
+							<h2 className='text-xl font-bold text-gray-900 dark:text-white m-0'>{version.version}</h2>
 							<span className='text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full'>Release</span>
 						</div>
 						<div className='space-y-4'>{renderContent(version.body)}</div>
