@@ -1,135 +1,545 @@
 ---
 title: 'Staking Precompile'
-description: "Use the staking precompile to interact with Sei's staking module directly from EVM smart contracts, enabling token delegation, redelegation, validator creation, and querying validator information."
-keywords: ['staking precompile', 'token delegation', 'validator interactions', 'sei staking', 'redelegation', 'validator creation']
+description: "Learn how to interact with Sei's Staking precompile through ethers.js, enabling delegation, undelegation, redelegation, and validator management directly in your EVM smart contracts for DeFi and staking applications."
+keywords: ['staking precompile', 'ethers.js', 'delegation', 'validators', 'staking rewards', 'defi development', 'sei evm', 'blockchain staking']
 ---
 
 import { Callout } from 'nextra/components';
 
 # Staking Precompile
 
-**Address**: `0x0000000000000000000000000000000000001005`
+**Address:** `0x0000000000000000000000000000000000001005`
 
-This precompile allows EVM contracts to interact with Sei's staking module,
-enabling functionalities such as delegating tokens, creating and managing validators, querying validators, and more.
+The Sei staking precompile allows EVM applications to interact directly with Sei's native staking module through standard smart contract calls. This enables delegation, undelegation, redelegation, validator management, and staking queries directly from your dApps without needing separate Cosmos SDK integration.
+
+<Callout type="info"> **What is a precompile?** A precompile is a special smart contract deployed at a fixed address by the Sei protocol itself, that exposes custom native chain logic to EVM-based applications. It acts like a regular contract from the EVM's perspective, but executes privileged, low-level logic efficiently. </Callout>
+
+## How Does the Staking Precompile Work?
+
+The staking precompile at address `0x0000000000000000000000000000000000001005` exposes functions like `delegate()`, `undelegate()`, `redelegate()`, `createValidator()`, and `delegation()`.
+
+- **Direct Integration:** EVM contracts and dApps can call staking functions like any other smart contract method.
+- **Native Execution:** Operations are executed at the Cosmos SDK level for maximum efficiency and security.
+- **Seamless Bridge:** No need for separate wallet integrations or complex cross-chain interactions.
+
+## Use Cases
+
+- **DeFi Integration:** Build liquid staking protocols and yield farming strategies.
+- **Delegation Services:** Create user-friendly interfaces for staking operations.
+- **Portfolio Management:** Automate staking strategies and delegation rebalancing.
+- **Validator Management:** Create and manage validators programmatically.
+- **Governance Tools:** Enable voting and governance participation through EVM interfaces.
+
+## What You'll Learn in This Guide
+
+By the end of this guide, you'll be able to:
+
+- **Integrate Staking Operations** - Call delegation, undelegation, and redelegation functions directly from your EVM contracts and dApps
+- **Handle Decimal Precision** - Master the critical 18-decimal write / 6-decimal read pattern to avoid common formatting errors
+- **Manage Validator Operations** - Query validators programmatically using the precompile interface
+- **Build Portfolio Tools** - Implement automated rebalancing and delegation tracking for staking management applications
+- **Navigate Staking Risks** - Understand unbonding periods, slashing mechanics, and validator selection for safe staking operations
 
 ## Functions
 
-### Transactions
+The staking precompile exposes the following functions:
 
-- `delegate`: Allows a user to delegate a specified amount of tokens to a validator. This function will truncate the `msg.value` to 6 decimals.
+### Transaction Functions
 
-  ```solidity copy
-  /// Delegates Sei to the specified validator.
-  /// @dev This function truncates msg.value to 6 decimal places for interaction with the staking module
-  /// @param valAddress The Sei address of the validator.
-  /// @return Whether the delegation was successful.
-  function delegate(
-      string memory valAddress,
-  ) payable external returns (bool success);
-  ```
+```solidity
+/// Delegates Sei to the specified validator.
+/// @dev This function truncates msg.value to 6 decimal places for interaction with the staking module
+/// @param valAddress The Sei address of the validator.
+/// @return Whether the delegation was successful.
+function delegate(
+    string memory valAddress
+) payable external returns (bool success);
 
-- `redelegate`: Enables the redelegation of tokens from one validator to another.
+/// Redelegates Sei from one validator to another.
+/// @dev The amount should be in 6 decimal precision, not 18. 1 SEI = 1_000_000 uSEI
+/// @param srcAddress The Sei address of the validator to move delegations from.
+/// @param dstAddress The Sei address of the validator to move delegations to.
+/// @param amount The amount of Sei to move from srcAddress to dstAddress.
+/// @return Whether the redelegation was successful.
+function redelegate(
+    string memory srcAddress,
+    string memory dstAddress,
+    uint256 amount
+) external returns (bool success);
 
-  ```solidity copy
-  /// Redelegates Sei from one validator to another.
-  /// @dev The amount should be in 6 decimal precision, not 18. 1 SEI = 1_000_000 uSEI
-  /// @param srcAddress The Sei address of the validator to move delegations from.
-  /// @param dstAddress The Sei address of the validator to move delegations to.
-  /// @param amount The amount of Sei to move from srcAddress to dstAddress.
-  /// @return Whether the redelegation was successful.
-  function redelegate(
-      string memory srcAddress,
-      string memory dstAddress,
-      uint256 amount
-  ) external returns (bool success);
-  ```
+/// Undelegates Sei from the specified validator.
+/// @dev The amount should be in 6 decimal precision, not 18. 1 SEI = 1_000_000 uSEI
+/// @param valAddress The Sei address of the validator to undelegate from.
+/// @param amount The amount of Sei to undelegate.
+/// @return Whether the undelegation was successful.
+function undelegate(
+    string memory valAddress,
+    uint256 amount
+) external returns (bool success);
+```
 
-- `undelegate`: Provides the functionality for a user to withdraw a specified amount of tokens from a validator.
+### Query Functions
 
-  ```solidity copy
-  /// Undelegates Sei from the specified validator.
-  /// @dev The amount should be in 6 decimal precision, not 18. 1 SEI = 1_000_000 uSEI
-  /// @param valAddress The Sei address of the validator to undelegate from.
-  /// @param amount The amount of Sei to undelegate.
-  /// @return Whether the undelegation was successful.
-  function undelegate(
-      string memory valAddress,
-      uint256 amount
-  ) external returns (bool success);
-  ```
+```solidity
+struct Delegation {
+    Balance balance;
+    DelegationDetails delegation;
+}
 
-- `createValidator`: Creates a new validator on the Sei network.
+struct Balance {
+    uint256 amount;
+    string denom;
+}
 
-  ```solidity copy
-  /// Creates a new validator. Delegation amount must be provided as value in wei
-  /// @param pubKeyHex Ed25519 public key in hex format (64 characters)
-  /// @param moniker Validator display name
-  /// @param commissionRate Initial commission rate (e.g. "0.05" for 5%)
-  /// @param commissionMaxRate Maximum commission rate (e.g. "0.20" for 20%)
-  /// @param commissionMaxChangeRate Maximum commission change rate per day (e.g. "0.01" for 1%)
-  /// @param minSelfDelegation Minimum self-delegation amount in base units
-  /// @return success True if validator creation was successful
-  function createValidator(
-      string memory pubKeyHex,
-      string memory moniker,
-      string memory commissionRate,
-      string memory commissionMaxRate,
-      string memory commissionMaxChangeRate,
-      uint256 minSelfDelegation
-  ) payable external returns (bool success);
-  ```
+struct DelegationDetails {
+    string delegator_address;
+    uint256 shares;
+    uint256 decimals;
+    string validator_address;
+}
 
-- `editValidator`: Modifies an existing validator's parameters.
+/// Queries delegation for a given delegator and validator address.
+/// @param delegator The x0 or Sei address of the delegator.
+/// @param valAddress The Sei address of the validator.
+/// @return The delegation information. Shares in DelegationDetails are usually returned as decimals.
+/// To calculate the actual amount, divide the shares by decimals.
+function delegation(
+    address delegator,
+    string memory valAddress
+) external view returns (Delegation delegation);
+```
 
-  ```solidity copy
-  /// Edit an existing validator's parameters
-  /// @param moniker New validator display name
-  /// @param commissionRate New commission rate (e.g. "0.10" for 10%)
-  ///                      Pass empty string "" to not change commission rate
-  ///                      Note: Commission can only be changed once per 24 hours
-  /// @param minSelfDelegation New minimum self-delegation amount in base units
-  ///                         Pass 0 to not change minimum self-delegation
-  ///                         Note: Can only increase, cannot decrease below current value
-  /// @return success True if validator edit was successful
-  function editValidator(
-      string memory moniker,
-      string memory commissionRate,
-      uint256 minSelfDelegation
-  ) external returns (bool success);
-  ```
+## Using the Precompile
 
-### Queries
+### Setup
 
-- `delegation`: Queries delegation for a given delegator and validator address.
+#### Prerequisites
 
-  ```solidity copy
-  struct Delegation {
-      Balance balance;
-      DelegationDetails delegation;
+Before getting started, ensure you have:
+
+- **Node.js** (v16 or higher)
+- **npm** or **yarn** package manager
+- **EVM-compatible wallet**
+- **SEI tokens** for gas fees and staking operations
+
+#### Install Dependencies
+
+Install the required packages for interacting with Sei precompiles:
+
+```bash copy
+# Install ethers.js for smart contract interactions
+npm install ethers
+
+# Install Sei EVM bindings for precompile addresses and ABIs
+npm install @sei-js/precompiles@2.1.2
+```
+
+#### Import Precompile Components
+
+```typescript copy
+// Import Staking precompile address and ABI
+// View the entire ABI here: https://github.com/sei-protocol/sei-chain/tree/evm/precompiles/staking
+import { STAKING_PRECOMPILE_ABI, STAKING_PRECOMPILE_ADDRESS } from '@sei-js/precompiles';
+import { ethers } from 'ethers';
+```
+
+<Callout type="info"> **Precompile Address:** The staking precompile is deployed at `0x0000000000000000000000000000000000001005` </Callout>
+
+### Contract Initialization
+
+Set up your provider, signer, and contract instance:
+
+```typescript copy
+// Using EVM-compatible wallet as the signer and provider
+const provider = new ethers.BrowserProvider(window.ethereum);
+await provider.send('eth_requestAccounts', []);
+const signer = await provider.getSigner();
+
+// Create a contract instance for the staking precompile
+const staking = new ethers.Contract(STAKING_PRECOMPILE_ADDRESS, STAKING_PRECOMPILE_ABI, signer);
+```
+
+## **Critical: Understanding Decimal Precision**
+
+**One of the most important concepts to understand when working with the Sei staking precompile:**
+
+### **Format to 18 Decimals when Writing to Precompile and format from 6 Decimals when Reading**
+
+The staking precompile operates with **asymmetric decimal precision** due to bridging EVM and Cosmos standards:
+
+<div className="overflow-x-auto max-w-full">
+  <table className="w-full divide-y divide-neutral-200 dark:divide-neutral-800">
+    <thead>
+      <tr>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Operation Type</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Decimal Precision</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Why</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Example</th>
+      </tr>
+    </thead>
+    <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
+      <tr>
+        <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">
+          <strong>Writing to Contract</strong>
+        </td>
+        <td className="px-4 py-3 text-sm text-green-600 dark:text-green-400 whitespace-nowrap">18 decimals (wei)</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">EVM standard compatibility</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">
+          <code>ethers.parseUnits('1', 18)</code>
+        </td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">
+          <strong>Reading from Contract</strong>
+        </td>
+        <td className="px-4 py-3 text-sm text-blue-600 dark:text-blue-400 whitespace-nowrap">6 decimals (uSEI)</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Cosmos native format</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">
+          <code>1000000</code> (represents 1 SEI)
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+### **How This Works in Practice**
+
+**ALL Writing Operations (Use 18 decimals):**
+
+- `delegate()` - accepts `msg.value` in wei (18 decimals)
+- `undelegate()` - expects amount parameter in 18 decimals (wei)
+- `redelegate()` - expects amount parameter in 18 decimals (wei)
+
+**Reading/Query Operations (Return 6 decimals):**
+
+- `delegation()` - returns amounts in 6 decimal precision
+
+### **Why This Asymmetry Exists**
+
+1. **EVM Compatibility:** ALL writing operations use standard 18-decimal wei format for EVM consistency
+2. **Cosmos Integration:** Internal Cosmos operations use 6-decimal uSEI precision
+3. **Automatic Conversion:** The precompile automatically truncates 18-decimal inputs to 6-decimal precision for Cosmos operations
+
+### **Best Practice: Use toFixed(6) for Precision Control**
+
+When working with user inputs, use `toFixed(6)` to ensure proper precision before parsing to 18 decimals:
+
+```typescript copy
+// Best practice for handling user input amounts
+function prepareAmountForPrecompile(seiAmount: number): bigint {
+  // First limit to 6 decimal places, then parse as 18 decimals
+  const fixedAmount = seiAmount.toFixed(6);
+  return ethers.parseUnits(fixedAmount, 18);
+}
+
+// Usage
+const userInputAmount = 1.23456789; // User enters this
+const properAmount = prepareAmountForPrecompile(userInputAmount); // Results in 1.234567 SEI
+```
+
+## Decimal Conversion Helpers
+
+Use these helper functions to avoid precision errors:
+
+```typescript copy
+// Helper functions for amount conversion
+class SeiAmountConverter {
+  // Convert SEI to wei (18 decimals) - for ALL writing operations
+  static seiToWei(seiAmount: number): bigint {
+    return ethers.parseUnits(seiAmount.toFixed(6), 18);
   }
 
-  struct Balance {
-      uint256 amount;
-      string denom;
+  // Convert reading results (6 decimals) to SEI
+  static useiToSei(useiAmount: number | bigint): number {
+    return Number(useiAmount) / 1000000;
   }
 
-  struct DelegationDetails {
-      string delegator_address;
-      uint256 shares;
-      uint256 decimals;
-      string validator_address;
+  // Convert wei to SEI (18 decimals)
+  static weiToSei(weiAmount: bigint): number {
+    return Number(ethers.formatEther(weiAmount));
   }
+}
 
-  /// Queries delegation for a given delegator and validator address.
-  /// @param delegatorAddress The x0 or Sei address of the delegator.
-  /// @param valAddress The Sei address of the validator.
-  /// @return The delegation information. Shares in DelegationDetails are usually returned as decimals.
-  /// To calculate the actual amount, divide the shares by decimals.
-  function delegation(
-      address delegator,
-      string memory valAddress
-  ) external view returns (Delegation delegation);
-  ```
+// Usage examples - ALL use 18 decimals for writing
+const delegateAmount = SeiAmountConverter.seiToWei(1); // For delegate()
+const undelegateAmount = SeiAmountConverter.seiToWei(0.5); // For undelegate()
+const redelegateAmount = SeiAmountConverter.seiToWei(2); // For redelegate()
+```
 
-<Callout type="info">View the Staking precompile source code and the contract ABI [here](https://github.com/sei-protocol/sei-chain/tree/evm/precompiles/staking).</Callout>
+## Step-by-Step Guide: Using the Staking Precompile
+
+### Delegate Tokens
+
+```typescript copy
+// Sei validator address you want to delegate to (seivaloper... format)
+const validatorAddress = 'seivaloper1xyz...';
+
+// Delegate 1 SEI - CORRECTED: Use proper parseUnits
+const amountToDelegate = ethers.parseUnits('1', 18);
+
+const tx = await staking.delegate(validatorAddress, { value: amountToDelegate });
+
+const receipt = await tx.wait();
+console.log('Delegation completed:', receipt);
+```
+
+### Undelegate Tokens
+
+```typescript copy
+// Undelegate 1 SEI from a validator
+const validatorAddress = 'seivaloper1xyz...';
+const amountToUndelegate = ethers.parseUnits('1', 18); // 18 decimals for ALL writing operations
+
+const tx = await staking.undelegate(validatorAddress, amountToUndelegate);
+const receipt = await tx.wait();
+
+console.log('Undelegation started:', receipt);
+```
+
+<Callout type="warning"> **⚠️ IMPORTANT:** Undelegated tokens are subject to a **21-day unbonding period** during which they cannot be transferred and do not earn rewards. </Callout>
+
+### Redelegate Tokens
+
+```typescript copy
+// Redelegate 0.5 SEI from one validator to another
+const srcValidator = 'seivaloper1abc...';
+const dstValidator = 'seivaloper1xyz...';
+const amountToRedelegate = ethers.parseUnits('0.5', 18); // 18 decimals for ALL writing operations
+
+const tx = await staking.redelegate(srcValidator, dstValidator, amountToRedelegate);
+const receipt = await tx.wait();
+
+console.log('Redelegation completed:', receipt);
+```
+
+> **⚠️ REDELEGATION RESTRICTIONS:**
+>
+> - Maximum 7 redelegations per validator pair per 21-day period
+> - After redelegating from Validator A to Validator B, you cannot redelegate from Validator B to another validator for 21 days
+> - Each redelegation has its own 21-day cooldown period
+
+### Query a Delegation
+
+```typescript copy
+// Get your EVM address as the delegator
+const delegator = await signer.getAddress();
+
+const delegationInfo = await staking.delegation(delegator, validatorAddress);
+
+console.log('Delegation details:', {
+  amount: delegationInfo.balance.amount.toString(),
+  denom: delegationInfo.balance.denom,
+  shares: delegationInfo.delegation.shares.toString(),
+  decimals: delegationInfo.delegation.decimals.toString(),
+  delegator_address: delegationInfo.delegation.delegator_address,
+  validator_address: delegationInfo.delegation.validator_address
+});
+
+// Calculate actual delegation amount from shares
+const actualAmount = delegationInfo.delegation.shares / delegationInfo.delegation.decimals;
+console.log('Actual delegation amount:', actualAmount);
+```
+
+## Advanced Usage Examples
+
+### Portfolio Rebalancing
+
+```typescript copy
+async function rebalanceStaking(
+  fromValidator: string,
+  toValidator: string,
+  amount: number // Amount in SEI
+) {
+  try {
+    // Convert to 18 decimal precision for redelegate (ALL writing uses 18 decimals)
+    const amountIn18Decimals = ethers.parseUnits(amount.toFixed(6), 18);
+
+    const tx = await staking.redelegate(fromValidator, toValidator, amountIn18Decimals);
+
+    const receipt = await tx.wait();
+    console.log('Rebalancing completed:', receipt);
+
+    return receipt;
+  } catch (error) {
+    console.error('Rebalancing failed:', error);
+    throw error;
+  }
+}
+```
+
+### Complete Integration Example
+
+```typescript copy
+async function stakingExample() {
+  // Setup
+  const provider = new ethers.BrowserProvider(window.ethereum);
+  await provider.send('eth_requestAccounts', []);
+  const signer = await provider.getSigner();
+  const staking = new ethers.Contract(STAKING_PRECOMPILE_ADDRESS, STAKING_PRECOMPILE_ABI, signer);
+
+  const delegator = await signer.getAddress();
+  const validatorAddress = 'seivaloper1xyz...';
+
+  try {
+    // 1. Check current delegation
+    console.log('=== Checking Current Delegation ===');
+    const currentDelegation = await staking.delegation(delegator, validatorAddress);
+    console.log('Current delegation amount:', currentDelegation.balance.amount.toString());
+
+    // 2. Delegate additional tokens
+    console.log('=== Delegating Tokens ===');
+    const amountToDelegate = ethers.parseUnits('1', 18);
+    const delegateTx = await staking.delegate(validatorAddress, {
+      value: amountToDelegate,
+      gasLimit: 300000
+    });
+    await delegateTx.wait();
+    console.log('Delegation successful:', delegateTx.hash);
+
+    // 3. Check updated delegation
+    const updatedDelegation = await staking.delegation(delegator, validatorAddress);
+    console.log('Updated delegation amount:', updatedDelegation.balance.amount.toString());
+
+    // 4. Undelegate partial amount
+    console.log('=== Undelegating Tokens ===');
+    const undelegateAmount = ethers.parseUnits('0.5', 18); // 0.5 SEI in 18 decimal precision
+    const undelegateTx = await staking.undelegate(validatorAddress, undelegateAmount);
+    await undelegateTx.wait();
+    console.log('Undelegation successful:', undelegateTx.hash);
+  } catch (error) {
+    console.error('Operation failed:', error);
+  }
+}
+```
+
+## **Security Considerations & Risks**
+
+### **Slashing Risk**
+
+- **What it is:** If your chosen validator misbehaves (double signing, excessive downtime), a portion of your staked tokens may be slashed (currently up to 5%)
+- **Mitigation:** Choose validators with high uptime (99%+) and good reputation
+
+### **Unbonding Period**
+
+- **21-day lock:** Undelegated tokens cannot be transferred or earn rewards for 21 days
+- **No exceptions:** This cannot be canceled once initiated
+- **Planning:** Consider this when managing liquidity needs
+
+### **Validator Selection Criteria**
+
+- **Commission Rate:** Lower commission means more rewards for you (typically 1-10%)
+- **Uptime:** Check for validators with high uptime (99%+)
+
+### **Redelegation Complexity**
+
+- **7-transaction limit:** You can only redelegate from the same validator to the same destination validator 7 times in 21 days
+- **Serial blocking:** After redelegating A→B, you cannot redelegate B→C for 21 days
+- **Each redelegation starts its own 21-day timer**
+
+## Troubleshooting
+
+### Common Issues and Solutions
+
+#### Gas-Related Issues
+
+```typescript copy
+// Set appropriate gas limits for different operations
+const delegateTx = await staking.delegate(validatorAddress, {
+  value: amount,
+  gasLimit: 300000
+});
+```
+
+### Error Code Reference
+
+<div className="overflow-x-auto max-w-full">
+  <table className="w-full divide-y divide-neutral-200 dark:divide-neutral-800">
+    <thead>
+      <tr>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Error</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Cause</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Solution</th>
+      </tr>
+    </thead>
+    <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
+      <tr>
+        <td className="px-4 py-3 text-sm text-red-600 dark:text-red-400 whitespace-nowrap font-medium">
+          <code>insufficient funds</code>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">Not enough SEI for operation</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Check balance and reduce amount</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-red-600 dark:text-red-400 whitespace-nowrap font-medium">
+          <code>validator does not exist</code>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">Invalid validator address</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Verify validator address format</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-red-600 dark:text-red-400 whitespace-nowrap font-medium">
+          <code>invalid delegation amount</code>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">Amount formatting issue</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Use correct decimal precision</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-red-600 dark:text-red-400 whitespace-nowrap font-medium">
+          <code>commission rate too high</code>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">Commission above max rate</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Lower commission rate</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-red-600 dark:text-red-400 whitespace-nowrap font-medium">
+          <code>commission change too frequent</code>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">Changing commission within 24h</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Wait 24 hours between changes</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-red-600 dark:text-red-400 whitespace-nowrap font-medium">
+          <code>self delegation too low</code>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">Below minimum self-delegation</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Increase self-delegation amount</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-red-600 dark:text-red-400 whitespace-nowrap font-medium">
+          <code>too many redelegations</code>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">Exceeded 7 redelegation limit</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Wait for earliest redelegation to expire</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+## Important Notes
+
+<Callout type="info"> **Remember the key rule: Write with 18 decimals, Read with 6 decimals!** </Callout>
+
+### **Decimal Precision**
+
+- **ALL writing operations** use 18 decimals (wei): `delegate()`, `undelegate()`, `redelegate()`
+- **Query results** return amounts in 6 decimal precision
+- **Best practice:** Use `amount.toFixed(6)` then `parseUnits(amount, 18)` for precision control
+
+### **Validator Addresses**
+
+- Use valid Sei validator addresses with `seivaloper` prefix
+- These are Cosmos-format addresses, not EVM addresses
+
+### **Staking Risks**
+
+- **Slashing:** Up to 5% of staked tokens can be lost if validator misbehaves
+- **Unbonding:** 21-day waiting period for undelegated tokens
+- **Redelegation limits:** Complex rules around frequency and serial operations
+
+### **Commission and Rewards**
+
+- Validators keep a commission percentage
+- Rewards are distributed proportionally to delegation amounts
+- Choose validators wisely based on commission, uptime, and governance participation
+
+<Callout type="info"> **Need Help?** If you encounter issues not covered here, check the [Sei Discord](https://discord.gg/sei) or [GitHub repository](https://github.com/sei-protocol/sei-chain) for community support. </Callout>
