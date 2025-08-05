@@ -5,7 +5,6 @@ import { Button, Flex, Select } from '@radix-ui/themes';
 import { toast } from 'sonner';
 import { IconDroplet, IconShieldCheck, IconHourglass, IconCheck, IconLoader2, IconWorld } from '@tabler/icons-react';
 import { isAddress } from 'viem';
-import { isValidSeiCosmosAddress } from '../../utils/sei-utils';
 import HCaptcha from '@hcaptcha/react-hcaptcha';
 import { sendGAEvent } from '@next/third-parties/google';
 
@@ -21,7 +20,7 @@ const RequestFaucetCard = () => {
 
 	const captchaRef = useRef<HCaptcha>(null);
 
-	const isValidAddress = isValidSeiCosmosAddress(destAddress) || isAddress(destAddress);
+	const isValidAddress = isAddress(destAddress);
 
 	const resetCaptcha = () => {
 		captchaRef.current?.resetCaptcha();
@@ -59,7 +58,7 @@ const RequestFaucetCard = () => {
 		}
 
 		if (!isValidAddress) {
-			toast.error('Invalid Sei or EVM address');
+			toast.error('Invalid Sei EVM address');
 			return;
 		}
 
@@ -113,7 +112,7 @@ const RequestFaucetCard = () => {
 			<div className='w-full flex items-center border border-neutral-300 dark:border-neutral-600 rounded-md p-2 focus-within:ring-2 focus-within:ring-neutral-400 dark:focus-within:ring-neutral-500'>
 				<input
 					className='w-full text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-500 dark:placeholder:text-neutral-400 px-4 py-3 text-lg outline-none'
-					placeholder='Sei or EVM address...'
+					placeholder='Sei EVM address...'
 					value={destAddress}
 					onChange={handleAddressChange}
 				/>
