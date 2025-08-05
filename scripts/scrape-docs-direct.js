@@ -445,7 +445,6 @@ function replaceComponentsWithText(content) {
 	content = content.replace(/<NetworkTabs\s*\/?>/, 'Network selection tabs for different Sei networks');
 	content = content.replace(/<ChainInformation\s*\/?>/, 'Chain information display component');
 	content = content.replace(/<FaucetRequest\s*\/?>/, 'Faucet request form component');
-	content = content.replace(/<EvmWalletConnect\s*\/?>/, 'EVM wallet connection component');
 
 	// Replace icon components with text descriptions
 	content = content.replace(/<Icon(\w+)[^>]*\/?>|<Icon(\w+)[^>]*>[\s\S]*?<\/Icon(\w+)>/g, (match, iconName1, iconName2) => {
