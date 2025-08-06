@@ -55,7 +55,7 @@ export const ChainInformation = ({ networkType }: { networkType: NetworkType }) 
 							<Table.Cell>
 								<Flex direction='column' className='gap-2'>
 									{/* only for EVM rows */}
-									<AddSeiButton chainParams={net.chainParams} label={`Add Sei ${net.name} to MetaMask`} />
+									<AddSeiButton chainParams={net.chainParams} label={`Add Sei ${net.name} to your wallet`} />
 								</Flex>
 							</Table.Cell>
 						)}
