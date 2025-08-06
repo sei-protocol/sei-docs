@@ -39,8 +39,7 @@ export function NetworkTabs({}: NetworkTabsProps) {
 	const statusIndicatorClass = 'w-2 h-2 rounded-full';
 	const labelClass = 'text-neutral-500 dark:text-neutral-500 mb-1';
 	const valueClass = 'text-neutral-700 dark:text-neutral-300';
-	const linkClass = 'text-neutral-700 hover:text-neutral-900 dark:text-neutral-300 dark:hover:text-white transition-colors truncate max-w-[180px]';
-	const iconButtonClass = 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-300 transition-colors';
+	const linkClass = 'text-neutral-700 hover:text-neutral-900 dark:text-neutral-300 dark:hover:text-white transition-colors truncate max-w-[260px]';
 	const visitLinkClass = 'text-neutral-700 hover:text-neutral-900 dark:text-neutral-300 dark:hover:text-white flex items-center transition-colors';
 
 	// Helper function to render tab content
