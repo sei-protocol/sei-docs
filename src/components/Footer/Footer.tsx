@@ -1,4 +1,6 @@
 import React from 'react';
+import { AddSeiButton } from '../ChainInformation';
+import { networks } from '../ChainInformation/config';
 
 export function Footer() {
 	return (
@@ -50,10 +52,11 @@ export function Footer() {
 						</li>
 						<li>
 							<a href='https://t.me/+KZdhZ1eE-G01NmZk' style={{ textDecoration: 'none', color: 'inherit', fontSize: '0.8125rem' }}>
-								Sei Builder&apos;s Chat
+								Sei Builder's Chat
 							</a>
 						</li>
 					</ul>
+					<AddSeiButton chainParams={networks[0].chainParams} label={`Add Sei Mainnet to your wallet`} />
 				</div>
 
 				<div style={{ flex: '1 0 160px', marginRight: '1rem', marginBottom: '1rem' }}>
