@@ -34,7 +34,7 @@ The staking precompile at address `0x0000000000000000000000000000000000001005` e
 By the end of this guide, you'll be able to:
 
 - **Integrate Staking Operations** - Call delegation, undelegation, and redelegation functions directly from your EVM contracts and dApps
-- **Handle Decimal Precision** - Master the critical 18-decimal write / 6-decimal read pattern to avoid common formatting errors
+- **Handle Decimal Precision** - Master the critical precision patterns for different operations to avoid common formatting errors
 - **Manage Validator Operations** - Query validators programmatically using the precompile interface
 - **Build Portfolio Tools** - Implement automated rebalancing and delegation tracking for staking management applications
 - **Navigate Staking Risks** - Understand unbonding periods, slashing mechanics, and validator selection for safe staking operations
@@ -98,9 +98,9 @@ struct DelegationDetails {
 }
 
 /// Queries delegation for a given delegator and validator address.
-/// @param delegator The x0 or Sei address of the delegator.
+/// @param delegator The address of the delegator.
 /// @param valAddress The Sei address of the validator.
-/// @return The delegation information. Shares in DelegationDetails are usually returned as decimals.
+/// @return The delegation information.
 /// To calculate the actual amount, divide the shares by decimals.
 function delegation(
     address delegator,
@@ -162,37 +162,57 @@ const staking = new ethers.Contract(STAKING_PRECOMPILE_ADDRESS, STAKING_PRECOMPI
 
 One of the most important concepts to understand when working with the Sei staking precompile:
 
-### Format to 18 Decimals when Writing to Precompile and format from 6 Decimals when querying
+### Mixed Decimal Precision System
 
-The staking precompile operates with **asymmetric decimal precision** due to bridging EVM and Cosmos standards:
+The staking precompile operates with **different decimal precision for different operations** due to bridging EVM and Cosmos standards:
 
 <div className="overflow-x-auto max-w-full">
   <table className="w-full divide-y divide-neutral-200 dark:divide-neutral-800">
     <thead>
       <tr>
-        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Operation Type</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Function</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Input/Output</th>
         <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Decimal Precision</th>
-        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Why</th>
         <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Example</th>
       </tr>
     </thead>
     <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
       <tr>
         <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">
-          <strong>Writing to Contract</strong>
+          <strong>delegate()</strong>
         </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">msg.value (input)</td>
         <td className="px-4 py-3 text-sm text-green-600 dark:text-green-400 whitespace-nowrap">18 decimals (wei)</td>
-        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">EVM standard compatibility</td>
         <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">
           <code>ethers.parseUnits('1', 18)</code>
         </td>
       </tr>
       <tr>
         <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">
-          <strong>Reading from Contract</strong>
+          <strong>undelegate()</strong>
         </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">amount (input)</td>
         <td className="px-4 py-3 text-sm text-blue-600 dark:text-blue-400 whitespace-nowrap">6 decimals (uSEI)</td>
-        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Cosmos native format</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">
+          <code>1000000</code> (represents 1 SEI)
+        </td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">
+          <strong>redelegate()</strong>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">amount (input)</td>
+        <td className="px-4 py-3 text-sm text-blue-600 dark:text-blue-400 whitespace-nowrap">6 decimals (uSEI)</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">
+          <code>500000</code> (represents 0.5 SEI)
+        </td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">
+          <strong>delegation()</strong>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">return values (output)</td>
+        <td className="px-4 py-3 text-sm text-blue-600 dark:text-blue-400 whitespace-nowrap">6 decimals (uSEI)</td>
         <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">
           <code>1000000</code> (represents 1 SEI)
         </td>
@@ -201,39 +221,52 @@ The staking precompile operates with **asymmetric decimal precision** due to bri
   </table>
 </div>
 
-### **How This Works in Practice**
+### How This Works in Practice
 
-**ALL Writing Operations (Use 18 decimals):**
+**delegate() Function (Uses 18 decimals):**
 
 - `delegate()` - accepts `msg.value` in wei (18 decimals)
-- `undelegate()` - expects amount parameter in 18 decimals (wei)
-- `redelegate()` - expects amount parameter in 18 decimals (wei)
+
+**undelegate() and redelegate() Functions (Use 6 decimals):**
+
+- `undelegate()` - expects amount parameter in 6 decimals (uSEI)
+- `redelegate()` - expects amount parameter in 6 decimals (uSEI)
 
 **Reading/Query Operations (Return 6 decimals):**
 
 - `delegation()` - returns amounts in 6 decimal precision
 
-### Why This Asymmetry Exists
+### Why This Mixed System Exists
 
-1. **EVM Compatibility:** ALL writing operations use standard 18-decimal wei format for EVM consistency
-2. **Cosmos Integration:** Internal Cosmos operations use 6-decimal uSEI precision
-3. **Automatic Conversion:** The precompile automatically truncates 18-decimal inputs to 6-decimal precision for Cosmos operations
+1. **delegate() EVM Compatibility:** Uses standard 18-decimal wei format for EVM `msg.value` consistency
+2. **Other Operations Cosmos Integration:** `undelegate()` and `redelegate()` use 6-decimal uSEI precision to match native Cosmos operations
+3. **Query Consistency:** All query results use 6-decimal precision for consistent reading
 
-### Best Practice: Use toFixed(6) for Precision Control
+### Best Practice: Different Conversion for Different Functions
 
-When working with user inputs, use `toFixed(6)` to ensure proper precision before parsing to 18 decimals:
+When working with user inputs, use the appropriate conversion for each function:
 
 ```typescript copy
 // Best practice for handling user input amounts
-function prepareAmountForPrecompile(seiAmount: number): bigint {
-  // First limit to 6 decimal places, then parse as 18 decimals
+function prepareAmountForDelegate(seiAmount: number): bigint {
+  // For delegate() - convert to 18 decimals (wei)
   const fixedAmount = seiAmount.toFixed(6);
   return ethers.parseUnits(fixedAmount, 18);
 }
 
-// Usage
+function prepareAmountForUndelegateRedelegate(seiAmount: number): bigint {
+  // For undelegate() and redelegate() - convert to 6 decimals (uSEI)
+  return ethers.parseUnits(seiAmount.toFixed(6), 6);
+}
+
+// Usage examples
 const userInputAmount = 1.23456789; // User enters this
-const properAmount = prepareAmountForPrecompile(userInputAmount); // Results in 1.234567 SEI
+
+// For delegate()
+const delegateAmount = prepareAmountForDelegate(userInputAmount); // 18 decimals
+
+// For undelegate() and redelegate()
+const undelegateAmount = prepareAmountForUndelegateRedelegate(userInputAmount); // 6 decimals
 ```
 
 ## Decimal Conversion Helpers
@@ -243,9 +276,14 @@ Use these helper functions to avoid precision errors:
 ```typescript copy
 // Helper functions for amount conversion
 class SeiAmountConverter {
-  // Convert SEI to wei (18 decimals) - for ALL writing operations
+  // Convert SEI to wei (18 decimals) - ONLY for delegate()
   static seiToWei(seiAmount: number): bigint {
     return ethers.parseUnits(seiAmount.toFixed(6), 18);
+  }
+
+  // Convert SEI to uSEI (6 decimals) - for undelegate() and redelegate()
+  static seiToUsei(seiAmount: number): bigint {
+    return ethers.parseUnits(seiAmount.toFixed(6), 6);
   }
 
   // Convert reading results (6 decimals) to SEI
@@ -253,16 +291,16 @@ class SeiAmountConverter {
     return Number(useiAmount) / 1000000;
   }
 
-  // Convert wei to SEI (18 decimals)
+  // Convert wei to SEI (18 decimals) - for delegate operations
   static weiToSei(weiAmount: bigint): number {
     return Number(ethers.formatEther(weiAmount));
   }
 }
 
-// Usage examples - ALL use 18 decimals for writing
-const delegateAmount = SeiAmountConverter.seiToWei(1); // For delegate()
-const undelegateAmount = SeiAmountConverter.seiToWei(0.5); // For undelegate()
-const redelegateAmount = SeiAmountConverter.seiToWei(2); // For redelegate()
+// Usage examples - Use correct decimals for each function
+const delegateAmount = SeiAmountConverter.seiToWei(1); // For delegate() - 18 decimals
+const undelegateAmount = SeiAmountConverter.seiToUsei(0.5); // For undelegate() - 6 decimals
+const redelegateAmount = SeiAmountConverter.seiToUsei(2); // For redelegate() - 6 decimals
 ```
 
 ## Step-by-Step Guide: Using the Staking Precompile
@@ -273,7 +311,7 @@ const redelegateAmount = SeiAmountConverter.seiToWei(2); // For redelegate()
 // Sei validator address you want to delegate to (seivaloper... format)
 const validatorAddress = 'seivaloper1xyz...';
 
-// Delegate 1 SEI - CORRECTED: Use proper parseUnits
+// Delegate 1 SEI - Uses 18 decimals for msg.value
 const amountToDelegate = ethers.parseUnits('1', 18);
 
 const tx = await staking.delegate(validatorAddress, { value: amountToDelegate });
@@ -285,9 +323,9 @@ console.log('Delegation completed:', receipt);
 ### Undelegate Tokens
 
 ```typescript copy
-// Undelegate 1 SEI from a validator
+// Undelegate 1 SEI from a validator - Uses 6 decimals for amount parameter
 const validatorAddress = 'seivaloper1xyz...';
-const amountToUndelegate = ethers.parseUnits('1', 18); // 18 decimals for ALL writing operations
+const amountToUndelegate = ethers.parseUnits('1', 6); // 1 SEI in 6 decimals
 
 const tx = await staking.undelegate(validatorAddress, amountToUndelegate);
 const receipt = await tx.wait();
@@ -300,10 +338,10 @@ console.log('Undelegation started:', receipt);
 ### Redelegate Tokens
 
 ```typescript copy
-// Redelegate 0.5 SEI from one validator to another
+// Redelegate 0.5 SEI from one validator to another - Uses 6 decimals for amount parameter
 const srcValidator = 'seivaloper1abc...';
 const dstValidator = 'seivaloper1xyz...';
-const amountToRedelegate = ethers.parseUnits('0.5', 18); // 18 decimals for ALL writing operations
+const amountToRedelegate = ethers.parseUnits('0.5', 6); // 0.5 SEI in 6 decimals
 
 const tx = await staking.redelegate(srcValidator, dstValidator, amountToRedelegate);
 const receipt = await tx.wait();
@@ -311,8 +349,9 @@ const receipt = await tx.wait();
 console.log('Redelegation completed:', receipt);
 ```
 
-<Callout type="warning">
+<Callout type="warning"> 
 **Redelegation restrictions:**
+
 - Maximum 7 redelegations per validator pair per 21-day period
 
 - After redelegating from Validator A to Validator B, you cannot redelegate from Validator B to another validator for 21 days
@@ -327,20 +366,32 @@ console.log('Redelegation completed:', receipt);
 // Get your EVM address as the delegator
 const delegator = await signer.getAddress();
 
-const delegationInfo = await staking.delegation(delegator, validatorAddress);
+try {
+  const delegationInfo = await staking.delegation(delegator, validatorAddress);
 
-console.log('Delegation details:', {
-  amount: delegationInfo.balance.amount.toString(),
-  denom: delegationInfo.balance.denom,
-  shares: delegationInfo.delegation.shares.toString(),
-  decimals: delegationInfo.delegation.decimals.toString(),
-  delegator_address: delegationInfo.delegation.delegator_address,
-  validator_address: delegationInfo.delegation.validator_address
-});
+  console.log('Delegation details:', {
+    amount: delegationInfo.balance.amount.toString(),
+    denom: delegationInfo.balance.denom,
+    shares: delegationInfo.delegation.shares.toString(),
+    decimals: delegationInfo.delegation.decimals.toString(),
+    delegator_address: delegationInfo.delegation.delegator_address,
+    validator_address: delegationInfo.delegation.validator_address
+  });
 
-// Calculate actual delegation amount from shares
-const actualAmount = delegationInfo.delegation.shares / delegationInfo.delegation.decimals;
-console.log('Actual delegation amount:', actualAmount);
+  // Convert delegation amount from uSEI to SEI for readable display
+  const delegationAmountSei = ethers.formatUnits(delegationInfo.balance.amount, 6);
+  console.log('Delegation amount (SEI):', delegationAmountSei);
+
+  // Calculate actual delegation amount from shares
+  const actualAmount = delegationInfo.delegation.shares / delegationInfo.delegation.decimals;
+  console.log('Actual delegation amount:', actualAmount);
+} catch (error) {
+  if (error.message.includes('delegation not found') || error.message.includes('no delegation')) {
+    console.log('No delegation found for this validator');
+  } else {
+    console.error('Error querying delegation:', error);
+  }
+}
 ```
 
 ## Advanced Usage Examples
@@ -354,10 +405,10 @@ async function rebalanceStaking(
   amount: number // Amount in SEI
 ) {
   try {
-    // Convert to 18 decimal precision for redelegate (ALL writing uses 18 decimals)
-    const amountIn18Decimals = ethers.parseUnits(amount.toFixed(6), 18);
+    // Convert to 6 decimal precision for redelegate (uses 6 decimals)
+    const amountIn6Decimals = ethers.parseUnits(amount.toFixed(6), 6);
 
-    const tx = await staking.redelegate(fromValidator, toValidator, amountIn18Decimals);
+    const tx = await staking.redelegate(fromValidator, toValidator, amountIn6Decimals);
 
     const receipt = await tx.wait();
     console.log('Rebalancing completed:', receipt);
@@ -384,12 +435,21 @@ async function stakingExample() {
   const validatorAddress = 'seivaloper1xyz...';
 
   try {
-    // 1. Check current delegation
+    // 1. Check current delegation (with error handling)
     console.log('=== Checking Current Delegation ===');
-    const currentDelegation = await staking.delegation(delegator, validatorAddress);
-    console.log('Current delegation amount:', currentDelegation.balance.amount.toString());
+    try {
+      const currentDelegation = await staking.delegation(delegator, validatorAddress);
+      const currentAmountSei = ethers.formatUnits(currentDelegation.balance.amount, 6);
+      console.log('Current delegation amount (SEI):', currentAmountSei);
+    } catch (error) {
+      if (error.message.includes('delegation not found') || error.message.includes('no delegation')) {
+        console.log('No existing delegation found for this validator');
+      } else {
+        throw error; // Re-throw if it's a different error
+      }
+    }
 
-    // 2. Delegate additional tokens
+    // 2. Delegate additional tokens (uses 18 decimals)
     console.log('=== Delegating Tokens ===');
     const amountToDelegate = ethers.parseUnits('1', 18);
     const delegateTx = await staking.delegate(validatorAddress, {
@@ -401,11 +461,12 @@ async function stakingExample() {
 
     // 3. Check updated delegation
     const updatedDelegation = await staking.delegation(delegator, validatorAddress);
-    console.log('Updated delegation amount:', updatedDelegation.balance.amount.toString());
+    const updatedAmountSei = ethers.formatUnits(updatedDelegation.balance.amount, 6);
+    console.log('Updated delegation amount (SEI):', updatedAmountSei);
 
-    // 4. Undelegate partial amount
+    // 4. Undelegate partial amount (uses 6 decimals)
     console.log('=== Undelegating Tokens ===');
-    const undelegateAmount = ethers.parseUnits('0.5', 18); // 0.5 SEI in 18 decimal precision
+    const undelegateAmount = ethers.parseUnits('0.5', 6); // 0.5 SEI in 6 decimals
     const undelegateTx = await staking.undelegate(validatorAddress, undelegateAmount);
     await undelegateTx.wait();
     console.log('Undelegation successful:', undelegateTx.hash);
@@ -515,13 +576,14 @@ const delegateTx = await staking.delegate(validatorAddress, {
 
 ## Important Notes
 
-<Callout type="info"> Remember the key rule: Write with 18 decimals, Read with 6 decimals! </Callout>
+<Callout type="info"> Remember the key rule: delegate() uses 18 decimals, undelegate()/redelegate() use 6 decimals, delegation() returns 6 decimals! </Callout>
 
 ### Decimal Precision
 
-- **ALL writing operations** use 18 decimals (wei): `delegate()`, `undelegate()`, `redelegate()`
+- **delegate()** uses 18 decimals (wei) for msg.value
+- **undelegate() and redelegate()** use 6 decimals (uSEI) for amount parameters
 - **Query results** return amounts in 6 decimal precision
-- **Best practice:** Use `amount.toFixed(6)` then `parseUnits(amount, 18)` for precision control
+- **Best practice:** Use appropriate conversion functions for each operation
 
 ### Validator Addresses
 
@@ -533,7 +595,7 @@ const delegateTx = await staking.delegate(validatorAddress, {
 - **Unbonding:** 21-day waiting period for undelegated tokens
 - **Redelegation limits:** Complex rules around frequency and serial operations
 
-### **Commission and Rewards**
+### Commission and Rewards
 
 - Validators keep a commission percentage
 - Rewards are distributed proportionally to delegation amounts
