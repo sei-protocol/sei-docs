@@ -60,10 +60,6 @@ export default {
 		title: 'Scaffold Sei',
 		href: 'https://sei-js.docs.sei.io/create-sei'
 	},
-	'seijs-precompiles': {
-		title: 'Precompiles',
-		href: 'https://sei-js.docs.sei.io/precompiles'
-	},
 	'mcp-server-seijs': {
 		title: 'MCP Server',
 		href: 'https://sei-js.docs.sei.io/mcp-server'
