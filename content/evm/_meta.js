@@ -27,7 +27,28 @@ export default {
 		title: 'Sei Global Wallet'
 	},
 	'building-a-frontend': 'Building a Frontend',
-	'-- SeiJS': {
+
+	'-- Smart Contracts': {
+		type: 'separator',
+		title: 'Smart Contracts'
+	},
+	'evm-general': 'EVM (General)',
+	'evm-hardhat': 'EVM with Hardhat',
+	'evm-foundry': 'EVM with Foundry',
+	'evm-wizard': {
+		title: 'EVM Contract Wizard',
+		theme: {
+			sidebar: true,
+			toc: false,
+			layout: 'full'
+		}
+	},
+	'solidity-resources': 'Solidity Resources',
+	tracing: 'Debug Tracing',
+	'evm-verify-contracts': 'Verify Contracts',
+	precompiles: 'Precompiles',
+
+	'-- Sei-js': {
 		type: 'separator',
 		title: 'sei-js Library'
 	},
@@ -55,26 +76,6 @@ export default {
 		title: 'Ledger',
 		href: 'https://sei-js.docs.sei.io/ledger'
 	},
-
-	'-- Smart Contracts': {
-		type: 'separator',
-		title: 'Smart Contracts'
-	},
-	'evm-general': 'EVM (General)',
-	'evm-hardhat': 'EVM with Hardhat',
-	'evm-foundry': 'EVM with Foundry',
-	'evm-wizard': {
-		title: 'EVM Contract Wizard',
-		theme: {
-			sidebar: true,
-			toc: false,
-			layout: 'full'
-		}
-	},
-	'solidity-resources': 'Solidity Resources',
-	tracing: 'Debug Tracing',
-	'evm-verify-contracts': 'Verify Contracts',
-	precompiles: 'Precompiles',
 
 	'-- Ecosystem Tutorials': {
 		type: 'separator',
