@@ -48,6 +48,35 @@ export default {
 	'evm-verify-contracts': 'Verify Contracts',
 	precompiles: 'Precompiles',
 
+	'-- Sei-js': {
+		type: 'separator',
+		title: 'sei-js Library'
+	},
+	'seijs-introduction': {
+		title: 'Introduction to sei-js',
+		href: 'https://sei-js.docs.sei.io/introduction'
+	},
+	'scaffold-sei': {
+		title: 'Scaffold Sei',
+		href: 'https://sei-js.docs.sei.io/create-sei'
+	},
+	'seijs-precompiles': {
+		title: 'Precompiles',
+		href: 'https://sei-js.docs.sei.io/precompiles'
+	},
+	'mcp-server-seijs': {
+		title: 'MCP Server',
+		href: 'https://sei-js.docs.sei.io/mcp-server'
+	},
+	'sei-x402': {
+		title: 'X402',
+		href: 'https://sei-js.docs.sei.io/x402'
+	},
+	'seijs-ledger': {
+		title: 'Ledger',
+		href: 'https://sei-js.docs.sei.io/ledger'
+	},
+
 	'-- Ecosystem Tutorials': {
 		type: 'separator',
 		title: 'Ecosystem Tutorials'
