@@ -5,6 +5,7 @@ keywords: ['staking precompile', 'ethers.js', 'delegation', 'validators', 'staki
 ---
 
 import { Callout } from 'nextra/components';
+import { Tabs } from 'nextra/components';
 
 # Staking Precompile
 
@@ -16,7 +17,7 @@ The Sei staking precompile allows EVM applications to interact directly with Sei
 
 ## How Does the Staking Precompile Work?
 
-The staking precompile at address `0x0000000000000000000000000000000000001005` exposes functions like `delegate()`, `undelegate()`, `redelegate()`, `createValidator()`, and `delegation()`.
+The staking precompile at address `0x0000000000000000000000000000000000001005` exposes functions like `delegate()`, `undelegate()`, `redelegate()`, and `delegation()`.
 
 - **Direct Integration:** EVM contracts and dApps can call staking functions like any other smart contract method.
 - **Native Execution:** Operations are executed at the Cosmos SDK level for maximum efficiency and security.
@@ -307,6 +308,9 @@ const redelegateAmount = SeiAmountConverter.seiToUsei(2); // For redelegate() - 
 
 ### Delegate Tokens
 
+<Tabs items={['JavaScript','Solidity']}>
+<Tabs.Tab>
+
 ```typescript copy
 // Sei validator address you want to delegate to (seivaloper... format)
 const validatorAddress = 'seivaloper1xyz...';
@@ -324,7 +328,26 @@ const receipt = await tx.wait();
 console.log('Delegation completed:', receipt);
 ```
 
+</Tabs.Tab>
+<Tabs.Tab>
+```typescript copy
+function delegateToValidator(string memory validatorAddress) external payable {
+        require(msg.value > 0, "Amount must be greater than 0");
+        
+        bool success = STAKING.delegate{value: msg.value}(validatorAddress);
+        require(success, "Delegation failed");
+        
+        emit Delegated(msg.sender, validatorAddress, msg.value);
+    }
+```
+</Tabs.Tab>
+
+</Tabs>
+
 ### Undelegate Tokens
+
+<Tabs items={['JavaScript','Solidity']}>
+<Tabs.Tab>
 
 ```typescript copy
 // Undelegate 1 SEI from a validator - Uses 6 decimals for amount parameter
@@ -340,9 +363,32 @@ const receipt = await tx.wait();
 console.log('Undelegation started:', receipt);
 ```
 
+</Tabs.Tab>
+<Tabs.Tab>
+```typescript copy
+    function undelegateFromValidator(
+        string memory validatorAddress, 
+        uint256 amount
+    ) external {
+        require(amount > 0, "Amount must be greater than 0");
+        
+        bool success = STAKING.undelegate(validatorAddress, amount);
+        require(success, "Undelegation failed");
+        
+        emit Undelegated(msg.sender, validatorAddress, amount);
+    }
+    
+```
+</Tabs.Tab>
+
+</Tabs>
+
 <Callout type="warning"> **IMPORTANT:** Undelegated tokens are subject to a **21-day unbonding period** during which they cannot be transferred and do not earn rewards. </Callout>
 
 ### Redelegate Tokens
+
+<Tabs items={['JavaScript','Solidity']}>
+<Tabs.Tab>
 
 ```typescript copy
 // Redelegate 0.5 SEI from one validator to another - Uses 6 decimals for amount parameter
@@ -359,6 +405,26 @@ const receipt = await tx.wait();
 console.log('Redelegation completed:', receipt);
 ```
 
+</Tabs.Tab>
+<Tabs.Tab>
+```typescript copy
+    function redelegateBetweenValidators(
+        string memory fromValidator,
+        string memory toValidator,
+        uint256 amount
+    ) external {
+        require(amount > 0, "Amount must be greater than 0");
+        
+        bool success = STAKING.redelegate(fromValidator, toValidator, amount);
+        require(success, "Redelegation failed");
+        
+        emit Redelegated(msg.sender, fromValidator, toValidator, amount);
+    }
+```
+</Tabs.Tab>
+
+</Tabs>
+
 <Callout type="warning"> 
 **Redelegation restrictions:**
 
@@ -371,6 +437,9 @@ console.log('Redelegation completed:', receipt);
 </Callout>
 
 ### Query a Delegation
+
+<Tabs items={['JavaScript','Solidity']}>
+<Tabs.Tab>
 
 ```typescript copy
 // Get your EVM address as the delegator
@@ -400,6 +469,20 @@ try {
 }
 ```
 
+</Tabs.Tab>
+<Tabs.Tab>
+```typescript copy
+    function getDelegationInfo(
+        address delegator,
+        string memory validatorAddress
+    ) external view returns (IStakingPrecompile.Delegation memory) {
+        return STAKING.delegation(delegator, validatorAddress);
+    }
+```
+</Tabs.Tab>
+
+</Tabs>
+
 ## Advanced Usage Examples
 
 ### Portfolio Rebalancing
@@ -428,6 +511,9 @@ async function rebalanceStaking(
 ```
 
 ### Complete Integration Example
+
+<Tabs items={['JavaScript','Solidity']}>
+<Tabs.Tab>
 
 ```typescript copy
 async function stakingExample() {
@@ -483,6 +569,181 @@ async function stakingExample() {
   }
 }
 ```
+
+</Tabs.Tab>
+<Tabs.Tab>
+
+**Contract Example**
+
+```solidity copy
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+interface IStakingPrecompile {
+
+    struct Delegation {
+        Balance balance;
+        DelegationDetails delegation;
+    }
+
+    struct Balance {
+        uint256 amount;
+        string denom;
+    }
+
+    struct DelegationDetails {
+        string delegator_address;
+        uint256 shares;
+        uint256 decimals;
+        string validator_address;
+    }
+
+    function delegate(string memory valAddress) payable external returns (bool success);
+
+    function undelegate(
+        string memory valAddress,
+        uint256 amount
+    ) external returns (bool success);
+
+    function redelegate(
+        string memory srcAddress,
+        string memory dstAddress,
+        uint256 amount
+    ) external returns (bool success);
+
+    function delegation(
+        address delegator,
+        string memory valAddress
+    ) external view returns (Delegation memory);
+}
+
+contract StakingManager {
+    IStakingPrecompile constant STAKING = IStakingPrecompile(0x0000000000000000000000000000000000001005);
+
+    event Delegated(address indexed user, string validator, uint256 amount);
+    event Undelegated(address indexed user, string validator, uint256 amount);
+    event Redelegated(address indexed user, string fromValidator, string toValidator, uint256 amount);
+
+    // Delegate user's SEI to a validator
+    function delegateToValidator(string memory validatorAddress) external payable {
+        require(msg.value > 0, "Amount must be greater than 0");
+
+        bool success = STAKING.delegate{value: msg.value}(validatorAddress);
+        require(success, "Delegation failed");
+
+        emit Delegated(msg.sender, validatorAddress, msg.value);
+    }
+
+    // Undelegate SEI from a validator (amount in 6 decimal precision - uSEI)
+    function undelegateFromValidator(
+        string memory validatorAddress,
+        uint256 amount
+    ) external {
+        require(amount > 0, "Amount must be greater than 0");
+
+        bool success = STAKING.undelegate(validatorAddress, amount);
+        require(success, "Undelegation failed");
+
+        emit Undelegated(msg.sender, validatorAddress, amount);
+    }
+
+    // Redelegate SEI between validators (amount in 6 decimal precision - uSEI)
+    function redelegateBetweenValidators(
+        string memory fromValidator,
+        string memory toValidator,
+        uint256 amount
+    ) external {
+        require(amount > 0, "Amount must be greater than 0");
+
+        bool success = STAKING.redelegate(fromValidator, toValidator, amount);
+        require(success, "Redelegation failed");
+
+        emit Redelegated(msg.sender, fromValidator, toValidator, amount);
+    }
+
+    // Get delegation info for a user and validator
+    function getDelegationInfo(
+        address delegator,
+        string memory validatorAddress
+    ) external view returns (IStakingPrecompile.Delegation memory) {
+        return STAKING.delegation(delegator, validatorAddress);
+    }
+
+    // Helper function to convert SEI to uSEI (6 decimals)
+    function seiToUsei(uint256 seiAmount) public pure returns (uint256) {
+        return seiAmount * 1e6;
+    }
+
+    // Helper function to convert uSEI to SEI
+    function useiToSei(uint256 useiAmount) public pure returns (uint256) {
+        return useiAmount / 1e6;
+    }
+}
+```
+
+<Callout type="info"> **Note:** This is a simplified example for demonstration purposes. The above example works such that when someone delegates through the above contract, the delegation will be recorded under the above contract address and not the user. So maintain correct mapping in the contract for tracking user delegations </Callout>
+
+**Client Integration Example**
+
+```javascript copy
+const abi = require('./artifacts/contracts/Staking.sol/StakingManager.json');
+const { ethers } = require('hardhat');
+const dotenv = require('dotenv');
+dotenv.config();
+
+async function main() {
+  const [deployer] = await ethers.getSigners();
+  console.log('Deploying contracts with the account:', deployer.address);
+
+  const balance = await deployer.provider.getBalance(deployer.address);
+  console.log('Account balance:', ethers.formatEther(balance));
+
+  const StakingManager = await ethers.getContractFactory('StakingManager');
+  console.log('Deploying StakingManager...');
+  const stakingManager = await StakingManager.deploy();
+
+  await stakingManager.waitForDeployment();
+  console.log('StakingManager deployed to:', await stakingManager.getAddress());
+
+  const validatorAddress = 'seival......123';
+
+  const amount = 1;
+  const trimmedAmount = amount.toFixed(6);
+  const formattedAmount = ethers.parseEther(trimmedAmount.toString());
+
+  const delegate = await stakingManager.delegateToValidator(validatorAddress, { value: formattedAmount });
+
+  await delegate.wait();
+  console.log('Delegation transaction hash:', delegate.hash);
+
+  // Use deployer address for querying delegation
+  const queryDelegation = await stakingManager.getDelegationInfo(deployer.address, validatorAddress);
+  console.log('Delegation Info:', queryDelegation);
+
+  const undelegateAmount = ethers.parseUnits(trimmedAmount.toString(), 6);
+  const undelegate = await stakingManager.undelegateFromValidator(validatorAddress, undelegateAmount);
+
+  await undelegate.wait();
+  console.log('Undelegation transaction hash:', undelegate.hash);
+
+  const redelegate = await stakingManager.redelegateBetweenValidators(
+    validatorAddress,
+    'seival.....123', // Replace with the new validator address
+    undelegateAmount
+  );
+
+  await redelegate.wait();
+  console.log('Redelegation transaction hash:', redelegate.hash);
+}
+
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});
+```
+
+</Tabs.Tab>
+</Tabs>
 
 ## Security Considerations & Risks
 
