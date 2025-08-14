@@ -1,108 +1,1211 @@
+---
+title: 'Bank Precompile'
+description: "Learn how to interact with Sei's Bank precompile through ethers.js and Solidity, enabling native token transfers, balance queries, and token metadata management directly in your EVM smart contracts for seamless DeFi experiences."
+keywords: ['bank precompile', 'token transfers', 'native sei', 'ethers.js', 'balance queries', 'sei development', 'defi', 'token metadata']
+---
+
 import { Callout } from 'nextra/components';
+import { Tabs } from 'nextra/components';
 
 # Bank Precompile
 
-**Address**: `0x0000000000000000000000000000000000001001`
+**Address:** `0x0000000000000000000000000000000000001001`
 
-This precompile enables EVM clients to interact with the bank module.
+The Sei bank precompile allows EVM applications to interact directly with Sei's native banking system through standard smart contract calls. This enables querying balances, transferring tokens, and accessing token metadata for both native SEI tokens and Cosmos SDK-based assets, providing seamless integration between EVM and Cosmos ecosystems.
+
+<Callout type="info"> **What is a precompile?** A precompile is a special smart contract deployed at a fixed address by the Sei protocol itself, that exposes custom native chain logic to EVM-based applications. It acts like a regular contract from the EVM's perspective, but executes privileged, low-level logic efficiently. </Callout>
+
+## How Does the Bank Precompile Work?
+
+The bank precompile at address `0x0000000000000000000000000000000000001001` exposes functions like `send()`, `sendNative()`, `balance()`, `all_balances()`, and token metadata queries.
+
+- **Direct Integration:** EVM contracts and dApps can call banking functions like any other smart contract method.
+- **Native Execution:** Operations are executed at the Cosmos SDK level for maximum efficiency and security.
+- **Cross-Chain Assets:** Manage both native SEI tokens and IBC assets seamlessly from EVM contracts.
+
+## Use Cases
+
+- **DeFi Applications:** Build decentralized finance protocols that can handle native SEI and Cosmos assets.
+- **Payment Systems:** Create payment processors that work with multiple token denominations.
+- **Portfolio Management:** Build tools to track and manage multi-asset portfolios across Cosmos and EVM.
+- **Cross-Chain Trading:** Develop trading platforms that can handle diverse asset types.
+- **Token Information Services:** Query comprehensive token metadata for UI display and analytics.
+
+## What You'll Learn in This Guide
+
+By the end of this guide, you'll be able to:
+
+- **Execute Token Transfers** - Send both native SEI and custom tokens between addresses
+- **Query Account Balances** - Check single and multi-asset balances for any address
+- **Access Token Metadata** - Retrieve names, symbols, decimals, and supply information
+- **Build Payment Systems** - Implement robust payment processing with proper error handling
+- **Handle Multiple Denominations** - Work with various token types in a unified interface
+- **Optimize Gas Usage** - Implement efficient batching and query strategies
 
 ## Functions
 
-### Transactions
+The bank precompile exposes the following functions:
 
-- `send`: Enables a user to send non-native [smart contract] tokens to another wallet. For
-  sending native Sei [Cosmos] tokens, use `sendNative` instead.
+### Transaction Functions
 
-  ```solidity copy
-    /// Sends non-native tokens from one address to another.
-    /// @param fromAddress The Sei address to send funds from.
-    /// @param toAddress The Sei address to send funds to.
-    /// @param denom The denomination of funds to send.
-    /// @param amount The amount of the above denom to send.
-    /// @return Whether the send was successfully executed.
-    function send(
-        address fromAddress,
-        address toAddress,
-        string memory denom,
-        uint256 amount
-    ) external returns (bool success);
-  ```
+```solidity
+/// Sends non-native tokens from one address to another.
+/// @param fromAddress The Sei address to send funds from.
+/// @param toAddress The Sei address to send funds to.
+/// @param denom The denomination of funds to send.
+/// @param amount The amount of the above denom to send.
+/// @return success Whether the send was successfully executed.
+function send(
+    address fromAddress,
+    address toAddress,
+    string memory denom,
+    uint256 amount
+) external returns (bool success);
 
-- `sendNative`: Enables a user to send $SEI to another user.
-  ```solidity copy
-    /// Sends Sei to the specified user..
-    /// @param toNativeAddress The Sei address of the recipient.
-    /// @return Whether the tokens were successfully sent.
+/// Sends Sei to the specified user.
+/// @param toNativeAddress The Sei address of the recipient.
+/// @return success Whether the tokens were successfully sent.
+function sendNative(
+    string memory toNativeAddress
+) payable external returns (bool success);
+```
+
+### Query Functions
+
+```solidity
+/// Queries the balance of the given account for the specified denom.
+/// @param acc The Sei address of the account to query.
+/// @param denom The denomination to query for.
+/// @return amount The amount of denom held by acc.
+function balance(
+    address acc,
+    string memory denom
+) external view returns (uint256 amount);
+
+/// Queries the balance of the given account for all balances.
+/// @param acc The Sei address of the account to query.
+/// @return response Balances for all coins/denoms.
+function all_balances(
+    address acc
+) external view returns (Coin[] memory response);
+
+/// Queries the name of the specified denom.
+/// @param denom The denomination to query about.
+/// @return response The name of the specified denom.
+function name(
+    string memory denom
+) external view returns (string memory response);
+
+/// Queries the symbol of the specified denom.
+/// @param denom The denomination to query about.
+/// @return response The symbol of the specified denom.
+function symbol(
+    string memory denom
+) external view returns (string memory response);
+
+/// Queries the number of decimal places for the specified denom.
+/// @param denom The denomination to query about.
+/// @return response The number of decimals for the specified denom.
+function decimals(
+    string memory denom
+) external view returns (uint8 response);
+
+/// Queries the total supply of the specified denom.
+/// @param denom The denomination to query about.
+/// @return response The total supply of the specified denom.
+function supply(
+    string memory denom
+) external view returns (uint256 response);
+```
+
+## Using the Precompile
+
+### Setup
+
+#### Prerequisites
+
+Before getting started, ensure you have:
+
+- **Node.js** (v16 or higher)
+- **npm** or **yarn** package manager
+- **EVM-compatible wallet**
+- **SEI tokens** for gas fees and testing transfers
+
+#### Install Dependencies
+
+Install the required packages for interacting with Sei precompiles:
+
+```bash copy
+# Install ethers.js for smart contract interactions
+npm install ethers
+
+# Install Sei EVM bindings for precompile addresses and ABIs
+npm install @sei-js/precompiles@2.1.2
+```
+
+#### Import Precompile Components
+
+<Tabs items={['JavaScript','Solidity']}>
+<Tabs.Tab>
+```typescript copy
+// Import Bank precompile address and ABI
+// View the entire ABI here: https://github.com/sei-protocol/sei-chain/tree/main/precompiles/bank
+import { BANK_PRECOMPILE_ABI, BANK_PRECOMPILE_ADDRESS } from '@sei-js/precompiles';
+import { ethers } from 'ethers';
+```
+
+</Tabs.Tab>
+<Tabs.Tab>
+```solidity copy
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+struct Coin {
+uint256 amount;
+string denom;
+}
+
+interface IBankPrecompile {
+function send(
+address fromAddress,
+address toAddress,
+string memory denom,
+uint256 amount
+) external returns (bool success);
+
     function sendNative(
-        string memory toNativeAddress,
+        string memory toNativeAddress
     ) payable external returns (bool success);
-  ```
 
-### Queries
-
-- `balance`: Queries the balance of the given account for specified denom.
-  ```solidity copy
-    /// Queries the balance of the given account for the specified denom.
-    /// @param acc The Sei address of the account to query.
-    /// @param denom The denomination to query for.
-    /// @return The amount of denom held by acc.
     function balance(
         address acc,
         string memory denom
     ) external view returns (uint256 amount);
-  ```
-- `all_balances`: Queries all balances of the given account.
 
-```solidity copy
-    /// Queries the balance of the given account for all balances.
-    /// @param acc The Sei address of the account to query.
-    /// @return balances for all coins/denoms.
     function all_balances(
-      address acc
+        address acc
     ) external view returns (Coin[] memory response);
-```
 
-- `name`: Queries the name of the given denom.
-
-  ```solidity copy
-    /// Queries the name of the specified denom.
-    /// @param denom The denomination to query about.
-    /// @return The name of the specified denom.
     function name(
         string memory denom
     ) external view returns (string memory response);
-  ```
 
-- `symbol`: Queries the symbol of the given denom.
-
-  ```solidity copy
-    /// Queries the symbol of the specified denom.
-    /// @param denom The denomination to query about.
-    /// @return The symbol of the specified denom.
     function symbol(
         string memory denom
     ) external view returns (string memory response);
-  ```
 
-- `decimals`: Queries the number of decimal places for the given denom.
-
-  ```solidity copy
-    /// Queries the number of decimal places for the specified denom.
-    /// @param denom The denomination to query about.
-    /// @return The number of decimals for the specified denom.
     function decimals(
         string memory denom
     ) external view returns (uint8 response);
-  ```
 
-- `supply`: Queries the total supply of the given denom.
-  ```solidity copy
-    /// Queries the total supply of the specified denom.
-    /// @param denom The denomination to query about.
-    /// @return The total supply of the specified denom.
     function supply(
         string memory denom
     ) external view returns (uint256 response);
-  ```
+
+}
+
+````
+</Tabs.Tab>
+</Tabs>
+
+<Callout type="info"> **Precompile Address:** The bank precompile is deployed at `0x0000000000000000000000000000000000001001` </Callout>
+
+### Contract Initialization
+
+<Tabs items={['JavaScript','Solidity']}>
+<Tabs.Tab>
+Set up your provider, signer, and contract instance:
+
+```typescript copy
+// Using EVM-compatible wallet as the signer and provider
+const provider = new ethers.BrowserProvider(window.ethereum);
+await provider.send('eth_requestAccounts', []);
+const signer = await provider.getSigner();
+
+// Create a contract instance for the bank precompile
+const bank = new ethers.Contract(BANK_PRECOMPILE_ADDRESS, BANK_PRECOMPILE_ABI, signer);
+````
+
+</Tabs.Tab>
+<Tabs.Tab>
+```solidity copy
+// Initialize the contract instance in your Solidity code
+contract TokenManager {
+    IBankPrecompile constant BANK = IBankPrecompile(0x0000000000000000000000000000000000001001);
+}
+```
+</Tabs.Tab>
+</Tabs>
+
+### Native SEI vs Custom Tokens
+
+**Native SEI Transfers:**
+
+- Use `sendNative()` with payable value
+- Denomination is always `usei` (micro-SEI)
+- 1 SEI = 1,000,000 usei
+
+**Custom Token Transfers:**
+
+- Use `send()` with specific denomination
+- Requires prior token approval or ownership
+- Support various decimal configurations
+
+## Step-by-Step Guide: Using the Bank Precompile
+
+### Send Native SEI Tokens
+
+<Tabs items={['JavaScript','Solidity']}>
+<Tabs.Tab>
+
+```typescript copy
+// Send native SEI tokens to another address
+const recipientAddress = 'sei1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq6s8dpw';
+const amountInSei = '0.1'; // 0.1 SEI
+
+try {
+  // Convert SEI to usei (1 SEI = 1,000,000 usei)
+  const amountInUsei = ethers.parseUnits(amountInSei, 6);
+
+  // Send native SEI
+  const tx = await bank.sendNative(recipientAddress, {
+    value: amountInUsei,
+    gasLimit: 100000
+  });
+
+  const receipt = await tx.wait();
+  console.log('Native SEI transfer successful:', receipt.transactionHash);
+  console.log(`Sent ${amountInSei} SEI to ${recipientAddress}`);
+} catch (error) {
+  console.error('Native SEI transfer failed:', error);
+}
+```
+
+</Tabs.Tab>
+<Tabs.Tab>
+
+```solidity copy
+contract PaymentProcessor {
+    IBankPrecompile constant BANK = IBankPrecompile(0x0000000000000000000000000000000000001001);
+
+    event PaymentSent(address indexed from, string to, uint256 amount);
+
+    function sendSeiPayment(string memory recipient) external payable {
+        require(msg.value > 0, "Payment amount must be greater than 0");
+
+        bool success = BANK.sendNative{value: msg.value}(recipient);
+        require(success, "Payment failed");
+
+        emit PaymentSent(msg.sender, recipient, msg.value);
+    }
+
+    function sendSeiPaymentWithAmount(
+        string memory recipient,
+        uint256 amount
+    ) external payable {
+        require(msg.value >= amount, "Insufficient payment");
+
+        bool success = BANK.sendNative{value: amount}(recipient);
+        require(success, "Payment failed");
+
+        // Refund excess payment
+        if (msg.value > amount) {
+            payable(msg.sender).transfer(msg.value - amount);
+        }
+
+        emit PaymentSent(msg.sender, recipient, amount);
+    }
+}
+```
+
+</Tabs.Tab>
+</Tabs>
+
+### Send Custom Tokens
+
+<Tabs items={['JavaScript','Solidity']}>
+<Tabs.Tab>
+
+```typescript copy
+// Send custom tokens between addresses
+const fromAddress = '0x1234567890123456789012345678901234567890';
+const toAddress = '0x9876543210987654321098765432109876543210';
+const tokenDenom = 'factory/sei1.../mytoken';
+const amount = '1000';
+
+try {
+  // Convert addresses to proper format if needed
+  const tx = await bank.send(
+    fromAddress,
+    toAddress,
+    tokenDenom,
+    ethers.parseUnits(amount, 18), // Adjust decimals based on token
+    {
+      gasLimit: 150000
+    }
+  );
+
+  const receipt = await tx.wait();
+  console.log('Custom token transfer successful:', receipt.transactionHash);
+  console.log(`Sent ${amount} ${tokenDenom} from ${fromAddress} to ${toAddress}`);
+} catch (error) {
+  console.error('Custom token transfer failed:', error);
+}
+```
+
+</Tabs.Tab>
+<Tabs.Tab>
+
+```solidity copy
+contract TokenTransferManager {
+    IBankPrecompile constant BANK = IBankPrecompile(0x0000000000000000000000000000000000001001);
+
+    event TokenTransfer(
+        address indexed from,
+        address indexed to,
+        string denom,
+        uint256 amount
+    );
+
+    function transferTokens(
+        address to,
+        string memory denom,
+        uint256 amount
+    ) external {
+        // Transfer tokens from sender to recipient
+        bool success = BANK.send(msg.sender, to, denom, amount);
+        require(success, "Token transfer failed");
+
+        emit TokenTransfer(msg.sender, to, denom, amount);
+    }
+
+    function batchTransfer(
+        address[] memory recipients,
+        string memory denom,
+        uint256[] memory amounts
+    ) external {
+        require(recipients.length == amounts.length, "Array length mismatch");
+
+        for (uint256 i = 0; i < recipients.length; i++) {
+            bool success = BANK.send(msg.sender, recipients[i], denom, amounts[i]);
+            require(success, "Batch transfer failed");
+
+            emit TokenTransfer(msg.sender, recipients[i], denom, amounts[i]);
+        }
+    }
+}
+```
+
+</Tabs.Tab>
+</Tabs>
+
+### Query Account Balance
+
+<Tabs items={['JavaScript','Solidity']}>
+<Tabs.Tab>
+
+```typescript copy
+// Query specific token balance
+const accountAddress = '0x1234567890123456789012345678901234567890';
+const tokenDenom = 'usei';
+
+try {
+  const balance = await bank.balance(accountAddress, tokenDenom);
+
+  // Convert usei to SEI for display
+  if (tokenDenom === 'usei') {
+    const seiBalance = ethers.formatUnits(balance, 6);
+    console.log(`SEI Balance: ${seiBalance} SEI`);
+  } else {
+    console.log(`${tokenDenom} Balance: ${balance.toString()}`);
+  }
+} catch (error) {
+  console.error('Balance query failed:', error);
+}
+```
+
+</Tabs.Tab>
+<Tabs.Tab>
+
+```solidity copy
+contract BalanceChecker {
+    IBankPrecompile constant BANK = IBankPrecompile(0x0000000000000000000000000000000000001001);
+
+    function getUserSeiBalance(address user) external view returns (uint256) {
+        return BANK.balance(user, "usei");
+    }
+
+    function getUserTokenBalance(
+        address user,
+        string memory denom
+    ) external view returns (uint256) {
+        return BANK.balance(user, denom);
+    }
+
+    function hasMinimumBalance(
+        address user,
+        string memory denom,
+        uint256 minAmount
+    ) external view returns (bool) {
+        uint256 balance = BANK.balance(user, denom);
+        return balance >= minAmount;
+    }
+}
+```
+
+</Tabs.Tab>
+</Tabs>
+
+### Query All Balances
+
+<Tabs items={['JavaScript','Solidity']}>
+<Tabs.Tab>
+
+```typescript copy
+// Query all token balances for an account
+const accountAddress = '0x1234567890123456789012345678901234567890';
+
+try {
+  const allBalances = await bank.all_balances(accountAddress);
+
+  console.log(`Account: ${accountAddress}`);
+  console.log('All Balances:');
+
+  allBalances.forEach((coin, index) => {
+    if (coin.denom === 'usei') {
+      const seiAmount = ethers.formatUnits(coin.amount, 6);
+      console.log(`  ${index + 1}. ${seiAmount} SEI (${coin.denom})`);
+    } else {
+      console.log(`  ${index + 1}. ${coin.amount.toString()} ${coin.denom}`);
+    }
+  });
+} catch (error) {
+  console.error('All balances query failed:', error);
+}
+```
+
+</Tabs.Tab>
+<Tabs.Tab>
+
+```solidity copy
+contract PortfolioManager {
+    IBankPrecompile constant BANK = IBankPrecompile(0x0000000000000000000000000000000000001001);
+
+    struct Portfolio {
+        address owner;
+        Coin[] balances;
+        uint256 totalValue; // In usei equivalent
+    }
+
+    function getPortfolio(address user) external view returns (Coin[] memory) {
+        return BANK.all_balances(user);
+    }
+
+    function hasAnyBalance(address user) external view returns (bool) {
+        Coin[] memory balances = BANK.all_balances(user);
+        return balances.length > 0;
+    }
+
+    function countTokenTypes(address user) external view returns (uint256) {
+        Coin[] memory balances = BANK.all_balances(user);
+        return balances.length;
+    }
+
+    function findTokenBalance(
+        address user,
+        string memory targetDenom
+    ) external view returns (uint256) {
+        Coin[] memory balances = BANK.all_balances(user);
+
+        for (uint256 i = 0; i < balances.length; i++) {
+            if (keccak256(bytes(balances[i].denom)) == keccak256(bytes(targetDenom))) {
+                return balances[i].amount;
+            }
+        }
+
+        return 0; // Token not found
+    }
+}
+```
+
+</Tabs.Tab>
+</Tabs>
+
+### Query Token Metadata
+
+<Tabs items={['JavaScript','Solidity']}>
+<Tabs.Tab>
+
+```typescript copy
+// Query comprehensive token metadata
+const tokenDenom = 'factory/sei1.../mytoken';
+
+try {
+  // Get all metadata in parallel
+  const [name, symbol, decimals, totalSupply] = await Promise.all([bank.name(tokenDenom), bank.symbol(tokenDenom), bank.decimals(tokenDenom), bank.supply(tokenDenom)]);
+
+  console.log('Token Metadata:');
+  console.log(`  Denomination: ${tokenDenom}`);
+  console.log(`  Name: ${name}`);
+  console.log(`  Symbol: ${symbol}`);
+  console.log(`  Decimals: ${decimals}`);
+  console.log(`  Total Supply: ${ethers.formatUnits(totalSupply, decimals)}`);
+} catch (error) {
+  console.error('Metadata query failed:', error);
+}
+
+// Function to get formatted token info
+async function getTokenInfo(denom) {
+  try {
+    const metadata = {
+      denom: denom,
+      name: await bank.name(denom),
+      symbol: await bank.symbol(denom),
+      decimals: await bank.decimals(denom),
+      supply: await bank.supply(denom)
+    };
+
+    return {
+      ...metadata,
+      formattedSupply: ethers.formatUnits(metadata.supply, metadata.decimals)
+    };
+  } catch (error) {
+    console.error(`Failed to get info for ${denom}:`, error);
+    return null;
+  }
+}
+```
+
+</Tabs.Tab>
+<Tabs.Tab>
+
+```solidity copy
+contract TokenRegistry {
+    IBankPrecompile constant BANK = IBankPrecompile(0x0000000000000000000000000000000000001001);
+
+    struct TokenInfo {
+        string denom;
+        string name;
+        string symbol;
+        uint8 decimals;
+        uint256 totalSupply;
+        bool isValid;
+    }
+
+    mapping(string => TokenInfo) public tokenRegistry;
+
+    function registerToken(string memory denom) external {
+        TokenInfo storage info = tokenRegistry[denom];
+
+        info.denom = denom;
+        info.name = BANK.name(denom);
+        info.symbol = BANK.symbol(denom);
+        info.decimals = BANK.decimals(denom);
+        info.totalSupply = BANK.supply(denom);
+        info.isValid = true;
+    }
+
+    function getTokenInfo(
+        string memory denom
+    ) external view returns (TokenInfo memory) {
+        TokenInfo memory info;
+
+        info.denom = denom;
+        info.name = BANK.name(denom);
+        info.symbol = BANK.symbol(denom);
+        info.decimals = BANK.decimals(denom);
+        info.totalSupply = BANK.supply(denom);
+        info.isValid = true;
+
+        return info;
+    }
+
+    function formatAmount(
+        string memory denom,
+        uint256 amount
+    ) external view returns (string memory) {
+        uint8 tokenDecimals = BANK.decimals(denom);
+        // Note: Solidity doesn't have built-in decimal formatting
+        // This would need additional utility functions for proper formatting
+        return "Use client-side formatting";
+    }
+}
+```
+
+</Tabs.Tab>
+</Tabs>
+
+### Complete Integration Example
+
+<Tabs items={['JavaScript','Solidity']}>
+<Tabs.Tab>
+
+```typescript copy
+import { BANK_PRECOMPILE_ABI, BANK_PRECOMPILE_ADDRESS } from '@sei-js/precompiles';
+import { ethers } from 'ethers';
+
+class SeiTokenManager {
+  private bank: ethers.Contract;
+  private signer: ethers.Signer;
+
+  constructor(signer: ethers.Signer) {
+    this.signer = signer;
+    this.bank = new ethers.Contract(BANK_PRECOMPILE_ADDRESS, BANK_PRECOMPILE_ABI, signer);
+  }
+
+  // Send native SEI tokens
+  async sendSei(recipientAddress: string, amountInSei: string) {
+    try {
+      const amountInUsei = ethers.parseUnits(amountInSei, 6);
+      const tx = await this.bank.sendNative(recipientAddress, {
+        value: amountInUsei,
+        gasLimit: 100000
+      });
+
+      const receipt = await tx.wait();
+      return {
+        success: true,
+        transactionHash: receipt.transactionHash,
+        amount: amountInSei,
+        recipient: recipientAddress
+      };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Get user's portfolio
+  async getPortfolio(address: string) {
+    try {
+      const balances = await this.bank.all_balances(address);
+      const portfolio = [];
+
+      for (const coin of balances) {
+        try {
+          const metadata = await this.getTokenMetadata(coin.denom);
+          portfolio.push({
+            denom: coin.denom,
+            amount: coin.amount.toString(),
+            formattedAmount: ethers.formatUnits(coin.amount, metadata.decimals),
+            ...metadata
+          });
+        } catch (metadataError) {
+          // If metadata fails, still include the balance
+          portfolio.push({
+            denom: coin.denom,
+            amount: coin.amount.toString(),
+            formattedAmount: coin.amount.toString(),
+            name: 'Unknown',
+            symbol: 'Unknown',
+            decimals: 0
+          });
+        }
+      }
+
+      return { success: true, portfolio };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Get token metadata
+  async getTokenMetadata(denom: string) {
+    const [name, symbol, decimals, supply] = await Promise.all([this.bank.name(denom).catch(() => 'Unknown'), this.bank.symbol(denom).catch(() => 'Unknown'), this.bank.decimals(denom).catch(() => 0), this.bank.supply(denom).catch(() => 0n)]);
+
+    return { name, symbol, decimals, supply: supply.toString() };
+  }
+
+  // Transfer custom tokens
+  async transferToken(toAddress: string, denom: string, amount: string, decimals: number = 18) {
+    try {
+      const fromAddress = await this.signer.getAddress();
+      const parsedAmount = ethers.parseUnits(amount, decimals);
+
+      const tx = await this.bank.send(fromAddress, toAddress, denom, parsedAmount, {
+        gasLimit: 150000
+      });
+
+      const receipt = await tx.wait();
+      return {
+        success: true,
+        transactionHash: receipt.transactionHash,
+        from: fromAddress,
+        to: toAddress,
+        denom,
+        amount
+      };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Batch operations
+  async batchBalanceCheck(addresses: string[], denom: string) {
+    try {
+      const balances = await Promise.allSettled(addresses.map((addr) => this.bank.balance(addr, denom)));
+
+      return balances.map((result, index) => ({
+        address: addresses[index],
+        balance: result.status === 'fulfilled' ? result.value.toString() : '0',
+        success: result.status === 'fulfilled'
+      }));
+    } catch (error) {
+      throw new Error(`Batch balance check failed: ${error.message}`);
+    }
+  }
+}
+
+// Usage example
+async function bankExample() {
+  const provider = new ethers.BrowserProvider(window.ethereum);
+  await provider.send('eth_requestAccounts', []);
+  const signer = await provider.getSigner();
+  const tokenManager = new SeiTokenManager(signer);
+
+  console.log('=== Sei Token Manager Demo ===');
+
+  // 1. Get current user's portfolio
+  const userAddress = await signer.getAddress();
+  const portfolio = await tokenManager.getPortfolio(userAddress);
+
+  if (portfolio.success) {
+    console.log('User Portfolio:');
+    portfolio.portfolio.forEach((token, index) => {
+      console.log(`  ${index + 1}. ${token.formattedAmount} ${token.symbol} (${token.name})`);
+    });
+  }
+
+  // 2. Send native SEI
+  const sendResult = await tokenManager.sendSei('sei1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq6s8dpw', '0.01');
+
+  if (sendResult.success) {
+    console.log('SEI transfer successful:', sendResult.transactionHash);
+  }
+
+  // 3. Check balances for multiple addresses
+  const addresses = ['0x1234567890123456789012345678901234567890', '0x9876543210987654321098765432109876543210'];
+
+  const batchBalances = await tokenManager.batchBalanceCheck(addresses, 'usei');
+  console.log('Batch balance results:', batchBalances);
+}
+```
+
+</Tabs.Tab>
+<Tabs.Tab>
+
+**Complete Contract Example**
+
+```solidity copy
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+interface IBankPrecompile {
+    function send(address fromAddress, address toAddress, string memory denom, uint256 amount) external returns (bool success);
+    function sendNative(string memory toNativeAddress) payable external returns (bool success);
+    function balance(address acc, string memory denom) external view returns (uint256 amount);
+    function all_balances(address acc) external view returns (Coin[] memory response);
+    function name(string memory denom) external view returns (string memory response);
+    function symbol(string memory denom) external view returns (string memory response);
+    function decimals(string memory denom) external view returns (uint8 response);
+    function supply(string memory denom) external view returns (uint256 response);
+}
+
+struct Coin {
+    uint256 amount;
+    string denom;
+}
+
+contract ComprehensiveTokenManager {
+    IBankPrecompile constant BANK = IBankPrecompile(0x0000000000000000000000000000000000001001);
+
+    // Events
+    event PaymentProcessed(address indexed from, string to, uint256 amount, string denom);
+    event TokenTransfer(address indexed from, address indexed to, string denom, uint256 amount);
+    event BatchTransferCompleted(address indexed sender, uint256 totalRecipients);
+
+    // State variables
+    mapping(address => bool) public authorizedOperators;
+    mapping(string => bool) public supportedTokens;
+    address public owner;
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only owner can execute");
+        _;
+    }
+
+    modifier onlyAuthorized() {
+        require(authorizedOperators[msg.sender] || msg.sender == owner, "Not authorized");
+        _;
+    }
+
+    constructor() {
+        owner = msg.sender;
+        authorizedOperators[msg.sender] = true;
+        supportedTokens["usei"] = true;
+    }
+
+    // =============
+    // Payment Functions
+    // =============
+
+    function processPayment(
+        string memory recipient,
+        uint256 amount
+    ) external payable {
+        require(msg.value >= amount, "Insufficient payment");
+
+        bool success = BANK.sendNative{value: amount}(recipient);
+        require(success, "Payment failed");
+
+        // Refund excess
+        if (msg.value > amount) {
+            payable(msg.sender).transfer(msg.value - amount);
+        }
+
+        emit PaymentProcessed(msg.sender, recipient, amount, "usei");
+    }
+
+    function processTokenPayment(
+        address recipient,
+        string memory denom,
+        uint256 amount
+    ) external onlyAuthorized {
+        require(supportedTokens[denom], "Token not supported");
+
+        bool success = BANK.send(msg.sender, recipient, denom, amount);
+        require(success, "Token payment failed");
+
+        emit TokenTransfer(msg.sender, recipient, denom, amount);
+    }
+
+    // =============
+    // Batch Operations
+    // =============
+
+    function batchSeiTransfer(
+        string[] memory recipients,
+        uint256[] memory amounts
+    ) external payable {
+        require(recipients.length == amounts.length, "Array length mismatch");
+        require(recipients.length <= 50, "Too many recipients");
+
+        uint256 totalAmount = 0;
+        for (uint256 i = 0; i < amounts.length; i++) {
+            totalAmount += amounts[i];
+        }
+        require(msg.value >= totalAmount, "Insufficient total payment");
+
+        for (uint256 i = 0; i < recipients.length; i++) {
+            bool success = BANK.sendNative{value: amounts[i]}(recipients[i]);
+            require(success, "Batch transfer failed");
+
+            emit PaymentProcessed(msg.sender, recipients[i], amounts[i], "usei");
+        }
+
+        // Refund excess
+        if (msg.value > totalAmount) {
+            payable(msg.sender).transfer(msg.value - totalAmount);
+        }
+
+        emit BatchTransferCompleted(msg.sender, recipients.length);
+    }
+
+    function batchTokenTransfer(
+        address[] memory recipients,
+        string memory denom,
+        uint256[] memory amounts
+    ) external onlyAuthorized {
+        require(recipients.length == amounts.length, "Array length mismatch");
+        require(recipients.length <= 20, "Too many recipients");
+        require(supportedTokens[denom], "Token not supported");
+
+        for (uint256 i = 0; i < recipients.length; i++) {
+            bool success = BANK.send(msg.sender, recipients[i], denom, amounts[i]);
+            require(success, "Batch token transfer failed");
+
+            emit TokenTransfer(msg.sender, recipients[i], denom, amounts[i]);
+        }
+
+        emit BatchTransferCompleted(msg.sender, recipients.length);
+    }
+
+    // =============
+    // Query Functions
+    // =============
+
+    function getUserPortfolio(address user) external view returns (Coin[] memory) {
+        return BANK.all_balances(user);
+    }
+
+    function getUserBalance(address user, string memory denom) external view returns (uint256) {
+        return BANK.balance(user, denom);
+    }
+
+    function getTokenInfo(string memory denom) external view returns (
+        string memory name,
+        string memory symbol,
+        uint8 decimals,
+        uint256 totalSupply
+    ) {
+        name = BANK.name(denom);
+        symbol = BANK.symbol(denom);
+        decimals = BANK.decimals(denom);
+        totalSupply = BANK.supply(denom);
+    }
+
+    function checkSufficientBalance(
+        address user,
+        string memory denom,
+        uint256 requiredAmount
+    ) external view returns (bool) {
+        uint256 balance = BANK.balance(user, denom);
+        return balance >= requiredAmount;
+    }
+
+    function batchBalanceCheck(
+        address[] memory users,
+        string memory denom
+    ) external view returns (uint256[] memory balances) {
+        balances = new uint256[](users.length);
+        for (uint256 i = 0; i < users.length; i++) {
+            balances[i] = BANK.balance(users[i], denom);
+        }
+    }
+
+    // =============
+    // Admin Functions
+    // =============
+
+    function addSupportedToken(string memory denom) external onlyOwner {
+        supportedTokens[denom] = true;
+    }
+
+    function removeSupportedToken(string memory denom) external onlyOwner {
+        supportedTokens[denom] = false;
+    }
+
+    function addOperator(address operator) external onlyOwner {
+        authorizedOperators[operator] = true;
+    }
+
+    function removeOperator(address operator) external onlyOwner {
+        require(operator != owner, "Cannot remove owner");
+        authorizedOperators[operator] = false;
+    }
+
+    // Emergency withdraw function
+    function emergencyWithdraw() external onlyOwner {
+        payable(owner).transfer(address(this).balance);
+    }
+
+    // =============
+    // Utility Functions
+    // =============
+
+    function convertSeiToUsei(uint256 seiAmount) pure external returns (uint256) {
+        return seiAmount * 1e6;
+    }
+
+    function convertUseiToSei(uint256 useiAmount) pure external returns (uint256) {
+        return useiAmount / 1e6;
+    }
+
+    receive() external payable {}
+}
+```
+
+**Deployment Script**
+
+```javascript copy
+const { ethers } = require('hardhat');
+
+async function main() {
+  const [deployer] = await ethers.getSigners();
+  console.log('Deploying contract with account:', deployer.address);
+
+  const balance = await ethers.provider.getBalance(deployer.address);
+  console.log('Account balance:', ethers.formatEther(balance), 'SEI');
+
+  const TokenManager = await ethers.getContractFactory('ComprehensiveTokenManager');
+  const tokenManager = await TokenManager.deploy();
+  await tokenManager.waitForDeployment();
+
+  const address = await tokenManager.getAddress();
+  console.log('TokenManager deployed to:', address);
+
+  // Add some supported tokens
+  const tokens = ['factory/sei1.../token1', 'ibc/ED07A3391A112B175915CD8FAF43A2DA8E4790EDE12566649D0C2F97716B8518'];
+
+  for (const token of tokens) {
+    try {
+      const tx = await tokenManager.addSupportedToken(token);
+      await tx.wait();
+      console.log('Added supported token:', token);
+    } catch (error) {
+      console.error('Failed to add token:', token, error.message);
+    }
+  }
+}
+
+main()
+  .then(() => process.exit(0))
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
+```
+
+</Tabs.Tab>
+</Tabs>
+
+## Security Considerations & Risks
+
+### Transaction Security
+
+- **Amount Validation:** Always validate transfer amounts and ensure sufficient balances
+- **Address Verification:** Verify recipient addresses are valid before sending tokens
+- **Reentrancy Protection:** Be aware of potential reentrancy when combining with other contracts
+
+### Gas Optimization
+
+- **Batch Operations:** Use batch functions for multiple operations to save gas
+- **Query Efficiency:** Cache frequently accessed token metadata
+- **Error Handling:** Implement proper error handling to avoid failed transaction costs
+
+### Permission Management
+
+```solidity copy
+// Example of secure permission patterns
+modifier onlyTokenHolder(string memory denom, uint256 minAmount) {
+    require(BANK.balance(msg.sender, denom) >= minAmount, "Insufficient token balance");
+    _;
+}
+
+modifier validRecipient(address recipient) {
+    require(recipient != address(0), "Invalid recipient");
+    require(recipient != address(this), "Cannot send to contract");
+    _;
+}
+```
+
+## Troubleshooting
+
+### Common Issues and Solutions
+
+#### Transaction Failures
+
+```typescript copy
+// Handle common transfer errors
+try {
+  const tx = await bank.sendNative(recipient, { value: amount });
+  await tx.wait();
+} catch (error) {
+  if (error.message.includes('insufficient funds')) {
+    console.error('Insufficient balance for transfer');
+  } else if (error.message.includes('invalid address')) {
+    console.error('Invalid recipient address format');
+  } else {
+    console.error('Transfer failed:', error.message);
+  }
+}
+```
+
+#### Balance Query Issues
+
+```typescript copy
+// Safe balance checking with error handling
+async function safeGetBalance(address: string, denom: string) {
+  try {
+    const balance = await bank.balance(address, denom);
+    return { success: true, balance: balance.toString() };
+  } catch (error) {
+    if (error.message.includes('not found')) {
+      return { success: true, balance: '0' }; // No balance = 0
+    }
+    return { success: false, error: error.message };
+  }
+}
+```
+
+### Error Code Reference
+
+<div className="overflow-x-auto max-w-full">
+  <table className="w-full divide-y divide-neutral-200 dark:divide-neutral-800">
+    <thead>
+      <tr>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Error</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Cause</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Solution</th>
+      </tr>
+    </thead>
+    <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
+      <tr>
+        <td className="px-4 py-3 text-sm text-red-600 dark:text-red-400 whitespace-nowrap font-medium">
+          <code>insufficient funds</code>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">Not enough balance for transfer</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Check balance before transfer</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-red-600 dark:text-red-400 whitespace-nowrap font-medium">
+          <code>invalid address</code>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">Malformed address format</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Use proper EVM (0x...) or Sei (sei1...) format</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-red-600 dark:text-red-400 whitespace-nowrap font-medium">
+          <code>unknown denomination</code>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">Token denom doesn't exist</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Verify token denomination format</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-red-600 dark:text-red-400 whitespace-nowrap font-medium">
+          <code>amount overflow</code>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">Amount exceeds uint256 limits</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Use appropriate amount ranges</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-red-600 dark:text-red-400 whitespace-nowrap font-medium">
+          <code>metadata not found</code>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">Token metadata not available</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Handle missing metadata gracefully</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+## Important Notes
+
+<Callout type="info"> Remember: Always verify token denominations and handle errors gracefully in production applications! </Callout>
+
+### Token Denominations
+
+- **Native SEI:** Always use `usei` as the denomination (1 SEI = 1,000,000 usei)
+- **Custom Tokens:** Follow format `factory/{creator}/{subdenom}` for custom tokens
+- **IBC Tokens:** Use format `ibc/{hash}` for cross-chain assets
+- **Case Sensitivity:** Token denominations are case-sensitive
+
+### Amount Precision
+
+- **SEI Native:** 6 decimal places (1 SEI = 1,000,000 usei)
+- **Custom Tokens:** Check decimals using `decimals()` function
+- **Display Formatting:** Always format amounts with proper decimal places for user display
+
+### Gas Optimization
+
+- **Batch Operations:** Use batch functions to reduce gas costs for multiple operations
+- **Query Caching:** Cache token metadata to avoid repeated queries
+- **Error Handling:** Implement proper error handling to prevent gas waste
+
+### Integration Best Practices
+
+- **Balance Checks:** Always verify sufficient balance before transfers
+- **Error Recovery:** Implement retry logic for failed transactions
+- **User Experience:** Provide clear feedback on transaction status
+- **Decimal Handling:** Use proper decimal formatting for different token types
 
 <Callout type="info">View the Bank precompile source code and the contract ABI [here](https://github.com/sei-protocol/sei-chain/tree/main/precompiles/bank).</Callout>
