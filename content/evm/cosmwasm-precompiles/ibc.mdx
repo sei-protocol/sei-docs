@@ -1,55 +1,149 @@
+---
+title: 'IBC Precompile'
+description: "Learn how to interact with Sei's IBC precompile through ethers.js and Solidity, enabling cross-chain token transfers directly in your EVM smart contracts for seamless interoperability across multiple blockchain networks."
+keywords: ['ibc precompile', 'cross-chain transfer', 'inter-blockchain communication', 'ethers.js', 'token transfer', 'interoperability', 'sei development']
+---
+
 import { Callout } from 'nextra/components';
+import { Tabs } from 'nextra/components';
 
 # IBC Precompile
 
-**Address**: `0x0000000000000000000000000000000000001009`
+**Address:** `0x0000000000000000000000000000000000001009`
 
-This precompile enables funds transfer over IBC protocol.
+The Sei IBC precompile allows EVM applications to interact directly with Sei's Inter-Blockchain Communication (IBC) protocol through standard smart contract calls. This enables cross-chain token transfers and communication with other blockchain networks without needing separate Cosmos SDK integration.
+
+<Callout type="info"> **What is a precompile?** A precompile is a special smart contract deployed at a fixed address by the Sei protocol itself, that exposes custom native chain logic to EVM-based applications. It acts like a regular contract from the EVM's perspective, but executes privileged, low-level logic efficiently. </Callout>
+
+## How Does the IBC Precompile Work?
+
+The IBC precompile at address `0x0000000000000000000000000000000000001009` exposes functions like `transferWithDefaultTimeout()` and `transfer()`.
+
+- **Direct Integration:** EVM contracts and dApps can call cross-chain transfer functions like any other smart contract method.
+- **Native Execution:** Operations are executed at the Cosmos SDK level for maximum efficiency and security.
+- **Seamless Bridge:** No need for separate wallet integrations or complex cross-chain interactions.
+
+## Use Cases
+
+- **Cross-Chain DeFi:** Build protocols that can move assets between different blockchain networks seamlessly.
+- **Multi-Chain Applications:** Create dApps that operate across multiple blockchain ecosystems using IBC.
+- **Asset Migration:** Enable users to transfer tokens between Sei and other IBC-enabled chains.
+- **Interoperability Solutions:** Develop bridges and connectors for cross-chain communication.
+
+## What You'll Learn in This Guide
+
+By the end of this guide, you'll be able to:
+
+- **Execute Cross-Chain Transfers** - Send tokens to other blockchain networks directly from your EVM contracts
+- **Handle IBC Parameters** - Master channel, port, and timeout configurations for reliable transfers
+- **Manage Transfer Logic** - Implement robust error handling and retry mechanisms for cross-chain operations
+- **Build Interoperable dApps** - Create applications that seamlessly work across multiple blockchain networks
+- **Navigate IBC Protocol** - Understand channels, relayers, and the Inter-Blockchain Communication standard
 
 ## Functions
 
-### Transactions
+The IBC precompile exposes the following functions:
 
-- `transferWithDefaultTimeout`: Send funds to another chain using IBC protocol.
-  Calculates the timeout height/timestamp based on the current block timestamp.
-  For ease of use, this is the recommended way to send out IBC transactions.
+### Transaction Functions
 
-  ```solidity copy
-  /// Send funds to another chain using IBC protocol. Calculates the timeout height/timestamp
-  /// based on the current block timestamp.
-  /// @param toAddress The recipient's address on the other chain
-  /// @param port IBC port in source chain (e.g. 'transfer')
-  /// @param channel IBC channel in source chain (e.g. 'channel-0')
-  /// @param denom The denomination of the tokens to send
-  /// @param amount The amount of tokens to send
-  /// @param memo The memo to include in the transaction, if no memo is needed, pass an empty string
-  /// @return Whether the transfer was successfully executed.
-  function transferWithDefaultTimeout(
-      string toAddress,
-      string memory port,
-      string memory channel,
-      string memory denom,
-      uint256 amount,
-      string memo
-  ) external returns (bool success);
-  ```
+```solidity
+/// Send funds to another chain using IBC protocol. Calculates the timeout height/timestamp
+/// based on the current block timestamp.
+/// @param toAddress The recipient's address on the destination chain.
+/// @param port IBC port in source chain (e.g. 'transfer').
+/// @param channel IBC channel in source chain (e.g. 'channel-0').
+/// @param denom The denomination of the tokens to send.
+/// @param amount The amount of tokens to send.
+/// @param memo The memo to include in the transaction, if no memo is needed, pass an empty string.
+/// @return Whether the transfer was successfully executed.
+function transferWithDefaultTimeout(
+    string memory toAddress,
+    string memory port,
+    string memory channel,
+    string memory denom,
+    uint256 amount,
+    string memory memo
+) external returns (bool success);
 
-- `transfer`: Send funds to another chain using IBC protocol.
+/// Send funds to another chain using IBC protocol.
+/// @param toAddress The recipient's address on the destination chain.
+/// @param port IBC port in source chain (e.g. 'transfer').
+/// @param channel IBC channel in source chain (e.g. 'channel-0').
+/// @param denom The denomination of the tokens to send.
+/// @param amount The amount of tokens to send.
+/// @param revisionNumber The revision number of the source chain.
+/// @param revisionHeight The revision height of the source chain.
+/// @param timeoutTimestamp The timeout timestamp of the source chain.
+/// @param memo The memo to include in the transaction, if no memo is needed, pass an empty string.
+/// @return Whether the transfer was successfully executed.
+function transfer(
+    string memory toAddress,
+    string memory port,
+    string memory channel,
+    string memory denom,
+    uint256 amount,
+    uint64 revisionNumber,
+    uint64 revisionHeight,
+    uint64 timeoutTimestamp,
+    string memory memo
+) external returns (bool success);
+```
 
-  ```solidity copy
-    /// Send funds to another chain using IBC protocol.
-    /// @param toAddress The recipient's address on the other chain
-    /// @param port IBC port in source chain (e.g. 'transfer')
-    /// @param channel IBC channel in source chain (e.g. 'channel-0')
-    /// @param denom The denomination of the tokens to send
-    /// @param amount The amount of tokens to send
-    /// @param revisionNumber The revision number of the source chain
-    /// @param revisionHeight The revision height of the source chain
-    /// @param timeoutTimestamp The timeout timestamp of the source chain
-    /// @param memo The memo to include in the transaction, if no memo is needed, pass an empty string
-    /// @return Whether the transfer was successfully executed.
+## Using the Precompile
+
+### Setup
+
+#### Prerequisites
+
+Before getting started, ensure you have:
+
+- **Node.js** (v16 or higher)
+- **npm** or **yarn** package manager
+- **EVM-compatible wallet**
+- **SEI tokens** for gas fees
+- **IBC channel information** for your target chain
+
+#### Install Dependencies
+
+Install the required packages for interacting with Sei precompiles:
+
+```bash copy
+# Install ethers.js for smart contract interactions
+npm install ethers
+
+# Install Sei EVM bindings for precompile addresses and ABIs
+npm install @sei-js/precompiles@2.1.2
+```
+
+#### Import Precompile Components
+
+<Tabs items={['JavaScript','Solidity']}>
+<Tabs.Tab>
+```typescript copy
+// Import IBC precompile address and ABI
+// View the entire ABI here: https://github.com/sei-protocol/sei-chain/tree/main/precompiles/ibc
+import { IBC_PRECOMPILE_ABI, IBC_PRECOMPILE_ADDRESS } from '@sei-js/precompiles';
+import { ethers } from 'ethers';
+```
+
+</Tabs.Tab>
+<Tabs.Tab>
+```solidity copy
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+interface IIBCPrecompile {
+function transferWithDefaultTimeout(
+string memory toAddress,
+string memory port,
+string memory channel,
+string memory denom,
+uint256 amount,
+string memory memo
+) external returns (bool success);
+
     function transfer(
-        string toAddress,
+        string memory toAddress,
         string memory port,
         string memory channel,
         string memory denom,
@@ -57,8 +151,1012 @@ This precompile enables funds transfer over IBC protocol.
         uint64 revisionNumber,
         uint64 revisionHeight,
         uint64 timeoutTimestamp,
-        string memo
+        string memory memo
     ) external returns (bool success);
-  ```
+
+}
+
+````
+</Tabs.Tab>
+</Tabs>
+
+<Callout type="info"> **Precompile Address:** The IBC precompile is deployed at `0x0000000000000000000000000000000000001009` </Callout>
+
+### Contract Initialization
+
+<Tabs items={['JavaScript','Solidity']}>
+<Tabs.Tab>
+Set up your provider, signer, and contract instance:
+
+```typescript copy
+// Using EVM-compatible wallet as the signer and provider
+const provider = new ethers.BrowserProvider(window.ethereum);
+await provider.send('eth_requestAccounts', []);
+const signer = await provider.getSigner();
+
+// Create a contract instance for the IBC precompile
+const ibc = new ethers.Contract(IBC_PRECOMPILE_ADDRESS, IBC_PRECOMPILE_ABI, signer);
+````
+
+</Tabs.Tab>
+<Tabs.Tab>
+```solidity copy
+// Initialize the contract instance in your Solidity code
+contract CrossChainTransferManager {
+    IIBCPrecompile constant IBC = IIBCPrecompile(0x0000000000000000000000000000000000001009);
+}
+```
+</Tabs.Tab>
+</Tabs>
+
+#### Understanding IBC Parameters
+
+IBC transfers require specific parameters to route tokens correctly:
+
+<div className="overflow-x-auto max-w-full">
+  <table className="w-full divide-y divide-neutral-200 dark:divide-neutral-800">
+    <thead>
+      <tr>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Parameter</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Description</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Example</th>
+      </tr>
+    </thead>
+    <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
+      <tr>
+        <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">**Port**</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">IBC port identifier</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 font-mono">transfer</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">**Channel**</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">IBC channel identifier</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 font-mono">channel-0</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">**Denom**</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Token denomination to transfer</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 font-mono">usei</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">**Amount**</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Amount in base denomination</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 font-mono">1000000</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+### Transfer Methods Comparison
+
+**transferWithDefaultTimeout() - Recommended:**
+
+- Automatically calculates timeout based on current block
+- Simpler parameter list
+- Best for most use cases
+- Lower chance of timeout errors
+
+**transfer() - Advanced:**
+
+- Full control over timeout parameters
+- Requires manual timeout calculation
+- Use for specific timing requirements
+- More complex but flexible
+
+## Step-by-Step Guide: Using the IBC Precompile
+
+### Basic Cross-Chain Transfer
+
+<Tabs items={['JavaScript','Solidity']}>
+<Tabs.Tab>
+
+```typescript copy
+// Simple cross-chain transfer using default timeout
+async function transferToCosmosHub() {
+  const toAddress = 'cosmos1234567890123456789012345678901234567890';
+  const port = 'transfer';
+  const channel = 'channel-0'; // Sei to Cosmos Hub channel
+  const denom = 'usei';
+  const amount = ethers.parseUnits('1', 6); // 1 SEI = 1,000,000 usei
+  const memo = '';
+
+  try {
+    const tx = await ibc.transferWithDefaultTimeout(toAddress, port, channel, denom, amount, memo);
+
+    const receipt = await tx.wait();
+    console.log('Transfer successful:', receipt.transactionHash);
+
+    // Listen for transfer events
+    console.log('Transfer initiated. Monitor the destination chain for completion.');
+  } catch (error) {
+    console.error('Transfer failed:', error);
+  }
+}
+```
+
+</Tabs.Tab>
+<Tabs.Tab>
+
+```solidity copy
+contract CrossChainTransferManager {
+    IIBCPrecompile constant IBC = IIBCPrecompile(0x0000000000000000000000000000000000001009);
+
+    event TransferInitiated(
+        address indexed sender,
+        string toAddress,
+        string channel,
+        uint256 amount
+    );
+
+    function transferToCosmosHub(
+        string memory toAddress,
+        uint256 amount
+    ) external {
+        bool success = IBC.transferWithDefaultTimeout(
+            toAddress,
+            "transfer",           // port
+            "channel-0",         // channel to Cosmos Hub
+            "usei",              // denomination
+            amount,              // amount in usei
+            ""                   // empty memo
+        );
+
+        require(success, "IBC transfer failed");
+
+        emit TransferInitiated(msg.sender, toAddress, "channel-0", amount);
+    }
+}
+```
+
+</Tabs.Tab>
+</Tabs>
+
+### Advanced Transfer with Custom Timeout
+
+<Tabs items={['JavaScript','Solidity']}>
+<Tabs.Tab>
+
+```typescript copy
+// Advanced transfer with custom timeout parameters
+async function advancedTransfer() {
+  const toAddress = 'osmosis1234567890123456789012345678901234567890';
+  const port = 'transfer';
+  const channel = 'channel-1'; // Sei to Osmosis channel
+  const denom = 'usei';
+  const amount = ethers.parseUnits('5', 6); // 5 SEI
+  const memo = 'Cross-chain DeFi deposit';
+
+  // Custom timeout parameters
+  const revisionNumber = 1;
+  const revisionHeight = 1000000; // Target height
+  const timeoutTimestamp = Math.floor(Date.now() / 1000) + 3600; // 1 hour from now
+
+  try {
+    const tx = await ibc.transfer(toAddress, port, channel, denom, amount, revisionNumber, revisionHeight, timeoutTimestamp, memo);
+
+    const receipt = await tx.wait();
+    console.log('Advanced transfer successful:', receipt.transactionHash);
+    console.log('Timeout set for:', new Date(timeoutTimestamp * 1000));
+  } catch (error) {
+    console.error('Advanced transfer failed:', error);
+  }
+}
+```
+
+</Tabs.Tab>
+<Tabs.Tab>
+
+```solidity copy
+contract AdvancedIBCManager {
+    IIBCPrecompile constant IBC = IIBCPrecompile(0x0000000000000000000000000000000000001009);
+
+    struct TransferParams {
+        string toAddress;
+        string port;
+        string channel;
+        string denom;
+        uint256 amount;
+        string memo;
+    }
+
+    event AdvancedTransferInitiated(
+        address indexed sender,
+        string toAddress,
+        string channel,
+        uint256 amount,
+        uint64 timeoutTimestamp
+    );
+
+    function advancedTransfer(
+        TransferParams memory params,
+        uint64 revisionNumber,
+        uint64 revisionHeight,
+        uint64 timeoutTimestamp
+    ) external {
+        bool success = IBC.transfer(
+            params.toAddress,
+            params.port,
+            params.channel,
+            params.denom,
+            params.amount,
+            revisionNumber,
+            revisionHeight,
+            timeoutTimestamp,
+            params.memo
+        );
+
+        require(success, "Advanced IBC transfer failed");
+
+        emit AdvancedTransferInitiated(
+            msg.sender,
+            params.toAddress,
+            params.channel,
+            params.amount,
+            timeoutTimestamp
+        );
+    }
+}
+```
+
+</Tabs.Tab>
+</Tabs>
+
+### Multi-Chain Transfer Hub
+
+<Tabs items={['JavaScript','Solidity']}>
+<Tabs.Tab>
+
+```typescript copy
+// Multi-chain transfer manager
+class IBCTransferHub {
+  constructor(signer) {
+    this.ibc = new ethers.Contract(IBC_PRECOMPILE_ADDRESS, IBC_PRECOMPILE_ABI, signer);
+    this.channels = {
+      cosmos: 'channel-0',
+      osmosis: 'channel-1',
+      juno: 'channel-2',
+      stargaze: 'channel-3'
+    };
+  }
+
+  async transferTo(network, recipientAddress, amount, memo = '') {
+    const channel = this.channels[network.toLowerCase()];
+    if (!channel) {
+      throw new Error(`Unsupported network: ${network}`);
+    }
+
+    const port = 'transfer';
+    const denom = 'usei';
+
+    try {
+      console.log(`Initiating transfer to ${network}...`);
+
+      const tx = await this.ibc.transferWithDefaultTimeout(recipientAddress, port, channel, denom, amount, memo);
+
+      const receipt = await tx.wait();
+
+      return {
+        success: true,
+        txHash: receipt.transactionHash,
+        network,
+        channel,
+        amount: ethers.formatUnits(amount, 6)
+      };
+    } catch (error) {
+      console.error(`Transfer to ${network} failed:`, error);
+      throw error;
+    }
+  }
+
+  async batchTransfer(transfers) {
+    const results = [];
+
+    for (const transfer of transfers) {
+      try {
+        const result = await this.transferTo(transfer.network, transfer.address, transfer.amount, transfer.memo);
+        results.push(result);
+      } catch (error) {
+        results.push({
+          success: false,
+          error: error.message,
+          ...transfer
+        });
+      }
+    }
+
+    return results;
+  }
+}
+
+// Usage example
+async function multiChainExample() {
+  const provider = new ethers.BrowserProvider(window.ethereum);
+  const signer = await provider.getSigner();
+  const hub = new IBCTransferHub(signer);
+
+  // Single transfer
+  const result = await hub.transferTo('osmosis', 'osmo1234567890123456789012345678901234567890', ethers.parseUnits('10', 6));
+
+  // Batch transfers
+  const batchTransfers = [
+    {
+      network: 'cosmos',
+      address: 'cosmos1abc...',
+      amount: ethers.parseUnits('1', 6),
+      memo: 'DeFi liquidity'
+    },
+    {
+      network: 'osmosis',
+      address: 'osmo1def...',
+      amount: ethers.parseUnits('2', 6),
+      memo: 'AMM deposit'
+    }
+  ];
+
+  const batchResults = await hub.batchTransfer(batchTransfers);
+  console.log('Batch transfer results:', batchResults);
+}
+```
+
+</Tabs.Tab>
+<Tabs.Tab>
+
+```solidity copy
+contract IBCTransferHub {
+    IIBCPrecompile constant IBC = IIBCPrecompile(0x0000000000000000000000000000000000001009);
+
+    struct NetworkConfig {
+        string channel;
+        bool active;
+    }
+
+    struct BatchTransfer {
+        string network;
+        string toAddress;
+        uint256 amount;
+        string memo;
+    }
+
+    mapping(string => NetworkConfig) public networks;
+    mapping(address => uint256) public totalTransferred;
+
+    event NetworkAdded(string network, string channel);
+    event BatchTransferCompleted(address indexed sender, uint256 transferCount);
+    event TransferExecuted(
+        address indexed sender,
+        string network,
+        string toAddress,
+        uint256 amount
+    );
+
+    constructor() {
+        // Initialize supported networks
+        networks["cosmos"] = NetworkConfig("channel-0", true);
+        networks["osmosis"] = NetworkConfig("channel-1", true);
+        networks["juno"] = NetworkConfig("channel-2", true);
+        networks["stargaze"] = NetworkConfig("channel-3", true);
+    }
+
+    function transferTo(
+        string memory network,
+        string memory toAddress,
+        uint256 amount,
+        string memory memo
+    ) public {
+        NetworkConfig memory config = networks[network];
+        require(config.active, "Network not supported");
+
+        bool success = IBC.transferWithDefaultTimeout(
+            toAddress,
+            "transfer",
+            config.channel,
+            "usei",
+            amount,
+            memo
+        );
+
+        require(success, "IBC transfer failed");
+
+        totalTransferred[msg.sender] += amount;
+
+        emit TransferExecuted(msg.sender, network, toAddress, amount);
+    }
+
+    function batchTransfer(BatchTransfer[] memory transfers) external {
+        require(transfers.length > 0, "No transfers provided");
+        require(transfers.length <= 10, "Too many transfers"); // Gas limit protection
+
+        for (uint256 i = 0; i < transfers.length; i++) {
+            transferTo(
+                transfers[i].network,
+                transfers[i].toAddress,
+                transfers[i].amount,
+                transfers[i].memo
+            );
+        }
+
+        emit BatchTransferCompleted(msg.sender, transfers.length);
+    }
+
+    function addNetwork(
+        string memory network,
+        string memory channel
+    ) external {
+        // In a real implementation, add access control
+        networks[network] = NetworkConfig(channel, true);
+        emit NetworkAdded(network, channel);
+    }
+
+    function getUserTotalTransferred(address user) external view returns (uint256) {
+        return totalTransferred[user];
+    }
+
+    function isNetworkSupported(string memory network) external view returns (bool) {
+        return networks[network].active;
+    }
+}
+```
+
+</Tabs.Tab>
+</Tabs>
+
+### Complete Integration Example
+
+<Tabs items={['JavaScript','Solidity']}>
+<Tabs.Tab>
+
+```typescript copy
+import { IBC_PRECOMPILE_ABI, IBC_PRECOMPILE_ADDRESS } from '@sei-js/precompiles';
+import { ethers } from 'ethers';
+
+class IBCManager {
+  constructor() {
+    this.provider = null;
+    this.signer = null;
+    this.ibc = null;
+  }
+
+  async initialize() {
+    // Setup provider and signer
+    this.provider = new ethers.BrowserProvider(window.ethereum);
+    await this.provider.send('eth_requestAccounts', []);
+    this.signer = await this.provider.getSigner();
+
+    // Initialize IBC contract
+    this.ibc = new ethers.Contract(IBC_PRECOMPILE_ADDRESS, IBC_PRECOMPILE_ABI, this.signer);
+
+    console.log('IBC Manager initialized');
+    console.log('Signer address:', await this.signer.getAddress());
+  }
+
+  async transferWithRetry(transferParams, maxRetries = 3) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`Transfer attempt ${attempt}/${maxRetries}`);
+
+        const tx = await this.ibc.transferWithDefaultTimeout(transferParams.toAddress, transferParams.port, transferParams.channel, transferParams.denom, transferParams.amount, transferParams.memo);
+
+        const receipt = await tx.wait();
+
+        return {
+          success: true,
+          txHash: receipt.transactionHash,
+          attempt,
+          gasUsed: receipt.gasUsed.toString()
+        };
+      } catch (error) {
+        console.error(`Attempt ${attempt} failed:`, error.message);
+
+        if (attempt === maxRetries) {
+          throw new Error(`Transfer failed after ${maxRetries} attempts: ${error.message}`);
+        }
+
+        // Wait before retry (exponential backoff)
+        await new Promise((resolve) => setTimeout(resolve, 1000 * Math.pow(2, attempt)));
+      }
+    }
+  }
+
+  async estimateGas(transferParams) {
+    try {
+      const gasEstimate = await this.ibc.transferWithDefaultTimeout.estimateGas(transferParams.toAddress, transferParams.port, transferParams.channel, transferParams.denom, transferParams.amount, transferParams.memo);
+
+      return gasEstimate;
+    } catch (error) {
+      console.error('Gas estimation failed:', error);
+      throw error;
+    }
+  }
+
+  async getTransactionStatus(txHash) {
+    try {
+      const receipt = await this.provider.getTransactionReceipt(txHash);
+      if (!receipt) {
+        return { status: 'pending' };
+      }
+
+      return {
+        status: receipt.status === 1 ? 'success' : 'failed',
+        blockNumber: receipt.blockNumber,
+        gasUsed: receipt.gasUsed.toString(),
+        logs: receipt.logs
+      };
+    } catch (error) {
+      console.error('Error getting transaction status:', error);
+      throw error;
+    }
+  }
+}
+
+// Usage example
+async function completeIBCExample() {
+  const manager = new IBCManager();
+
+  try {
+    // Initialize
+    await manager.initialize();
+
+    // Prepare transfer parameters
+    const transferParams = {
+      toAddress: 'cosmos1qql9gjf4ttzxq4r3xtcmkrkmjnxgr3pgx4jjlz',
+      port: 'transfer',
+      channel: 'channel-0',
+      denom: 'usei',
+      amount: ethers.parseUnits('1', 6), // 1 SEI
+      memo: 'Test transfer from Sei EVM'
+    };
+
+    // Estimate gas
+    console.log('=== Gas Estimation ===');
+    const gasEstimate = await manager.estimateGas(transferParams);
+    console.log('Estimated gas:', gasEstimate.toString());
+
+    // Execute transfer with retry logic
+    console.log('=== Executing Transfer ===');
+    const result = await manager.transferWithRetry(transferParams);
+    console.log('Transfer result:', result);
+
+    // Check transaction status
+    console.log('=== Transaction Status ===');
+    const status = await manager.getTransactionStatus(result.txHash);
+    console.log('Transaction status:', status);
+
+    if (status.status === 'success') {
+      console.log('✅ IBC transfer completed successfully!');
+      console.log('Monitor the destination chain for token arrival');
+    }
+  } catch (error) {
+    console.error('❌ IBC operation failed:', error);
+  }
+}
+
+// Run the example
+completeIBCExample().catch(console.error);
+```
+
+</Tabs.Tab>
+<Tabs.Tab>
+
+**Production-Ready Contract**
+
+```solidity copy
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+interface IIBCPrecompile {
+    function transferWithDefaultTimeout(
+        string memory toAddress,
+        string memory port,
+        string memory channel,
+        string memory denom,
+        uint256 amount,
+        string memory memo
+    ) external returns (bool success);
+
+    function transfer(
+        string memory toAddress,
+        string memory port,
+        string memory channel,
+        string memory denom,
+        uint256 amount,
+        uint64 revisionNumber,
+        uint64 revisionHeight,
+        uint64 timeoutTimestamp,
+        string memory memo
+    ) external returns (bool success);
+}
+
+contract ProductionIBCManager {
+    IIBCPrecompile constant IBC = IIBCPrecompile(0x0000000000000000000000000000000000001009);
+
+    // Access control
+    address public owner;
+    mapping(address => bool) public authorized;
+
+    // Network configurations
+    struct NetworkConfig {
+        string channel;
+        uint256 minAmount;
+        uint256 maxAmount;
+        bool active;
+        uint256 dailyLimit;
+        uint256 dailyUsed;
+        uint256 lastResetDay;
+    }
+
+    mapping(string => NetworkConfig) public networks;
+
+    // Transfer tracking
+    struct TransferRecord {
+        address sender;
+        string network;
+        string toAddress;
+        uint256 amount;
+        uint256 timestamp;
+        bool completed;
+    }
+
+    mapping(bytes32 => TransferRecord) public transfers;
+    mapping(address => uint256) public userTotalTransferred;
+    mapping(address => uint256) public userDailyTransferred;
+    mapping(address => uint256) public userLastTransferDay;
+
+    // Events
+    event TransferInitiated(
+        bytes32 indexed transferId,
+        address indexed sender,
+        string network,
+        string toAddress,
+        uint256 amount
+    );
+
+    event NetworkConfigured(
+        string network,
+        string channel,
+        uint256 minAmount,
+        uint256 maxAmount,
+        uint256 dailyLimit
+    );
+
+    event EmergencyStop(bool stopped);
+
+    // State variables
+    bool public emergencyStop = false;
+    uint256 public constant USER_DAILY_LIMIT = 1000000 * 10**6; // 1M SEI per day
+    uint256 private nonce;
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Not owner");
+        _;
+    }
+
+    modifier onlyAuthorized() {
+        require(authorized[msg.sender] || msg.sender == owner, "Not authorized");
+        _;
+    }
+
+    modifier notEmergencyStopped() {
+        require(!emergencyStop, "Emergency stopped");
+        _;
+    }
+
+    constructor() {
+        owner = msg.sender;
+        authorized[msg.sender] = true;
+
+        // Configure default networks
+        configureNetwork("cosmos", "channel-0", 1000000, 100000000 * 10**6, 10000000 * 10**6);
+        configureNetwork("osmosis", "channel-1", 1000000, 100000000 * 10**6, 10000000 * 10**6);
+    }
+
+    function configureNetwork(
+        string memory network,
+        string memory channel,
+        uint256 minAmount,
+        uint256 maxAmount,
+        uint256 dailyLimit
+    ) public onlyOwner {
+        networks[network] = NetworkConfig({
+            channel: channel,
+            minAmount: minAmount,
+            maxAmount: maxAmount,
+            active: true,
+            dailyLimit: dailyLimit,
+            dailyUsed: 0,
+            lastResetDay: getCurrentDay()
+        });
+
+        emit NetworkConfigured(network, channel, minAmount, maxAmount, dailyLimit);
+    }
+
+    function transfer(
+        string memory network,
+        string memory toAddress,
+        uint256 amount,
+        string memory memo
+    ) external notEmergencyStopped returns (bytes32 transferId) {
+        // Validate network
+        NetworkConfig storage config = networks[network];
+        require(config.active, "Network not active");
+        require(bytes(config.channel).length > 0, "Network not configured");
+
+        // Validate amount
+        require(amount >= config.minAmount, "Amount below minimum");
+        require(amount <= config.maxAmount, "Amount above maximum");
+
+        // Check daily limits
+        _checkAndUpdateDailyLimits(network, amount);
+        _checkAndUpdateUserDailyLimit(amount);
+
+        // Generate transfer ID
+        transferId = keccak256(abi.encodePacked(
+            msg.sender,
+            network,
+            toAddress,
+            amount,
+            block.timestamp,
+            nonce++
+        ));
+
+        // Record transfer
+        transfers[transferId] = TransferRecord({
+            sender: msg.sender,
+            network: network,
+            toAddress: toAddress,
+            amount: amount,
+            timestamp: block.timestamp,
+            completed: false
+        });
+
+        // Execute IBC transfer
+        bool success = IBC.transferWithDefaultTimeout(
+            toAddress,
+            "transfer",
+            config.channel,
+            "usei",
+            amount,
+            memo
+        );
+
+        require(success, "IBC transfer failed");
+
+        // Update tracking
+        transfers[transferId].completed = true;
+        userTotalTransferred[msg.sender] += amount;
+
+        emit TransferInitiated(transferId, msg.sender, network, toAddress, amount);
+
+        return transferId;
+    }
+
+    function _checkAndUpdateDailyLimits(string memory network, uint256 amount) internal {
+        NetworkConfig storage config = networks[network];
+        uint256 currentDay = getCurrentDay();
+
+        // Reset daily usage if new day
+        if (config.lastResetDay < currentDay) {
+            config.dailyUsed = 0;
+            config.lastResetDay = currentDay;
+        }
+
+        // Check daily limit
+        require(config.dailyUsed + amount <= config.dailyLimit, "Network daily limit exceeded");
+
+        // Update daily usage
+        config.dailyUsed += amount;
+    }
+
+    function _checkAndUpdateUserDailyLimit(uint256 amount) internal {
+        uint256 currentDay = getCurrentDay();
+
+        // Reset user daily usage if new day
+        if (userLastTransferDay[msg.sender] < currentDay) {
+            userDailyTransferred[msg.sender] = 0;
+            userLastTransferDay[msg.sender] = currentDay;
+        }
+
+        // Check user daily limit
+        require(
+            userDailyTransferred[msg.sender] + amount <= USER_DAILY_LIMIT,
+            "User daily limit exceeded"
+        );
+
+        // Update user daily usage
+        userDailyTransferred[msg.sender] += amount;
+    }
+
+    function getCurrentDay() internal view returns (uint256) {
+        return block.timestamp / 86400; // 86400 seconds in a day
+    }
+
+    function setEmergencyStop(bool _stop) external onlyOwner {
+        emergencyStop = _stop;
+        emit EmergencyStop(_stop);
+    }
+
+    function setAuthorized(address user, bool _authorized) external onlyOwner {
+        authorized[user] = _authorized;
+    }
+
+    function getTransferRecord(bytes32 transferId) external view returns (TransferRecord memory) {
+        return transfers[transferId];
+    }
+
+    function getNetworkDailyUsage(string memory network) external view returns (uint256) {
+        return networks[network].dailyUsed;
+    }
+
+    function getUserDailyUsage(address user) external view returns (uint256) {
+        return userDailyTransferred[user];
+    }
+}
+```
+
+**Deployment Script**
+
+```javascript copy
+const { ethers } = require('hardhat');
+
+async function main() {
+  const [deployer] = await ethers.getSigners();
+
+  console.log('Deploying ProductionIBCManager with account:', deployer.address);
+  console.log('Account balance:', (await deployer.getBalance()).toString());
+
+  const IBCManager = await ethers.getContractFactory('ProductionIBCManager');
+  const ibcManager = await IBCManager.deploy();
+
+  await ibcManager.waitForDeployment();
+
+  console.log('ProductionIBCManager deployed to:', await ibcManager.getAddress());
+
+  // Configure additional networks
+  console.log('Configuring networks...');
+
+  await ibcManager.configureNetwork(
+    'juno',
+    'channel-2',
+    ethers.parseUnits('1', 6), // 1 SEI minimum
+    ethers.parseUnits('10000', 6), // 10K SEI maximum
+    ethers.parseUnits('100000', 6) // 100K SEI daily limit
+  );
+
+  console.log('Network configuration completed');
+}
+
+main()
+  .then(() => process.exit(0))
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
+```
+
+</Tabs.Tab>
+</Tabs>
+
+## Security Considerations & Risks
+
+### Transfer Finality
+
+- **IBC Timeouts:** Transfers can timeout and be refunded if not processed within the timeout period
+- **Relayer Dependency:** IBC transfers depend on relayers to process packets between chains
+- **Channel Security:** Ensure you're using the correct channel for your target chain
+
+### Amount Handling
+
+- **Denomination Precision:** Always verify the correct denomination and decimal places
+- **Minimum Amounts:** Some chains have minimum transfer amounts
+- **Fee Deduction:** Network fees may be deducted from transfer amounts
+
+## Troubleshooting
+
+### Common Issues and Solutions
+
+#### Gas and Fee Issues
+
+```typescript copy
+// Set appropriate gas limits for IBC operations
+const transferTx = await ibc.transferWithDefaultTimeout(toAddress, port, channel, denom, amount, memo, {
+  gasLimit: 300000 // IBC transfers may require more gas
+});
+```
+
+#### Channel and Network Issues
+
+```typescript copy
+// Validate channel before transfer
+async function validateChannel(channel) {
+  // Implement channel validation logic
+  const validChannels = ['channel-0', 'channel-1', 'channel-2'];
+  if (!validChannels.includes(channel)) {
+    throw new Error(`Invalid channel: ${channel}`);
+  }
+}
+```
+
+### Error Code Reference
+
+<div className="overflow-x-auto max-w-full">
+  <table className="w-full divide-y divide-neutral-200 dark:divide-neutral-800">
+    <thead>
+      <tr>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Error</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Cause</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Solution</th>
+      </tr>
+    </thead>
+    <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
+      <tr>
+        <td className="px-4 py-3 text-sm text-red-600 dark:text-red-400 whitespace-nowrap font-medium">
+          <code>invalid channel</code>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Channel doesn't exist or is closed</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Verify channel ID with network documentation</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-red-600 dark:text-red-400 whitespace-nowrap font-medium">
+          <code>insufficient funds</code>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Not enough tokens for transfer</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Check balance and reduce amount</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-red-600 dark:text-red-400 whitespace-nowrap font-medium">
+          <code>invalid denomination</code>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Wrong token denomination</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Use correct denom (e.g., usei for SEI)</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-red-600 dark:text-red-400 whitespace-nowrap font-medium">
+          <code>timeout height exceeded</code>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Custom timeout parameters too low</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Use transferWithDefaultTimeout() or increase timeout</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-red-600 dark:text-red-400 whitespace-nowrap font-medium">
+          <code>invalid address format</code>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Recipient address format incorrect</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Use proper bech32 format for target chain</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+## Important Notes
+
+<Callout type="info"> Remember: IBC transfers are asynchronous! The transaction success only means the transfer was initiated. Monitor the destination chain for completion. </Callout>
+
+### Transfer Flow
+
+1. **Initiation:** Transfer initiated on Sei via precompile
+2. **Packet Creation:** IBC packet created and committed
+3. **Relayer Processing:** Relayers pick up and relay the packet
+4. **Destination Processing:** Destination chain processes the packet
+5. **Acknowledgment:** Success/failure acknowledgment sent back
+
+### Best Practices
+
+- **Use Default Timeout:** `transferWithDefaultTimeout()` is recommended for most use cases
+- **Verify Channels:** Always verify channel IDs with official network documentation
+- **Handle Failures:** Implement proper error handling and retry mechanisms
+- **Monitor Completion:** Track transfers on the destination chain for completion
+- **Test Small Amounts:** Always test with small amounts before large transfers
+
+### Channel Information
+
+- **Cosmos Hub:** Typically `channel-0`
+- **Osmosis:** Typically `channel-1`
+- **Other Networks:** Check official IBC documentation for correct channel IDs
+- **Port:** Usually `transfer` for token transfers
+
+### Amount Formatting
+
+- **SEI Tokens:** 1 SEI = 1,000,000 usei (6 decimal places)
+- **Always Use Base Units:** Specify amounts in the smallest denomination
+- **Precision:** Be careful with decimal precision when converting
 
 <Callout type="info">View the IBC precompile source code and the contract ABI [here](https://github.com/sei-protocol/sei-chain/tree/main/precompiles/ibc).</Callout>
