@@ -1,47 +1,1676 @@
+---
+title: 'PointerView Precompile'
+description: "Learn how to use Sei's PointerView precompile to query and discover existing EVM pointers for Cosmos SDK native tokens and CosmWasm contracts, enabling efficient asset discovery and integration."
+keywords: ['pointerview precompile', 'pointer query', 'cosmos sdk', 'cosmwasm', 'asset discovery', 'pointer registry', 'interoperability', 'sei development']
+---
+
 import { Callout } from 'nextra/components';
+import { Tabs } from 'nextra/components';
 
-# Pointerview Precompile
+# PointerView Precompile
 
-**Address**: `0x000000000000000000000000000000000000100A`
+**Address:** `0x000000000000000000000000000000000000100A`
 
-This precompile enables EVM clients to query pointers to Cosmos assets.
+The Sei PointerView precompile provides read-only access to query existing EVM pointers for Cosmos SDK native tokens and CosmWasm contracts. This precompile acts as a registry lookup service, allowing developers to discover and verify pointer addresses without creating new ones.
+
+<Callout type="info">**What is PointerView?** PointerView is a query-only precompile that allows you to check if EVM pointers already exist for Cosmos assets, retrieve their addresses, versions, and status. It's essential for building applications that need to discover existing pointers before attempting to create new ones.</Callout>
+
+## How Does the PointerView Precompile Work?
+
+The PointerView precompile at address `0x000000000000000000000000000000000000100A` provides read-only functions to query the pointer registry:
+
+- **Asset Discovery:** Find existing EVM pointers for any Cosmos asset
+- **Pointer Validation:** Verify if a pointer exists before attempting operations
+- **Version Tracking:** Get version information for pointer compatibility
+- **Registry Access:** Query the complete pointer registry without write operations
+
+## Use Cases
+
+- **Asset Discovery:** Find existing EVM interfaces for Cosmos assets before creating new ones
+- **Integration Validation:** Verify pointer existence before building integrations
+- **Registry Exploration:** Discover all available EVM-compatible assets on Sei
+- **Version Management:** Check pointer versions for compatibility and upgrade decisions
+- **Development Tools:** Build asset explorers and registry browsers
+- **Cost Optimization:** Avoid unnecessary pointer creation by checking existing ones
+
+## What You'll Learn in This Guide
+
+By the end of this guide, you'll be able to:
+
+- **Query Native Pointers** - Check if EVM pointers exist for Cosmos SDK native tokens
+- **Discover CW20 Pointers** - Find EVM interfaces for existing CW20 tokens
+- **Locate CW721 Pointers** - Query EVM pointers for CosmWasm NFT contracts
+- **Build Asset Registries** - Create comprehensive asset discovery systems
+- **Validate Integrations** - Ensure pointer existence before building applications
+- **Handle Version Management** - Work with different pointer versions effectively
 
 ## Functions
 
-### Queries
+The PointerView precompile exposes the following read-only functions:
 
-- `getNativePointer`: Retrieves the pointer address, version, and existence
-  status for the specified native token.
+### Query Functions
 
-  ```solidity copy
-    /// Retrieves the pointer address, version, and existence status for the specified native token.
-    /// @param token The native token to query.
-    /// @return the address, version, and existence status.
+```solidity
+/// Retrieves the pointer address, version, and existence status for the specified native token.
+/// @param token The native token denomination to query (e.g., "usei", "uatom").
+/// @return addr The EVM address of the pointer contract (address(0) if not exists).
+/// @return version The pointer version number for compatibility tracking.
+/// @return exists Boolean indicating if the pointer exists.
+function getNativePointer(
+    string memory token
+) view external returns (address addr, uint16 version, bool exists);
+
+/// Retrieves the pointer address, version, and existence status for the specified CW20 contract address.
+/// @param cwAddr The CW20 contract address to query.
+/// @return addr The EVM address of the pointer contract (address(0) if not exists).
+/// @return version The pointer version number for compatibility tracking.
+/// @return exists Boolean indicating if the pointer exists.
+function getCW20Pointer(
+    string memory cwAddr
+) view external returns (address addr, uint16 version, bool exists);
+
+/// Retrieves the pointer address, version, and existence status for the specified CW721 contract address.
+/// @param cwAddr The CW721 contract address to query.
+/// @return addr The EVM address of the pointer contract (address(0) if not exists).
+/// @return version The pointer version number for compatibility tracking.
+/// @return exists Boolean indicating if the pointer exists.
+function getCW721Pointer(
+    string memory cwAddr
+) view external returns (address addr, uint16 version, bool exists);
+```
+
+## Using the Precompile
+
+### Setup
+
+#### Prerequisites
+
+Before getting started, ensure you have:
+
+- **Node.js** (v16 or higher)
+- **npm** or **yarn** package manager
+- **EVM-compatible wallet** (no tokens required for queries)
+- **Knowledge of target assets** - native token denoms or CosmWasm contract addresses
+
+#### Install Dependencies
+
+Install the required packages for interacting with Sei precompiles:
+
+```bash copy
+# Install ethers.js for smart contract interactions
+npm install ethers
+
+# Install Sei EVM bindings for precompile addresses and ABIs
+npm install @sei-js/precompiles@2.1.2
+```
+
+#### Import Precompile Components
+
+<Tabs items={['JavaScript','Solidity']}>
+<Tabs.Tab>
+```typescript copy
+// Import ethers for contract interactions
+import { ethers } from 'ethers';
+
+// PointerView precompile constants
+const POINTERVIEW_PRECOMPILE_ADDRESS = '0x000000000000000000000000000000000000100A';
+const POINTERVIEW_PRECOMPILE_ABI = [
+"function getNativePointer(string) view returns (address, uint16, bool)",
+"function getCW20Pointer(string) view returns (address, uint16, bool)",
+"function getCW721Pointer(string) view returns (address, uint16, bool)"
+];
+
+````
+</Tabs.Tab>
+<Tabs.Tab>
+```solidity copy
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+interface IPointerViewPrecompile {
     function getNativePointer(
         string memory token
     ) view external returns (address addr, uint16 version, bool exists);
-  ```
 
-- `getCW20Pointer`: Retrieves the pointer address, version, and existence status
-  for the specified CW20 contract address.
+    function getCW20Pointer(
+        string memory cwAddr
+    ) view external returns (address addr, uint16 version, bool exists);
 
-  ```solidity copy
-  /// Retrieves the pointer address, version, and existence status for the specified CW20 contract address.
-  /// @param cwAddr The CW20 contract address to query.
-  /// @return the address, version, and existence status.
-  function getCW20Pointer(
-      string memory cwAddr
-  ) view external returns (address addr, uint16 version, bool exists);
-  ```
+    function getCW721Pointer(
+        string memory cwAddr
+    ) view external returns (address addr, uint16 version, bool exists);
+}
+````
 
-- `getCW721Pointer`: Retrieves the pointer address, version, and existence
-  status for the specified CW721 contract address.
-  ```solidity copy
-  /// Retrieves the pointer address, version, and existence status for the specified CW721 contract address.
-  /// @param cwAddr The CW721 contract address to query.
-  /// @return the address, version, and existence status.
-  function getCW721Pointer(
-  string memory cwAddr
-  ) view external returns (address addr, uint16 version, bool exists);
-  ```
-  <Callout type="info">View the PointerView precompile source code and the contract ABI [here](https://github.com/sei-protocol/sei-chain/tree/main/precompiles/pointerview).</Callout>
+</Tabs.Tab>
+</Tabs>
+
+<Callout type="info">**Precompile Address:** The PointerView precompile is deployed at `0x000000000000000000000000000000000000100A`</Callout>
+
+### Contract Initialization
+
+<Tabs items={['JavaScript','Solidity']}>
+<Tabs.Tab>
+Set up your provider and contract instance (no signer required for read-only operations):
+
+```typescript copy
+// Using any provider for read-only operations
+const provider = new ethers.JsonRpcProvider('https://evm-rpc.sei-apis.com');
+// Or use wallet provider: const provider = new ethers.BrowserProvider(window.ethereum);
+
+// Create a contract instance for the PointerView precompile
+const pointerView = new ethers.Contract(POINTERVIEW_PRECOMPILE_ADDRESS, POINTERVIEW_PRECOMPILE_ABI, provider);
+```
+
+</Tabs.Tab>
+<Tabs.Tab>
+```solidity copy
+// Initialize the contract instance in your Solidity code
+contract PointerRegistry {
+    IPointerViewPrecompile constant POINTER_VIEW = IPointerViewPrecompile(0x000000000000000000000000000000000000100A);
+}
+```
+</Tabs.Tab>
+</Tabs>
+
+#### Understanding Query Results
+
+Each query function returns three values:
+
+<div className="overflow-x-auto max-w-full">
+  <table className="w-full divide-y divide-neutral-200 dark:divide-neutral-800">
+    <thead>
+      <tr>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Return Value</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Type</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Description</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Example</th>
+      </tr>
+    </thead>
+    <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
+      <tr>
+        <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">**addr**</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">address</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">EVM pointer contract address</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 font-mono">0x123...abc</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">**version**</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">uint16</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Pointer version for compatibility</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 font-mono">1</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">**exists**</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">bool</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Whether the pointer exists</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 font-mono">true</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+### Query Patterns Comparison
+
+**Direct Queries:**
+
+- Check specific asset pointer existence
+- Get exact pointer address for integration
+- Validate before creating new pointers
+- Best for targeted lookups
+
+**Batch Queries:**
+
+- Discover multiple asset pointers at once
+- Build comprehensive asset registries
+- Efficient for application initialization
+- Ideal for asset exploration tools
+
+**Existence Checks:**
+
+- Quick boolean checks before operations
+- Prevent duplicate pointer creation
+- Validate integration prerequisites
+- Cost-effective validation pattern
+
+## Step-by-Step Guide: Using the PointerView Precompile
+
+### Querying Native Token Pointers
+
+<Tabs items={['JavaScript','Solidity']}>
+<Tabs.Tab>
+
+```typescript copy
+// Query native token pointer information
+async function queryNativePointer() {
+  const tokenDenom = 'usei'; // Native SEI denomination
+
+  try {
+    console.log('Querying native pointer for:', tokenDenom);
+
+    // Query the pointer information
+    const [pointerAddr, version, exists] = await pointerView.getNativePointer(tokenDenom);
+
+    console.log('Query Results:');
+    console.log('- Pointer Address:', pointerAddr);
+    console.log('- Version:', version.toString());
+    console.log('- Exists:', exists);
+
+    if (exists) {
+      console.log('✅ Native pointer found!');
+      console.log('EVM Address:', pointerAddr);
+
+      // You can now use this address to interact with the token via EVM
+      return {
+        tokenDenom,
+        pointerAddress: pointerAddr,
+        version: version.toString(),
+        exists: true
+      };
+    } else {
+      console.log('❌ No pointer found for this native token');
+      console.log('Consider creating one using the Pointer precompile');
+
+      return {
+        tokenDenom,
+        pointerAddress: null,
+        version: 0,
+        exists: false
+      };
+    }
+  } catch (error) {
+    console.error('Failed to query native pointer:', error.message);
+    throw error;
+  }
+}
+
+// Query multiple native tokens
+async function queryMultipleNativePointers() {
+  const nativeTokens = ['usei', 'uatom', 'uosmo', 'ujuno'];
+  const results = [];
+
+  console.log('Querying multiple native token pointers...');
+
+  for (const token of nativeTokens) {
+    try {
+      const [addr, version, exists] = await pointerView.getNativePointer(token);
+
+      results.push({
+        token,
+        address: addr,
+        version: version.toString(),
+        exists,
+        type: 'native'
+      });
+
+      console.log(`${token}: ${exists ? '✅ Found' : '❌ Not found'}`);
+    } catch (error) {
+      console.error(`Error querying ${token}:`, error.message);
+      results.push({
+        token,
+        address: '0x0000000000000000000000000000000000000000',
+        version: '0',
+        exists: false,
+        error: error.message,
+        type: 'native'
+      });
+    }
+  }
+
+  return results;
+}
+```
+
+</Tabs.Tab>
+<Tabs.Tab>
+
+```solidity copy
+contract NativePointerRegistry {
+    IPointerViewPrecompile constant POINTER_VIEW = IPointerViewPrecompile(0x000000000000000000000000000000000000100A);
+
+    struct NativePointerInfo {
+        address pointerAddress;
+        uint16 version;
+        bool exists;
+        string tokenDenom;
+    }
+
+    event NativePointerQueried(
+        string indexed tokenDenom,
+        address pointerAddress,
+        uint16 version,
+        bool exists
+    );
+
+    function queryNativePointer(string memory tokenDenom)
+        external
+        returns (NativePointerInfo memory info)
+    {
+        (address addr, uint16 version, bool exists) = POINTER_VIEW.getNativePointer(tokenDenom);
+
+        info = NativePointerInfo({
+            pointerAddress: addr,
+            version: version,
+            exists: exists,
+            tokenDenom: tokenDenom
+        });
+
+        emit NativePointerQueried(tokenDenom, addr, version, exists);
+
+        return info;
+    }
+
+    function batchQueryNativePointers(string[] memory tokenDenoms)
+        external
+        returns (NativePointerInfo[] memory results)
+    {
+        results = new NativePointerInfo[](tokenDenoms.length);
+
+        for (uint256 i = 0; i < tokenDenoms.length; i++) {
+            (address addr, uint16 version, bool exists) = POINTER_VIEW.getNativePointer(tokenDenoms[i]);
+
+            results[i] = NativePointerInfo({
+                pointerAddress: addr,
+                version: version,
+                exists: exists,
+                tokenDenom: tokenDenoms[i]
+            });
+
+            emit NativePointerQueried(tokenDenoms[i], addr, version, exists);
+        }
+
+        return results;
+    }
+
+    function checkNativePointerExists(string memory tokenDenom) external view returns (bool) {
+        (, , bool exists) = POINTER_VIEW.getNativePointer(tokenDenom);
+        return exists;
+    }
+
+    function getNativePointerAddress(string memory tokenDenom) external view returns (address) {
+        (address addr, , bool exists) = POINTER_VIEW.getNativePointer(tokenDenom);
+        require(exists, "Pointer does not exist");
+        return addr;
+    }
+}
+```
+
+</Tabs.Tab>
+</Tabs>
+
+### Querying CW20 Token Pointers
+
+<Tabs items={['JavaScript','Solidity']}>
+<Tabs.Tab>
+
+```typescript copy
+// Query CW20 token pointer information
+async function queryCW20Pointer() {
+  // Example CW20 contract address (use actual contract address)
+  const cw20Address = 'sei1hrpna9v7vs3stzyd4z3xf00676kf78zpe2u5ksvljswn2vnjp3yqtxqz3t';
+
+  try {
+    console.log('Querying CW20 pointer for:', cw20Address);
+
+    // Validate address format
+    if (!cw20Address.startsWith('sei1') || cw20Address.length < 40) {
+      throw new Error('Invalid CW20 contract address format');
+    }
+
+    // Query the pointer information
+    const [pointerAddr, version, exists] = await pointerView.getCW20Pointer(cw20Address);
+
+    console.log('CW20 Query Results:');
+    console.log('- Contract Address:', cw20Address);
+    console.log('- Pointer Address:', pointerAddr);
+    console.log('- Version:', version.toString());
+    console.log('- Exists:', exists);
+
+    if (exists) {
+      console.log('✅ CW20 pointer found!');
+      console.log('ERC-20 Compatible Address:', pointerAddr);
+
+      // The pointer can now be used as a standard ERC-20 token
+      return {
+        contractAddress: cw20Address,
+        pointerAddress: pointerAddr,
+        version: version.toString(),
+        exists: true,
+        type: 'CW20'
+      };
+    } else {
+      console.log('❌ No EVM pointer found for this CW20 token');
+      console.log('Consider creating one using the Pointer precompile');
+
+      return {
+        contractAddress: cw20Address,
+        pointerAddress: null,
+        version: 0,
+        exists: false,
+        type: 'CW20'
+      };
+    }
+  } catch (error) {
+    console.error('Failed to query CW20 pointer:', error.message);
+    throw error;
+  }
+}
+
+// Discover all CW20 pointers for a list of contracts
+async function discoverCW20Pointers() {
+  const cw20Contracts = [
+    'sei1hrpna9v7vs3stzyd4z3xf00676kf78zpe2u5ksvljswn2vnjp3yqtxqz3t',
+    'sei1abc123def456789012345678901234567890123456789012345678901234',
+    'sei1xyz789uvw456123789456123789456123789456123789456123789456123'
+    // Add more CW20 contract addresses
+  ];
+
+  const discoveredPointers = [];
+
+  console.log('Discovering CW20 pointers...');
+
+  for (const contractAddr of cw20Contracts) {
+    try {
+      const [addr, version, exists] = await pointerView.getCW20Pointer(contractAddr);
+
+      if (exists) {
+        discoveredPointers.push({
+          contractAddress: contractAddr,
+          pointerAddress: addr,
+          version: version.toString(),
+          type: 'CW20'
+        });
+
+        console.log(`✅ Found CW20 pointer: ${contractAddr} -> ${addr}`);
+      } else {
+        console.log(`❌ No pointer for: ${contractAddr}`);
+      }
+    } catch (error) {
+      console.error(`Error querying ${contractAddr}:`, error.message);
+    }
+
+    // Add delay to avoid overwhelming the RPC
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+
+  console.log(`Discovered ${discoveredPointers.length} CW20 pointers`);
+  return discoveredPointers;
+}
+```
+
+</Tabs.Tab>
+<Tabs.Tab>
+
+```solidity copy
+contract CW20PointerRegistry {
+    IPointerViewPrecompile constant POINTER_VIEW = IPointerViewPrecompile(0x000000000000000000000000000000000000100A);
+
+    struct CW20PointerInfo {
+        address pointerAddress;
+        uint16 version;
+        bool exists;
+        string contractAddress;
+    }
+
+    // Store discovered CW20 pointers
+    mapping(string => CW20PointerInfo) public cw20Registry;
+    string[] public knownCW20Contracts;
+
+    event CW20PointerQueried(
+        string indexed contractAddress,
+        address pointerAddress,
+        uint16 version,
+        bool exists
+    );
+
+    event CW20PointerRegistered(
+        string indexed contractAddress,
+        address pointerAddress,
+        uint16 version
+    );
+
+    function queryCW20Pointer(string memory contractAddr)
+        external
+        returns (CW20PointerInfo memory info)
+    {
+        (address addr, uint16 version, bool exists) = POINTER_VIEW.getCW20Pointer(contractAddr);
+
+        info = CW20PointerInfo({
+            pointerAddress: addr,
+            version: version,
+            exists: exists,
+            contractAddress: contractAddr
+        });
+
+        // Store in registry if exists
+        if (exists && cw20Registry[contractAddr].pointerAddress == address(0)) {
+            cw20Registry[contractAddr] = info;
+            knownCW20Contracts.push(contractAddr);
+
+            emit CW20PointerRegistered(contractAddr, addr, version);
+        }
+
+        emit CW20PointerQueried(contractAddr, addr, version, exists);
+
+        return info;
+    }
+
+    function batchQueryCW20Pointers(string[] memory contractAddrs)
+        external
+        returns (CW20PointerInfo[] memory results)
+    {
+        results = new CW20PointerInfo[](contractAddrs.length);
+
+        for (uint256 i = 0; i < contractAddrs.length; i++) {
+            (address addr, uint16 version, bool exists) = POINTER_VIEW.getCW20Pointer(contractAddrs[i]);
+
+            results[i] = CW20PointerInfo({
+                pointerAddress: addr,
+                version: version,
+                exists: exists,
+                contractAddress: contractAddrs[i]
+            });
+
+            // Store in registry if exists and not already stored
+            if (exists && cw20Registry[contractAddrs[i]].pointerAddress == address(0)) {
+                cw20Registry[contractAddrs[i]] = results[i];
+                knownCW20Contracts.push(contractAddrs[i]);
+
+                emit CW20PointerRegistered(contractAddrs[i], addr, version);
+            }
+
+            emit CW20PointerQueried(contractAddrs[i], addr, version, exists);
+        }
+
+        return results;
+    }
+
+    function getCW20PointerFromRegistry(string memory contractAddr)
+        external
+        view
+        returns (CW20PointerInfo memory)
+    {
+        return cw20Registry[contractAddr];
+    }
+
+    function getAllKnownCW20Contracts() external view returns (string[] memory) {
+        return knownCW20Contracts;
+    }
+
+    function getRegisteredCW20Count() external view returns (uint256) {
+        return knownCW20Contracts.length;
+    }
+}
+```
+
+</Tabs.Tab>
+</Tabs>
+
+### Querying CW721 NFT Pointers
+
+<Tabs items={['JavaScript','Solidity']}>
+<Tabs.Tab>
+
+```typescript copy
+// Query CW721 NFT collection pointer information
+async function queryCW721Pointer() {
+  // Example CW721 contract address (use actual contract address)
+  const cw721Address = 'sei1nft789abcdef123456789abcdef123456789abcdef123456789abcdef12';
+
+  try {
+    console.log('Querying CW721 pointer for:', cw721Address);
+
+    // Validate address format
+    if (!cw721Address.startsWith('sei1') || cw721Address.length < 40) {
+      throw new Error('Invalid CW721 contract address format');
+    }
+
+    // Query the pointer information
+    const [pointerAddr, version, exists] = await pointerView.getCW721Pointer(cw721Address);
+
+    console.log('CW721 Query Results:');
+    console.log('- Contract Address:', cw721Address);
+    console.log('- Pointer Address:', pointerAddr);
+    console.log('- Version:', version.toString());
+    console.log('- Exists:', exists);
+
+    if (exists) {
+      console.log('✅ CW721 pointer found!');
+      console.log('ERC-721 Compatible Address:', pointerAddr);
+      console.log('This NFT collection can now be used with EVM tools');
+
+      return {
+        contractAddress: cw721Address,
+        pointerAddress: pointerAddr,
+        version: version.toString(),
+        exists: true,
+        type: 'CW721'
+      };
+    } else {
+      console.log('❌ No EVM pointer found for this CW721 collection');
+      console.log('Consider creating one using the Pointer precompile');
+
+      return {
+        contractAddress: cw721Address,
+        pointerAddress: null,
+        version: 0,
+        exists: false,
+        type: 'CW721'
+      };
+    }
+  } catch (error) {
+    console.error('Failed to query CW721 pointer:', error.message);
+    throw error;
+  }
+}
+
+// Build NFT collection registry
+async function buildNFTCollectionRegistry() {
+  const cw721Collections = [
+    'sei1nft789abcdef123456789abcdef123456789abcdef123456789abcdef12',
+    'sei1art456uvwxyz789012345678901234567890123456789012345678901234',
+    'sei1game123456789abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuv'
+    // Add more CW721 contract addresses
+  ];
+
+  const nftRegistry = {
+    collections: [],
+    withPointers: [],
+    withoutPointers: []
+  };
+
+  console.log('Building NFT collection registry...');
+
+  for (const contractAddr of cw721Collections) {
+    try {
+      const [addr, version, exists] = await pointerView.getCW721Pointer(contractAddr);
+
+      const collectionInfo = {
+        contractAddress: contractAddr,
+        pointerAddress: addr,
+        version: version.toString(),
+        exists,
+        type: 'CW721'
+      };
+
+      nftRegistry.collections.push(collectionInfo);
+
+      if (exists) {
+        nftRegistry.withPointers.push(collectionInfo);
+        console.log(`✅ NFT Collection with EVM pointer: ${contractAddr}`);
+      } else {
+        nftRegistry.withoutPointers.push(collectionInfo);
+        console.log(`❌ NFT Collection without EVM pointer: ${contractAddr}`);
+      }
+    } catch (error) {
+      console.error(`Error querying NFT collection ${contractAddr}:`, error.message);
+    }
+
+    // Add delay for NFT queries
+    await new Promise((resolve) => setTimeout(resolve, 150));
+  }
+
+  console.log(`Registry built: ${nftRegistry.withPointers.length} with pointers, ${nftRegistry.withoutPointers.length} without`);
+  return nftRegistry;
+}
+```
+
+</Tabs.Tab>
+<Tabs.Tab>
+
+```solidity copy
+contract CW721PointerRegistry {
+    IPointerViewPrecompile constant POINTER_VIEW = IPointerViewPrecompile(0x000000000000000000000000000000000000100A);
+
+    struct CW721PointerInfo {
+        address pointerAddress;
+        uint16 version;
+        bool exists;
+        string contractAddress;
+        uint256 discoveredAt;
+    }
+
+    // NFT collection registry
+    mapping(string => CW721PointerInfo) public nftRegistry;
+    string[] public knownCollections;
+
+    // Collections with and without pointers
+    string[] public collectionsWithPointers;
+    string[] public collectionsWithoutPointers;
+
+    event CW721PointerQueried(
+        string indexed contractAddress,
+        address pointerAddress,
+        uint16 version,
+        bool exists
+    );
+
+    event NFTCollectionRegistered(
+        string indexed contractAddress,
+        address pointerAddress,
+        uint16 version,
+        bool hasPointer
+    );
+
+    function queryCW721Pointer(string memory contractAddr)
+        external
+        returns (CW721PointerInfo memory info)
+    {
+        (address addr, uint16 version, bool exists) = POINTER_VIEW.getCW721Pointer(contractAddr);
+
+        info = CW721PointerInfo({
+            pointerAddress: addr,
+            version: version,
+            exists: exists,
+            contractAddress: contractAddr,
+            discoveredAt: block.timestamp
+        });
+
+        // Store in registry if not already present
+        if (nftRegistry[contractAddr].discoveredAt == 0) {
+            nftRegistry[contractAddr] = info;
+            knownCollections.push(contractAddr);
+
+            if (exists) {
+                collectionsWithPointers.push(contractAddr);
+            } else {
+                collectionsWithoutPointers.push(contractAddr);
+            }
+
+            emit NFTCollectionRegistered(contractAddr, addr, version, exists);
+        }
+
+        emit CW721PointerQueried(contractAddr, addr, version, exists);
+
+        return info;
+    }
+
+    function batchQueryCW721Pointers(string[] memory contractAddrs)
+        external
+        returns (CW721PointerInfo[] memory results)
+    {
+        results = new CW721PointerInfo[](contractAddrs.length);
+
+        for (uint256 i = 0; i < contractAddrs.length; i++) {
+            (address addr, uint16 version, bool exists) = POINTER_VIEW.getCW721Pointer(contractAddrs[i]);
+
+            results[i] = CW721PointerInfo({
+                pointerAddress: addr,
+                version: version,
+                exists: exists,
+                contractAddress: contractAddrs[i],
+                discoveredAt: block.timestamp
+            });
+
+            // Store in registry if not already present
+            if (nftRegistry[contractAddrs[i]].discoveredAt == 0) {
+                nftRegistry[contractAddrs[i]] = results[i];
+                knownCollections.push(contractAddrs[i]);
+
+                if (exists) {
+                    collectionsWithPointers.push(contractAddrs[i]);
+                } else {
+                    collectionsWithoutPointers.push(contractAddrs[i]);
+                }
+
+                emit NFTCollectionRegistered(contractAddrs[i], addr, version, exists);
+            }
+
+            emit CW721PointerQueried(contractAddrs[i], addr, version, exists);
+        }
+
+        return results;
+    }
+
+    function getCollectionInfo(string memory contractAddr)
+        external
+        view
+        returns (CW721PointerInfo memory)
+    {
+        require(nftRegistry[contractAddr].discoveredAt > 0, "Collection not in registry");
+        return nftRegistry[contractAddr];
+    }
+
+    function getAllKnownCollections() external view returns (string[] memory) {
+        return knownCollections;
+    }
+
+    function getCollectionsWithPointers() external view returns (string[] memory) {
+        return collectionsWithPointers;
+    }
+
+    function getCollectionsWithoutPointers() external view returns (string[] memory) {
+        return collectionsWithoutPointers;
+    }
+
+    function getRegistryStats() external view returns (
+        uint256 totalCollections,
+        uint256 withPointers,
+        uint256 withoutPointers
+    ) {
+        return (
+            knownCollections.length,
+            collectionsWithPointers.length,
+            collectionsWithoutPointers.length
+        );
+    }
+}
+```
+
+</Tabs.Tab>
+</Tabs>
+
+### Universal Asset Discovery System
+
+<Tabs items={['JavaScript','Solidity']}>
+<Tabs.Tab>
+
+```typescript copy
+// Comprehensive asset discovery and registry system
+class UniversalAssetDiscovery {
+  constructor(provider) {
+    this.pointerView = new ethers.Contract(POINTERVIEW_PRECOMPILE_ADDRESS, POINTERVIEW_PRECOMPILE_ABI, provider);
+    this.registry = {
+      native: new Map(),
+      cw20: new Map(),
+      cw721: new Map()
+    };
+  }
+
+  async discoverAllAssets(assetLists) {
+    console.log('🔍 Starting comprehensive asset discovery...');
+
+    const results = {
+      native: await this.discoverNativeAssets(assetLists.native || []),
+      cw20: await this.discoverCW20Assets(assetLists.cw20 || []),
+      cw721: await this.discoverCW721Assets(assetLists.cw721 || [])
+    };
+
+    const summary = this.generateDiscoverySummary(results);
+    console.log('📊 Discovery Summary:', summary);
+
+    return { results, summary };
+  }
+
+  async discoverNativeAssets(tokenDenoms) {
+    const nativeResults = [];
+
+    console.log(`Discovering ${tokenDenoms.length} native token pointers...`);
+
+    for (const denom of tokenDenoms) {
+      try {
+        const [addr, version, exists] = await this.pointerView.getNativePointer(denom);
+
+        const assetInfo = {
+          asset: denom,
+          pointerAddress: addr,
+          version: version.toString(),
+          exists,
+          type: 'native'
+        };
+
+        nativeResults.push(assetInfo);
+        this.registry.native.set(denom, assetInfo);
+
+        if (exists) {
+          console.log(`✅ Native: ${denom} -> ${addr}`);
+        }
+      } catch (error) {
+        console.error(`Error discovering native asset ${denom}:`, error.message);
+      }
+    }
+
+    return nativeResults;
+  }
+
+  async discoverCW20Assets(contractAddresses) {
+    const cw20Results = [];
+
+    console.log(`Discovering ${contractAddresses.length} CW20 token pointers...`);
+
+    for (const contractAddr of contractAddresses) {
+      try {
+        const [addr, version, exists] = await this.pointerView.getCW20Pointer(contractAddr);
+
+        const assetInfo = {
+          asset: contractAddr,
+          pointerAddress: addr,
+          version: version.toString(),
+          exists,
+          type: 'cw20'
+        };
+
+        cw20Results.push(assetInfo);
+        this.registry.cw20.set(contractAddr, assetInfo);
+
+        if (exists) {
+          console.log(`✅ CW20: ${contractAddr} -> ${addr}`);
+        }
+      } catch (error) {
+        console.error(`Error discovering CW20 asset ${contractAddr}:`, error.message);
+      }
+    }
+
+    return cw20Results;
+  }
+
+  async discoverCW721Assets(contractAddresses) {
+    const cw721Results = [];
+
+    console.log(`Discovering ${contractAddresses.length} CW721 collection pointers...`);
+
+    for (const contractAddr of contractAddresses) {
+      try {
+        const [addr, version, exists] = await this.pointerView.getCW721Pointer(contractAddr);
+
+        const assetInfo = {
+          asset: contractAddr,
+          pointerAddress: addr,
+          version: version.toString(),
+          exists,
+          type: 'cw721'
+        };
+
+        cw721Results.push(assetInfo);
+        this.registry.cw721.set(contractAddr, assetInfo);
+
+        if (exists) {
+          console.log(`✅ CW721: ${contractAddr} -> ${addr}`);
+        }
+      } catch (error) {
+        console.error(`Error discovering CW721 asset ${contractAddr}:`, error.message);
+      }
+    }
+
+    return cw721Results;
+  }
+
+  generateDiscoverySummary(results) {
+    const summary = {
+      native: {
+        total: results.native.length,
+        withPointers: results.native.filter((asset) => asset.exists).length,
+        withoutPointers: results.native.filter((asset) => !asset.exists).length
+      },
+      cw20: {
+        total: results.cw20.length,
+        withPointers: results.cw20.filter((asset) => asset.exists).length,
+        withoutPointers: results.cw20.filter((asset) => !asset.exists).length
+      },
+      cw721: {
+        total: results.cw721.length,
+        withPointers: results.cw721.filter((asset) => asset.exists).length,
+        withoutPointers: results.cw721.filter((asset) => !asset.exists).length
+      }
+    };
+
+    summary.overall = {
+      totalAssets: summary.native.total + summary.cw20.total + summary.cw721.total,
+      totalWithPointers: summary.native.withPointers + summary.cw20.withPointers + summary.cw721.withPointers,
+      totalWithoutPointers: summary.native.withoutPointers + summary.cw20.withoutPointers + summary.cw721.withoutPointers
+    };
+
+    return summary;
+  }
+
+  getAssetsByType(type) {
+    return Array.from(this.registry[type].values());
+  }
+
+  getAssetsWithPointers() {
+    const withPointers = {
+      native: this.getAssetsByType('native').filter((asset) => asset.exists),
+      cw20: this.getAssetsByType('cw20').filter((asset) => asset.exists),
+      cw721: this.getAssetsByType('cw721').filter((asset) => asset.exists)
+    };
+
+    return withPointers;
+  }
+
+  getAssetsWithoutPointers() {
+    const withoutPointers = {
+      native: this.getAssetsByType('native').filter((asset) => !asset.exists),
+      cw20: this.getAssetsByType('cw20').filter((asset) => !asset.exists),
+      cw721: this.getAssetsByType('cw721').filter((asset) => !asset.exists)
+    };
+
+    return withoutPointers;
+  }
+
+  async validateIntegrationPrerequisites(requiredAssets) {
+    console.log('🔧 Validating integration prerequisites...');
+
+    const validation = {
+      satisfied: [],
+      missing: [],
+      canProceed: true
+    };
+
+    for (const requirement of requiredAssets) {
+      const asset = this.registry[requirement.type]?.get(requirement.asset);
+
+      if (asset && asset.exists) {
+        validation.satisfied.push({
+          ...requirement,
+          pointerAddress: asset.pointerAddress,
+          version: asset.version
+        });
+      } else {
+        validation.missing.push(requirement);
+        validation.canProceed = false;
+      }
+    }
+
+    console.log(`✅ Satisfied: ${validation.satisfied.length}, ❌ Missing: ${validation.missing.length}`);
+
+    return validation;
+  }
+
+  exportRegistry() {
+    return {
+      timestamp: Date.now(),
+      registry: {
+        native: Object.fromEntries(this.registry.native),
+        cw20: Object.fromEntries(this.registry.cw20),
+        cw721: Object.fromEntries(this.registry.cw721)
+      }
+    };
+  }
+}
+
+// Usage example
+async function comprehensiveAssetDiscovery() {
+  const provider = new ethers.JsonRpcProvider('https://evm-rpc.sei-apis.com');
+  const discovery = new UniversalAssetDiscovery(provider);
+
+  // Asset lists to discover
+  const assetLists = {
+    native: ['usei', 'uatom', 'uosmo', 'ujuno'],
+    cw20: ['sei1hrpna9v7vs3stzyd4z3xf00676kf78zpe2u5ksvljswn2vnjp3yqtxqz3t', 'sei1abc123def456789012345678901234567890123456789012345678901234'],
+    cw721: ['sei1nft789abcdef123456789abcdef123456789abcdef123456789abcdef12', 'sei1art456uvwxyz789012345678901234567890123456789012345678901234']
+  };
+
+  try {
+    // Perform comprehensive discovery
+    const { results, summary } = await discovery.discoverAllAssets(assetLists);
+
+    // Get assets with and without pointers
+    const withPointers = discovery.getAssetsWithPointers();
+    const withoutPointers = discovery.getAssetsWithoutPointers();
+
+    console.log('Assets with EVM pointers:', withPointers);
+    console.log('Assets without EVM pointers:', withoutPointers);
+
+    // Validate prerequisites for a hypothetical integration
+    const requiredAssets = [
+      { type: 'native', asset: 'usei' },
+      { type: 'cw20', asset: 'sei1hrpna9v7vs3stzyd4z3xf00676kf78zpe2u5ksvljswn2vnjp3yqtxqz3t' }
+    ];
+
+    const validation = await discovery.validateIntegrationPrerequisites(requiredAssets);
+    console.log('Integration validation:', validation);
+
+    // Export registry for storage or sharing
+    const registryExport = discovery.exportRegistry();
+    console.log('Registry export:', registryExport);
+
+    return { discovery, results, summary, validation };
+  } catch (error) {
+    console.error('Discovery failed:', error);
+  }
+}
+```
+
+</Tabs.Tab>
+<Tabs.Tab>
+
+```solidity copy
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract UniversalAssetRegistry {
+    IPointerViewPrecompile constant POINTER_VIEW = IPointerViewPrecompile(0x000000000000000000000000000000000000100A);
+
+    struct AssetInfo {
+        address pointerAddress;
+        uint16 version;
+        bool exists;
+        string asset;
+        AssetType assetType;
+        uint256 discoveredAt;
+        address discoveredBy;
+    }
+
+    enum AssetType { NATIVE, CW20, CW721 }
+
+    // Registry mappings
+    mapping(bytes32 => AssetInfo) public assetRegistry;
+
+    // Asset lists by type
+    string[] public nativeAssets;
+    string[] public cw20Assets;
+    string[] public cw721Assets;
+
+    // Discovery tracking
+    mapping(address => uint256) public userDiscoveryCount;
+    uint256 public totalAssetsDiscovered;
+
+    // Events
+    event AssetDiscovered(
+        string indexed asset,
+        AssetType indexed assetType,
+        address pointerAddress,
+        uint16 version,
+        bool exists,
+        address discoveredBy
+    );
+
+    event BatchDiscoveryCompleted(
+        address indexed discoverer,
+        AssetType assetType,
+        uint256 assetsQueried,
+        uint256 pointersFound
+    );
+
+    function discoverNativeAssets(string[] memory tokenDenoms)
+        external
+        returns (AssetInfo[] memory results)
+    {
+        results = new AssetInfo[](tokenDenoms.length);
+        uint256 pointersFound = 0;
+
+        for (uint256 i = 0; i < tokenDenoms.length; i++) {
+            (address addr, uint16 version, bool exists) = POINTER_VIEW.getNativePointer(tokenDenoms[i]);
+
+            bytes32 key = keccak256(abi.encodePacked("native", tokenDenoms[i]));
+
+            AssetInfo memory assetInfo = AssetInfo({
+                pointerAddress: addr,
+                version: version,
+                exists: exists,
+                asset: tokenDenoms[i],
+                assetType: AssetType.NATIVE,
+                discoveredAt: block.timestamp,
+                discoveredBy: msg.sender
+            });
+
+            results[i] = assetInfo;
+
+            // Store in registry if not already present
+            if (assetRegistry[key].discoveredAt == 0) {
+                assetRegistry[key] = assetInfo;
+                nativeAssets.push(tokenDenoms[i]);
+                totalAssetsDiscovered++;
+            }
+
+            if (exists) {
+                pointersFound++;
+            }
+
+            emit AssetDiscovered(tokenDenoms[i], AssetType.NATIVE, addr, version, exists, msg.sender);
+        }
+
+        userDiscoveryCount[msg.sender] += tokenDenoms.length;
+        emit BatchDiscoveryCompleted(msg.sender, AssetType.NATIVE, tokenDenoms.length, pointersFound);
+
+        return results;
+    }
+
+    function discoverCW20Assets(string[] memory contractAddrs)
+        external
+        returns (AssetInfo[] memory results)
+    {
+        results = new AssetInfo[](contractAddrs.length);
+        uint256 pointersFound = 0;
+
+        for (uint256 i = 0; i < contractAddrs.length; i++) {
+            (address addr, uint16 version, bool exists) = POINTER_VIEW.getCW20Pointer(contractAddrs[i]);
+
+            bytes32 key = keccak256(abi.encodePacked("cw20", contractAddrs[i]));
+
+            AssetInfo memory assetInfo = AssetInfo({
+                pointerAddress: addr,
+                version: version,
+                exists: exists,
+                asset: contractAddrs[i],
+                assetType: AssetType.CW20,
+                discoveredAt: block.timestamp,
+                discoveredBy: msg.sender
+            });
+
+            results[i] = assetInfo;
+
+            // Store in registry if not already present
+            if (assetRegistry[key].discoveredAt == 0) {
+                assetRegistry[key] = assetInfo;
+                cw20Assets.push(contractAddrs[i]);
+                totalAssetsDiscovered++;
+            }
+
+            if (exists) {
+                pointersFound++;
+            }
+
+            emit AssetDiscovered(contractAddrs[i], AssetType.CW20, addr, version, exists, msg.sender);
+        }
+
+        userDiscoveryCount[msg.sender] += contractAddrs.length;
+        emit BatchDiscoveryCompleted(msg.sender, AssetType.CW20, contractAddrs.length, pointersFound);
+
+        return results;
+    }
+
+    function discoverCW721Assets(string[] memory contractAddrs)
+        external
+        returns (AssetInfo[] memory results)
+    {
+        results = new AssetInfo[](contractAddrs.length);
+        uint256 pointersFound = 0;
+
+        for (uint256 i = 0; i < contractAddrs.length; i++) {
+            (address addr, uint16 version, bool exists) = POINTER_VIEW.getCW721Pointer(contractAddrs[i]);
+
+            bytes32 key = keccak256(abi.encodePacked("cw721", contractAddrs[i]));
+
+            AssetInfo memory assetInfo = AssetInfo({
+                pointerAddress: addr,
+                version: version,
+                exists: exists,
+                asset: contractAddrs[i],
+                assetType: AssetType.CW721,
+                discoveredAt: block.timestamp,
+                discoveredBy: msg.sender
+            });
+
+            results[i] = assetInfo;
+
+            // Store in registry if not already present
+            if (assetRegistry[key].discoveredAt == 0) {
+                assetRegistry[key] = assetInfo;
+                cw721Assets.push(contractAddrs[i]);
+                totalAssetsDiscovered++;
+            }
+
+            if (exists) {
+                pointersFound++;
+            }
+
+            emit AssetDiscovered(contractAddrs[i], AssetType.CW721, addr, version, exists, msg.sender);
+        }
+
+        userDiscoveryCount[msg.sender] += contractAddrs.length;
+        emit BatchDiscoveryCompleted(msg.sender, AssetType.CW721, contractAddrs.length, pointersFound);
+
+        return results;
+    }
+
+    function getAssetInfo(AssetType assetType, string memory asset)
+        external
+        view
+        returns (AssetInfo memory)
+    {
+        string memory typePrefix;
+        if (assetType == AssetType.NATIVE) {
+            typePrefix = "native";
+        } else if (assetType == AssetType.CW20) {
+            typePrefix = "cw20";
+        } else {
+            typePrefix = "cw721";
+        }
+
+        bytes32 key = keccak256(abi.encodePacked(typePrefix, asset));
+        require(assetRegistry[key].discoveredAt > 0, "Asset not in registry");
+
+        return assetRegistry[key];
+    }
+
+    function getAllNativeAssets() external view returns (string[] memory) {
+        return nativeAssets;
+    }
+
+    function getAllCW20Assets() external view returns (string[] memory) {
+        return cw20Assets;
+    }
+
+    function getAllCW721Assets() external view returns (string[] memory) {
+        return cw721Assets;
+    }
+
+    function getRegistryStats() external view returns (
+        uint256 totalAssets,
+        uint256 nativeCount,
+        uint256 cw20Count,
+        uint256 cw721Count
+    ) {
+        return (
+            totalAssetsDiscovered,
+            nativeAssets.length,
+            cw20Assets.length,
+            cw721Assets.length
+        );
+    }
+
+    function getUserDiscoveryStats(address user) external view returns (uint256) {
+        return userDiscoveryCount[user];
+    }
+
+    // Utility function to check if an asset has a pointer
+    function hasPointer(AssetType assetType, string memory asset) external view returns (bool) {
+        string memory typePrefix;
+        if (assetType == AssetType.NATIVE) {
+            typePrefix = "native";
+        } else if (assetType == AssetType.CW20) {
+            typePrefix = "cw20";
+        } else {
+            typePrefix = "cw721";
+        }
+
+        bytes32 key = keccak256(abi.encodePacked(typePrefix, asset));
+        return assetRegistry[key].exists;
+    }
+
+    // Get pointer address for an asset
+    function getPointerAddress(AssetType assetType, string memory asset) external view returns (address) {
+        AssetInfo memory info = this.getAssetInfo(assetType, asset);
+        require(info.exists, "Pointer does not exist");
+        return info.pointerAddress;
+    }
+}
+```
+
+</Tabs.Tab>
+</Tabs>
+
+## Integration Patterns & Best Practices
+
+### Pre-Integration Validation
+
+Before building applications that depend on specific pointers, always validate their existence:
+
+```typescript copy
+async function validateRequiredPointers(requiredAssets) {
+  const validation = {
+    validated: [],
+    missing: [],
+    canProceed: true
+  };
+
+  for (const requirement of requiredAssets) {
+    try {
+      let queryResult;
+
+      switch (requirement.type) {
+        case 'native':
+          queryResult = await pointerView.getNativePointer(requirement.asset);
+          break;
+        case 'cw20':
+          queryResult = await pointerView.getCW20Pointer(requirement.asset);
+          break;
+        case 'cw721':
+          queryResult = await pointerView.getCW721Pointer(requirement.asset);
+          break;
+      }
+
+      const [addr, version, exists] = queryResult;
+
+      if (exists) {
+        validation.validated.push({
+          ...requirement,
+          pointerAddress: addr,
+          version: version.toString()
+        });
+      } else {
+        validation.missing.push(requirement);
+        validation.canProceed = false;
+      }
+    } catch (error) {
+      console.error(`Validation failed for ${requirement.type}:${requirement.asset}`, error);
+      validation.missing.push({ ...requirement, error: error.message });
+      validation.canProceed = false;
+    }
+  }
+
+  return validation;
+}
+```
+
+### Pointer Version Management
+
+Handle different pointer versions appropriately:
+
+```typescript copy
+function isCompatibleVersion(pointerVersion, requiredVersion) {
+  // Implement version compatibility logic
+  return pointerVersion >= requiredVersion;
+}
+
+async function checkVersionCompatibility(assetType, asset, minVersion = 1) {
+  const [addr, version, exists] = await queryPointer(assetType, asset);
+
+  if (!exists) {
+    return { compatible: false, reason: 'Pointer does not exist' };
+  }
+
+  if (!isCompatibleVersion(version, minVersion)) {
+    return {
+      compatible: false,
+      reason: `Version ${version} is below required minimum ${minVersion}`
+    };
+  }
+
+  return { compatible: true, version, address: addr };
+}
+```
+
+## Security Considerations
+
+### Query Validation
+
+- **Input Sanitization:** Always validate asset identifiers before querying
+- **Address Format:** Verify CosmWasm address formats to prevent errors
+- **Rate Limiting:** Implement appropriate delays between queries to avoid overwhelming RPC endpoints
+
+### Version Compatibility
+
+```typescript copy
+// Handle pointer version compatibility
+function validatePointerVersion(version, minRequiredVersion = 1) {
+  if (version < minRequiredVersion) {
+    throw new Error(`Pointer version ${version} is below required minimum ${minRequiredVersion}`);
+  }
+  return true;
+}
+```
+
+### Error Handling
+
+Always implement robust error handling for queries:
+
+```typescript copy
+async function safePointerQuery(queryType, asset) {
+  try {
+    let result;
+    switch (queryType) {
+      case 'native':
+        result = await pointerView.getNativePointer(asset);
+        break;
+      case 'cw20':
+        result = await pointerView.getCW20Pointer(asset);
+        break;
+      case 'cw721':
+        result = await pointerView.getCW721Pointer(asset);
+        break;
+      default:
+        throw new Error(`Unknown query type: ${queryType}`);
+    }
+
+    return {
+      success: true,
+      data: {
+        address: result[0],
+        version: result[1].toString(),
+        exists: result[2]
+      }
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message,
+      data: {
+        address: '0x0000000000000000000000000000000000000000',
+        version: '0',
+        exists: false
+      }
+    };
+  }
+}
+```
+
+## Troubleshooting
+
+### Common Issues and Solutions
+
+#### RPC Connection Issues
+
+```typescript copy
+// Handle RPC connectivity issues
+async function queryWithRetry(queryFunction, maxRetries = 3) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await queryFunction();
+    } catch (error) {
+      console.error(`Query attempt ${attempt} failed:`, error.message);
+
+      if (attempt === maxRetries) {
+        throw new Error(`Query failed after ${maxRetries} attempts: ${error.message}`);
+      }
+
+      // Exponential backoff
+      await new Promise((resolve) => setTimeout(resolve, 1000 * Math.pow(2, attempt - 1)));
+    }
+  }
+}
+```
+
+#### Invalid Asset Formats
+
+```typescript copy
+// Validate asset formats before querying
+function validateAssetFormat(assetType, asset) {
+  switch (assetType) {
+    case 'native':
+      // Native tokens typically start with 'u' and are lowercase
+      if (!/^[a-z][a-z0-9]{2,}$/.test(asset)) {
+        throw new Error(`Invalid native token format: ${asset}`);
+      }
+      break;
+    case 'cw20':
+    case 'cw721':
+      // CosmWasm addresses should start with 'sei1' and have proper length
+      if (!asset.startsWith('sei1') || asset.length < 40) {
+        throw new Error(`Invalid CosmWasm address format: ${asset}`);
+      }
+      break;
+  }
+}
+```
+
+### Error Code Reference
+
+<div className="overflow-x-auto max-w-full">
+  <table className="w-full divide-y divide-neutral-200 dark:divide-neutral-800">
+    <thead>
+      <tr>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Error</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Cause</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Solution</th>
+      </tr>
+    </thead>
+    <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
+      <tr>
+        <td className="px-4 py-3 text-sm text-red-600 dark:text-red-400 whitespace-nowrap font-medium">
+          <code>network error</code>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">RPC endpoint unavailable</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Check network connection and RPC endpoint</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-red-600 dark:text-red-400 whitespace-nowrap font-medium">
+          <code>invalid parameter</code>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Malformed asset identifier</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Validate asset format before querying</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-red-600 dark:text-red-400 whitespace-nowrap font-medium">
+          <code>call reverted</code>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Precompile call failed</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Check precompile address and ABI</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-red-600 dark:text-red-400 whitespace-nowrap font-medium">
+          <code>timeout</code>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Query took too long</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Implement retry logic with backoff</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-red-600 dark:text-red-400 whitespace-nowrap font-medium">
+          <code>rate limit exceeded</code>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Too many requests to RPC</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Add delays between queries</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+## Important Notes
+
+<Callout type="info">Remember: PointerView is read-only! It only queries existing pointers and cannot create new ones. Use the Pointer precompile to create pointers first.</Callout>
+
+### Query Efficiency
+
+1. **Batch Queries:** Group multiple asset queries when possible
+2. **Caching:** Cache query results to reduce RPC calls
+3. **Validation:** Validate requirements before building applications
+4. **Rate Limiting:** Implement delays between queries to respect RPC limits
+
+### Best Practices
+
+- **Always Check Existence:** Verify pointer existence before attempting integration
+- **Handle Non-Existence:** Build fallback mechanisms for assets without pointers
+- **Version Awareness:** Check pointer versions for compatibility requirements
+- **Error Recovery:** Implement robust error handling and retry mechanisms
+- **Performance Optimization:** Cache frequently accessed pointer information
+
+### Query Results Interpretation
+
+**Address Field:**
+
+- `address(0)` indicates no pointer exists
+- Valid address means pointer is available for use
+- Use this address for EVM interactions
+
+**Version Field:**
+
+- Version number for compatibility tracking
+- Higher versions may have additional features
+- Always check compatibility with your requirements
+
+**Exists Field:**
+
+- Boolean flag for quick existence checks
+- `true` means the pointer is available
+- `false` means you need to create the pointer first
+
+### Integration Workflow
+
+1. **Discovery:** Use PointerView to discover existing pointers
+2. **Validation:** Verify required pointers exist and are compatible
+3. **Creation:** Use Pointer precompile to create missing pointers
+4. **Integration:** Build applications using the discovered/created pointers
+5. **Monitoring:** Periodically check for new pointers or updates
+
+<Callout type="info">View the PointerView precompile source code and the contract ABI [here](https://github.com/sei-protocol/sei-chain/tree/main/precompiles/pointerview).</Callout>
