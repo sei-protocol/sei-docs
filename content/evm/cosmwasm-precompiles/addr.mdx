@@ -100,17 +100,42 @@ Before getting started, ensure you have:
 - **npm** or **yarn** package manager
 - **EVM-compatible wallet**
 - **SEI tokens** for gas fees
+- **Hardhat** development environment set up
 
 #### Install Dependencies
 
 Install the required packages for interacting with Sei precompiles:
 
 ```bash copy
+# Intitate a hardhat project
+npx hardhat init
+
 # Install ethers.js for smart contract interactions
-npm install ethers
+npm install ethers dotenv
 
 # Install Sei EVM bindings for precompile addresses and ABIs
 npm install @sei-js/precompiles@2.1.2
+```
+
+#### Setup Hardhat Environment
+
+Create a `hardhat.config.js` file with the following content:
+
+```javascript copy
+require('@nomicfoundation/hardhat-toolbox');
+require('dotenv').config();
+
+/** @type import('hardhat/config').HardhatUserConfig */
+module.exports = {
+  solidity: '0.8.28',
+  networks: {
+    sei: {
+      url: 'https://evm-rpc.sei-apis.com',
+      chainId: 1329,
+      accounts: [process.env.PRIVATE_KEY]
+    }
+  }
+};
 ```
 
 #### Import Precompile Components
@@ -603,18 +628,58 @@ contract CrossChainAddressManager {
 
 **Client Integration Example**
 
+Deploy the contract:
+
 ```javascript copy
-const abi = require('path/to/CrossChainAddressManager.json');
 const { ethers } = require('hardhat');
 
+const dotenv = require('dotenv');
+dotenv.config();
+
 async function main() {
-  const [deployer] = await ethers.getSigners();
+  const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
+  const deployer = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
   console.log('Deploying contracts with the account:', deployer.address);
 
+  const balance = await deployer.provider.getBalance(deployer.address);
+  console.log('Account balance:', ethers.formatEther(balance));
+
   const AddressManager = await ethers.getContractFactory('CrossChainAddressManager');
-  const addressManager = await AddressManager.deploy();
+  console.log('Deploying AddressManager...', AddressManager);
+  const addressManager = await AddressManager.deploy({
+    gasLimit: 5000000n // Set a reasonable gas limit
+  });
   await addressManager.waitForDeployment();
 
+  console.log('AddressManager deployed to:', await addressManager.getAddress());
+}
+
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});
+```
+
+Then run:
+
+```bash copy
+npx hardhat run scripts/deploy.js --network sei
+```
+
+```javascript copy
+const { ethers } = require('hardhat');
+const addressManagerAbi = require('./artifacts/contracts/CrossChainAddressManager.sol/CrossChainAddressManager.json');
+
+async function main() {
+  const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
+  const deployer = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
+  console.log('Deploying contracts with the account:', deployer.address);
+
+  const balance = await deployer.provider.getBalance(deployer.address);
+  console.log('Account balance:', ethers.formatEther(balance));
+
+  const addressManagerAddress = '0xYourAddressManagerContractAddress'; // Replace with your deployed contract address
+  const addressManager = new ethers.Contract(addressManagerAddress, addressManagerAbi.abi, deployer);
   console.log('AddressManager deployed to:', await addressManager.getAddress());
 
   // Register user (requires existing address association)
