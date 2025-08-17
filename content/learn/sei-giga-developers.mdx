@@ -10,7 +10,9 @@ import { Callout } from 'nextra/components';
 
 ## Introduction
 
-Building on Sei Giga opens up possibilities for creating applications that were previously impossible on traditional blockchains. This guide provides everything you need to start developing high-performance dApps that can handle millions of users.
+Building on Sei Giga opens up possibilities for creating applications that were previously impossible on traditional blockchains. This guide provides you a sneek peek to start developing high-performance dApps that can handle millions of users.
+
+<Callout type="info">This is a sneek peek on how development with Sei Giga can help improving your contract performance. Check out the beginner tutorials (here)[/evm/evm-general] to get started with Sei EVM.</Callout>
 
 Key advantages for developers:
 
@@ -61,7 +63,7 @@ npx hardhat init
 module.exports = {
   networks: {
     seiTestnet: {
-      url: 'https://evm-rpc.sei-apis.com',
+      url: 'https://evm-rpc-testnet.sei-apis.com/',
       chainId: 1328,
       accounts: [process.env.PRIVATE_KEY]
     }
@@ -849,134 +851,6 @@ contract ParallelFriendlyDEX {
 }
 ```
 
-### Advanced Oracle Integration
-
-#### Step 1: Basic Oracle Price Query
-
-```solidity copy filename="contracts/SimpleOracle.sol"
-contract SimpleOracle {
-    IOracle constant oracle = IOracle(0x0000000000000000000000000000000000001008);
-
-    function getPrice(string memory denom) public view returns (string memory) {
-        IOracle.DenomOracleExchangeRatePair[] memory rates = oracle.getExchangeRates();
-
-        for (uint256 i = 0; i < rates.length; i++) {
-            if (keccak256(bytes(rates[i].denom)) == keccak256(bytes(denom))) {
-                return rates[i].oracleExchangeRateVal.exchangeRate;
-            }
-        }
-        revert("Price not found");
-    }
-}
-```
-
-#### Step 2: Price Staleness Check
-
-```solidity copy filename="contracts/PriceValidator.sol"
-contract PriceValidator {
-    IOracle constant oracle = IOracle(0x0000000000000000000000000000000000001008);
-    uint256 constant MAX_PRICE_AGE = 60; // 60 seconds
-
-    function isPriceStale(string memory denom) public view returns (bool) {
-        IOracle.DenomOracleExchangeRatePair[] memory rates = oracle.getExchangeRates();
-
-        for (uint256 i = 0; i < rates.length; i++) {
-            if (keccak256(bytes(rates[i].denom)) == keccak256(bytes(denom))) {
-                uint256 age = block.timestamp - uint256(uint64(rates[i].oracleExchangeRateVal.lastUpdateTimestamp));
-                return age > MAX_PRICE_AGE;
-            }
-        }
-        return true; // Price not found = stale
-    }
-}
-```
-
-#### Step 3: TWAP Price Query
-
-```solidity copy filename="contracts/TwapOracle.sol"
-contract TwapOracle {
-    IOracle constant oracle = IOracle(0x0000000000000000000000000000000000001008);
-
-    function getTwapPrice(string memory denom, uint64 lookbackSeconds) public view returns (string memory) {
-        IOracle.OracleTwap[] memory twaps = oracle.getOracleTwaps(lookbackSeconds);
-
-        for (uint256 i = 0; i < twaps.length; i++) {
-            if (keccak256(bytes(twaps[i].denom)) == keccak256(bytes(denom))) {
-                return twaps[i].twap;
-            }
-        }
-        revert("TWAP not found");
-    }
-}
-```
-
-### Advanced Staking Patterns
-
-```solidity copy filename="contracts/LiquidStaking.sol"
-contract LiquidStaking {
-    IStaking constant staking = IStaking(0x0000000000000000000000000000000000001005);
-    IBank constant bank = IBank(0x0000000000000000000000000000000000001001);
-
-    mapping(address => uint256) public shares;
-    uint256 public totalShares;
-    string constant VALIDATOR = "seivaloper1...";
-
-    event Staked(address indexed user, uint256 amount, uint256 shares);
-    event Unstaked(address indexed user, uint256 shares, uint256 amount);
-
-    function stake() external payable {
-        require(msg.value > 0, "Must stake positive amount");
-
-        uint256 newShares = calculateShares(msg.value);
-        shares[msg.sender] += newShares;
-        totalShares += newShares;
-
-        // Delegate to validator
-        bool success = staking.delegate{value: msg.value}(VALIDATOR);
-        require(success, "Delegation failed");
-
-        emit Staked(msg.sender, msg.value, newShares);
-    }
-
-    function unstake(uint256 shareAmount) external {
-        require(shares[msg.sender] >= shareAmount, "Insufficient shares");
-        require(shareAmount > 0, "Must unstake positive amount");
-
-        uint256 tokenAmount = calculateTokens(shareAmount);
-        shares[msg.sender] -= shareAmount;
-        totalShares -= shareAmount;
-
-        bool success = staking.undelegate(VALIDATOR, tokenAmount);
-        require(success, "Undelegation failed");
-
-        emit Unstaked(msg.sender, shareAmount, tokenAmount);
-    }
-
-    function calculateShares(uint256 tokenAmount) public view returns (uint256) {
-        if (totalShares == 0) {
-            return tokenAmount;
-        }
-
-        uint256 totalTokens = getTotalStaked();
-        return (tokenAmount * totalShares) / totalTokens;
-    }
-
-    function calculateTokens(uint256 shareAmount) public view returns (uint256) {
-        if (totalShares == 0) {
-            return 0;
-        }
-
-        uint256 totalTokens = getTotalStaked();
-        return (shareAmount * totalTokens) / totalShares;
-    }
-
-    function getTotalStaked() public view returns (uint256) {
-        IStaking.Delegation memory delegation = staking.delegation(address(this), VALIDATOR);
-        return delegation.balance.amount;
-    }
-}
-```
-
 ### Gas Optimization Techniques
 
 #### Struct Packing
@@ -1107,18 +981,9 @@ contract OptimisticVault {
 - ✓ Design for optimistic execution
 - ✓ Minimize shared state dependencies
 
-### Security Considerations
-
-- ✓ Follow checks-effects-interactions pattern
-- ✓ Use custom errors for gas efficiency
-- ✓ Implement proper access controls
-- ✓ Handle all return values
-- ✓ Consider reentrancy guards where needed
-
 ## Next Steps
 
 Now that you understand Sei Giga development patterns:
 
 1. **Learn the Fundamentals** - Review the [Sei Giga Overview](/learn/sei-giga) for architecture details
 2. **Review Technical Specs** - Study the [Technical Specifications](/learn/sei-giga-specs) for detailed specifications
-3. **Join the Community** - Connect with other developers on [Discord](https://discord.gg/sei)
