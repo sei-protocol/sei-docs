@@ -88,7 +88,12 @@ export function Footer() {
 						</li>
 						<li>
 							<a href='https://seitrace.com/' style={{ textDecoration: 'none', color: 'inherit', fontSize: '0.8125rem' }}>
-								Explorer
+								Explorer (SeiTrace)
+							</a>
+						</li>
+						<li>
+							<a href='https://seiscan.io/' style={{ textDecoration: 'none', color: 'inherit', fontSize: '0.8125rem' }}>
+								Explorer (Seiscan)
 							</a>
 						</li>
 						<li>
