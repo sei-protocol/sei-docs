@@ -35,6 +35,7 @@ export const networks: NetworkEntry[] = [
 		rpcUrl: 'https://evm-rpc.sei-apis.com',
 		explorerLinks: [
 			{ name: 'SeiTrace', url: 'https://seitrace.com/?chain=pacific-1' },
+			{ name: 'Seiscan', url: 'https://seiscan.io' },
 			{ name: 'SeiStream', url: 'https://seistream.app' }
 		],
 		chainParams: SEI_MAINNET_CHAIN_PARAMS
@@ -47,6 +48,7 @@ export const networks: NetworkEntry[] = [
 		rpcUrl: 'https://evm-rpc-testnet.sei-apis.com',
 		explorerLinks: [
 			{ name: 'SeiTrace', url: 'https://seitrace.com/?chain=atlantic-2' },
+			{ name: 'Seiscan', url: 'https://seiscan.io' },
 			{ name: 'SeiStream', url: 'https://testnet.seistream.app' }
 		],
 		chainParams: SEI_TESTNET_CHAIN_PARAMS
