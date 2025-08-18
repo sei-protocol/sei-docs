@@ -108,8 +108,10 @@ Before getting started, ensure you have:
 Install the required packages for interacting with Sei precompiles:
 
 ```bash copy
+# Initialize a new hardhat project
+npx hardhat init
 # Install ethers.js for smart contract interactions
-npm install ethers
+npm install ethers dotenv
 
 # Install Sei EVM bindings for precompile addresses and ABIs
 npm install @sei-js/precompiles@2.1.2
@@ -133,6 +135,7 @@ import { ethers } from 'ethers';
 pragma solidity ^0.8.0;
 
 interface IIBCPrecompile {
+
 function transferWithDefaultTimeout(
 string memory toAddress,
 string memory port,
@@ -141,19 +144,17 @@ string memory denom,
 uint256 amount,
 string memory memo
 ) external returns (bool success);
-
-    function transfer(
-        string memory toAddress,
-        string memory port,
-        string memory channel,
-        string memory denom,
-        uint256 amount,
-        uint64 revisionNumber,
-        uint64 revisionHeight,
-        uint64 timeoutTimestamp,
-        string memory memo
-    ) external returns (bool success);
-
+function transfer(
+string memory toAddress,
+string memory port,
+string memory channel,
+string memory denom,
+uint256 amount,
+uint64 revisionNumber,
+uint64 revisionHeight,
+uint64 timeoutTimestamp,
+string memory memo
+) external returns (bool success);
 }
 
 ````
@@ -255,7 +256,7 @@ IBC transfers require specific parameters to route tokens correctly:
 async function transferToCosmosHub() {
   const toAddress = 'cosmos1234567890123456789012345678901234567890';
   const port = 'transfer';
-  const channel = 'channel-0'; // Sei to Cosmos Hub channel
+  const channel = 'channel-0'; // Sei to Osmosis Hub channel
   const denom = 'usei';
   const amount = ethers.parseUnits('1', 6); // 1 SEI = 1,000,000 usei
   const memo = '';
@@ -295,7 +296,7 @@ contract CrossChainTransferManager {
         bool success = IBC.transferWithDefaultTimeout(
             toAddress,
             "transfer",           // port
-            "channel-0",         // channel to Cosmos Hub
+            "channel-0",         // channel to Osmosis Hub
             "usei",              // denomination
             amount,              // amount in usei
             ""                   // empty memo
@@ -412,8 +413,8 @@ class IBCTransferHub {
   constructor(signer) {
     this.ibc = new ethers.Contract(IBC_PRECOMPILE_ADDRESS, IBC_PRECOMPILE_ABI, signer);
     this.channels = {
-      cosmos: 'channel-0',
-      osmosis: 'channel-1',
+      osmosis: 'channel-0',
+      cosmos_hub: 'channel-1',
       juno: 'channel-2',
       stargaze: 'channel-3'
     };
@@ -531,8 +532,8 @@ contract IBCTransferHub {
 
     constructor() {
         // Initialize supported networks
-        networks["cosmos"] = NetworkConfig("channel-0", true);
-        networks["osmosis"] = NetworkConfig("channel-1", true);
+        networks["osmosis"] = NetworkConfig("channel-0", true);
+        networks["cosmos_hub"] = NetworkConfig("channel-1", true);
         networks["juno"] = NetworkConfig("channel-2", true);
         networks["stargaze"] = NetworkConfig("channel-3", true);
     }
@@ -700,7 +701,7 @@ async function completeIBCExample() {
     const transferParams = {
       toAddress: 'cosmos1qql9gjf4ttzxq4r3xtcmkrkmjnxgr3pgx4jjlz',
       port: 'transfer',
-      channel: 'channel-0',
+      channel: 'channel-1',
       denom: 'usei',
       amount: ethers.parseUnits('1', 6), // 1 SEI
       memo: 'Test transfer from Sei EVM'
@@ -845,8 +846,8 @@ contract ProductionIBCManager {
         authorized[msg.sender] = true;
 
         // Configure default networks
-        configureNetwork("cosmos", "channel-0", 1000000, 100000000 * 10**6, 10000000 * 10**6);
-        configureNetwork("osmosis", "channel-1", 1000000, 100000000 * 10**6, 10000000 * 10**6);
+        configureNetwork("osmosis", "channel-0", 1000000, 100000000 * 10**6, 10000000 * 10**6);
+        configureNetwork("cosmos_hub", "channel-1", 1000000, 100000000 * 10**6, 10000000 * 10**6);
     }
 
     function configureNetwork(
@@ -1148,8 +1149,10 @@ async function validateChannel(channel) {
 
 ### Channel Information
 
-- **Cosmos Hub:** Typically `channel-0`
-- **Osmosis:** Typically `channel-1`
+- **Osmosis:** Typically `channel-0`
+- **Cosmos Hub:** Typically `channel-1`
+- **Juno:** Typically `channel-2`
+- **Stargaze:** Typically `channel-3`
 - **Other Networks:** Check official IBC documentation for correct channel IDs
 - **Port:** Usually `transfer` for token transfers
 
