@@ -294,17 +294,32 @@ async function deleteFiles(filesToDelete, apiKey, datasetId) {
 }
 
 async function deleteFile(fileId, apiKey, datasetId) {
-	const response = await fetch(`${TRIEVE_API_BASE}/file/${fileId}?delete_chunks=true`, {
-		method: 'DELETE',
-		headers: {
-			Authorization: apiKey,
-			'TR-Dataset': datasetId
-		}
-	});
+	// First try deleting file and chunks together. Some older files may not
+	// have an associated chunk group, which can cause a 400. If we detect that
+	// specific error, retry deletion without the delete_chunks flag.
+	const doDelete = async (withChunks) =>
+		fetch(`${TRIEVE_API_BASE}/file/${fileId}${withChunks ? '?delete_chunks=true' : ''}`, {
+			method: 'DELETE',
+			headers: {
+				Authorization: apiKey,
+				'TR-Dataset': datasetId
+			}
+		});
 
-	if (!response.ok) {
-		const errorText = await response.text();
+	const response = await doDelete(true);
+	if (response.ok) return;
+
+	const errorText = await response.text();
+	const needsRetry = response.status === 400 && /Error getting group id for file_id/i.test(errorText);
+
+	if (!needsRetry) {
 		throw new Error(`Failed to delete file: ${response.status} ${response.statusText}\n${errorText}`);
+	}
+
+	const retryResponse = await doDelete(false);
+	if (!retryResponse.ok) {
+		const retryText = await retryResponse.text();
+		throw new Error(`Failed to delete file (retry without delete_chunks): ${retryResponse.status} ${retryResponse.statusText}\n${retryText}`);
 	}
 }
 
