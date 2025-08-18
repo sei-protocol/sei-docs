@@ -142,7 +142,8 @@ async function compareFiles(existingFiles, scrapedFiles) {
 	const existingByFileName = new Map();
 
 	existingFiles.forEach((file) => {
-		existingByFileName.set(file.file_name.replace('.mdx', '.md'), file);
+		const name = ((file.file_metadata && file.file_metadata.file_name) || file.file_name || '').replace('.mdx', '.md');
+		existingByFileName.set(name, file);
 	});
 
 	const toUpload = [];
@@ -165,7 +166,9 @@ async function compareFiles(existingFiles, scrapedFiles) {
 			});
 		} else {
 			// Check if content has changed by comparing content length
-			const existingLength = existingFile.metadata?.content_length;
+			const existingLength =
+				(existingFile && existingFile.file_metadata && existingFile.file_metadata.metadata && existingFile.file_metadata.metadata.content_length) ??
+				existingFile?.metadata?.content_length;
 
 			if (existingLength !== contentLength) {
 				// Content has changed - needs to be updated
@@ -176,7 +179,7 @@ async function compareFiles(existingFiles, scrapedFiles) {
 					fileContent: fileData.content,
 					contentLength,
 					action: 'update',
-					existingFileId: existingFile.id
+					existingFileId: (existingFile && existingFile.file_metadata && existingFile.file_metadata.id) || existingFile.id
 				});
 			} else {
 				console.log(`   ✅ SKIP: ${fileName} (unchanged)`);
@@ -187,7 +190,7 @@ async function compareFiles(existingFiles, scrapedFiles) {
 	// Find files to delete (exist in Trieve but not in scraped files)
 	const toDelete = [];
 	for (const [fileName, existingFile] of existingByFileName) {
-		if (!processedFileNames.has(fileName.replace('.mdx', '.md'))) {
+		if (!processedFileNames.has(fileName)) {
 			toDelete.push(existingFile);
 		}
 	}
@@ -273,8 +276,10 @@ async function deleteFiles(filesToDelete, apiKey, datasetId) {
 
 	for (const file of filesToDelete) {
 		try {
-			console.log(`🗑️  Deleting ${file.file_name}...`);
-			await deleteFile(file.id, apiKey, datasetId);
+			const name = (file.file_metadata && file.file_metadata.file_name) || file.file_name || '(unknown)';
+			const id = (file.file_metadata && file.file_metadata.id) || file.id;
+			console.log(`🗑️  Deleting ${name}...`);
+			await deleteFile(id, apiKey, datasetId);
 			deletedCount++;
 
 			// Add delay between deletions
@@ -289,17 +294,32 @@ async function deleteFiles(filesToDelete, apiKey, datasetId) {
 }
 
 async function deleteFile(fileId, apiKey, datasetId) {
-	const response = await fetch(`${TRIEVE_API_BASE}/file/${fileId}?delete_chunks=true`, {
-		method: 'DELETE',
-		headers: {
-			Authorization: apiKey,
-			'TR-Dataset': datasetId
-		}
-	});
+	// First try deleting file and chunks together. Some older files may not
+	// have an associated chunk group, which can cause a 400. If we detect that
+	// specific error, retry deletion without the delete_chunks flag.
+	const doDelete = async (withChunks) =>
+		fetch(`${TRIEVE_API_BASE}/file/${fileId}${withChunks ? '?delete_chunks=true' : ''}`, {
+			method: 'DELETE',
+			headers: {
+				Authorization: apiKey,
+				'TR-Dataset': datasetId
+			}
+		});
 
-	if (!response.ok) {
-		const errorText = await response.text();
+	const response = await doDelete(true);
+	if (response.ok) return;
+
+	const errorText = await response.text();
+	const needsRetry = response.status === 400 && /Error getting group id for file_id/i.test(errorText);
+
+	if (!needsRetry) {
 		throw new Error(`Failed to delete file: ${response.status} ${response.statusText}\n${errorText}`);
+	}
+
+	const retryResponse = await doDelete(false);
+	if (!retryResponse.ok) {
+		const retryText = await retryResponse.text();
+		throw new Error(`Failed to delete file (retry without delete_chunks): ${retryResponse.status} ${retryResponse.statusText}\n${retryText}`);
 	}
 }
 
