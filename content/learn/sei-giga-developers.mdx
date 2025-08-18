@@ -1,7 +1,7 @@
 ---
-title: "Sei Giga Developer Guide"
-description: "Complete guide for developers building on Sei Giga - from environment setup to advanced optimization techniques for high-performance dApps"
-keywords: ["sei giga development", "smart contracts", "dapp development", "solidity", "web3", "high performance"]
+title: 'Sei Giga Developer Guide'
+description: 'Complete guide for developers building on Sei Giga - from environment setup to advanced optimization techniques for high-performance dApps'
+keywords: ['sei giga development', 'smart contracts', 'dapp development', 'solidity', 'web3', 'high performance']
 ---
 
 import { Callout } from 'nextra/components';
@@ -10,7 +10,9 @@ import { Callout } from 'nextra/components';
 
 ## Introduction
 
-Building on Sei Giga opens up possibilities for creating applications that were previously impossible on traditional blockchains. This guide provides everything you need to start developing high-performance dApps that can handle millions of users.
+Building on Sei Giga opens up possibilities for creating applications that were previously impossible on traditional blockchains. This guide provides you a sneek peek to start developing high-performance dApps that can handle millions of users.
+
+<Callout type="info">This is a sneek peek on how development with Sei Giga can help improving your contract performance. Check out the beginner tutorials (here)[/evm/evm-general] to get started with Sei EVM.</Callout>
 
 Key advantages for developers:
 
@@ -61,12 +63,12 @@ npx hardhat init
 module.exports = {
   networks: {
     seiTestnet: {
-      url: "https://testnet-rpc.sei.io",
+      url: 'https://evm-rpc-testnet.sei-apis.com/',
       chainId: 1328,
       accounts: [process.env.PRIVATE_KEY]
     }
   },
-  solidity: "0.8.20"
+  solidity: '0.8.20'
 };
 ```
 
@@ -83,7 +85,7 @@ Sei Giga's parallel execution engine rewards well-designed contracts. Follow the
 contract OptimizedToken {
     mapping(address => uint256) private balances;
     mapping(address => mapping(address => uint256)) private allowances;
-    
+
     function transfer(address to, uint256 amount) public {
         // Only touches sender and recipient state
         require(balances[msg.sender] >= amount, "Insufficient balance");
@@ -95,7 +97,7 @@ contract OptimizedToken {
 // BAD: Global state creates conflicts
 contract PoorToken {
     uint256 public totalTransfers; // Global counter
-    
+
     function transfer(address to, uint256 amount) public {
         totalTransfers++; // Every transfer conflicts!
         // ... transfer logic
@@ -113,13 +115,13 @@ contract OptimisticDEX {
         uint256 k; // Constant product
         uint256 lastUpdate;
     }
-    
+
     mapping(bytes32 => Pool) public pools;
     mapping(address => uint256) public userNonces;
-    
+
     event Swap(address indexed user, bytes32 indexed poolId, uint256 amountIn, uint256 amountOut);
     event LiquidityAdded(address indexed user, bytes32 indexed poolId, uint256 amount0, uint256 amount1);
-    
+
     function swap(
         bytes32 poolId,
         uint256 amountIn,
@@ -128,41 +130,41 @@ contract OptimisticDEX {
     ) external {
         Pool storage pool = pools[poolId];
         require(pool.k > 0, "Pool does not exist");
-        
+
         uint256 amountOut;
         if (zeroForOne) {
             // Swap token0 for token1
             amountOut = (pool.reserve1 * amountIn) / (pool.reserve0 + amountIn);
             require(amountOut >= minAmountOut, "Insufficient output");
-            
+
             pool.reserve0 += amountIn;
             pool.reserve1 -= amountOut;
         } else {
             // Swap token1 for token0
             amountOut = (pool.reserve0 * amountIn) / (pool.reserve1 + amountIn);
             require(amountOut >= minAmountOut, "Insufficient output");
-            
+
             pool.reserve1 += amountIn;
             pool.reserve0 -= amountOut;
         }
-        
+
         // Update constant product
         pool.k = pool.reserve0 * pool.reserve1;
         pool.lastUpdate = block.timestamp;
-        
+
         // Increment user nonce for parallel execution
         userNonces[msg.sender]++;
-        
+
         emit Swap(msg.sender, poolId, amountIn, amountOut);
     }
-    
+
     function addLiquidity(
         bytes32 poolId,
         uint256 amount0,
         uint256 amount1
     ) external {
         Pool storage pool = pools[poolId];
-        
+
         if (pool.k == 0) {
             // Initialize pool
             pool.reserve0 = amount0;
@@ -176,13 +178,13 @@ contract OptimisticDEX {
             pool.reserve0 += amount0;
             pool.reserve1 += amount1;
         }
-        
+
         pool.k = pool.reserve0 * pool.reserve1;
         pool.lastUpdate = block.timestamp;
-        
+
         emit LiquidityAdded(msg.sender, poolId, amount0, amount1);
     }
-    
+
     function getAmountOut(
         uint256 amountIn,
         uint256 reserveIn,
@@ -190,16 +192,16 @@ contract OptimisticDEX {
     ) public pure returns (uint256 amountOut) {
         require(amountIn > 0, "Insufficient input amount");
         require(reserveIn > 0 && reserveOut > 0, "Insufficient liquidity");
-        
+
         uint256 numerator = reserveOut * amountIn;
         uint256 denominator = reserveIn + amountIn;
         amountOut = numerator / denominator;
     }
-    
+
     function getPoolInfo(bytes32 poolId) external view returns (Pool memory) {
         return pools[poolId];
     }
-    
+
     function getUserNonce(address user) external view returns (uint256) {
         return userNonces[user];
     }
@@ -211,10 +213,10 @@ contract OptimisticDEX {
 ```solidity copy filename="contracts/BatchProcessor.sol"
 contract BatchProcessor {
     mapping(address => uint256) public balances;
-    
+
     event BatchTransfer(address indexed sender, uint256 totalAmount, uint256 recipientCount);
     event Transfer(address indexed from, address indexed to, uint256 amount);
-    
+
     // Process multiple operations in one transaction
     function batchTransfer(
         address[] calldata recipients,
@@ -223,29 +225,29 @@ contract BatchProcessor {
         require(recipients.length == amounts.length, "Length mismatch");
         require(recipients.length > 0, "Empty batch");
         require(recipients.length <= 100, "Batch too large");
-        
+
         uint256 totalAmount = 0;
-        
+
         // Calculate total amount needed
         for (uint256 i = 0; i < amounts.length; i++) {
             require(amounts[i] > 0, "Invalid amount");
             require(recipients[i] != address(0), "Invalid recipient");
             totalAmount += amounts[i];
         }
-        
+
         // Single balance check
         require(balances[msg.sender] >= totalAmount, "Insufficient balance");
         balances[msg.sender] -= totalAmount;
-        
+
         // Parallel-friendly distribution
         for (uint256 i = 0; i < recipients.length; i++) {
             balances[recipients[i]] += amounts[i];
             emit Transfer(msg.sender, recipients[i], amounts[i]);
         }
-        
+
         emit BatchTransfer(msg.sender, totalAmount, recipients.length);
     }
-    
+
     function batchCall(
         address[] calldata targets,
         bytes[] calldata data
@@ -253,28 +255,28 @@ contract BatchProcessor {
         require(targets.length == data.length, "Length mismatch");
         require(targets.length > 0, "Empty batch");
         require(targets.length <= 50, "Batch too large");
-        
+
         results = new bytes[](targets.length);
-        
+
         for (uint256 i = 0; i < targets.length; i++) {
             require(targets[i] != address(0), "Invalid target");
-            
+
             (bool success, bytes memory result) = targets[i].call(data[i]);
             require(success, "Call failed");
-            
+
             results[i] = result;
         }
     }
-    
+
     function deposit() external payable {
         require(msg.value > 0, "Must deposit positive amount");
         balances[msg.sender] += msg.value;
     }
-    
+
     function withdraw(uint256 amount) external {
         require(amount > 0, "Must withdraw positive amount");
         require(balances[msg.sender] >= amount, "Insufficient balance");
-        
+
         balances[msg.sender] -= amount;
         payable(msg.sender).transfer(amount);
     }
@@ -284,12 +286,17 @@ contract BatchProcessor {
 ### Gas Optimization Techniques
 
 <Callout type="info">
+
 **Sei Giga Gas Tips:**
-- Storage operations are expensive - minimize writes
-- Use `memory` for temporary data
+
+- Storage operations are expensive
+
+- minimize writes - Use `memory` for temporary data
+
 - Pack struct variables efficiently
-- Use events for data not needed on-chain
-- Leverage view functions for reads
+
+- Use events for data not needed on-chain - Leverage view functions for reads
+
 </Callout>
 
 ```solidity copy filename="contracts/GasOptimized.sol"
@@ -302,16 +309,16 @@ contract GasOptimized {
         address referrer;     // Slot 2 (20 bytes)
         bool isActive;        // Slot 2 (1 byte) - same slot as referrer!
     }
-    
+
     mapping(address => User) public users;
     mapping(address => uint256) public balances;
-    
+
     // Use constants for values that don't change
     uint256 private constant PRECISION = 1e18;
     uint256 private constant MAX_BATCH_SIZE = 100;
-    
+
     event UserUpdated(address indexed user, uint128 balance, uint64 nonce);
-    
+
     // Cache array lengths in loops
     function sumBalances(address[] memory userAddresses) public view returns (uint256 total) {
         uint256 length = userAddresses.length; // Cache length
@@ -320,7 +327,7 @@ contract GasOptimized {
             unchecked { i++; } // Save gas on overflow check
         }
     }
-    
+
     // Batch operations for gas efficiency
     function batchUpdateUsers(
         address[] calldata userAddresses,
@@ -328,32 +335,32 @@ contract GasOptimized {
     ) external {
         require(userAddresses.length == newBalances.length, "Length mismatch");
         require(userAddresses.length <= MAX_BATCH_SIZE, "Batch too large");
-        
+
         uint256 length = userAddresses.length;
         for (uint256 i = 0; i < length; ) {
             User storage user = users[userAddresses[i]];
             user.balance = newBalances[i];
             user.lastUpdate = uint64(block.timestamp);
             user.nonce++;
-            
+
             emit UserUpdated(userAddresses[i], newBalances[i], user.nonce);
-            
+
             unchecked { i++; }
         }
     }
-    
+
     // Use memory for temporary calculations
     function calculateRewards(address userAddress) external view returns (uint256 reward) {
         User memory user = users[userAddress]; // Load to memory once
-        
+
         if (!user.isActive) {
             return 0;
         }
-        
+
         uint256 timeDiff = block.timestamp - user.lastUpdate;
         reward = (uint256(user.balance) * timeDiff * PRECISION) / (365 days * 100); // 1% APY
     }
-    
+
     // Efficient storage packing demonstration
     function updateUser(
         address userAddress,
@@ -362,14 +369,14 @@ contract GasOptimized {
         bool active
     ) external {
         User storage user = users[userAddress];
-        
+
         // Single storage write updates multiple fields
         user.balance = newBalance;
         user.lastUpdate = uint64(block.timestamp);
         user.nonce++;
         user.referrer = newReferrer;
         user.isActive = active;
-        
+
         emit UserUpdated(userAddress, newBalance, user.nonce);
     }
 }
@@ -389,30 +396,30 @@ interface IOracle {
         string lastUpdate;
         int64 lastUpdateTimestamp;
     }
-    
+
     struct DenomOracleExchangeRatePair {
         string denom;
         OracleExchangeRate oracleExchangeRateVal;
     }
-    
+
     struct OracleTwap {
         string denom;
     IOracle constant oracle = IOracle(0x0000000000000000000000000000000000001008);
-    
+
     mapping(address => uint256) public balances;
     uint256 constant PRICE_STALENESS_THRESHOLD = 60; // 60 seconds
-    
+
     event PriceUpdate(string denom, string price, int64 timestamp);
-    
+
     modifier withFreshPrice(string memory denom) {
         IOracle.DenomOracleExchangeRatePair[] memory rates = oracle.getExchangeRates();
-        
+
         bool found = false;
         for (uint256 i = 0; i < rates.length; i++) {
             if (keccak256(bytes(rates[i].denom)) == keccak256(bytes(denom))) {
                 uint256 age = block.timestamp - uint256(uint64(rates[i].oracleExchangeRateVal.lastUpdateTimestamp));
                 require(age < PRICE_STALENESS_THRESHOLD, "Price too stale");
-                
+
                 emit PriceUpdate(
                     rates[i].denom,
                     rates[i].oracleExchangeRateVal.exchangeRate,
@@ -425,18 +432,18 @@ interface IOracle {
         require(found, "Price not found");
         _;
     }
-    
+
     function priceAwareTransfer(
         string memory denom,
         address to,
         uint256 amount
     ) external withFreshPrice(denom) {
         require(balances[msg.sender] >= amount, "Insufficient balance");
-        
+
         balances[msg.sender] -= amount;
         balances[to] += amount;
     }
-    
+
     function isPriceStale(string memory denom, uint256 maxAge) public view returns (bool) {
         (, int64 timestamp) = getCurrentPrice(denom);
         return block.timestamp - uint256(uint64(timestamp)) > maxAge;
@@ -453,21 +460,21 @@ contract ParallelFriendlyNFT {
     // Each token ID is independent
     mapping(uint256 => address) private owners;
     mapping(uint256 => string) private tokenURIs;
-    
+
     // Minting doesn't conflict between users
     function mint(uint256 tokenId, string memory uri) external {
         require(owners[tokenId] == address(0), "Already minted");
         owners[tokenId] = msg.sender;
         tokenURIs[tokenId] = uri;
-        
+
         emit Transfer(address(0), msg.sender, tokenId);
     }
-    
+
     // Transfers only affect specific tokens
     function transfer(address to, uint256 tokenId) external {
         require(owners[tokenId] == msg.sender, "Not owner");
         owners[tokenId] = to;
-        
+
         emit Transfer(msg.sender, to, tokenId);
     }
 }
@@ -484,7 +491,7 @@ import { seiGiga } from './chains';
 
 export const publicClient = createPublicClient({
   chain: seiGiga,
-  transport: http('https://rpc.sei.io')
+  transport: http('https://evm-rpc.sei-apis.com')
 });
 
 export const walletClient = createWalletClient({
@@ -500,15 +507,15 @@ export const seiGiga = {
   nativeCurrency: {
     decimals: 18,
     name: 'Sei',
-    symbol: 'SEI',
+    symbol: 'SEI'
   },
   rpcUrls: {
-    public: { http: ['https://rpc.sei.io'] },
-    default: { http: ['https://rpc.sei.io'] },
+    public: { http: ['https://evm-rpc.sei-apis.com'] },
+    default: { http: ['https://evm-rpc.sei-apis.com'] }
   },
   blockExplorers: {
-    default: { name: 'SeiScan', url: 'https://seiscan.io' },
-  },
+    default: { name: 'SeiScan', url: 'https://seiscan.io' }
+  }
 };
 ```
 
@@ -526,30 +533,30 @@ export function useTokenBalance(address: `0x${string}`) {
     abi: TokenABI,
     functionName: 'balanceOf',
     args: [address],
-    watch: true, // Auto-refresh on new blocks
+    watch: true // Auto-refresh on new blocks
   });
 }
 
 export function useTokenTransfer() {
   const [recipient, setRecipient] = useState('');
   const [amount, setAmount] = useState('');
-  
+
   const { config } = usePrepareContractWrite({
     address: TOKEN_ADDRESS,
     abi: TokenABI,
     functionName: 'transfer',
     args: [recipient as `0x${string}`, parseEther(amount || '0')],
-    enabled: Boolean(recipient && amount),
+    enabled: Boolean(recipient && amount)
   });
-  
+
   const { write, isLoading, isSuccess } = useContractWrite(config);
-  
+
   return {
     transfer: write,
     isLoading,
     isSuccess,
     setRecipient,
-    setAmount,
+    setAmount
   };
 }
 ```
@@ -561,13 +568,13 @@ export function useTokenTransfer() {
 function TransferButton({ recipient, amount }: TransferProps) {
   const queryClient = useQueryClient();
   const { transfer } = useTokenTransfer();
-  
+
   const handleTransfer = async () => {
     // Optimistic update
-    queryClient.setQueryData(['balance', account], (old: bigint) => 
+    queryClient.setQueryData(['balance', account], (old: bigint) =>
       old - parseEther(amount)
     );
-    
+
     try {
       await transfer?.();
     } catch (error) {
@@ -575,7 +582,7 @@ function TransferButton({ recipient, amount }: TransferProps) {
       queryClient.invalidateQueries(['balance', account]);
     }
   };
-  
+
   return (
     <button onClick={handleTransfer}>
       Transfer {amount} SEI
@@ -590,39 +597,37 @@ function TransferButton({ recipient, amount }: TransferProps) {
 
 ```javascript
 // test/Token.test.js
-const { expect } = require("chai");
-const { ethers } = require("hardhat");
+const { expect } = require('chai');
+const { ethers } = require('hardhat');
 
-describe("Token", function () {
+describe('Token', function () {
   let token;
   let owner, addr1, addr2;
-  
+
   beforeEach(async function () {
     [owner, addr1, addr2] = await ethers.getSigners();
-    
-    const Token = await ethers.getContractFactory("Token");
-    token = await Token.deploy("SeiToken", "SEI", ethers.parseEther("1000000"));
+
+    const Token = await ethers.getContractFactory('Token');
+    token = await Token.deploy('SeiToken', 'SEI', ethers.parseEther('1000000'));
     await token.waitForDeployment();
   });
-  
-  describe("Parallel Execution", function () {
-    it("Should handle concurrent transfers", async function () {
+
+  describe('Parallel Execution', function () {
+    it('Should handle concurrent transfers', async function () {
       // Setup
-      await token.transfer(addr1.address, ethers.parseEther("1000"));
-      await token.transfer(addr2.address, ethers.parseEther("1000"));
-      
+      await token.transfer(addr1.address, ethers.parseEther('1000'));
+      await token.transfer(addr2.address, ethers.parseEther('1000'));
+
       // Execute transfers in parallel
-      const tx1 = token.connect(addr1).transfer(owner.address, ethers.parseEther("100"));
-      const tx2 = token.connect(addr2).transfer(owner.address, ethers.parseEther("200"));
-      
+      const tx1 = token.connect(addr1).transfer(owner.address, ethers.parseEther('100'));
+      const tx2 = token.connect(addr2).transfer(owner.address, ethers.parseEther('200'));
+
       // Both should succeed
       await expect(tx1).to.not.be.reverted;
       await expect(tx2).to.not.be.reverted;
-      
+
       // Verify final state
-      expect(await token.balanceOf(owner.address)).to.equal(
-        ethers.parseEther("998300")
-      );
+      expect(await token.balanceOf(owner.address)).to.equal(ethers.parseEther('998300'));
     });
   });
 });
@@ -633,39 +638,36 @@ describe("Token", function () {
 ```javascript
 // scripts/performance-test.js
 async function testThroughput() {
-  const Token = await ethers.getContractFactory("Token");
-  const token = await Token.deploy("TestToken", "TEST", ethers.parseEther("1000000"));
-  
+  const Token = await ethers.getContractFactory('Token');
+  const token = await Token.deploy('TestToken', 'TEST', ethers.parseEther('1000000'));
+
   const signers = await ethers.getSigners();
   const batchSize = 100;
   const iterations = 10;
-  
-  console.log("Starting throughput test...");
-  
+
+  console.log('Starting throughput test...');
+
   const startTime = Date.now();
-  
+
   for (let i = 0; i < iterations; i++) {
     const promises = [];
-    
+
     // Create batch of transactions
     for (let j = 0; j < batchSize; j++) {
       const signer = signers[j % signers.length];
-      const tx = token.connect(signer).transfer(
-        signers[(j + 1) % signers.length].address,
-        ethers.parseEther("1")
-      );
+      const tx = token.connect(signer).transfer(signers[(j + 1) % signers.length].address, ethers.parseEther('1'));
       promises.push(tx);
     }
-    
+
     // Execute in parallel
     await Promise.all(promises);
   }
-  
+
   const endTime = Date.now();
   const totalTx = batchSize * iterations;
   const duration = (endTime - startTime) / 1000;
   const tps = totalTx / duration;
-  
+
   console.log(`Processed ${totalTx} transactions in ${duration}s`);
   console.log(`Throughput: ${tps.toFixed(2)} TPS`);
 }
@@ -674,12 +676,14 @@ async function testThroughput() {
 ### Debugging Tools
 
 <Callout type="warning">
+
 **Common Issues & Solutions:**
 
 1. **Transaction Reverts:** Use `hardhat console.log` in contracts
 2. **Gas Estimation Errors:** Increase gas limit by 20%
 3. **Nonce Issues:** Use `eth_getTransactionCount` for accurate nonces
 4. **RPC Timeouts:** Implement retry logic with exponential backoff
+
 </Callout>
 
 ## Deployment & DevOps
@@ -717,13 +721,9 @@ npm run verify:mainnet
 ```javascript
 // scripts/verify.js
 async function main() {
-  await hre.run("verify:verify", {
+  await hre.run('verify:verify', {
     address: CONTRACT_ADDRESS,
-    constructorArguments: [
-      "SeiToken",
-      "SEI",
-      ethers.parseEther("1000000")
-    ],
+    constructorArguments: ['SeiToken', 'SEI', ethers.parseEther('1000000')]
   });
 }
 ```
@@ -739,13 +739,13 @@ publicClient.watchContractEvent({
   abi: TokenABI,
   eventName: 'Transfer',
   onLogs: (logs) => {
-    logs.forEach(log => {
+    logs.forEach((log) => {
       console.log('Transfer:', {
         from: log.args.from,
         to: log.args.to,
         value: formatEther(log.args.value)
       });
-      
+
       // Send to analytics
       analytics.track('token_transfer', {
         from: log.args.from,
@@ -774,7 +774,7 @@ publicClient.watchContractEvent({
 contract SecureContract {
     // Use OpenZeppelin libraries
     using SafeERC20 for IERC20;
-    
+
     // Implement reentrancy guards
     uint256 private _status = 1;
     modifier nonReentrant() {
@@ -783,21 +783,21 @@ contract SecureContract {
         _;
         _status = 1;
     }
-    
+
     // Validate inputs
     modifier validAddress(address addr) {
         require(addr != address(0), "Invalid address");
         _;
     }
-    
+
     // Use checks-effects-interactions pattern
     function withdraw(uint256 amount) external nonReentrant {
         // Checks
         require(balances[msg.sender] >= amount, "Insufficient balance");
-        
+
         // Effects
         balances[msg.sender] -= amount;
-        
+
         // Interactions
         (bool success, ) = msg.sender.call{value: amount}("");
         require(success, "Transfer failed");
@@ -814,7 +814,7 @@ Consider a typical DeFi scenario with multiple users:
 ```solidity
 // Traditional sequential processing:
 // User A swaps USDC for ETH (100ms)
-// User B stakes SEI (100ms)  
+// User B stakes SEI (100ms)
 // User C mints NFT (100ms)
 // Total time: 300ms
 
@@ -835,146 +835,18 @@ contract ParallelFriendlyDEX {
     // GOOD: State isolated by user
     mapping(address => uint256) private balances;
     mapping(address => mapping(address => uint256)) private allowances;
-    
+
     // Each user's operations are independent
     function deposit() external payable {
         balances[msg.sender] += msg.value;
     }
-    
+
     // BAD: Global state creates conflicts
     uint256 public totalDeposits; // Every deposit must update this
-    
+
     function depositWithGlobalCounter() external payable {
         balances[msg.sender] += msg.value;
         totalDeposits += msg.value; // Forces sequential execution
-    }
-}
-```
-
-### Advanced Oracle Integration
-
-#### Step 1: Basic Oracle Price Query
-
-```solidity copy filename="contracts/SimpleOracle.sol"
-contract SimpleOracle {
-    IOracle constant oracle = IOracle(0x0000000000000000000000000000000000001008);
-    
-    function getPrice(string memory denom) public view returns (string memory) {
-        IOracle.DenomOracleExchangeRatePair[] memory rates = oracle.getExchangeRates();
-        
-        for (uint256 i = 0; i < rates.length; i++) {
-            if (keccak256(bytes(rates[i].denom)) == keccak256(bytes(denom))) {
-                return rates[i].oracleExchangeRateVal.exchangeRate;
-            }
-        }
-        revert("Price not found");
-    }
-}
-```
-
-#### Step 2: Price Staleness Check
-
-```solidity copy filename="contracts/PriceValidator.sol"
-contract PriceValidator {
-    IOracle constant oracle = IOracle(0x0000000000000000000000000000000000001008);
-    uint256 constant MAX_PRICE_AGE = 60; // 60 seconds
-    
-    function isPriceStale(string memory denom) public view returns (bool) {
-        IOracle.DenomOracleExchangeRatePair[] memory rates = oracle.getExchangeRates();
-        
-        for (uint256 i = 0; i < rates.length; i++) {
-            if (keccak256(bytes(rates[i].denom)) == keccak256(bytes(denom))) {
-                uint256 age = block.timestamp - uint256(uint64(rates[i].oracleExchangeRateVal.lastUpdateTimestamp));
-                return age > MAX_PRICE_AGE;
-            }
-        }
-        return true; // Price not found = stale
-    }
-}
-```
-
-#### Step 3: TWAP Price Query
-
-```solidity copy filename="contracts/TwapOracle.sol"
-contract TwapOracle {
-    IOracle constant oracle = IOracle(0x0000000000000000000000000000000000001008);
-    
-    function getTwapPrice(string memory denom, uint64 lookbackSeconds) public view returns (string memory) {
-        IOracle.OracleTwap[] memory twaps = oracle.getOracleTwaps(lookbackSeconds);
-        
-        for (uint256 i = 0; i < twaps.length; i++) {
-            if (keccak256(bytes(twaps[i].denom)) == keccak256(bytes(denom))) {
-                return twaps[i].twap;
-            }
-        }
-        revert("TWAP not found");
-    }
-}
-```
-
-### Advanced Staking Patterns
-
-```solidity copy filename="contracts/LiquidStaking.sol"
-contract LiquidStaking {
-    IStaking constant staking = IStaking(0x0000000000000000000000000000000000001005);
-    IBank constant bank = IBank(0x0000000000000000000000000000000000001001);
-    
-    mapping(address => uint256) public shares;
-    uint256 public totalShares;
-    string constant VALIDATOR = "seivaloper1...";
-    
-    event Staked(address indexed user, uint256 amount, uint256 shares);
-    event Unstaked(address indexed user, uint256 shares, uint256 amount);
-    
-    function stake() external payable {
-        require(msg.value > 0, "Must stake positive amount");
-        
-        uint256 newShares = calculateShares(msg.value);
-        shares[msg.sender] += newShares;
-        totalShares += newShares;
-        
-        // Delegate to validator
-        bool success = staking.delegate{value: msg.value}(VALIDATOR);
-        require(success, "Delegation failed");
-        
-        emit Staked(msg.sender, msg.value, newShares);
-    }
-    
-    function unstake(uint256 shareAmount) external {
-        require(shares[msg.sender] >= shareAmount, "Insufficient shares");
-        require(shareAmount > 0, "Must unstake positive amount");
-        
-        uint256 tokenAmount = calculateTokens(shareAmount);
-        shares[msg.sender] -= shareAmount;
-        totalShares -= shareAmount;
-        
-        bool success = staking.undelegate(VALIDATOR, tokenAmount);
-        require(success, "Undelegation failed");
-        
-        emit Unstaked(msg.sender, shareAmount, tokenAmount);
-    }
-    
-    function calculateShares(uint256 tokenAmount) public view returns (uint256) {
-        if (totalShares == 0) {
-            return tokenAmount;
-        }
-        
-        uint256 totalTokens = getTotalStaked();
-        return (tokenAmount * totalShares) / totalTokens;
-    }
-    
-    function calculateTokens(uint256 shareAmount) public view returns (uint256) {
-        if (totalShares == 0) {
-            return 0;
-        }
-        
-        uint256 totalTokens = getTotalStaked();
-        return (shareAmount * totalTokens) / totalShares;
-    }
-    
-    function getTotalStaked() public view returns (uint256) {
-        IStaking.Delegation memory delegation = staking.delegation(address(this), VALIDATOR);
-        return delegation.balance.amount;
     }
 }
 ```
@@ -991,7 +863,7 @@ contract OptimizedStorage {
         uint64 timestamp;   // 64 bits = 1 slot (wastes 192 bits)
         uint64 nonce;       // 64 bits = 1 slot (wastes 192 bits)
     }
-    
+
     // GOOD: Uses 1 storage slot
     struct OptimalPacked {
         uint128 amount;     // 128 bits
@@ -1011,26 +883,26 @@ contract EventDrivenAuction {
         address highestBidder;
         uint64 endTime;
     }
-    
+
     mapping(uint256 => Auction) public auctions;
-    
+
     // Store bid history in events, not storage
     event BidPlaced(uint256 indexed auctionId, address indexed bidder, uint256 amount);
     event AuctionWon(uint256 indexed auctionId, address indexed winner, uint256 amount);
-    
+
     function bid(uint256 auctionId) external payable {
         Auction storage auction = auctions[auctionId];
         require(block.timestamp < auction.endTime, "Auction ended");
         require(msg.value > auction.highestBid, "Bid too low");
-        
+
         // Refund previous bidder
         if (auction.highestBidder != address(0)) {
             payable(auction.highestBidder).transfer(auction.highestBid);
         }
-        
+
         auction.highestBid = uint128(msg.value);
         auction.highestBidder = msg.sender;
-        
+
         // Emit event instead of storing bid history
         emit BidPlaced(auctionId, msg.sender, msg.value);
     }
@@ -1046,16 +918,16 @@ contract AvoidBottlenecks {
     // BAD: Global nonce forces sequential execution
     uint256 public globalNonce;
     mapping(uint256 => address) public nonceToUser;
-    
+
     function badMint() external {
         uint256 tokenId = globalNonce++;
         nonceToUser[tokenId] = msg.sender;
     }
-    
+
     // GOOD: User-specific nonces allow parallelism
     mapping(address => uint256) public userNonces;
     mapping(address => mapping(uint256 => uint256)) public userTokens;
-    
+
     function goodMint() external {
         uint256 userNonce = userNonces[msg.sender]++;
         userTokens[msg.sender][userNonce] = block.timestamp;
@@ -1069,7 +941,7 @@ contract AvoidBottlenecks {
 contract OptimisticVault {
     mapping(address => uint256) public balances;
     uint256 public totalSupply;
-    
+
     // Optimistic deposit - assumes success
     function deposit(uint256 amount) external returns (uint256 shares) {
         // Calculate shares optimistically
@@ -1078,11 +950,11 @@ contract OptimisticVault {
         } else {
             shares = (amount * totalSupply) / address(this).balance;
         }
-        
+
         // Update state
         balances[msg.sender] += shares;
         totalSupply += shares;
-        
+
         // Transfer happens last - if it fails, entire tx reverts
         (bool success,) = address(this).call{value: amount}("");
         require(success, "Transfer failed");
@@ -1093,6 +965,7 @@ contract OptimisticVault {
 ## Development Checklists
 
 ### Gas Optimization Checklist
+
 - ✓ Pack structs to minimize storage slots
 - ✓ Use events for historical data
 - ✓ Cache array lengths in loops
@@ -1101,18 +974,12 @@ contract OptimisticVault {
 - ✓ Minimize external calls
 
 ### Parallel Execution Checklist
+
 - ✓ Isolate state by user/entity
 - ✓ Avoid global counters
 - ✓ Use mapping over arrays for lookups
 - ✓ Design for optimistic execution
 - ✓ Minimize shared state dependencies
-
-### Security Considerations
-- ✓ Follow checks-effects-interactions pattern
-- ✓ Use custom errors for gas efficiency
-- ✓ Implement proper access controls
-- ✓ Handle all return values
-- ✓ Consider reentrancy guards where needed
 
 ## Next Steps
 
@@ -1120,4 +987,3 @@ Now that you understand Sei Giga development patterns:
 
 1. **Learn the Fundamentals** - Review the [Sei Giga Overview](/learn/sei-giga) for architecture details
 2. **Review Technical Specs** - Study the [Technical Specifications](/learn/sei-giga-specs) for detailed specifications
-3. **Join the Community** - Connect with other developers on [Discord](https://discord.gg/sei)
