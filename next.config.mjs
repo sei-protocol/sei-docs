@@ -31,6 +31,11 @@ export default withNextra({
 				protocol: 'https',
 				hostname: 'cdn.prod.website-files.com',
 				pathname: '/65cb43fecf24523357feada9/**'
+			},
+			{
+				protocol: 'https',
+				hostname: 'cdn.sanity.io',
+				pathname: '/images/71yb5mbj/**'
 			}
 		]
 	},
