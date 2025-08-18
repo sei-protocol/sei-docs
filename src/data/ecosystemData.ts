@@ -36,7 +36,7 @@ export type EcosystemResponse = {
 };
 
 export async function getSeiEcosystemAppsData(): Promise<EcosystemResponse> {
-	const url = 'https://app-api.seinetwork.io/webflow/ecosystem';
+	const url = 'https://app-api.seinetwork.io/sanity/ecosystem';
 	const headers = { Accept: 'application/json' };
 
 	try {
@@ -59,7 +59,7 @@ export async function getSeiEcosystemAppsData(): Promise<EcosystemResponse> {
 export type EcosystemDocsCategory = 'indexer' | 'explorer' | 'wallet' | 'centralized-exchange' | 'rpc-provider' | 'faucet' | 'launchpad' | 'oracle' | 'bridge';
 
 export async function getSeiEcosystemAppByCategory(category: EcosystemDocsCategory): Promise<EcosystemResponse> {
-	const url = `https://app-api.seinetwork.io/webflow/ecosystem/docs/${category}`;
+	const url = `https://app-api.seinetwork.io/sanity/ecosystem/docs/${category}`;
 	const headers = { Accept: 'application/json' };
 
 	try {
