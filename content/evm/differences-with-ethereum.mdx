@@ -54,7 +54,7 @@ Sei's EVM and Ethereum itself:
       <tr>
         <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">Gas Limit</td>
         <td className="px-4 py-3 text-sm text-green-600 dark:text-green-400 whitespace-nowrap">10 M</td>
-        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">36 M</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap"> 45 M</td>
       </tr>
       <tr>
         <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">Byte Size Limit</td>
@@ -80,7 +80,9 @@ Sei's EVM and Ethereum itself:
   </table>
 </div>
 
-- Sei uses the [Cancun](https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/cancun.md) version of EVM, excluding the blob transactions. - Sei's gas limit is 10 M as opposed to Ethereum's 36 M. Sei also has a byte size limit of 21MB. - Sei has instant finality. This means the various commitment levels typical for Ethereum (i.e., safe, latest, justified) do not apply on Sei.
+- Sei uses the [Cancun](https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/cancun.md) version of EVM, excluding the blob transactions.
+- Sei's gas limit is 10 M as opposed to Ethereum's 45 M. Sei also has a byte size limit of 21MB.
+- Sei has instant finality. This means the various commitment levels typical for Ethereum (i.e., safe, latest, justified) do not apply on Sei.
 
 - **Sei is a dual-execution environment (EVM and Cosmos-SDK).** This means:
   - Non-EVM transactions can update EVM-accessible state.
@@ -110,14 +112,77 @@ Sei EVM was deployed at the following block heights and versions:
 
 ## Opcode Differences
 
+<div className="overflow-x-auto max-w-full mt-4">
+  <table className="w-full divide-y divide-neutral-200 dark:divide-neutral-800">
+    <thead>
+      <tr>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Opcode</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Sei EVM</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Ethereum</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Notes</th>
+      </tr>
+    </thead>
+    <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
+      <tr>
+        <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">PREVRANDAO</td>
+        <td className="px-4 py-3 text-sm text-green-600 dark:text-green-400">Returns a value derived from the current block time</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Returns the RANDAO mix (EIP‑4399)</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Not a randomness source; use an oracle/VRF. `DIFFICULTY` aliases to this.</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">COINBASE</td>
+        <td className="px-4 py-3 text-sm text-green-600 dark:text-green-400">Always the global fee collector address</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Block proposer (miner) address</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Do not assume it is the validator address.</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">BASEFEE</td>
+        <td className="px-4 py-3 text-sm text-green-600 dark:text-green-400">Returns current dynamic base fee; no burn</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Returns current base fee; a portion is burned (EIP‑1559)</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Legacy tx must specify ≥ 1 gwei base fee on Sei.</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">BLOCKHASH</td>
+        <td className="px-4 py-3 text-sm text-green-600 dark:text-green-400">Hash of the Tendermint header; different encoding</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Keccak of the Ethereum block header</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Usable for recent blocks only; values are not interchangeable across chains.</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">GASLIMIT</td>
+        <td className="px-4 py-3 text-sm text-green-600 dark:text-green-400 whitespace-nowrap">= 10,000,000 per block</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">≈ 45,000,000</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Represents block gas limit in both chains.</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">TIMESTAMP</td>
+        <td className="px-4 py-3 text-sm text-green-600 dark:text-green-400">Tendermint block time</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Proposer-chosen block time</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Same semantics; do not use as randomness.</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">DIFFICULTY</td>
+        <td className="px-4 py-3 text-sm text-green-600 dark:text-green-400">Alias of PREVRANDAO</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Alias of PREVRANDAO (EIP‑4399)</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Returns the same value as PREVRANDAO.</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">Blob‑related opcodes</td>
+        <td className="px-4 py-3 text-sm text-green-600 dark:text-green-400">Not supported (Cancun without blobs)</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Supported post‑Cancun (EIP‑4844)</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Blob transactions are not enabled on Sei.</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
 ### PREVRANDAO
 
-Since Sei doesn't rely on the same pseudo-randomness way of determining the next
+Since Sei doesn't rely on the same pseudo‑randomness way of determining the next
 validator like Proof of Stake (PoS) Ethereum does, it doesn't really have the
-`RANDOM` artifact that can be set as `PREVRANDO`'s return value. In Sei
-`PREVRANDAO` is set to return the hash of the current block time. For strong
-randomness guarantee needs in contracts logic, it's advised to use external
-verifiable oracles (as is advised on Ethereum itself).
+"randomness" artifact that can be set as `PREVRANDAO`'s return value. On Sei,
+`PREVRANDAO` returns a value derived from the current block time. For strong
+randomness needs in contract logic, use a verifiable randomness oracle (as is
+advised on Ethereum itself).
 
 ### COINBASE
 
@@ -180,3 +245,43 @@ However, on Sei, the block proposer would broadcast first and only execute the
 proposal if it's accepted (i.e. every node would execute the block at roughly
 the same time), so Sei does not really have a window when "pending state"
 exists.
+
+## Gas Model & Fees
+
+Sei does not implement base‑fee burning. There is no base‑fee burn; all transaction fees accrue to validators. Fees are calculated as:
+
+Transaction Fee = Gas Used × Gas Price
+
+**Practical implications**
+
+- **Simpler fee handling:** Use `gasPrice` (you can omit `maxFeePerGas` / `maxPriorityFeePerGas`).
+- **More stable fees:** Higher throughput reduces fee spikes during busy periods.
+- **Typically lower cost:** Many workloads that are costly on Ethereum become economical on Sei.
+
+<Callout type="info">
+
+**Useful Infos**
+
+- **Does Sei burn a base fee (EIP‑1559)?** No.
+- **Who receives fees?** Validators.
+- **Are Sei fees lower?** Yes, due to higher throughput and parallel execution.
+
+</Callout>
+
+## ERC Token Standards Compatibility
+
+Sei’s EVM fully supports the common token standards:
+
+- **ERC‑20** (fungible tokens)
+- **ERC‑721** (NFTs)
+- **ERC‑1155** (multi‑token)
+
+Existing OpenZeppelin contracts and tools work unchanged.
+
+## Testing & Migration Checklist
+
+- ✅ Re‑deploy your Solidity code to Sei testnet; most contracts need no changes.
+- ✅ If you used SELFDESTRUCT, refactor to a soft‑close pattern.
+- ✅ Remove EIP‑1559 fee UI complexity; use a single `gasPrice` input in frontends.
+- ✅ If you rely on on‑chain “randomness,” integrate an oracle/VRF.
+- ✅ Size your `gasLimit` with a modest buffer (parallel execution can slightly vary estimates).
