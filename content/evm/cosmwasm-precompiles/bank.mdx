@@ -26,9 +26,7 @@ The bank precompile at address `0x0000000000000000000000000000000000001001` expo
 ## Use Cases
 
 - **DeFi Applications:** Build decentralized finance protocols that can handle native SEI and Cosmos assets.
-- **Payment Systems:** Create payment processors that work with multiple token denominations.
 - **Portfolio Management:** Build tools to track and manage multi-asset portfolios across Cosmos and EVM.
-- **Cross-Chain Trading:** Develop trading platforms that can handle diverse asset types.
 - **Token Information Services:** Query comprehensive token metadata for UI display and analytics.
 
 ## What You'll Learn in This Guide
@@ -38,9 +36,7 @@ By the end of this guide, you'll be able to:
 - **Execute Token Transfers** - Send both native SEI and custom tokens between addresses
 - **Query Account Balances** - Check single and multi-asset balances for any address
 - **Access Token Metadata** - Retrieve names, symbols, decimals, and supply information
-- **Build Payment Systems** - Implement robust payment processing with proper error handling
-- **Handle Multiple Denominations** - Work with various token types in a unified interface
-- **Optimize Gas Usage** - Implement efficient batching and query strategies
+  `hh1h
 
 ## Functions
 
@@ -130,17 +126,49 @@ Before getting started, ensure you have:
 - **npm** or **yarn** package manager
 - **EVM-compatible wallet**
 - **SEI tokens** for gas fees and testing transfers
+- **Hardhat** for development and testing
 
 #### Install Dependencies
 
 Install the required packages for interacting with Sei precompiles:
 
 ```bash copy
+# Instantiate a new hardhat project
+npx hardhat init
+
 # Install ethers.js for smart contract interactions
-npm install ethers
+npm install ethers dotenv
 
 # Install Sei EVM bindings for precompile addresses and ABIs
 npm install @sei-js/precompiles@2.1.2
+```
+
+#### Setup Hardhat Environment
+
+Create a `hardhat.config.js` file with the following content:
+
+```javascript copy
+require('@nomicfoundation/hardhat-toolbox');
+require('dotenv').config();
+
+/** @type import('hardhat/config').HardhatUserConfig */
+module.exports = {
+  solidity: '0.8.28',
+  networks: {
+    sei: {
+      url: 'https://evm-rpc.sei-apis.com',
+      chainId: 1329,
+      accounts: [process.env.PRIVATE_KEY]
+    }
+  }
+};
+```
+
+Create a `.env` file in the root directory with your private key and RPC URL:
+
+```plaintext copy
+RPC_URL=https://evm-rpc.sei-apis.com
+PRIVATE_KEY=your_private_key_here
 ```
 
 #### Import Precompile Components
@@ -243,7 +271,7 @@ contract TokenManager {
 
 - Use `sendNative()` with payable value
 - Denomination is always `usei` (micro-SEI)
-- 1 SEI = 1,000,000 usei
+- Parse to 18 digits when calling `sendNative()`
 
 **Custom Token Transfers:**
 
@@ -270,7 +298,7 @@ try {
   // Send native SEI
   const tx = await bank.sendNative(recipientAddress, {
     value: amountInUsei,
-    gasLimit: 100000
+    gasLimit: 300000n
   });
 
   const receipt = await tx.wait();
@@ -298,23 +326,6 @@ contract PaymentProcessor {
 
         emit PaymentSent(msg.sender, recipient, msg.value);
     }
-
-    function sendSeiPaymentWithAmount(
-        string memory recipient,
-        uint256 amount
-    ) external payable {
-        require(msg.value >= amount, "Insufficient payment");
-
-        bool success = BANK.sendNative{value: amount}(recipient);
-        require(success, "Payment failed");
-
-        // Refund excess payment
-        if (msg.value > amount) {
-            payable(msg.sender).transfer(msg.value - amount);
-        }
-
-        emit PaymentSent(msg.sender, recipient, amount);
-    }
 }
 ```
 
@@ -330,8 +341,8 @@ contract PaymentProcessor {
 // Send custom tokens between addresses
 const fromAddress = '0x1234567890123456789012345678901234567890';
 const toAddress = '0x9876543210987654321098765432109876543210';
-const tokenDenom = 'factory/sei1.../mytoken';
-const amount = '1000';
+const tokenDenom = 'usei';
+const amount = '1';
 
 try {
   // Convert addresses to proper format if needed
@@ -341,7 +352,7 @@ try {
     tokenDenom,
     ethers.parseUnits(amount, 18), // Adjust decimals based on token
     {
-      gasLimit: 150000
+      gasLimit: 300000n
     }
   );
 
@@ -538,7 +549,7 @@ contract PortfolioManager {
 
 ```typescript copy
 // Query comprehensive token metadata
-const tokenDenom = 'factory/sei1.../mytoken';
+const tokenDenom = 'usei';
 
 try {
   // Get all metadata in parallel
@@ -594,17 +605,6 @@ contract TokenRegistry {
 
     mapping(string => TokenInfo) public tokenRegistry;
 
-    function registerToken(string memory denom) external {
-        TokenInfo storage info = tokenRegistry[denom];
-
-        info.denom = denom;
-        info.name = BANK.name(denom);
-        info.symbol = BANK.symbol(denom);
-        info.decimals = BANK.decimals(denom);
-        info.totalSupply = BANK.supply(denom);
-        info.isValid = true;
-    }
-
     function getTokenInfo(
         string memory denom
     ) external view returns (TokenInfo memory) {
@@ -618,16 +618,6 @@ contract TokenRegistry {
         info.isValid = true;
 
         return info;
-    }
-
-    function formatAmount(
-        string memory denom,
-        uint256 amount
-    ) external view returns (string memory) {
-        uint8 tokenDecimals = BANK.decimals(denom);
-        // Note: Solidity doesn't have built-in decimal formatting
-        // This would need additional utility functions for proper formatting
-        return "Use client-side formatting";
     }
 }
 ```
@@ -656,7 +646,7 @@ class SeiTokenManager {
   // Send native SEI tokens
   async sendSei(recipientAddress: string, amountInSei: string) {
     try {
-      const amountInUsei = ethers.parseUnits(amountInSei, 6);
+      const amountInUsei = ethers.parseUnits(amountInSei, 18);
       const tx = await this.bank.sendNative(recipientAddress, {
         value: amountInUsei,
         gasLimit: 100000
@@ -1014,27 +1004,69 @@ contract ComprehensiveTokenManager {
 }
 ```
 
+Compile the contract:
+
+```bash copy
+npx hardhat compile
+```
+
 **Deployment Script**
+
+First, deploy the contract using Hardhat:
 
 ```javascript copy
 const { ethers } = require('hardhat');
 
+const dotenv = require('dotenv');
+dotenv.config();
+
 async function main() {
-  const [deployer] = await ethers.getSigners();
-  console.log('Deploying contract with account:', deployer.address);
+  const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
+  const deployer = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
+  console.log('Deploying contracts with the account:', deployer.address);
 
-  const balance = await ethers.provider.getBalance(deployer.address);
-  console.log('Account balance:', ethers.formatEther(balance), 'SEI');
+  const balance = await deployer.provider.getBalance(deployer.address);
+  console.log('Account balance:', ethers.formatEther(balance));
 
-  const TokenManager = await ethers.getContractFactory('ComprehensiveTokenManager');
-  const tokenManager = await TokenManager.deploy();
-  await tokenManager.waitForDeployment();
+  const ComprehensiveTokenManager = await ethers.getContractFactory('ComprehensiveTokenManager');
+  console.log('Deploying ComprehensiveTokenManager...', ComprehensiveTokenManager);
+  const comprehensiveTokenManager = await ComprehensiveTokenManager.deploy({
+    gasLimit: 5000000n // Set a reasonable gas limit
+  });
+  await comprehensiveTokenManager.waitForDeployment();
 
-  const address = await tokenManager.getAddress();
+  console.log('ComprehensiveTokenManager deployed to:', await comprehensiveTokenManager.getAddress());
+}
+
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});
+```
+
+To deploy, run:
+
+```bash copy
+npx hardhat run scripts/deploy.js --network sei
+```
+
+Next look through the integration example:
+
+```javascript copy
+const { ethers } = require('hardhat');
+const TokenManager = require('./artifacts/contracts/ComprehensiveTokenManager.sol/ComprehensiveTokenManager.json');
+
+async function main() {
+  const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
+  const deployer = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
+  console.log('Deploying contracts with the account:', deployer.address);
+
+  const address = '0xYourDeployedContractAddress'; // Replace with your contract address
+  const tokenManager = new ethers.Contract(address, TokenManager.abi, deployer);
   console.log('TokenManager deployed to:', address);
 
   // Add some supported tokens
-  const tokens = ['factory/sei1.../token1', 'ibc/ED07A3391A112B175915CD8FAF43A2DA8E4790EDE12566649D0C2F97716B8518'];
+  const tokens = ['usei', 'uatom', 'ubtc'];
 
   for (const token of tokens) {
     try {
@@ -1045,6 +1077,13 @@ async function main() {
       console.error('Failed to add token:', token, error.message);
     }
   }
+
+  try {
+    const allBalances = await tokenManager.getUserPortfolio(deployer.address);
+    console.log('All balances:', allBalances);
+  } catch (error) {
+    console.error('Failed to get user portfolio:', error.message);
+  }
 }
 
 main()
@@ -1053,6 +1092,12 @@ main()
     console.error(error);
     process.exit(1);
   });
+```
+
+The run the integration example:
+
+```bash copy
+node integrationExample.js
 ```
 
 </Tabs.Tab>
@@ -1182,16 +1227,9 @@ async function safeGetBalance(address: string, denom: string) {
 
 <Callout type="info"> Remember: Always verify token denominations and handle errors gracefully in production applications! </Callout>
 
-### Token Denominations
-
-- **Native SEI:** Always use `usei` as the denomination (1 SEI = 1,000,000 usei)
-- **Custom Tokens:** Follow format `factory/{creator}/{subdenom}` for custom tokens
-- **IBC Tokens:** Use format `ibc/{hash}` for cross-chain assets
-- **Case Sensitivity:** Token denominations are case-sensitive
-
 ### Amount Precision
 
-- **SEI Native:** 6 decimal places (1 SEI = 1,000,000 usei)
+- **SEI Native:** While reading from chain it is formatted to 6 decimal places (1 SEI = 1,000,000 usei) and while writing to chain it is parsed to 18 decimal places.
 - **Custom Tokens:** Check decimals using `decimals()` function
 - **Display Formatting:** Always format amounts with proper decimal places for user display
 
