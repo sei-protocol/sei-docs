@@ -44,6 +44,7 @@ export default {
 		}
 	},
 	'solidity-resources': 'Solidity Resources',
+	'optimizing-for-parallelization': 'Optimizing for Parallelization',
 	tracing: 'Debug Tracing',
 	'evm-verify-contracts': 'Verify Contracts',
 	precompiles: 'Precompiles',

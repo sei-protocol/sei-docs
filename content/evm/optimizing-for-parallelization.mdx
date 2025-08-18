@@ -1,0 +1,115 @@
+---
+title: 'Optimizing Contracts for Parallelization'
+description: 'Design patterns to reduce state conflicts and maximize Sei EVM parallel execution while lowering gas usage.'
+keywords: ['sei evm', 'parallelization', 'gas optimization', 'storage conflicts', 'throughput', 'precompiles']
+---
+
+import { Callout } from 'nextra/components';
+import { IconCpu, IconBolt, IconSettingsAutomation, IconChecklist, IconArrowRight } from '@tabler/icons-react';
+
+# Optimizing Contracts for Parallelization
+
+Sei EVM executes non-conflicting transactions in parallel. You can significantly increase throughput and reduce gas by designing contracts that minimize shared state access and avoid unnecessary storage writes.
+
+<Callout type="info" emoji={<IconCpu className="h-5 w-5 mt-1" />}>
+  This guide is based on Sei's recommendations for reducing gas usage and enhancing parallel execution. For the engine design, see [Parallelization Engine](/learn/parallelization-engine).
+</Callout>
+
+## Principles for Parallel-Friendly Contracts
+
+- **Minimize shared writes**: The scheduler can parallelize transactions that do not write to the same storage keys. Avoid hot globals (e.g., a single counter updated on every call).
+- **Partition state**: Shard storage by user, asset, or id so independent transactions touch disjoint keys.
+- **Prefer pull over push**: Let users claim funds instead of mass-paying recipients in loops.
+- **Avoid unbounded loops**: Especially loops that write to storage or iterate over dynamic arrays/mappings.
+- **Batch internal work; isolate external effects**: Do heavy computation in memory and commit a minimal set of storage writes.
+- **Use precompiles when available**: Precompiles are highly optimized and cheaper than replicating logic in Solidity.
+
+## Storage Design Patterns
+
+### Partition state by key
+
+Isolate per-user/per-asset data instead of centralizing writes.
+
+```solidity copy
+// Good: disjoint keys by user and id enable parallelism
+mapping(address => mapping(uint256 => Position)) public positions;
+
+function updatePosition(uint256 id, int256 delta) external {
+    Position storage p = positions[msg.sender][id];
+    // in-memory arithmetic first
+    int256 newQty = p.qty + delta;
+    // commit minimal writes
+    p.qty = newQty;
+}
+```
+
+Anti-patterns:
+
+- Writing a global `totalVolume += amount;` in every transaction
+- Maintaining a single on-chain queue or registry updated by most calls
+
+Prefer computing aggregates off-chain from events, or update them periodically via a dedicated maintenance transaction.
+
+### Prefer pull payments
+
+Avoid writing to many recipients in a single transaction. Emit events and let recipients `withdraw()` when needed.
+
+```solidity copy
+// Better: users pull their own rewards, isolating writes to their key
+mapping(address => uint256) public accrued;
+
+function accrue(address user, uint256 amount) internal {
+    accrued[user] += amount; // isolated write
+}
+
+function withdraw() external {
+    uint256 due = accrued[msg.sender];
+    accrued[msg.sender] = 0; // single-key write
+    (bool ok, ) = msg.sender.call{value: due}("");
+    require(ok, "TRANSFER_FAILED");
+}
+```
+
+### Avoid large storage writes in loops
+
+If you must process many items, keep work in memory and commit a compact result, or split work across multiple transactions keyed by different ids.
+
+## Gas-Efficient Solidity Practices
+
+- **Use `external` for externally called functions**; mark pure/read-only with `pure`/`view`.
+- **Pack variables** to share storage slots (e.g., multiple `uint8` in one slot).
+- Prefer **`bytes32` over `string`** when applicable.
+- **Cache array lengths** in loops and short-circuit cheap conditions first.
+- Use **`unchecked`** for arithmetic when overflow is impossible.
+- Prefer **memory** over storage for temporary data; commit only final values.
+
+These reduce gas and often reduce storage touches, which also improves parallelism.
+
+## Leverage Sei Precompiles
+
+Sei provides precompiled contracts for common functionality—cheaper and simpler than custom Solidity equivalents:
+
+- [JSON](/evm/precompiles/json) (`0x1003`)
+- [P256](/evm/precompiles/P256) (`0x1011`)
+
+See [precompile examples](/evm/precompiles/example-usage) for quick starts.
+
+## Testing and Analysis
+
+- Use Foundry/Hardhat gas reporters to track changes per function.
+- Benchmark under concurrent load to detect hot keys (addresses/ids) that serialize execution.
+- Inspect execution with <a href="/evm/tracing/javascript-tracers">JavaScript tracers</a> and runtime logs.
+
+## Quick Checklist
+
+<Callout type="info" emoji={<IconChecklist className="h-5 w-5 mt-1" />}>
+
+Parallelization checklist:
+
+- Partition storage by user/asset/id; avoid hot globals
+- Minimize number of storage writes per call; batch in-memory, commit once
+- Avoid loops with storage writes; switch to pull-based flows
+- Favor precompiles for supported features
+- Apply standard gas optimizations (`external`, packing, `unchecked`, memory-first)
+
+</Callout>
