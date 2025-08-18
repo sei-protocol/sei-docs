@@ -91,7 +91,6 @@ export default {
 	reference: 'RPC Reference',
 	tokens: 'View Tokens',
 	changelog: 'Changelog',
-	'ecosystem-tutorials': 'Ecosystem Tutorials',
 
 	'-- Hardware Wallets': {
 		type: 'separator',
