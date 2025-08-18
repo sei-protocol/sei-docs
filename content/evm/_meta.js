@@ -44,6 +44,7 @@ export default {
 		}
 	},
 	'solidity-resources': 'Solidity Resources',
+	'optimizing-for-parallelization': 'Optimizing for Parallelization',
 	tracing: 'Debug Tracing',
 	'evm-verify-contracts': 'Verify Contracts',
 	precompiles: 'Precompiles',
@@ -80,7 +81,7 @@ export default {
 	'indexer-providers': 'Indexers',
 	'wallet-integrations': 'Wallet Integrations',
 	bridging: 'Bridging',
-	'agent-kits': 'Agent Kits',
+	'ai-tooling': 'AI Tooling',
 	'usdc-on-sei': 'USDC on Sei',
 	'-- Reference': {
 		type: 'separator',
