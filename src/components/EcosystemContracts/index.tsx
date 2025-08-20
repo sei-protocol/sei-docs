@@ -16,7 +16,7 @@ export async function RemoteSheetData() {
 		const headers = parseCSVRow(lines[0]);
 
 		// Parse data rows
-		const data = [];
+		const data: Record<string, string>[] = [];
 		for (let i = 1; i < lines.length; i++) {
 			const row = parseCSVRow(lines[i]);
 			if (row.length > 0 && row.some((cell) => cell.trim())) {
