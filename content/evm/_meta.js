@@ -91,6 +91,7 @@ export default {
 	reference: 'RPC Reference',
 	tokens: 'View Tokens',
 	changelog: 'Changelog',
+	'dappradar-guide': 'DappRadar Guide',
 
 	'-- Hardware Wallets': {
 		type: 'separator',
