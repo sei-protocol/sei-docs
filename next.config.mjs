@@ -556,6 +556,11 @@ export default withNextra({
 				source: '/learn/differences-with-ethereum',
 				destination: '/evm/differences-with-ethereum',
 				permanent: true
+			},
+			{
+				source: '/learn/mcp-server',
+				destination: '/evm/ai-tooling/mcp-server',
+				permanent: true
 			}
 		];
 	}
