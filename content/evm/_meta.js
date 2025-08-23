@@ -92,6 +92,7 @@ export default {
 	tokens: 'View Tokens',
 	changelog: 'Changelog',
 	'dappradar-guide': 'DappRadar Guide',
+	'ecosystem-contracts': 'Ecosystem Contracts',
 
 	'-- Hardware Wallets': {
 		type: 'separator',
