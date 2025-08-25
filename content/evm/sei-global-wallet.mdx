@@ -691,6 +691,172 @@ npm run dev
 
 </details>
 
+<details>
+  <summary>
+    <strong>HTML Bundle Integration</strong>
+  </summary>
+  For projects using plain HTML/JavaScript without a build system, you can create a bundled version of Sei Global Wallet to include directly in your HTML pages.
+
+Step 1: Create Bundle Directory
+
+```bash copy
+mkdir sei-global-wallet-bundle
+cd sei-global-wallet-bundle
+```
+
+Step 2: Initialize npm Project
+
+```bash copy
+npm init -y
+```
+
+Step 3: Install Dependencies
+
+```bash copy
+npm install @sei-js/sei-global-wallet
+```
+
+```bash copy
+npm install --save-dev esbuild
+```
+
+Step 4: Create Bundle Source File
+Create bundle.js:
+
+```js copy
+// bundle.js
+import '@sei-js/sei-global-wallet/eip6963';
+```
+
+Step 5: Update package.json
+Add this build script to your package.json:
+
+```json copy
+{
+  "scripts": {
+    "build": "esbuild bundle.js --bundle --format=iife --outfile=sei-wallet-bundled.js"
+  }
+}
+```
+
+Step 6: Build the Bundle
+
+```bash copy
+npm run build
+```
+
+This creates sei-wallet-bundled.js
+
+Step 7: Use in Your HTML Project
+
+Copy sei-wallet-bundled.js to your web project and use it:
+
+```html copy
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sei Global Wallet HTML Integration</title>
+  </head>
+  <body>
+    <h1>Sei Global Wallet HTML Integration</h1>
+    <p>Connect your Sei Global Wallet using plain HTML and JavaScript.</p>
+
+    <button onclick="scanForWallets()" id="scanBtn">🔍 Scan for Wallets</button>
+    <button onclick="connectToSei()" id="connectBtn" disabled>🔗 Connect to Sei</button>
+
+    <div id="walletList"></div>
+    <div id="accountInfo"></div>
+
+    <!-- Load the bundled Sei wallet file -->
+    <script src="./sei-wallet-bundled.js"></script>
+
+    <script>
+      let detectedWallets = [];
+
+      function scanForWallets() {
+        console.log('Scanning for EIP-6963 wallets...');
+        detectedWallets = [];
+
+        document.getElementById('walletList').innerHTML = '<p>Scanning for wallets...</p>';
+
+        const handleWalletAnnouncement = (event) => {
+          const wallet = event.detail;
+          if (!detectedWallets.find((w) => w.info.uuid === wallet.info.uuid)) {
+            detectedWallets.push(wallet);
+            updateWalletList();
+          }
+        };
+
+        window.addEventListener('eip6963:announceProvider', handleWalletAnnouncement);
+        window.dispatchEvent(new Event('eip6963:requestProvider'));
+
+        setTimeout(() => {
+          window.removeEventListener('eip6963:announceProvider', handleWalletAnnouncement);
+          if (detectedWallets.length === 0) {
+            document.getElementById('walletList').innerHTML = '<p>No wallets detected</p>';
+          }
+        }, 2000);
+      }
+
+      function updateWalletList() {
+        const walletListDiv = document.getElementById('walletList');
+        walletListDiv.innerHTML =
+          `<h3>Detected Wallets:</h3>` +
+          detectedWallets
+            .map((wallet) => {
+              const isSeiWallet = wallet.info.name.toLowerCase().includes('sei');
+              return `<div>
+                        <strong>${wallet.info.name}</strong> ${isSeiWallet ? '🎯' : ''}
+                        <br><small>${wallet.info.rdns}</small>
+                    </div>`;
+            })
+            .join('');
+
+        const seiWallet = detectedWallets.find((w) => w.info.name.toLowerCase().includes('sei'));
+        if (seiWallet) {
+          document.getElementById('connectBtn').disabled = false;
+        }
+      }
+
+      async function connectToSei() {
+        const seiWallet = detectedWallets.find((w) => w.info.name.toLowerCase().includes('sei'));
+
+        if (!seiWallet) {
+          console.error('No Sei wallet found');
+          return;
+        }
+
+        try {
+          const accounts = await seiWallet.provider.request({
+            method: 'eth_requestAccounts'
+          });
+
+          if (accounts && accounts.length > 0) {
+            document.getElementById('accountInfo').innerHTML = `
+                        <div>
+                            <h3>👤 Connected Account</h3>
+                            <p><strong>Wallet:</strong> ${seiWallet.info.name}</p>
+                            <p><strong>Address:</strong> ${accounts[0]}</p>
+                            <p><strong>Status:</strong> ✅ Connected successfully!</p>
+                        </div>`;
+          }
+        } catch (error) {
+          alert(`Connection failed: ${error.message}`);
+        }
+      }
+
+      window.addEventListener('load', () => {
+        setTimeout(scanForWallets, 500);
+      });
+    </script>
+  </body>
+</html>
+```
+
+</details>
+
 ## Troubleshooting & FAQ
 
 <Tabs items={['Troubleshooting', 'FAQ']}>
