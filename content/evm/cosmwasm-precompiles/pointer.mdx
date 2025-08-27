@@ -21,10 +21,6 @@ The Pointer precompile at address `0x000000000000000000000000000000000000100B` p
 
 - **Native Asset Integration:** Create ERC-20 compatible interfaces for Cosmos SDK native tokens
 - **CosmWasm Compatibility:** Bridge CW20 and CW721 contracts to EVM standards
-- **Automatic Standards:** Generated pointers follow ERC-20/ERC-721 standards automatically
-
-## Use Cases
-
 - **Unified Interfaces:** Create applications that seamlessly work with both EVM and Cosmos assets
 - **Migration Tools:** Help projects transition from Cosmos to EVM ecosystem
 - **Multi-Standard Support:** Support both fungible (ERC-20) and non-fungible (ERC-721) token standards
@@ -64,6 +60,13 @@ function addCW20Pointer(
 /// @param cwAddr The CW721 contract address to add.
 /// @return ret An Ethereum address of the created pointer contract.
 function addCW721Pointer(
+    string memory cwAddr
+) external returns (address ret);
+
+/// Adds a CW1155 pointer for the contract.
+/// @param cwAddr The CW1155 contract address to add.
+/// @return ret An Ethereum address of the created pointer contract.
+function addCW1155Pointer(
     string memory cwAddr
 ) external returns (address ret);
 ```
@@ -153,6 +156,10 @@ interface IPointerPrecompile {
     function addCW721Pointer(
         string memory cwAddr
     ) external returns (address ret);
+
+    function addCW1155Pointer(
+        string memory cwAddr
+    ) external returns (address ret);
 }
 ````
 
@@ -230,7 +237,6 @@ Each pointer type requires specific parameters:
 **Native Pointers:**
 
 - Bridge Cosmos SDK native tokens to ERC-20
-- Best for chain-native assets like SEI, ATOM
 - Automatic decimals handling
 - Direct bank module integration
 
@@ -256,7 +262,7 @@ Each pointer type requires specific parameters:
 ```typescript copy
 // Create a pointer for native SEI tokens
 async function createNativePointer() {
-  const tokenDenom = 'usei'; // Native SEI denomination
+  const tokenDenom = 'tokenfactory/....'; // Native SEI denomination
 
   try {
     console.log('Creating native pointer for:', tokenDenom);
@@ -529,29 +535,6 @@ contract CW721PointerManager {
 - **Duplicate Prevention:** Check if a pointer already exists to avoid unnecessary gas costs
 - **Address Format:** Validate CosmWasm contract address formats before pointer creation
 
-### Access Control
-
-```solidity copy
-// Implement proper access control for pointer creation
-modifier onlyAuthorized() {
-    require(authorized[msg.sender] || msg.sender == owner, "Not authorized");
-    _;
-}
-
-// Consider rate limiting for pointer creation
-mapping(address => uint256) public lastPointerCreation;
-uint256 public constant CREATION_COOLDOWN = 60; // 1 minute
-
-modifier rateLimited() {
-    require(
-        block.timestamp >= lastPointerCreation[msg.sender] + CREATION_COOLDOWN,
-        "Rate limit exceeded"
-    );
-    lastPointerCreation[msg.sender] = block.timestamp;
-    _;
-}
-```
-
 ## Working with Created Pointers
 
 ### Using Native Token Pointers
@@ -559,7 +542,7 @@ modifier rateLimited() {
 Once you create a native token pointer, you can interact with it like any ERC-20 token:
 
 ```typescript copy
-// After creating a native pointer for 'usei'
+// After creating a native pointer for 'tokenfactory/....'
 const ERC20_ABI = ['function balanceOf(address) view returns (uint256)', 'function transfer(address, uint256) returns (bool)', 'function approve(address, uint256) returns (bool)'];
 
 const seiPointer = new ethers.Contract(pointerAddress, ERC20_ABI, signer);
@@ -755,8 +738,8 @@ async function estimatePointerGas(type, asset) {
 
 **Native Tokens:**
 
-- Must be valid denominations registered on the Cosmos SDK bank module
-- Common examples: `usei`, `uatom`, `uosmo`
+- Must be valid denominations registered on the Cosmos SDK bank module.
+- Can be
 
 **CW20 Contracts:**
 
@@ -767,12 +750,5 @@ async function estimatePointerGas(type, asset) {
 
 - Must be deployed CosmWasm contracts implementing CW721 standard
 - Address format: `sei1...` (bech32 encoded)
-
-### Integration Benefits
-
-- **EVM Compatibility:** Use existing EVM tools with Cosmos assets
-- **Unified Development:** Single interface for multiple asset types
-- **Cross-Ecosystem:** Bridge between Cosmos and Ethereum ecosystems
-- **Standards Compliance:** Automatic compliance with ERC-20/ERC-721 standards
 
 <Callout type="info">View the Pointer precompile source code and the contract ABI [here](https://github.com/sei-protocol/sei-chain/tree/main/precompiles/pointer).</Callout>
