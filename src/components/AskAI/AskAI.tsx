@@ -7,7 +7,7 @@ const WIDGET_CSS = 'https://bb-chat-widget.s3.us-east-1.amazonaws.com/assets/sty
 const WIDGET_JS = 'https://bb-chat-widget.s3.us-east-1.amazonaws.com/assets/index.js';
 const WIDGET_ID = 'bytebellai';
 
-export const AskCookbook = () => {
+export const AskAI = () => {
 	const hostRef = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
@@ -29,7 +29,7 @@ export const AskCookbook = () => {
 		shadow.appendChild(container);
 
 		/* --- 4. Patch document.getElementById just once
-          so that “bytebellai” resolves to the shadow-root element.  */
+         so that “bytebellai” resolves to the shadow-root element.  */
 		const originalGetById = document.getElementById.bind(document);
 		document.getElementById = (id: string) => (id === WIDGET_ID ? container : originalGetById(id));
 

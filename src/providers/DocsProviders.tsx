@@ -1,7 +1,7 @@
 'use client';
 
 import { Layout, Navbar } from 'nextra-theme-docs';
-import { AskCookbook } from '../components';
+import { AskAI } from '../components';
 import { Logo, LogoMobile } from '../components/Logo';
 import React, { useState, useEffect } from 'react';
 import { Footer } from '../components/Footer/Footer';
@@ -39,7 +39,7 @@ export default function DocsProviders({ children, pageMap }) {
 					children={
 						<>
 							<div className='flex items-center gap-2'>
-								<AskCookbook />
+								<AskAI />
 								<a
 									href='https://support.sei.io/hc/en-us'
 									target='_blank'
@@ -63,7 +63,7 @@ export default function DocsProviders({ children, pageMap }) {
 				children={
 					<div className='flex items-center justify-between gap-4'>
 						<div className='flex-grow flex justify-start'>
-							<AskCookbook />
+							<AskAI />
 						</div>
 						<a
 							href='https://support.sei.io/hc/en-us'
