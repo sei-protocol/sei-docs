@@ -17,6 +17,9 @@ const withNextra = nextra({
 });
 
 export default withNextra({
+	experimental: {
+		legacyBrowsers: false
+	},
 	productionBrowserSourceMaps: false,
 	images: {
 		unoptimized: false,
@@ -42,10 +45,31 @@ export default withNextra({
 	async headers() {
 		return [
 			{
+				source: '/_next/static/(.*)',
+				headers: [
+					{ key: 'Cache-Control', value: 'public, max-age=3600, immutable' },
+					{ key: 'Vercel-CDN-Cache-Control', value: 'public, max-age=3600, immutable' }
+				]
+			},
+			{
+				source: '/assets/(.*)',
+				headers: [
+					{ key: 'Cache-Control', value: 'public, max-age=3600, immutable' },
+					{ key: 'Vercel-CDN-Cache-Control', value: 'public, max-age=3600, immutable' }
+				]
+			},
+			{
+				source: '/(.*)\\.(png|svg|jpg|jpeg|gif|webp|ico|woff2?)',
+				headers: [
+					{ key: 'Cache-Control', value: 'public, max-age=3600, immutable' },
+					{ key: 'Vercel-CDN-Cache-Control', value: 'public, max-age=3600, immutable' }
+				]
+			},
+			{
 				source: '/(.*)',
 				headers: [
-					{ key: 'Cache-Control', value: 'public, max-age=3600, must-revalidate' },
-					{ key: 'Vercel-CDN-Cache-Control', value: 'public, max-age=3600, must-revalidate' }
+					{ key: 'Cache-Control', value: 'public, max-age=300, s-maxage=3600, stale-while-revalidate=604800' },
+					{ key: 'Vercel-CDN-Cache-Control', value: 'public, max-age=300, s-maxage=3600, stale-while-revalidate=604800' }
 				]
 			}
 		];

@@ -73,6 +73,11 @@ export default async function RootLayout({ children }) {
 			<head>
 				<meta name='color-scheme' content='dark light' />
 				<link rel='canonical' href='https://docs.sei.io' />
+				{/* Performance hints */}
+				<link rel='preconnect' href='https://www.googletagmanager.com' crossOrigin='' />
+				<link rel='dns-prefetch' href='https://www.googletagmanager.com' />
+				<link rel='preconnect' href='https://bb-chat-widget.s3.us-east-1.amazonaws.com' crossOrigin='' />
+				<link rel='dns-prefetch' href='https://bb-chat-widget.s3.us-east-1.amazonaws.com' />
 			</head>
 			<body style={{ width: '100%', height: '100%' }}>
 				<Toaster position='bottom-left' />
