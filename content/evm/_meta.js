@@ -16,7 +16,6 @@ export default {
 	'installing-seid-cli': 'Installing seid CLI',
 	'querying-the-evm': 'Querying the EVM',
 	'transactions-with-seid': 'Transactions with seid',
-	'debugging-with-seid': 'Debugging with seid',
 	'best-practices': 'Best Practices',
 
 	'-- Frontend Development': {
@@ -45,6 +44,7 @@ export default {
 	},
 	'solidity-resources': 'Solidity Resources',
 	'optimizing-for-parallelization': 'Optimizing for Parallelization',
+	'debugging-contracts': 'Debugging for EVM',
 	tracing: 'Debug Tracing',
 	'evm-verify-contracts': 'Verify Contracts',
 	precompiles: 'Precompiles',
