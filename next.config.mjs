@@ -18,6 +18,7 @@ const withNextra = nextra({
 
 export default withNextra({
 	productionBrowserSourceMaps: false,
+	compress: true,
 	images: {
 		unoptimized: false,
 		contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
