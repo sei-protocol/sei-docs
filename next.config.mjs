@@ -17,9 +17,6 @@ const withNextra = nextra({
 });
 
 export default withNextra({
-	experimental: {
-		legacyBrowsers: false
-	},
 	productionBrowserSourceMaps: false,
 	images: {
 		unoptimized: false,
