@@ -39,16 +39,18 @@ export default function DocsProviders({ children, pageMap }) {
 					children={
 						<>
 							<div className='flex items-center gap-2'>
-								<AskAI />
 								<a
 									href='https://support.sei.io/hc/en-us'
 									target='_blank'
 									rel='noopener noreferrer'
-									className='text-sm hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors'
+									className='order-1 text-sm hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors'
 									style={{ textDecoration: 'none' }}>
 									Support
 								</a>
-								<Search placeholder='Search docs...' />
+								<AskAI className='order-2' />
+								<div className='order-3'>
+									<Search placeholder='Search docs...' />
+								</div>
 							</div>
 						</>
 					}
@@ -59,22 +61,24 @@ export default function DocsProviders({ children, pageMap }) {
 				logo={<Logo />}
 				logoLink='/'
 				/* Remove excessive horizontal padding on small/medium screens; restore on large */
-				className='flex items-center justify-between w-full dark:bg-neutral-900 bg-neutral-100 px-2 lg:px-4'
+				className='flex items-center w-full dark:bg-neutral-900 bg-neutral-100 px-2 lg:px-4'
 				children={
-					<div className='flex items-center justify-between gap-4'>
-						<div className='flex-grow flex justify-start'>
+					<div className='flex items-center gap-4 w-full'>
+						<div className='ml-auto flex items-center gap-4'>
+							<a
+								href='https://support.sei.io/hc/en-us'
+								target='_blank'
+								rel='noopener noreferrer'
+								className='text-sm hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors'
+								style={{ textDecoration: 'none' }}>
+								Support
+							</a>
 							<AskAI />
+							<div>
+								<Search placeholder='Search docs...' />
+							</div>
+							{isHomepage && <ThemeSwitch />}
 						</div>
-						<a
-							href='https://support.sei.io/hc/en-us'
-							target='_blank'
-							rel='noopener noreferrer'
-							className='text-sm hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors'
-							style={{ textDecoration: 'none' }}>
-							Support
-						</a>
-						<Search placeholder='Search docs...' />
-						{isHomepage && <ThemeSwitch />}
 					</div>
 				}
 			/>
