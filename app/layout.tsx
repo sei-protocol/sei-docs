@@ -3,7 +3,7 @@ import React from 'react';
 import { getPageMap } from 'nextra/page-map';
 import { Toaster } from 'sonner';
 import { Metadata } from 'next';
-import { GoogleAnalytics } from '@next/third-parties/google';
+import Script from 'next/script';
 
 import DocsProviders from '../src/providers/DocsProviders';
 
@@ -73,12 +73,22 @@ export default async function RootLayout({ children }) {
 			<head>
 				<meta name='color-scheme' content='dark light' />
 				<link rel='canonical' href='https://docs.sei.io' />
+				{/* Performance: avoid early preconnects to heavy third-parties */}
 			</head>
 			<body style={{ width: '100%', height: '100%' }}>
 				<Toaster position='bottom-left' />
 				<DocsProviders pageMap={await getPageMap()}>{children}</DocsProviders>
 			</body>
-			<GoogleAnalytics gaId='G-G33FDB53X5' />
+			{/* Google Analytics: lazy-load after window load */}
+			<Script src='https://www.googletagmanager.com/gtag/js?id=G-G33FDB53X5' strategy='lazyOnload' />
+			<Script id='ga-init' strategy='lazyOnload'>
+				{`
+					window.dataLayer = window.dataLayer || [];
+					function gtag(){dataLayer.push(arguments);}
+					gtag('js', new Date());
+					gtag('config', 'G-G33FDB53X5', { anonymize_ip: true });
+				`}
+			</Script>
 		</html>
 	);
 }

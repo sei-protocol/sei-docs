@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { EcosystemDocsCategory, EcosystemResponse, getSeiEcosystemAppByCategory } from '../../data/ecosystemData';
-import { EcosystemSkeleton } from '../EcosystemMap';
+import { EcosystemSkeleton } from './EcosystemSkeleton';
 import AppCardV2 from './AppCard.v2';
 
 function AppCardsGridCategory({ category }: { category: EcosystemDocsCategory }) {

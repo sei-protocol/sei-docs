@@ -1,7 +1,8 @@
 'use client';
 
 import { Layout, Navbar } from 'nextra-theme-docs';
-import { AskCookbook } from '../components';
+import dynamic from 'next/dynamic';
+const AskCookbook = dynamic(() => import('../components/AskCookbook/AskCookbook').then((m) => m.AskCookbook), { ssr: false, loading: () => <div /> });
 import { Logo, LogoMobile } from '../components/Logo';
 import React, { useState, useEffect } from 'react';
 import { Footer } from '../components/Footer/Footer';
