@@ -1,0 +1,95 @@
+---
+title: 'P256 Precompile'
+description: 'Verify secp256r1/P-256 signatures from EVM contracts for passkey and hardware wallet authentication.'
+keywords: ['p256', 'secp256r1', 'signature verification', 'passkey', 'webauthn']
+---
+
+import { Callout } from 'nextra/components';
+import { FunctionList, TroubleshootingTable } from '../../mdx-components';
+
+# P256 Precompile
+
+**Address:** `0x0000000000000000000000000000000000001011`
+
+Verify secp256r1 (P-256) signatures on-chain for passkey, WebAuthn, and hardware wallet integration.
+
+<Callout type="info">Implementation of [RIP-7212](https://github.com/ethereum/RIPs/blob/master/RIPS/rip-7212.md). Up to 60x more gas-efficient than Solidity-based verification.</Callout>
+
+## Functions
+
+<FunctionList
+  items={[
+    {
+      name: 'verify',
+      signature: 'function verify(bytes signature) view returns (bytes)',
+      description: 'Verify a P-256 signature; input must be 160 bytes (hash + r + s + x + y). Returns non-zero on success.'
+    }
+  ]}
+/>
+
+<details>
+<summary>Full Solidity Interface</summary>
+
+```solidity copy
+interface IP256Verify {
+  function verify(bytes calldata input) external view returns (bytes memory response);
+}
+```
+
+**Input format** (160 bytes total):
+
+- Bytes 0-31: message hash
+- Bytes 32-63: signature `r` component
+- Bytes 64-95: signature `s` component
+- Bytes 96-127: public key `x` coordinate
+- Bytes 128-159: public key `y` coordinate
+
+</details>
+
+## Example
+
+```typescript copy
+import { ethers } from 'ethers';
+
+const P256 = '0x0000000000000000000000000000000000001011';
+const ABI = ['function verify(bytes input) view returns (bytes)'];
+
+const provider = new ethers.JsonRpcProvider('https://evm-rpc.sei-apis.com');
+const p256 = new ethers.Contract(P256, ABI, provider);
+
+// Prepare input (message hash + r + s + publicKeyX + publicKeyY)
+const input = ethers.concat([messageHash, r, s, publicKeyX, publicKeyY]);
+const result = await p256.verify(input);
+
+// Non-zero result = valid signature
+const isValid = result !== ethers.ZeroHash;
+```
+
+## Use Cases
+
+- **PassKeys/WebAuthn**: Authenticate users via device biometrics
+- **Apple Secure Enclave**: Verify signatures from iOS/macOS hardware keys
+- **Android Keychain**: Support hardware-backed authentication
+- **HSMs**: Integrate with enterprise security modules
+
+## Notes
+
+- Gas cost: ~48,000 per verification (300 gas/byte × 160 bytes)
+- Input length must be exactly 160 bytes; shorter/longer inputs revert
+- Returns `bytes32(0)` on verification failure or malformed input
+- Public key validation is implicit; invalid curve points are rejected
+
+## Troubleshooting
+
+<TroubleshootingTable
+  rows={[
+    ['bytes32(0) returned', 'Signature invalid or public key not on P-256 curve', 'Verify signature components (r, s) and ensure public key is a valid curve point.'],
+    ['Revert / input error', 'Input length ≠ 160 bytes', 'Encode exactly five 32-byte components: hash, r, s, x, y.'],
+    ['Gas estimation high', 'Batch verification not optimized', 'Cache public keys on-chain to reduce calldata overhead.']
+  ]}
+/>
+
+## References
+
+- ABI: [github.com/sei-protocol/sei-chain/precompiles/p256](https://github.com/sei-protocol/sei-chain/tree/main/precompiles/p256)
+- RIP-7212: [github.com/ethereum/RIPs/blob/master/RIPS/rip-7212.md](https://github.com/ethereum/RIPs/blob/master/RIPS/rip-7212.md)

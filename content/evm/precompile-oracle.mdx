@@ -1,0 +1,122 @@
+---
+title: 'Oracle Precompile'
+description: 'Access Sei oracle price feeds from EVM contracts.'
+keywords: ['oracle', 'price feeds', 'twap', 'precompile', 'sei evm']
+---
+
+import { Callout } from 'nextra/components';
+import { FunctionList, TroubleshootingTable } from '../../mdx-components';
+
+# Oracle Precompile
+
+**Address:** `0x0000000000000000000000000000000000001006`
+
+Query real-time exchange rates and time-weighted average prices (TWAP) from Sei's native oracle directly in EVM contracts.
+
+<Callout type="info">Prices are USD-denominated decimal strings (e.g., "1.234567" = $1.234567). TWAP lookback limited to 60s–86,400s (1 min to 24 hours).</Callout>
+
+## Functions
+
+<FunctionList
+  items={[
+    {
+      name: 'getExchangeRates',
+      signature: 'function getExchangeRates() view returns (DenomOracleExchangeRatePair[])',
+      description: 'Return current exchange rates for all supported denoms (USD-denominated decimal strings).'
+    },
+    {
+      name: 'getOracleTwaps',
+      signature: 'function getOracleTwaps(uint64 lookback_seconds) view returns (OracleTwap[])',
+      description: 'Return time-weighted average prices over the specified lookback period (60s–86,400s).'
+    }
+  ]}
+/>
+
+<details>
+<summary>Full Solidity Interface</summary>
+
+```solidity copy
+struct OracleExchangeRate {
+    string exchangeRate;
+    string lastUpdate;
+    int64 lastUpdateTimestamp;
+}
+
+struct DenomOracleExchangeRatePair {
+    string denom;
+    OracleExchangeRate oracleExchangeRateVal;
+}
+
+/// Get exchange rates for all supported denoms.
+/// @return Array of denom + rate pairs
+function getExchangeRates() external view returns (DenomOracleExchangeRatePair[] memory);
+
+struct OracleTwap {
+    string denom;
+    string twap;
+    int64 lookbackSeconds;
+}
+
+/// Get TWAP for all denoms over a lookback period.
+/// @param lookback_seconds Lookback in seconds (60–86,400)
+/// @return Array of denom + TWAP pairs
+function getOracleTwaps(uint64 lookback_seconds) external view returns (OracleTwap[] memory);
+```
+
+</details>
+
+## Example
+
+```typescript copy
+import { ethers } from 'ethers';
+
+const ORACLE = '0x0000000000000000000000000000000000001006';
+const ABI = ['function getExchangeRates() view returns (tuple(string denom, tuple(string exchangeRate, string lastUpdate, int64 lastUpdateTimestamp) oracleExchangeRateVal)[])', 'function getOracleTwaps(uint64 lookback_seconds) view returns (tuple(string denom, string twap, int64 lookbackSeconds)[])'];
+
+const provider = new ethers.JsonRpcProvider('https://evm-rpc.sei-apis.com');
+const oracle = new ethers.Contract(ORACLE, ABI, provider);
+
+// Get current exchange rates
+const rates = await oracle.getExchangeRates();
+const seiRate = rates.find((r) => r.denom === 'usei');
+console.log('SEI price:', seiRate.oracleExchangeRateVal.exchangeRate);
+
+// Get 1-hour TWAP
+const twaps = await oracle.getOracleTwaps(3600);
+const seiTwap = twaps.find((t) => t.denom === 'usei');
+console.log('SEI 1h TWAP:', seiTwap.twap);
+```
+
+## Supported Denoms
+
+Common denominations:
+
+- `usei` — Micro SEI
+- `uusdc` — Micro USDC
+- `uatom` — Micro ATOM
+- `ueth` — Micro Ethereum
+- `ubtc` — Micro Bitcoin
+
+Call `getExchangeRates()` to see the full list of available price feeds.
+
+## Key Notes
+
+- Prices are decimal strings; parse as needed (avoid precision loss with `parseFloat`)
+- TWAP lookback: minimum 60s, maximum 86,400s (24 hours)
+- Oracle updates every block; check `lastUpdateTimestamp` for staleness
+- Empty results indicate denom not supported or oracle offline
+
+## Troubleshooting
+
+<TroubleshootingTable
+  rows={[
+    ['Empty array returned', 'No oracle data available for requested denoms', 'Verify oracle feeder is active; check network status.'],
+    ['Lookback out of range', 'lookback_seconds < 60 or > 86,400', 'Use value between 60 (1 min) and 86,400 (24 hours).'],
+    ['Denom not found', 'Requested denom not tracked by oracle', 'Call getExchangeRates() to list available denoms.']
+  ]}
+/>
+
+## References
+
+- ABI: [github.com/sei-protocol/sei-chain/precompiles/oracle](https://github.com/sei-protocol/sei-chain/tree/main/precompiles/oracle)
+- Oracle guide: [/learn/oracles](/learn/oracles)

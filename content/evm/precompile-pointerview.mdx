@@ -1,0 +1,90 @@
+---
+title: 'PointerView Precompile'
+description: 'Query pointer state and ownership between CW and EVM.'
+keywords: ['pointerview', 'interop', 'precompile', 'sei evm']
+---
+
+import { Callout } from 'nextra/components';
+import { FunctionList, TroubleshootingTable } from '../../mdx-components';
+
+# PointerView Precompile
+
+**Address:** `0x000000000000000000000000000000000000100A`
+
+Query registered pointers and their metadata.
+
+## Functions
+
+<FunctionList
+  items={[
+    {
+      name: 'getCW20Pointer',
+      signature: 'function getCW20Pointer(string cwAddr) view returns (address addr, uint16 version, bool exists)',
+      description: 'Fetch the ERC-20 pointer for a CW20 contract, plus version + existence flag.'
+    },
+    {
+      name: 'getCW721Pointer',
+      signature: 'function getCW721Pointer(string cwAddr) view returns (address addr, uint16 version, bool exists)',
+      description: 'Return ERC-721 pointer details for the CW721 contract.'
+    },
+    {
+      name: 'getCW1155Pointer',
+      signature: 'function getCW1155Pointer(string cwAddr) view returns (address addr, uint16 version, bool exists)',
+      description: 'Return ERC-1155 pointer data for the CW1155 contract.'
+    },
+    {
+      name: 'getNativePointer',
+      signature: 'function getNativePointer(string token) view returns (address addr, uint16 version, bool exists)',
+      description: 'Resolve the pointer contract for a native denom (e.g., "usei").'
+    }
+  ]}
+/>
+
+<details>
+<summary>Full Solidity Interface</summary>
+
+```solidity copy
+interface IPointerViewPrecompile {
+  function getCW20Pointer(string memory cwAddr) external view returns (address addr, uint16 version, bool exists);
+  function getCW721Pointer(string memory cwAddr) external view returns (address addr, uint16 version, bool exists);
+  function getCW1155Pointer(string memory cwAddr) external view returns (address addr, uint16 version, bool exists);
+  function getNativePointer(string memory token) external view returns (address addr, uint16 version, bool exists);
+}
+```
+
+</details>
+
+## Example
+
+```typescript copy
+import { ethers } from 'ethers';
+
+const POINTER_VIEW = '0x000000000000000000000000000000000000100A';
+const ABI = ['function getCW20Pointer(string cwAddr) view returns (address addr, uint16 version, bool exists)', 'function getNativePointer(string token) view returns (address addr, uint16 version, bool exists)'];
+
+const provider = new ethers.JsonRpcProvider('https://evm-rpc.sei-apis.com');
+const pointerView = new ethers.Contract(POINTER_VIEW, ABI, provider);
+
+const [cw20Addr, cw20Version, cw20Exists] = await pointerView.getCW20Pointer('sei1cw20...');
+if (cw20Exists) {
+  console.log(`ERC-20 pointer deployed at ${cw20Addr} (version ${cw20Version})`);
+}
+
+const [nativeAddr] = await pointerView.getNativePointer('usei');
+console.log('Native pointer for usei:', nativeAddr);
+```
+
+## Notes
+
+- PointerView is read-only; use the Pointer precompile to create new mappings
+- Results mirror on-chain state; cache responses client-side to avoid unnecessary RPC calls
+- Use PointerView to confirm pointer ownership before invoking Pointer-dependent precompiles
+
+## Troubleshooting
+
+<TroubleshootingTable
+  rows={[
+    ['address(0) returned', 'Pointer not registered for the specified contract/denom', 'Register via Pointer precompile or verify version matrix for support.'],
+    ['exists = false', 'Pointer record never created or removed', 'Validate mapping history; re-run registration if needed.']
+  ]}
+/>

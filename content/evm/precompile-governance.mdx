@@ -1,0 +1,137 @@
+---
+title: 'Governance Precompile'
+description: 'Submit proposals, vote, and deposit to Sei governance from EVM contracts.'
+keywords: ['governance', 'proposals', 'voting', 'precompile', 'sei evm']
+---
+
+import { Callout } from 'nextra/components';
+import { FunctionList, TroubleshootingTable } from '../../mdx-components';
+
+# Governance Precompile
+
+**Address:** `0x0000000000000000000000000000000000001006`
+
+Interact with Sei's on-chain governance system from EVM contracts: submit proposals, cast votes, and add deposits.
+
+## Functions
+
+<FunctionList
+  items={[
+    {
+      name: 'submitProposal',
+      signature: 'function submitProposal(string proposalJSON) payable returns (uint64)',
+      description: 'Submit a new governance proposal with JSON-encoded details and initial deposit.'
+    },
+    {
+      name: 'deposit',
+      signature: 'function deposit(uint64 proposalID) payable returns (bool)',
+      description: 'Add funds to an existing proposal to help it reach the minimum deposit threshold.'
+    },
+    {
+      name: 'vote',
+      signature: 'function vote(uint64 proposalID, int32 option) returns (bool)',
+      description: 'Cast a single-option vote on a proposal (1=Yes, 2=Abstain, 3=No, 4=NoWithVeto).'
+    },
+    {
+      name: 'voteWeighted',
+      signature: 'function voteWeighted(uint64 proposalID, WeightedVoteOption[] options) returns (bool)',
+      description: 'Split voting power across multiple options; weights must sum to exactly 1.0.'
+    }
+  ]}
+/>
+
+<details>
+<summary>Full Solidity Interface</summary>
+
+```solidity copy
+/// Submit a new governance proposal with JSON-encoded details.
+/// @param proposalJSON JSON string: { "title": "...", "description": "...", "type": "Text", "is_expedited": false }
+/// @return proposalID The ID of the created proposal
+function submitProposal(string calldata proposalJSON) payable external returns (uint64 proposalID);
+
+/// Add a deposit to an existing proposal.
+/// @param proposalID The ID of the proposal to deposit to
+/// @return success Whether the deposit was accepted
+function deposit(uint64 proposalID) payable external returns (bool success);
+
+/// Cast a vote on a proposal.
+/// @param proposalID The ID of the proposal
+/// @param option Vote option: 1=Yes, 2=Abstain, 3=No, 4=NoWithVeto
+/// @return success Whether the vote was cast
+function vote(uint64 proposalID, int32 option) external returns (bool success);
+
+struct WeightedVoteOption {
+    int32 option;   // 1=Yes, 2=Abstain, 3=No, 4=NoWithVeto
+    string weight;  // Decimal string (e.g., "0.7"); must sum to 1.0 across all options
+}
+
+/// Cast a weighted vote (split voting power across multiple options).
+/// @param proposalID The ID of the proposal
+/// @param options Array of weighted vote options (MUST sum to exactly 1.0)
+/// @return success Whether the vote was cast
+function voteWeighted(uint64 proposalID, WeightedVoteOption[] calldata options) external returns (bool success);
+```
+
+</details>
+
+## Example (submit proposal)
+
+```typescript copy
+import { ethers } from 'ethers';
+
+const GOV = '0x0000000000000000000000000000000000001006';
+const ABI = ['function submitProposal(string proposalJSON) payable returns (uint64)', 'function vote(uint64 proposalID, int32 option) returns (bool)', 'function deposit(uint64 proposalID) payable returns (bool)', 'function voteWeighted(uint64 proposalID, tuple(int32 option, string weight)[] options) returns (bool)'];
+
+const provider = new ethers.BrowserProvider(window.ethereum);
+await provider.send('eth_requestAccounts', []);
+const gov = new ethers.Contract(GOV, ABI, await provider.getSigner());
+
+// Submit proposal with 3,500 SEI minimum deposit
+const proposal = JSON.stringify({
+  title: 'Parameter Update Proposal',
+  description: 'Adjust gas limits for improved performance.',
+  type: 'Text',
+  is_expedited: false
+});
+
+const tx = await gov.submitProposal(proposal, { value: ethers.parseEther('3500') });
+const receipt = await tx.wait();
+console.log('Proposal submitted:', receipt);
+```
+
+## Example (vote)
+
+```typescript copy
+// Vote Yes on proposal #1
+await gov.vote(1n, 1);
+
+// Weighted vote (70% Yes, 30% Abstain)
+await gov.voteWeighted(1n, [
+  { option: 1, weight: '0.7' },
+  { option: 2, weight: '0.3' }
+]);
+```
+
+## Key Requirements
+
+- **Minimum deposit**: 3,500 SEI for standard proposals; 7,000 SEI for expedited
+- **Voting power**: Must stake SEI with validators to participate
+- **Weighted votes**: Options must sum to exactly 1.0 or transaction fails
+- **Deposit period**: 2 days; proposals failing to reach minimum are rejected
+- **Voting period**: 3 days (1 day for expedited)
+
+## Troubleshooting
+
+<TroubleshootingTable
+  rows={[
+    ['cannot call gov precompile from staticcall', 'Called via eth_call instead of transaction', 'Use regular transactions for submitProposal, vote, and deposit.'],
+    ['cannot delegatecall gov', 'Invoked via delegatecall', 'Call governance precompile directly.'],
+    ['set value field to non-zero', 'submitProposal or deposit with zero msg.value', 'Include minimum deposit (3,500 SEI standard, 7,000 SEI expedited) via msg.value.'],
+    ['too many vote options', 'voteWeighted with excessive options', 'Limit weighted vote options to reasonable count (<10).']
+  ]}
+/>
+
+## References
+
+- ABI: [github.com/sei-protocol/sei-chain/precompiles/gov](https://github.com/sei-protocol/sei-chain/tree/main/precompiles/gov)
+- Governance guide: [/learn/general-governance](/learn/general-governance)
