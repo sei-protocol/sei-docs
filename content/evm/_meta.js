@@ -16,7 +16,6 @@ export default {
 	'installing-seid-cli': 'Installing seid CLI',
 	'querying-the-evm': 'Querying the EVM',
 	'transactions-with-seid': 'Transactions with seid',
-	'best-practices': 'Best Practices',
 
 	'-- Frontend Development': {
 		type: 'separator',
