@@ -1,0 +1,98 @@
+---
+title: 'Indexing Best Practices'
+description: 'Reliable log ingestion on Sei: windows, backfills, reorgs, rate limits, and schema design.'
+keywords: ['indexing', 'logs', 'reorgs', 'backfill', 'best practices']
+---
+
+import { Callout } from 'nextra/components';
+import { CardGrid } from '../../mdx-components';
+
+# Indexing Best Practices
+
+## Windows & Limits
+
+Sei inherits Tendermint finality (single block confirmation) but enforces RPC limits to protect full nodes. Respect the following caps when building log indexers:
+
+- `eth_getLogs` window default: **2,000 blocks**.
+- Open-ended queries (no `fromBlock`/`toBlock`) cap at **10,000 logs**; always anchor both block bounds.
+- Subscription catch-up delivers up to **512 events per batch** before backpressure kicks in.
+- Archive providers may expose wider windows; detect and adapt via feature flags.
+
+## Backfill Strategy
+
+- Backfill newest → oldest to keep current data fresh while draining history.
+- Use chunk sizes of 250–500 blocks to balance node load and throughput.
+- Persist checkpoints after each successful window to resume without duplicate ingestion.
+- When replaying synthetic events, record the `synthetic` log flag ([v6.1.11+](https://github.com/sei-protocol/sei-chain/releases/tag/v6.1.11)) to differentiate from contract-emitted logs.
+
+## Reorg Handling
+
+Sei produces instant finality; however, nodes may restart mid-ingest. Implement safeguards anyway:
+
+- Persist the highest fully processed height; after restarts resume from `height - safetyBuffer` (recommend 10 blocks).
+- Verify block hash continuity even under finality to detect provider restarts.
+- For websocket subscribers, rehydrate missed blocks using `eth_getLogs` if the connection drops for more than 3 seconds.
+
+## Rate Limits & Retries
+
+- Throttle requests to one window per 200 ms unless working with a dedicated archive endpoint.
+- Respect HTTP `429` responses—exponential backoff starting at 1s, max 30s.
+- Retry `EOF` and transient network errors up to 5 attempts; avoid retrying contract-level reverts.
+- Encode idempotency by hashing blockNumber + logIndex to prevent duplicate writes when retries occur.
+
+## Schema Design
+
+- Model logs with composite unique key `(blockNumber, transactionHash, logIndex)`.
+- Store `topics` as arrays with a secondary index on `topic0` for fast event filtering.
+- Persist `synthetic` boolean to separate Cosmos module events from contract logs.
+- Keep raw `data` hex for replay; additionally decode known ABI payloads into typed columns for analytics surfaces.
+
+## Flow At A Glance
+
+<div className="rounded-2xl border border-neutral-200 dark:border-neutral-800 px-6 py-8 bg-white dark:bg-neutral-900/50">
+  <div className="grid gap-6 md:grid-cols-3">
+    <div className="space-y-3">
+      <div className="flex items-center gap-3">
+        <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-red-500/10 text-sm font-semibold text-red-600 dark:text-red-400">01</span>
+        <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">Discover latest height</p>
+      </div>
+      <p className="text-sm text-neutral-600 dark:text-neutral-400">Call `eth_blockNumber` every loop and persist the safe tip before starting a window.</p>
+    </div>
+    <div className="space-y-3">
+      <div className="flex items-center gap-3">
+        <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-red-500/10 text-sm font-semibold text-red-600 dark:text-red-400">02</span>
+        <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">Windowed `eth_getLogs`</p>
+      </div>
+      <p className="text-sm text-neutral-600 dark:text-neutral-400">Query bounded ranges (≤2k blocks) and honour the log cap. Store the `synthetic` flag with each event.</p>
+    </div>
+    <div className="space-y-3">
+      <div className="flex items-center gap-3">
+        <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-red-500/10 text-sm font-semibold text-red-600 dark:text-red-400">03</span>
+        <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">Write & checkpoint</p>
+      </div>
+      <p className="text-sm text-neutral-600 dark:text-neutral-400">Commit the batch, advance the checkpoint (`height`, `txHash`, `logIndex`), then throttle before the next loop.</p>
+    </div>
+  </div>
+</div>
+
+## Reference Implementations
+
+<CardGrid
+  items={[
+    {
+      title: '@sei-js/evm indexing scripts',
+      description: 'Production-ready ingestion loop with retries, checkpointing, and synthetic log metadata.',
+      href: 'https://github.com/sei-protocol/sei-js/tree/main/packages/indexing'
+    },
+    {
+      title: 'Tracing playbook',
+      description: 'Understand trace limits and panic handling when debugging ingestion anomalies.',
+      href: '/evm/tracing/playbook'
+    },
+    {
+      title: 'Pointers deep dive',
+      description: 'Learn how pointer metadata influences synthetic events surfaced during indexing.',
+      href: '/evm/pointers/deep-dive'
+    }
+  ]}
+/>

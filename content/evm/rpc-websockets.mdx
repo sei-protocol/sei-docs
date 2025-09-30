@@ -1,0 +1,164 @@
+---
+title: 'WebSockets & Subscriptions'
+description: 'Design robust WS consumers on Sei: caps, heartbeats, reconnect, replay, and best practices.'
+keywords: ['websocket', 'subscriptions', 'newHeads', 'logs', 'reliability', 'sei evm']
+---
+
+import { Callout } from 'nextra/components';
+import { TroubleshootingTable } from '../../mdx-components';
+
+# WebSockets & Subscriptions
+
+Real-time event streams via WebSocket subscriptions (`eth_subscribe`) for `newHeads`, `logs`, and `newPendingTransactions`.
+
+## Configuration Limits
+
+| Parameter                    | Default   | Description                                                         |
+| :--------------------------- | :-------- | :------------------------------------------------------------------ |
+| `max_subscriptions_new_head` | 10,000    | Maximum concurrent `newHeads` subscriptions per node                |
+| Subscription buffer          | 10 blocks | Internal buffer per subscription; slow consumers trigger disconnect |
+| Connection capacity          | 100       | Maximum subscriptions per connection (all types combined)           |
+
+<Callout type="warning">Nodes enforce `max_subscriptions_new_head` globally. When the limit is reached, new `eth_subscribe('newHeads')` calls return `no new subscription can be created`.</Callout>
+
+## Supported Subscription Types
+
+### newHeads
+
+Streams new block headers as they're produced (~400ms on Sei).
+
+```typescript copy
+// Function: eth_subscribe('newHeads')
+import WebSocket from 'ws';
+
+const ws = new WebSocket('wss://evm-rpc.sei-apis.com');
+
+ws.on('open', () => {
+  ws.send(
+    JSON.stringify({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'eth_subscribe',
+      params: ['newHeads']
+    })
+  );
+});
+
+ws.on('message', (data) => {
+  const msg = JSON.parse(data.toString());
+  if (msg.method === 'eth_subscription') {
+    console.log('New block:', msg.params.result.number);
+  }
+});
+```
+
+### logs
+
+Streams logs matching filter criteria (address, topics).
+
+```typescript copy
+// Function: eth_subscribe('logs', filter)
+ws.send(
+  JSON.stringify({
+    jsonrpc: '2.0',
+    id: 2,
+    method: 'eth_subscribe',
+    params: [
+      'logs',
+      {
+        address: '0xYourContract...',
+        topics: ['0xYourEventSignature...']
+      }
+    ]
+  })
+);
+```
+
+### newPendingTransactions
+
+Streams transaction hashes as they enter the mempool.
+
+```typescript copy
+// Function: eth_subscribe('newPendingTransactions')
+ws.send(
+  JSON.stringify({
+    jsonrpc: '2.0',
+    id: 3,
+    method: 'eth_subscribe',
+    params: ['newPendingTransactions']
+  })
+);
+```
+
+## Connection Management
+
+**Heartbeats:**
+
+- Send ping frames every 30–60 seconds
+- Missing pongs indicate stale connection; reconnect immediately
+
+**Backoff on reconnect:**
+
+- Use exponential backoff with jitter (start 1s, max 30s)
+- After reconnect, fetch latest block via HTTP before resubscribing to establish checkpoint
+
+**Subscription cleanup:**
+
+- Always call `eth_unsubscribe` before closing connection
+- Node auto-cleans subscriptions on disconnect, but explicit cleanup is best practice
+
+## Replay & Gap Handling
+
+When a WebSocket disconnects:
+
+1. **Track last processed block** (store `block.number` and `block.hash`)
+2. **On reconnect**, fetch current head via HTTP `eth_blockNumber`
+3. **Backfill gaps** using `eth_getLogs` with block ranges ≤ 2,000 blocks (respects `MaxBlocksForLog`)
+4. **Deduplicate** by `(transactionHash, logIndex)` to handle overlaps
+5. **Resume** subscription from current head
+
+```typescript copy
+// Gap backfill pattern
+async function backfillGap(fromBlock: number, toBlock: number) {
+  const logs = await httpProvider.send('eth_getLogs', [
+    {
+      fromBlock: `0x${fromBlock.toString(16)}`,
+      toBlock: `0x${toBlock.toString(16)}`,
+      address: contractAddress
+    }
+  ]);
+
+  // Deduplicate and process
+  const seen = new Set();
+  for (const log of logs) {
+    const key = `${log.transactionHash}-${log.logIndex}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      processLog(log);
+    }
+  }
+}
+```
+
+## Best Practices
+
+- **One subscription per topic** - Fan out internally rather than creating duplicate `newHeads` subscriptions
+- **Monitor buffer health** - Track dropped subscriptions (channel closure) as a signal of slow consumption
+- **Hybrid approach** - Use WebSocket for real-time updates, HTTP for historical queries and backfills
+- **Avoid trace/sim during WS handling** - Offload heavy `debug_traceTransaction` calls to background workers
+
+## Troubleshooting
+
+<TroubleshootingTable
+  rows={[
+    ['no new subscription can be created', 'Node newHeads limit (10,000) reached', 'Check node config for max_subscriptions_new_head; reuse existing subscriptions or request limit increase.'],
+    ['Subscription closed unexpectedly', 'Consumer not draining buffer fast enough', 'Increase processing speed or buffer size; slow consumers trigger auto-close.'],
+    ['Missing blocks after reconnect', 'Gap in stream during disconnect', 'Backfill using eth_getLogs with last processed block as fromBlock.'],
+    ['Connection drops frequently', 'Network instability or missing heartbeats', 'Implement ping/pong heartbeat every 30s; reconnect with exponential backoff.']
+  ]}
+/>
+
+## References
+
+- WebSocket implementation: [github.com/sei-protocol/sei-chain/evmrpc/subscribe.go](https://github.com/sei-protocol/sei-chain/blob/main/evmrpc/subscribe.go)
+- Configuration: [EVM RPC Config](/node/evmrpc-config)
