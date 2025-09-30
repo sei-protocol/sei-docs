@@ -13,6 +13,23 @@ operation.
 
 Here are the most frequent errors you might encounter and their solutions:
 
+### Gas Accounting & RPC Anomalies ([v6.1.11+](https://github.com/sei-protocol/sei-chain/releases/tag/v6.1.11))
+
+```text copy
+Observation: Transaction receipts show `gasUsed = 0`
+Resolution: Ensure the node is running sei-chain v6.1.11 or later. Replay the transaction with `seid tx ... --trace` or query via a node on the latest release.
+```
+
+```text copy
+Observation: `eth_estimateGas` fails for pointer migrations
+Resolution: Pointer association logic now runs inside the estimator. Retry on v6.1.11 or later and ensure the caller is correctly associated.
+```
+
+```text copy
+Observation: `debug_traceTransaction` returns `frame exceeded limit`
+Resolution: New 64 KB frame guard rejects oversized tracer responses. Reduce output size (log hashes, paginate) or split complex tracers.
+```
+
 ### Consensus Errors
 
 When you encounter consensus errors, quick and appropriate action is essential:
@@ -80,6 +97,9 @@ seid query staking validator $(seid tendermint show-validator)
 
 # Monitor real-time logs
 journalctl -fu seid -o cat
+
+# Inspect mempool contention
+seid tx mempool pending --output json | jq '.total'
 
 # View system resource usage
 top -p $(pgrep seid)
@@ -351,13 +371,13 @@ Do this in your preferred way.
 
 Next, do a soft rollback with:
 
-```bash
+```bash copy
 seid rollback
 ```
 
 And then a hard rollback with:
 
-```bash
+```bash copy
 seid rollback --hard
 ```
 
@@ -372,3 +392,37 @@ failed to initialize database: resource temporarily unavailable
 This means that you did not shutdown the node properly. Try to shutdown or kill the `seid` process directly in that case. If this doesn't help, restart your machine.
 
 Then try the rollback steps again.
+
+## Operator Quick Checks
+
+**Confirm accurate `gasUsed`**
+
+```bash
+seid query tx TXHASH --output json | jq '.gas_used'
+```
+
+Expect non-zero values for transactions executed on v6.1.11 or later.
+
+**Inspect pointer associations**
+
+```bash
+seid query evm pointers associated EVMADDR
+```
+
+Ensures Solo migrations target the correct Sei bech32 owners.
+
+**Validate tracer frame guard**
+
+```bash
+curl -X POST $RPC/debug_traceTransaction ...
+```
+
+Requests should fail fast with `frame exceeded limit` if tracers emit >64 KB.
+
+**Measure mempool contention**
+
+```bash
+seid tx mempool pending --output json | jq '.total'
+```
+
+Totals should remain stable (under 10k). Spikes indicate duplicate cache issues.

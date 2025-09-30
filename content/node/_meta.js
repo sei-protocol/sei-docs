@@ -19,6 +19,7 @@ export default {
 		title: 'Advanced Operations'
 	},
 	'advanced-config-monitoring': 'Advanced Configuration & Monitoring',
+	'evmrpc-config': 'EVMRPC Config Runbook',
 	'technical-reference': 'Technical Reference',
 	'ibc-relayer': 'IBC Relayers'
 };
