@@ -48,9 +48,9 @@ export function CardGrid({ items = [] }) {
 					href={it.href}
 					className='group rounded-lg border border-neutral-200 bg-white/90 p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-neutral-300 hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900/70 dark:hover:border-neutral-700'>
 					<div className='text-sm font-medium text-neutral-800 transition group-hover:text-neutral-600 dark:text-neutral-100 dark:group-hover:text-neutral-200'>
-						{it.title}
+						{renderInlineCode(it.title)}
 					</div>
-					<div className='mt-1 text-sm text-neutral-600 dark:text-neutral-300'>{it.description}</div>
+					<div className='mt-1 text-sm text-neutral-600 dark:text-neutral-300'>{renderInlineCode(it.description)}</div>
 				</a>
 			))}
 		</div>

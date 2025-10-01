@@ -53,65 +53,74 @@ Run these checks whenever you upgrade to a new Sei release or patch your RPC nod
 ## Sample Scripts
 
 <Tabs items={['Node.js', 'Go']}>
-  <div>
-
+  <Tabs.Tab>
 ```javascript copy
 import { JsonRpcProvider } from 'ethers';
 
-const provider = new JsonRpcProvider('http://localhost:8545');
+const provider = new JsonRpcProvider('https://sei.yournode.example', {
+name: 'sei',
+chainId: 1329
+});
 
 async function verifyBlockGas(blockTag = 'latest') {
-  const block = await provider.send('eth_getBlockByNumber', [blockTag, true]);
-  const receipts = await Promise.all(block.transactions.map((tx) => provider.send('eth_getTransactionReceipt', [tx.hash])));
+const block = await provider.getBlock(blockTag, true);
+const receiptGas = await Promise.all(
+block.transactions.map((hash) => provider.getTransactionReceipt(hash))
+);
 
-  const sum = receipts.reduce((acc, r) => acc + BigInt(r.gasUsed), 0n);
-  if (sum !== BigInt(block.gasUsed)) {
-    throw new Error(`Mismatch: block=${block.gasUsed} receipts=${sum.toString(16)}`);
-  }
+const sum = receiptGas.reduce((acc, receipt) => acc + receipt.gasUsed, 0n);
+
+if (block.gasUsed !== sum) {
+throw new Error(`Mismatch: block ${block.gasUsed} vs receipts ${sum}`);
+}
 }
 
 verifyBlockGas().then(() => console.log('Gas totals match.'));
-```
 
-  </div>
-  <div>
-
+````
+  </Tabs.Tab>
+  <Tabs.Tab>
 ```go copy
 package main
 
 import (
-	"context"
-	"log"
+  "context"
+  "fmt"
+  "log"
 
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/ethclient"
+  "github.com/ethereum/go-ethereum/ethclient"
 )
 
 func main() {
-	client, err := ethclient.Dial("ws://localhost:8546")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer client.Close()
+  client, err := ethclient.Dial("https://sei.yournode.example")
+  if err != nil {
+    log.Fatal(err)
+  }
 
-	headers := make(chan *types.Header)
-	sub, err := client.SubscribeNewHead(context.Background(), headers)
-	if err != nil {
-		log.Fatal(err)
-	}
+  block, err := client.BlockByNumber(context.Background(), nil)
+  if err != nil {
+    log.Fatal(err)
+  }
 
-	for i := 0; i < 100; i++ {
-		select {
-		case err := <-sub.Err():
-			log.Fatalf("subscription dropped: %v", err)
-		case header := <-headers:
-			log.Printf("new head: %s", header.Hash())
-		}
-	}
+  receipts, err := client.BlockReceipts(context.Background(), block.Hash())
+  if err != nil {
+    log.Fatal(err)
+  }
+
+  var sum uint64
+  for _, receipt := range receipts {
+    sum += receipt.GasUsed
+  }
+
+  if block.GasUsed() != sum {
+    log.Fatalf("Mismatch: block %d vs receipts %d", block.GasUsed(), sum)
+  }
+
+  fmt.Println("Gas totals match.")
 }
-```
+````
 
-  </div>
+  </Tabs.Tab>
 </Tabs>
 
 ## Troubleshooting
