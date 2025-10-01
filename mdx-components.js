@@ -4,15 +4,13 @@ const themeComponents = getThemeComponents();
 
 export function KeyValueTable({ rows = [] }) {
 	return (
-		<div className='not-prose overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900'>
-			<table className='w-full text-sm'>
+		<div className='not-prose overflow-hidden rounded-xl border border-neutral-200 bg-white/95 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/80'>
+			<table className='w-full border-collapse text-sm'>
 				<tbody className='divide-y divide-neutral-100 dark:divide-neutral-800'>
-					{rows.map(([k, v], i) => (
-						<tr key={i} className='flex flex-col gap-1 px-4 py-3 sm:table-row sm:px-6'>
-							<td className='font-mono text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400 sm:whitespace-nowrap sm:align-top sm:pr-6 sm:text-[11px]'>
-								{k}
-							</td>
-							<td className='text-neutral-900 dark:text-neutral-100 sm:text-sm'>{v}</td>
+					{rows.map(([label, value], i) => (
+						<tr key={i}>
+							<td className='w-full px-4 py-3 text-sm font-semibold text-neutral-900 dark:text-neutral-100 sm:w-60 sm:align-top sm:px-6'>{label}</td>
+							<td className='px-4 py-3 text-sm text-neutral-600 dark:text-neutral-300 sm:px-6'>{value}</td>
 						</tr>
 					))}
 				</tbody>
