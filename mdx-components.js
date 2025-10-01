@@ -2,15 +2,35 @@ import { useMDXComponents as getThemeComponents } from 'nextra-theme-docs';
 
 const themeComponents = getThemeComponents();
 
+function renderInlineCode(content) {
+	if (typeof content !== 'string') {
+		return content;
+	}
+
+	return content.split(/(`[^`]+`)/g).map((part, idx) => {
+		if (part.startsWith('`') && part.endsWith('`')) {
+			return (
+				<code key={idx} className='rounded bg-neutral-100 px-1.5 py-0.5 text-xs text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200'>
+					{part.slice(1, -1)}
+				</code>
+			);
+		}
+
+		return <span key={idx}>{part}</span>;
+	});
+}
+
 export function KeyValueTable({ rows = [] }) {
 	return (
-		<div className='not-prose overflow-hidden rounded-xl border border-neutral-200 bg-white/95 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/80'>
+		<div className='not-prose mt-4 mb-6 overflow-hidden rounded-xl border border-neutral-200 bg-white/95 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/80'>
 			<table className='w-full border-collapse text-sm'>
 				<tbody className='divide-y divide-neutral-100 dark:divide-neutral-800'>
 					{rows.map(([label, value], i) => (
 						<tr key={i}>
-							<td className='w-full px-4 py-3 text-sm font-semibold text-neutral-900 dark:text-neutral-100 sm:w-60 sm:align-top sm:px-6'>{label}</td>
-							<td className='px-4 py-3 text-sm text-neutral-600 dark:text-neutral-300 sm:px-6'>{value}</td>
+							<td className='w-full px-4 py-3 text-sm font-semibold text-neutral-900 dark:text-neutral-100 sm:w-60 sm:align-top sm:px-6'>
+								{renderInlineCode(label)}
+							</td>
+							<td className='px-4 py-3 align-top text-sm text-neutral-600 dark:text-neutral-300 sm:px-6'>{renderInlineCode(value)}</td>
 						</tr>
 					))}
 				</tbody>
@@ -21,7 +41,7 @@ export function KeyValueTable({ rows = [] }) {
 
 export function CardGrid({ items = [] }) {
 	return (
-		<div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-3'>
+		<div className='not-prose mt-4 mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3'>
 			{items.map((it, i) => (
 				<a
 					key={i}
@@ -39,7 +59,7 @@ export function CardGrid({ items = [] }) {
 
 export function FunctionList({ items = [] }) {
 	return (
-		<div className='not-prose overflow-x-auto'>
+		<div className='not-prose mt-4 mb-6 overflow-x-auto'>
 			<table className='w-full border-collapse text-sm'>
 				<thead>
 					<tr className='border-b border-neutral-200 dark:border-neutral-800'>
@@ -65,7 +85,7 @@ export function FunctionList({ items = [] }) {
 
 export function TroubleshootingTable({ rows = [] }) {
 	return (
-		<div className='not-prose overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900'>
+		<div className='not-prose mt-4 mb-6 overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900'>
 			<table className='w-full text-sm'>
 				<thead className='border-b border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900/70'>
 					<tr>
@@ -80,8 +100,8 @@ export function TroubleshootingTable({ rows = [] }) {
 							<td className='px-4 py-3 align-top'>
 								<code className='text-xs text-neutral-700 dark:text-neutral-300'>{error}</code>
 							</td>
-							<td className='px-4 py-3 text-sm text-neutral-600 dark:text-neutral-300'>{cause}</td>
-							<td className='px-4 py-3 text-sm text-neutral-600 dark:text-neutral-300'>{fix}</td>
+							<td className='px-4 py-3 text-sm text-neutral-600 dark:text-neutral-300'>{renderInlineCode(cause)}</td>
+							<td className='px-4 py-3 text-sm text-neutral-600 dark:text-neutral-300'>{renderInlineCode(fix)}</td>
 						</tr>
 					))}
 				</tbody>
@@ -92,7 +112,7 @@ export function TroubleshootingTable({ rows = [] }) {
 
 export function VersionTimeline({ releases = [] }) {
 	return (
-		<div className='not-prose overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900'>
+		<div className='not-prose mt-4 mb-6 overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900'>
 			<table className='w-full text-sm'>
 				<thead className='border-b border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900/70'>
 					<tr>
