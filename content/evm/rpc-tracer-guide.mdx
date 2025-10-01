@@ -1,0 +1,79 @@
+---
+title: 'Custom Tracer Authoring Guide'
+description: 'Best practices for building JavaScript tracers against Sei’s go-ethereum fork.'
+keywords: ['debug_traceTransaction', 'debug_traceCall', 'custom tracer', 'go-ethereum tracer', 'panic handling']
+---
+
+import { Callout } from 'nextra/components';
+import { TroubleshootingTable } from '../../mdx-components';
+
+# Custom Tracer Authoring Guide
+
+Sei exposes the standard `debug_trace*` RPC suite and accepts the same JavaScript tracer scripts as upstream go-ethereum. This guide captures the runtime expectations introduced in `v1.15.7-sei-6` and `v1.15.7-sei-7`, plus Sei-specific conventions for panic handling.
+
+## Runtime Expectations
+
+<Callout type="info">Sei ships go-ethereum `v1.15.7-sei-7` (`eth/tracers/api.go`, `eth/tracers/native/call.go`). Ensure your tracer works with that build.</Callout>
+
+- **Frames limited**: the tracer must not emit frames larger than the native guard added in `v1.15.7-sei-7`. Chunk large payloads or return summaries.
+- **Panic surfacing**: when your tracer panics, the node returns `{ error: { message, data.trace } }` instead of dropping the connection (v1.15.7-sei-6).
+- **Timeouts**: respect `trace_timeout` (default 30s). Long-running tracers are terminated.
+- **Concurrency**: at most `max_concurrent_trace_calls` (default 10) run in parallel. Plan for queuing.
+- **Exclude failing traces**: Operators may call `sei_traceBlockByNumberExcludeTraceFail`. Your tracer should fail fast, letting healthy traces continue.
+
+## Authoring Patterns
+
+```javascript copy
+const tracer = {
+  result: {
+    steps: [],
+    gasUsed: 0,
+    errors: []
+  },
+  step(log, db) {
+    try {
+      this.result.steps.push({
+        pc: log.getPC(),
+        op: log.op.toString(),
+        gasCost: log.getCost()
+      });
+      this.result.gasUsed += log.getCost();
+    } catch (err) {
+      this.result.errors.push(String(err));
+      throw err; // bubble up so Sei surfaces it in error.data.trace
+    }
+  },
+  fault(log, db) {
+    this.result.errors.push(`fault: ${log.getError()}`);
+  },
+  result() {
+    return this.result;
+  }
+};
+
+module.exports = tracer;
+```
+
+### Recommendations
+
+- Wrap logic in `try/catch` to append diagnostic context before re-throwing.
+- Keep returned objects shallow; avoid large arrays or deeply nested state.
+- Include a version identifier in the result to track script revisions.
+- Use `db.getBalance`, `db.getCode`, etc., sparingly; each call hits execution state.
+
+## Validation Checklist
+
+- **Panic recovery**: intentionally throw inside `step` and confirm RPC returns `error.data.trace`.
+- **Frame size**: log the serialized response size. Keep under 1 MB to stay below default limits.
+- **Concurrency**: run `max_concurrent_trace_calls + 1` concurrent traces; ensure one request waits rather than panics.
+- **Timeout**: run a tracer that spins > `trace_timeout`. The request should report a timeout error.
+
+## Troubleshooting
+
+<TroubleshootingTable
+  rows={[
+    ['panic: runtime error: index out of range', 'Tracer script accesses an array out of bounds.', 'Add guards, catch the error, or ensure the data structure matches opcodes observed.'],
+    ['frame length exceeds limit', 'Tracer returns payload larger than go-ethereum guard.', 'Stream results to storage or return a summarized payload.'],
+    ['Missing error.data.trace', 'Node still on go-ethereum < `v1.15.7-sei-6` or panic occurs outside tracer scope.', 'Upgrade binaries; ensure panic happens inside tracer so the wrapper can catch it.']
+  ]}
+/>

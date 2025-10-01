@@ -94,6 +94,8 @@ export default {
 	},
 	'pointers-deep-dive': 'Pointers',
 	'rpc-consensus-overview': 'Consensus Deep Dive',
+	'rpc-synthetic-transactions': 'Synthetic Transactions',
+	'rpc-tracer-guide': 'Tracer Authoring',
 	transactions: 'Transactions',
 	'ibc-protocol': 'IBC on EVM',
 	'cosmwasm-precompiles': 'CosmWasm Precompiles',
