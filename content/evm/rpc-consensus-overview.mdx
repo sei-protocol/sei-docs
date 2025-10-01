@@ -5,7 +5,7 @@ keywords: ['consensus', 'mempool', 'vote extensions', 'sei tendermint']
 ---
 
 import { Callout } from 'nextra/components';
-import { KeyValueTable, TroubleshootingTable } from '../../mdx-components';
+import { CardGrid, KeyValueTable, TroubleshootingTable } from '../../mdx-components';
 
 # Consensus Deep Dive
 
@@ -75,7 +75,57 @@ Sei uses a Tendermint-based consensus engine tuned for high-throughput EVM workl
   rows={[
     ['Duplicate tx errors after upgrade', 'Cache size too small for current traffic.', 'Increase `mempool.cache_size` in `config.toml` and restart the node.'],
     ['Unexpected vote extension logs', 'Experimental configuration toggled vote extensions.', 'Revert the change; once enabled the protocol expects extension payloads from validators.'],
-    ['Consensus halt around upgrade height', 'Nodes running mixed binaries or stale state.', 'Ensure all validators run the same release and execute a coordinated upgrade with state sync ready.']
+    ['Consensus halt around upgrade height', 'Nodes running mixed binaries or stale state.', 'Ensure all validators run the same release, apply the same config, and coordinate a state-sync fallback.'],
+    ['Height stuck with high round numbers', 'Proposer starvation or peers throttled.', 'Check `consensus_round` metric, rebalance peer set, and ensure fast proposers have adequate upstream bandwidth.'],
+    ['Block time drifts >1s', 'Timeout overrides reverted to defaults or hardware saturated.', 'Audit `timeout_commit`/`timeout_propose` values and host load; reapply Sei defaults and scale hardware if needed.']
+  ]}
+/>
+
+## Pipeline Overview
+
+<KeyValueTable
+  rows={[
+    ['Height preparation', 'Before height `H` starts, validators prefetch writesets via `GenerateEstimatedWritesets` and warm SeiDB caches (see `app/abci/prepare`).'],
+    ['Proposal creation', '`CreateProposalBlock` builds blocks with OCC metadata; duplicate-tx cache ensures replays are skipped.'],
+    ['Parallel execution', '`DeliverTxBatch` dispatches to the parallel executor while `EnterPrevote` / `EnterPrecommit` continue in Tendermint.'],
+    ['Commit handoff', '`Commit` applies buffered state via SeiDB snapshots; Tendermint then immediately schedules height `H+1` with cached proposal data.'],
+    ['EVM pipeline touchpoints', '`evmrpc` surfaces the newly committed block; ensure downstream indexers handle ~400 ms cadence.']
+  ]}
+/>
+
+## Configuration Reference
+
+<KeyValueTable
+  rows={[
+    ['`consensus.timeout_commit`', '`config/config.toml` → keep near `400ms` to match target latency; raising increases block time.'],
+    ['`consensus.timeout_propose` / `timeout_propose_delta`', 'Shortened in Sei defaults—ensure overrides persist when regenerating configs.'],
+    ['`consensus.create_empty_blocks_interval`', 'Typically `0s` so empty blocks maintain heartbeat; adjust only for isolated private nets.'],
+    ['`mempool.cache_size`', '`config/config.toml` → default `10000`, scale gradually with RAM; tied to duplicate-tx cache behaviour.'],
+    ['`p2p.send_rate` / `recv_rate`', 'Raised to handle parallelized gossip; reverting to Tendermint defaults can throttle consensus packets.']
+  ]}
+/>
+
+## Telemetry & SLOs
+
+<KeyValueTable
+  rows={[
+    ['Block latency', '`consensus_block_interval_seconds` p95 ≤ 0.45 s. Alert if >0.6 s for 5 minutes.'],
+    ['Round health', '`consensus_round` should oscillate between 0–2; sustained >3 indicates proposal issues.'],
+    ['Duplicate cache utilisation', '`seimempool_cache_used` / `seimempool_cache_capacity` < 0.9 outside bursts.'],
+    ['Peer availability', '`p2p_peer_count` ≥ expected sentries; drops correlate with proposer timeouts.'],
+    ['EVM finality', 'Cross-check `eth_blockNumber` vs `seid status` height; drift >1 block signals RPC lag.']
+  ]}
+/>
+
+## Upgrade Validation Checklist
+
+<KeyValueTable
+  rows={[
+    ['Consensus state', '`seid debug consensus-state` → rounds progress and proposer rotates.'],
+    ['Block cadence', 'Monitor `seid status | jq .SyncInfo.latest_block_time` across 20 blocks—intervals cluster around 400 ms.'],
+    ['Cache enforcement', 'Run `seid debug mempool-stats`; cache size equals configured limit post-upgrade.'],
+    ['RPC parity', '`eth_getBlockByNumber` matches Tendermint height; duplicate receipts absent.'],
+    ['Telemetry sanity', 'Grafana/Prom scale dashboards show latency/round metrics within SLO bands before declaring upgrade complete.']
   ]}
 />
 
