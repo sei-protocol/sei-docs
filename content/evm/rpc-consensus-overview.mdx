@@ -24,25 +24,50 @@ Sei uses a Tendermint-based consensus engine tuned for high-throughput EVM workl
   ]}
 />
 
-## Duplicate Transaction Cache (Sep 2025)
+<Callout type="info">`sei-tendermint@02c9462f1` corrected duplicate transaction cache accounting, and the public networks continue to run with vote extensions disabled.</Callout>
 
-`sei-tendermint@02c9462f1` fixes the maximum size for the duplicate transaction cache. Previously, cached entries could exceed the intended limit when keys exceeded the configured length.
+## Duplicate Transaction Cache
 
-- Ensure `config.toml` has an appropriate `mempool.cache_size` (default: 10,000).
-- If you run large validators, consider bumping to 20,000 while monitoring memory usage. The cache now enforces the cap precisely.
-- Removing transactions via RPC or after inclusion also clears them from the cache thanks to the same patch.
+<KeyValueTable
+  rows={[
+    ['Patch reference', '`sei-tendermint@02c9462f1` enforces the configured cache ceiling and clears entries on inclusion/removal.'],
+    ['`mempool.cache_size` baseline', 'Default `10000`. Scale to `20000` for high-throughput validators but monitor RSS to avoid memory pressure.'],
+    ['Cache behaviour', 'Entries now evict predictably; large keys no longer overflow. RPC eviction mirrors block inclusion.'],
+    ['Monitoring', 'Track `mempool_cache_size` and alert when utilisation > 90% for > 2 minutes.']
+  ]}
+/>
 
 ## Vote Extensions
 
-- Vote extensions remain disabled for public Sei networks.
-- `types/params.go` enforces that once enabled, they cannot be turned off (`"vote extensions cannot be disabled once enabled"`).
-- Operators should watch release notes before toggling any configuration that references vote extensions.
+<KeyValueTable
+  rows={[
+    ['Network status', 'Disabled on Sei mainnet/testnet. No vote payloads expected.'],
+    ['Irreversibility', '`types/params.go` enforces "vote extensions cannot be disabled once enabled". Treat the flag as one-way.'],
+    ['Operator guidance', 'Do not toggle experimental configs without explicit release instructions; enabling requires coordinated rollout and client changes.']
+  ]}
+/>
 
 ## Operational Best Practices
 
-- Keep `mempool.recheck` disabled unless you need re-validation after app updates; recheck increases consensus latency.
-- Monitor `consensus/height` and `mempool/txs` Prometheus metrics. Spikes in cached entries without block inclusion may indicate upstream spam.
-- Use `seid unsafe-reset-all` cautiously; it clears the cache and state. Prefer state sync or snapshots when recovering from consensus stalls.
+<CardGrid
+  items={[
+    {
+      title: 'Recheck discipline',
+      description: 'Leave `mempool.recheck` = false for production. Re-enabling increases latency; flip on briefly only after app upgrades to purge invalid txs.',
+      href: '/node/technical-reference'
+    },
+    {
+      title: 'Metric coverage',
+      description: 'Alert on `consensus_height` flatlines and `mempool_cache_size` plateaus. Pair with log scrapes for duplicate tx warnings.',
+      href: '/node/troubleshooting'
+    },
+    {
+      title: 'Recovery playbook',
+      description: 'Prefer snapshots or state sync when desync occurs. `seid unsafe-reset-all` should be a last resort and requires fresh peers.',
+      href: '/node/node-incident-playbooks'
+    }
+  ]}
+/>
 
 ## Troubleshooting
 
@@ -54,8 +79,24 @@ Sei uses a Tendermint-based consensus engine tuned for high-throughput EVM workl
   ]}
 />
 
-## Related Docs
+## Related Material
 
-- `/node/technical-reference` – `config.toml` deep dive.
-- `/node/troubleshooting` – crash and panic handling for validators.
-- `rpc-gas-accounting` – gas flow ties into finalised blocks.
+<CardGrid
+  items={[
+    {
+      title: 'Technical Reference',
+      description: 'Full node configuration matrix including `config.toml` consensus knobs.',
+      href: '/node/technical-reference'
+    },
+    {
+      title: 'Incident Playbooks',
+      description: 'Response drills for consensus halts, snapshot issues, and P2P partitions.',
+      href: '/node/node-incident-playbooks'
+    },
+    {
+      title: 'RPC Gas Accounting',
+      description: 'How block-level gas totals interact with consensus updates post-`v6.1.11`.',
+      href: '/evm/rpc-gas-accounting'
+    }
+  ]}
+/>

@@ -15,11 +15,11 @@ Sei supports **synthetic** transactions—Cosmos-originated operations that are 
 
 <KeyValueTable
   rows={[
-    ['Definition', 'Transactions originating from Cosmos modules but emitted through the EVM logs interface for compatibility.'],
-    ['Flag', '`synthetic: true` in the log metadata (added in `v6.1.11`).'],
-    ['Gas accounting', 'Synthetic envelopes do not contribute to EVM `gasUsed`; receipts represent only the underlying EVM execution.'],
-    ['Association', 'The `sei_associate` RPC wraps a signature-based link between Sei and EVM addresses.'],
-    ['Indexing', 'Use the `sei_` namespace to fetch synthetic logs alongside EVM logs.']
+    ['Definition', 'Cosmos-originated transactions emitted through the EVM log interface (associations, governance, distribution).'],
+    ['Flag', '`synthetic: true` in log metadata (`v6.1.11`).'],
+    ['Gas accounting', 'Excluded from block/receipt `gasUsed`; costs settle in the Cosmos ante handler.'],
+    ['Association method', '`sei_associate` handles signature-based link between Sei and EVM addresses.'],
+    ['Indexing', 'Use the `sei_` namespace to stream synthetic logs alongside EVM logs.']
   ]}
 />
 
@@ -47,10 +47,25 @@ Sei supports **synthetic** transactions—Cosmos-originated operations that are 
 
 ## Indexing Strategy
 
-1. Use `sei_getLogs` to fetch both EVM and synthetic logs.
-2. Filter by `{ synthetic: true }` to isolate Cosmos-originated events.
-3. Store synthetic logs in a parallel table if you need to keep them separate from EVM logs.
-4. Cross-reference with the Cosmos module (e.g., Distribution) for additional metadata when necessary.
+<CardGrid
+  items={[
+    {
+      title: 'Dual namespace polling',
+      description: 'Query both `eth_getLogs` and `sei_getLogs` (or `sei_subscribe`) to capture synthetic envelopes alongside EVM events.',
+      href: '#association-flow-sei_associate'
+    },
+    {
+      title: 'Synthetic segregation',
+      description: 'Store synthetic logs in a dedicated table keyed by `{tx_hash, module}` for downstream reconciliation.',
+      href: '#key-properties'
+    },
+    {
+      title: 'Cosmos cross-reference',
+      description: 'If enrichment is needed, join against module-specific gRPC queries (e.g., distribution rewards) using the event payload.',
+      href: '#troubleshooting'
+    }
+  ]}
+/>
 
 ## Interaction With Gas Accounting
 

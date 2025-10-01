@@ -13,13 +13,25 @@ Sei exposes the standard `debug_trace*` RPC suite and accepts the same JavaScrip
 
 ## Runtime Expectations
 
-<Callout type="info">Sei ships go-ethereum `v1.15.7-sei-7` (`eth/tracers/api.go`, `eth/tracers/native/call.go`). Ensure your tracer works with that build.</Callout>
-
-- **Frames limited**: the tracer must not emit frames larger than the native guard added in `v1.15.7-sei-7`. Chunk large payloads or return summaries.
-- **Panic surfacing**: when your tracer panics, the node returns `{ error: { message, data.trace } }` instead of dropping the connection (v1.15.7-sei-6).
-- **Timeouts**: respect `trace_timeout` (default 30s). Long-running tracers are terminated.
-- **Concurrency**: at most `max_concurrent_trace_calls` (default 10) run in parallel. Plan for queuing.
-- **Exclude failing traces**: Operators may call `sei_traceBlockByNumberExcludeTraceFail`. Your tracer should fail fast, letting healthy traces continue.
+<CardGrid
+  items={[
+    {
+      title: 'Frame limits',
+      description: 'Keep serialized payloads below the guard introduced in `v1.15.7-sei-7`. Chunk large results or stream externally.',
+      href: '#authoring-patterns'
+    },
+    {
+      title: 'Panic surfacing',
+      description: 'Errors thrown inside tracers bubble up via `error.data.trace` (since `v1.15.7-sei-6`). Capture them for debugging.',
+      href: '#troubleshooting'
+    },
+    {
+      title: 'Timeout & concurrency',
+      description: 'Respect `trace_timeout` (default 30s) and `max_concurrent_trace_calls` (default 10). Expect queuing beyond the limit.',
+      href: '#validation-checklist'
+    }
+  ]}
+/>
 
 ## Authoring Patterns
 
@@ -63,10 +75,14 @@ module.exports = tracer;
 
 ## Validation Checklist
 
-- **Panic recovery**: intentionally throw inside `step` and confirm RPC returns `error.data.trace`.
-- **Frame size**: log the serialized response size. Keep under 1 MB to stay below default limits.
-- **Concurrency**: run `max_concurrent_trace_calls + 1` concurrent traces; ensure one request waits rather than panics.
-- **Timeout**: run a tracer that spins > `trace_timeout`. The request should report a timeout error.
+<KeyValueTable
+  rows={[
+    ['Panic recovery', 'Intentionally throw within `step` and confirm the response includes `error.data.trace`.'],
+    ['Frame size', 'Serialize tracer output and ensure it stays comfortably below 1 MB.'],
+    ['Concurrency', 'Send `max_concurrent_trace_calls + 1` requests; the extra call should queue (not crash).'],
+    ['Timeout', 'Run a long trace to verify it errors with a timeout rather than hanging indefinitely.']
+  ]}
+/>
 
 ## Troubleshooting
 

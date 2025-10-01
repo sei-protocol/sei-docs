@@ -21,91 +21,37 @@ Real-time event streams via WebSocket subscriptions (`eth_subscribe`) for `newHe
 
 <Callout type="warning">Nodes enforce `max_subscriptions_new_head` globally. When the limit is reached, new `eth_subscribe('newHeads')` calls return `no new subscription can be created`.</Callout>
 
-## Supported Subscription Types
+## Subscription Types
 
-### newHeads
-
-Streams new block headers as they're produced (~400ms on Sei).
-
-```typescript copy
-// Function: eth_subscribe('newHeads')
-import WebSocket from 'ws';
-
-const ws = new WebSocket('wss://evm-rpc.sei-apis.com');
-
-ws.on('open', () => {
-  ws.send(
-    JSON.stringify({
-      jsonrpc: '2.0',
-      id: 1,
-      method: 'eth_subscribe',
-      params: ['newHeads']
-    })
-  );
-});
-
-ws.on('message', (data) => {
-  const msg = JSON.parse(data.toString());
-  if (msg.method === 'eth_subscription') {
-    console.log('New block:', msg.params.result.number);
-  }
-});
-```
-
-### logs
-
-Streams logs matching filter criteria (address, topics).
-
-```typescript copy
-// Function: eth_subscribe('logs', filter)
-ws.send(
-  JSON.stringify({
-    jsonrpc: '2.0',
-    id: 2,
-    method: 'eth_subscribe',
-    params: [
-      'logs',
-      {
-        address: '0xYourContract...',
-        topics: ['0xYourEventSignature...']
-      }
-    ]
-  })
-);
-```
-
-### newPendingTransactions
-
-Streams transaction hashes as they enter the mempool.
-
-```typescript copy
-// Function: eth_subscribe('newPendingTransactions')
-ws.send(
-  JSON.stringify({
-    jsonrpc: '2.0',
-    id: 3,
-    method: 'eth_subscribe',
-    params: ['newPendingTransactions']
-  })
-);
-```
+<KeyValueTable
+  rows={[
+    ['`newHeads`', 'Streams canonical block headers. Default cap: `max_subscriptions_new_head = 5000`. Use for lightweight UI updates.'],
+    ['`logs`', 'Filters logs by address/topics across live blocks. Obeys `max_blocks_for_log` and inherits Cosmos rate limits.'],
+    ['`newPendingTransactions`', 'Surface pending transactions from the mempool. Sensitive to `mempool.cache_size` pressure; avoid on public endpoints.']
+  ]}
+/>
 
 ## Connection Management
 
-**Heartbeats:**
-
-- Send ping frames every 30–60 seconds
-- Missing pongs indicate stale connection; reconnect immediately
-
-**Backoff on reconnect:**
-
-- Use exponential backoff with jitter (start 1s, max 30s)
-- After reconnect, fetch latest block via HTTP before resubscribing to establish checkpoint
-
-**Subscription cleanup:**
-
-- Always call `eth_unsubscribe` before closing connection
-- Node auto-cleans subscriptions on disconnect, but explicit cleanup is best practice
+<CardGrid
+  items={[
+    {
+      title: 'Heartbeat loop',
+      description: 'Send `eth_subscribe` keep-alives or lightweight RPC calls every ~20s to keep proxies from reclaiming idle sockets.',
+      href: '#subscription-types'
+    },
+    {
+      title: 'Backoff strategy',
+      description: 'Reconnect with exponential backoff when the node drops the socket (e.g., capacity reached). Avoid thundering herds.',
+      href: '#troubleshooting'
+    },
+    {
+      title: 'Replay window',
+      description: 'Persist the last seen block number and resubscribe with a `fromBlock` when you reconnect to cover missed events.',
+      href: '#log-replay'
+    }
+  ]}
+/>
 
 ## Replay & Gap Handling
 
