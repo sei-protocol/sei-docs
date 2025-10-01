@@ -1,0 +1,66 @@
+---
+title: 'Validator Operations Playbook'
+description: 'Daily operations, tuning, and troubleshooting for Sei validators.'
+keywords: ['validator', 'operations', 'mempool', 'monitoring', 'consensus']
+---
+
+import { Callout } from 'nextra/components';
+import { KeyValueTable, TroubleshootingTable } from '../../mdx-components';
+
+# Validator Operations Playbook
+
+This runbook collects the key operational tasks for maintaining a production Sei validator, with emphasis on the latest mempool and consensus changes (`sei-tendermint@02c9462f1`).
+
+## Daily Checklist
+
+<KeyValueTable
+  rows={[
+    ['Block production', 'Verify `seid status | jq .SyncInfo.catching_up` returns `false` and height increases steadily.'],
+    ['Mempool saturation', 'Monitor `mempool/size` and `mempool/cache_size` metrics; ensure they are below configured maxima.'],
+    ['Validator signing', 'Check `consensus/validators_signed` > 0 in the last 100 blocks.'],
+    ['Oracle participation', 'If applicable, verify oracle votes landed within the window.']
+  ]}
+/>
+
+## Configuration Highlights
+
+- `mempool.cache_size = 10000` (default). With `sei-tendermint@02c9462f1`, the cache cap is enforced accurately. Raise to 20,000 on high-load validators.
+- Keep `mempool.broadcast` enabled to propagate transactions quickly.
+- `consensus.create_empty_blocks = true` (default) ensures liveness even under low load. Avoid disabling unless you understand the implications.
+
+## Monitoring Metrics
+
+Track these Prometheus metrics:
+
+- `consensus_height`, `consensus_round` – detect stalls.
+- `consensus_validator_power` – verify voting power changes.
+- `mempool_size`, `mempool_cache_size` – watch for saturation.
+- `rpc_trace_pending` – ensure tracer load stays below `max_concurrent_trace_calls`.
+
+## Incident Response
+
+<Callout type="warning">Always snapshot your validator before modifying configuration or restarting under duress.</Callout>
+
+1. **Consensus halt**
+
+   - Confirm majority of validators are on the same binary.
+   - Check logs for `nil vote extension` or duplicate tx warnings.
+   - Coordinate restart if required; use state sync if node falls far behind.
+
+2. **Mempool overflow**
+
+   - Increase `mempool.cache_size` gradually (requires `sei-tendermint@02c9462f1`).
+   - Prune invalid transactions by restarting with `--mempool.recheck=true` temporarily.
+
+3. **RPC saturation**
+   - Scale out dedicated RPC nodes; validator should keep RPC closed to the public when possible.
+
+## Troubleshooting
+
+<TroubleshootingTable
+  rows={[
+    ['Duplicate transaction rejected repeatedly', 'Cache size too small for workload.', 'Increase `mempool.cache_size` and restart during low traffic.'],
+    ['Validator missed blocks', 'Node lagging or signing key offline.', 'Check hardware load, ensure sentry nodes are reachable, and restart if necessary.'],
+    ['Vote extension warnings in logs', 'Experimental flag toggled vote extensions.', 'Revert configuration; once enabled, the protocol expects extensions.']
+  ]}
+/>

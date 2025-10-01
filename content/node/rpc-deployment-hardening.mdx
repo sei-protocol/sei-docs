@@ -1,0 +1,95 @@
+---
+title: 'RPC Deployment Guide'
+description: 'Blueprint for operating production-grade Sei RPC endpoints.'
+keywords: ['rpc deployment', 'reverse proxy', 'rate limiting', 'Next.js docs build']
+---
+
+import { Callout } from 'nextra/components';
+import { KeyValueTable, TroubleshootingTable } from '../../mdx-components';
+
+# RPC Deployment Guide
+
+Operate RPC nodes as dedicated infrastructure separate from validators. This guide outlines the hardened setup required for Sei’s EVM JSON-RPC endpoints.
+
+## Architecture Overview
+
+<KeyValueTable
+  rows={[
+    ['RPC node', 'Sei binary with `evm` RPC exposed on 8545/8546; disable Tendermint APIs not required externally.'],
+    ['Reverse proxy', 'Nginx or HAProxy terminating TLS, enforcing IP filters and rate limits.'],
+    ['Cache layer', 'Optional Cloudflare/fastly for static docs; avoid caching RPC responses beyond a few seconds.'],
+    ['Monitoring', 'Prometheus exporter scraping `rpc_*` metrics and tracer concurrency stats.']
+  ]}
+/>
+
+## RPC Configuration (`config/evm.toml`)
+
+- Keep `http_enabled = true`, `http_port = 8545`, `ws_enabled = true` only if websockets are required.
+- Set `cors_origins` and `ws_origins` explicitly; avoid `*` on public endpoints.
+- Tune limits per load:
+
+  ```toml copy
+  max_log_no_block = 10000
+  max_blocks_for_log = 2000
+  max_subscriptions_new_head = 5000 # lower on constrained hardware
+  max_concurrent_trace_calls = 10
+  trace_timeout = "30s"
+  ```
+
+- For high traffic, increase `max_blocks_for_log` cautiously and ensure hardware can cope.
+
+## Reverse Proxy Sample (Nginx)
+
+```nginx copy
+server {
+    listen 443 ssl;
+    server_name rpc.sei.example;
+
+    ssl_certificate     /etc/letsencrypt/live/rpc/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/rpc/privkey.pem;
+
+    location / {
+        proxy_pass http://127.0.0.1:8545;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_read_timeout 60s;
+        limit_req zone=rpc burst=50 nodelay;
+    }
+}
+
+limit_req_zone $binary_remote_addr zone=rpc:10m rate=20r/s;
+```
+
+- Enforce WebSocket proxying for `eth_subscribe` if required (`proxy_set_header Upgrade`).
+- Enable access logs and ship to your SIEM.
+
+## Deployment Workflow
+
+1. Pull new `sei` release and update binaries.
+2. Restart RPC node, clear `.next` cache for docs if hosted alongside.
+3. Run `yarn build` for docs, ensuring `_document.tsx` exists to avoid Next.js errors.
+4. Redeploy static site (if using Vercel/Netlify) or serve `out/` directory behind CDN.
+5. Smoke test with regression scripts (`rpc-regression-playbook`).
+
+## Runtime Monitoring
+
+- Scrape metrics: `rpc_trace_pending`, `rpc_filter_count`, `rpc_ws_subscriptions`.
+- Collect logs and alert on `panic` messages or repeated 500 responses.
+- Track proxy metrics (requests per second, rate-limit hits).
+
+## Troubleshooting
+
+<TroubleshootingTable
+  rows={[
+    ['Cannot find module for page: /_document', 'Missing `_document.tsx` or invalid build cache.', 'Restore minimal Next.js `_document.tsx`, delete `.next`, rerun `yarn build`.'],
+    ['Tracer requests timing out', 'Clients hitting `trace_timeout` or exceeding concurrency limit.', 'Advise clients to paginate traces; scale hardware or raise `max_concurrent_trace_calls` cautiously.'],
+    ['RPC 429 responses', 'Rate limiting triggered at proxy layer.', 'Adjust `limit_req_zone` thresholds or distribute load across multiple nodes.']
+  ]}
+/>
+
+## Security Checklist
+
+- Restrict public access to HTTP only; offer WebSocket access to partners who need streaming data.
+- Maintain allowlists/denylists at proxy layer.
+- Rotate TLS certificates regularly and automate renewals.
+- Keep RPC nodes patched with latest OS updates.
