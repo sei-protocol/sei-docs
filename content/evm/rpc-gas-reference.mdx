@@ -1,0 +1,57 @@
+---
+title: 'Gas Reference'
+description: 'Quick lookup for Sei RPC gas parameters, formulas, and release-specific behaviour.'
+keywords: ['gas reference', 'rpc limits', 'gas formulas', 'sei chain config']
+---
+
+import { KeyValueTable, Callout } from '../../mdx-components';
+
+# Gas Reference
+
+Use this page as the condensed cheat-sheet for gas-related settings and formulas on Sei. Every entry references the release where the behaviour was introduced so you can map it to your node fleet.
+
+## Core Parameters
+
+<KeyValueTable
+  rows={[
+    ['max_log_no_block', 'Default `10000`. Maximum log entries returned when `fromBlock`/`toBlock` are omitted. Added from genesis; still recommended per `evmrpc/config.go`.'],
+    ['max_blocks_for_log', 'Default `2000`. Upper bound of block range for `eth_getLogs`. Increase only if you run dedicated archive nodes.'],
+    ['max_subscriptions_new_head', 'Default `10000`. Limit for concurrent `eth_subscribe:newHeads` channels.'],
+    ['max_concurrent_trace_calls', 'Default `10`. Protects the EVM tracer pool from starvation. Introduced with `v6.1.11`.'],
+    ['trace_timeout', '`30s` per trace by default. Tune lower to fail faster if your tracer is unstable.'],
+    ['simulation_gas_limit', '`10_000_000`. Upper bound for `eth_call` simulations.']
+  ]}
+/>
+
+## Gas Formulas
+
+| Scenario            | Formula                               | Notes                                                                      |
+| :------------------ | :------------------------------------ | :------------------------------------------------------------------------- |
+| Transaction receipt | `gasUsed = totalGasConsumed – refund` | Refund is capped at 20% of `gasLimit` in line with go-ethereum rules.      |
+| Block total         | `block.gasUsed = Σ receipt.gasUsed`   | Accurate for blocks produced after `v6.1.11`. Earlier heights may diverge. |
+| Estimation buffer   | `suggestedGas = estimate × 1.05`      | Apply a 5% safety margin for user-facing UIs.                              |
+
+## Release Notes
+
+- [`v6.1.11`](https://github.com/sei-protocol/sei-chain/releases/tag/v6.1.11)
+  - Block `gasUsed` aligned with Tendermint execution (`sei-chain@1efdec1eb`).
+  - Pointer and Solo precompile flows warmed in `eth_estimateGas`.
+  - Synthetic logs tagged with `synthetic: true`.
+- [`v1.15.7-sei-7`](https://github.com/sei-protocol/go-ethereum/releases/tag/v1.15.7-sei-7)
+  - Tracer length guard prevents malformed frames from panicking.
+- [`v1.15.7-sei-6`](https://github.com/sei-protocol/go-ethereum/releases/tag/v1.15.7-sei-6)
+  - RPC now returns `{ error: { data: { trace } } }` when custom tracers panic.
+
+## Operational Tips
+
+- Keep `max_blocks_for_log` conservative on shared endpoints; let power users run their own archive node if they need large spans.
+- After upgrades, clear any CDN or proxy caches so clients immediately pick up corrected `gasUsed` values.
+- Use Grafana or Prometheus exporters to monitor `rpc_gas_used` and `rpc_trace_pending` metrics if you run the RPC server from `sei-chain`.
+
+<Callout type="warning">Always restart both the Tendermint process and the embedded RPC server once you upgrade to a release that changes gas accounting. Partial restarts can keep stale caches alive.</Callout>
+
+## See Also
+
+- `rpc-gas-accounting` – Full explanation of execution flow and validation steps.
+- `rpc-regression-playbook` – Suggested QA coverage for RPC consumers.
+- `tracing-playbook` – Panic handling for tracers and debug sessions.

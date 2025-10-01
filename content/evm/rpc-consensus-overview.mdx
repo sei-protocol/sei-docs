@@ -1,0 +1,61 @@
+---
+title: 'Consensus Deep Dive'
+description: 'Operator-oriented reference for Sei consensus, mempool, and vote extension status.'
+keywords: ['consensus', 'mempool', 'vote extensions', 'sei tendermint']
+---
+
+import { Callout } from 'nextra/components';
+import { KeyValueTable, TroubleshootingTable } from '../../mdx-components';
+
+# Consensus Deep Dive
+
+Sei uses a Tendermint-based consensus engine tuned for high-throughput EVM workloads. This guide summarises the latest behavioural changes so validator operators and infrastructure teams can keep nodes healthy.
+
+<Callout type="info">Covers `sei-tendermint@02c9462f1` (duplicate transaction cache sizing) and the current vote-extension posture.</Callout>
+
+## Key Concepts
+
+<KeyValueTable
+  rows={[
+    ['Consensus Algorithm', 'Tendermint BFT with instant finality and 2/3 voting power requirement.'],
+    ['Block Time Target', '~1s.'],
+    ['Mempool Mode', 'Parallel check with duplicate transaction cache (LRU) sized via `mempool.cache_size`.'],
+    ['Vote Extensions', 'Disabled on mainnet. Enabling is irreversible (see below).']
+  ]}
+/>
+
+## Duplicate Transaction Cache (Sep 2025)
+
+`sei-tendermint@02c9462f1` fixes the maximum size for the duplicate transaction cache. Previously, cached entries could exceed the intended limit when keys exceeded the configured length.
+
+- Ensure `config.toml` has an appropriate `mempool.cache_size` (default: 10,000).
+- If you run large validators, consider bumping to 20,000 while monitoring memory usage. The cache now enforces the cap precisely.
+- Removing transactions via RPC or after inclusion also clears them from the cache thanks to the same patch.
+
+## Vote Extensions
+
+- Vote extensions remain disabled for public Sei networks.
+- `types/params.go` enforces that once enabled, they cannot be turned off (`"vote extensions cannot be disabled once enabled"`).
+- Operators should watch release notes before toggling any configuration that references vote extensions.
+
+## Operational Best Practices
+
+- Keep `mempool.recheck` disabled unless you need re-validation after app updates; recheck increases consensus latency.
+- Monitor `consensus/height` and `mempool/txs` Prometheus metrics. Spikes in cached entries without block inclusion may indicate upstream spam.
+- Use `seid unsafe-reset-all` cautiously; it clears the cache and state. Prefer state sync or snapshots when recovering from consensus stalls.
+
+## Troubleshooting
+
+<TroubleshootingTable
+  rows={[
+    ['Duplicate tx errors after upgrade', 'Cache size too small for current traffic.', 'Increase `mempool.cache_size` in `config.toml` and restart the node.'],
+    ['Unexpected vote extension logs', 'Experimental configuration toggled vote extensions.', 'Revert the change; once enabled the protocol expects extension payloads from validators.'],
+    ['Consensus halt around upgrade height', 'Nodes running mixed binaries or stale state.', 'Ensure all validators run the same release and execute a coordinated upgrade with state sync ready.']
+  ]}
+/>
+
+## Related Docs
+
+- `/node/technical-reference` – `config.toml` deep dive.
+- `/node/troubleshooting` – crash and panic handling for validators.
+- `rpc-gas-accounting` – gas flow ties into finalised blocks.

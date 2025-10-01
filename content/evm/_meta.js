@@ -66,6 +66,10 @@ export default {
 		title: 'RPC'
 	},
 	reference: 'RPC Reference',
+	'rpc-gas-accounting': 'Gas Accounting',
+	'rpc-gas-reference': 'Gas Reference',
+	'rpc-regression-playbook': 'Regression Coverage',
+	'rpc-panic-faq': 'Panic Handling FAQ',
 	'rpc-websockets': 'WebSockets',
 
 	'-- Tracing': {
@@ -89,6 +93,7 @@ export default {
 		title: 'Advanced'
 	},
 	'pointers-deep-dive': 'Pointers',
+	'rpc-consensus-overview': 'Consensus Deep Dive',
 	transactions: 'Transactions',
 	'ibc-protocol': 'IBC on EVM',
 	'cosmwasm-precompiles': 'CosmWasm Precompiles',
