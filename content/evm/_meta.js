@@ -49,6 +49,13 @@ export default {
 	'debugging-contracts': 'Debugging',
 	'evm-verify-contracts': 'Verify Contracts',
 
+	'-- Core Concepts': {
+		type: 'separator',
+		title: 'Core Concepts'
+	},
+	transactions: 'Transactions',
+	'rpc-consensus-overview': 'Consensus & Mempool',
+
 	'-- Precompiles': {
 		type: 'separator',
 		title: 'Precompiles'
@@ -97,17 +104,15 @@ export default {
 	'indexing-best-practices': 'Best Practices',
 	'indexer-providers': 'Indexer Providers',
 
-	'-- Advanced': {
+	'-- Interop & Advanced': {
 		type: 'separator',
-		title: 'Advanced'
+		title: 'Interop & Advanced'
 	},
 	'pointers-deep-dive': 'Pointers',
-	'rpc-consensus-overview': 'Consensus Deep Dive',
-	'rpc-synthetic-transactions': 'Synthetic Transactions',
-	'rpc-tracer-guide': 'Tracer Authoring',
-	transactions: 'Transactions',
 	'ibc-protocol': 'IBC on EVM',
 	'cosmwasm-precompiles': 'CosmWasm Precompiles',
+	'rpc-synthetic-transactions': 'Synthetic Transactions',
+	'rpc-tracer-guide': 'Tracer Authoring',
 
 	'-- Ecosystem': {
 		type: 'separator',
