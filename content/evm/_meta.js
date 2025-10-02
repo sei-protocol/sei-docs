@@ -8,6 +8,7 @@ export default {
 	},
 	networks: 'Network Information',
 	'differences-with-ethereum': 'Divergence from Ethereum',
+	tokens: 'View Tokens',
 
 	'-- seid CLI': {
 		type: 'separator',
@@ -55,6 +56,7 @@ export default {
 	},
 	transactions: 'Transactions',
 	'rpc-consensus-overview': 'Consensus & Mempool',
+	reference: 'RPC Reference',
 
 	'-- Precompiles': {
 		type: 'separator',
@@ -76,43 +78,36 @@ export default {
 	'precompile-json': 'JSON',
 	'precompile-P256': 'P256',
 
-	'-- RPC': {
+	'-- Monitoring & Indexing': {
 		type: 'separator',
-		title: 'RPC'
+		title: 'Monitoring & Indexing'
 	},
-	reference: 'RPC Reference',
+	'indexing-best-practices': 'Indexing Best Practices',
+	'indexer-providers': 'Indexer Providers',
+	'tracing-overview': 'Tracing Overview',
+	'tracing-playbook': 'Tracing Playbook',
+	'tracing-javascript-tracers': 'Tracer Authoring',
+	'tracing-troubleshooting': 'Tracing Troubleshooting',
+
+	'-- RPC Diagnostics': {
+		type: 'separator',
+		title: 'RPC Diagnostics'
+	},
 	'rpc-gas-accounting': 'Gas Accounting',
 	'rpc-gas-reference': 'Gas Reference',
 	'rpc-prioritizer': 'Tx Prioritizer',
 	'rpc-regression-playbook': 'Regression Coverage',
 	'rpc-panic-faq': 'Panic Handling FAQ',
 	'rpc-websockets': 'WebSockets',
+	'rpc-synthetic-transactions': 'Synthetic Transactions',
 
-	'-- Tracing': {
+	'-- Interoperability': {
 		type: 'separator',
-		title: 'Tracing'
+		title: 'Interoperability'
 	},
-	'tracing-overview': 'Overview',
-	'tracing-playbook': 'Playbook',
-	'tracing-javascript-tracers': 'JavaScript Tracers',
-	'tracing-troubleshooting': 'Troubleshooting',
-
-	'-- Indexing': {
-		type: 'separator',
-		title: 'Indexing'
-	},
-	'indexing-best-practices': 'Best Practices',
-	'indexer-providers': 'Indexer Providers',
-
-	'-- Interop & Advanced': {
-		type: 'separator',
-		title: 'Interop & Advanced'
-	},
-	'pointers-deep-dive': 'Pointers',
+	'pointers-deep-dive': 'Pointers Deep Dive',
 	'ibc-protocol': 'IBC on EVM',
 	'cosmwasm-precompiles': 'CosmWasm Precompiles',
-	'rpc-synthetic-transactions': 'Synthetic Transactions',
-	'rpc-tracer-guide': 'Tracer Authoring',
 
 	'-- Ecosystem': {
 		type: 'separator',
@@ -129,6 +124,5 @@ export default {
 		type: 'separator',
 		title: 'Meta'
 	},
-	tokens: 'View Tokens',
 	changelog: 'Changelog'
 };
