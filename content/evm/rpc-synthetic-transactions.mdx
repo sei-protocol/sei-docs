@@ -9,7 +9,7 @@ import { KeyValueTable, TroubleshootingTable } from '../../mdx-components';
 
 # Synthetic Transactions on Sei
 
-Sei supports **synthetic** transactions—Cosmos-originated operations that are wrapped and surfaced through the EVM RPC layer. These include association flows, governance events, and distribution payouts. This guide explains how they appear through JSON-RPC and how to index them correctly after `v6.1.11`.
+Sei supports **synthetic** transactions-Cosmos-originated operations that are wrapped and surfaced through the EVM RPC layer. These include association flows, governance events, and distribution payouts. This guide explains how they appear through JSON-RPC and how to index them correctly after `v6.1.11`.
 
 ## Key Properties
 
@@ -47,38 +47,10 @@ Sei supports **synthetic** transactions—Cosmos-originated operations that are 
 
 ## Indexing Strategy
 
-<CardGrid
-  items={[
-    {
-      title: 'Dual namespace polling',
-      description: 'Query both `eth_getLogs` and `sei_getLogs` (or `sei_subscribe`) to capture synthetic envelopes alongside EVM events.',
-      href: '#association-flow-sei_associate'
-    },
-    {
-      title: 'Synthetic segregation',
-      description: 'Store synthetic logs in a dedicated table keyed by `{tx_hash, module}` for downstream reconciliation.',
-      href: '#key-properties'
-    },
-    {
-      title: 'Cosmos cross-reference',
-      description: 'If enrichment is needed, join against module-specific gRPC queries (e.g., distribution rewards) using the event payload.',
-      href: '#troubleshooting'
-    }
-  ]}
-/>
+- **Dual namespace polling** - Query both `eth_getLogs` and `sei_getLogs` (or subscribe to the `sei_` channel) so synthetic envelopes and EVM events stay aligned.
+- **Synthetic segregation** - Store synthetic logs in a dedicated table keyed by `{tx_hash, module}` for downstream reconciliation.
+- **Cosmos cross-reference** - For enrichment, join against module-specific gRPC queries (distribution, governance) using the event payload.
 
 ## Interaction With Gas Accounting
 
-- Synthetic envelopes do not alter receipt `gasUsed` (see `rpc-gas-accounting`).
-- When computing block-level gas metrics, exclude synthetic logs entirely; they are informational signals only.
-- Estimating gas for synthetic flows is unnecessary—`sei_associate` and similar methods are processed outside the EVM gas model.
-
-## Troubleshooting
-
-<TroubleshootingTable
-  rows={[
-    ['Missing synthetic flag', 'Node running pre-`v6.1.11` binary.', 'Upgrade to `v6.1.11` or later; the flag is added at log emission time.'],
-    ['Association not visible via eth_getLogs', 'Querying `eth_` namespace only.', 'Switch to `sei_getLogs` or include the `sei_` namespace to fetch synthetic events.'],
-    ['Duplicate association events', 'Client resubmitted association payload.', 'Treat the first inclusion as canonical; later duplicates can be ignored.']
-  ]}
-/>
+- Synthetic envelopes do not alter receipt `gasUsed` (see `rpc-gas-accounting`

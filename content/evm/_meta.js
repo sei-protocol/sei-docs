@@ -86,7 +86,8 @@ export default {
 	'indexer-providers': 'Indexer Providers',
 	'tracing-overview': 'Tracing Overview',
 	'tracing-playbook': 'Tracing Playbook',
-	'tracing-javascript-tracers': 'Tracer Authoring',
+	'tracing-javascript-tracers': 'JavaScript Tracers',
+	'rpc-tracer-guide': 'Custom Tracer Guide',
 	'tracing-troubleshooting': 'Tracing Troubleshooting',
 
 	'-- RPC Diagnostics': {
