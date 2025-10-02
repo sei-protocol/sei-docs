@@ -68,6 +68,7 @@ export default {
 	reference: 'RPC Reference',
 	'rpc-gas-accounting': 'Gas Accounting',
 	'rpc-gas-reference': 'Gas Reference',
+	'rpc-prioritizer': 'Tx Prioritizer',
 	'rpc-regression-playbook': 'Regression Coverage',
 	'rpc-panic-faq': 'Panic Handling FAQ',
 	'rpc-websockets': 'WebSockets',

@@ -1,0 +1,185 @@
+---
+title: 'Tx Prioritizer'
+description: 'How Sei ranks transactions pre-CheckTx, how the ABCI hint works, and what operators monitor.'
+keywords: ['tx prioritizer', 'mempool', 'sei tendermint', 'priority hints']
+---
+
+import { CardGrid, KeyValueTable, TroubleshootingTable } from '../../mdx-components';
+
+# Transaction Prioritizer (v6.2.0+)
+
+Sei `v6.2.0` (commit [`6a5c937f`](https://github.com/sei-protocol/sei-chain/commit/6a5c937fa9737b1e3aa2288b9349d5a9f51c9d79)) ships a dedicated transaction prioritizer. Rather than scattering priority tweaks across Ante handlers, the app now answers a focused ABCI call—`GetTxPriorityHint`—whenever Tendermint’s mempool nears capacity. This page nails down the priority tiers, the knobs exposed in `sei-chain` and `sei-tendermint@c6c5a8f3`, and the checks that prove the system is working.
+
+<div className="not-prose mt-6 grid gap-4 md:grid-cols-2">
+  <div className="rounded-xl border border-neutral-200 bg-white/90 p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/70">
+    <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Surface</div>
+    <div className="mt-1 font-mono text-sm text-neutral-900 dark:text-neutral-100">`abci.GetTxPriorityHint`</div>
+    <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">Fires after utilisation exceeds `drop-utilisation-threshold` and returns the hint Tendermint uses to admit or reject the tx.</p>
+    <a href="https://github.com/sei-protocol/sei-tendermint/blob/c6c5a8f39/internal/mempool/mempool.go#L320" target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300">
+      View `internal/mempool/mempool.go`
+    </a>
+  </div>
+  <div className="rounded-xl border border-neutral-200 bg-white/90 p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/70">
+    <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Surface</div>
+    <div className="mt-1 font-mono text-sm text-neutral-900 dark:text-neutral-100">`SeiTxPrioritizer`</div>
+    <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">Stateless Cosmos/EVM prioritizer that inspects the tx, validates fees, and emits an `int64` hint without touching state.</p>
+    <a href="https://github.com/sei-protocol/sei-chain/blob/6a5c937fa9737b1e3aa2288b9349d5a9f51c9d79/app/prioritizer.go#L42" target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300">
+      View `app/prioritizer.go`
+    </a>
+  </div>
+  <div className="rounded-xl border border-neutral-200 bg-white/90 p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/70">
+    <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Tiering</div>
+    <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">
+      <code>OraclePriority</code> &gt; <code>EVMAssociatePriority</code> &gt; fee-derived Cosmos/EVM priority (capped at <code>MaxPriority</code>) keeps mission-critical flows at the front.
+    </p>
+    <a href="https://github.com/sei-protocol/sei-chain/blob/6a5c937fa9737b1e3aa2288b9349d5a9f51c9d79/app/prioritizer.go#L99" target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300">
+      View `app/prioritizer.go`
+    </a>
+  </div>
+  <div className="rounded-xl border border-neutral-200 bg-white/90 p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/70">
+    <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Version guard</div>
+    <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">Enabled by default on `v6.2.0+`; legacy binaries ignore the hook, so mixed-version networks still progress.</p>
+    <a href="https://github.com/sei-protocol/sei-chain/blob/6a5c937fa9737b1e3aa2288b9349d5a9f51c9d79/app/app.go#L990" target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300">
+      View `app/app.go`
+    </a>
+  </div>
+</div>
+
+## How the Hint Is Calculated
+
+<div className="not-prose mt-10 grid gap-4 md:grid-cols-2">
+  <div className="rounded-xl border border-neutral-200 bg-white/90 p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/70">
+    <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">`OraclePriority`</div>
+    <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">
+      Oracle votes (<code>MsgAggregateExchangeRateVote</code>) ride with <code>math.MaxInt64 - 100</code>, guaranteeing feeders clear the mempool immediately.
+    </p>
+    <a href="https://github.com/sei-protocol/sei-chain/blob/6a5c937fa9737b1e3aa2288b9349d5a9f51c9d79/app/prioritizer.go#L157" target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300">
+      View `app/prioritizer.go`
+    </a>
+  </div>
+  <div className="rounded-xl border border-neutral-200 bg-white/90 p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/70">
+    <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">`EVMAssociatePriority`</div>
+    <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">
+      Unassociated <code>evm_associate</code> calls bypass congestion so UX wallets can link addresses without fee gymnastics.
+    </p>
+    <a href="https://github.com/sei-protocol/sei-chain/blob/6a5c937fa9737b1e3aa2288b9349d5a9f51c9d79/app/prioritizer.go#L87" target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300">
+      View `app/prioritizer.go`
+    </a>
+  </div>
+  <div className="rounded-xl border border-neutral-200 bg-white/90 p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/70">
+    <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Gas price normalisation</div>
+    <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">
+      Regular EVM traffic uses <code>priority = gasPrice / priority_normalizer</code> and clamps to <code>MaxPriority</code> so outliers can’t blow up the scale.
+    </p>
+    <a href="https://github.com/sei-protocol/sei-chain/blob/6a5c937fa9737b1e3aa2288b9349d5a9f51c9d79/app/prioritizer.go#L128" target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300">
+      View `app/prioritizer.go`
+    </a>
+  </div>
+  <div className="rounded-xl border border-neutral-200 bg-white/90 p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/70">
+    <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Cosmos fee fallback</div>
+    <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">
+      SDK txs reuse <code>GetTxPriority</code>, so whitelisted fee denoms and gas estimates map into the same priority lane.
+    </p>
+    <a href="https://github.com/sei-protocol/sei-chain/blob/6a5c937fa9737b1e3aa2288b9349d5a9f51c9d79/app/prioritizer.go#L170" target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300">
+      View `app/prioritizer.go`
+    </a>
+  </div>
+</div>
+
+The prioritizer is intentionally pure: it decodes the tx, validates sane fee caps, probes association status, and returns an `int64`. Panics are caught and logged, and the mempool falls back to priority `0` so attackers cannot halt CheckTx.
+
+## From Hint to Eviction
+
+When Tendermint’s mempool utilisation crosses `drop-utilisation-threshold`, the reactor calls `GetTxPriorityHint` **before** deciding whether to drop low-priority transactions. A new reservoir sampler tracks recent hints so the node compares incoming priority against a moving cutoff.
+
+<KeyValueTable
+  rows={[
+    ['`drop-utilisation-threshold`', 'Utilisation ratio that activates hint-based dropping. Default `1.0` (disabled).'],
+    ['`drop-priority-threshold`', 'Percentile of hints considered droppable once utilisation triggers. Default `0.1` (bottom 10%).'],
+    ['`drop-priority-reservoir-size`', 'Sample size the reservoir keeps to estimate distribution. Default `10240`.'],
+    ['Reservoir refresh', 'Percentile cached for 5s; recomputed if new hints arrive. (`internal/libs/reservoir/reservoir.go`)']
+  ]}
+/>
+
+```toml copy
+[mempool]
+size = 5000
+drop-utilisation-threshold = 0.80   # start hinting once 80% full
+drop-priority-threshold = 0.20      # shed bottom 20% priority
+drop-priority-reservoir-size = 8192 # tune for memory vs accuracy
+```
+
+With these values, once the mempool is ≥80% utilised, any new tx with priority below the sampled 20th percentile is rejected with `priority not high enough for mempool`.
+
+## Operator Checklist
+
+<div className="not-prose mt-10 grid gap-4 md:grid-cols-2">
+  <div className="rounded-xl border border-neutral-200 bg-white/90 p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/70">
+    <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Confirm hints flow</div>
+    <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">`seid debug mempool-stats` should show `priority_cutoff` moving under sustained load; if it’s flat, hints aren’t being sampled.</p>
+  </div>
+  <div className="rounded-xl border border-neutral-200 bg-white/90 p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/70">
+    <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Grafana panel</div>
+    <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">Alert on `CheckTxMetDropUtilisationThreshold` and `CheckTxDroppedByPriorityHint` to spot accidental throttling.</p>
+  </div>
+  <div className="rounded-xl border border-neutral-200 bg-white/90 p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/70">
+    <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Normalizer sanity</div>
+    <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">`sei q evm params priority-normalizer` must stay positive; lock it down in Terraform/Ansible defaults.</p>
+  </div>
+  <div className="rounded-xl border border-neutral-200 bg-white/90 p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/70">
+    <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">RPC parity</div>
+    <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">Compare `eth_pendingTransactions` with `seid debug mempool-stats`; a growing gap usually means clients are retrying after drops.</p>
+  </div>
+</div>
+
+### CLI validation
+
+```bash copy
+# Inspect priority reservoir stats
+seid debug mempool-stats | jq '.priority'
+
+# Query EVM priority normalizer (decides gasPrice → hint scaling)
+seid query evm params | jq -r '.params.priority_normalizer'
+
+# Force an associate tx hint
+seid tx evm associate --from wallet --evm-address <addr> --gas-prices 1usei --gas 120000 --simulate
+```
+
+## Developer Considerations
+
+- **SDK integration:** Clients may receive `priority not high enough for mempool` when bursting the chain. Surface this to end users with context (e.g., “bump gas price or retry later”).
+- **Fee markets:** EIP-1559 style tips (`gasTipCap`) remain valid; the prioritizer only checks tip ≥ 0 and `gasFeeCap` ≥ base fee & minimum fee.
+- **Panic-proof:** The prioritizer recovers from panics and logs `tx prioritizer panicked. Falling back on no priority`. Instrument alerting on this string.
+- **Testing:** Unit suite (`app/prioritizer_test.go`) covers oracle, zero-fee, and multi-denom cases. Extend tests when adding new high-priority msg types.
+
+## Troubleshooting
+
+<TroubleshootingTable
+  rows={[
+    ['`priority not high enough for mempool` on legitimate txs', 'Reservoir cutoff too aggressive or priority normalizer mis-set.', 'Lower `drop-priority-threshold`, raise normalizer, or temporarily disable threshold while load stabilises.'],
+    ['Hints always 0', '`priority_normalizer` zeroed or prioritizer panic fallback triggered.', 'Verify `sei query evm params`; check logs for `tx prioritizer panicked`.'],
+    ['Oracle votes delayed', 'Oracle msgs lost special tier (regression).', 'Confirm `OraclePriority` constant, ensure app build is ≥ `v6.2.0`.'],
+    ['Assoc tx rejected with “already associated”', 'Wallet already linked so prioritizer returns error.', 'Surface clearer UX; instruct signer to send standard tx instead.']
+  ]}
+/>
+
+## Related Material
+
+<div className="not-prose mt-10 grid gap-4 md:grid-cols-2">
+  <a className="rounded-xl border border-neutral-200 bg-white/90 p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-neutral-300 hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900/70 dark:hover:border-neutral-700" href="/evm/rpc-consensus-overview">
+    <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Consensus Deep Dive</div>
+    <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">Ties the prioritizer directly into OCC execution, duplicate cache enforcement, and upgrade validation.</p>
+  </a>
+  <a className="rounded-xl border border-neutral-200 bg-white/90 p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-neutral-300 hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900/70 dark:hover:border-neutral-700" href="/evm/rpc-regression-playbook">
+    <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">RPC Regression Coverage</div>
+    <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">Extend load tests with priority-drop scenarios and trace guards.</p>
+  </a>
+  <a className="rounded-xl border border-neutral-200 bg-white/90 p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-neutral-300 hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900/70 dark:hover:border-neutral-700" href="/node/node-incident-playbooks">
+    <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">Node Incident Playbooks</div>
+    <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">On-call runbooks for mempool back-pressure, including tuning hints and resetting reservoirs.</p>
+  </a>
+  <a className="rounded-xl border border-neutral-200 bg-white/90 p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-neutral-300 hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900/70 dark:hover:border-neutral-700" href="/evm/rpc-gas-accounting">
+    <div className="text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">EVM Gas Accounting</div>
+    <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">Shows how block-level `gasUsed` ties to hint decisions and RPC client expectations.</p>
+  </a>
+</div>
