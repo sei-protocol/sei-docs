@@ -1,0 +1,99 @@
+---
+title: 'Addr Precompile'
+description: 'Resolve and work with Sei address formats from EVM.'
+keywords: ['addr', 'address', 'precompile', 'sei evm']
+---
+
+import { Callout } from 'nextra/components';
+import { FunctionList, TroubleshootingTable } from '../../mdx-components';
+
+# Addr Precompile
+
+**Address:** `0x0000000000000000000000000000000000001004`
+
+Resolve associations between Sei bech32 accounts and EVM addresses.
+
+## Functions
+
+<FunctionList
+  items={[
+    {
+      name: 'getSeiAddr',
+      signature: 'function getSeiAddr(address addr) view returns (string)',
+      description: 'Return the Sei bech32 account linked to the given EVM address (empty string if none).'
+    },
+    {
+      name: 'getEvmAddr',
+      signature: 'function getEvmAddr(string addr) view returns (address)',
+      description: 'Return the associated EVM address for a Sei bech32 account (zero address if none).'
+    },
+    {
+      name: 'associate',
+      signature: 'function associate(string v, string r, string s, string customMessage) returns (string seiAddr, address evmAddr)',
+      description: 'Create a mapping by submitting a signed message (v,r,s) from the Sei key plus a custom challenge.'
+    },
+    {
+      name: 'associatePubKey',
+      signature: 'function associatePubKey(string pubKeyHex) returns (string seiAddr, address evmAddr)',
+      description: 'Register association using the raw bech32 public key (requires matching legacy key custody).'
+    }
+  ]}
+/>
+
+<details>
+<summary>Full Solidity Interface</summary>
+
+```solidity copy
+interface IAddrPrecompile {
+  function getSeiAddr(address addr) external view returns (string memory response);
+  function getEvmAddr(string memory addr) external view returns (address response);
+  function associate(string memory v, string memory r, string memory s, string memory customMessage) external returns (string memory seiAddr, address evmAddr);
+  function associatePubKey(string memory pubKeyHex) external returns (string memory seiAddr, address evmAddr);
+}
+```
+
+</details>
+
+## Example
+
+```typescript copy
+import { ethers } from 'ethers';
+
+const ADDR = '0x0000000000000000000000000000000000001004';
+const ABI = ['function getSeiAddr(address addr) view returns (string)', 'function associate(string v, string r, string s, string customMessage) returns (string seiAddr, address evmAddr)'];
+
+const provider = new ethers.BrowserProvider(window.ethereum);
+await provider.send('eth_requestAccounts', []);
+const addr = new ethers.Contract(ADDR, ABI, provider);
+
+const signer = await provider.getSigner();
+const seiAddr = await addr.getSeiAddr(await signer.getAddress());
+
+if (!seiAddr) {
+  // Acquire payload via official helper (returns v,r,s,message)
+  const { v, r, s, message } = await buildAssociationPayload();
+  await addr.associate(v, r, s, message);
+}
+```
+
+## Notes
+
+- Association payloads must be generated client-side with the legacy Sei key; invalid signatures revert
+- `associate` is non-payable and rejects any `msg.value`
+- Use `getSeiAddr`/`getEvmAddr` to verify linkage before invoking Pointer or Solo precompiles
+- v6.1.11 improves gas accounting for association lookups in `eth_estimateGas`
+
+## Troubleshooting
+
+<TroubleshootingTable
+  rows={[
+    ['execution reverted: invalid addr', 'Zero address supplied', 'Provide a valid EVM address; ensure signer is connected.'],
+    ['Empty string returned', 'No association exists', 'Run associate() or trigger sei_associate RPC with correct payload.'],
+    ['association exists', 'Attempting to re-register', 'Associations are immutable; use existing mapping or migrate via Solo.']
+  ]}
+/>
+
+## References
+
+- ABI: [github.com/sei-protocol/sei-chain/precompiles/addr](https://github.com/sei-protocol/sei-chain/tree/main/precompiles/addr)
+- Association tooling: [`@sei-js/precompiles`](https://www.npmjs.com/package/@sei-js/precompiles)

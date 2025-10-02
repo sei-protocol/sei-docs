@@ -8,7 +8,7 @@
 
 USDC is a digital dollar issued by [Circle](http://developers.circle.com), also known as a stablecoin, running on many of the world's leading blockchains. Designed to represent US dollars on the internet, USDC is backed 100% by highly liquid cash and cash-equivalent assets so that it's always redeemable 1:1 for USD.
 
-On the **Sei**, USDC can be transferred like any standard ERC-20 token — enabling fast, secure, and programmable digital dollar transactions.
+On the **Sei**, USDC can be transferred like any standard ERC-20 token - enabling fast, secure, and programmable digital dollar transactions.
 
 This guide walks you through building a standalone index.js script using **Viem** and **Node.js** to check your USDC balance and send a test transfer to another address.
 
@@ -217,5 +217,5 @@ Continue building by checking for more information in the [Circle Developer Docs
 - Testnet Only: Sei testnet USDC has no real value. Don’t use mainnet keys or expect real funds.
 - Security: Store private keys in `.env`; never commit secrets. Use best practices for key management.
 - Gas Fees: You’ll need a small amount of testnet SEI to cover gas.
-- Lightweight ABI: Only `balanceOf` and `transfer` are used — enough for simple transfers.
+- Lightweight ABI: Only `balanceOf` and `transfer` are used - enough for simple transfers.
 - Viem Behavior: `readContract` and `writeContract` handle reads/writes. The private key is auto-prefixed with `0x`.

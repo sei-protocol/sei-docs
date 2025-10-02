@@ -1,0 +1,98 @@
+---
+title: 'Validator Upgrade Runbook'
+description: 'Step-by-step process for upgrading Sei validators with zero surprises.'
+keywords: ['sei upgrade', 'validator upgrade', 'rolling restart', 'gasUsed verification']
+---
+
+import { Callout } from 'nextra/components';
+import { KeyValueTable } from '../../mdx-components';
+
+# Validator Upgrade Runbook
+
+This runbook targets production validators moving between Sei releases (e.g., `v6.1.10` → `v6.1.11`). Follow the steps sequentially to ensure consensus safety and to confirm new behaviours-such as the `gasUsed` corrections from `sei-chain@1efdec1eb`-are live.
+
+## 1. Pre-flight
+
+<KeyValueTable
+  rows={[
+    ['Sync status', '`seid status | jq .SyncInfo.catching_up` returns `false`.'],
+    ['Height checkpoint', '`seid status | jq .SyncInfo.latest_block_height` → record for post-upgrade comparison.'],
+    ['Snapshot', '`seidadmin snapshot create --output /var/sei/snapshots/YYYYMMDD` (or provider-specific tooling). Store hashes off-host.'],
+    ['Peer health', 'Verify sentry/full-node connectivity; capture `~/.sei/config/peers` in case of rollback.'],
+    ['Gas baseline', '`curl -s localhost:8545 ... eth_getBlockByNumber latest true` and store `gasUsed` for post-upgrade validation.']
+  ]}
+/>
+
+Ensure `systemd` unit files or process managers are ready; upgrades should be performed during low network activity and coordinated with fellow validators when possible.
+
+## 2. Fetch & Verify Binary
+
+1. Download the release tarball or build from source at the tagged commit.
+2. Verify checksum:
+
+   ```bash copy
+   sha256sum seid-v6.1.11-linux-amd64.tar.gz
+   ```
+
+3. Extract and replace the binary:
+
+   ```bash copy
+   tar -xzf seid-v6.1.11-linux-amd64.tar.gz
+   sudo mv seid /usr/local/bin/seid
+   ```
+
+4. Confirm version:
+
+   ```bash copy
+   seid version --long
+   ```
+
+   Expect `name: sei-chain`, `version: v6.1.11`, and commit hash matching the release (`1efdec1eb...`).
+
+## 3. Rolling Restart
+
+<Callout type="warning">Never restart all validators concurrently. Stagger restarts to preserve liveness.</Callout>
+
+1. Stop the validator process (`systemctl stop seid` or equivalent).
+2. Apply configuration changes if required (e.g., raise `mempool.cache_size` alongside `sei-tendermint@02c9462f1`).
+3. Start the process and tail logs:
+
+   ```bash copy
+   journalctl -u seid -f --since "5 minutes ago"
+   ```
+
+4. Wait for the node to catch up to network height (check `SyncInfo.catching_up`).
+5. Repeat for sentries and remaining infrastructure.
+
+## 4. Post-Upgrade Validation
+
+Run these checks immediately after the validator resumes signing:
+
+- **Consensus height** increases and matches peers.
+- **GasUsed correctness**:
+
+  ```bash copy
+  curl -s http://localhost:8545 \
+    -d '{"jsonrpc":"2.0","id":1,"method":"eth_getBlockByNumber","params":["latest", true]}' \
+    | jq '.result.gasUsed'
+  ```
+
+  Confirm the value equals the sum of constituent receipts.
+
+- **Duplicate-tx cache**: If increasing `mempool.cache_size`, run `seid debug mempool-stats` (or inspect metrics) to ensure the cache size aligns with the new limit.
+- **Signer health**: Inspect logs for `Committed state` and absence of `panic` messages.
+
+## 5. Rollback Plan
+
+If anomalies arise:
+
+1. Stop the upgraded binary.
+2. Restore the previous binary from backup (`/usr/local/bin/seid-prev`).
+3. Restore the snapshot taken in the pre-flight stage if state corruption is suspected.
+4. Rejoin consensus and communicate the rollback to peers.
+
+## 6. Document the Upgrade
+
+- Record block height of the upgrade, commit hash, and any configuration changes in your ops log.
+- Archive the binary and checksums for audit purposes.
+- Update your monitoring dashboards to reflect new metrics if applicable.

@@ -11,7 +11,7 @@ Subgraphs handle the intricacies of data ingestion, decoding, and database manag
 
 ## Why Alchemy Subgraphs?
 
-- **High-performance.** We’ve benchmarked 5x faster data indexing and 2x better block lag than competitors — that’s why we’re trusted by Eigenlayer, GMX, and more.
+- **High-performance.** We’ve benchmarked 5x faster data indexing and 2x better block lag than competitors - that’s why we’re trusted by Eigenlayer, GMX, and more.
 - **No decentralized headaches.** We make payment easy (just a credit card, no staking tokens) and have guaranteed uptime compared to decentralized options.
 - **Developer tooling.** Access best in class developer tools like error logs, subgraph versioning, indexing performance metrics, and more.
 - **Easy migration.** If you have existing subgraphs, it takes just 5 minutes to switch over using the same command line tools you’re familiar with.

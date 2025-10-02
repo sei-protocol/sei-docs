@@ -1,0 +1,79 @@
+---
+title: 'Custom Tracer Authoring Guide'
+description: 'Best practices for building JavaScript tracers against Sei’s go-ethereum fork.'
+keywords: ['debug_traceTransaction', 'debug_traceCall', 'custom tracer', 'go-ethereum tracer', 'panic handling']
+---
+
+import { Callout } from 'nextra/components';
+import { TroubleshootingTable } from '../../mdx-components';
+
+# Custom Tracer Authoring Guide
+
+Sei exposes the standard `debug_trace*` RPC suite and accepts the same JavaScript tracer scripts as upstream go-ethereum, with a few Sei-specific safety guards and panic surfacing improvements.
+
+## Runtime Expectations
+
+- **Frame limits** - Keep serialized payloads below the enforced frame guard; chunk or stream large outputs.
+- **Panic surfacing** - Errors thrown inside tracers appear in `error.data.trace`. Persist them for debugging.
+- **Timeout & concurrency** - Respect `trace_timeout` (default 30s) and `max_concurrent_trace_calls` (default 10); excess calls queue.
+
+## Authoring Patterns
+
+```javascript copy
+const tracer = {
+  result: {
+    steps: [],
+    gasUsed: 0,
+    errors: []
+  },
+  step(log, db) {
+    try {
+      this.result.steps.push({
+        pc: log.getPC(),
+        op: log.op.toString(),
+        gasCost: log.getCost()
+      });
+      this.result.gasUsed += log.getCost();
+    } catch (err) {
+      this.result.errors.push(String(err));
+      throw err; // bubble up so Sei surfaces it in error.data.trace
+    }
+  },
+  fault(log, db) {
+    this.result.errors.push(`fault: ${log.getError()}`);
+  },
+  result() {
+    return this.result;
+  }
+};
+
+module.exports = tracer;
+```
+
+### Recommendations
+
+- Wrap logic in `try/catch` to append diagnostic context before re-throwing.
+- Keep returned objects shallow; avoid large arrays or deeply nested state.
+- Include a version identifier in the result to track script revisions.
+- Use `db.getBalance`, `db.getCode`, etc., sparingly; each call hits execution state.
+
+## Validation Checklist
+
+<KeyValueTable
+  rows={[
+    ['Panic recovery', 'Intentionally throw within `step` and confirm the response includes `error.data.trace`.'],
+    ['Frame size', 'Serialize tracer output and ensure it stays comfortably below 1 MB.'],
+    ['Concurrency', 'Send `max_concurrent_trace_calls + 1` requests; the extra call should queue (not crash).'],
+    ['Timeout', 'Run a long trace to verify it errors with a timeout rather than hanging indefinitely.']
+  ]}
+/>
+
+## Troubleshooting
+
+<TroubleshootingTable
+  rows={[
+    ['panic: runtime error: index out of range', 'Tracer script accesses an array out of bounds.', 'Add guards, catch the error, or ensure the data structure matches opcodes observed.'],
+    ['frame length exceeds limit', 'Tracer returns payload larger than go-ethereum guard.', 'Stream results to storage or return a summarized payload.'],
+    ['Missing error.data.trace', 'Node running a build without panic surfacing, or panic occurs outside tracer scope.', 'Upgrade to a tracer-enabled release; ensure errors originate inside the tracer so the wrapper can capture them.']
+  ]}
+/>

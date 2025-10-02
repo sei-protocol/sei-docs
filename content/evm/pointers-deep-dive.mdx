@@ -1,0 +1,199 @@
+---
+title: 'Pointers Deep Dive'
+description: 'Design patterns for bridging identities and assets between CW and EVM using Pointer & PointerView.'
+keywords:
+  - pointer
+  - pointerview
+  - cw20
+  - erc1155
+  - erc721
+  - interop
+---
+
+import { Callout } from 'nextra/components';
+import { KeyValueTable, TroubleshootingTable } from '../../mdx-components';
+
+# Pointers Deep Dive
+
+The Pointer (write) and PointerView (read) precompiles are the backbone of identity and asset interoperability on Sei. This guide dives into how the mapping layer is structured, how migrations use it, and how to operate Pointer safely in production.
+
+## Architecture Overview
+
+Pointer is the stateful gateway: it writes mappings that link CW addresses and native denoms to canonical EVM contracts. PointerView exposes the same data read-only so applications, wallets, and indexers can resolve ownership with zero mutation risk.
+
+| Component               | Responsibility                                                              | Source code anchor                                                                                                         |
+| :---------------------- | :-------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------- |
+| Pointer (`0x…100B`)     | Registers mappings via `add*Pointer` functions, emits events, charges fees. | [`precompiles/pointer/abi.json`](https://github.com/sei-protocol/sei-chain/blob/main/precompiles/pointer/abi.json)         |
+| PointerView (`0x…100A`) | Returns pointer address, version, and existence flag.                       | [`precompiles/pointerview/abi.json`](https://github.com/sei-protocol/sei-chain/blob/main/precompiles/pointerview/abi.json) |
+| Solo precompile         | Consumes Pointer data during asset migrations.                              | [`precompiles/solo/abi.json`](https://github.com/sei-protocol/sei-chain/blob/main/precompiles/solo/abi.json)               |
+| Addr precompile         | Verifies association prerequisites before pointer writes.                   | [`precompiles/addr/abi.json`](https://github.com/sei-protocol/sei-chain/blob/main/precompiles/addr/abi.json)               |
+
+<Callout type="info">Pointer emits `PointerRegistered`, `PointerUpdated`, and `PointerRemoved` logs. PointerView does not emit events; treat it as the canonical source of truth when reconciling state.</Callout>
+
+## Lifecycle of a Pointer Mapping
+
+1. **Pre-flight checks**
+   - Confirm the CW contract implements the expected interface (CW20 `transfer`, CW721 `owner_of`, etc.).
+   - Ensure the initiating wallet is associated (`sei_associate` or Addr precompile).
+   - Validate you have governance approval for new mappings (fees + policy).
+2. **Write**
+   - Call the relevant `add*Pointer` entrypoint with the CW contract address or denom identifier.
+   - Pay the required fee in `usei`; transactions revert if fees are missing.
+3. **Event emission**
+   - Pointer emits a log tagged `synthetic=true` (post `v6.1.11`). Indexers capture the mapping metadata.
+4. **Verification**
+   - Query PointerView to confirm `(address, version, exists)` match the expected deployment.
+   - Persist the pointer address in application configuration or registry contracts.
+5. **Usage**
+   - Downstream EVM contracts interact with the pointer contract as if it were the canonical ERC implementation.
+   - Front-ends and wallets use PointerView to show asset provenance.
+
+## Identifiers and Metadata
+
+<KeyValueTable
+  rows={[
+    ['CW20 → EVM', '`addCW20Pointer(cwAddr)` / `getCW20Pointer(cwAddr)`'],
+    ['CW721 → EVM', '`addCW721Pointer(cwAddr)` / `getCW721Pointer(cwAddr)`'],
+    ['CW1155 → EVM', '`addCW1155Pointer(cwAddr)` / `getCW1155Pointer(cwAddr)`'],
+    ['Native denom', '`addNativePointer(denom)` / `getNativePointer(denom)`'],
+    ['Version field', 'Incremented on updates; check before assuming contract ABI compatibility.'],
+    ['Exists flag', 'Use to guard against zero-address responses in PointerView.']
+  ]}
+/>
+
+## Mapping Recipes
+
+### CW20 → ERC-20
+
+1. Register pointer via governance-controlled multisig or module.
+2. Wait for the transaction to finalize and capture the emitted pointer address.
+3. Update front-ends to read balances from the new pointer contract, not the legacy CW endpoint.
+4. (Optional) Mint/burn functionality can proxy through the pointer if the CW contract exposes hooks.
+
+### CW721 → ERC-721 Metadata
+
+1. Register pointer with `addCW721Pointer`.
+2. Deploy a metadata proxy that queries PointerView for the original CW collection when constructing token URIs.
+3. Ensure indexers subscribe to both ERC-721 events and CW721 events for full provenance.
+
+### CW1155 → ERC-1155 Batches
+
+1. Batch registration can reuse the same pointer contract for multiple token IDs; pointer stores the CW contract mapping.
+2. When migrating, ensure the pointer contract mirrors CW1155 semantics for `safeBatchTransferFrom`.
+3. Test large batch transfers under load-they rely heavily on gas estimations that include pointer lookup warmups.
+
+### Native Denom → ERC-20 Wrapper
+
+1. Call `addNativePointer('usei')` (or other denom) after verifying supply controls.
+2. The resulting pointer contract holds canonical mint/burn logic tied to the Cosmos bank module.
+3. Use PointerView lookups before referencing the address in DeFi protocols to avoid stale registries.
+
+## Integration Patterns
+
+### Pointer Write Module
+
+```solidity copy
+interface IPointer {
+    function addNativePointer(string calldata denom) external payable returns (address);
+}
+
+contract PointerAuthorizer {
+    IPointer immutable pointer;
+    address immutable treasury;
+
+    constructor(address pointerAddress, address treasuryAddr) {
+        pointer = IPointer(pointerAddress);
+        treasury = treasuryAddr;
+    }
+
+    function registerNative(string calldata denom) external payable onlyGov {
+        require(msg.value >= 10 ** 15, "fee required");
+        address deployed = pointer.addNativePointer{value: msg.value}(denom);
+        (bool ok, ) = treasury.call{value: msg.value}("");
+        require(ok, "treasury ack failed");
+        emit NativePointerRegistered(denom, deployed);
+    }
+}
+```
+
+### PointerView Consumer
+
+```solidity copy
+interface IPointerView {
+    function getCW721Pointer(string calldata cwAddr)
+        external
+        view
+        returns (address pointer, uint16 version, bool exists);
+}
+
+contract CollectionResolver {
+    IPointerView immutable pointerView;
+
+    constructor(address pointerViewAddr) {
+        pointerView = IPointerView(pointerViewAddr);
+    }
+
+    function resolveCW721(string calldata cwCollection) external view returns (address) {
+        (address pointer, , bool exists) = pointerView.getCW721Pointer(cwCollection);
+        require(exists, "pointer missing");
+        return pointer;
+    }
+}
+```
+
+## Migration Runbooks
+
+### Solo-Assisted Balance Migration
+
+1. **Inventory** - Use PointerView to list registered native denoms and CW assets.
+2. **Prepare claims** - Generate Solo payloads referencing pointer addresses and targeted EVM accounts.
+3. **Dry run** - Execute claims on a staging network; ensure fees and pointer versions align.
+4. **Execute** - Broadcast `claim` or `claimSpecific` transactions.
+5. **Validate** - Confirm synthetic logs via indexer and PointerView pointer state.
+6. **Monitor** - Track failures (`invalid payload`, `already claimed`) and reconcile.
+
+### Governance-Controlled Pointer Updates
+
+1. Submit proposal containing new pointer targets and justification.
+2. Upon approval, run controlled script invoking `add*Pointer` or future `update*Pointer` flow.
+3. Record transaction hashes and pointer addresses in change management system.
+4. Notify downstream teams (indexers, wallets) of new version numbers.
+5. Schedule post-change audit using `pointerView` queries and indexer diff reports.
+
+## Operations & Monitoring
+
+- **Access control** - Restrict pointer writes to multisigs, governance contracts, or hardened operator bots. Store the allowlist on-chain where possible.
+- **Fee accounting** - Track total `usei` spent registering pointers; compare against expected policy budgets.
+- **Indexing parity** - Nightly job to compare PointerView responses versus indexed events; alert on mismatches.
+- **Version guard** - Scripts consuming PointerView should assert `version` values before assuming ABI compatibility.
+- **Incident response** - Maintain runbooks for pointer drift, unauthorized writes, and failed migrations. Most issues are caught by reconciling PointerView against recorded events.
+
+## Observability Checklist
+
+<KeyValueTable
+  rows={[
+    ['Prometheus metric', '`pointer_writes_total` (custom exporter) per module; alert on spikes.'],
+    ['Log string', '`PointerRegistered` synthetic logs; absence during migrations signals indexer gaps.'],
+    ['RPC probe', '`getCW20Pointer` queries for top assets every 5 minutes; error if `exists` flips unexpectedly.'],
+    ['On-call dashboards', 'Combine Pointer events with Solo claim success rates to visualize migration health.']
+  ]}
+/>
+
+## Troubleshooting
+
+<TroubleshootingTable
+  rows={[
+    ['Pointer already exists', 'Mapping previously created for the same CW contract/token id.', 'Use update flow once exposed, or remove the old pointer before re-registering. PointerView shows the current address and version.'],
+    ['Pointer not found in PointerView', 'Lookup is hitting the wrong namespace or stale deployment.', 'Call the exact getter (`getCW20Pointer`, `getCW721Pointer`, etc.). Confirm you are on the correct network alias and the mapping is registered.'],
+    ['Events missing', '`PointerRegistered` log not captured by indexer.', 'Replay from the registration block or rebuild mappings directly from PointerView; ensure synthetic log flag is persisted.'],
+    ['Unauthorized pointer write', 'Write exposed to untrusted accounts.', 'Restrict `add*Pointer` access via smart-contract gatekeepers and monitor for unexpected caller addresses.'],
+    ['Version mismatch in downstream app', 'Pointer contract upgraded without notifying consumers.', 'Check `version` via PointerView, update ABIs/configuration, and redeploy integrations.']
+  ]}
+/>
+
+## Related Material
+
+- [Pointer Precompile](/evm/precompile-pointer) - ABI reference for write operations.
+- [PointerView Precompile](/evm/precompile-pointerview) - Read API reference.
+- [Solo Precompile](/evm/precompile-solo) - Migration tooling built on pointer data.
+- [Transaction Prioritizer](/evm/rpc-prioritizer) - Ensure pointer writes are prioritized alongside association transactions.

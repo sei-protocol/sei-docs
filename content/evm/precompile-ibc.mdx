@@ -1,0 +1,103 @@
+---
+title: 'IBC Precompile'
+description: 'Initiate IBC transfers from EVM smart contracts.'
+keywords: ['ibc', 'interchain', 'precompile', 'sei evm']
+---
+
+import { Callout } from 'nextra/components';
+import { FunctionList, TroubleshootingTable } from '../../mdx-components';
+
+# IBC Precompile
+
+**Address:** `0x0000000000000000000000000000000000001009`
+
+Initiate IBC transfers from EVM contracts to other IBC-enabled chains.
+
+<Callout type="info">Under SIP-3, inbound IBC transfers to legacy Cosmos addresses will be disabled, but **outbound** IBC transfers from EVM remain supported via this precompile.</Callout>
+
+## Functions
+
+<FunctionList
+  items={[
+    {
+      name: 'transfer',
+      signature: 'function transfer(string toAddress, string port, string channel, string denom, uint256 amount, uint64 revisionNumber, uint64 revisionHeight, uint64 timeoutTimestamp, string memo) returns (bool)',
+      description: 'Send funds via IBC with explicit timeout parameters (height + timestamp).'
+    },
+    {
+      name: 'transferWithDefaultTimeout',
+      signature: 'function transferWithDefaultTimeout(string toAddress, string port, string channel, string denom, uint256 amount, string memo) returns (bool)',
+      description: 'Send funds via IBC; timeout calculated automatically from the current block.'
+    }
+  ]}
+/>
+
+<details>
+<summary>Full Solidity Interface</summary>
+
+```solidity copy
+interface IIBCPrecompile {
+  function transfer(
+    string memory toAddress,
+    string memory port,
+    string memory channel,
+    string memory denom,
+    uint256 amount,
+    uint64 revisionNumber,
+    uint64 revisionHeight,
+    uint64 timeoutTimestamp,
+    string memory memo
+  ) external returns (bool success);
+
+  function transferWithDefaultTimeout(
+    string memory toAddress,
+    string memory port,
+    string memory channel,
+    string memory denom,
+    uint256 amount,
+    string memory memo
+  ) external returns (bool success);
+}
+```
+
+</details>
+
+## Example
+
+```ts copy
+import { ethers } from 'ethers';
+const IBC = '0x0000000000000000000000000000000000001009';
+const ABI = ['function transferWithDefaultTimeout(string toAddress, string port, string channel, string denom, uint256 amount, string memo) returns (bool)', 'function transfer(string toAddress, string port, string channel, string denom, uint256 amount, uint64 revisionNumber, uint64 revisionHeight, uint64 timeoutTimestamp, string memo) returns (bool)'];
+
+const provider = new ethers.BrowserProvider(window.ethereum);
+await provider.send('eth_requestAccounts', []);
+const ibc = new ethers.Contract(IBC, ABI, await provider.getSigner());
+
+// Send 1 SEI to Osmosis
+const tx = await ibc.transferWithDefaultTimeout(
+  'osmo1recipient...',
+  'transfer',
+  'channel-0',
+  'usei',
+  ethers.parseUnits('1', 6), // 1 SEI = 1_000_000 usei
+  '' // empty memo
+);
+await tx.wait();
+```
+
+## Considerations
+
+- Requires active relayer between source and target chains
+- Use `transferWithDefaultTimeout` for most cases (simplifies timeout management)
+- For custom timeouts, use `transfer` and specify revision number/height + timestamp
+- Ensure the channel is open and relayers are operational before attempting transfers
+
+## Troubleshooting
+
+<TroubleshootingTable
+  rows={[
+    ['channel not found', 'Invalid or inactive IBC channel ID', 'Verify channel via seid query ibc channel channels before transferring.'],
+    ['Transfer stuck / not relayed', 'Relayer offline or backlogged', 'Check relayer status; funds escrowed until timeout or successful relay.'],
+    ['Timeout errors', 'Block height or timestamp too low', 'Use transferWithDefaultTimeout to avoid manual timeout calculation errors.']
+  ]}
+/>

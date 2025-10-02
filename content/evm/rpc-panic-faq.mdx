@@ -1,0 +1,92 @@
+---
+title: 'Panic Handling FAQ'
+description: 'How Sei surfaces panics in RPC responses and how operators should react.'
+keywords: ['panic handling', 'rpc errors', 'tracer panics', 'node crashes']
+---
+
+import { Callout } from 'nextra/components';
+import { TroubleshootingTable } from '../../mdx-components';
+
+# Panic Handling FAQ
+
+Sei users occasionally hit runtime panics-either from custom tracers, malformed transactions, or internal bugs. Recent releases focus on surfacing those panics cleanly instead of terminating the node. This FAQ explains how they look on the wire and what you should do when you see them.
+
+<Callout type="info">This guidance is based on `sei-chain@1a1805cff`, `sei-chain@4fac51f02`, `sei-chain@bc47cc90f`, `sei-chain@70c633940`, and go-ethereum `v1.15.7-sei-6`/`-7`.</Callout>
+
+## Panic Surface Area
+
+- **Tracer runtime** - Custom JS tracers that throw now return `error.data.trace` instead of severing the connection; capture it for postmortems.
+- **Go panics** - Core RPC wraps go-ethereum panics and returns a 5xx with stack info. Watch logs for `panic: recovered` entries.
+- **Client resilience** - Back off with jitter on repeated panic responses and persist context for support tickets.
+
+## Client-Side Symptoms
+
+- **RPC error payloads** now return `200 OK` with a JSON structure similar to:
+
+```json copy
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": -32000,
+    "message": "panic: runtime error: invalid memory address or nil pointer dereference",
+    "data": {
+      "trace": "github.com/...",
+      "path": "debug_traceTransaction",
+      "txHash": "0x1234..."
+    }
+  }
+}
+```
+
+- `sei_trace*ExcludeTraceFail` endpoints strip transactions that would have triggered the panic.
+- When a panic originates from a tracer frame exceeding expected length, the node returns `frame length exceeds limit`.
+
+## Operator Checklist
+
+1. **Capture Logs**: tail the node logs for the timestamp of the panic. Confirm whether it is a tracer panic or a node-side issue.
+2. **Identify Endpoint**: note which method was called (`debug_traceTransaction`, `eth_getLogs`, etc.) and the parameters.
+3. **Reproduce Safely**: rerun the call against a staging node. If reproducible, capture stack trace and report.
+4. **Assess Impact**:
+   - If the panic stems from a custom tracer, patch the tracer.
+   - If the panic is node-side and reproducible, open an issue with the Sei team, including the stack trace.
+
+## Known Panic Sources
+
+| Source                                     | Fixed In                    | Mitigation                                                                                |
+| :----------------------------------------- | :-------------------------- | :---------------------------------------------------------------------------------------- |
+| Missing panic guard in RPC goroutines      | `sei-chain@1a1805cff`       | Upgrade and restart the node.                                                             |
+| Metrics exporter panics                    | `sei-chain@4fac51f02`       | Ensure the binary contains this fix.                                                      |
+| `debug_trace*` returning panic string only | `sei-chain@bc47cc90f`       | RPC now wraps the panic into proper error payloads; client must parse `error.data.trace`. |
+| Panic in tracer frame length               | go-ethereum `v1.15.7-sei-7` | Update tracer binaries; adds explicit length checks.                                      |
+
+## Troubleshooting
+
+<TroubleshootingTable
+  rows={[
+    ['RPC connection closes without error payload', 'Node still on pre-`v1.15.7-sei-6` go-ethereum binary or panic occurs before wrapper runs.', 'Upgrade binary and ensure `debug_trace*` endpoints are served by the patched code.'],
+    ['Repeated `panic: runtime error: index out of range` for custom tracer', 'Tracer script has a logic bug.', 'Fix the tracer or catch the panic inside the script; consider using `try/catch` in JS tracer.'],
+    ['`frame length exceeds limit`', 'Tracer emitted more bytes than the guard allows.', 'Paginate tracer output or increase the frame limit by patching go-ethereum (not recommended on shared nodes).'],
+    ['Node crashes with Go stack trace', 'Underlying binary not updated with panic recovery patches.', 'Redeploy with latest release; if it persists, capture core dump and escalate.']
+  ]}
+/>
+
+## When to Escalate
+
+- Node process exits even after applying the listed fixes.
+- Panic occurs on `eth_getLogs` or other critical endpoints across multiple nodes.
+- Error payload lacks `data.trace` despite being on the patched version.
+
+Collect:
+
+- RPC request/response pair
+- Full stack trace from logs
+- Node version (`seid version --long`) and go-ethereum tag
+
+Then open a ticket with the Sei core team.
+
+## Related Guides
+
+- `rpc-regression-playbook` – Suggested QA suite after upgrading nodes.
+- `tracing-playbook` – Techniques for debugging custom tracers.
+- `node/troubleshooting` – Node-level crash handling.

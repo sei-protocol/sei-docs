@@ -1,0 +1,122 @@
+---
+title: 'Pointer Precompile'
+description: 'Bridge identities and assets between CW and EVM using pointers.'
+keywords: ['pointer', 'interop', 'precompile', 'sei evm']
+---
+
+import { Callout } from 'nextra/components';
+import { FunctionList, TroubleshootingTable } from '../../mdx-components';
+
+# Pointer Precompile
+
+**Address:** `0x000000000000000000000000000000000000100B`
+
+Pointer is the write surface that creates canonical bridges between CW contracts/native denoms and EVM contracts. It emits events for indexers and charges a fee in `usei` per registration. Pair it with PointerView for reads.
+
+<Callout type="info">Before calling Pointer, ensure the signer is associated (`sei_associate` or Addr precompile) and that PointerView doesn’t already report a mapping.</Callout>
+
+## Functions
+
+<FunctionList
+  items={[
+    {
+      name: 'addCW20Pointer',
+      signature: 'function addCW20Pointer(string cwAddr) payable returns (address)',
+      description: 'Registers a CW20 contract so EVM contracts can interact via ERC-20 semantics.'
+    },
+    {
+      name: 'addCW721Pointer',
+      signature: 'function addCW721Pointer(string cwAddr) payable returns (address)',
+      description: 'Creates an ERC-721 pointer for the target CW721 contract.'
+    },
+    {
+      name: 'addCW1155Pointer',
+      signature: 'function addCW1155Pointer(string cwAddr) payable returns (address)',
+      description: 'Exposes CW1155 tokens through an ERC-1155-compatible pointer.'
+    },
+    {
+      name: 'addNativePointer',
+      signature: 'function addNativePointer(string token) payable returns (address)',
+      description: 'Maps a native denom (e.g., "usei") to an ERC-20 pointer contract.'
+    }
+  ]}
+/>
+
+<details>
+<summary>Full Solidity Interface</summary>
+
+```solidity copy
+interface IPointerPrecompile {
+  function addCW20Pointer(string memory cwAddr) external payable returns (address pointer);
+  function addCW721Pointer(string memory cwAddr) external payable returns (address pointer);
+  function addCW1155Pointer(string memory cwAddr) external payable returns (address pointer);
+  function addNativePointer(string memory token) external payable returns (address pointer);
+}
+```
+
+</details>
+
+## Usage Workflow
+
+1. **Pre-flight** - Query PointerView to confirm the mapping is absent; verify the CW contract implements required interfaces.
+2. **Authorize caller** - Pointer should be invoked by a governance module, multisig, or automation bot. Maintain an allowlist of valid callers.
+3. **Set fee budget** - Pointer charges `usei`. Pull the current rate from governance or configuration and fund the caller account.
+4. **Invoke Pointer** - Call the desired `add*Pointer` function with the target CW address/denom and attach the fee. Transactions revert on duplicate mappings, insufficient fees, or invalid addresses.
+5. **Verify** - After the transaction confirms, fetch the pointer via PointerView and persist the address/version. Indexers must capture the `PointerRegistered` log (tagged `synthetic=true`).
+
+## Example: Register CW20 + Native Pointer
+
+```typescript copy
+import { ethers } from 'ethers';
+
+const POINTER = '0x000000000000000000000000000000000000100B';
+const ABI = ['function addCW20Pointer(string cwAddr) payable returns (address)', 'function addNativePointer(string token) payable returns (address)'];
+
+const provider = new ethers.BrowserProvider(window.ethereum);
+await provider.send('eth_requestAccounts', []);
+const signer = await provider.getSigner();
+const pointer = new ethers.Contract(POINTER, ABI, signer);
+
+const fee = ethers.parseEther('0.01');
+
+// Register CW20 pointer
+const cw20Tx = await pointer.addCW20Pointer('sei1cw20...', { value: fee });
+await cw20Tx.wait();
+
+// Register native denom pointer
+const nativeTx = await pointer.addNativePointer('usei', { value: fee });
+await nativeTx.wait();
+```
+
+## Operational Guidance
+
+- **Association prerequisite** - If the caller is not associated, Pointer calls revert. Run `sei_associate` first.
+- **Fee accounting** - Track fees spent on registrations; reconcile with governance budgets.
+- **Event monitoring** - Indexers must store `PointerRegistered`/`PointerUpdated` logs. Replay from the block height if events are missed.
+- **Version coordination** - Pointer updates will increment the version returned by PointerView; alert downstream services when the number changes.
+- **Rollback strategy** - Pointer cannot overwrite an existing mapping; to rotate, governance must deploy update tooling (planned) or remove and re-register (future extension). For now, treat initial registration as permanent.
+
+## Notes
+
+- Pointer creation requires governance-approved fees; check release notes for current pricing.
+- Pointer contracts emit synthetic events tagged `synthetic=true` (`v6.1.11+`).
+- Ensure CW contracts implement expected interfaces; invalid targets revert during registration.
+- Solo migrations depend on up-to-date pointers; coordinate updates before running claim windows.
+
+## Troubleshooting
+
+<TroubleshootingTable
+  rows={[
+    ['pointer exists', 'Pointer mapping already registered for this contract/denom.', 'Use PointerView to fetch existing pointer; rotation requires governance tooling.'],
+    ['invalid denom', 'Native denom string malformed or empty.', 'Pass the exact denom identifier (e.g., `usei`, `uatom`).'],
+    ['estimation fails', 'Wallet lacks EVM/Sei association or fee is missing.', 'Run `sei_associate` or ensure the Pointer call includes the approved fee amount.'],
+    ['unauthorized caller', 'Multisig/governance guard blocks the transaction.', 'Call Pointer through the authorized module; update allowlist if governance approves new executors.']
+  ]}
+/>
+
+## Related Docs
+
+- [PointerView Precompile](/evm/precompile-pointerview) - Read API used to verify registrations.
+- [Pointers Deep Dive](/evm/pointers-deep-dive) - Architecture guidance, migration runbooks, and monitoring.
+- [Solo Precompile](/evm/precompile-solo) - Uses pointer data when migrating assets.
+- [Addr Precompile](/evm/precompile-addr) - Association step required before pointer writes.

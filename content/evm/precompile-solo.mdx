@@ -1,0 +1,94 @@
+---
+title: 'Solo Precompile'
+description: 'Migrate balances and assets from legacy Sei addresses using the Solo precompile, with support for CW20/CW721 via claimSpecific.'
+keywords: ['solo', 'migration', 'cw20', 'cw721', 'precompile', 'sei evm']
+---
+
+import { Callout } from 'nextra/components';
+import { FunctionList, TroubleshootingTable } from '../../mdx-components';
+
+# Solo Precompile
+
+**Address:** `0x000000000000000000000000000000000000100C`
+
+The Solo precompile enables migration of balances and certain assets from legacy Sei addresses to an EVM address. It is the canonical path for user migration and is designed to be safe and auditable.
+
+<Callout type="info">Compatibility: Works today and remains valid under the proposed EVM‑only direction (SIP‑3). Solo cannot be called via CosmWasm, and Sei does not support EVM→CW→EVM call patterns.</Callout>
+
+## Functions
+
+<FunctionList
+  items={[
+    {
+      name: 'claim',
+      signature: 'function claim(bytes payload) returns (bool)',
+      description: 'Migrates all eligible assets for the signer; payload must include signatures and claim descriptors.'
+    },
+    {
+      name: 'claimSpecific',
+      signature: 'function claimSpecific(bytes payload) returns (bool)',
+      description: 'Targets a single asset type (native, CW20, CW721) using a typed payload; prevents partial replay.'
+    }
+  ]}
+/>
+
+<details>
+<summary>Full Solidity Interface</summary>
+
+```solidity copy
+interface ISoloPrecompile {
+  function claim(bytes calldata payload) external returns (bool);
+  function claimSpecific(bytes calldata payload) external returns (bool);
+}
+```
+
+</details>
+
+## Generating claim payloads
+
+The payload is a binary-encoded message that proves control over the legacy Sei address and specifies what to claim. The exact schema is versioned; use the official helpers where available.
+
+<Callout type="warning">Always construct and sign payloads client‑side and verify the target recipient (msg.sender) is your intended EVM account before broadcasting.</Callout>
+
+## Example
+
+```typescript copy
+import { ethers } from 'ethers';
+import { SOLO_PRECOMPILE_ABI, SOLO_PRECOMPILE_ADDRESS } from '@sei-js/precompiles';
+
+const provider = new ethers.BrowserProvider(window.ethereum);
+await provider.send('eth_requestAccounts', []);
+const signer = await provider.getSigner();
+const solo = new ethers.Contract(SOLO_PRECOMPILE_ADDRESS, SOLO_PRECOMPILE_ABI, signer);
+
+// Migrate all supported assets
+const payload = ethers.getBytes('0x...'); // use official helper output
+await solo.claim(payload, { gasLimit: 200_000 });
+
+// Target a specific CW20 asset
+const cw20Payload = ethers.getBytes('0x...');
+await solo.claimSpecific(cw20Payload, { gasLimit: 300_000 });
+```
+
+## Notes
+
+- Solo rejects CosmWasm entrypoints; invoke only from EVM context
+- Payloads are signature-bound; reuse of the same claim reverts with `already claimed`
+- Review transaction receipts for synthetic logs tagged `synthetic=true`
+- For asset inventories, pair Solo with Pointer/PointerView before generating payloads
+
+## Troubleshooting
+
+<TroubleshootingTable
+  rows={[
+    ['invalid payload', 'Malformed or unsupported encoding', 'Use official Solo payload helpers; verify signer matches legacy key.'],
+    ['already claimed', 'Asset previously migrated for this address', 'Query migration status before retrying; Solo prevents double claims.'],
+    ['unauthorized', 'Signature does not match legacy account', 'Rebuild payload with correct bech32 source and matching signer.']
+  ]}
+/>
+
+## Related Docs
+
+- [Pointer Deep Dive](/evm/pointers-deep-dive) - understand how pointer associations feed Solo and other migration flows.
+- [Addr precompile](/evm/precompile-addr) - lookup associations before finalising claim payloads.
+- [Indexing best practices](/evm/indexing-best-practices) - capture Solo synthetic logs reliably during large-scale migrations.

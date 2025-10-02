@@ -1,0 +1,90 @@
+---
+title: 'Alchemy Subgraphs'
+---
+
+import { Callout } from 'nextra/components';
+import { TroubleshootingTable } from '../../../mdx-components';
+
+# Alchemy Subgraphs
+
+<Callout type="info">Standardized guide: Overview → Quickstart → Windows & Limits → Backfill → Reorgs → Examples → Troubleshooting.</Callout>
+
+## Overview
+
+Alchemy Subgraphs delivers managed GraphQL indexing with seamless compatibility with The Graph tooling. A dedicated Sei pipeline ([v6.1.11+](https://github.com/sei-protocol/sei-chain/releases/tag/v6.1.11)) adds:
+
+- Native Sei EVM support with < 2 block lag under steady load.
+- Automatic retries for synthetic transaction logs.
+- Managed backfills with configurable block windows (default 2,000).
+- Integrated monitoring dashboards (error rates, sync status, latency percentiles).
+
+<Callout type="tip">Existing Graph CLI projects can be pointed at Alchemy by switching the gateway endpoint and redeploying without code changes.</Callout>
+
+## Quickstart
+
+1. [Create an Alchemy account](https://www.alchemy.com/signup) and request access to the Sei Subgraphs beta.
+2. Install the CLI: `npm install -g @graphprotocol/graph-cli` (compatible with Alchemy's gateway).
+3. Initialise your subgraph: `graph init --from-example sei/my-dapp`.
+4. Update the network configuration:
+
+```yaml copy
+# subgraph.yaml excerpt
+dataSources:
+  - kind: ethereum/contract
+    network: sei-mainnet
+    source:
+      address: '0x...'
+      startBlock: 12000000
+    mapping:
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+```
+
+5. Authenticate: `graph auth --node https://subgraphs.sei.alchemy.com/api <API_KEY>`.
+6. Deploy: `graph deploy --node https://subgraphs.sei.alchemy.com/api sei/my-dapp`.
+
+## Windows & Limits
+
+- Default backfill window: **2,000 blocks** (adaptive). Use CLI flag `--block-window` to customise.
+- Daily compute quota: 5 hours build time on the free tier; contact support for dedicated workers.
+- Concurrent backfills per project: 2.
+- Reorg depth assumption: 0 (Sei finality). Payloads auto-commit once ingested; manual rewinds available via dashboard.
+- Synthetic event handling: automatically tagged via `synthetic=true` metadata.
+
+## Backfill Strategy
+
+- Stage subgraph versions: keep `production` indexing current data while `backfill` version replays history.
+- Enable automatic snapshotting every 250k blocks to accelerate restarts.
+- Use the CLI `graph build` locally with `--ipfs /tmp/ipfs` to catch ABI/schema errors before deploying.
+- Pair backfills with the [Indexing Best Practices](../indexing/best-practices) guidance for retry behaviour.
+
+## Reorg Handling
+
+Sei blocks do not revert, but Alchemy maintains a virtual reorg buffer for consistency:
+
+- Recent blocks (last 20) stay in a mutable buffer for 5 minutes; this allows manual rewinds if upstream data is corrected.
+- The dashboard shows `Finalized` vs `Buffered` heights; monitor and alert if the buffer grows unexpectedly (indicates provider lag).
+- If a rewind is triggered (rare), redeploy the subgraph to the prior snapshot via the console.
+
+## Build Pipeline Snapshot
+
+1. **Generate schema & mappings** - Run `graph codegen` locally and ensure synthetic fields are declared in `schema.graphql` before publishing.
+2. **Build & validate** - Use `graph build` with a local IPFS daemon (or bundled mock) to catch ABI mismatches fast.
+3. **Deploy to Alchemy** - `graph deploy --node https://subgraphs.sei.alchemy.com/api` and monitor the dashboard until lag shrinks under 2 blocks.
+
+## Implementation References
+
+- [Schema checklist](https://thegraph.com/docs/en/developing/creating-a-subgraph/) - ensure every synthetic field is represented in `schema.graphql` before running codegen.
+- [Sei indexing best practices](/evm/indexing-best-practices) - align window sizes and backoff strategy with Sei RPC guidance.
+- [Alchemy subgraph dashboard](https://dashboard.alchemy.com/) - monitor buffered vs finalized heights, error counts, and throughput.
+
+## Troubleshooting
+
+<TroubleshootingTable
+  rows={[
+    ['Deployment stuck at Pending', 'Missing schema or ABI mismatch', 'Run graph build locally and fix reported errors before redeploying.'],
+    ['Lag > 10 blocks', 'Backfill window too large or rate-limited', 'Reduce --block-window to 500 and monitor dashboard metrics.'],
+    ['Synthetic events missing', 'synthetic field not persisted in schema', 'Add boolean column in schema.graphql and rerun migrations.'],
+    ['Invalid API key', 'CLI auth target incorrect', 'Ensure you pass the Alchemy subgraphs endpoint to graph auth.']
+  ]}
+/>

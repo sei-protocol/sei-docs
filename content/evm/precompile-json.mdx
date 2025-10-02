@@ -1,0 +1,116 @@
+---
+title: 'JSON Precompile'
+description: 'Parse and extract data from JSON payloads in EVM contracts.'
+keywords: ['json', 'parsing', 'precompile', 'sei evm']
+---
+
+import { Callout } from 'nextra/components';
+import { FunctionList, TroubleshootingTable } from '../../mdx-components';
+
+# JSON Precompile
+
+**Address:** `0x0000000000000000000000000000000000001003`
+
+Parse JSON strings and extract typed data (bytes, uint256, arrays) from EVM contracts without external libraries.
+
+## Functions
+
+<FunctionList
+  items={[
+    {
+      name: 'extractAsBytes',
+      signature: 'function extractAsBytes(bytes input, string key) view returns (bytes)',
+      description: 'Extract a value as bytes using a JSON key.'
+    },
+    {
+      name: 'extractAsBytesList',
+      signature: 'function extractAsBytesList(bytes input, string key) view returns (bytes[])',
+      description: 'Extract an array of bytes using a JSON key.'
+    },
+    {
+      name: 'extractAsUint256',
+      signature: 'function extractAsUint256(bytes input, string key) view returns (uint256)',
+      description: 'Parse a value as uint256; decimals are truncated.'
+    },
+    {
+      name: 'extractAsBytesFromArray',
+      signature: 'function extractAsBytesFromArray(bytes input, uint16 arrayIndex) view returns (bytes)',
+      description: 'Extract bytes from a JSON array by zero-based index.'
+    }
+  ]}
+/>
+
+<details>
+<summary>Full Solidity Interface</summary>
+
+```solidity copy
+/// Extract data as bytes using a JSON key.
+/// @param input JSON data as bytes
+/// @param key JSON key to extract
+/// @return response Extracted bytes
+function extractAsBytes(bytes memory input, string memory key) external view returns (bytes memory response);
+
+/// Extract an array of bytes using a JSON key.
+/// @param input JSON data as bytes
+/// @param key JSON key to extract
+/// @return response Array of extracted bytes
+function extractAsBytesList(bytes memory input, string memory key) external view returns (bytes[] memory response);
+
+/// Extract data as uint256 using a JSON key.
+/// @param input JSON data as bytes
+/// @param key JSON key to extract
+/// @return response Extracted uint256
+function extractAsUint256(bytes memory input, string memory key) external view returns (uint256 response);
+
+/// Extract bytes from a JSON array by index.
+/// @param input JSON data as bytes
+/// @param arrayIndex Zero-based array index
+/// @return response Extracted bytes from array element
+function extractAsBytesFromArray(bytes memory input, uint16 arrayIndex) external view returns (bytes memory response);
+```
+
+</details>
+
+## Example
+
+```typescript copy
+import { ethers } from 'ethers';
+
+const JSON_PRECOMPILE = '0x0000000000000000000000000000000000001003';
+const ABI = ['function extractAsBytes(bytes input, string key) view returns (bytes)', 'function extractAsUint256(bytes input, string key) view returns (uint256)', 'function extractAsBytesList(bytes input, string key) view returns (bytes[])', 'function extractAsBytesFromArray(bytes input, uint16 arrayIndex) view returns (bytes)'];
+
+const provider = new ethers.JsonRpcProvider('https://evm-rpc.sei-apis.com');
+const json = new ethers.Contract(JSON_PRECOMPILE, ABI, provider);
+
+// Parse JSON response
+const jsonData = ethers.toUtf8Bytes('{"price": "1.5", "assets": ["SEI", "USDC"]}');
+
+const priceBytes = await json.extractAsBytes(jsonData, 'price');
+const price = ethers.toUtf8String(priceBytes); // "1.5"
+
+const priceUint = await json.extractAsUint256(jsonData, 'price'); // 1 (truncated)
+
+const assetsBytes = await json.extractAsBytesList(jsonData, 'assets');
+const assets = assetsBytes.map((b) => ethers.toUtf8String(b)); // ["SEI", "USDC"]
+```
+
+## Key Notes
+
+- Input must be valid UTF-8 encoded JSON bytes
+- Returns empty bytes for missing keys (no revert)
+- `extractAsUint256` truncates decimals; use `extractAsBytes` + parse for precision
+- Nested keys use dot notation: `"data.user.balance"`
+
+## Troubleshooting
+
+<TroubleshootingTable
+  rows={[
+    ['invalid JSON', 'Malformed UTF-8 or JSON syntax error', 'Validate JSON with JSON.parse() before encoding to bytes.'],
+    ['Empty result', 'Key does not exist in JSON object', 'Verify key spelling; use extractAsBytes to inspect raw response.'],
+    ['array index out of bounds', 'Index >= array length', 'Query array length first or use extractAsBytesList for all elements.']
+  ]}
+/>
+
+## References
+
+- ABI: [github.com/sei-protocol/sei-chain/precompiles/json](https://github.com/sei-protocol/sei-chain/tree/main/precompiles/json)

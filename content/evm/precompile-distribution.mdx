@@ -1,0 +1,122 @@
+---
+title: 'Distribution Precompile'
+description: "Manage staking rewards and validator commissions through Sei's distribution precompile. EVM applications can withdraw rewards, set withdrawal addresses, and interact with Cosmos SDK distribution functionality."
+keywords: ['distribution precompile', 'staking rewards', 'validator commissions', 'sei rewards', 'evm staking', 'cosmos distribution']
+---
+
+import { FunctionList, TroubleshootingTable } from '../../mdx-components';
+
+# Distribution Precompile
+
+**Address:** `0x0000000000000000000000000000000000001007`
+
+Manage staking rewards, validator commissions, and withdraw routing from EVM contracts.
+
+## Functions
+
+<FunctionList
+  items={[
+    {
+      name: 'setWithdrawAddress',
+      signature: 'function setWithdrawAddress(address withdrawAddr) returns (bool)',
+      description: 'Redirect future staking rewards to the supplied EVM address.'
+    },
+    {
+      name: 'withdrawDelegationRewards',
+      signature: 'function withdrawDelegationRewards(string validator) returns (bool)',
+      description: 'Withdraw rewards from a single validator. Caller must be the delegator.'
+    },
+    {
+      name: 'withdrawMultipleDelegationRewards',
+      signature: 'function withdrawMultipleDelegationRewards(string[] validators) returns (bool)',
+      description: 'Batch withdraw rewards across multiple validators in one transaction.'
+    },
+    {
+      name: 'withdrawValidatorCommission',
+      signature: 'function withdrawValidatorCommission(string validator) returns (bool)',
+      description: 'Validator operator withdraws accumulated commission for their validator.'
+    },
+    {
+      name: 'rewards',
+      signature: 'function rewards(address delegator) view returns (Rewards)',
+      description: 'Returns per-validator reward breakdown and totals for the delegator.'
+    }
+  ]}
+/>
+
+<details>
+<summary>Full Solidity Interface</summary>
+
+```solidity copy
+struct Coin {
+  uint256 amount;
+  uint256 decimals;
+  string denom;
+}
+
+struct Reward {
+  Coin[] coins;
+  string validator_address;
+}
+
+struct Rewards {
+  Reward[] rewards;
+  Coin[] total;
+}
+
+interface IDistributionPrecompile {
+  function setWithdrawAddress(address withdrawAddr) external returns (bool success);
+  function withdrawDelegationRewards(string memory validator) external returns (bool success);
+  function withdrawMultipleDelegationRewards(string[] memory validators) external returns (bool success);
+  function withdrawValidatorCommission(string memory validator) external returns (bool success);
+  function rewards(address delegator) external view returns (Rewards memory response);
+}
+```
+
+</details>
+
+## Example
+
+```typescript copy
+import { ethers } from 'ethers';
+
+const DISTRIBUTION = '0x0000000000000000000000000000000000001007';
+const ABI = ['function setWithdrawAddress(address withdrawAddr) returns (bool)', 'function withdrawMultipleDelegationRewards(string[] validators) returns (bool)', 'function rewards(address delegator) view returns (tuple(tuple(uint256 amount, uint256 decimals, string denom)[] coins, string validator_address)[] rewards, tuple(uint256 amount, uint256 decimals, string denom)[] total)'];
+
+const provider = new ethers.BrowserProvider(window.ethereum);
+await provider.send('eth_requestAccounts', []);
+const signer = await provider.getSigner();
+const distribution = new ethers.Contract(DISTRIBUTION, ABI, signer);
+
+// Redirect rewards to a treasury contract
+await distribution.setWithdrawAddress('0xYourTreasuryAddress');
+
+// Withdraw rewards across two validators
+await distribution.withdrawMultipleDelegationRewards(['seivaloper1...', 'seivaloper1...']);
+
+// Inspect totals (amounts are raw; divide by decimals for display)
+const rewards = await distribution.rewards(await signer.getAddress());
+console.log(rewards.total);
+```
+
+## Notes
+
+- Withdraw calls revert during `staticcall`; they must be regular transactions
+- Commission withdrawals succeed only when `msg.sender` matches the validator operator address
+- Returned amounts are raw integers-divide by `decimals` before converting to display units
+- v6.1.11+ emits synthetic distribution logs tagged with `synthetic=true`
+
+## Troubleshooting
+
+<TroubleshootingTable
+  rows={[
+    ['cannot call distr precompile from staticcall', 'Withdraw methods called via eth_call', 'Use regular transactions for setWithdrawAddress and withdraw* calls.'],
+    ['cannot delegatecall distr', 'Invoked via delegatecall', 'Call distribution precompile directly from your contract.'],
+    ['invalid addr', 'Withdraw address is zero or unassociated', 'Ensure the target address is associated via Addr precompile first.']
+  ]}
+/>
+
+## References
+
+- ABI: [github.com/sei-protocol/sei-chain/precompiles/distribution](https://github.com/sei-protocol/sei-chain/tree/main/precompiles/distribution)
+- Staking guide: [/learn/general-staking](/learn/general-staking)

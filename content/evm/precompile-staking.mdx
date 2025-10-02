@@ -1,0 +1,172 @@
+---
+title: 'Staking Precompile'
+description: 'Delegate, undelegate, and manage validators from EVM contracts.'
+keywords: ['staking', 'delegation', 'validators', 'precompile', 'sei evm']
+---
+
+import { Callout } from 'nextra/components';
+import { FunctionList, TroubleshootingTable } from '../../mdx-components';
+
+# Staking Precompile
+
+**Address:** `0x0000000000000000000000000000000000001005`
+
+Manage staking operations from EVM contracts: delegate, undelegate, redelegate, create validators, and query delegation state.
+
+<Callout type="warning">**Decimal Precision**: `delegate` uses `msg.value` (18 decimals, auto-converted). `redelegate` and `undelegate` use 6-decimal precision (1 SEI = 1,000,000 usei).</Callout>
+
+## Functions
+
+<FunctionList
+  items={[
+    {
+      name: 'delegate',
+      signature: 'function delegate(string valAddress) payable returns (bool)',
+      description: 'Delegate SEI to a validator; supply amount via msg.value (18 decimals, auto-converted to 6).'
+    },
+    {
+      name: 'undelegate',
+      signature: 'function undelegate(string valAddress, uint256 amount) returns (bool)',
+      description: 'Undelegate SEI from a validator (amount in usei, 6 decimals); 21-day unbonding period applies.'
+    },
+    {
+      name: 'redelegate',
+      signature: 'function redelegate(string srcAddress, string dstAddress, uint256 amount) returns (bool)',
+      description: 'Move delegation from one validator to another (amount in usei, 6 decimals).'
+    },
+    {
+      name: 'createValidator',
+      signature: 'function createValidator(string pubKeyHex, string moniker, string commissionRate, string commissionMaxRate, string commissionMaxChangeRate, uint256 minSelfDelegation) payable returns (bool)',
+      description: 'Register a new validator; requires initial self-delegation via msg.value.'
+    },
+    {
+      name: 'editValidator',
+      signature: 'function editValidator(string moniker, string commissionRate, uint256 minSelfDelegation) returns (bool)',
+      description: 'Update validator metadata (moniker, commission, min self-delegation).'
+    },
+    {
+      name: 'delegation',
+      signature: 'function delegation(address delegator, string valAddress) view returns (Delegation)',
+      description: 'Query delegation state for a delegator + validator pair.'
+    }
+  ]}
+/>
+
+<details>
+<summary>Full Solidity Interface</summary>
+
+```solidity copy
+/// Delegate SEI to a validator.
+/// @param valAddress Sei validator address (seivaloper...)
+/// @return success Whether the delegation succeeded
+function delegate(string memory valAddress) payable external returns (bool success);
+
+/// Redelegate from one validator to another.
+/// @param srcAddress Source validator (seivaloper...)
+/// @param dstAddress Destination validator (seivaloper...)
+/// @param amount Amount in usei (6 decimals: 1 SEI = 1,000,000 usei)
+/// @return success Whether the redelegation succeeded
+function redelegate(string memory srcAddress, string memory dstAddress, uint256 amount) external returns (bool success);
+
+/// Undelegate SEI from a validator.
+/// @param valAddress Validator to undelegate from (seivaloper...)
+/// @param amount Amount in usei (6 decimals)
+/// @return success Whether the undelegation succeeded
+function undelegate(string memory valAddress, uint256 amount) external returns (bool success);
+
+/// Create a new validator.
+/// @param pubKeyHex Hex-encoded consensus public key
+/// @param moniker Validator display name
+/// @param commissionRate Decimal string (e.g., "0.10" for 10%)
+/// @param commissionMaxRate Max commission cap (decimal string)
+/// @param commissionMaxChangeRate Max daily change (decimal string)
+/// @param minSelfDelegation Minimum self-delegation in usei
+/// @return success Whether the validator was created
+function createValidator(
+  string memory pubKeyHex,
+  string memory moniker,
+  string memory commissionRate,
+  string memory commissionMaxRate,
+  string memory commissionMaxChangeRate,
+  uint256 minSelfDelegation
+) payable external returns (bool success);
+
+/// Edit an existing validator's parameters.
+/// @param moniker New display name
+/// @param commissionRate New commission rate (decimal string)
+/// @param minSelfDelegation New minimum self-delegation in usei
+/// @return success Whether the edit succeeded
+function editValidator(
+  string memory moniker,
+  string memory commissionRate,
+  uint256 minSelfDelegation
+) external returns (bool success);
+
+struct Delegation {
+    Balance balance;
+    DelegationDetails delegation;
+}
+
+struct Balance {
+    uint256 amount;
+    string denom;
+}
+
+struct DelegationDetails {
+    string delegator_address;
+    uint256 shares;
+    uint256 decimals;
+    string validator_address;
+}
+
+/// Query delegation for a delegator + validator pair.
+/// @param delegator Delegator EVM address
+/// @param valAddress Validator address (seivaloper...)
+/// @return delegation Delegation state
+function delegation(address delegator, string memory valAddress) external view returns (Delegation delegation);
+```
+
+</details>
+
+## Example (delegate)
+
+```typescript copy
+import { ethers } from 'ethers';
+
+const STAKING = '0x0000000000000000000000000000000000001005';
+const ABI = ['function delegate(string valAddress) payable returns (bool)', 'function undelegate(string valAddress, uint256 amount) returns (bool)', 'function redelegate(string srcAddress, string dstAddress, uint256 amount) returns (bool)'];
+
+const provider = new ethers.BrowserProvider(window.ethereum);
+await provider.send('eth_requestAccounts', []);
+const staking = new ethers.Contract(STAKING, ABI, await provider.getSigner());
+
+// Delegate 10 SEI
+await staking.delegate('seivaloper1...', { value: ethers.parseEther('10') });
+
+// Undelegate 5 SEI (note: 6 decimal precision)
+await staking.undelegate('seivaloper1...', 5_000_000n);
+```
+
+## Key Notes
+
+- **delegate**: Use `msg.value` in wei (18 decimals); automatically truncated to 6 decimals
+- **redelegate / undelegate**: Provide amounts in usei (6 decimals: 1 SEI = 1,000,000 usei)
+- **Unbonding period**: 21 days; undelegated tokens are locked
+- **Validator creation**: Requires `msg.value` for initial self-delegation
+- **Commission changes**: Limited to 1% per day
+
+## Troubleshooting
+
+<TroubleshootingTable
+  rows={[
+    ['validator does not exist', 'Validator address invalid or not active', 'Query seid query staking validators for valid addresses.'],
+    ['insufficient shares', 'Attempting to undelegate more than delegated', 'Check delegation amount via delegation() view function.'],
+    ['invalid commission rate', 'Commission string malformed', 'Use decimal strings: "0.10" not "10" or 0.1.'],
+    ['unbonding in progress', 'Cannot redelegate during active unbonding', 'Wait for 21-day unbonding period to complete.']
+  ]}
+/>
+
+## References
+
+- ABI: [github.com/sei-protocol/sei-chain/precompiles/staking](https://github.com/sei-protocol/sei-chain/tree/main/precompiles/staking)
+- Staking guide: [/learn/general-staking](/learn/general-staking)
