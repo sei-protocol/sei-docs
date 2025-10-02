@@ -5,14 +5,38 @@ keywords: ['pointer', 'pointerview', 'cw20', 'erc1155', 'erc721', 'interop']
 ---
 
 import { Callout } from 'nextra/components';
+import { CardGrid, KeyValueTable, TroubleshootingTable } from '../../mdx-components';
 
 # Pointers Deep Dive
 
-Patterns for mapping CW assets/contracts to EVM via Pointer and querying via PointerView.
+The Pointer and PointerView precompiles bridge Cosmos assets and identities into Sei’s EVM. This guide covers the write/read split, typical mapping patterns, and operational safeguards before you dive into the individual ABI docs.
+
+## When to use Pointer vs PointerView
+
+<CardGrid
+  items={[
+    {
+      title: 'Pointer (write path)',
+      description: 'Register or mutate mappings. Best for migrations and ownership updates.'
+    },
+    {
+      title: 'PointerView (read path)',
+      description: 'Pure lookups for contracts, front-ends, and indexers—no mutation risk.'
+    },
+    {
+      title: 'Solo migrations',
+      description: 'Pair Pointer with Solo when cloning CW balances into ERC wrappers.'
+    },
+    {
+      title: 'Access control',
+      description: 'Treat pointer writes as privileged; gate them behind multisig or governance modules.'
+    }
+  ]}
+/>
 
 ## Mapping patterns
 
-<Callout type="info">Use Pointer for ownership/actions; use PointerView for safe queries.</Callout>
+<Callout type="info">Use Pointer for ownership/actions; use PointerView for safe queries. Contracts should never rely on off-chain caches for ownership truth.</Callout>
 
 ## Identifiers
 
@@ -26,4 +50,68 @@ Patterns for mapping CW assets/contracts to EVM via Pointer and querying via Poi
 
 ## Examples
 
+### Register a CW20 token for EVM access
+
+```solidity copy
+pragma solidity ^0.8.20;
+
+interface IPointer {
+    function addCW20Pointer(string calldata cwToken, address evmToken) external;
+}
+
+contract CW20Registrar {
+    IPointer public immutable pointer;
+
+    constructor(address pointerAddr) {
+        pointer = IPointer(pointerAddr);
+    }
+
+    function register(string calldata cwToken, address evmToken) external {
+        pointer.addCW20Pointer(cwToken, evmToken);
+    }
+}
+```
+
+### Resolve ownership via PointerView
+
+```solidity copy
+pragma solidity ^0.8.20;
+
+interface IPointerView {
+    function getCW721Pointer(string calldata cwCollection) external view returns (address);
+}
+
+contract OwnershipLens {
+    IPointerView public immutable viewContract;
+
+    constructor(address pointerView) {
+        viewContract = IPointerView(pointerView);
+    }
+
+    function ownerContract(string calldata cwCollection) external view returns (address) {
+        return viewContract.getCW721Pointer(cwCollection);
+    }
+}
+```
+
+## Operational checklist
+
+<KeyValueTable
+  rows={[
+    ['Audit CW contracts', 'Ensure token identifiers are immutable before registering pointers.'],
+    ['Gate writes', 'Route pointer mutations through trusted admin/governance contracts.'],
+    ['Backups', 'Export pointer tables periodically—they are critical state.'],
+    ['Indexers', 'Consume Pointer events and reconcile with PointerView reads to detect drift.']
+  ]}
+/>
+
 ## Troubleshooting
+
+<TroubleshootingTable
+  rows={[
+    ['Pointer already exists', 'Mapping previously created for the same CW contract/token id.', 'Verify intended target; rotate with dedicated migration scripts if needed.'],
+    ['Pointer not found in PointerView', 'Lookup is hitting the wrong namespace or stale deployment.', 'Use the correct getter (`getCW20Pointer`, `getCW721Pointer`, etc.) and check network aliases.'],
+    ['Events missing', '`PointerRegistered` log not captured by indexer.', 'Replay from the registration block or rebuild mappings directly from PointerView.'],
+    ['Unauthorized pointer write', 'Write exposed to untrusted accounts.', 'Restrict `add*Pointer` to admin modules and monitor for rogue transactions.']
+  ]}
+/>
