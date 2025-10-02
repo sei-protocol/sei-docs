@@ -9,6 +9,15 @@ export default {
 	networks: 'Network Information',
 	'differences-with-ethereum': 'Divergence from Ethereum',
 
+	'-- seid CLI': {
+		type: 'separator',
+		title: 'seid CLI'
+	},
+	'installing-seid-cli': 'Installing seid CLI',
+	'querying-the-evm': 'Querying the EVM',
+	'transactions-with-seid': 'Transactions with seid',
+	'best-practices': 'Best Practices',
+
 	'-- Frontend Development': {
 		type: 'separator',
 		title: 'Frontend Development'
@@ -69,7 +78,7 @@ export default {
 	'rpc-gas-accounting': 'Gas Accounting',
 	'rpc-gas-reference': 'Gas Reference',
 	'rpc-prioritizer': 'Tx Prioritizer',
-	'rpc-regression-playbook': 'Regression Coverage',
+  	'rpc-regression-playbook': 'Regression Coverage',
 	'rpc-panic-faq': 'Panic Handling FAQ',
 	'rpc-websockets': 'WebSockets',
 
@@ -111,15 +120,6 @@ export default {
 	'usdc-on-sei': 'USDC on Sei',
 	'ecosystem-contracts': 'Ecosystem Contracts',
 	'dappradar-guide': 'DappRadar',
-
-	'-- CLI Tools': {
-		type: 'separator',
-		title: 'CLI Tools'
-	},
-	'installing-seid-cli': 'Installing seid',
-	'querying-the-evm': 'Querying',
-	'transactions-with-seid': 'Transactions',
-	'best-practices': 'Best Practices',
 
 	'-- Meta': {
 		type: 'separator',

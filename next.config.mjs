@@ -18,6 +18,15 @@ const withNextra = nextra({
 
 export default withNextra({
 	productionBrowserSourceMaps: false,
+	compress: true,
+	turbopack: {},
+	experimental: {
+		optimizePackageImports: ['@radix-ui/react-icons', '@tabler/icons-react', '@radix-ui/themes']
+	},
+	compiler: {
+		removeConsole: process.env.NODE_ENV === 'production' ? { exclude: ['error', 'warn'] } : false,
+		reactRemoveProperties: process.env.NODE_ENV === 'production'
+	},
 	images: {
 		unoptimized: false,
 		contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
@@ -42,10 +51,31 @@ export default withNextra({
 	async headers() {
 		return [
 			{
+				source: '/_next/static/(.*)',
+				headers: [
+					{ key: 'Cache-Control', value: 'public, max-age=3600, immutable' },
+					{ key: 'Vercel-CDN-Cache-Control', value: 'public, max-age=3600, immutable' }
+				]
+			},
+			{
+				source: '/assets/(.*)',
+				headers: [
+					{ key: 'Cache-Control', value: 'public, max-age=3600, immutable' },
+					{ key: 'Vercel-CDN-Cache-Control', value: 'public, max-age=3600, immutable' }
+				]
+			},
+			{
+				source: '/(.*)\\.(png|svg|jpg|jpeg|gif|webp|ico|woff2?)',
+				headers: [
+					{ key: 'Cache-Control', value: 'public, max-age=3600, immutable' },
+					{ key: 'Vercel-CDN-Cache-Control', value: 'public, max-age=3600, immutable' }
+				]
+			},
+			{
 				source: '/(.*)',
 				headers: [
-					{ key: 'Cache-Control', value: 'public, max-age=3600, must-revalidate' },
-					{ key: 'Vercel-CDN-Cache-Control', value: 'public, max-age=3600, must-revalidate' }
+					{ key: 'Cache-Control', value: 'public, max-age=300, s-maxage=3600, stale-while-revalidate=604800' },
+					{ key: 'Vercel-CDN-Cache-Control', value: 'public, max-age=300, s-maxage=3600, stale-while-revalidate=604800' }
 				]
 			}
 		];
