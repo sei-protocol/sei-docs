@@ -16,7 +16,6 @@ export default {
 	'installing-seid-cli': 'Installing seid CLI',
 	'querying-the-evm': 'Querying the EVM',
 	'transactions-with-seid': 'Transactions with seid',
-	'best-practices': 'Best Practices',
 
 	'-- Frontend Development': {
 		type: 'separator',
@@ -78,7 +77,7 @@ export default {
 	'rpc-gas-accounting': 'Gas Accounting',
 	'rpc-gas-reference': 'Gas Reference',
 	'rpc-prioritizer': 'Tx Prioritizer',
-  	'rpc-regression-playbook': 'Regression Coverage',
+	'rpc-regression-playbook': 'Regression Coverage',
 	'rpc-panic-faq': 'Panic Handling FAQ',
 	'rpc-websockets': 'WebSockets',
 
