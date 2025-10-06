@@ -1,14 +1,14 @@
 'use client';
 
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useCallback } from 'react';
 import { Button, Flex, Select } from '@radix-ui/themes';
 import { toast } from 'sonner';
 import { IconDroplet, IconShieldCheck, IconHourglass, IconCheck, IconLoader2, IconExternalLink } from '@tabler/icons-react';
 import { isAddress } from 'viem';
 import HCaptcha from '@hcaptcha/react-hcaptcha';
 import { sendGAEvent } from '@next/third-parties/google';
-
-const VITE_FAUCET_API_URL = 'https://faucet-v3.seinetwork.io';
+import { VITE_FAUCET_API_URL } from './constants';
+import usePollMessageStatus from './usePollMessageStatus';
 
 const RequestFaucetCard = () => {
 	const [sendingRequest, setSendingRequest] = useState(false);
@@ -17,121 +17,36 @@ const RequestFaucetCard = () => {
 	const [nextUseTime, setNextUseTime] = useState<string | null>(null);
 	const [selectedChain, setSelectedChain] = useState('atlantic-2');
 	const [txHash, setTxHash] = useState<string | null>(null);
-	const [isPolling, setIsPolling] = useState(false);
-	const [pollingMessage, setPollingMessage] = useState('');
 
 	const captchaRef = useRef<HCaptcha>(null);
-	const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+	const { isPolling, pollingMessage, startPolling, stopPolling } = usePollMessageStatus();
 
 	const isValidAddress = isAddress(destAddress);
 
-	// Cleanup polling interval on unmount
-	useEffect(() => {
-		return () => {
-			if (pollingIntervalRef.current) {
-				clearInterval(pollingIntervalRef.current);
-			}
-		};
-	}, []);
+	const resetForm = useCallback(() => {
+		setNextUseTime(null);
+		setTxHash(null);
+		stopPolling();
+	}, [stopPolling]);
 
-	const resetCaptcha = () => {
+	const resetCaptcha = useCallback(() => {
 		captchaRef.current?.resetCaptcha();
 		setCaptchaToken(null);
-	};
+	}, []);
 
-	const handleCaptchaVerification = () => {
+	const handleAddressChange = useCallback(
+		(e: React.ChangeEvent<HTMLInputElement>) => {
+			setDestAddress(e.target.value);
+			resetForm();
+		},
+		[resetForm]
+	);
+
+	const handleCaptchaVerification = useCallback(() => {
 		captchaRef.current?.execute();
-	};
+	}, []);
 
-	const handleAddressChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-		setDestAddress(e.target.value);
-		setNextUseTime(null);
-		setTxHash(null); // Reset TX hash on new input
-		setIsPolling(false);
-		setPollingMessage('');
-		// Clear any existing polling
-		if (pollingIntervalRef.current) {
-			clearInterval(pollingIntervalRef.current);
-			pollingIntervalRef.current = null;
-		}
-	};
-
-	const pollMessageStatus = async (messageId: string) => {
-		try {
-			const response = await fetch(`${VITE_FAUCET_API_URL}/message/${messageId}`);
-			if (!response.ok) throw new Error('Failed to fetch message status');
-
-			const responseJson = await response.json();
-
-			if (responseJson.status === 'success') {
-				const { data } = responseJson;
-				if (data.status === 'success') {
-					// Transaction successful, stop polling
-					setTxHash(data.txHash);
-					setIsPolling(false);
-					setPollingMessage('');
-					if (pollingIntervalRef.current) {
-						clearInterval(pollingIntervalRef.current);
-						pollingIntervalRef.current = null;
-					}
-					toast.success('Transaction confirmed!');
-					return true; // Success
-				} else if (data.status === 'error') {
-					// Transaction failed, stop polling
-					setIsPolling(false);
-					setPollingMessage('');
-					if (pollingIntervalRef.current) {
-						clearInterval(pollingIntervalRef.current);
-						pollingIntervalRef.current = null;
-					}
-					toast.error('Transaction failed. Please try again.');
-					return true; // Stop polling (failed)
-				} else if (data.status === 'processing' || data.status === 'pending') {
-					// Still processing, continue polling
-					setPollingMessage('Transaction is being processed...');
-					return false; // Continue polling
-				}
-			}
-
-			// If we get here, continue polling for other statuses
-			setPollingMessage('Checking transaction status...');
-			return false;
-		} catch (error) {
-			console.error('Error polling message status:', error);
-			setPollingMessage('Checking transaction status...');
-			return false; // Continue polling on error
-		}
-	};
-
-	const startPolling = (messageId: string) => {
-		setIsPolling(true);
-		setPollingMessage('Transaction submitted, checking status...');
-
-		// Poll immediately first
-		pollMessageStatus(messageId);
-
-		// Then poll every 3 seconds
-		pollingIntervalRef.current = setInterval(async () => {
-			const shouldStop = await pollMessageStatus(messageId);
-			if (shouldStop && pollingIntervalRef.current) {
-				clearInterval(pollingIntervalRef.current);
-				pollingIntervalRef.current = null;
-			}
-		}, 3000);
-
-		// Stop polling after 5 minutes (100 attempts)
-		setTimeout(() => {
-			if (pollingIntervalRef.current) {
-				clearInterval(pollingIntervalRef.current);
-				pollingIntervalRef.current = null;
-				setIsPolling(false);
-				setPollingMessage('');
-				toast.warning('Transaction status check timed out. Please check the explorer manually.');
-			}
-		}, 300000); // 5 minutes
-	};
-
-	const handleSubmit = async () => {
+	const handleSubmit = useCallback(async () => {
 		if (!captchaToken) {
 			toast.warning('Please complete the captcha verification.');
 			return;
@@ -155,9 +70,8 @@ const RequestFaucetCard = () => {
 			const responseJson = await response.json();
 			if (responseJson.status === 'success') {
 				const messageId = responseJson.data.messageId;
-				console.log('response', responseJson);
 				toast.success('Tokens requested successfully!');
-				startPolling(messageId);
+				startPolling(messageId, setTxHash);
 				sendGAEvent('event', 'faucetUsed', { address: destAddress });
 			} else if (responseJson.data?.nextAllowedUseDate) {
 				setNextUseTime(responseJson.data.nextAllowedUseDate);
@@ -171,7 +85,9 @@ const RequestFaucetCard = () => {
 		} finally {
 			setSendingRequest(false);
 		}
-	};
+	}, [captchaToken, isValidAddress, selectedChain, destAddress, startPolling, resetCaptcha]);
+
+	const isSubmitDisabled = !!nextUseTime || !isValidAddress || !captchaToken || isPolling;
 
 	return (
 		<div className='w-full text-neutral-900 dark:text-neutral-100 flex flex-col items-center gap-6'>
@@ -197,7 +113,7 @@ const RequestFaucetCard = () => {
 					onChange={handleAddressChange}
 				/>
 				<Select.Root value={selectedChain} onValueChange={setSelectedChain}>
-					<Select.Trigger className='bg-neutral-200 dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 px-4 py-2 text-lg rounded-md cursor-pointer focus:ring-2 focus:ring-neutral-400 dark:focus:ring-neutral-500'>
+					<Select.Trigger className='bg-neutral-200 dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 px-4 py-2 text-lg rounded-md cursor-pointer focus:ring-2 focus:ring-neutral-400 dark:focus-within:ring-neutral-500'>
 						{selectedChain === 'atlantic-2' ? 'Testnet' : 'Devnet'}
 					</Select.Trigger>
 					<Select.Content className='bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 text-lg rounded-md shadow-lg'>
@@ -227,18 +143,17 @@ const RequestFaucetCard = () => {
 
 				<Button
 					className={`w-full flex items-center gap-3 justify-center !p-6 !rounded-2xl ${
-						!!nextUseTime || !isValidAddress || !captchaToken || isPolling
+						isSubmitDisabled
 							? 'bg-neutral-500 cursor-not-allowed'
 							: 'bg-neutral-800 hover:bg-neutral-900 dark:bg-neutral-300 dark:hover:bg-neutral-400 text-white dark:text-black'
 					}`}
-					disabled={!!nextUseTime || !isValidAddress || !captchaToken || isPolling}
+					disabled={isSubmitDisabled}
 					loading={sendingRequest}
 					onClick={handleSubmit}>
 					{sendingRequest ? <IconLoader2 className='w-8 h-8 animate-spin' /> : <IconCheck className='w-8 h-8' />}
 					{isPolling ? 'Processing...' : 'Request SEI'}
 				</Button>
 
-				{/* Unified status component for both polling and transaction hash */}
 				{(isPolling || txHash) && (
 					<div
 						className={`flex items-center gap-3 p-4 border-l-4 rounded w-full ${
