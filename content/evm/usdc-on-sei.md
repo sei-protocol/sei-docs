@@ -1,24 +1,27 @@
-# USDC on Sei QuickStart Guide
+# USDC on Sei (Developers)
 
-**Testnet Address**: `0x4fCF1784B31630811181f670Aea7A7bEF803eaED`
+## Addresses and Decimals
 
-**Mainnet Address**: `0xe15fC38F6D8c56aF07bbCBe3BAf5708A2Bf42392`
+- Testnet (atlantic-2) USDC: [`0x4fCF1784B31630811181f670Aea7A7bEF803eaED`](https://seitrace.com/address/0x4fCF1784B31630811181f670Aea7A7bEF803eaED?chain=atlantic-2)
+- Mainnet (pacific-1) USDC: [`0xe15fC38F6D8c56aF07bbCBe3BAf5708A2Bf42392`](https://seitrace.com/address/0xe15fC38F6D8c56aF07bbCBe3BAf5708A2Bf42392?chain=pacific-1)
+- Decimals: `6`
 
 ## Overview
 
-USDC is a digital dollar issued by [Circle](http://developers.circle.com), also known as a stablecoin, running on many of the world's leading blockchains. Designed to represent US dollars on the internet, USDC is backed 100% by highly liquid cash and cash-equivalent assets so that it's always redeemable 1:1 for USD.
+USDC is a digital dollar issued by [Circle](http://developers.circle.com), also known as a stablecoin, running on many of the world's leading blockchains. Designed to represent US dollars on the internet, USDC is backed 100% by highly liquid cash and cash-equivalent assets so that it's always redeemable 1:1 for USD. It is commonly used for payments, trading, and on/off-ramps in web3 apps.
 
 On the **Sei**, USDC can be transferred like any standard ERC-20 token — enabling fast, secure, and programmable digital dollar transactions.
 
-This guide walks you through building a standalone index.js script using **Viem** and **Node.js** to check your USDC balance and send a test transfer to another address.
+This guide walks you through building a standalone index.js script using **Viem** and **Node.js** to check your USDC balance and send a test transfer to another address. The sample is a minimal, generic ERC‑20 flow using USDC as the example token.
 
 ### Prerequisites
 
 - Node.js v18+ with "type": "module" in package.json
 - viem and dotenv installed
-- Sei testnet wallet with testnet USDC and SEI for gas.
-- To get testnet USDC on Sei, use [Circle’s CCTP v2](https://replit.com/@buildoncircle/cctp-v2-web-app?v=1#README.md) Sample application to transfer USDC cross-chain to your Sei wallet.
+- Sei wallet with USDC and SEI for gas on your selected network (default: testnet).
+- To get testnet USDC on Sei, use the [Circle Faucet](https://faucet.circle.com) or use [Circle’s CCTP v2](https://replit.com/@buildoncircle/cctp-v2-web-app?v=1#README.md) Sample application to transfer USDC cross-chain to your Sei wallet.
 - Private key and recipient address stored in a .env file
+- Optional: set `SEI_NETWORK=testnet|mainnet` (defaults to `testnet`)
 
 ## Project Setup
 
@@ -36,6 +39,8 @@ npm install viem dotenv
 ```
 PRIVATE_KEY=<YOUR_PRIVATE_KEY>       # 0x-prefixed 64-hex-character key
 RECIPIENT_ADDRESS=0x<RECIPIENT_ADDRESS>
+# Optional (defaults to testnet): testnet | mainnet
+SEI_NETWORK=testnet
 ```
 
 - **Create the script file**: Create an index.js file in the project directory. We will build this script step by step in the next section. Ensure that your Node environment can handle ES module imports (the code uses import syntax).
@@ -44,7 +49,7 @@ RECIPIENT_ADDRESS=0x<RECIPIENT_ADDRESS>
 
 Open index.js in your editor and add the following sections. Each part of the script is explained below:
 
-1\. Import Modules and Define Chain/Token Constants: First, import required functions from Viem and set up constants for the Sei Atlantic-2 chain and the USDC token contract on that chain.
+1\. Import Modules and Define Chain/Token Constants: First, import required functions from Viem and set up constants for Sei networks (testnet and mainnet) and the USDC token contract.
 
 This includes chain ID, RPC URL, token address, decimals, and a minimal ABI for the USDC contract’s balanceOf and transfer functions (just the function signatures we need):
 
@@ -59,12 +64,31 @@ const seiTestnet = {
 	name: 'Sei Atlantic-2 Testnet',
 	network: 'sei-atlantic-2',
 	nativeCurrency: { name: 'Sei', symbol: 'SEI', decimals: 18 },
-	rpcUrls: { default: { http: ['https://evm-rpc.atlantic-2.seinetwork.io'] } },
+	rpcUrls: { default: { http: ['https://evm-rpc-testnet.sei-apis.com'] } },
 	blockExplorers: { default: { url: 'https://seitrace.com/?chain=atlantic-2' } },
 	testnet: true
 };
 
-const USDC_ADDRESS = '0x4fCF1784B31630811181f670Aea7A7bEF803eaED';
+const seiMainnet = {
+	id: 1329,
+	name: 'Sei Mainnet (pacific-1)',
+	network: 'sei-pacific-1',
+	nativeCurrency: { name: 'Sei', symbol: 'SEI', decimals: 18 },
+	rpcUrls: { default: { http: ['https://evm-rpc.sei-apis.com'] } },
+	blockExplorers: { default: { url: 'https://seitrace.com/?chain=pacific-1' } },
+	testnet: false
+};
+
+// --- Network selection (default: testnet) ---
+const NETWORK = (process.env.SEI_NETWORK || 'testnet').toLowerCase();
+const chain = NETWORK === 'mainnet' ? seiMainnet : seiTestnet;
+
+// --- USDC Addresses and ABI ---
+const USDC_ADDRESSES = {
+	testnet: '0x4fCF1784B31630811181f670Aea7A7bEF803eaED',
+	mainnet: '0xe15fC38F6D8c56aF07bbCBe3BAf5708A2Bf42392'
+};
+const USDC_ADDRESS = NETWORK === 'mainnet' ? USDC_ADDRESSES.mainnet : USDC_ADDRESSES.testnet;
 const USDC_DECIMALS = 6;
 const USDC_ABI = [
 	{
@@ -124,15 +148,15 @@ Using the chain config and credentials, we create a public client for reading bl
 ```ts
 // --- Client Setup ---
 const account = privateKeyToAccount(PRIVATE_KEY);
-const publicClient = createPublicClient({ chain: seiTestnet, transport: http() });
-const walletClient = createWalletClient({ account, chain: seiTestnet, transport: http() });
+const publicClient = createPublicClient({ chain, transport: http() });
+const walletClient = createWalletClient({ account, chain, transport: http() });
 ```
 
 - privateKeyToAccount converts the hex private key into an account object (with the corresponding address, etc.).
-- createPublicClient connects to the Atlantic-2 RPC for read-only calls (no private key needed).
+- createPublicClient connects to the selected Sei network RPC for read-only calls (no private key needed).
 - createWalletClient uses our account and the RPC to allow sending transactions.
 
-At this point, we’re set up to interact with the Sei testnet: publicClient will call eth_call for contract reads, and walletClient will handle signing and sending transactions from our account.
+At this point, we’re set up to interact with the selected Sei network: publicClient will call eth_call for contract reads, and walletClient will handle signing and sending transactions from our account.
 
 4\. Main Transfer Logic:
 
@@ -171,7 +195,9 @@ We also log key info and handle errors:
 		});
 		console.log('Transfer successful!');
 		console.log('Tx hash:', hash);
-		console.log('Explorer:', `https://seitrace.com/?chain=atlantic-2&tx=${hash}`);
+		const explorerBase =
+			chain.blockExplorers && chain.blockExplorers.default && chain.blockExplorers.default.url ? chain.blockExplorers.default.url : 'https://seitrace.com';
+		console.log('Explorer:', `${explorerBase}&tx=${hash}`);
 	} catch (err) {
 		console.error('Transfer failed:', err.message || err);
 		process.exit(1);
@@ -194,7 +220,11 @@ We also log key info and handle errors:
 With index.js completed, you can run the script from your terminal:
 
 ```shell
+# Default: testnet
 node index.js
+
+# Mainnet
+SEI_NETWORK=mainnet node index.js
 ```
 
 The expected output will look like the following if the transfer succeeds (your addresses and values will differ):
