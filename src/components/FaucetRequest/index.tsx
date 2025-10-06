@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Button, Flex, Select } from '@radix-ui/themes';
 import { toast } from 'sonner';
-import { IconDroplet, IconShieldCheck, IconHourglass, IconCheck, IconLoader2, IconWorld } from '@tabler/icons-react';
+import { IconDroplet, IconShieldCheck, IconHourglass, IconCheck, IconLoader2, IconExternalLink } from '@tabler/icons-react';
 import { isAddress } from 'viem';
 import HCaptcha from '@hcaptcha/react-hcaptcha';
 import { sendGAEvent } from '@next/third-parties/google';
@@ -17,10 +17,22 @@ const RequestFaucetCard = () => {
 	const [nextUseTime, setNextUseTime] = useState<string | null>(null);
 	const [selectedChain, setSelectedChain] = useState('atlantic-2');
 	const [txHash, setTxHash] = useState<string | null>(null);
+	const [isPolling, setIsPolling] = useState(false);
+	const [pollingMessage, setPollingMessage] = useState('');
 
 	const captchaRef = useRef<HCaptcha>(null);
+	const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
 	const isValidAddress = isAddress(destAddress);
+
+	// Cleanup polling interval on unmount
+	useEffect(() => {
+		return () => {
+			if (pollingIntervalRef.current) {
+				clearInterval(pollingIntervalRef.current);
+			}
+		};
+	}, []);
 
 	const resetCaptcha = () => {
 		captchaRef.current?.resetCaptcha();
@@ -35,20 +47,88 @@ const RequestFaucetCard = () => {
 		setDestAddress(e.target.value);
 		setNextUseTime(null);
 		setTxHash(null); // Reset TX hash on new input
+		setIsPolling(false);
+		setPollingMessage('');
+		// Clear any existing polling
+		if (pollingIntervalRef.current) {
+			clearInterval(pollingIntervalRef.current);
+			pollingIntervalRef.current = null;
+		}
 	};
 
-	const fetchTransactionHash = async (messageId: string) => {
+	const pollMessageStatus = async (messageId: string) => {
 		try {
 			const response = await fetch(`${VITE_FAUCET_API_URL}/message/${messageId}`);
-			if (!response.ok) throw new Error('Failed to fetch transaction hash');
+			if (!response.ok) throw new Error('Failed to fetch message status');
 
 			const responseJson = await response.json();
-			if (responseJson.status === 'success' && responseJson.data?.txHash) {
-				setTxHash(responseJson.data.txHash);
+
+			if (responseJson.status === 'success') {
+				const { data } = responseJson;
+				if (data.status === 'success') {
+					// Transaction successful, stop polling
+					setTxHash(data.txHash);
+					setIsPolling(false);
+					setPollingMessage('');
+					if (pollingIntervalRef.current) {
+						clearInterval(pollingIntervalRef.current);
+						pollingIntervalRef.current = null;
+					}
+					toast.success('Transaction confirmed!');
+					return true; // Success
+				} else if (data.status === 'error') {
+					// Transaction failed, stop polling
+					setIsPolling(false);
+					setPollingMessage('');
+					if (pollingIntervalRef.current) {
+						clearInterval(pollingIntervalRef.current);
+						pollingIntervalRef.current = null;
+					}
+					toast.error('Transaction failed. Please try again.');
+					return true; // Stop polling (failed)
+				} else if (data.status === 'processing' || data.status === 'pending') {
+					// Still processing, continue polling
+					setPollingMessage('Transaction is being processed...');
+					return false; // Continue polling
+				}
 			}
+
+			// If we get here, continue polling for other statuses
+			setPollingMessage('Checking transaction status...');
+			return false;
 		} catch (error) {
-			console.error('Error fetching transaction hash:', error);
+			console.error('Error polling message status:', error);
+			setPollingMessage('Checking transaction status...');
+			return false; // Continue polling on error
 		}
+	};
+
+	const startPolling = (messageId: string) => {
+		setIsPolling(true);
+		setPollingMessage('Transaction submitted, checking status...');
+
+		// Poll immediately first
+		pollMessageStatus(messageId);
+
+		// Then poll every 3 seconds
+		pollingIntervalRef.current = setInterval(async () => {
+			const shouldStop = await pollMessageStatus(messageId);
+			if (shouldStop && pollingIntervalRef.current) {
+				clearInterval(pollingIntervalRef.current);
+				pollingIntervalRef.current = null;
+			}
+		}, 3000);
+
+		// Stop polling after 5 minutes (100 attempts)
+		setTimeout(() => {
+			if (pollingIntervalRef.current) {
+				clearInterval(pollingIntervalRef.current);
+				pollingIntervalRef.current = null;
+				setIsPolling(false);
+				setPollingMessage('');
+				toast.warning('Transaction status check timed out. Please check the explorer manually.');
+			}
+		}, 300000); // 5 minutes
 	};
 
 	const handleSubmit = async () => {
@@ -77,7 +157,7 @@ const RequestFaucetCard = () => {
 				const messageId = responseJson.data.messageId;
 				console.log('response', responseJson);
 				toast.success('Tokens requested successfully!');
-				await fetchTransactionHash(messageId);
+				startPolling(messageId);
 				sendGAEvent('event', 'faucetUsed', { address: destAddress });
 			} else if (responseJson.data?.nextAllowedUseDate) {
 				setNextUseTime(responseJson.data.nextAllowedUseDate);
@@ -147,24 +227,38 @@ const RequestFaucetCard = () => {
 
 				<Button
 					className={`w-full flex items-center gap-3 justify-center !p-6 !rounded-2xl ${
-						!!nextUseTime || !isValidAddress || !captchaToken
+						!!nextUseTime || !isValidAddress || !captchaToken || isPolling
 							? 'bg-neutral-500 cursor-not-allowed'
 							: 'bg-neutral-800 hover:bg-neutral-900 dark:bg-neutral-300 dark:hover:bg-neutral-400 text-white dark:text-black'
 					}`}
-					disabled={!!nextUseTime || !isValidAddress || !captchaToken}
+					disabled={!!nextUseTime || !isValidAddress || !captchaToken || isPolling}
 					loading={sendingRequest}
 					onClick={handleSubmit}>
 					{sendingRequest ? <IconLoader2 className='w-8 h-8 animate-spin' /> : <IconCheck className='w-8 h-8' />}
-					Request SEI
+					{isPolling ? 'Processing...' : 'Request SEI'}
 				</Button>
 
-				{txHash && (
-					<Button asChild variant='ghost' className='flex items-center gap-2 w-full !p-6 !rounded-2xl'>
-						<a href={`https://www.seistream.app/transactions/${txHash}?chain=${selectedChain}`} target='_blank' rel='noopener noreferrer'>
-							<IconWorld className='w-6 h-6' />
-							View Transaction on SeiStream
-						</a>
-					</Button>
+				{/* Unified status component for both polling and transaction hash */}
+				{(isPolling || txHash) && (
+					<div
+						className={`flex items-center gap-3 p-4 border-l-4 rounded w-full ${
+							isPolling ? 'border-blue-500 bg-blue-100 text-blue-800' : 'border-green-500 bg-green-100 text-green-800'
+						}`}>
+						{isPolling ? <IconLoader2 className='w-6 h-6 animate-spin' /> : <IconCheck className='w-6 h-6' />}
+						<div className='flex-1'>
+							{isPolling ? (
+								<p className='text-lg font-medium'>{pollingMessage}</p>
+							) : (
+								<div className='flex flex-row gap-2 text-lg font-medium'>
+									<p>Transaction confirmed!</p>
+									<a href={`https://testnet.seiscan.io/tx/${txHash}`} target='_blank' rel='noopener noreferrer' className='flex items-center gap-2'>
+										View on Explorer
+										<IconExternalLink className='w-4 h-4' />
+									</a>
+								</div>
+							)}
+						</div>
+					</div>
 				)}
 			</Flex>
 		</div>
