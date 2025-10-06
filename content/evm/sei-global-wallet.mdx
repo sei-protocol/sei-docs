@@ -857,6 +857,172 @@ Copy sei-wallet-bundled.js to your web project and use it:
 
 </details>
 
+<details>
+  <summary><strong>Web3Auth Integration</strong></summary>
+
+**Create a new Vite app:**
+
+```bash
+npm create vite@latest my-sei-dapp -- --template react-ts
+cd my-sei-dapp
+```
+
+**Install Dependencies:**
+
+```bash copy
+npm install @web3auth/modal @web3auth/modal/react \
+  wagmi viem @tanstack/react-query \
+  @sei-js/sei-global-wallet
+```
+
+**Create Web3Auth Context (src/web3authContext.ts):**
+
+```ts copy
+import '@sei-js/sei-global-wallet/eip6963';
+import { WEB3AUTH_NETWORK } from '@web3auth/modal';
+import { type Web3AuthContextConfig } from '@web3auth/modal/react';
+
+const clientId = 'YOUR_CLIENT_ID'; // get from https://dashboard.web3auth.io
+
+const web3AuthContextConfig: Web3AuthContextConfig = {
+  web3AuthOptions: {
+    clientId,
+    web3AuthNetwork: WEB3AUTH_NETWORK.SAPPHIRE_DEVNET
+  }
+};
+
+export default web3AuthContextConfig;
+```
+
+**Update App.tsx:**
+
+```tsx copy
+import './App.css';
+import '@sei-js/sei-global-wallet/eip6963';
+import { useWeb3AuthConnect, useWeb3AuthUser } from '@web3auth/modal/react';
+import { useWeb3AuthDisconnect } from '@web3auth/modal/react';
+import { useAccount } from 'wagmi';
+
+function App() {
+  const { connect, isConnected, connectorName } = useWeb3AuthConnect();
+
+  const { loading: connectLoading, error: connectError } = useWeb3AuthConnect();
+
+  const { disconnect, loading: disconnectLoading } = useWeb3AuthDisconnect();
+
+  const { error: disconnectError } = useWeb3AuthDisconnect();
+
+  const { userInfo } = useWeb3AuthUser();
+  const { address } = useAccount();
+
+  function uiConsole(...args: any[]): void {
+    const el = document.querySelector('#console>p');
+    if (el) {
+      el.innerHTML = JSON.stringify(args || {}, null, 2);
+      console.log(...args);
+    }
+  }
+  const loggedInView = (
+    <div className="grid">
+      <h2>Connected to {connectorName}</h2>
+      <div className="account-info">
+        <p>
+          <strong>Address:</strong> {address}
+        </p>
+      </div>
+
+      <div className="flex-container">
+        <button onClick={() => uiConsole(userInfo)} className="card">
+          Get User Info
+        </button>
+
+        <button onClick={() => disconnect()} className="card">
+          Log Out
+        </button>
+      </div>
+
+      {disconnectLoading && <div className="loading">Disconnecting...</div>}
+      {disconnectError && <div className="error">{disconnectError.message}</div>}
+    </div>
+  );
+
+  const unloggedInView = (
+    <div className="grid">
+      <button onClick={() => connect()} className="card">
+        Connect with Web3Auth
+      </button>
+      {connectLoading && <div className="loading">Connecting...</div>}
+      {connectError && <div className="error">{connectError.message}</div>}
+    </div>
+  );
+
+  return (
+    <div className="container">
+      <h1 className="title">
+        <a target="_blank" href="https://web3auth.io/docs/sdk/pnp/web/modal" rel="noreferrer">
+          Web3Auth
+        </a>{' '}
+        + Sei Global Wallet Integration
+      </h1>
+
+      {isConnected ? loggedInView : unloggedInView}
+
+      <div id="console" style={{ whiteSpace: 'pre-line' }}>
+        <p style={{ whiteSpace: 'pre-line' }}></p>
+      </div>
+    </div>
+  );
+}
+
+export default App;
+```
+
+**Setup your main.tsx with Web3Auth Provider:**
+
+```tsx copy
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import { Web3AuthProvider } from '@web3auth/modal/react';
+import { WagmiProvider } from 'wagmi';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { createConfig, http } from 'wagmi';
+import { sei, seiTestnet } from 'wagmi/chains';
+import web3AuthContextConfig from './web3authContext';
+import App from './App';
+
+const queryClient = new QueryClient();
+
+const wagmiConfig = createConfig({
+  chains: [sei, seiTestnet],
+  transports: {
+    [sei.id]: http('https://evm-rpc.sei-apis.com'),
+    [seiTestnet.id]: http('https://evm-rpc-testnet.sei-apis.com')
+  }
+});
+
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <Web3AuthProvider config={web3AuthContextConfig}>
+      <WagmiProvider config={wagmiConfig}>
+        <QueryClientProvider client={queryClient}>
+          <App />
+        </QueryClientProvider>
+      </WagmiProvider>
+    </Web3AuthProvider>
+  </StrictMode>
+);
+```
+
+**Run Your App:**
+
+```bash copy
+npm run dev
+```
+
+**Note:** Replace the `clientId` in `web3authContext.ts` with your actual Web3Auth client ID from your [Web3Auth Dashboard](https://dashboard.web3auth.io).
+
+</details>
+
 ## Troubleshooting & FAQ
 
 <Tabs items={['Troubleshooting', 'FAQ']}>
