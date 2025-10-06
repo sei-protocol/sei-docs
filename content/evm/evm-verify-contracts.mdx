@@ -165,108 +165,77 @@ yarn add --dev hardhat
 
 2. **Create a project**  
    Run `npx hardhat` in your project folder and follow the instructions to create ([more info here](https://hardhat.org/hardhat-runner/docs/getting-started#creating-an-empty-hardhat-config)).
-3. **Install plugin**  
-   Install the [hardhat-etherscan](https://hardhat.org/plugins/nomiclabs-hardhat-etherscan.html) plugin (requires `v3.0.0+`). and other dependencies
 
-**Via npm**
+3. **Install plugin**  
+   Install the [hardhat-verify](https://hardhat.org/docs/learn-more/smart-contract-verification) plugin - requires hardhat3
 
 ```bash copy
- npm install --save-dev @nomiclabs/hardhat-etherscan tsconfig-paths
+ npm install -D @nomicfoundation/hardhat-verify
 ```
 
 **Via yarn**
 
 ```bash copy
-yarn add --dev @nomiclabs/hardhat-etherscan
+yarn add -D @nomicfoundation/hardhat-verify
 ```
 
 4. **Add plugin reference to config file:**
 
-Add the following statement to your `hardhat.config.js`.
+Add the following statement to your `hardhat.config.ts`.
 
 ```bash copy
-require("@nomiclabs/hardhat-etherscan");
-```
-
-If using TypeScript, add this to your `hardhat.config.ts`. More info on using TypeScript with Hardhat is available [here](https://hardhat.org/guides/typescript.html#typescript-support).
-
-```bash copy
-import "@nomiclabs/hardhat-etherscan";
+import { HardhatUserConfig} from 'hardhat/config';
+import hardhatVerify from '@nomicfoundation/hardhat-verify';;
 ```
 
 #### Config File
 
-Your basic [Hardhat config file](https://hardhat.org/config/) (`hardhat.config.js` or `hardhat.config.ts`) will be setup to support the network you are working on. In this example we use the Sokol test network and a `.js` file.  
-Here we add an RPC url without an API key, however some value is still required. You can use any arbitrary string. More info on this [here](https://hardhat.org/plugins/nomiclabs-hardhat-etherscan.html#multiple-api-keys-and-alternative-block-explorers).  
-If you prefer, you can migrate to [hardhat-toolbox](https://hardhat.org/hardhat-runner/plugins/nomicfoundation-hardhat-toolbox) to use a plugin bundle.
-
 ```ts copy
 /** @format */
-
-import dotenv from 'dotenv';
 import { HardhatUserConfig } from 'hardhat/config';
-import '@nomicfoundation/hardhat-toolbox';
-import 'tsconfig-paths/register';
-import '@openzeppelin/hardhat-upgrades';
+import hardhatVerify from '@nomicfoundation/hardhat-verify';
 
-/**
- * Config dotenv first
- */
-dotenv.config();
-
-/**
- * Default hardhat configs
- */
 const config: HardhatUserConfig = {
+  networks: {
+    sei_atlantic_2: {
+      type: 'http',
+      chainId: 1328,
+      url: 'https://evm-rpc-testnet.sei-apis.com',
+      accounts: [process.env.PRIVATE_KEY!] // if you need it
+    }
+  },
+
   solidity: {
     compilers: [
       {
         version: '0.8.28',
         settings: {
-          optimizer: {
-            enabled: true,
-            runs: 200
-          }
+          optimizer: { enabled: true, runs: 200 }
         }
       }
     ]
-  }
-};
-
-/**
- * Extract env vars
- */
-const privateKey = process.env.PRIVATE_KEY || '';
-
-/**
- * If private key is available, attach network configs
- */
-if (privateKey) {
-  config.networks = {
-    sei_atlantic_2: {
-      url: 'https://evm-rpc-testnet.sei-apis.com',
-      chainId: 1328,
-      accounts: [privateKey],
-      gas: 'auto',
-      gasPrice: 'auto'
-    }
-  };
-}
-
-config.etherscan = {
-  apiKey: {
-    sei_atlantic_2: 'dummy'
   },
-  customChains: [
-    {
-      network: 'sei_atlantic_2',
-      chainId: 1328,
-      urls: {
-        apiURL: 'https://seitrace.com/atlantic-2/api',
-        browserURL: 'https://seitrace.com'
+
+  plugins: [hardhatVerify],
+
+  verify: {
+    blockscout: {
+      enabled: true
+    }
+  },
+
+  chainDescriptors: {
+    1328: {
+      name: 'sei_atlantic_2',
+      blockExplorers: {
+        blockscout: {
+          name: 'Seitrace',
+          url: 'https://seitrace.com',
+          apiUrl: 'https://seitrace.com/atlantic-2/api'
+        }
       }
     }
-  ]
+  }
 };
 
 export default config;
@@ -275,11 +244,9 @@ export default config;
 #### Set up env. file
 
 - PRIVATE_KEY: Wallet private key
-- SEITRACE_KEY: You can also use a random string
 
 ```bash copy
 PRIVATE_KEY="4c1a9ffd2dce9ed5b5f464c6b6a38efceb051855d123c9e6aeec751c35762d91"
-SEITRACE_KEY="can-be-any-string"
 ```
 
 #### Deploy and Verify
@@ -293,13 +260,13 @@ npx hardhat ignition deploy ignition/modules/multicall.ts --network sei_atlantic
 2. **Verify**
 
 ```bash copy
-npx hardhat verify --network sei_atlantic_2 <contract_address> "Constructor argument"
+npx hardhat verify blockscout --network sei_atlantic_2 <contract_address> "Constructor argument"
 ```
 
 This is how your verification flow should look like:
 
 ```bash copy
-PS D:\verify-contract> npx hardhat verify --network sei_atlantic_2 0xaa338AbfB92e7476596D4cCb98b29700BDcA2a6E "0xc99259dE8f9ec4cd443C0CF5D45D547c513E03be"
+PS D:\verify-contract> npx hardhat verify blockscout --network sei_atlantic_2 0xaa338AbfB92e7476596D4cCb98b29700BDcA2a6E "0xc99259dE8f9ec4cd443C0CF5D45D547c513E03be"
 Successfully submitted source code for contract
 contracts/VuNFT721.sol:VuSEI721 at 0xaa338AbfB92e7476596D4cCb98b29700BDcA2a6E
 for verification on the block explorer. Waiting for verification result...

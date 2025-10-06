@@ -1,29 +1,53 @@
+---
+title: 'CosmWasm Precompile'
+description: "Learn how to interact with Sei's CosmWasm precompile through ethers.js, enabling instantiation, execution, batch operations, and querying of CosmWasm contracts directly from your EVM smart contracts."
+keywords: ['cosmwasm precompile', 'ethers.js', 'contract instantiation', 'wasm execution', 'cross-chain contracts', 'sei evm', 'blockchain interoperability']
+---
+
 import { Callout } from 'nextra/components';
+import { Tabs } from 'nextra/components';
 
 # CosmWasm Precompile
 
-**Address**: `0x0000000000000000000000000000000000001002`
+**Address:** `0x0000000000000000000000000000000000001002`
 
-This precompile serves as an interface to the CosmWasm module, enabling EVM
-based clients and smart contracts to interact with CosmWasm contracts directly.
+The Sei CosmWasm precompile allows EVM applications to interact directly with CosmWasm contracts through standard smart contract calls. This enables instantiation, execution, batch operations, and querying of CosmWasm contracts directly from your dApps without needing separate Cosmos SDK integration.
+
+<Callout type="info"> **What is a precompile?** A precompile is a special smart contract deployed at a fixed address by the Sei protocol itself, that exposes custom native chain logic to EVM-based applications. It acts like a regular contract from the EVM's perspective, but executes privileged, low-level logic efficiently. </Callout>
+
+## How Does the CosmWasm Precompile Work?
+
+The CosmWasm precompile at address `0x0000000000000000000000000000000000001002` exposes functions like `instantiate()`, `execute()`, `execute_batch()`, and `query()`.
+
+- **Direct Integration:** EVM contracts and dApps can call CosmWasm functions like any other smart contract method.
+- **Native Execution:** Operations are executed at the Cosmos SDK level for maximum efficiency and security.
+- **Seamless Bridge:** No need for separate wallet integrations or complex cross-chain interactions.
+
+## What You'll Learn in This Guide
+
+By the end of this guide, you'll be able to:
+
+- **Deploy CosmWasm Contracts** - Instantiate new CosmWasm contracts directly from EVM applications
+- **Execute Contract Functions** - Call CosmWasm contract methods and handle message formatting
+- **Batch Operations** - Execute multiple contract calls efficiently in a single transaction
+- **Query Contract State** - Read CosmWasm contract data without gas costs
+- **Handle Cross-Runtime Data** - Master message encoding/decoding between EVM and CosmWasm formats
 
 ## Functions
 
-### Transactions
+The CosmWasm precompile exposes the following functions:
 
-- `instantiate`: Instantiates a new CosmWasm contract
+### Transaction Functions
 
-**Payable**: Any Sei amounts used to instantiate must be sent to the contract
-directly. Use the `coins` field for other params.
-
-```solidity copy
+```solidity
 /// Instantiates a new CosmWasm contract.
 /// @param codeID The codeID of the contract.
 /// @param admin The Sei address of the account to be set as contract admin.
 /// @param msg The msg to send for instantiation. The format is specified by the contract code.
 /// @param label Any labels to include for the new contract.
 /// @param coins Any non-sei denominations that the contract requires for instantiation.
-/// @return The contract address and associated data.
+/// @return contractAddr The contract address and associated data.
+/// @return data Additional data returned from instantiation.
 function instantiate(
     uint64 codeID,
     string memory admin,
@@ -31,57 +55,1001 @@ function instantiate(
     string memory label,
     bytes memory coins
 ) payable external returns (string memory contractAddr, bytes memory data);
-```
 
-- `execute`: Sends a message to a CosmWasm contract for execution
-
-**Payable**: Any Sei amounts required for contract execution must be sent to the
-contract directly. Use the `coins` field for other params.
-
-```solidity copy
 /// Executes some message on a CosmWasm contract.
 /// @param contractAddress The Sei address of the contract to execute.
 /// @param msg The msg to send for execution. The format is specified by the contract code.
 /// @param coins Any non-sei denominations that the contract requires for execution.
-/// @return The execution response from the CosmWasm contract.
+/// @return response The execution response from the CosmWasm contract.
 function execute(
     string memory contractAddress,
     bytes memory msg,
     bytes memory coins
 ) payable external returns (bytes memory response);
-```
 
-- `execute_batch`: Sends a messages to a CosmWasm contract for execution
-
-**Payable**: Any Sei amounts required for contract execution must be sent to the
-contract directly. Use the `coins` field for other params.
-
-```solidity copy
 struct ExecuteMsg {
     string contractAddress;
     bytes msg;
     bytes coins;
 }
-/// Executes collection of messages on a CosmWasm contract.
-/// @param executeMsgs The Sei address of the contract to execute.
-/// @return The execution responses collection from the CosmWasm contract.
+
+/// Executes collection of messages on CosmWasm contracts.
+/// @param executeMsgs Array of execution messages to process.
+/// @return responses The execution responses collection from the CosmWasm contracts.
 function execute_batch(
     ExecuteMsg[] memory executeMsgs
 ) payable external returns (bytes[] memory responses);
 ```
 
-### Queries
+### Query Functions
 
-- `query`: Queries a CosmWasm contract state
-  ```solidity copy
-  /// Queries a CosmWasm contract.
-  /// @param contractAddress The Sei address of the contract to query.
-  /// @param req The query request object. The format is specified by the contract code.
-  /// @return The response from the CosmWasm contract.
-  function query(
-      string memory contractAddress,
-      bytes memory req
-  ) external view returns (bytes memory response)
-  ```
+```solidity
+/// Queries a CosmWasm contract.
+/// @param contractAddress The Sei address of the contract to query.
+/// @param req The query request object. The format is specified by the contract code.
+/// @return response The response from the CosmWasm contract.
+function query(
+    string memory contractAddress,
+    bytes memory req
+) external view returns (bytes memory response);
+```
+
+## Using the Precompile
+
+### Setup
+
+#### Prerequisites
+
+Before getting started, ensure you have:
+
+- **Node.js** (v16 or higher)
+- **npm** or **yarn** package manager
+- **EVM-compatible wallet**
+- **SEI tokens** for gas fees and contract operations
+
+#### Install Dependencies
+
+Install the required packages for interacting with Sei precompiles:
+
+```bash copy
+# Install ethers.js for smart contract interactions
+npm install ethers
+
+# Install Sei EVM bindings for precompile addresses and ABIs
+npm install @sei-js/precompiles@2.1.2
+```
+
+#### Import Precompile Components
+
+```typescript copy
+// Import CosmWasm precompile address and ABI
+// View the entire ABI here: https://github.com/sei-protocol/sei-chain/tree/main/precompiles/wasmd
+import { WASM_PRECOMPILE_ABI, WASM_PRECOMPILE_ADDRESS } from '@sei-js/precompiles';
+import { ethers } from 'ethers';
+```
+
+<Callout type="info"> **Precompile Address:** The CosmWasm precompile is deployed at `0x0000000000000000000000000000000000001002` </Callout>
+
+### Contract Initialization
+
+Set up your provider, signer, and contract instance:
+
+```typescript copy
+// Using EVM-compatible wallet as the signer and provider
+const provider = new ethers.BrowserProvider(window.ethereum);
+await provider.send('eth_requestAccounts', []);
+const signer = await provider.getSigner();
+
+// Create a contract instance for the CosmWasm precompile
+const cosmwasm = new ethers.Contract(WASM_PRECOMPILE_ADDRESS, WASM_PRECOMPILE_ABI, signer);
+```
+
+## Critical: Understanding Message Formats
+
+One of the most important concepts to understand when working with the Sei CosmWasm precompile:
+
+### CosmWasm Message Structure
+
+The CosmWasm precompile requires **JSON-encoded messages** that conform to each contract's specific schema:
+
+<div className="overflow-x-auto max-w-full">
+  <table className="w-full divide-y divide-neutral-200 dark:divide-neutral-800">
+    <thead>
+      <tr>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Function</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Input/Output</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Format Type</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Example</th>
+      </tr>
+    </thead>
+    <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
+      <tr>
+        <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">`instantiate()`</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">msg parameter (input)</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">JSON bytes</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">
+          <code>ethers.toUtf8Bytes(jsonString)</code>
+        </td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">`execute()`</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">msg parameter (input)</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">JSON bytes</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">
+          <code>ethers.toUtf8Bytes(jsonString)</code>
+        </td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">`query()`</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">req parameter (input)</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">JSON bytes</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">
+          <code>ethers.toUtf8Bytes(jsonString)</code>
+        </td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">
+          <strong>All functions</strong>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">response (output)</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">JSON bytes</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">
+          <code>JSON.parse(ethers.toUtf8String(response))</code>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+### How Message Encoding Works
+
+**All CosmWasm functions require JSON-encoded byte arrays:**
+
+- `instantiate()` - accepts instantiation message as JSON bytes
+- `execute()` - accepts execution message as JSON bytes
+- `query()` - accepts query message as JSON bytes
+
+**Native Token Handling:**
+
+- Use `msg.value` for SEI amounts
+- Use `coins` parameter for other denominations (encoded as JSON bytes)
+
+### Best Practice: Message Encoding Helpers
+
+When working with CosmWasm messages, use proper JSON encoding:
+
+```typescript copy
+// Helper functions for message encoding
+class CosmWasmMessageEncoder {
+  // Encode instantiate message
+  static encodeInstantiateMsg(msg: object): Uint8Array {
+    return ethers.toUtf8Bytes(JSON.stringify(msg));
+  }
+
+  // Encode execute message
+  static encodeExecuteMsg(msg: object): Uint8Array {
+    return ethers.toUtf8Bytes(JSON.stringify(msg));
+  }
+
+  // Encode query message
+  static encodeQueryMsg(msg: object): Uint8Array {
+    return ethers.toUtf8Bytes(JSON.stringify(msg));
+  }
+
+  // Encode coins for non-SEI denominations
+  static encodeCoins(coins: Array<{ denom: string; amount: string }>): Uint8Array {
+    if (coins.length === 0) return new Uint8Array();
+    return ethers.toUtf8Bytes(JSON.stringify(coins));
+  }
+
+  // Decode response bytes to JSON
+  static decodeResponse(responseBytes: Uint8Array): any {
+    const jsonString = ethers.toUtf8String(responseBytes);
+    return JSON.parse(jsonString);
+  }
+}
+
+// Usage examples
+const instantiateMsg = CosmWasmMessageEncoder.encodeInstantiateMsg({
+  name: 'My Token',
+  symbol: 'MTK',
+  decimals: 6,
+  initial_balances: []
+});
+
+const executeMsg = CosmWasmMessageEncoder.encodeExecuteMsg({
+  transfer: {
+    recipient: 'sei1...',
+    amount: '1000000'
+  }
+});
+
+const queryMsg = CosmWasmMessageEncoder.encodeQueryMsg({
+  balance: { address: 'sei1...' }
+});
+```
+
+## Message Format Helpers
+
+Use these helper functions to handle CosmWasm message formatting:
+
+```typescript copy
+// Helper functions for CosmWasm message handling
+class CosmWasmHelper {
+  // Create instantiate message bytes
+  static createInstantiateMsg(msgObject: any): Uint8Array {
+    return ethers.toUtf8Bytes(JSON.stringify(msgObject));
+  }
+
+  // Create execute message bytes
+  static createExecuteMsg(msgObject: any): Uint8Array {
+    return ethers.toUtf8Bytes(JSON.stringify(msgObject));
+  }
+
+  // Create query message bytes
+  static createQueryMsg(msgObject: any): Uint8Array {
+    return ethers.toUtf8Bytes(JSON.stringify(msgObject));
+  }
+
+  // Create coins array for non-SEI denominations
+  static createCoins(coins: Array<{ denom: string; amount: string }>): Uint8Array {
+    if (!coins || coins.length === 0) {
+      return ethers.toUtf8Bytes('[]');
+    }
+    return ethers.toUtf8Bytes(JSON.stringify(coins));
+  }
+
+  // Parse response from CosmWasm contract
+  static parseResponse(responseBytes: string | Uint8Array): any {
+    try {
+      const jsonString = typeof responseBytes === 'string' ? responseBytes : ethers.toUtf8String(responseBytes);
+      return JSON.parse(jsonString);
+    } catch (error) {
+      console.error('Failed to parse CosmWasm response:', error);
+      return null;
+    }
+  }
+}
+
+// Usage examples
+const instantiateMsg = CosmWasmHelper.createInstantiateMsg({
+  name: 'My DeFi Token',
+  symbol: 'MDT',
+  decimals: 6
+});
+
+const executeMsg = CosmWasmHelper.createExecuteMsg({
+  mint: {
+    recipient: 'sei1recipient...',
+    amount: '1000000'
+  }
+});
+
+const coins = CosmWasmHelper.createCoins([{ denom: 'uusdc', amount: '1000000' }]);
+```
+
+## Step-by-Step Guide: Using the CosmWasm Precompile
+
+### Instantiate a CosmWasm Contract
+
+<Tabs items={['JavaScript','Solidity']}>
+<Tabs.Tab>
+
+```typescript copy
+// Instantiate a CW20 token contract
+const codeId = 1; // The stored code ID on Sei
+const admin = ''; // Provide Sei address
+const label = 'My Token Contract';
+
+// Create instantiate message (contract-specific format)
+const instantiateMsg = CosmWasmHelper.createInstantiateMsg({
+  name: 'My Token',
+  symbol: 'MTK',
+  decimals: 6,
+  initial_balances: [
+    {
+      address: 'sei1recipient...',
+      amount: '1000000000' // 1000 tokens with 6 decimals
+    }
+  ],
+  mint: {
+    minter: 'sei1minter...'
+  }
+});
+
+// No additional coins needed for this instantiation
+const coins = CosmWasmHelper.createCoins([]);
+
+// Send SEI for instantiation fee if required
+const seiAmount = ethers.parseEther('0.1'); // 0.1 SEI
+
+const tx = await cosmwasm.instantiate(codeId, admin, instantiateMsg, label, coins, { value: seiAmount });
+
+const receipt = await tx.wait();
+console.log('Contract instantiated:', receipt);
+
+// Parse the contract address from logs
+const contractAddress = receipt.logs[0].topics[1]; // Contract address is in logs
+console.log('New contract address:', contractAddress);
+```
+
+</Tabs.Tab>
+<Tabs.Tab>
+
+```solidity copy
+contract CosmWasmManager {
+    ICosmWasm constant COSMWASM = ICosmWasm(0x0000000000000000000000000000000000001002);
+
+    event ContractInstantiated(string contractAddress, bytes data);
+
+    function instantiateContract(
+        uint64 codeId,
+        string memory admin,
+        bytes memory msg,
+        string memory label,
+        bytes memory coins
+    ) external payable {
+        (string memory contractAddr, bytes memory data) = COSMWASM.instantiate{value: msg.value}(
+            codeId,
+            admin,
+            msg,
+            label,
+            coins
+        );
+
+        emit ContractInstantiated(contractAddr, data);
+    }
+}
+```
+
+</Tabs.Tab>
+</Tabs>
+
+### Execute a CosmWasm Contract
+
+<Tabs items={['JavaScript','Solidity']}>
+<Tabs.Tab>
+
+```typescript copy
+// Execute a transfer on a CW20 token contract
+const contractAddress = 'sei1contract...'; // Your CosmWasm contract address
+
+// Create execute message for CW20 transfer
+const executeMsg = CosmWasmHelper.createExecuteMsg({
+  transfer: {
+    recipient: 'sei1recipient...',
+    amount: '1000000' // 1 token with 6 decimals
+  }
+});
+
+// No additional coins needed for this execution
+const coins = CosmWasmHelper.createCoins([]);
+
+const tx = await cosmwasm.execute(contractAddress, executeMsg, coins);
+
+const receipt = await tx.wait();
+console.log('Transfer executed:', receipt);
+
+// Parse the response if needed
+const response = CosmWasmHelper.parseResponse(receipt.logs[0].data);
+console.log('Execution response:', response);
+```
+
+</Tabs.Tab>
+<Tabs.Tab>
+
+```solidity copy
+contract CosmWasmExecutor {
+    ICosmWasm constant COSMWASM = ICosmWasm(0x0000000000000000000000000000000000001002);
+
+    event ContractExecuted(string contractAddress, bytes response);
+
+    function executeContract(
+        string memory contractAddress,
+        bytes memory msg,
+        bytes memory coins
+    ) external payable {
+        bytes memory response = COSMWASM.execute{value: msg.value}(
+            contractAddress,
+            msg,
+            coins
+        );
+
+        emit ContractExecuted(contractAddress, response);
+    }
+}
+```
+
+</Tabs.Tab>
+</Tabs>
+
+### Execute Batch Operations
+
+<Tabs items={['JavaScript','Solidity']}>
+<Tabs.Tab>
+
+```typescript copy
+// Execute multiple operations in a single transaction
+const contract1 = 'sei1contract1...';
+const contract2 = 'sei1contract2...';
+
+// Create multiple execute messages
+const executeMsg1 = CosmWasmHelper.createExecuteMsg({
+  transfer: {
+    recipient: 'sei1recipient1...',
+    amount: '500000'
+  }
+});
+
+const executeMsg2 = CosmWasmHelper.createExecuteMsg({
+  mint: {
+    recipient: 'sei1recipient2...',
+    amount: '1000000'
+  }
+});
+
+// Create batch execution array
+const executeMsgs = [
+  {
+    contractAddress: contract1,
+    msg: executeMsg1,
+    coins: CosmWasmHelper.createCoins([])
+  },
+  {
+    contractAddress: contract2,
+    msg: executeMsg2,
+    coins: CosmWasmHelper.createCoins([])
+  }
+];
+
+const tx = await cosmwasm.execute_batch(executeMsgs);
+const receipt = await tx.wait();
+
+console.log('Batch execution completed:', receipt);
+```
+
+</Tabs.Tab>
+<Tabs.Tab>
+
+```solidity copy
+contract BatchExecutor {
+    ICosmWasm constant COSMWASM = ICosmWasm(0x0000000000000000000000000000000000001002);
+
+    function executeBatch(
+        ICosmWasm.ExecuteMsg[] memory executeMsgs
+    ) external payable {
+        bytes[] memory responses = COSMWASM.execute_batch{value: msg.value}(executeMsgs);
+
+        // Process responses as needed
+        for (uint i = 0; i < responses.length; i++) {
+            // Handle each response
+            emit BatchResponseReceived(i, responses[i]);
+        }
+    }
+
+    event BatchResponseReceived(uint index, bytes response);
+}
+```
+
+</Tabs.Tab>
+</Tabs>
+
+### Query a CosmWasm Contract
+
+<Tabs items={['JavaScript','Solidity']}>
+<Tabs.Tab>
+
+```typescript copy
+// Query balance of a CW20 token
+const contractAddress = 'sei1contract...';
+const userAddress = 'sei1user...';
+
+// Create query message
+const queryMsg = CosmWasmHelper.createQueryMsg({
+  balance: { address: userAddress }
+});
+
+try {
+  const responseBytes = await cosmwasm.query(contractAddress, queryMsg);
+  const response = CosmWasmHelper.parseResponse(responseBytes);
+
+  console.log('User balance:', response.balance);
+
+  // Query token info
+  const tokenInfoMsg = CosmWasmHelper.createQueryMsg({ token_info: {} });
+  const tokenInfoBytes = await cosmwasm.query(contractAddress, tokenInfoMsg);
+  const tokenInfo = CosmWasmHelper.parseResponse(tokenInfoBytes);
+
+  console.log('Token info:', {
+    name: tokenInfo.name,
+    symbol: tokenInfo.symbol,
+    decimals: tokenInfo.decimals,
+    total_supply: tokenInfo.total_supply
+  });
+} catch (error) {
+  console.error('Query failed:', error);
+}
+```
+
+</Tabs.Tab>
+<Tabs.Tab>
+
+```solidity copy
+contract CosmWasmQuery {
+    ICosmWasm constant COSMWASM = ICosmWasm(0x0000000000000000000000000000000000001002);
+
+    function queryContract(
+        string memory contractAddress,
+        bytes memory queryMsg
+    ) external view returns (bytes memory) {
+        return COSMWASM.query(contractAddress, queryMsg);
+    }
+
+    // Helper to query and decode in one call (requires additional parsing logic)
+    function queryBalance(
+        string memory contractAddress,
+        string memory userAddress
+    ) external view returns (bytes memory) {
+        // This would require JSON parsing in Solidity, which is complex
+        // Better to handle parsing off-chain
+        bytes memory queryMsg = abi.encode('{"balance":{"address":"', userAddress, '"}}');
+        return COSMWASM.query(contractAddress, queryMsg);
+    }
+}
+```
+
+</Tabs.Tab>
+</Tabs>
+
+<Callout type="warning"> **Query Limitations:** CosmWasm queries are read-only operations and don't consume gas, but parsing JSON responses in Solidity is complex. Consider handling response parsing off-chain. </Callout>
+
+## Advanced Usage Examples
+
+### Cross-Runtime DeFi Integration
+
+```typescript copy
+async function crossRuntimeDeFiOperation(cosmwasmDexContract: string, evmTokenContract: string, amount: string) {
+  try {
+    // 1. Execute swap on CosmWasm DEX
+    const swapMsg = CosmWasmHelper.createExecuteMsg({
+      swap: {
+        offer_asset: {
+          info: { native_token: { denom: 'usei' } },
+          amount: amount
+        },
+        belief_price: '1.0'
+      }
+    });
+
+    const swapTx = await cosmwasm.execute(cosmwasmDexContract, swapMsg, CosmWasmHelper.createCoins([]), { value: ethers.parseEther(amount) });
+
+    await swapTx.wait();
+    console.log('CosmWasm swap completed');
+
+    // 2. Query swap result
+    const balanceMsg = CosmWasmHelper.createQueryMsg({
+      balance: { address: await signer.getAddress() }
+    });
+
+    const balanceResponse = await cosmwasm.query(cosmwasmDexContract, balanceMsg);
+    const balance = CosmWasmHelper.parseResponse(balanceResponse);
+
+    console.log('New balance after swap:', balance);
+
+    return balance;
+  } catch (error) {
+    console.error('Cross-runtime operation failed:', error);
+    throw error;
+  }
+}
+```
+
+### Complete Integration Example
+
+<Tabs items={['JavaScript','Solidity']}>
+<Tabs.Tab>
+
+```typescript copy
+async function cosmwasmExample() {
+  // Setup
+  const provider = new ethers.BrowserProvider(window.ethereum);
+  await provider.send('eth_requestAccounts', []);
+  const signer = await provider.getSigner();
+  const cosmwasm = new ethers.Contract(WASM_PRECOMPILE_ADDRESS, WASM_PRECOMPILE_ABI, signer);
+
+  const userAddress = await signer.getAddress();
+
+  try {
+    // 1. Instantiate a CW20 token contract
+    console.log('=== Instantiating CW20 Token ===');
+    const codeId = 1;
+    const instantiateMsg = CosmWasmHelper.createInstantiateMsg({
+      name: 'Test Token',
+      symbol: 'TEST',
+      decimals: 6,
+      initial_balances: [],
+      mint: { minter: 'sei1minter...' }
+    });
+
+    const instantiateTx = await cosmwasm.instantiate(
+      codeId,
+      '', // No admin
+      instantiateMsg,
+      'Test Token Contract',
+      CosmWasmHelper.createCoins([]),
+      { value: ethers.parseEther('0.1') }
+    );
+
+    const instantiateReceipt = await instantiateTx.wait();
+    const contractAddress = 'sei1contract...'; // Extract from logs
+    console.log('Contract instantiated at:', contractAddress);
+
+    // 2. Execute mint operation
+    console.log('=== Minting Tokens ===');
+    const mintMsg = CosmWasmHelper.createExecuteMsg({
+      mint: {
+        recipient: 'sei1recipient...',
+        amount: '1000000000' // 1000 tokens
+      }
+    });
+
+    const mintTx = await cosmwasm.execute(contractAddress, mintMsg, CosmWasmHelper.createCoins([]));
+    await mintTx.wait();
+    console.log('Tokens minted successfully');
+
+    // 3. Query token information
+    console.log('=== Querying Token Info ===');
+    const tokenInfoMsg = CosmWasmHelper.createQueryMsg({ token_info: {} });
+    const tokenInfoBytes = await cosmwasm.query(contractAddress, tokenInfoMsg);
+    const tokenInfo = CosmWasmHelper.parseResponse(tokenInfoBytes);
+
+    console.log('Token Info:', {
+      name: tokenInfo.name,
+      symbol: tokenInfo.symbol,
+      decimals: tokenInfo.decimals,
+      total_supply: tokenInfo.total_supply
+    });
+
+    // 4. Query user balance
+    const balanceMsg = CosmWasmHelper.createQueryMsg({
+      balance: { address: 'sei1recipient...' }
+    });
+    const balanceBytes = await cosmwasm.query(contractAddress, balanceMsg);
+    const balance = CosmWasmHelper.parseResponse(balanceBytes);
+
+    console.log('User balance:', balance.balance);
+
+    // 5. Execute batch transfer
+    console.log('=== Batch Transfer ===');
+    const batchMsgs = [
+      {
+        contractAddress: contractAddress,
+        msg: CosmWasmHelper.createExecuteMsg({
+          transfer: {
+            recipient: 'sei1addr1...',
+            amount: '100000000' // 100 tokens
+          }
+        }),
+        coins: CosmWasmHelper.createCoins([])
+      },
+      {
+        contractAddress: contractAddress,
+        msg: CosmWasmHelper.createExecuteMsg({
+          transfer: {
+            recipient: 'sei1addr2...',
+            amount: '200000000' // 200 tokens
+          }
+        }),
+        coins: CosmWasmHelper.createCoins([])
+      }
+    ];
+
+    const batchTx = await cosmwasm.execute_batch(batchMsgs);
+    await batchTx.wait();
+    console.log('Batch transfer completed');
+  } catch (error) {
+    console.error('CosmWasm operation failed:', error);
+  }
+}
+```
+
+</Tabs.Tab>
+<Tabs.Tab>
+
+**Contract Example**
+
+```solidity copy
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+interface ICosmWasmPrecompile {
+    struct ExecuteMsg {
+        string contractAddress;
+        bytes msg;
+        bytes coins;
+    }
+
+    function instantiate(
+        uint64 codeID,
+        string memory admin,
+        bytes memory msg,
+        string memory label,
+        bytes memory coins
+    ) payable external returns (string memory contractAddr, bytes memory data);
+
+    function execute(
+        string memory contractAddress,
+        bytes memory msg,
+        bytes memory coins
+    ) payable external returns (bytes memory response);
+
+    function execute_batch(
+        ExecuteMsg[] memory executeMsgs
+    ) payable external returns (bytes[] memory responses);
+
+    function query(
+        string memory contractAddress,
+        bytes memory req
+    ) external view returns (bytes memory response);
+}
+
+contract CosmWasmBridge {
+    ICosmWasmPrecompile constant COSMWASM = ICosmWasmPrecompile(0x0000000000000000000000000000000000001002);
+
+    event ContractInstantiated(string contractAddress, bytes data);
+    event ContractExecuted(string contractAddress, bytes response);
+    event BatchExecuted(uint256 msgCount);
+    event QueryExecuted(string contractAddress, bytes response);
+
+    // Instantiate a new CosmWasm contract
+    function instantiateContract(
+        uint64 codeId,
+        string memory admin,
+        bytes memory instantiateMsg,
+        string memory label,
+        bytes memory coins
+    ) external payable returns (string memory) {
+        (string memory contractAddr, bytes memory data) = COSMWASM.instantiate{value: msg.value}(
+            codeId,
+            admin,
+            instantiateMsg,
+            label,
+            coins
+        );
+
+        emit ContractInstantiated(contractAddr, data);
+        return contractAddr;
+    }
+
+    // Execute a message on a CosmWasm contract
+    function executeContract(
+        string memory contractAddress,
+        bytes memory executeMsg,
+        bytes memory coins
+    ) external payable returns (bytes memory) {
+        bytes memory response = COSMWASM.execute{value: msg.value}(
+            contractAddress,
+            executeMsg,
+            coins
+        );
+
+        emit ContractExecuted(contractAddress, response);
+        return response;
+    }
+
+    // Execute multiple messages in batch
+    function executeBatch(
+        ICosmWasmPrecompile.ExecuteMsg[] memory executeMsgs
+    ) external payable returns (bytes[] memory) {
+        bytes[] memory responses = COSMWASM.execute_batch{value: msg.value}(executeMsgs);
+
+        emit BatchExecuted(executeMsgs.length);
+        return responses;
+    }
+
+    // Query a CosmWasm contract
+    function queryContract(
+        string memory contractAddress,
+        bytes memory queryMsg
+    ) external view returns (bytes memory) {
+        bytes memory response = COSMWASM.query(contractAddress, queryMsg);
+
+        // Note: Cannot emit events in view functions
+        return response;
+    }
+
+    // Helper function to create execute message struct
+    function createExecuteMsg(
+        string memory contractAddress,
+        bytes memory msg,
+        bytes memory coins
+    ) public pure returns (ICosmWasmPrecompile.ExecuteMsg memory) {
+        return ICosmWasmPrecompile.ExecuteMsg({
+            contractAddress: contractAddress,
+            msg: msg,
+            coins: coins
+        });
+    }
+}
+```
+
+<Callout type="info"> **Note:** This contract acts as a bridge between EVM and CosmWasm. Message encoding/decoding should be handled client-side for complex operations. </Callout>
+
+**Client Integration Example**
+
+```javascript copy
+const abi = require('./artifacts/contracts/CosmWasmBridge.sol/CosmWasmBridge.json');
+const { ethers } = require('hardhat');
+const dotenv = require('dotenv');
+dotenv.config();
+
+async function main() {
+  const [deployer] = await ethers.getSigners();
+  console.log('Deploying contracts with the account:', deployer.address);
+
+  const CosmWasmBridge = await ethers.getContractFactory('CosmWasmBridge');
+  console.log('Deploying CosmWasmBridge...');
+  const bridge = await CosmWasmBridge.deploy();
+
+  await bridge.waitForDeployment();
+  console.log('CosmWasmBridge deployed to:', await bridge.getAddress());
+
+  // Encode instantiate message
+  const instantiateMsg = ethers.toUtf8Bytes(
+    JSON.stringify({
+      name: 'Bridge Token',
+      symbol: 'BRIDGE',
+      decimals: 6,
+      initial_balances: []
+    })
+  );
+
+  // Instantiate contract
+  const codeId = 1;
+  const admin = '';
+  const label = 'Bridge Token Contract';
+  const coins = ethers.toUtf8Bytes('[]');
+
+  const instantiateTx = await bridge.instantiateContract(codeId, admin, instantiateMsg, label, coins, { value: ethers.parseEther('0.1') });
+
+  const receipt = await instantiateTx.wait();
+  console.log('Instantiation transaction hash:', instantiateTx.hash);
+
+  // Extract contract address from events
+  const event = receipt.logs.find((log) => log.topics[0] === ethers.id('ContractInstantiated(string,bytes)'));
+
+  if (event) {
+    console.log('New CosmWasm contract instantiated');
+  }
+}
+
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});
+```
+
+</Tabs.Tab>
+</Tabs>
+
+## Troubleshooting
+
+### Common Issues and Solutions
+
+#### Message Encoding Issues
+
+```typescript copy
+// Ensure proper JSON encoding for messages
+const msg = {
+  transfer: {
+    recipient: 'sei1...',
+    amount: '1000000' // Use strings for large numbers
+  }
+};
+
+// Correct encoding
+const encodedMsg = ethers.toUtf8Bytes(JSON.stringify(msg));
+
+// Incorrect - will cause parsing errors
+const incorrectMsg = ethers.toUtf8Bytes('invalid json');
+```
+
+### Error Code Reference
+
+<div className="overflow-x-auto max-w-full">
+  <table className="w-full divide-y divide-neutral-200 dark:divide-neutral-800">
+    <thead>
+      <tr>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Error</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Cause</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Solution</th>
+      </tr>
+    </thead>
+    <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
+      <tr>
+        <td className="px-4 py-3 text-sm text-red-600 dark:text-red-400 whitespace-nowrap font-medium">
+          <code>invalid json</code>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">Malformed JSON message</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Validate JSON before encoding</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-red-600 dark:text-red-400 whitespace-nowrap font-medium">
+          <code>contract not found</code>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">Invalid contract address</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Verify contract address format</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-red-600 dark:text-red-400 whitespace-nowrap font-medium">
+          <code>insufficient funds</code>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">Not enough tokens for operation</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Check balance and reduce amount</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-red-600 dark:text-red-400 whitespace-nowrap font-medium">
+          <code>execution failed</code>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">Contract execution error</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Check contract state and parameters</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-red-600 dark:text-red-400 whitespace-nowrap font-medium">
+          <code>code id not found</code>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">Invalid code ID for instantiation</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Use valid stored code ID</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-red-600 dark:text-red-400 whitespace-nowrap font-medium">
+          <code>unauthorized</code>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">Insufficient permissions</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Check admin/owner permissions</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-red-600 dark:text-red-400 whitespace-nowrap font-medium">
+          <code>query parsing failed</code>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">Invalid query message format</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Match contract's query schema</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+## Important Notes
+
+<Callout type="info"> Remember the key rule: All CosmWasm messages must be properly JSON-encoded as bytes, and contract schemas vary by implementation! </Callout>
+
+### Message Format Requirements
+
+- **JSON Encoding:** All messages must be valid JSON encoded as UTF-8 bytes, invalid JSON will cause transaction failures
+- **Schema Compliance:** Messages must match the contract's expected format
+- **Type Safety:** Use proper data types as expected by the contract
+
+### Contract Address Format
+
+- Use valid Sei contract addresses with `sei1...` prefix
+- These are Cosmos-format addresses, not EVM addresses
+- Contract addresses are generated deterministically during instantiation
+- **Contract Existence:** Verify contracts exist before calling
+- **Code ID Validity:** Ensure code IDs exist on the network
+
+### Cross-Runtime Considerations
+
+- **State Isolation:** CosmWasm and EVM contracts have separate state
+- **Gas Estimation:** CosmWasm operations may require different gas calculations
+- **Error Handling:** Failed CosmWasm operations revert the entire EVM transaction
+- **Native Token Handling:** Use `msg.value` for SEI, `coins` for other denominations
+- **Batch Limitations:** Large batches may hit gas limits
+
+### Best Practices
+
+- Always validate JSON messages before sending
+- Handle response parsing carefully, especially for complex data structures
+- Use batch operations for multiple related calls to save gas
+- Query contracts before executing to verify state when possible
 
 <Callout type="info">View the CosmWasm precompile source code and the contract ABI [here](https://github.com/sei-protocol/sei-chain/tree/main/precompiles/wasmd).</Callout>
