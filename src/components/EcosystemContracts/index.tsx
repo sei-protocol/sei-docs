@@ -89,10 +89,9 @@ export async function RemoteSheetData() {
 		// Clean the address
 		const cleanAddress = address.trim();
 
-		// let explorerUrl = '';
-		let explorerName = 'SeiTrace';
+		let explorerName = 'SeiScan';
 
-		let explorerUrl = `https://seitrace.com/address/${cleanAddress}`;
+		let explorerUrl = `https://seiscan.io/address/${cleanAddress}`;
 		const shortAddress = `${cleanAddress}`;
 
 		return (
