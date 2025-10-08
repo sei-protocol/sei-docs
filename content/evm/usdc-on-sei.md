@@ -3,7 +3,7 @@
 ## Addresses and Decimals
 
 - Testnet (atlantic-2) USDC: [`0x4fCF1784B31630811181f670Aea7A7bEF803eaED`](https://seitrace.com/address/0x4fCF1784B31630811181f670Aea7A7bEF803eaED?chain=atlantic-2)
-- Mainnet (pacific-1) USDC: [`0xe15fC38F6D8c56aF07bbCBe3BAf5708A2Bf42392`](https://seitrace.com/address/0xe15fC38F6D8c56aF07bbCBe3BAf5708A2Bf42392?chain=pacific-1)
+- Mainnet (pacific-1) USDC: [`0xe15fC38F6D8c56aF07bbCBe3BAf5708A2Bf42392`](https://seiscan.io/address/0xe15fC38F6D8c56aF07bbCBe3BAf5708A2Bf42392)
 - Decimals: `6`
 
 ## Overview
@@ -65,7 +65,7 @@ const seiTestnet = {
 	network: 'sei-atlantic-2',
 	nativeCurrency: { name: 'Sei', symbol: 'SEI', decimals: 18 },
 	rpcUrls: { default: { http: ['https://evm-rpc-testnet.sei-apis.com'] } },
-	blockExplorers: { default: { url: 'https://seitrace.com/?chain=atlantic-2' } },
+	blockExplorers: { default: { url: 'https://testnet.seiscan.io' } },
 	testnet: true
 };
 
@@ -75,7 +75,7 @@ const seiMainnet = {
 	network: 'sei-pacific-1',
 	nativeCurrency: { name: 'Sei', symbol: 'SEI', decimals: 18 },
 	rpcUrls: { default: { http: ['https://evm-rpc.sei-apis.com'] } },
-	blockExplorers: { default: { url: 'https://seitrace.com/?chain=pacific-1' } },
+	blockExplorers: { default: { url: 'https://seiscan.io } },
 	testnet: false
 };
 
@@ -235,7 +235,7 @@ Recipient: 0x9F8f...1234   # recipient address
 USDC balance: 250.0        # current USDC balance of sender
 Transfer successful!
 Tx hash: 0xabc123...def456 # transaction hash of the transfer
-Explorer: https://seitrace.com/?chain=atlantic-2&tx=0xabc123...def456
+Explorer: https://testnet.seiscan.io/tx/0xabc123...def456
 ```
 
 You should see “Transfer successful\!” and a transaction hash. You can copy the explorer URL into a browser to view the transaction details on SeiTrace.

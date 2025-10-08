@@ -10,7 +10,7 @@ export const SEI_MAINNET_CHAIN_PARAMS = {
 		symbol: 'SEI',
 		decimals: 18
 	},
-	blockExplorerUrls: ['https://seitrace.com']
+	blockExplorerUrls: ['https://seiscan.io']
 };
 
 // Testnet (atlantic-2)
@@ -23,7 +23,7 @@ export const SEI_TESTNET_CHAIN_PARAMS = {
 		symbol: 'SEI',
 		decimals: 18
 	},
-	blockExplorerUrls: ['https://seitrace.com/?chain=atlantic-2']
+	blockExplorerUrls: ['https://testnet.seiscan.io']
 };
 
 export const networks: NetworkEntry[] = [
@@ -34,8 +34,8 @@ export const networks: NetworkEntry[] = [
 		hexChainId: '0x531',
 		rpcUrl: 'https://evm-rpc.sei-apis.com',
 		explorerLinks: [
-			{ name: 'SeiTrace', url: 'https://seitrace.com/?chain=pacific-1' },
 			{ name: 'Seiscan', url: 'https://seiscan.io' },
+			{ name: 'SeiTrace', url: 'https://seitrace.com/?chain=pacific-1' },
 			{ name: 'SeiStream', url: 'https://seistream.app' }
 		],
 		chainParams: SEI_MAINNET_CHAIN_PARAMS
@@ -47,8 +47,8 @@ export const networks: NetworkEntry[] = [
 		hexChainId: '0x530',
 		rpcUrl: 'https://evm-rpc-testnet.sei-apis.com',
 		explorerLinks: [
+			{ name: 'Seiscan', url: 'https://testnet.seiscan.io' },
 			{ name: 'SeiTrace', url: 'https://seitrace.com/?chain=atlantic-2' },
-			{ name: 'Seiscan', url: 'https://seiscan.io' },
 			{ name: 'SeiStream', url: 'https://testnet.seistream.app' }
 		],
 		chainParams: SEI_TESTNET_CHAIN_PARAMS
