@@ -25,7 +25,7 @@ export const CHAIN_CONFIGS: ChainConfigs = {
 	'atlantic-2': {
 		restUrl: 'https://rest-testnet.sei-apis.com',
 		rpcUrl: 'https://rpc-testnet.sei-apis.com/',
-		explorerUrl: 'https://seitrace.com'
+		explorerUrl: 'https://testnet.seitrace.com'
 	}
 };
 

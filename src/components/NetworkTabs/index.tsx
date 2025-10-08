@@ -80,8 +80,8 @@ export function NetworkTabs({}: NetworkTabsProps) {
 									<div className='flex flex-col'>
 										<div className={labelClass}>Explorer:</div>
 										<div className='flex items-center justify-between'>
-											<span className={valueClass}>seitrace.com</span>
-											<a href='https://seitrace.com' target='_blank' rel='noopener noreferrer' className={visitLinkClass}>
+											<span className={valueClass}>seiscan.io</span>
+											<a href='https://seiscan.io' target='_blank' rel='noopener noreferrer' className={visitLinkClass}>
 												Visit
 												<IconChevronRight className='w-4 h-4 ml-1' />
 											</a>
@@ -119,7 +119,7 @@ export function NetworkTabs({}: NetworkTabsProps) {
 										<div className={labelClass}>Explorer:</div>
 										<div className='flex items-center justify-between'>
 											<span className={valueClass}>seitrace.com</span>
-											<a href='https://seitrace.com/?chain=pacific-1' target='_blank' rel='noopener noreferrer' className={visitLinkClass}>
+											<a href='https://seitrace.com' target='_blank' rel='noopener noreferrer' className={visitLinkClass}>
 												Visit
 												<IconChevronRight className='w-4 h-4 ml-1' />
 											</a>
@@ -162,8 +162,8 @@ export function NetworkTabs({}: NetworkTabsProps) {
 									<div className='flex flex-col'>
 										<div className={labelClass}>Explorer:</div>
 										<div className='flex items-center justify-between'>
-											<span className={valueClass}>seitrace.com</span>
-											<a href='https://seitrace.com/?chain=atlantic-2' target='_blank' rel='noopener noreferrer' className={visitLinkClass}>
+											<span className={valueClass}>testnet.seiscan.io</span>
+											<a href='https://testnet.seiscan.io' target='_blank' rel='noopener noreferrer' className={visitLinkClass}>
 												Visit
 												<IconChevronRight className='w-4 h-4 ml-1' />
 											</a>
@@ -211,7 +211,7 @@ export function NetworkTabs({}: NetworkTabsProps) {
 										<div className={labelClass}>Explorer:</div>
 										<div className='flex items-center justify-between'>
 											<span className={valueClass}>seitrace.com</span>
-											<a href='https://seitrace.com/?chain=atlantic-2' target='_blank' rel='noopener noreferrer' className={visitLinkClass}>
+											<a href='https://testnet.seitrace.com/' target='_blank' rel='noopener noreferrer' className={visitLinkClass}>
 												Visit
 												<IconChevronRight className='w-4 h-4 ml-1' />
 											</a>
