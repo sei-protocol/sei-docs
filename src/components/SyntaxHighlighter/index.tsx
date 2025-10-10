@@ -1,25 +1,18 @@
 'use client';
 
-import CodeBlock from 'shiki-code-block-react';
 import { BundledLanguage } from './types';
-import { useTheme } from 'next-themes';
 
 type SyntaxHighlighterProps = {
 	code: string;
 	language: BundledLanguage;
 };
 
+// Lightweight renderer: rely on Nextra/rehypePrettyCode to style <pre><code>
+// This avoids shipping a client component and third-party highlight libs.
 export const SyntaxHighlighter = ({ code, language }: SyntaxHighlighterProps) => {
-	const { theme } = useTheme();
-
 	return (
-		<CodeBlock
-			lang={language}
-			theme={{
-				light: 'github-light-default',
-				dark: theme === 'dark' ? 'github-dark-default' : 'github-light-default'
-			}}
-			code={code}
-		/>
+		<pre className='nx-pre'>
+			<code className={`language-${language}`}>{code}</code>
+		</pre>
 	);
 };

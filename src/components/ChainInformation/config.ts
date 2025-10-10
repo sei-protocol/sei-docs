@@ -70,19 +70,19 @@ export const networks: NetworkEntry[] = [
 ];
 
 export async function addOrSwitchSeiNetwork(chain_params: any) {
-	if (!window.ethereum) {
+	if (typeof window === 'undefined' || !(window as any).ethereum) {
 		throw new Error('MetaMask is not installed');
 	}
 	try {
 		// Try switching to Sei
-		await window.ethereum.request({
+		await (window as any).ethereum.request({
 			method: 'wallet_switchEthereumChain',
 			params: [{ chainId: chain_params.chainId }]
 		});
 	} catch (switchError: any) {
 		// This error code indicates the chain has not been added to MetaMask
 		if (switchError.code === 4902) {
-			await window.ethereum.request({
+			await (window as any).ethereum.request({
 				method: 'wallet_addEthereumChain',
 				params: [chain_params]
 			});
