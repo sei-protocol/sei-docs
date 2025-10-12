@@ -1,0 +1,64 @@
+---
+title: 'SeiDB Adoption FAQ'
+description: 'Evaluate, enable, and operate SeiDB for improved storage performance.'
+keywords: ['SeiDB', 'database', 'state storage', 'migration', 'performance']
+---
+
+import { Callout } from 'nextra/components';
+import { KeyValueTable, TroubleshootingTable } from '../../mdx-components';
+
+# SeiDB Adoption FAQ
+
+SeiDB is the database layer designed to improve state storage performance on Sei. Use this FAQ to decide when and how to enable it.
+
+## Why SeiDB?
+
+<KeyValueTable
+  rows={[
+    ['Faster state reads', 'Optimized column families reduce latency for RPC-heavy workloads.'],
+    ['Compact storage', 'Built-in pruning keeps disk usage predictable.'],
+    ['Operator tooling', 'Supports snapshots and state sync workflows already used in production.']
+  ]}
+/>
+
+## Prerequisites
+
+- Run the latest binary that includes the SeiDB integration (see repository release notes).
+- Ensure disk I/O can handle compacted writes (NVMe recommended).
+- Backup your existing `data/` directory before enabling.
+
+## Enable Steps
+
+1. Stop the node.
+2. Update `app.toml`:
+
+   ```toml copy
+   [state-store]
+   ss-enable = true
+   ss-backend = "seidb"
+   ss-keep-recent = 100000
+   ss-prune-interval = 600
+   ```
+
+3. Restart the node and monitor logs for `seidb` initialization messages.
+
+## Migration Considerations
+
+- First start performs data migration. Expect higher CPU and disk usage.
+- Keep a recent snapshot handy; if migration encounters issues, you can roll back.
+- After migration, take a fresh snapshot for disaster recovery.
+
+## Monitoring
+
+- Track disk utilization and compaction stats from logs.
+- Monitor snapshot creation time; SeiDB should reduce snapshot size compared to RocksDB.
+
+## Troubleshooting
+
+<TroubleshootingTable
+  rows={[
+    ['Node fails to start with seidb references', 'Binary or config mismatch.', 'Ensure binary includes SeiDB support and `ss-backend` is spelled correctly.'],
+    ['Increased CPU usage after enablement', 'Initial compaction running.', 'Allow compaction to finish; schedule enabling during low-traffic periods.'],
+    ['Snapshots take longer than expected', 'Snapshot interval too short or disk under-powered.', 'Increase `ss-prune-interval` and run on faster storage.']
+  ]}
+/>

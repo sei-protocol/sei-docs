@@ -1,0 +1,86 @@
+---
+title: 'Gas Accounting Guarantees'
+description: 'Understand how Sei computes gas for blocks, receipts, and estimations after v6.1.11, including validation steps for developers and operators.'
+keywords: ['gas accounting', 'sei evm gas', 'eth_estimateGas', 'synthetic transactions', 'gasUsed guarantees']
+---
+
+import { Callout } from 'nextra/components';
+import { KeyValueTable, TroubleshootingTable } from '../../mdx-components';
+
+# Gas Accounting Guarantees
+
+Sei `v6.1.11` [release notes](https://github.com/sei-protocol/sei-chain/releases/tag/v6.1.11) patched multiple gaps in gas attribution. This page captures the definitive rules for `gasUsed`, `gasLimit`, and `eth_estimateGas`, and provides validation steps to confirm your infrastructure is consuming the numbers correctly.
+
+<Callout type="info">
+  Updates in this guide reflect <code>sei-chain@1efdec1eb</code> (“Fix block gas used”) and supporting RPC fixes merged in the same release train.
+</Callout>
+
+## What Changed in v6.1.11
+
+<KeyValueTable
+  rows={[
+    ['Block gas accounting', 'Block \`gasUsed\` now equals the sum of receipt \`gasUsed\` for every EVM transaction executed in the block. Synthetic envelopes no longer skew totals.'],
+    ['Receipt accuracy', '\`eth_getTransactionReceipt\` always returns the execution gas minus refunds. Legacy blocks keep their historical values, but no new block is emitted with \`0\` gas.'],
+    ['Estimator parity', '\`eth_estimateGas\` incorporates pointer lookup warmups and Solo migration flows, eliminating the underestimation observed in \`precompile-pointer\` and \`precompile-solo\` calls.'],
+    ['Synthetic log flag', 'All Cosmos-originated events carry \`synthetic: true\`. Indexers can filter them without guessing based on module address.']
+  ]}
+/>
+
+## Gas Flow At a Glance
+
+1. **Ante handler**: Cosmos layer validates signatures/fees; synthetic envelopes stop here without touching EVM gas.
+2. **EVM execution**: go-ethereum debits opcode gas, precompile calls, and Solo/SIP-3 migrations exactly as upstream.
+3. **Refund + storage**: Apply EIP-3529 refund cap, persist `receipt.gasUsed = execution - refund`, then aggregate totals into the block header.
+
+## Verifying Your Node or Indexer
+
+<KeyValueTable
+  rows={[
+    ['Block sanity', '\`seid query block <height>\` - ensure \`gas_used\` > 0 and matches RPC hash.'],
+    ['Receipt reconciliation', '\`eth_getBlockByNumber(..., true)\` - sum receipts client-side and confirm equality.'],
+    ['Receipt non-zero check', '\`eth_getTransactionReceipt\` - post-\`v6.1.11\` EVM transactions never return \`gasUsed = 0x0\`.'],
+    ['Estimator parity', '\`eth_estimateGas\` on pointer/Solo flows - succeeds without heavy manual padding.']
+  ]}
+/>
+
+## Configuration Touchpoints
+
+Use the RPC config defaults from `evmrpc/config.go` as a baseline:
+
+<KeyValueTable
+  rows={[
+    ['\`max_log_no_block\`', '\`10000\` logs when no block range is supplied. Keep ≥ 10k for reliable historical diffs.'],
+    ['\`max_blocks_for_log\`', '\`2000\` block span for log queries. Increase cautiously if you replay receipts frequently.'],
+    ['\`max_concurrent_trace_calls\`', '\`10\` concurrent \`debug_trace*\` calls. More traces increase gas accounting pressure; monitor latency.'],
+    ['\`trace_timeout\`', '\`30s\` default per trace. Tighten if custom tracers risk panics (see Panic FAQ).']
+  ]}
+/>
+
+## Regression Checklist
+
+Run this suite after upgrades or when deploying new indexer infra:
+
+- Fetch 10 random receipts from the latest block and ensure `gasUsed` is non-zero and consistent with on-chain execution.
+- Confirm `eth_getBlockByNumber(..., true)` shows `gasUsed` equal to the arithmetic sum of the receipts from the same call.
+- Estimate gas for:
+  - A pointer migration using `precompile-pointer:addNativePointer`.
+  - A Solo claim (`precompile-solo:claim`).
+  - A standard ERC-20 transfer.
+    Expect each to execute with a margin < 2% from actual runtime gas.
+- Replay `eth_getLogs` across `max_blocks_for_log` and ensure no `panic` error surfaces (see Regression Coverage guide).
+
+## Troubleshooting
+
+<TroubleshootingTable
+  rows={[
+    ['\`gasUsed = 0x0\` on fresh blocks', 'Node is still serving pre-\`v6.1.11\` receipts or RPC cache is stale.', 'Restart RPC service after upgrading to \`v6.1.11\`; invalidate any CDN cache that fronts the RPC.'],
+    ['\`eth_estimateGas\` fails on pointer calls', 'Pointer cache cold or Solo migration contract not yet deployed.', 'Call \`precompile-pointerview\` once before estimating, or ensure Solo migration contracts are deployed at the documented addresses.'],
+    ['Block \`gasUsed\` > sum(receipts)', 'Legacy block prior to \`v6.1.11\` or synthetic transaction included.', 'Accept mismatch for legacy heights; filter out \`synthetic: true\` logs when aggregating.']
+  ]}
+/>
+
+## Related Material
+
+- `rpc-gas-reference` – Quick reference for configuration and formulae.
+- `rpc-regression-playbook` – Full QA checklist for RPC consumers.
+- `tracing-playbook` – Debugging tools for tracing anomalies.

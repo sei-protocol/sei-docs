@@ -1,0 +1,112 @@
+---
+title: 'Consensus Deep Dive'
+description: 'Operator-oriented reference for Sei consensus, mempool, and vote extension status.'
+keywords: ['consensus', 'mempool', 'vote extensions', 'sei tendermint']
+---
+
+import { KeyValueTable, TroubleshootingTable } from '../../mdx-components';
+
+# Consensus Deep Dive
+
+Sei rides Tendermint BFT, but the chain’s sub-second finality comes from a carefully engineered pipeline that overlaps proposal, execution, and commit work. This page is the operator-focused playbook that connects the code paths (`sei-tendermint@02c9462f1`), config surface, and on-call runbooks that keep the pipeline healthy.
+
+## What’s Unique About Sei’s Tendermint
+
+- **Heavily pipelined heights.** Proposal assembly, OCC metadata generation, and duplicate-cache pruning all happen before height `H` even begins (`app/abci/prepare.go`). Validators already have warmed state when the proposer gossips the block.
+- **Parallel execution during voting.** As soon as the proposal hits, `DeliverTxBatch` fans transactions into the optimistic concurrency controller (OCC) while Tendermint runs through `EnterPrevote` → `EnterPrecommit` (`consensus/state.go`). Execution and voting finish almost together.
+- **Deterministic duplicate cache.** The fix in `sei-tendermint@02c9462f1` enforces `mempool.cache_size` strictly; stale entries are evicted whenever a tx is included or explicitly removed (`mempool/tx_cache.go`). That’s what stops high-throughput validators from repeatedly reprocessing spam.
+- **Priority-aware eviction.** With the new prioritizer enabled, `GetTxPriorityHint` feeds a reservoir sampler so low-priority spam is rejected once utilisation crosses the configured threshold (`internal/mempool/mempool.go`).
+- **Vote extensions disabled on public networks.** The plumbing exists, but `types/params.go` prevents toggling back off once enabled. Treat the feature flag as a one-way door reserved for future releases.
+
+## Height H: Timeline With Code Anchors
+
+| Stage                                | What Happens                                                                                                                                        | Code Path / Signals                                                                 |
+| :----------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------- |
+| Preflight (\`H-1\` still finalising) | \`GenerateEstimatedWritesets\` maps conflicting keys, SeiDB caches reads, duplicate cache prunes stale entries, new tx hints sampled for reservoir. | \`app/abci/prepare.go\`, logs \`prepare height=\`, \`mempool/reservoir.go\`         |
+| Proposal build (\`EnterPropose\`)    | Proposer calls \`CreateProposalBlock\` to pack txs + OCC metadata.                                                                                  | \`consensus/state.go:enterPropose\`, \`Consensus\` logs \`created proposal\`        |
+| Broadcast & prevote                  | Proposal gossips, validators push \`Prevote\` while launching \`DeliverTxBatch\`.                                                                   | \`consensus/state.go:addVote\`, metric \`consensus_round\`                          |
+| Parallel execution                   | OCC runs \`ProcessTXsWithOCC\` workers, buffering writes in \`CacheMultiStore\`.                                                                    | \`app/abci/deliver_tx.go\`, log \`batch executed\`                                  |
+| Precommit & finalise                 | When 2/3 precommits arrive, buffered writes flush to SeiDB, Tendermint schedules height \`H+1\`.                                                    | \`consensus/state.go:finalizeCommit\`, metrics \`consensus_block_interval_seconds\` |
+
+> Tip: `seid debug consensus-state` visualises these transitions live; pair it with `journalctl -u seid | grep consensus` during incident drills.
+
+## Operator Knobs Worth Guarding
+
+<KeyValueTable
+  rows={[
+    ['`consensus.timeout_commit`', 'Keep at ~400 ms (Sei default). Any bump immediately lengthens block time and UX.'],
+    ['`timeout_propose`, `timeout_propose_delta`', 'Short proposals keep OCC workers fed. Confirm overrides survive config generation tools.'],
+    ['`mempool.cache_size`', 'Default 10k. Scale gradually (20k on beefy boxes) so the duplicate cache fix keeps working.'],
+    ['`drop-utilisation-threshold`', 'Enable only when you can supply deterministic fee ladders; see Tx Prioritizer playbook.'],
+    ['`p2p.send_rate` / `recv_rate`', 'Sei raises these to avoid gossip throttling. Rolling back to Tendermint defaults starves proposers.']
+  ]}
+/>
+
+### Canonical config snippet
+
+```toml copy
+[consensus]
+timeout_commit = "400ms"
+timeout_propose = "200ms"
+timeout_propose_delta = "100ms"
+create_empty_blocks = true
+create_empty_blocks_interval = "0s"
+
+[mempool]
+cache_size = 10000
+```
+
+Templatise these defaults (Ansible, Terraform, Helm) so they don’t regress during infra churn. If you enable priority-based drops, record the tuned values alongside this config and link back to the [Tx Prioritizer](/evm/rpc-prioritizer) guide.
+
+## Observability That Proves the Pipeline Works
+
+<KeyValueTable
+  rows={[
+    ['Block latency', '`consensus_block_interval_seconds` p95 ≤ 0.45 s. Alert if > 0.6 s for 5 minutes.'],
+    ['Round health', '`consensus_round` should oscillate 0–2. Sustained >3 ⇒ proposer issues or gossip lag.'],
+    ['Duplicate cache utilisation', '`seimempool_cache_used / capacity` < 0.9 once warmed. High values precede duplicate rejections.'],
+    ['EVM parity', 'Track `eth_blockNumber` vs `seid status`. Drift >1 block means RPC or indexer is lagging.']
+  ]}
+/>
+
+**Quick CLI checks**
+
+```bash copy
+# Live consensus snapshot
+seid debug consensus-state
+
+# Confirm block cadence (aggregate diff should hover around 0.4s)
+seid status | jq -r '.SyncInfo.latest_block_time' | tail -n 20 | \
+  ruby -e 'times=STDIN.read.split.map { Time.parse(_1) }; puts times.each_cons(2).map { |a,b| b-a }'
+
+# Inspect duplicate cache utilisation
+seid debug mempool-stats
+```
+
+## Failure Modes & Mitigations
+
+<TroubleshootingTable
+  rows={[
+    ['Duplicate tx errors after upgrade', 'Cache size too small for current traffic.', 'Increase `mempool.cache_size` in `config.toml` and restart during a low-load window.'],
+    ['`priority not high enough` floods logs', 'Hint thresholds too strict for current fee environment.', 'Revisit `drop-utilisation-threshold` / `drop-priority-threshold` following the Tx Prioritizer checklist.'],
+    ['Unexpected vote extension logs', 'Experimental flag toggled vote extensions.', 'Revert the change; once enabled the protocol expects extension payloads.'],
+    ['Height stuck with high round numbers', 'Proposer starvation or peers throttled.', 'Check `consensus_round`, rebalance peer set, ensure sentries have bandwidth; consider raising `timeout_propose_delta` slightly.'],
+    ['Block time drifts >1 s', 'Timeout overrides reverted or hardware saturated.', 'Audit config, reapply Sei defaults, scale CPU/IO where OCC workers run.'],
+    ['Different binaries gossiping', 'Mixed `sei-tendermint` versions post-upgrade.', 'Verify `seid version --long` across validators; coordinate rollback or full redeploy.']
+  ]}
+/>
+
+## Upgrade Validation Checklist
+
+1. **Consensus state** – `seid debug consensus-state` shows proposers rotating and rounds moving rapidly (no long stalls on a single height).
+2. **Cadence sample** – pull 20 recent block times and confirm deltas hover around `0.4s`.
+3. **Cache enforcement** – after load resumes, `seid debug mempool-stats` reports the configured cache cap (no overflow past `mempool.cache_size`).
+4. **RPC parity** – `eth_getBlockByNumber(..., true)` height matches Tendermint and receipts sum to block `gasUsed`.
+5. **Observability soak** – Grafana alerts for latency, rounds, and cache stay green for 30 minutes; store the dashboard snapshot alongside the change ticket.
+
+## Related Material
+
+- [Technical Reference](/node/technical-reference) - full node configuration matrix including `config.toml` consensus knobs.
+- [Incident Playbooks](/node/node-incident-playbooks) - drills for consensus halts, snapshot issues, and P2P partitions.
+- [RPC Gas Accounting](/evm/rpc-gas-accounting) - how block-level gas totals interact with the consensus updates.
+- [Twin Turbo Consensus](/learn/twin-turbo-consensus) - protocol-level explainer of Sei’s pipelined Tendermint flow for sub-second finality.

@@ -1,0 +1,72 @@
+---
+title: 'Tracing Playbook'
+description: 'Operational guide for debug tracing on Sei: timeouts, concurrency caps, lookback, JS tracers.'
+keywords: ['tracing', 'debug_trace', 'lookback', 'timeout', 'concurrency']
+---
+
+import { Callout } from 'nextra/components';
+import { KeyValueTable } from '../../mdx-components';
+
+# Tracing Playbook
+
+## Limits & Tuning
+
+<Callout type="info">
+  Sei enforces limits to protect validators. Tune requests to stay within <code>max_trace_lookback_blocks</code>, <code>trace_timeout</code>, and <code>max_concurrent_trace_calls</code>.
+</Callout>
+
+<KeyValueTable
+  rows={[
+    ['Lookback window', 'Default 2,000 blocks. Requests outside the window return `trace window exceeded`.'],
+    ['Timeout', 'Default 30s per call. Long-running custom tracers should stream partial state or paginate.'],
+    ['Concurrent traces', 'Default 5. Exceeding the cap returns `429 too many requests`.'],
+    ['Frame length guard', 'Tracer frames larger than 64 KB are rejected ([v6.1.11+](https://github.com/sei-protocol/sei-chain/releases/tag/v6.1.11)). Split payloads or sanitize custom tracers.']
+  ]}
+/>
+
+Recommended tuning:
+
+- Prefer block ranges under 500 for iterative analysis; pipeline requests if you need full-day coverage.
+- Set `tracerConfig.timeout` inside your request to a value `<=` cluster timeout; the lower of the two values wins.
+- Use `disableStorage` and `disableStack` flags when you only need execution logs to reduce payload size.
+- New frame length guard means stringifying massive intermediate objects will revert-log hashes or sample slices instead.
+
+## JS Tracers
+
+Sei ships go-ethereum v1.15.7-sei-7 with hardened JS tracer handling:
+
+- **Nonce stability**: the replay engine correctly bumps nonces across synthetic transactions. Custom tracers can rely on `result.stateDiff` matching post-state.
+- **Panic surfacing**: runtime panics now return `{ error: { message, stack } }` instead of disconnecting the RPC session. Always inspect `error.data.trace` for the failed frame.
+- **Length guard**: the runtime rejects trace frames >64 KB to prevent DoS vectors. For large responses, emit checkpoints (block hash, tx hash) and pull additional data using standard RPC calls.
+
+Example request:
+
+```json copy
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "debug_traceTransaction",
+  "params": [
+    "0x<txhash>",
+    {
+      "tracer": "callTracer",
+      "timeout": "20s",
+      "tracerConfig": {
+        "enableNonce": true,
+        "onlyTopCall": false
+      }
+    }
+  ]
+}
+```
+
+<Callout type="warning">If you run custom tracers, lint them through `@sei-js/evm`'s `tracer-lint` script to ensure they respect nonce handling and frame-size limits.</Callout>
+
+## Troubleshooting
+
+| Symptom                                                 | Cause                                     | Fix                                                                                  |
+| :------------------------------------------------------ | :---------------------------------------- | :----------------------------------------------------------------------------------- |
+| `frame exceeded limit`                                  | Tracer emitted >64 KB payload             | Log hashes or slices; reduce recursion depth.                                        |
+| Response contains `{ error: { message: 'panic: ...' }}` | Runtime panic bubbled from tracer         | Review `error.data.trace`, patch tracer, rerun.                                      |
+| `trace window exceeded`                                 | Request spans beyond configured lookback  | Reduce block range or contact ops for higher limit.                                  |
+| Empty `stateDiff` on synthetic tx                       | Trace is evaluating a Cosmos-only message | Use pointer precompile events or `eth_getTransactionReceipt` for synthetic metadata. |

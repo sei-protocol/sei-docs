@@ -1,0 +1,111 @@
+---
+title: 'Bank Precompile'
+description: 'Transfer and query native balances from EVM.'
+keywords: ['bank', 'balances', 'precompile', 'sei evm']
+---
+
+import { Callout } from 'nextra/components';
+import { FunctionList, TroubleshootingTable } from '../../mdx-components';
+
+# Bank Precompile
+
+**Address:** `0x0000000000000000000000000000000000001001`
+
+Transfer native/cw-denom balances and inspect supplies from EVM contracts.
+
+## Functions
+
+<FunctionList
+  items={[
+    {
+      name: 'send',
+      signature: 'function send(address fromAddress, address toAddress, string denom, uint256 amount) returns (bool)',
+      description: 'Pointer-authenticated transfer for CW20-backed denoms; caller must equal the registered pointer.'
+    },
+    {
+      name: 'sendNative',
+      signature: 'function sendNative(string toNativeAddress) payable returns (bool)',
+      description: 'Move SEI by supplying `msg.value` (wei) to a Sei bech32 recipient.'
+    },
+    {
+      name: 'balance',
+      signature: 'function balance(address account, string denom) view returns (uint256)',
+      description: 'Return the balance for a denom + EVM account.'
+    },
+    {
+      name: 'all_balances',
+      signature: 'function all_balances(address account) view returns (Coin[])',
+      description: 'List all balances for the account (include denom strings + amounts).'
+    },
+    {
+      name: 'name / symbol / decimals / supply',
+      signature: 'view helpers',
+      description: 'Metadata queries for registered denoms (CW or native wrappers).'
+    }
+  ]}
+/>
+
+<details>
+<summary>Full Solidity Interface</summary>
+
+```solidity copy
+struct Coin {
+  uint256 amount;
+  string denom;
+}
+
+interface IBankPrecompile {
+  function send(address fromAddress, address toAddress, string memory denom, uint256 amount) external returns (bool success);
+  function sendNative(string memory toNativeAddress) external payable returns (bool success);
+  function balance(address account, string memory denom) external view returns (uint256 amount);
+  function all_balances(address account) external view returns (Coin[] memory response);
+  function name(string memory denom) external view returns (string memory response);
+  function symbol(string memory denom) external view returns (string memory response);
+  function decimals(string memory denom) external view returns (uint8 response);
+  function supply(string memory denom) external view returns (uint256 response);
+}
+```
+
+</details>
+
+## Example
+
+```typescript copy
+import { ethers } from 'ethers';
+
+const BANK = '0x0000000000000000000000000000000000001001';
+const ABI = ['function sendNative(string toNativeAddress) payable returns (bool)', 'function balance(address account, string denom) view returns (uint256)'];
+
+const provider = new ethers.BrowserProvider(window.ethereum);
+await provider.send('eth_requestAccounts', []);
+const bank = new ethers.Contract(BANK, ABI, await provider.getSigner());
+
+// Send 1 SEI to a bech32 recipient (value supplied in wei)
+await bank.sendNative('sei1recipient...', { value: ethers.parseUnits('1', 18) });
+
+// Check remaining balance for a CW20 denom
+const bal = await bank.balance(await provider.getSigner().then((s) => s.getAddress()), 'cw20:sei1cw20...');
+console.log('Balance (raw units):', bal.toString());
+```
+
+## Notes
+
+- `send` rejects calls where `msg.sender` is not the pointer registered for `denom`
+- `sendNative` cannot be delegatecalled; revert occurs when invoked through `delegatecall`
+- Zero-amount transfers short-circuit with `true` without consuming additional gas
+- Synthetic bank logs include `synthetic=true` on v6.1.11+ for indexers
+
+## Troubleshooting
+
+<TroubleshootingTable
+  rows={[
+    ['only pointer 0x... can send', 'Caller is not the registered pointer for the denom', 'Invoke via the pointer address obtained from PointerView.'],
+    ['invalid denom', 'Denom string is empty or not registered', 'Confirm denom registration (usei, cw20:<address>, etc.) before sending.'],
+    ['set value field to non-zero', 'sendNative called with zero msg.value', 'Provide a non-zero wei amount for the transfer.']
+  ]}
+/>
+
+## References
+
+- ABI: [github.com/sei-protocol/sei-chain/precompiles/bank](https://github.com/sei-protocol/sei-chain/tree/main/precompiles/bank)
+- Pointer overview: [/evm/precompiles/pointer](/evm/precompiles/pointer)

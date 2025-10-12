@@ -2,23 +2,44 @@ export default {
 	index: {
 		title: 'Home'
 	},
-	'-- Node Operations': {
+	'-- Getting Started': {
 		type: 'separator',
-		title: 'Node Operations'
+		title: 'Getting Started'
 	},
 	'node-operators': 'Overview',
-	statesync: 'Statesync',
-	snapshot: 'Snapshot Sync',
 	'node-types': 'Node Types',
-	troubleshooting: 'Troubleshooting',
-	swagger: 'API configuration',
-	validators: 'Validator Operations Guide',
 
-	'-- Advanced Operations': {
+	'-- Running Nodes': {
 		type: 'separator',
-		title: 'Advanced Operations'
+		title: 'Running Nodes'
 	},
-	'advanced-config-monitoring': 'Advanced Configuration & Monitoring',
+	statesync: 'State Sync',
+	snapshot: 'Snapshots',
+	troubleshooting: 'Troubleshooting',
+
+	'-- Validators': {
+		type: 'separator',
+		title: 'Validators'
+	},
+	validators: 'Validator Guide',
+	'validator-operations-playbook': 'Operations Playbook',
+	'validator-upgrade-runbook': 'Upgrade Runbook',
+
+	'-- RPC & Infrastructure': {
+		type: 'separator',
+		title: 'RPC & Infrastructure'
+	},
+	'evmrpc-config': 'EVM RPC Configuration',
+	'rpc-deployment-hardening': 'RPC Deployment',
+	'node-incident-playbooks': 'Incident Response',
+	'seidb-adoption-faq': 'SeiDB',
+
+	'-- Reference': {
+		type: 'separator',
+		title: 'Reference'
+	},
 	'technical-reference': 'Technical Reference',
+	'advanced-config-monitoring': 'Monitoring & Metrics',
+	swagger: 'API Documentation',
 	'ibc-relayer': 'IBC Relayers'
 };

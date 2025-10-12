@@ -1,0 +1,56 @@
+---
+title: 'Synthetic Transactions on Sei'
+description: 'Understanding synthetic envelopes, gasless flows, and how to index them.'
+keywords: ['synthetic transaction', 'sei_associate', 'gasless', 'rpc indexing']
+---
+
+import { Callout } from 'nextra/components';
+import { KeyValueTable, TroubleshootingTable } from '../../mdx-components';
+
+# Synthetic Transactions on Sei
+
+Sei supports **synthetic** transactions-Cosmos-originated operations that are wrapped and surfaced through the EVM RPC layer. These include association flows, governance events, and distribution payouts. This guide explains how they appear through JSON-RPC and how to index them correctly after `v6.1.11`.
+
+## Key Properties
+
+<KeyValueTable
+  rows={[
+    ['Definition', 'Cosmos-originated transactions emitted through the EVM log interface (associations, governance, distribution).'],
+    ['Flag', '`synthetic: true` in log metadata (`v6.1.11`).'],
+    ['Gas accounting', 'Excluded from block/receipt `gasUsed`; costs settle in the Cosmos ante handler.'],
+    ['Association method', '`sei_associate` handles signature-based link between Sei and EVM addresses.'],
+    ['Indexing', 'Use the `sei_` namespace to stream synthetic logs alongside EVM logs.']
+  ]}
+/>
+
+## Association Flow (`sei_associate`)
+
+```json copy
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "sei_associate",
+  "params": [
+    {
+      "custom_message": "Link my account",
+      "r": "0x...",
+      "s": "0x...",
+      "v": "0x1c"
+    }
+  ]
+}
+```
+
+- Sends a synthetic transaction without gas fees; verification happens in the Cosmos ante handler.
+- Resulting logs appear under `sei_seiAssociation` with `synthetic: true`.
+- Indexers should persist the association tuple `(seiAddress, evmAddress)` and treat the event as finalized once included in a block.
+
+## Indexing Strategy
+
+- **Dual namespace polling** - Query both `eth_getLogs` and `sei_getLogs` (or subscribe to the `sei_` channel) so synthetic envelopes and EVM events stay aligned.
+- **Synthetic segregation** - Store synthetic logs in a dedicated table keyed by `{tx_hash, module}` for downstream reconciliation.
+- **Cosmos cross-reference** - For enrichment, join against module-specific gRPC queries (distribution, governance) using the event payload.
+
+## Interaction With Gas Accounting
+
+- Synthetic envelopes do not alter receipt `gasUsed` (see `rpc-gas-accounting`

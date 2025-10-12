@@ -1,0 +1,101 @@
+---
+title: 'Tx Prioritizer'
+description: 'How Sei ranks transactions pre-CheckTx, how the ABCI hint works, and what operators monitor.'
+keywords: ['tx prioritizer', 'mempool', 'sei tendermint', 'priority hints']
+---
+
+import { KeyValueTable, TroubleshootingTable } from '../../mdx-components';
+
+# Transaction Prioritizer
+
+Sei now ships a dedicated transaction prioritizer. Rather than scattering priority tweaks across Ante handlers, the app answers a focused ABCI call (`GetTxPriorityHint`) whenever Tendermint's mempool nears capacity. This page nails down the priority tiers, the knobs exposed in `sei-chain` and `sei-tendermint@c6c5a8f3`, and the checks that prove the system is working.
+
+<KeyValueTable
+  rows={[
+    ['\`abci.GetTxPriorityHint\`', 'Called once utilisation passes \`drop-utilisation-threshold\`; returns the hint used to admit or reject a tx.', '[\`internal/mempool/mempool.go\`](https://github.com/sei-protocol/sei-tendermint/blob/c6c5a8f39/internal/mempool/mempool.go#L320)'],
+    ['\`SeiTxPrioritizer\`', 'Stateless Cosmos/EVM prioritizer that validates fees and emits an \`int64\` hint.', '[\`app/prioritizer.go\`](https://github.com/sei-protocol/sei-chain/blob/6a5c937fa9737b1e3aa2288b9349d5a9f51c9d79/app/prioritizer.go#L42)'],
+    ['Tiering', '\`OraclePriority\` > \`EVMAssociatePriority\` > fee-derived priority keeps mission-critical flows in front.', '[\`app/prioritizer.go\`](https://github.com/sei-protocol/sei-chain/blob/6a5c937fa9737b1e3aa2288b9349d5a9f51c9d79/app/prioritizer.go#L99)'],
+    ['Version guard', 'Ships enabled in current releases; older binaries ignore the hook so mixed clusters still make progress.', '[\`app/app.go\`](https://github.com/sei-protocol/sei-chain/blob/6a5c937fa9737b1e3aa2288b9349d5a9f51c9d79/app/app.go#L990)']
+  ]}
+/>
+
+## How the Hint Is Calculated
+
+<KeyValueTable
+  rows={[
+    ['\`OraclePriority\`', 'Oracle votes (\`MsgAggregateExchangeRateVote\`) run at \`math.MaxInt64 - 100\`, so feeders clear the mempool immediately.', '[\`app/prioritizer.go\`](https://github.com/sei-protocol/sei-chain/blob/6a5c937fa9737b1e3aa2288b9349d5a9f51c9d79/app/prioritizer.go#L157)'],
+    ['\`EVMAssociatePriority\`', '\`evm_associate\` calls bypass congestion so wallets can link addresses without fee gymnastics.', '[\`app/prioritizer.go\`](https://github.com/sei-protocol/sei-chain/blob/6a5c937fa9737b1e3aa2288b9349d5a9f51c9d79/app/prioritizer.go#L87)'],
+    ['Gas price normalisation', 'Regular EVM traffic uses \`priority = gasPrice / priority_normalizer\` and clamps to \`MaxPriority\`.', '[\`app/prioritizer.go\`](https://github.com/sei-protocol/sei-chain/blob/6a5c937fa9737b1e3aa2288b9349d5a9f51c9d79/app/prioritizer.go#L128)'],
+    ['Cosmos fee fallback', 'SDK txs reuse \`GetTxPriority\`, keeping Cosmos fee dynamics aligned with prioritizer hints.', '[\`app/prioritizer.go\`](https://github.com/sei-protocol/sei-chain/blob/6a5c937fa9737b1e3aa2288b9349d5a9f51c9d79/app/prioritizer.go#L170)']
+  ]}
+/>
+
+The prioritizer is intentionally pure: it decodes the tx, validates sane fee caps, probes association status, and returns an `int64`. Panics are caught and logged, and the mempool falls back to priority `0` so attackers cannot halt CheckTx.
+
+## From Hint to Eviction
+
+When Tendermint’s mempool utilisation crosses `drop-utilisation-threshold`, the reactor calls `GetTxPriorityHint` **before** deciding whether to drop low-priority transactions. A new reservoir sampler tracks recent hints so the node compares incoming priority against a moving cutoff.
+
+<KeyValueTable
+  rows={[
+    ['\`drop-utilisation-threshold\`', 'Utilisation ratio that activates hint-based dropping. Default \`1.0\` (disabled).'],
+    ['\`drop-priority-threshold\`', 'Percentile of hints considered droppable once utilisation triggers. Default \`0.1\` (bottom 10%).'],
+    ['\`drop-priority-reservoir-size\`', 'Sample size the reservoir keeps to estimate distribution. Default \`10240\`.'],
+    ['Reservoir refresh', 'Percentile cached for 5s; recomputed if new hints arrive. (\`internal/libs/reservoir/reservoir.go\`)']
+  ]}
+/>
+
+```toml copy
+[mempool]
+size = 5000
+drop-utilisation-threshold = 0.80   # start hinting once 80% full
+drop-priority-threshold = 0.20      # shed bottom 20% priority
+drop-priority-reservoir-size = 8192 # tune for memory vs accuracy
+```
+
+With these values, once the mempool is ≥80% utilised, any new tx with priority below the sampled 20th percentile is rejected with \`priority not high enough for mempool\`.
+
+## Operator Checklist
+
+- **Confirm hints flow**: `seid debug mempool-stats` should show `priority_cutoff` moving under sustained load; if it's flat, hints aren't being sampled.
+- **Grafana panel**: Alert on `CheckTxMetDropUtilisationThreshold` and `CheckTxDroppedByPriorityHint` to spot accidental throttling.
+- **Normalizer sanity**: `sei q evm params priority-normalizer` must stay positive; lock it down in Terraform/Ansible defaults.
+- **RPC parity**: Compare `eth_pendingTransactions` with `seid debug mempool-stats`; a growing gap usually means clients are retrying after drops.
+
+### CLI validation
+
+```bash copy
+# Inspect priority reservoir stats
+seid debug mempool-stats | jq '.priority'
+
+# Query EVM priority normalizer (decides gasPrice → hint scaling)
+seid query evm params | jq -r '.params.priority_normalizer'
+
+# Force an associate tx hint
+seid tx evm associate --from wallet --evm-address <addr> --gas-prices 1usei --gas 120000 --simulate
+```
+
+## Developer Considerations
+
+- **SDK integration:** Clients may receive \`priority not high enough for mempool\` when bursting the chain. Surface this to end users with context (e.g., "bump gas price or retry later").
+- **Fee markets:** EIP-1559 style tips (\`gasTipCap\`) remain valid; the prioritizer only checks tip ≥ 0 and \`gasFeeCap\` ≥ base fee & minimum fee.
+- **Panic-proof:** The prioritizer recovers from panics and logs \`tx prioritizer panicked. Falling back on no priority\`. Instrument alerting on this string.
+- **Testing:** Unit suite (\`app/prioritizer_test.go\`) covers oracle, zero-fee, and multi-denom cases. Extend tests when adding new high-priority msg types.
+
+## Troubleshooting
+
+<TroubleshootingTable
+  rows={[
+    ['\`priority not high enough for mempool\` on legitimate txs', 'Reservoir cutoff too aggressive or priority normalizer mis-set.', 'Lower \`drop-priority-threshold\`, raise normalizer, or temporarily disable threshold while load stabilises.'],
+    ['Hints always 0', '\`priority_normalizer\` zeroed or prioritizer panic fallback triggered.', 'Verify \`sei query evm params\`; check logs for \`tx prioritizer panicked\`.'],
+    ['Oracle votes delayed', 'Oracle msgs lost special tier (regression).', 'Confirm \`OraclePriority\` constant and verify all nodes run a prioritizer-enabled release.'],
+    ['Assoc tx rejected with "already associated"', 'Wallet already linked so prioritizer returns error.', 'Surface clearer UX; instruct signer to send standard tx instead.']
+  ]}
+/>
+
+## Related Material
+
+- [Consensus & Mempool](/evm/rpc-consensus-overview) - ties the prioritizer into OCC execution, duplicate cache enforcement, and upgrade validation.
+- [RPC Regression Coverage](/evm/rpc-regression-playbook) - extend load tests with priority-drop scenarios and trace guards.
+- [Node Incident Playbooks](/node/node-incident-playbooks) - on-call runbooks for mempool back-pressure, including reservoir resets.
+- [EVM Gas Accounting](/evm/rpc-gas-accounting) - shows how block-level `gasUsed` ties to priority decisions and RPC expectations.

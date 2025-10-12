@@ -1,0 +1,85 @@
+---
+title: 'Validator Operations Playbook'
+description: 'Daily operations, tuning, and troubleshooting for Sei validators.'
+keywords: ['validator', 'operations', 'mempool', 'monitoring', 'consensus']
+---
+
+import { Callout } from 'nextra/components';
+import { KeyValueTable, TroubleshootingTable } from '../../mdx-components';
+
+# Validator Operations Playbook
+
+This runbook collects the key operational tasks for maintaining a production Sei validator, with emphasis on the latest mempool and consensus changes (`sei-tendermint@02c9462f1`).
+
+## Daily Checklist
+
+<KeyValueTable
+  rows={[
+    ['Block production', 'Verify `seid status | jq .SyncInfo.catching_up` returns `false` and height increases steadily.'],
+    ['Mempool saturation', 'Monitor `mempool/size` and `mempool/cache_size` metrics; ensure they are below configured maxima.'],
+    ['Validator signing', 'Check `consensus/validators_signed` > 0 in the last 100 blocks.'],
+    ['Oracle participation', 'If applicable, verify oracle votes landed within the window.']
+  ]}
+/>
+
+## Configuration Highlights
+
+<KeyValueTable
+  rows={[
+    ['`mempool.cache_size`', 'Default `10000`. With `sei-tendermint@02c9462f1`, the cache cap is enforced precisely-raise gradually (e.g., `20000`) if your validator absorbs heavy flow.'],
+    ['`mempool.broadcast`', 'Leave enabled to propagate transactions quickly through your sentry layer. Disable only when debugging local replay loops.'],
+    ['`consensus.create_empty_blocks`', 'Keep set to `true` to preserve liveness under low traffic. Disabling requires carefully monitored maintenance windows.'],
+    ['`p2p.laddr` + `persistent_peers`', 'Ensure sentry peers stay pinned; update lists after rotations to avoid accidental isolation and downtime penalties.']
+  ]}
+/>
+
+## Monitoring Metrics
+
+<KeyValueTable
+  rows={[
+    ['`consensus_height` / `consensus_round`', 'Detect consensus stalls or proposer rotation issues. Alert on flatlining height for > 2 minutes.'],
+    ['`consensus_validator_power`', 'Monitor stake adjustments and make sure jailed status is cleared after unjails.'],
+    ['`mempool_size` / `mempool_cache_size`', 'Alert when size approaches cache cap; combine with duplicate-tx warnings from Tendermint logs.'],
+    ['`rpc_trace_pending`', 'Track tracer load if the validator exposes RPC to trusted partners; ensure the value stays under `max_concurrent_trace_calls`.']
+  ]}
+/>
+
+## Slashing Guardrails
+
+<Callout type="info">Penalty windows on Sei follow the Cosmos 5% missed-signing threshold. Keep the following checks in your daily workflow to avoid downtime or double-sign slashing.</Callout>
+
+<KeyValueTable
+  rows={[
+    ['Missed blocks', 'Run `seid q slashing signing-info <consensus_pubkey>` and alert when `missed_blocks_counter` increases faster than expected.'],
+    ['Double-sign watchdog', 'Confirm sentry nodes run duplicate vote detection or host a light client to halt on conflicting signatures.'],
+    ['Key custody', 'Keep HSM or KMS access logs; disable fallback keys once rotations finish to prevent unintended parallel signing.']
+  ]}
+/>
+
+## Incident Response
+
+<Callout type="warning">Always snapshot your validator before modifying configuration or restarting under duress.</Callout>
+
+1. **Consensus halt**
+
+   - Confirm majority of validators are on the same binary.
+   - Check logs for `nil vote extension` or duplicate tx warnings.
+   - Coordinate restart if required; use state sync if node falls far behind.
+
+2. **Mempool overflow**
+
+   - Increase `mempool.cache_size` gradually (requires `sei-tendermint@02c9462f1`).
+   - Prune invalid transactions by restarting with `--mempool.recheck=true` temporarily.
+
+3. **RPC saturation**
+   - Scale out dedicated RPC nodes; validator should keep RPC closed to the public when possible.
+
+## Troubleshooting
+
+<TroubleshootingTable
+  rows={[
+    ['Duplicate transaction rejected repeatedly', 'Cache size too small for workload.', 'Increase `mempool.cache_size` and restart during low traffic.'],
+    ['Validator missed blocks', 'Node lagging or signing key offline.', 'Check hardware load, ensure sentry nodes are reachable, and restart if necessary.'],
+    ['Vote extension warnings in logs', 'Experimental flag toggled vote extensions.', 'Revert configuration; once enabled, the protocol expects extensions.']
+  ]}
+/>

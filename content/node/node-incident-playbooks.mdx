@@ -1,0 +1,90 @@
+---
+title: 'Node Incident Playbooks'
+description: 'Response procedures for common Sei node incidents (non-validator).'
+keywords: ['incident response', 'node operations', 'state sync failure', 'p2p partition']
+---
+
+import { Callout } from 'nextra/components';
+import { TroubleshootingTable } from '../../mdx-components';
+
+# Node Incident Playbooks
+
+These playbooks target sentry and full-node operators supporting Sei validators. Each scenario lists detection signals, immediate actions, and verification steps.
+
+## 1. P2P Partition
+
+**Symptoms**: Height stagnates, logs show repeated `dial timeout` or missing peers.
+
+**Actions**:
+
+1. Check network connectivity (`ping`/`traceroute`) to known peers.
+2. Validate `persistent_peers` and `seeds` in `config.toml`.
+3. Restart Tendermint process to re-open connections:
+
+   ```bash copy
+   systemctl restart seid
+   ```
+
+4. If behind firewalls, ensure inbound/outbound ports (`26656`) are open.
+
+**Verify**: `seid status` shows increasing height and peer count > 0.
+
+## 2. State Sync Failure
+
+**Symptoms**: State sync stalls or crashes with `snapshot not found`.
+
+**Actions**:
+
+1. Confirm snapshot providers are reachable.
+2. Clear data directory and attempt re-sync:
+
+   ```bash copy
+   systemctl stop seid
+   rm -rf ~/.sei/data
+   systemctl start seid
+   ```
+
+3. If issue persists, switch to trusted snapshot provider or use backup snapshot.
+
+**Verify**: Node progresses past the snapshot height and enters normal sync mode.
+
+## 3. Snapshot Corruption
+
+**Symptoms**: Restored snapshot fails to start or panics on boot.
+
+**Actions**:
+
+1. Validate checksum of the snapshot archive.
+2. Re-extract snapshot to a clean directory.
+3. Consider using SeiDB’s built-in pruning to regenerate snapshot post-migration.
+
+**Verify**: Node completes boot sequence without panics.
+
+## 4. High Disk Usage
+
+**Symptoms**: Disk usage exceeds alert thresholds; pruning ineffective.
+
+**Actions**:
+
+1. Run `seidadmin prune` (if available) or enable state-store pruning in `app.toml`.
+2. Rotate logs frequently; implement logrotate.
+3. Offload old snapshots to external storage.
+
+**Verify**: Disk usage returns to acceptable levels; monitoring alerts clear.
+
+## Quick Reference
+
+<TroubleshootingTable
+  rows={[
+    ['P2P partition', 'Peers unreachable or misconfigured.', 'Restart node, verify peer list, ensure ports open.'],
+    ['State sync stuck', 'Snapshot provider issue.', 'Purge data, retry with alternate provider.'],
+    ['Snapshot corrupted', 'Checksum mismatch or incomplete extraction.', 'Re-download snapshot, verify integrity.'],
+    ['Disk usage spike', 'Pruning disabled or logs growing uncontrolled.', 'Enable pruning, rotate logs, offload snapshots.']
+  ]}
+/>
+
+## Logging & Escalation
+
+- Collect `journalctl -u seid --since "15 minutes ago"` for escalation tickets.
+- Include `config.toml`, `app.toml`, and latest snapshot metadata when contacting core teams.
+- Document incident timeline and resolution for internal postmortems.

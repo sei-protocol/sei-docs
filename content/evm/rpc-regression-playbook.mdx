@@ -1,0 +1,141 @@
+---
+title: 'RPC Regression Coverage'
+description: 'Suggested test suite for validating Sei RPC behaviour after upgrades.'
+keywords: ['rpc regression', 'testing', 'json-rpc', 'trace testing']
+---
+
+import { Callout, Tabs } from 'nextra/components';
+import { TroubleshootingTable } from '../../mdx-components';
+
+# RPC Regression Coverage
+
+Run these checks whenever you upgrade to a new Sei release or patch your RPC nodes. Each section references recent upstream patches so you know which behaviour to expect.
+
+## Regression Checklist
+
+<KeyValueTable
+  rows={[
+    ['Block vs receipts', 'Run `eth_getBlockByNumber(..., true)` and confirm block `gasUsed` equals summed receipts.'],
+    ['Logs replay', 'Sweep `eth_getLogs` across the `max_blocks_for_log` window. Expect no `panic` responses.'],
+    ['Tracer load', 'Fire `debug_trace*` calls in parallel up to `max_concurrent_trace_calls + 1`. The extra call should queue, not fail.'],
+    ['Estimator sanity', 'Estimate gas for pointer migration, Solo claim, and ERC-20 transfer; variance should stay < 2% vs actual usage.']
+  ]}
+/>
+
+## Gas & Receipts
+
+<Callout type="info">Targets `sei-chain@1efdec1eb` and later.</Callout>
+
+- Confirm the latest block’s `gasUsed` equals the sum of all receipt `gasUsed` values.
+- Sample 20 receipts and ensure none return `0x0` gas for non-legacy heights.
+- Verify `eth_estimateGas` succeeds for:
+  - ERC-20 transfer
+  - Pointer association (`precompile-pointer:addNativePointer`)
+  - Solo claim (`precompile-solo:claim`)
+
+## Logs & Filters
+
+- Query `eth_getLogs` across a window equal to `max_blocks_for_log` and confirm the response succeeds without panics.
+- Issue overlapping log filters to ensure the node enforces `max_log_no_block` and returns partial results rather than failing.
+- Validate `eth_newFilter` followed by `eth_getFilterLogs` after replaying 100 blocks.
+
+## Websocket Subscriptions
+
+- Maintain `newHeads`, `logs`, and `newPendingTransactions` subscriptions simultaneously. Watch for disconnects once you reach `max_subscriptions_new_head`.
+- Ensure heartbeats arrive within the interval defined by your client’s timeout.
+
+## Tracing & Panic Handling
+
+- Execute `debug_traceTransaction` on a known failing transaction; expect `{ error: { message, data.trace } }` (go-ethereum `v1.15.7-sei-6`).
+- Run custom tracers with intentionally malformed frames to verify the length guard (go-ethereum `v1.15.7-sei-7`).
+- Stress test the tracer pool with `max_concurrent_trace_calls + 2` parallel requests and verify excess requests queue or fail gracefully.
+
+## Sample Scripts
+
+<Tabs items={['Node.js', 'Go']}>
+  <Tabs.Tab>
+```javascript copy
+import { JsonRpcProvider } from 'ethers';
+
+const provider = new JsonRpcProvider('https://sei.yournode.example', {
+name: 'sei',
+chainId: 1329
+});
+
+async function verifyBlockGas(blockTag = 'latest') {
+const block = await provider.getBlock(blockTag, true);
+const receiptGas = await Promise.all(
+block.transactions.map((hash) => provider.getTransactionReceipt(hash))
+);
+
+const sum = receiptGas.reduce((acc, receipt) => acc + receipt.gasUsed, 0n);
+
+if (block.gasUsed !== sum) {
+throw new Error(`Mismatch: block ${block.gasUsed} vs receipts ${sum}`);
+}
+}
+
+verifyBlockGas().then(() => console.log('Gas totals match.'));
+
+````
+  </Tabs.Tab>
+  <Tabs.Tab>
+```go copy
+package main
+
+import (
+  "context"
+  "fmt"
+  "log"
+
+  "github.com/ethereum/go-ethereum/ethclient"
+)
+
+func main() {
+  client, err := ethclient.Dial("https://sei.yournode.example")
+  if err != nil {
+    log.Fatal(err)
+  }
+
+  block, err := client.BlockByNumber(context.Background(), nil)
+  if err != nil {
+    log.Fatal(err)
+  }
+
+  receipts, err := client.BlockReceipts(context.Background(), block.Hash())
+  if err != nil {
+    log.Fatal(err)
+  }
+
+  var sum uint64
+  for _, receipt := range receipts {
+    sum += receipt.GasUsed
+  }
+
+  if block.GasUsed() != sum {
+    log.Fatalf("Mismatch: block %d vs receipts %d", block.GasUsed(), sum)
+  }
+
+  fmt.Println("Gas totals match.")
+}
+````
+
+  </Tabs.Tab>
+</Tabs>
+
+## Troubleshooting
+
+<TroubleshootingTable
+  rows={[
+    ['Block totals mismatch', 'Node still on pre-`v6.1.11` code or using stale cache.', 'Upgrade to the latest release and restart the RPC service.'],
+    ['Tracer panics terminate connection', 'Running go-ethereum < `v1.15.7-sei-6` or custom tracer returns invalid frames.', 'Upgrade to the patched binaries and add frame-length guards to custom tracers.'],
+    ['Subscriptions drop unexpectedly', 'Hitting `max_subscriptions_new_head` or idle timeout.', 'Scale the node horizontally or raise limits in `evm.toml` after sizing hardware.']
+  ]}
+/>
+
+## Related Resources
+
+- `rpc-gas-accounting`
+- `rpc-gas-reference`
+- `rpc-panic-faq`
+- `rpc-websockets`
