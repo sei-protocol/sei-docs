@@ -76,14 +76,35 @@ export default async function Page(props) {
 		})
 	];
 
+	const toISO8601WithTZ = (value) => {
+		if (!value) return undefined;
+		const date = new Date(value);
+		if (Number.isNaN(date.getTime())) {
+			if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+				return `${value}T00:00:00Z`;
+			}
+			return undefined;
+		}
+		return date.toISOString();
+	};
+
+	const authorJson = metadata?.author
+		? typeof metadata.author === 'string'
+			? { '@type': 'Person', name: metadata.author }
+			: metadata.author
+		: { '@type': 'Organization', name: 'Sei Network', url: 'https://sei.io' };
+
 	const techArticleJsonLd = {
 		'@context': 'https://schema.org',
 		'@type': 'TechArticle',
 		headline: metadata?.title ?? 'Sei Documentation',
 		description: metadata?.description ?? 'Documentation for Sei Network',
 		url: canonicalUrl,
-		datePublished: metadata?.date ?? undefined,
-		dateModified: metadata?.updated ?? metadata?.date ?? undefined,
+		inLanguage: 'en',
+		mainEntityOfPage: { '@type': 'WebPage', '@id': canonicalUrl },
+		author: authorJson,
+		datePublished: toISO8601WithTZ(metadata?.date),
+		dateModified: toISO8601WithTZ(metadata?.updated ?? metadata?.date),
 		image: metadata?.image ? (metadata.image.startsWith('http') ? metadata.image : `${siteUrl}${metadata.image}`) : `${siteUrl}/assets/docs-banner.png`,
 		publisher: {
 			'@type': 'Organization',

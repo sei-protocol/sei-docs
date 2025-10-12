@@ -27,7 +27,7 @@ export const metadata: Metadata = {
 		locale: 'en_US',
 		images: [
 			{
-				url: 'https://www.docs.sei.io/assets/docs-banner.png',
+				url: 'https://docs.sei.io/assets/docs-banner.png',
 				alt: 'Sei Docs'
 			}
 		],
@@ -37,7 +37,7 @@ export const metadata: Metadata = {
 		// Make sure not to specify `title` or description` as they are automatically generated from the main description and title template
 		card: 'summary_large_image',
 		creator: '@SeiNetwork',
-		images: ['https://www.docs.sei.io/assets/docs-banner.png']
+		images: ['https://docs.sei.io/assets/docs-banner.png']
 	},
 	referrer: 'origin-when-cross-origin',
 	keywords: ['Sei', 'Sei Network', 'Sei Blockchain', 'Sei Docs', 'Sei Documentation', 'EVM', 'ERC20', 'ERC721'],
