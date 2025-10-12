@@ -7,9 +7,25 @@ import { Logo, LogoMobile } from '../components/Logo';
 import React, { useState, useEffect } from 'react';
 import { Footer } from '../components/Footer/Footer';
 import { Theme } from '@radix-ui/themes';
-import { Search } from 'nextra/components';
 import { ThemeSwitch } from 'nextra-theme-docs';
 import { usePathname } from 'next/navigation';
+
+// Defer Nextra Search until user clicks the trigger
+const SearchDynamic = dynamic(() => import('nextra/components').then((m) => m.Search), { ssr: false, loading: () => <div /> });
+function DeferredSearch() {
+	const [open, setOpen] = useState(false);
+	return open ? (
+		<SearchDynamic placeholder='Search docs...' />
+	) : (
+		<button
+			className='text-sm hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors'
+			onClick={() => setOpen(true)}
+			aria-expanded={open}
+			aria-controls='docs-search'>
+			Search
+		</button>
+	);
+}
 
 export default function DocsProviders({ children, pageMap }) {
 	const [isMobile, setIsMobile] = useState(true);
@@ -49,7 +65,7 @@ export default function DocsProviders({ children, pageMap }) {
 									style={{ textDecoration: 'none' }}>
 									Support
 								</a>
-								<Search placeholder='Search docs...' />
+								<DeferredSearch />
 							</div>
 						</>
 					}
@@ -74,7 +90,7 @@ export default function DocsProviders({ children, pageMap }) {
 							style={{ textDecoration: 'none' }}>
 							Support
 						</a>
-						<Search placeholder='Search docs...' />
+						<DeferredSearch />
 						{isHomepage && <ThemeSwitch />}
 					</div>
 				}
