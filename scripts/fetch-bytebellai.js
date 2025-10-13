@@ -5,8 +5,8 @@ const path = require('path');
 const https = require('https');
 
 const ASSETS = [
-	{ url: 'https://bb-chat-widget.s3.us-east-1.amazonaws.com/assets/style.css', out: path.join('public', 'vendor', 'bytebellai', 'style.css') },
-	{ url: 'https://bb-chat-widget.s3.us-east-1.amazonaws.com/assets/index.js', out: path.join('public', 'vendor', 'bytebellai', 'index.js') }
+	{ url: 'https://bb-chat-widget.s3.us-east-1.amazonaws.com/assets/style.css', out: path.join('src', 'vendor', 'bytebellai', 'style.css') },
+	{ url: 'https://bb-chat-widget.s3.us-east-1.amazonaws.com/assets/index.js', out: path.join('src', 'vendor', 'bytebellai', 'index.js') }
 ];
 
 function download(url, outfile) {
