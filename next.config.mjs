@@ -21,7 +21,7 @@ export default withNextra({
 	compress: true,
 	turbopack: {},
 	experimental: {
-		optimizePackageImports: ['@radix-ui/react-icons', '@tabler/icons-react', '@radix-ui/themes']
+		optimizePackageImports: ['@tabler/icons-react', '@radix-ui/themes']
 	},
 	compiler: {
 		removeConsole: process.env.NODE_ENV === 'production' ? { exclude: ['error', 'warn'] } : false,
