@@ -102,11 +102,6 @@ export default withNextra({
 				destination: '/cosmos-sdk',
 				permanent: true
 			},
-			{
-				source: '/cosmos-sdk/:path*',
-				destination: '/cosmos-sdk',
-				permanent: true
-			},
 			// EVM category landing fallbacks
 			{
 				source: '/evm/bridging',
