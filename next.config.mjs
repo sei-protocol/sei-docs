@@ -83,6 +83,293 @@ export default withNextra({
 	async redirects() {
 		return [
 			{
+				source: '/cosmos/:path*',
+				destination: '/cosmos-sdk',
+				permanent: true
+			},
+			{
+				source: '/cosmwasm/:path*',
+				destination: '/cosmos-sdk',
+				permanent: true
+			},
+			{
+				source: '/seichain/:path*',
+				destination: '/cosmos-sdk',
+				permanent: true
+			},
+			{
+				source: '/sei-protocol/:path*',
+				destination: '/cosmos-sdk',
+				permanent: true
+			},
+			// EVM category landing fallbacks
+			{
+				source: '/evm/bridging',
+				destination: '/evm/bridging/layerzero',
+				permanent: true
+			},
+			{
+				source: '/evm/wallet-integrations',
+				destination: '/evm/wallet-integrations/thirdweb',
+				permanent: true
+			},
+			{
+				source: '/evm/indexer-providers',
+				destination: '/evm/indexer-providers/the-graph',
+				permanent: true
+			},
+			{
+				source: '/evm/ai-tooling',
+				destination: '/evm/ai-tooling/mcp-server',
+				permanent: true
+			},
+			{
+				source: '/evm/agent-kits',
+				destination: '/evm/ai-tooling/cambrian-agent-kit',
+				permanent: true
+			},
+			// Specific EVM subpaths mentioned
+			{
+				source: '/evm/agent-kits/cambrian-agent-kit',
+				destination: '/evm/ai-tooling/cambrian-agent-kit',
+				permanent: true
+			},
+			{
+				source: '/evm/precompiles/p256',
+				destination: '/evm/precompiles/P256',
+				permanent: true
+			},
+			{
+				source: '/evm/cosmwasm-precompiles',
+				destination: '/evm/precompiles/cosmwasm-precompiles/example-usage',
+				permanent: true
+			},
+			{
+				source: '/evm/bridging/tasks/:task*',
+				destination: '/evm/bridging/layerzero',
+				permanent: true
+			},
+			{
+				source: '/evm/debugging-with-seid',
+				destination: '/evm/debugging-contracts',
+				permanent: true
+			},
+			{
+				source: '/evm/evm-transactions',
+				destination: '/evm/transactions',
+				permanent: true
+			},
+			{
+				source: '/evm/pointers',
+				destination: '/evm/reference',
+				permanent: true
+			},
+			{
+				source: '/evm/pointers/standard',
+				destination: '/evm/reference',
+				permanent: true
+			},
+			{
+				source: '/evm/pointers/erc1155',
+				destination: '/evm/reference',
+				permanent: true
+			},
+			{
+				source: '/evm/pointers/tokenfactory',
+				destination: '/evm/reference',
+				permanent: true
+			},
+			{
+				source: '/evm/pointers/ibc',
+				destination: '/evm/reference',
+				permanent: true
+			},
+			{
+				source: '/evm/artifacts',
+				destination: '/evm/debugging-contracts',
+				permanent: true
+			},
+			{
+				source: '/evm/contracts',
+				destination: '/evm/debugging-contracts',
+				permanent: true
+			},
+			{
+				source: '/evm/cache',
+				destination: '/evm/debugging-contracts',
+				permanent: true
+			},
+			{
+				source: '/evm/test',
+				destination: '/evm/debugging-contracts',
+				permanent: true
+			},
+			// Legacy develop/advanced/full-node paths
+			{
+				source: '/develop/:path*',
+				destination: '/build',
+				permanent: true
+			},
+			{
+				source: '/full-node/:path*',
+				destination: '/node',
+				permanent: true
+			},
+			{
+				source: '/advanced/:path*',
+				destination: '/learn/general-overview',
+				permanent: true
+			},
+			// Swagger
+			{
+				source: '/swagger/:path*',
+				destination: '/node/swagger',
+				permanent: true
+			},
+			// Malformed root paths / stray characters
+			{
+				source: "/'",
+				destination: '/',
+				permanent: true
+			},
+			{
+				source: '/)',
+				destination: '/',
+				permanent: true
+			},
+			{
+				source: '/:os(Users|home|root|etc|var|usr|tmp|dev)/:rest*',
+				destination: '/node/troubleshooting',
+				permanent: true
+			},
+			{
+				source: '/_next/static/css/:file*',
+				destination: '/',
+				permanent: true
+			},
+			{
+				source: '/metrics',
+				destination: '/',
+				permanent: true
+			},
+			{
+				source: '/data',
+				destination: '/node/troubleshooting',
+				permanent: true
+			},
+			{
+				source: '/config',
+				destination: '/node/troubleshooting',
+				permanent: true
+			},
+			{
+				source: '/tmp',
+				destination: '/node/troubleshooting',
+				permanent: true
+			},
+			// Specific strays
+			{
+				source: '/.sei/:path*',
+				destination: '/node/troubleshooting',
+				permanent: true
+			},
+			{
+				source: '/.hermes/:path*',
+				destination: '/node/troubleshooting',
+				permanent: true
+			},
+			{
+				source: '/key_backup/:path*',
+				destination: '/node/troubleshooting',
+				permanent: true
+			},
+			{
+				source: '/sei-config-:rest*',
+				destination: '/node/troubleshooting',
+				permanent: true
+			},
+			{
+				source: '/sei-data-:rest*',
+				destination: '/node/troubleshooting',
+				permanent: true
+			},
+			{
+				source: '/validator_key_',
+				destination: '/node/troubleshooting',
+				permanent: true
+			},
+			{
+				source: '/priv_validator_:rest*',
+				destination: '/node/troubleshooting',
+				permanent: true
+			},
+			{
+				source: '/genesis.json',
+				destination: '/node/troubleshooting',
+				permanent: true
+			},
+			{
+				source: '/block',
+				destination: '/node/troubleshooting',
+				permanent: true
+			},
+			{
+				source: '/learn/mev',
+				destination: '/evm/optimizing-for-parallelization',
+				permanent: true
+			},
+			{
+				source: '/learn/mev-plugins',
+				destination: '/evm/optimizing-for-parallelization',
+				permanent: true
+			},
+			{
+				source: '/mev/:path*',
+				destination: '/evm/optimizing-for-parallelization',
+				permanent: true
+			},
+			{
+				source: '/learn/general-submit-feedback',
+				destination: '/learn/general-submit-feedback',
+				permanent: true
+			},
+			// Additional specific redirects from report
+			{
+				source: '/build-on-sei/evm',
+				destination: '/evm/evm-general',
+				permanent: true
+			},
+			{
+				source: '/evm/precompiles',
+				destination: '/evm/precompiles/example-usage',
+				permanent: true
+			},
+			{
+				source: '/evm/precompiles/artifacts/:path*',
+				destination: '/evm/debugging-contracts',
+				permanent: true
+			},
+			{
+				source: '/evm/MyContract.json',
+				destination: '/evm/debugging-contracts',
+				permanent: true
+			},
+			{
+				source: '/evm/installing-seid',
+				destination: '/build/installing-seid',
+				permanent: true
+			},
+			{
+				source: '/subgraphs/:path*',
+				destination: '/providers/indexers/the-graph',
+				permanent: true
+			},
+			{
+				source: '/whitepaper/:path*',
+				destination: '/learn/general-overview',
+				permanent: true
+			},
+			{
 				source: '/general-overview',
 				destination: '/learn/general-overview',
 				permanent: true
