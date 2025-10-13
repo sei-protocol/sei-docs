@@ -97,12 +97,5 @@ export default {
 		type: 'separator',
 		title: 'Hardware Wallets'
 	},
-	'ledger-ethers': 'Using Ledger with Ethers',
-
-	'-- CosmWasm Interoperability': {
-		type: 'separator',
-		title: 'CosmWasm Interoperability'
-	},
-	'cosmwasm-precompiles': 'Precompiles',
-	'ibc-protocol': 'IBC on EVM'
+	'ledger-ethers': 'Using Ledger with Ethers'
 };
