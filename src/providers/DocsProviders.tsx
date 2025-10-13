@@ -2,7 +2,7 @@
 
 import { Layout, Navbar } from 'nextra-theme-docs';
 import dynamic from 'next/dynamic';
-const AskCookbook = dynamic(() => import('../components/AskCookbook/AskCookbook').then((m) => m.AskCookbook), { ssr: false, loading: () => <div /> });
+import { AskAIAssistant } from '../components/AskAIAssistant/AskAIAssistant';
 import { Logo, LogoMobile } from '../components/Logo';
 import React, { useState, useEffect } from 'react';
 import { Footer } from '../components/Footer/Footer';
@@ -45,7 +45,7 @@ export default function DocsProviders({ children, pageMap }) {
 					children={
 						<>
 							<div className='flex items-center gap-2'>
-								<AskCookbook />
+								<AskAIAssistant />
 								<a
 									href='https://support.sei.io/hc/en-us'
 									target='_blank'
@@ -69,7 +69,7 @@ export default function DocsProviders({ children, pageMap }) {
 				children={
 					<div className='flex items-center justify-between gap-4'>
 						<div className='flex-grow flex justify-start'>
-							<AskCookbook />
+							<AskAIAssistant />
 						</div>
 						<a
 							href='https://support.sei.io/hc/en-us'

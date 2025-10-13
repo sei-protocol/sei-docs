@@ -3,10 +3,10 @@
 import { useEffect, useRef } from 'react';
 import { loadBytebellaiWidget } from '../../vendor/bytebellai/loader';
 
-const COOKBOOK_APP_ID = '0117f014f27a56633c30024d41166aa2';
+const APP_ID = '0117f014f27a56633c30024d41166aa2';
 const WIDGET_ID = 'bytebellai';
 
-export const AskCookbook = () => {
+export const AskAIAssistant = () => {
 	const containerRef = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
@@ -26,5 +26,5 @@ export const AskCookbook = () => {
 		};
 	}, []);
 
-	return <div ref={containerRef} id={WIDGET_ID} data-layout='drawer' data-app-id={COOKBOOK_APP_ID} />;
+	return <div ref={containerRef} id={WIDGET_ID} data-layout='drawer' data-app-id={APP_ID} />;
 };
