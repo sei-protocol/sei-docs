@@ -73,7 +73,6 @@ export default async function RootLayout({ children }) {
 			<head>
 				<meta name='color-scheme' content='dark light' />
 				<link rel='canonical' href='https://docs.sei.io' />
-				{/* Performance: avoid early preconnects to heavy third-parties */}
 			</head>
 			<body style={{ width: '100%', height: '100%' }}>
 				<Toaster position='bottom-left' />
