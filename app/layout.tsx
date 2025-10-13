@@ -27,7 +27,7 @@ export const metadata: Metadata = {
 		locale: 'en_US',
 		images: [
 			{
-				url: 'https://www.docs.sei.io/assets/docs-banner.png',
+				url: 'https://docs.sei.io/assets/docs-banner.png',
 				alt: 'Sei Docs'
 			}
 		],
@@ -37,7 +37,7 @@ export const metadata: Metadata = {
 		// Make sure not to specify `title` or description` as they are automatically generated from the main description and title template
 		card: 'summary_large_image',
 		creator: '@SeiNetwork',
-		images: ['https://www.docs.sei.io/assets/docs-banner.png']
+		images: ['https://docs.sei.io/assets/docs-banner.png']
 	},
 	referrer: 'origin-when-cross-origin',
 	keywords: ['Sei', 'Sei Network', 'Sei Blockchain', 'Sei Docs', 'Sei Documentation', 'EVM', 'ERC20', 'ERC721'],
@@ -72,8 +72,36 @@ export default async function RootLayout({ children }) {
 		<html lang='en' dir='ltr' suppressHydrationWarning style={{ width: '100%', height: '100%' }}>
 			<head>
 				<meta name='color-scheme' content='dark light' />
-				<link rel='canonical' href='https://docs.sei.io' />
 				{/* Performance: avoid early preconnects to heavy third-parties */}
+				<script
+					type='application/ld+json'
+					dangerouslySetInnerHTML={{
+						__html: JSON.stringify({
+							'@context': 'https://schema.org',
+							'@type': 'Organization',
+							name: 'Sei Network',
+							url: 'https://sei.io',
+							logo: 'https://docs.sei.io/icon.png',
+							sameAs: ['https://x.com/SeiNetwork', 'https://github.com/sei-protocol', 'https://www.linkedin.com/company/sei-network/']
+						})
+					}}
+				/>
+				<script
+					type='application/ld+json'
+					dangerouslySetInnerHTML={{
+						__html: JSON.stringify({
+							'@context': 'https://schema.org',
+							'@type': 'WebSite',
+							name: 'Sei Docs',
+							url: 'https://docs.sei.io',
+							potentialAction: {
+								'@type': 'SearchAction',
+								target: 'https://docs.sei.io/?q={search_term_string}',
+								'query-input': 'required name=search_term_string'
+							}
+						})
+					}}
+				/>
 			</head>
 			<body style={{ width: '100%', height: '100%' }}>
 				<Toaster position='bottom-left' />
