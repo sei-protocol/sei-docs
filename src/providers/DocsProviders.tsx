@@ -10,35 +10,24 @@ import { Theme } from '@radix-ui/themes';
 import { ThemeSwitch } from 'nextra-theme-docs';
 import { usePathname } from 'next/navigation';
 
-// Defer Nextra Search until user clicks the trigger
-const SearchDynamic = dynamic(() => import('nextra/components').then((m) => m.Search), { ssr: false, loading: () => <div /> });
-function DeferredSearch() {
-	const [open, setOpen] = useState(false);
-	return open ? (
-		<SearchDynamic placeholder='Search docs...' />
-	) : (
-		<button
-			className='text-sm hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors'
-			onClick={() => setOpen(true)}
-			aria-expanded={open}
-			aria-controls='docs-search'>
-			Search
-		</button>
-	);
-}
+// Defer Nextra Search until user clicks the trigger (client-only wrapper)
+const SearchDynamic = dynamic(() => import('../components/NextraSearch/NextraSearch'), { ssr: false, loading: () => <div /> });
 
 export default function DocsProviders({ children, pageMap }) {
-	const [isMobile, setIsMobile] = useState(true);
+	const [isMobile, setIsMobile] = useState(() => {
+		if (typeof window === 'undefined') return true;
+		return window.matchMedia('(max-width: 767px)').matches;
+	});
 
 	useEffect(() => {
-		const checkIfMobile = () => {
-			setIsMobile(window.innerWidth < 768);
+		const mql = window.matchMedia('(max-width: 767px)');
+		const onChange = (e) => {
+			setIsMobile((prev) => (prev !== e.matches ? e.matches : prev));
 		};
-
-		checkIfMobile();
-		window.addEventListener('resize', checkIfMobile);
-
-		return () => window.removeEventListener('resize', checkIfMobile);
+		// Sync once on mount without forcing extra renders if unchanged
+		setIsMobile((prev) => (prev !== mql.matches ? mql.matches : prev));
+		mql.addEventListener('change', onChange);
+		return () => mql.removeEventListener('change', onChange);
 	}, []);
 
 	if (!pageMap) return <div className='bg-neutral-950 h-full w-full' />;
@@ -65,7 +54,7 @@ export default function DocsProviders({ children, pageMap }) {
 									style={{ textDecoration: 'none' }}>
 									Support
 								</a>
-								<DeferredSearch />
+								<SearchDynamic placeholder='Search docs...' />
 							</div>
 						</>
 					}
@@ -90,7 +79,7 @@ export default function DocsProviders({ children, pageMap }) {
 							style={{ textDecoration: 'none' }}>
 							Support
 						</a>
-						<DeferredSearch />
+						<SearchDynamic placeholder='Search docs...' />
 						{isHomepage && <ThemeSwitch />}
 					</div>
 				}
