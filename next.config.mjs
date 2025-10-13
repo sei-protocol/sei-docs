@@ -109,11 +109,6 @@ export default withNextra({
 			},
 			// EVM category landing fallbacks
 			{
-				source: '/evm',
-				destination: '/evm',
-				permanent: true
-			},
-			{
 				source: '/evm/bridging',
 				destination: '/evm/bridging/layerzero',
 				permanent: true
