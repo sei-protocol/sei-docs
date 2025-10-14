@@ -242,7 +242,7 @@ You should see “Transfer successful\!” and a transaction hash. You can copy 
 
 Continue building by checking for more information in the [Circle Developer Docs.](https://developers.circle.com/)
 
-### **Important Notes**
+### Important Notes
 
 - Testnet Only: Sei testnet USDC has no real value. Don’t use mainnet keys or expect real funds.
 - Security: Store private keys in `.env`; never commit secrets. Use best practices for key management.
