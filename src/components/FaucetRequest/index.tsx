@@ -125,7 +125,7 @@ const RequestFaucetCard = () => {
 			</div>
 
 			{nextUseTime && (
-				<div className='flex items-center gap-3 p-4 border-l-4 border-red-500 bg-red-100 text-red-800 rounded w-full'>
+				<div className='flex items-center gap-3 p-4 border-l-4 border-red-500 bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-200 rounded w-full'>
 					<IconHourglass className='w-6 h-6' />
 					<p className='text-lg font-medium'>You can request SEI testnet tokens again after {nextUseTime}.</p>
 				</div>
@@ -159,7 +159,9 @@ const RequestFaucetCard = () => {
 				{(isPolling || txHash) && (
 					<div
 						className={`flex items-center gap-3 p-4 border-l-4 rounded w-full ${
-							isPolling ? 'border-blue-500 bg-blue-100 text-blue-800' : 'border-green-500 bg-green-100 text-green-800'
+							isPolling
+								? 'border-blue-500 bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200'
+								: 'border-green-500 bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200'
 						}`}>
 						{isPolling ? <IconLoader2 className='w-6 h-6 animate-spin' /> : <IconCheck className='w-6 h-6' />}
 						<div className='flex-1'>

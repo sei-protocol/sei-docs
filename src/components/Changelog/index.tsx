@@ -97,7 +97,7 @@ export async function RemoteChangelog() {
 								href={part}
 								target='_blank'
 								rel='noopener noreferrer'
-								className='text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 px-2 py-0.5 rounded font-mono text-sm font-medium transition-colors no-underline ml-1'>
+								className='text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 dark:text-red-300 dark:hover:text-red-200 dark:bg-red-900/20 dark:hover:bg-red-900/30 px-2 py-0.5 rounded font-mono text-sm font-medium transition-colors no-underline ml-1'>
 								{linkText}
 							</a>
 						);
@@ -124,7 +124,7 @@ export async function RemoteChangelog() {
 									href={compareUrl}
 									target='_blank'
 									rel='noopener noreferrer'
-									className='text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 px-2 py-0.5 rounded font-mono text-sm font-medium transition-colors no-underline ml-1'>
+									className='text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 dark:text-red-300 dark:hover:text-red-200 dark:bg-red-900/20 dark:hover:bg-red-900/30 px-2 py-0.5 rounded font-mono text-sm font-medium transition-colors no-underline ml-1'>
 									{displayText}
 								</a>
 							</span>
@@ -155,7 +155,7 @@ export async function RemoteChangelog() {
 											href={`https://github.com/${repoPath}/pull/${num}`}
 											target='_blank'
 											rel='noopener noreferrer'
-											className='text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 px-2 py-0.5 rounded font-mono text-sm font-medium transition-colors no-underline ml-1'>
+											className='text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 dark:text-red-300 dark:hover:text-red-200 dark:bg-red-900/20 dark:hover:bg-red-900/30 px-2 py-0.5 rounded font-mono text-sm font-medium transition-colors no-underline ml-1'>
 											#{num}
 										</a>
 									);
@@ -189,7 +189,7 @@ export async function RemoteChangelog() {
 												href={`https://github.com/${repoPath}/pull/${num}`}
 												target='_blank'
 												rel='noopener noreferrer'
-												className='text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 px-2 py-0.5 rounded font-mono text-sm font-medium transition-colors no-underline mr-1'>
+												className='text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 dark:text-red-300 dark:hover:text-red-200 dark:bg-red-900/20 dark:hover:bg-red-900/30 px-2 py-0.5 rounded font-mono text-sm font-medium transition-colors no-underline mr-1'>
 												#{num}
 											</a>
 										);

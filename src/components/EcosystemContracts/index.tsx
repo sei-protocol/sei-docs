@@ -102,7 +102,7 @@ export async function RemoteSheetData() {
 						href={explorerUrl}
 						target='_blank'
 						rel='noopener noreferrer'
-						className='text-red-600 hover:text-red-800 text-xs bg-red-50 hover:bg-red-100 px-2 py-1 rounded transition-colors no-underline'>
+						className='text-red-600 hover:text-red-800 dark:text-red-300 dark:hover:text-red-200 text-xs bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30 px-2 py-1 rounded transition-colors no-underline'>
 						{explorerName} ↗
 					</a>
 				)}
@@ -195,7 +195,7 @@ export async function RemoteSheetData() {
 						{/* Mobile card view for this project */}
 						<div className='block sm:hidden space-y-3'>
 							{group.contracts.map((contract, contractIndex) => (
-								<div key={contractIndex} className='border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800'>
+								<div key={contractIndex} className='border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800/80'>
 									<div className='flex items-center justify-between mb-3'>
 										<span className='text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide'>Contract #{contractIndex + 1}</span>
 									</div>
