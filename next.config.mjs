@@ -21,11 +21,11 @@ export default withNextra({
 	compress: true,
 	turbopack: {},
 	experimental: {
-		optimizePackageImports: ['@radix-ui/react-icons', '@tabler/icons-react', '@radix-ui/themes']
+		optimizePackageImports: ['@tabler/icons-react', '@radix-ui/themes', 'sonner', 'viem']
 	},
 	compiler: {
-		removeConsole: process.env.NODE_ENV === 'production' ? { exclude: ['error', 'warn'] } : false,
-		reactRemoveProperties: process.env.NODE_ENV === 'production'
+		removeConsole: process.env.NODE_ENV === 'production',
+		reactRemoveProperties: process.env.NODE_ENV === 'production' ? { properties: ['^data-test$', '^data-testid$', '^data-cy$'] } : false
 	},
 	images: {
 		unoptimized: false,

@@ -11,7 +11,7 @@ export * from './ImageWithCaption';
 export { Logo, LogoMobile } from './Logo';
 export * from './VersionFetcher';
 export { PropertyInfo } from './PropertyInfo';
-export * from './AskCookbook';
+export * from './AskAIAssistant';
 export * from './QuickStartCard';
 export { NetworkTabs } from './NetworkTabs';
 export * from './OfficeHoursCard';

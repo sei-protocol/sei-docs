@@ -1,11 +1,20 @@
 import { generateStaticParamsFor, importPage } from 'nextra/pages';
+import { notFound } from 'next/navigation';
 import { useMDXComponents as getMDXComponents } from '../../mdx-components';
 
 export const generateStaticParams = generateStaticParamsFor('mdxPath');
 
 export async function generateMetadata(props) {
 	const params = await props.params;
-	const { metadata } = await importPage(params.mdxPath);
+	if (Array.isArray(params?.mdxPath) && params.mdxPath[0] === '.well-known') {
+		return {};
+	}
+	try {
+		const { metadata } = await importPage(params.mdxPath);
+		return metadata;
+	} catch {
+		return {};
+	}
 
 	const siteUrl = 'https://docs.sei.io';
 	const path = Array.isArray(params?.mdxPath) && params.mdxPath.length > 0 ? `/${params.mdxPath.join('/')}` : '/';
@@ -42,7 +51,15 @@ const Wrapper = getMDXComponents().wrapper;
 
 export default async function Page(props) {
 	const params = await props.params;
-	const result = await importPage(params.mdxPath);
+	if (Array.isArray(params?.mdxPath) && params.mdxPath[0] === '.well-known') {
+		notFound();
+	}
+	let result;
+	try {
+		result = await importPage(params.mdxPath);
+	} catch {
+		notFound();
+	}
 	const { default: MDXContent, toc, metadata } = result;
 
 	const siteUrl = 'https://docs.sei.io';
