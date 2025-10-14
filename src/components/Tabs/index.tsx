@@ -49,8 +49,8 @@ export const TabsTrigger = React.forwardRef<HTMLButtonElement, TabsTriggerProps>
 		className={
 			className ||
 			`flex-none sm:flex-1 min-w-max whitespace-nowrap py-3 px-4 
-				bg-white dark:bg-neutral-900/30 
-				data-[state=active]:bg-neutral-50 dark:data-[state=active]:bg-neutral-800
+				bg-neutral-50 dark:bg-neutral-900/30 
+				data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-800
 				border-r border-neutral-200 dark:border-neutral-800 last:border-r-0
 				transition-colors duration-200
 				focus:outline-none focus:ring-2 focus:ring-red-500/20 dark:focus:ring-red-500/10
@@ -74,7 +74,7 @@ export const TabsContent = React.forwardRef<HTMLDivElement, TabsContentProps>(({
 					className ||
 					`mt-0 p-6 
 						border border-neutral-200 dark:border-neutral-800 rounded-lg 
-						bg-white dark:bg-neutral-900/30
+						bg-neutral-50 dark:bg-neutral-900/30
 						animate-in fade-in-0 zoom-in-95 duration-200`
 				}>
 				{children}
