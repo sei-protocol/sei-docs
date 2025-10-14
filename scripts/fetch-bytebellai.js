@@ -3,11 +3,10 @@
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
+const terser = require('terser');
 
-const ASSETS = [
-	{ url: 'https://bb-chat-widget.s3.us-east-1.amazonaws.com/assets/style.css', out: path.join('src', 'vendor', 'bytebellai', 'style.css') },
-	{ url: 'https://bb-chat-widget.s3.us-east-1.amazonaws.com/assets/index.js', out: path.join('src', 'vendor', 'bytebellai', 'index.js') }
-];
+const BYTEBELLAI_JS_URL = 'https://bb-chat-widget.s3.us-east-1.amazonaws.com/assets/index.js';
+const BYTEBELLAI_JS_OUT = path.join('src', 'vendor', 'bytebellai', 'index.js');
 
 function download(url, outfile) {
 	return new Promise((resolve, reject) => {
@@ -34,11 +33,59 @@ function download(url, outfile) {
 
 (async () => {
 	try {
-		for (const asset of ASSETS) {
-			process.stdout.write(`Fetching ${asset.url} -> ${asset.out}\n`);
-			await download(asset.url, asset.out);
+		process.stdout.write(`Fetching ${BYTEBELLAI_JS_URL} -> ${BYTEBELLAI_JS_OUT}\n`);
+		await download(BYTEBELLAI_JS_URL, BYTEBELLAI_JS_OUT);
+		// Minify the widget JS after download to further reduce bundle size
+		try {
+			const code = fs.readFileSync(BYTEBELLAI_JS_OUT, 'utf8');
+			const result = await terser.minify(code, {
+				ecma: 2024,
+				keep_fnames: false,
+				keep_classnames: false,
+				compress: {
+					defaults: true,
+					toplevel: true,
+					passes: 7,
+					drop_console: true,
+					drop_debugger: true,
+					sequences: true,
+					dead_code: true,
+					conditionals: true,
+					comparisons: true,
+					booleans: true,
+					if_return: true,
+					join_vars: true,
+					evaluate: true,
+					inline: 3,
+					pure_getters: true,
+					reduce_funcs: true,
+					reduce_vars: true,
+					keep_fargs: false,
+					unsafe: true,
+					unsafe_arrows: true,
+					unsafe_comps: true,
+					unsafe_methods: true,
+					unsafe_symbols: true,
+					unsafe_undefined: true
+				},
+				mangle: {
+					toplevel: true,
+					keep_fnames: false,
+					keep_classnames: false
+				},
+				format: {
+					comments: false,
+					ascii_only: true
+				}
+			});
+			if (result.code) {
+				fs.writeFileSync(BYTEBELLAI_JS_OUT, result.code);
+				process.stdout.write('Minified Bytebell widget script.\n');
+			}
+		} catch (e) {
+			process.stderr.write(`Warning: failed to minify Bytebell widget: ${e?.message || e}\n`);
 		}
-		process.stdout.write('Bytebell widget assets fetched successfully.\n');
+		process.stdout.write('Bytebell widget script fetched successfully.\n');
 		process.exit(0);
 	} catch (err) {
 		console.error('Failed to fetch Bytebell widget assets:', err);
