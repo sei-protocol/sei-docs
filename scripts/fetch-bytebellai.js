@@ -7,6 +7,8 @@ const terser = require('terser');
 
 const BYTEBELLAI_JS_URL = 'https://bb-chat-widget.s3.us-east-1.amazonaws.com/assets/index.js';
 const BYTEBELLAI_JS_OUT = path.join('src', 'vendor', 'bytebellai', 'index.js');
+const BYTEBELLAI_CSS_URL = 'https://bb-chat-widget.s3.us-east-1.amazonaws.com/assets/style.css';
+const BYTEBELLAI_CSS_OUT = path.join('src', 'vendor', 'bytebellai', 'style.css');
 
 function download(url, outfile) {
 	return new Promise((resolve, reject) => {
@@ -33,6 +35,10 @@ function download(url, outfile) {
 
 (async () => {
 	try {
+		process.stdout.write(`Fetching ${BYTEBELLAI_CSS_URL} -> ${BYTEBELLAI_CSS_OUT}\n`);
+		await download(BYTEBELLAI_CSS_URL, BYTEBELLAI_CSS_OUT);
+		process.stdout.write('Bytebell widget CSS fetched successfully.\n');
+
 		process.stdout.write(`Fetching ${BYTEBELLAI_JS_URL} -> ${BYTEBELLAI_JS_OUT}\n`);
 		await download(BYTEBELLAI_JS_URL, BYTEBELLAI_JS_OUT);
 		// Minify the widget JS after download to further reduce bundle size
