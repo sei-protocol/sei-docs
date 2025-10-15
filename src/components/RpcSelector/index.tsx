@@ -140,12 +140,12 @@ export function RpcSelector() {
 			</div>
 
 			<div className='flex flex-col sm:flex-row gap-4 mb-6'>
-				<div className='flex items-center bg-white dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-1.5 w-full sm:max-w-md'>
+				<div className='flex items-center bg-neutral-50 dark:bg-neutral-800/60 rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-1.5 w-full sm:max-w-md'>
 					<IconSearch className='h-4 w-4 text-neutral-400 mr-2' />
 					<input
 						type='text'
 						placeholder='Search by URL or provider...'
-						className='bg-transparent border-none outline-none text-neutral-800 dark:text-neutral-200 text-sm w-full'
+						className='bg-transparent border-none outline-none text-neutral-800 dark:text-neutral-200 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 text-sm w-full'
 						value={searchTerm}
 						onChange={(e) => setSearchTerm(e.target.value)}
 					/>
@@ -179,7 +179,7 @@ export function RpcSelector() {
 				</div>
 			</div>
 
-			<div className='bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 overflow-hidden'>
+			<div className='bg-neutral-50 dark:bg-neutral-900/40 rounded-xl border border-neutral-200 dark:border-neutral-800 overflow-hidden'>
 				<div className='px-4 py-3 bg-neutral-50 dark:bg-neutral-800/50 border-b border-neutral-200 dark:border-neutral-800 grid grid-cols-12 text-sm font-medium text-neutral-500 dark:text-neutral-400'>
 					<div className='col-span-6 sm:col-span-5'>Endpoint URL</div>
 					<div className='col-span-4 sm:col-span-3'>Provider</div>
@@ -191,7 +191,7 @@ export function RpcSelector() {
 					{displayedEndpoints.length > 0 ? (
 						<>
 							{displayedEndpoints.map((endpoint) => (
-								<div key={endpoint.url} className='hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors'>
+								<div key={endpoint.url} className='bg-neutral-50 dark:bg-transparent hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors'>
 									<div className='px-4 py-3 grid grid-cols-12 items-center text-sm'>
 										<div className='col-span-6 sm:col-span-5 truncate'>
 											<code className='text-neutral-800 dark:text-neutral-300 font-mono text-xs'>{endpoint.url}</code>
