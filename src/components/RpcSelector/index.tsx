@@ -55,6 +55,14 @@ const rpcEndpoints: RpcEndpoint[] = [
 		latency: 'Medium'
 	},
 	{
+		url: 'https://jsonrpc.lavenderfive.com:443/sei',
+		type: 'public',
+		provider: 'LavenderFive',
+		network: 'mainnet',
+		description: 'Community maintained RPC endpoint',
+		latency: 'Medium'
+	},
+	{
 		url: 'https://evm-rpc-testnet.sei-apis.com',
 		type: 'public',
 		provider: 'Sei Foundation',
