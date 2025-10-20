@@ -13,5 +13,8 @@ export default {
 	},
 	'dune-sim': {
 		title: 'Sim by Dune'
+	},
+	moralis: {
+		title: 'Moralis'
 	}
 };
