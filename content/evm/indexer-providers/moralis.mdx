@@ -276,7 +276,7 @@ class SeiMoralisService {
   async initialize() {
     if (!this.initialized) {
       await Moralis.start({
-        apiKey: process.env.MORALIS_API_KEY!
+        apiKey: process.env.MORALIS_API_KEY
       });
       this.initialized = true;
       console.log('Moralis initialized for Sei blockchain');
@@ -288,37 +288,21 @@ class SeiMoralisService {
 
     try {
       // Get all wallet data in parallel
-      const [transactions, nfts, tokenBalances, tokenTransfers] = await Promise.all([this.getWalletTransactions(walletAddress), this.getWalletNFTs(walletAddress), this.getTokenBalances(walletAddress), this.getTokenTransfers(walletAddress)]);
+      const [nfts, tokenBalances] = await Promise.all([this.getWalletNFTs(walletAddress), this.getTokenBalances(walletAddress)]);
 
       return {
         address: walletAddress,
-        transactions: transactions.result,
         nfts: nfts.result,
         tokenBalances: tokenBalances,
-        tokenTransfers: tokenTransfers.result,
         summary: {
-          totalTransactions: transactions.total,
-          totalNFTs: nfts.total,
-          totalTokenTypes: tokenBalances.length,
-          totalTransfers: tokenTransfers.total
+          totalNFTs: nfts,
+          totalTokenTypes: tokenBalances.length
         }
       };
     } catch (error) {
       console.error('Error getting wallet overview:', error);
       throw new Error('Failed to retrieve wallet overview');
     }
-  }
-
-  async getWalletTransactions(walletAddress: string, options = {}) {
-    const defaultOptions = {
-      chain: '0x531',
-      ...options
-    };
-
-    return await Moralis.EvmApi.transaction.getWalletTransactions({
-      address: walletAddress,
-      ...defaultOptions
-    });
   }
 
   async getWalletNFTs(walletAddress: string) {
@@ -334,20 +318,6 @@ class SeiMoralisService {
       chain: '0x531'
     });
     return response.raw;
-  }
-
-  async getTokenTransfers(walletAddress: string) {
-    return await Moralis.EvmApi.token.getWalletTokenTransfers({
-      address: walletAddress,
-      chain: '0x531'
-    });
-  }
-
-  async getTransactionDetails(txHash: string) {
-    return await Moralis.EvmApi.transaction.getTransactionVerbose({
-      transactionHash: txHash,
-      chain: '0x531'
-    });
   }
 }
 
