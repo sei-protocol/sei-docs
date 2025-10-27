@@ -82,6 +82,7 @@ export default {
 	bridging: 'Bridging',
 	'ai-tooling': 'AI Tooling',
 	'usdc-on-sei': 'USDC on Sei',
+	oracles: 'Oracles',
 	'-- Reference': {
 		type: 'separator',
 		title: 'Reference'
