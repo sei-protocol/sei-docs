@@ -427,6 +427,7 @@ function replaceComponentsWithText(content) {
 - https://evm-rpc-sei.stingray.plus (Staketab Community RPC)
 - https://sei-evm-rpc.publicnode.com (PublicNode Community RPC, Rate limit: 5 req/s)
 - https://seievm-rpc.polkachu.com (Polkachu Community RPC)
+- https://jsonrpc.lavenderfive.com:443/sei (LavenderFive Community RPC)
 
 **Testnet (atlantic-2):**
 - https://evm-rpc-testnet.sei-apis.com (Sei Foundation - Recommended for testing, Rate limit: 20 req/s)

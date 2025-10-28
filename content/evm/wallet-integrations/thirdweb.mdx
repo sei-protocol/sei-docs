@@ -1,0 +1,509 @@
+---
+title: Thirdweb
+description: Learn how to integrate thirdweb's Account Abstraction SDK with Sei network to build decentralized applications with seamless wallet connectivity.
+---
+
+import { Callout } from 'nextra/components';
+
+# Thirdweb Account Abstraction on SEI
+
+## Overview
+
+This guide provides a comprehensive, step-by-step tutorial for integrating thirdweb's Account Abstraction SDK on Sei. By the end of this guide, you will understand how to create seamless wallet connectivity with social logins and build decentralized applications with sponsored gas transactions.
+
+## What This Guide Covers
+
+- Core concepts and benefits for user experience
+- Creating a React application with thirdweb SDK and Vite
+- Setting up social logins and gasless transactions
+- Interacting with smart contracts
+
+## Prerequisites
+
+Before starting, ensure you have:
+
+- Node.js v18+ installed
+- Basic knowledge of React and TypeScript
+- A thirdweb account with API key from [thirdweb Dashboard](https://thirdweb.com/dashboard)
+- A deployed smart contract on SEI (we'll use a simple Storage contract)
+
+<Callout type="warning">**For Mainnet**: An active thirdweb Pay As You Go subscription ($5/month minimum) is required for gas sponsorship on mainnet.</Callout>
+
+## What is Account Abstraction?
+
+Account Abstraction (AA) is a paradigm that transforms how users interact with blockchain applications. Instead of traditional externally-owned accounts (EOAs), users get smart contract wallets that enable advanced features.
+
+### Core Concepts
+
+- **Smart Wallets**: Contract-based accounts with programmable logic
+- **Gas Sponsorship**: Dapps pay transaction fees on behalf of users
+- **Social Recovery**: Alternative authentication methods beyond private keys
+- **Batch Transactions**: Multiple operations in a single transaction
+
+## Network Information
+
+### SEI Mainnet Configuration
+
+- **Network Name**: SEI EVM
+- **Chain ID**: 1329
+- **Public RPC URL**: `https://evm-rpc.sei-apis.com`
+- **Explorer**: [https://seiscan.io/](https://seiscan.io/)
+- **Currency**: SEI
+- **thirdweb RPC**: `https://1329.rpc.thirdweb.com/{YOUR_CLIENT_ID}`
+
+### Step 1: Deploy a Storage Contract
+
+Before integrating the SDK, deploy a simple Storage contract on SEI. This contract will store and retrieve a number.
+
+#### Storage Contract (Solidity)
+
+```solidity filename="Storage.sol"
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract Storage {
+    uint256 private value;
+
+    function store(uint256 num) public {
+        value = num;
+    }
+
+    function retrieve() public view returns (uint256) {
+        return value;
+    }
+}
+```
+
+Deploy this contract using [Remix](https://remix.ethereum.org/) on Sei. Note down the contract address - you'll need it in the code.
+
+### Step 2: Project Setup
+
+#### Create a New Project
+
+```bash
+npm create vite@latest sei-thirdweb-app -- --template react-ts
+cd sei-thirdweb-app
+npm install
+```
+
+#### Install Dependencies
+
+```bash
+npm install thirdweb@^5
+```
+
+#### Configure Environment Variables
+
+Create a `.env` file in your project root:
+
+```env filename=".env"
+VITE_TEMPLATE_CLIENT_ID=your_thirdweb_client_id_here
+```
+
+Get your Client ID from [thirdweb Dashboard](https://thirdweb.com/dashboard) → Settings → API Keys.
+
+#### Enable Gas Sponsorship
+
+If you want to sponsor gas on mainnet:
+
+1. Go to [thirdweb Dashboard Billing](https://thirdweb.com/dashboard/settings/billing)
+2. Subscribe to the **Pay As You Go** plan ($5/month)
+3. Without this, sponsored transactions will fail on mainnet
+
+### Step 3: Configure thirdweb Client
+
+Create `src/client.ts`:
+
+```typescript filename="src/client.ts"
+import { createThirdwebClient } from 'thirdweb';
+
+export const client = createThirdwebClient({
+  clientId: import.meta.env.VITE_TEMPLATE_CLIENT_ID
+});
+```
+
+### Step 4: Smart Contract Integration
+
+Replace `src/App.tsx`:
+
+```typescript filename="src/App.tsx" showLineNumbers
+import {
+  ConnectButton,
+  TransactionButton,
+  useActiveAccount,
+} from "thirdweb/react";
+import { inAppWallet } from "thirdweb/wallets";
+import { client } from "./client";
+import { getContract } from "thirdweb";
+import { defineChain } from "thirdweb/chains";
+import { prepareContractCall, sendAndConfirmTransaction } from "thirdweb";
+
+const THIRDWEB_API_KEY = import.meta.env.VITE_TEMPLATE_CLIENT_ID;
+
+// Configure Sei network
+const rpc = `https://1329.rpc.thirdweb.com/${THIRDWEB_API_KEY}`;
+const seiChain = defineChain({
+  id: 1329,
+  rpc,
+});
+
+// Your deployed Storage contract address
+const storageContract = getContract({
+  client,
+  chain: seiChain,
+  address: "0xYourContractAddressHere", // Replace with your contract address
+});
+
+// Configure wallet options
+const wallets = [
+  inAppWallet({
+    auth: {
+      options: [
+        "google",
+        "x",
+        "apple",
+        "discord",
+        "facebook",
+        "farcaster",
+        "telegram",
+        "email",
+        "phone",
+        "passkey",
+        "guest",
+      ],
+    },
+  }),
+];
+
+// Store custom value function
+async function handleStore(account: any, value: string) {
+  if (!account) return;
+
+  const transaction = prepareContractCall({
+    contract: storageContract,
+    method: "function store(uint256 num)",
+    params: [BigInt(value)],
+  });
+
+  try {
+    const txResult = await sendAndConfirmTransaction({
+      transaction,
+      account,
+    });
+    console.log("Transaction successful:", txResult.transactionHash);
+    alert(`Stored ${value} successfully!`);
+    return txResult.transactionHash;
+  } catch (error) {
+    console.error("Transaction failed:", error);
+    alert("Transaction failed. Check console for details.");
+  }
+}
+
+// Retrieve value function
+async function handleRetrieve(account: any) {
+  if (!account) return;
+
+  const transaction = prepareContractCall({
+    contract: storageContract,
+    method: "function retrieve() view returns (uint256)",
+  });
+
+  try {
+    const txResult = await sendAndConfirmTransaction({
+      transaction,
+      account,
+    });
+    console.log("Retrieved value:", txResult);
+    return txResult.transactionHash;
+  } catch (error) {
+    console.error("Retrieve failed:", error);
+    alert("Failed to retrieve value. Check console.");
+  }
+}
+
+function App() {
+  const account = useActiveAccount();
+
+  return (
+    <div className="min-h-screen bg-gray-100 py-8">
+      <div className="max-w-4xl mx-auto px-4">
+        <h1 className="text-3xl font-bold text-center mb-8">
+          Sei x thirdweb Account Abstraction
+        </h1>
+
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <h2 className="text-xl font-semibold mb-4">Connect Wallet</h2>
+          <ConnectButton
+            client={client}
+            wallets={wallets}
+            accountAbstraction={{
+              chain: seiChain,
+              sponsorGas: true,
+            }}
+            connectButton={{
+              label: "Connect to Sei Network",
+            }}
+          />
+        </div>
+
+        {account && (
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h3 className="text-xl font-semibold mb-4">
+              Storage Contract Interactions
+            </h3>
+            <p className="text-gray-600 mb-6">
+              Connected: {account.address}
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <h4 className="font-medium mb-2">Store Number 37</h4>
+                <TransactionButton
+                  transaction={() =>
+                    prepareContractCall({
+                      contract: storageContract,
+                      method: "function store(uint256 num)",
+                      params: [BigInt(37)],
+                    })
+                  }
+                  onTransactionConfirmed={(result) => {
+                    console.log("Confirmed:", result);
+                    alert("Number 37 stored!");
+                  }}
+                  onError={(error) => {
+                    console.error("Error:", error);
+                    alert("Transaction failed.");
+                  }}
+                >
+                  Store Number 37
+                </TransactionButton>
+              </div>
+
+              <div>
+                <h4 className="font-medium mb-2">Store Custom Number</h4>
+                <button
+                  onClick={() => {
+                    const value = prompt("Enter a number:");
+                    if (value && !isNaN(Number(value))) {
+                      handleStore(account, value);
+                    } else if (value) {
+                      alert("Please enter a valid number");
+                    }
+                  }}
+                  className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+                >
+                  Store Custom Number
+                </button>
+              </div>
+
+              <div>
+                <h4 className="font-medium mb-2">Retrieve Stored Number</h4>
+                <button
+                  onClick={() => handleRetrieve(account)}
+                  className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600"
+                >
+                  Retrieve Number
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default App;
+```
+
+#### Understanding Key Components
+
+<div className="overflow-x-auto max-w-full">
+  <table className="w-full divide-y divide-neutral-200 dark:divide-neutral-800">
+    <thead>
+      <tr>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Component</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Description</th>
+      </tr>
+    </thead>
+    <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
+      <tr>
+        <td className="px-4 py-3 text-sm text-blue-600 dark:text-blue-400 whitespace-nowrap font-medium">
+          <code>ConnectButton</code>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Pre-built UI component for wallet connection</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-blue-600 dark:text-blue-400 whitespace-nowrap font-medium">
+          <code>TransactionButton</code>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Simplified transaction execution with loading states</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-blue-600 dark:text-blue-400 whitespace-nowrap font-medium">
+          <code>useActiveAccount</code>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Hook to get currently connected account</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-blue-600 dark:text-blue-400 whitespace-nowrap font-medium">
+          <code>prepareContractCall</code>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Prepares transaction for contract interaction</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-blue-600 dark:text-blue-400 whitespace-nowrap font-medium">
+          <code>inAppWallet</code>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Smart wallet with social login capabilities</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+### Step 5: Package Configuration
+
+Ensure your `package.json` includes:
+
+```json filename="package.json"
+{
+  "name": "sei-thirdweb-app",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.3",
+    "react-dom": "^18.3",
+    "thirdweb": "^5"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.56",
+    "@types/react-dom": "^18.2.19",
+    "@vitejs/plugin-react": "^4.2.1",
+    "typescript": "^5.2.2",
+    "vite": "^4"
+  }
+}
+```
+
+### Step 6: Run the Application
+
+#### Start Development Server
+
+```bash
+npm run dev
+```
+
+#### Test the Application
+
+1. Open your browser and navigate to `http://localhost:5173`
+2. Click "Connect to Sei Network"
+3. Choose your preferred login method (Google, email, etc.)
+4. A smart wallet is automatically created for you (no gas fees!)
+5. After connecting, you'll see three interaction buttons
+6. Try storing number 37 or a custom number
+7. Retrieve the stored value - all transactions are gasless!
+8. Monitor the browser console for: - Transaction hashes - Error messages - Connection status - Smart contract interactions
+
+<Callout type="info">Gas fees are automatically sponsored when using Account Abstraction, so users don't need SEI tokens to interact with the contract.</Callout>
+
+### Step 7: Done!
+
+You've successfully integrated thirdweb's Account Abstraction SDK with Sei! Users can now connect with social logins and interact with your contracts without needing to hold SEI tokens for gas.
+
+## What You've Accomplished
+
+- Created a React application with thirdweb SDK v5
+- Configured Account Abstraction for SEI network
+- Implemented social login authentication
+- Deployed gasless transaction capabilities
+- Built contract interaction interfaces
+- Learned error handling for web3 applications
+
+## Troubleshooting
+
+### Common Issues and Solutions
+
+<div className="overflow-x-auto max-w-full">
+  <table className="w-full divide-y divide-neutral-200 dark:divide-neutral-800">
+    <thead>
+      <tr>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Error</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Problem</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Solution</th>
+      </tr>
+    </thead>
+    <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
+      <tr>
+        <td className="px-4 py-3 text-sm text-red-600 dark:text-red-400 font-medium">
+          <code>Client ID not found</code>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Environment variable not loading</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">
+          Check <code>.env</code> file and restart dev server
+        </td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-red-600 dark:text-red-400 font-medium">
+          <code>Sponsored transactions failing</code>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">No active subscription</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">
+          Subscribe to{' '}
+          <a href="https://thirdweb.com/dashboard/settings/billing" className="text-blue-600 dark:text-blue-400 hover:underline">
+            Pay As You Go plan
+          </a>
+        </td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-red-600 dark:text-red-400 font-medium">
+          <code>Transaction reverted</code>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Invalid contract address</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">
+          Verify contract on{' '}
+          <a href="https://seiscan.io/" className="text-blue-600 dark:text-blue-400 hover:underline">
+            Sei Explorer{' '}
+          </a>
+        </td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-red-600 dark:text-red-400 font-medium">
+          <code>Cannot connect wallet</code>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Network configuration issue</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Check Client ID and RPC URL format</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-red-600 dark:text-red-400 font-medium">
+          <code>Gas estimation failed</code>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Contract method issue</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Verify contract ABI and function signature</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+### Network Connection Issues
+
+<Callout type="error">
+
+If the RPC endpoint is not responding:
+
+1. Verify your Client ID is active
+2. Check internet connectivity
+3. Try using the public RPC: `https://evm-rpc.sei-apis.com`
+
+</Callout>
+
+## Resources
+
+- **thirdweb Documentation**: [https://portal.thirdweb.com/](https://portal.thirdweb.com/)
+- **thirdweb Dashboard**: [https://thirdweb.com/dashboard](https://thirdweb.com/dashboard)
+- **SEI Explorer**: [https://seiscan.io/](https://seiscan.io/)
+- **Remix IDE**: [https://remix.ethereum.org/](https://remix.ethereum.org/)

@@ -16,8 +16,6 @@ export default {
 	'installing-seid-cli': 'Installing seid CLI',
 	'querying-the-evm': 'Querying the EVM',
 	'transactions-with-seid': 'Transactions with seid',
-	'debugging-with-seid': 'Debugging with seid',
-	'best-practices': 'Best Practices',
 
 	'-- Frontend Development': {
 		type: 'separator',
@@ -44,6 +42,8 @@ export default {
 		}
 	},
 	'solidity-resources': 'Solidity Resources',
+	'optimizing-for-parallelization': 'Optimizing for Parallelization',
+	'debugging-contracts': 'Debugging for EVM',
 	tracing: 'Debug Tracing',
 	'evm-verify-contracts': 'Verify Contracts',
 	precompiles: 'Precompiles',
@@ -80,7 +80,7 @@ export default {
 	'indexer-providers': 'Indexers',
 	'wallet-integrations': 'Wallet Integrations',
 	bridging: 'Bridging',
-	'agent-kits': 'Agent Kits',
+	'ai-tooling': 'AI Tooling',
 	'usdc-on-sei': 'USDC on Sei',
 	'-- Reference': {
 		type: 'separator',
@@ -90,17 +90,12 @@ export default {
 	reference: 'RPC Reference',
 	tokens: 'View Tokens',
 	changelog: 'Changelog',
+	'dappradar-guide': 'DappRadar Guide',
+	'ecosystem-contracts': 'Ecosystem Contracts',
 
 	'-- Hardware Wallets': {
 		type: 'separator',
 		title: 'Hardware Wallets'
 	},
-	'ledger-ethers': 'Using Ledger with Ethers',
-
-	'-- CosmWasm Interoperability': {
-		type: 'separator',
-		title: 'CosmWasm Interoperability'
-	},
-	'cosmwasm-precompiles': 'Precompiles',
-	'ibc-protocol': 'IBC on EVM'
+	'ledger-ethers': 'Using Ledger with Ethers'
 };

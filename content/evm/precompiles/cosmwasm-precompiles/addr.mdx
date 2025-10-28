@@ -1,0 +1,824 @@
+---
+title: 'Address Precompile'
+description: "Learn how to interact with Sei's Addr precompile through ethers.js and Solidity, enabling address association and cross-chain address mapping directly in your EVM smart contracts for seamless user experiences."
+keywords: ['addr precompile', 'address association', 'ethers.js', 'cross-chain', 'evm cosmos mapping', 'sei development', 'blockchain addresses']
+---
+
+import { Callout } from 'nextra/components';
+import { Tabs } from 'nextra/components';
+
+# Address Precompile
+
+**Address:** `0x0000000000000000000000000000000000001004`
+
+The Sei Address precompile allows EVM applications to interact directly with Sei's address association system through standard smart contract calls. This enables querying and creating mappings between EVM addresses and their corresponding Cosmos addresses, enabling seamless cross-chain address management without needing separate Cosmos SDK integration.
+
+<Callout type="info"> **What is a precompile?** A precompile is a special smart contract deployed at a fixed address by the Sei protocol itself, that exposes custom native chain logic to EVM-based applications. It acts like a regular contract from the EVM's perspective, but executes privileged, low-level logic efficiently. </Callout>
+
+## How Does the Address Precompile Work?
+
+The Address precompile at address `0x0000000000000000000000000000000000001004` exposes functions like `associate()`, `associatePubKey()`, `getSeiAddr()`, and `getEvmAddr()`.
+
+- **Direct Integration:** EVM contracts and dApps can call address association functions like any other smart contract method.
+- **Native Execution:** Operations are executed at the Cosmos SDK level for maximum efficiency and security.
+- **Seamless Bridge:** No need for separate wallet integrations or complex cross-chain interactions.
+
+## Use Cases
+
+- **Cross-Chain Identity:** Link EVM and Cosmos addresses for unified user experiences across both execution environments.
+- **Address Resolution:** Build applications that can seamlessly work with both EVM and Cosmos address formats.
+- **Wallet Integration:** Enable users to associate their addresses once and use both EVM and native Sei functionality.
+- **DeFi Applications:** Create protocols that can interact with users regardless of their preferred address format.
+
+## What You'll Learn in This Guide
+
+By the end of this guide, you'll be able to:
+
+- **Integrate Address Operations** - Call association and lookup functions directly from your EVM contracts and dApps
+- **Handle Signature Verification** - Master the signature format requirements for secure address association
+- **Manage Address Mappings** - Query and validate address relationships between EVM and Cosmos formats
+- **Build Cross-Chain Tools** - Implement unified address management for applications spanning both execution environments
+- **Navigate Association Requirements** - Understand when and how address association occurs automatically vs. manually
+
+## Functions
+
+The Address precompile exposes the following functions:
+
+### Transaction Functions
+
+```solidity
+/// Associates an account given it's signature of any custom message.
+/// @param v The v component of the signature.
+/// @param r The r component of the signature.
+/// @param s The s component of the signature.
+/// @param customMessage A custom message that was signed by the address to be associated.
+/// @return seiAddr The associated Sei address.
+/// @return evmAddr The associated EVM address.
+function associate(
+    string memory v,
+    string memory r,
+    string memory s,
+    string memory customMessage
+) external returns (string memory seiAddr, address evmAddr);
+
+/// Associates an account given it's compressed pubkey in hex format (excluding the '0x')
+/// @param pubKeyHex The Hex-encoded compressed pubkey of the account to be associated, excluding the '0x'
+/// @return seiAddr The associated Sei address.
+/// @return evmAddr The associated EVM address.
+function associatePubKey(
+    string memory pubKeyHex
+) external returns (string memory seiAddr, address evmAddr);
+```
+
+### Query Functions
+
+```solidity
+/// Queries the corresponding Sei Address for some EVM address.
+/// @param addr The EVM Address for which we want the corresponding Sei address.
+/// @return response The corresponding Sei address.
+function getSeiAddr(
+    address addr
+) external view returns (string memory response);
+
+/// Queries the corresponding EVM Address for some Sei address.
+/// @param addr The Sei Address for which we want the corresponding EVM address.
+/// @return response The corresponding EVM address.
+function getEvmAddr(
+    string memory addr
+) external view returns (address response);
+```
+
+## Using the Precompile
+
+### Setup
+
+#### Prerequisites
+
+Before getting started, ensure you have:
+
+- **Node.js** (v16 or higher)
+- **npm** or **yarn** package manager
+- **EVM-compatible wallet**
+- **SEI tokens** for gas fees
+- **Hardhat** development environment set up
+
+#### Install Dependencies
+
+Install the required packages for interacting with Sei precompiles:
+
+```bash copy
+# Intitate a hardhat project
+npx hardhat init
+
+# Install ethers.js for smart contract interactions
+npm install ethers dotenv
+
+# Install Sei EVM bindings for precompile addresses and ABIs
+npm install @sei-js/precompiles@2.1.2
+```
+
+#### Setup Hardhat Environment
+
+Create a `hardhat.config.js` file with the following content:
+
+```javascript copy
+require('@nomicfoundation/hardhat-toolbox');
+require('dotenv').config();
+
+/** @type import('hardhat/config').HardhatUserConfig */
+module.exports = {
+  solidity: '0.8.28',
+  networks: {
+    sei: {
+      url: 'https://evm-rpc.sei-apis.com',
+      chainId: 1329,
+      accounts: [process.env.PRIVATE_KEY]
+    }
+  }
+};
+```
+
+Create a `.env` file in the root directory with your private key and RPC URL:
+
+```plaintext copy
+PRIVATE_KEY=your_private_key_here
+RPC_URL=https://evm-rpc.sei-apis.com
+```
+
+#### Import Precompile Components
+
+<Tabs items={['JavaScript','Solidity']}>
+<Tabs.Tab>
+```typescript copy
+// Import Address precompile address and ABI
+// View the entire ABI here: https://github.com/sei-protocol/sei-chain/tree/main/precompiles/addr
+import { ADDRESS_PRECOMPILE_ABI, ADDRESS_PRECOMPILE_ADDRESS } from '@sei-js/precompiles';
+import { ethers } from 'ethers';
+```
+
+</Tabs.Tab>
+<Tabs.Tab>
+```solidity copy
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+interface IAddrPrecompile {
+function associate(
+string memory v,
+string memory r,
+string memory s,
+string memory customMessage
+) external returns (string memory seiAddr, address evmAddr);
+
+function associatePubKey(
+string memory pubKeyHex
+) external returns (string memory seiAddr, address evmAddr);
+
+function getSeiAddr(address addr) external view returns (string memory response);
+
+function getEvmAddr(string memory addr) external view returns (address response);
+
+}
+
+````
+</Tabs.Tab>
+</Tabs>
+
+<Callout type="info"> **Precompile Address:** The address precompile is deployed at `0x0000000000000000000000000000000000001004` </Callout>
+
+### Contract Initialization
+
+<Tabs items={['JavaScript','Solidity']}>
+<Tabs.Tab>
+Set up your provider, signer, and contract instance:
+
+```typescript copy
+// Using EVM-compatible wallet as the signer and provider
+const provider = new ethers.BrowserProvider(window.ethereum);
+await provider.send('eth_requestAccounts', []);
+const signer = await provider.getSigner();
+
+// Create a contract instance for the addr precompile
+const addr = new ethers.Contract(ADDRESS_PRECOMPILE_ADDRESS, ADDRESS_PRECOMPILE_ABI, signer);
+````
+
+</Tabs.Tab>
+<Tabs.Tab>
+```solidity copy
+// Initialize the contract instance in your Solidity code
+contract CrossChainAddressManager {
+  IAddrPrecompile constant ADDR = IAddrPrecompile(0x0000000000000000000000000000000000001004);
+}
+```
+</Tabs.Tab>
+</Tabs>
+
+#### When Does Association Happen?
+
+Address association between EVM and Cosmos addresses occurs automatically in most cases:
+
+<div className="overflow-x-auto max-w-full">
+  <table className="w-full divide-y divide-neutral-200 dark:divide-neutral-800">
+    <thead>
+      <tr>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Method</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Trigger</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Requirements</th>
+      </tr>
+    </thead>
+    <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
+      <tr>
+        <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">**Automatic**</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">First transaction broadcast</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Wallet signs any transaction</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">**Manual (Signature)**</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">associate() function</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Custom message signature</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">**Manual (PubKey)**</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">associatePubKey() function</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Compressed public key</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+### How Association Works
+
+**Automatic Association:**
+
+- Occurs when a wallet first signs and broadcasts any transaction on Sei
+- No additional steps required for most users
+- Association is permanent once created
+
+**Manual Association:**
+
+- Use `associate()` for signature-based association
+- Use `associatePubKey()` for public key-based association
+- Useful for advanced applications or when automatic association hasn't occurred
+
+### Address Format Requirements
+
+**EVM Addresses:**
+
+- Standard Ethereum format: `0x1234...` (20 bytes, 40 hex characters)
+- Case-insensitive but typically lowercase
+
+**Sei Addresses:**
+
+- Cosmos format with `sei1...` prefix for regular addresses
+- Validator addresses use `seivaloper1...` prefix
+- Bech32 encoding format
+
+## Step-by-Step Guide: Using the Address Precompile
+
+### Associate Address with Signature
+
+<Tabs items={['JavaScript','Solidity']}>
+<Tabs.Tab>
+
+```typescript copy
+// Associate addresses using a custom message signature
+const message = `Associate my addresses - ${Date.now()}`;
+
+try {
+  // Get signature from user's wallet
+  const signature = await signer.signMessage(message);
+  const sig = ethers.Signature.from(signature);
+
+  // Prepare the prefixed message (signMessage already applies this prefix)
+  const messageBytes = new TextEncoder().encode(message);
+  const customMessage = `\x19Ethereum Signed Message:\n${message}`;
+
+  // Convert signature components to strings
+  const v = (sig.v - 27).toString();
+  const r = sig.r;
+  const s = sig.s;
+
+  // Call associate function
+  const tx = await addr.associate(v, r, s, customMessage);
+  const receipt = await tx.wait();
+
+  console.log('Association successful:', receipt);
+} catch (error) {
+  console.error('Association failed:', error);
+}
+```
+
+</Tabs.Tab>
+<Tabs.Tab>
+
+```solidity copy
+contract AddressManager {
+    IAddrPrecompile constant ADDR = IAddrPrecompile(0x0000000000000000000000000000000000001004);
+
+    event AddressAssociated(address indexed evmAddr, string seiAddr);
+
+    function associateMyAddress(
+        string memory v,
+        string memory r,
+        string memory s,
+        string memory customMessage
+    ) external {
+        (string memory seiAddr, address evmAddr) = ADDR.associate(v, r, s, customMessage);
+
+        // Verify the association is for the caller
+        require(evmAddr == msg.sender, "Association mismatch");
+
+        emit AddressAssociated(evmAddr, seiAddr);
+    }
+}
+```
+
+</Tabs.Tab>
+</Tabs>
+
+### Associate Address with Public Key
+
+<Tabs items={['JavaScript','Solidity']}>
+<Tabs.Tab>
+
+```typescript copy
+// Associate addresses using a public key
+try {
+  // Create or get a wallet's public key
+  const wallet = ethers.Wallet.createRandom();
+  const pubKeyWithout0x = wallet.signingKey.compressedPublicKey.slice(2);
+
+  // Call associatePubKey function
+  const tx = await addr.associatePubKey(pubKeyWithout0x);
+  const receipt = await tx.wait();
+
+  console.log('Public key association successful:', receipt);
+} catch (error) {
+  console.error('Public key association failed:', error);
+}
+```
+
+</Tabs.Tab>
+<Tabs.Tab>
+
+```solidity copy
+contract AddressManager {
+    IAddrPrecompile constant ADDR = IAddrPrecompile(0x0000000000000000000000000000000000001004);
+
+    event AddressAssociated(address indexed evmAddr, string seiAddr);
+
+    function associateWithPubKey(string memory pubKeyHex) external {
+        (string memory seiAddr, address evmAddr) = ADDR.associatePubKey(pubKeyHex);
+
+        // Store or emit the association
+        emit AddressAssociated(evmAddr, seiAddr);
+    }
+}
+```
+
+</Tabs.Tab>
+</Tabs>
+
+### Query Sei Address from EVM Address
+
+<Tabs items={['JavaScript','Solidity']}>
+<Tabs.Tab>
+
+```typescript copy
+// Query the Sei address for a given EVM address
+const evmAddress = '0x1234567890123456789012345678901234567890';
+
+try {
+  const seiAddress = await addr.getSeiAddr(evmAddress);
+  console.log('Corresponding Sei address:', seiAddress);
+} catch (error) {
+  if (error.message.includes('not found') || error.message.includes('no association')) {
+    console.log('No association found for this EVM address');
+  } else {
+    console.error('Error querying Sei address:', error);
+  }
+}
+```
+
+</Tabs.Tab>
+<Tabs.Tab>
+
+```solidity copy
+contract AddressManager {
+    IAddrPrecompile constant ADDR = IAddrPrecompile(0x0000000000000000000000000000000000001004);
+
+    function getUserSeiAddress(address evmAddr) external view returns (string memory) {
+        return ADDR.getSeiAddr(evmAddr);
+    }
+
+    // Safe version with error handling
+    function tryGetUserSeiAddress(address evmAddr) external view returns (bool success, string memory seiAddr) {
+        try ADDR.getSeiAddr(evmAddr) returns (string memory result) {
+            return (true, result);
+        } catch {
+            return (false, "");
+        }
+    }
+}
+```
+
+</Tabs.Tab>
+</Tabs>
+
+### Query EVM Address from Sei Address
+
+<Tabs items={['JavaScript','Solidity']}>
+<Tabs.Tab>
+
+```typescript copy
+// Query the EVM address for a given Sei address
+const seiAddress = 'sei1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq6s8dpw';
+
+try {
+  const evmAddress = await addr.getEvmAddr(seiAddress);
+  console.log('Corresponding EVM address:', evmAddress);
+} catch (error) {
+  if (error.message.includes('not found') || error.message.includes('no association')) {
+    console.log('No association found for this Sei address');
+  } else {
+    console.error('Error querying EVM address:', error);
+  }
+}
+```
+
+</Tabs.Tab>
+<Tabs.Tab>
+
+```solidity copy
+contract AddressManager {
+    IAddrPrecompile constant ADDR = IAddrPrecompile(0x0000000000000000000000000000000000001004);
+
+    function getEvmFromSei(string memory seiAddr) external view returns (address) {
+        return ADDR.getEvmAddr(seiAddr);
+    }
+
+    // Safe version with error handling
+    function tryGetEvmFromSei(string memory seiAddr) external view returns (bool success, address evmAddr) {
+        try ADDR.getEvmAddr(seiAddr) returns (address result) {
+            return (true, result);
+        } catch {
+            return (false, address(0));
+        }
+    }
+}
+```
+
+</Tabs.Tab>
+</Tabs>
+
+### Complete Integration Example
+
+<Tabs items={['JavaScript','Solidity']}>
+<Tabs.Tab>
+
+```typescript copy
+import { ADDRESS_PRECOMPILE_ABI, ADDRESS_PRECOMPILE_ADDRESS } from '@sei-js/precompiles';
+import { ethers } from 'ethers';
+
+async function addrExample() {
+  // Setup
+  const provider = new ethers.BrowserProvider(window.ethereum);
+  await provider.send('eth_requestAccounts', []);
+  const signer = await provider.getSigner();
+  const addr = new ethers.Contract(ADDRESS_PRECOMPILE_ADDRESS, ADDRESS_PRECOMPILE_ABI, signer);
+
+  const evmAddress = await signer.getAddress();
+
+  try {
+    // 1. Check if current EVM address has an associated Sei address
+    console.log('=== Checking Current Association ===');
+    try {
+      const associatedSei = await addr.getSeiAddr(evmAddress);
+      console.log('EVM address:', evmAddress);
+      console.log('Associated Sei address:', associatedSei);
+
+      // Verify reverse lookup
+      const reverseEvm = await addr.getEvmAddr(associatedSei);
+      console.log('Reverse lookup EVM address:', reverseEvm);
+    } catch (error) {
+      if (error.message.includes('not found') || error.message.includes('no association')) {
+        console.log('No association found. You may need to make a transaction first or associate manually.');
+
+        // 2. Demonstrate manual association with public key
+        console.log('=== Creating Manual Association ===');
+        const wallet = ethers.Wallet.createRandom();
+        const pubKeyWithout0x = wallet.signingKey.compressedPublicKey.slice(2);
+
+        const associateTx = await addr.associatePubKey(pubKeyWithout0x);
+        const receipt = await associateTx.wait();
+        console.log('Manual association completed:', receipt.transactionHash);
+      } else {
+        throw error;
+      }
+    }
+
+    // 3. Demonstrate address resolution for different formats
+    console.log('=== Address Resolution Examples ===');
+
+    // Test with known Sei address format
+    const testSeiAddr = 'sei1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq6s8dpw';
+    try {
+      const correspondingEvm = await addr.getEvmAddr(testSeiAddr);
+      console.log('Test Sei address:', testSeiAddr);
+      console.log('Corresponding EVM address:', correspondingEvm);
+    } catch (error) {
+      console.log('Test address not associated:', testSeiAddr);
+    }
+  } catch (error) {
+    console.error('Operation failed:', error);
+  }
+}
+```
+
+</Tabs.Tab>
+<Tabs.Tab>
+
+**Contract Example**
+
+```solidity copy
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+interface IAddrPrecompile {
+    function associate(
+        string memory v,
+        string memory r,
+        string memory s,
+        string memory customMessage
+    ) external returns (string memory seiAddr, address evmAddr);
+
+    function associatePubKey(
+        string memory pubKeyHex
+    ) external returns (string memory seiAddr, address evmAddr);
+
+    function getSeiAddr(address addr) external view returns (string memory response);
+
+    function getEvmAddr(string memory addr) external view returns (address response);
+}
+
+contract CrossChainAddressManager {
+    IAddrPrecompile constant ADDR = IAddrPrecompile(0x0000000000000000000000000000000000001004);
+
+    struct UserProfile {
+        address evmAddress;
+        string seiAddress;
+        bool isVerified;
+    }
+
+    mapping(address => UserProfile) public userProfiles;
+    mapping(string => address) public seiToEvm;
+
+    event UserRegistered(address indexed evmAddr, string seiAddr);
+    event AddressAssociated(address indexed evmAddr, string seiAddr);
+
+    /**
+     * @dev Register user with automatic address association lookup
+     */
+    function registerUser() external {
+        address userEvm = msg.sender;
+
+        // Try to get associated Sei address
+        try ADDR.getSeiAddr(userEvm) returns (string memory seiAddr) {
+            // Association exists
+            userProfiles[userEvm] = UserProfile({
+                evmAddress: userEvm,
+                seiAddress: seiAddr,
+                isVerified: true
+            });
+
+            seiToEvm[seiAddr] = userEvm;
+            emit UserRegistered(userEvm, seiAddr);
+
+        } catch {
+            // No association found
+            revert("Address not associated. Please associate your addresses first.");
+        }
+    }
+
+    /**
+     * @dev Batch query multiple EVM addresses
+     */
+    function batchGetSeiAddresses(
+        address[] memory evmAddresses
+    ) external view returns (string[] memory seiAddresses) {
+        seiAddresses = new string[](evmAddresses.length);
+
+        for (uint256 i = 0; i < evmAddresses.length; i++) {
+            try ADDR.getSeiAddr(evmAddresses[i]) returns (string memory seiAddr) {
+                seiAddresses[i] = seiAddr;
+            } catch {
+                seiAddresses[i] = ""; // Empty string if not associated
+            }
+        }
+    }
+
+    /**
+     * @dev Check if an address pair is associated
+     */
+    function areAddressesAssociated(
+        address evmAddr,
+        string memory seiAddr
+    ) external view returns (bool) {
+        try ADDR.getSeiAddr(evmAddr) returns (string memory result) {
+            return keccak256(bytes(result)) == keccak256(bytes(seiAddr));
+        } catch {
+            return false;
+        }
+    }
+}
+```
+
+**Client Integration Example**
+
+Deploy the contract:
+
+```javascript copy
+const { ethers } = require('hardhat');
+
+const dotenv = require('dotenv');
+dotenv.config();
+
+async function main() {
+  const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
+  const deployer = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
+  console.log('Deploying contracts with the account:', deployer.address);
+
+  const balance = await deployer.provider.getBalance(deployer.address);
+  console.log('Account balance:', ethers.formatEther(balance));
+
+  const AddressManager = await ethers.getContractFactory('CrossChainAddressManager');
+  console.log('Deploying AddressManager...', AddressManager);
+  const addressManager = await AddressManager.deploy({
+    gasLimit: 5000000n // Set a reasonable gas limit
+  });
+  await addressManager.waitForDeployment();
+
+  console.log('AddressManager deployed to:', await addressManager.getAddress());
+}
+
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});
+```
+
+Then run:
+
+```bash copy
+npx hardhat run scripts/deploy.js --network sei
+```
+
+```javascript copy
+const { ethers } = require('hardhat');
+const addressManagerAbi = require('./artifacts/contracts/CrossChainAddressManager.sol/CrossChainAddressManager.json');
+
+async function main() {
+  const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
+  const deployer = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
+  console.log('Deploying contracts with the account:', deployer.address);
+
+  const balance = await deployer.provider.getBalance(deployer.address);
+  console.log('Account balance:', ethers.formatEther(balance));
+
+  const addressManagerAddress = '0xYourAddressManagerContractAddress'; // Replace with your deployed contract address
+  const addressManager = new ethers.Contract(addressManagerAddress, addressManagerAbi.abi, deployer);
+  console.log('AddressManager deployed to:', await addressManager.getAddress());
+
+  // Register user (requires existing address association)
+  try {
+    const registerTx = await addressManager.registerUser();
+    await registerTx.wait();
+    console.log('User registered successfully');
+
+    // Get user's profile
+    const userProfile = await addressManager.userProfiles(deployer.address);
+    console.log('User profile:', userProfile);
+  } catch (error) {
+    console.error('Registration failed:', error);
+  }
+}
+
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});
+```
+
+</Tabs.Tab>
+</Tabs>
+
+## Security Considerations & Risks
+
+### Association Permanence
+
+- **Permanent Mapping:** Once addresses are associated, the mapping cannot be changed or removed
+- **Single Association:** Each address can only be associated with one counterpart
+- **Verification:** Always verify associations before depending on them in critical operations
+
+### Signature Security
+
+- **Custom Messages:** Use unique, timestamped messages to prevent replay attacks
+- **Message Format:** Follow exact Ethereum Signed Message format for compatibility
+
+## Troubleshooting
+
+### Common Issues and Solutions
+
+#### Gas-Related Issues
+
+```typescript copy
+// Set appropriate gas limits for different operations
+const associateTx = await addr.associate(v, r, s, customMessage, {
+  gasLimit: 200000 // Association operations
+});
+
+const pubKeyTx = await addr.associatePubKey(pubKeyHex, {
+  gasLimit: 150000 // Public key association
+});
+```
+
+### Error Code Reference
+
+<div className="overflow-x-auto max-w-full">
+  <table className="w-full divide-y divide-neutral-200 dark:divide-neutral-800">
+    <thead>
+      <tr>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Error</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Cause</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Solution</th>
+      </tr>
+    </thead>
+    <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
+      <tr>
+        <td className="px-4 py-3 text-sm text-red-600 dark:text-red-400 whitespace-nowrap font-medium">
+          <code>invalid signature</code>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">Malformed v, r, s components</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Verify signature parsing and format</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-red-600 dark:text-red-400 whitespace-nowrap font-medium">
+          <code>already associated</code>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">Address already has association</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Check existing association instead</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-red-600 dark:text-red-400 whitespace-nowrap font-medium">
+          <code>not found</code>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">No association exists</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Create association first</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-red-600 dark:text-red-400 whitespace-nowrap font-medium">
+          <code>invalid public key</code>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">Malformed public key format</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Use compressed format without 0x prefix</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-red-600 dark:text-red-400 whitespace-nowrap font-medium">
+          <code>invalid address format</code>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">Wrong address format</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">Use proper EVM (0x...) or Sei (sei1...) format</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+## Important Notes
+
+<Callout type="info"> Remember: Address associations are permanent and cannot be changed once created! </Callout>
+
+### Address Formats
+
+- **EVM Addresses:** Use standard Ethereum format with `0x` prefix
+- **Sei Addresses:** Use Cosmos format with `sei1` prefix for regular addresses
+- **Case Sensitivity:** EVM addresses are case-insensitive, Sei addresses are case-sensitive
+
+### Association Timing
+
+- **Automatic:** Most users get associated automatically on their first transaction
+- **Manual:** Use precompile functions for programmatic association or when automatic association hasn't occurred
+- **Verification:** Always verify associations exist before depending on them
+
+### Signature Requirements
+
+- **Message Format:** Must include Ethereum Signed Message prefix for `associate()` function
+- **Component Format:** v, r, s must be properly formatted hex strings
+- **Replay Protection:** Use unique messages to prevent signature replay attacks
+
+### Gas Considerations
+
+- **Association operations:** ~200,000 gas limit recommended
+- **Query operations:** Standard view function gas usage
+- **Batch operations:** Scale gas limits based on array size
+
+<Callout type="info">View the Address precompile source code and the contract ABI [here](https://github.com/sei-protocol/sei-chain/tree/main/precompiles/addr).</Callout>

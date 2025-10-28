@@ -1,7 +1,6 @@
 'use client';
 
 import { Code } from '@radix-ui/themes';
-import { CopyIcon, CheckIcon } from '@radix-ui/react-icons';
 import { useState } from 'react';
 import { IconCheck, IconCopy } from '@tabler/icons-react';
 

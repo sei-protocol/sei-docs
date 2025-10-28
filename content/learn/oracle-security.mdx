@@ -1,7 +1,7 @@
 ---
-title: "Oracle Security & Spam Prevention"
+title: 'Oracle Security & Spam Prevention'
 description: "A deep dive into Sei's Oracle security architecture, spam prevention mechanisms, and best practices for reliable price feeds"
-keywords: ["oracle security", "spam prevention", "price manipulation", "validator voting", "defi security"]
+keywords: ['oracle security', 'spam prevention', 'price manipulation', 'validator voting', 'defi security']
 ---
 
 import { Callout } from 'nextra/components';
@@ -57,26 +57,26 @@ The Oracle implements a sophisticated spam prevention system that ensures each v
 ```go
 // From x/oracle/keeper/keeper.go
 func (k Keeper) CheckAndSetSpamPreventionCounter(
-    ctx sdk.Context, 
+    ctx sdk.Context,
     validatorAddr sdk.ValAddress
 ) error {
     // Thread-safe mutex per validator
     mtx, _ := k.spamPreventionCounterMtxMap.LoadOrStore(
-        validatorAddr.String(), 
+        validatorAddr.String(),
         &sync.Mutex{}
     )
     mtx.Lock()
     defer mtx.Unlock()
-    
+
     // Check if validator already voted this block
     if k.getSpamPreventionCounter(ctx, validatorAddr) == ctx.BlockHeight() {
         return sdkerrors.Wrap(
-            sdkerrors.ErrAlreadyExists, 
-            fmt.Sprintf("the validator has already submitted a vote at the current height=%d", 
+            sdkerrors.ErrAlreadyExists,
+            fmt.Sprintf("the validator has already submitted a vote at the current height=%d",
                 ctx.BlockHeight())
         )
     }
-    
+
     // Mark validator as having voted
     k.setSpamPreventionCounter(ctx, validatorAddr)
     return nil
@@ -123,16 +123,16 @@ type SpammingPreventionDecorator struct {
 }
 
 func (spd SpammingPreventionDecorator) AnteHandle(
-    ctx sdk.Context, 
-    tx sdk.Tx, 
-    simulate bool, 
+    ctx sdk.Context,
+    tx sdk.Tx,
+    simulate bool,
     next sdk.AnteHandler
 ) (newCtx sdk.Context, err error) {
     // Skip during re-check
     if ctx.IsReCheckTx() {
         return next(ctx, tx, simulate)
     }
-    
+
     // Validate during CheckTx
     if !simulate && ctx.IsCheckTx() {
         err := spd.CheckOracleSpamming(ctx, tx.GetMsgs())
@@ -140,7 +140,7 @@ func (spd SpammingPreventionDecorator) AnteHandle(
             return ctx, err
         }
     }
-    
+
     return next(ctx, tx, simulate)
 }
 ```
@@ -156,14 +156,14 @@ Oracle votes must be submitted in isolated transactions to prevent manipulation 
 type VoteAloneDecorator struct{}
 
 func (VoteAloneDecorator) AnteHandle(
-    ctx sdk.Context, 
-    tx sdk.Tx, 
-    simulate bool, 
+    ctx sdk.Context,
+    tx sdk.Tx,
+    simulate bool,
     next sdk.AnteHandler
 ) (newCtx sdk.Context, err error) {
     oracleVote := false
     otherMsg := false
-    
+
     // Check all messages in transaction
     for _, msg := range tx.GetMsgs() {
         switch msg.(type) {
@@ -175,15 +175,15 @@ func (VoteAloneDecorator) AnteHandle(
             otherMsg = true
         }
     }
-    
+
     // Reject if oracle vote is bundled with other messages
     if oracleVote && otherMsg {
         return ctx, sdkerrors.Wrap(
-            sdkerrors.ErrInvalidRequest, 
+            sdkerrors.ErrInvalidRequest,
             "oracle votes cannot be in the same tx as other messages"
         )
     }
-    
+
     return next(ctx, tx, simulate)
 }
 ```
@@ -212,7 +212,7 @@ func ParseExchangeRateTuples(tuplesStr string) (ExchangeRateTuples, error) {
     tupleStrs := strings.Split(tuplesStr, ",")
     tuples := make(ExchangeRateTuples, len(tupleStrs))
     duplicateCheckMap := make(map[string]bool)
-    
+
     for i, tupleStr := range tupleStrs {
         // Uses Cosmos SDK's built-in decimal validation
         decCoin, err := sdk.ParseDecCoin(tupleStr)
@@ -224,7 +224,7 @@ func ParseExchangeRateTuples(tuplesStr string) (ExchangeRateTuples, error) {
         if _, ok := duplicateCheckMap[decCoin.Denom]; ok {
             return nil, fmt.Errorf("duplicated denom %s", decCoin.Denom)
         }
-        
+
         tuples[i] = ExchangeRateTuple{
             Denom:        decCoin.Denom,
             ExchangeRate: decCoin.Amount,
@@ -252,7 +252,7 @@ The Oracle tracks validator performance to ensure reliable price feeds through e
 ```go
 type VotePenaltyCounter struct {
     MissCount    uint64  // Validator didn't vote
-    AbstainCount uint64  // Validator abstained  
+    AbstainCount uint64  // Validator abstained
     SuccessCount uint64  // Successful votes
 }
 ```
@@ -265,9 +265,7 @@ Validators face penalties for poor oracle participation:
 2. **Abstain Penalty**: Applied for submitting empty votes
 3. **Slash Window**: Rolling window for penalty calculation
 
-<Callout type="warning">
-Validators with miss rates exceeding the threshold face slashing penalties. Monitor your oracle participation rate to avoid penalties.
-</Callout>
+<Callout type="warning">Validators with miss rates exceeding the threshold face slashing penalties. Monitor your oracle participation rate to avoid penalties.</Callout>
 
 ## Attack Vectors & Mitigations
 
@@ -276,6 +274,7 @@ Validators with miss rates exceeding the threshold face slashing penalties. Moni
 **Attack Vector**: Spamming multiple votes to manipulate the median price
 
 **Mitigation Strategy**:
+
 - One vote per validator per block enforced by spam counter
 - Height-based tracking with automatic reset
 - Mutex protection prevents race conditions
@@ -285,6 +284,7 @@ Validators with miss rates exceeding the threshold face slashing penalties. Moni
 **Attack Vector**: Bundling oracle votes with trading transactions for MEV extraction
 
 **Mitigation Strategy**:
+
 - Strict vote isolation requirement
 - Ante handler validation before mempool entry
 - Separate transaction validation pipeline
@@ -294,6 +294,7 @@ Validators with miss rates exceeding the threshold face slashing penalties. Moni
 **Attack Vector**: Submitting extreme prices to skew the weighted median
 
 **Mitigation Strategy**:
+
 - Weighted median calculation reduces impact of outliers
 - Exchange rate bounds validation
 - Cross-rate consistency checks
@@ -303,6 +304,7 @@ Validators with miss rates exceeding the threshold face slashing penalties. Moni
 **Attack Vector**: Exploiting vote timing to front-run price movements
 
 **Mitigation Strategy**:
+
 - Fixed voting windows per round
 - Aggregate vote mechanism with reveal phase
 - TWAP calculations for critical operations
@@ -318,14 +320,14 @@ oracle:
     - name: binance
       weight: 0.3
       timeout: 3s
-    - name: coinbase  
+    - name: coinbase
       weight: 0.3
       timeout: 3s
     - name: kraken
       weight: 0.4
       timeout: 3s
   aggregation: weighted_median
-  fallback_threshold: 2  # Minimum sources required
+  fallback_threshold: 2 # Minimum sources required
 ```
 
 ### Monitoring Implementation
@@ -334,14 +336,14 @@ oracle:
 // Monitor oracle participation health
 func MonitorOracleHealth(validator sdk.ValAddress) {
     counter := GetVotePenaltyCounter(validator)
-    
+
     totalVotes := counter.MissCount + counter.AbstainCount + counter.SuccessCount
     if totalVotes == 0 {
         return // No votes to analyze
     }
-    
+
     missRate := float64(counter.MissCount) / float64(totalVotes)
-    
+
     if missRate > 0.1 { // 10% miss rate threshold
         AlertHighMissRate(validator, missRate)
     }
@@ -362,13 +364,7 @@ msg := &types.MsgDelegateFeedConsent{
 
 ### Price Feed Best Practices
 
-<Callout type="info">
-Always implement multiple layers of price validation in your DeFi protocols:
-1. Use TWAP for liquidation calculations
-2. Implement staleness checks
-3. Handle missing prices gracefully
-4. Validate price ranges
-</Callout>
+<Callout type="info">Always implement multiple layers of price validation in your DeFi protocols: 1. Use TWAP for liquidation calculations 2. Implement staleness checks 3. Handle missing prices gracefully 4. Validate price ranges</Callout>
 
 ### Secure Integration Pattern
 
@@ -376,18 +372,18 @@ Always implement multiple layers of price validation in your DeFi protocols:
 contract SecureOracleConsumer {
     uint256 constant PRICE_STALENESS_THRESHOLD = 60; // seconds
     uint256 constant MIN_TWAP_PERIOD = 300; // 5 minutes
-    
+
     function getLiquidationPrice(address asset) external view returns (uint256) {
         // Use TWAP for liquidations
         uint256 twapPrice = oracle.getOracleTwaps(asset, MIN_TWAP_PERIOD);
-        
+
         // Check price staleness
         uint256 lastUpdate = oracle.getLastUpdateTime(asset);
         require(block.timestamp - lastUpdate < PRICE_STALENESS_THRESHOLD, "Stale price");
-        
+
         // Validate price range
         require(twapPrice > 0 && twapPrice < type(uint256).max / 2, "Invalid price");
-        
+
         return twapPrice;
     }
 }
@@ -411,29 +407,19 @@ alerts:
     warning_threshold: 80%
     critical_threshold: 60%
     check_interval: 5m
-    
+
   price_deviation:
     warning_threshold: 5%
     critical_threshold: 10%
     check_interval: 1m
-    
+
   update_lag:
     warning_blocks: 10
     critical_blocks: 20
     check_interval: 30s
 ```
 
-## Future Enhancements
-
-<Callout type="info">
-The Oracle security system continues to evolve. Potential enhancements being considered include:
-- **Cross-chain price verification** using IBC
-- **Zero-knowledge proofs** for price source privacy
-- **Decentralized price aggregation** protocols
-- **Machine learning** for anomaly detection
-</Callout>
-
 ## Related Resources
 
 - [Oracle System Overview](/learn/oracles)
-- [Oracle Precompile Guide](/evm/precompiles/oracle) 
+- [Oracle Precompile Guide](/evm/precompiles/oracle)

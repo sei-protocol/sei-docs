@@ -454,7 +454,7 @@ export default function App() {
           evmNetworks: (networks) => [
             ...networks,
             {
-              blockExplorerUrls: ['https://seitrace.com'],
+              blockExplorerUrls: ['https://seiscan.io'],
               chainId: 1329,
               chainName: 'Sei Network',
               iconUrls: ['https://app.dynamic.xyz/assets/networks/sei.svg'],
@@ -469,7 +469,7 @@ export default function App() {
               vanityName: 'Sei Mainnet'
             },
             {
-              blockExplorerUrls: ['https://seitrace.com/?chain=testnet'],
+              blockExplorerUrls: ['https://testnet.seiscan.io'],
               chainId: 1328,
               chainName: 'Sei Testnet',
               iconUrls: ['https://app.dynamic.xyz/assets/networks/sei.svg'],
@@ -616,7 +616,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
           evmNetworks: (networks) => [
             ...networks,
             {
-              blockExplorerUrls: ['https://seitrace.com'],
+              blockExplorerUrls: ['https://seiscan.io'],
               chainId: 1329,
               chainName: 'Sei Network',
               iconUrls: ['https://app.dynamic.xyz/assets/networks/sei.svg'],
@@ -631,7 +631,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
               vanityName: 'Sei Mainnet'
             },
             {
-              blockExplorerUrls: ['https://seitrace.com/?chain=testnet'],
+              blockExplorerUrls: ['https://testnet.seiscan.io'],
               chainId: 1328,
               chainName: 'Sei Testnet',
               iconUrls: ['https://app.dynamic.xyz/assets/networks/sei.svg'],
@@ -688,6 +688,338 @@ export default function Home() {
 ```bash copy
 npm run dev
 ```
+
+</details>
+
+<details>
+  <summary>
+    <strong>HTML Bundle Integration</strong>
+  </summary>
+  For projects using plain HTML/JavaScript without a build system, you can create a bundled version of Sei Global Wallet to include directly in your HTML pages.
+
+**Create Bundle Directory**
+
+```bash copy
+mkdir sei-global-wallet-bundle
+cd sei-global-wallet-bundle
+```
+
+**Initialize npm Project**
+
+```bash copy
+npm init -y
+```
+
+**Install Dependencies**
+
+```bash copy
+npm install @sei-js/sei-global-wallet
+```
+
+```bash copy
+npm install --save-dev esbuild
+```
+
+**Create Bundle Source File**
+Create bundle.js:
+
+```js copy
+// bundle.js
+import '@sei-js/sei-global-wallet/eip6963';
+```
+
+**Update package.json**
+Add this build script to your package.json:
+
+```json copy
+{
+  "scripts": {
+    "build": "esbuild bundle.js --bundle --format=iife --outfile=sei-wallet-bundled.js"
+  }
+}
+```
+
+**Build the Bundle**
+
+```bash copy
+npm run build
+```
+
+This creates sei-wallet-bundled.js
+
+**Use in Your HTML Project**
+
+Copy sei-wallet-bundled.js to your web project and use it:
+
+```html copy
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sei Global Wallet HTML Integration</title>
+  </head>
+  <body>
+    <h1>Sei Global Wallet HTML Integration</h1>
+    <p>Connect your Sei Global Wallet using plain HTML and JavaScript.</p>
+
+    <button onclick="scanForWallets()" id="scanBtn">🔍 Scan for Wallets</button>
+    <button onclick="connectToSei()" id="connectBtn" disabled>🔗 Connect to Sei</button>
+
+    <div id="walletList"></div>
+    <div id="accountInfo"></div>
+
+    <!-- Load the bundled Sei wallet file -->
+    <script src="./sei-wallet-bundled.js"></script>
+
+    <script>
+      let detectedWallets = [];
+
+      function scanForWallets() {
+        console.log('Scanning for EIP-6963 wallets...');
+        detectedWallets = [];
+
+        document.getElementById('walletList').innerHTML = '<p>Scanning for wallets...</p>';
+
+        const handleWalletAnnouncement = (event) => {
+          const wallet = event.detail;
+          if (!detectedWallets.find((w) => w.info.uuid === wallet.info.uuid)) {
+            detectedWallets.push(wallet);
+            updateWalletList();
+          }
+        };
+
+        window.addEventListener('eip6963:announceProvider', handleWalletAnnouncement);
+        window.dispatchEvent(new Event('eip6963:requestProvider'));
+
+        setTimeout(() => {
+          window.removeEventListener('eip6963:announceProvider', handleWalletAnnouncement);
+          if (detectedWallets.length === 0) {
+            document.getElementById('walletList').innerHTML = '<p>No wallets detected</p>';
+          }
+        }, 2000);
+      }
+
+      function updateWalletList() {
+        const walletListDiv = document.getElementById('walletList');
+        walletListDiv.innerHTML =
+          `<h3>Detected Wallets:</h3>` +
+          detectedWallets
+            .map((wallet) => {
+              const isSeiWallet = wallet.info.name.toLowerCase().includes('sei');
+              return `<div>
+                        <strong>${wallet.info.name}</strong> ${isSeiWallet ? '🎯' : ''}
+                        <br><small>${wallet.info.rdns}</small>
+                    </div>`;
+            })
+            .join('');
+
+        const seiWallet = detectedWallets.find((w) => w.info.name.toLowerCase().includes('sei'));
+        if (seiWallet) {
+          document.getElementById('connectBtn').disabled = false;
+        }
+      }
+
+      async function connectToSei() {
+        const seiWallet = detectedWallets.find((w) => w.info.name.toLowerCase().includes('sei'));
+
+        if (!seiWallet) {
+          console.error('No Sei wallet found');
+          return;
+        }
+
+        try {
+          const accounts = await seiWallet.provider.request({
+            method: 'eth_requestAccounts'
+          });
+
+          if (accounts && accounts.length > 0) {
+            document.getElementById('accountInfo').innerHTML = `
+                        <div>
+                            <h3>👤 Connected Account</h3>
+                            <p><strong>Wallet:</strong> ${seiWallet.info.name}</p>
+                            <p><strong>Address:</strong> ${accounts[0]}</p>
+                            <p><strong>Status:</strong> ✅ Connected successfully!</p>
+                        </div>`;
+          }
+        } catch (error) {
+          alert(`Connection failed: ${error.message}`);
+        }
+      }
+
+      window.addEventListener('load', () => {
+        setTimeout(scanForWallets, 500);
+      });
+    </script>
+  </body>
+</html>
+```
+
+</details>
+
+<details>
+  <summary><strong>Web3Auth Integration</strong></summary>
+
+**Create a new Vite app:**
+
+```bash
+npm create vite@latest my-sei-dapp -- --template react-ts
+cd my-sei-dapp
+```
+
+**Install Dependencies:**
+
+```bash copy
+npm install @web3auth/modal @web3auth/modal/react \
+  wagmi viem @tanstack/react-query \
+  @sei-js/sei-global-wallet
+```
+
+**Create Web3Auth Context (src/web3authContext.ts):**
+
+```ts copy
+import '@sei-js/sei-global-wallet/eip6963';
+import { WEB3AUTH_NETWORK } from '@web3auth/modal';
+import { type Web3AuthContextConfig } from '@web3auth/modal/react';
+
+const clientId = 'YOUR_CLIENT_ID'; // get from https://dashboard.web3auth.io
+
+const web3AuthContextConfig: Web3AuthContextConfig = {
+  web3AuthOptions: {
+    clientId,
+    web3AuthNetwork: WEB3AUTH_NETWORK.SAPPHIRE_DEVNET
+  }
+};
+
+export default web3AuthContextConfig;
+```
+
+**Update App.tsx:**
+
+```tsx copy
+import './App.css';
+import '@sei-js/sei-global-wallet/eip6963';
+import { useWeb3AuthConnect, useWeb3AuthUser } from '@web3auth/modal/react';
+import { useWeb3AuthDisconnect } from '@web3auth/modal/react';
+import { useAccount } from 'wagmi';
+
+function App() {
+  const { connect, isConnected, connectorName } = useWeb3AuthConnect();
+
+  const { loading: connectLoading, error: connectError } = useWeb3AuthConnect();
+
+  const { disconnect, loading: disconnectLoading } = useWeb3AuthDisconnect();
+
+  const { error: disconnectError } = useWeb3AuthDisconnect();
+
+  const { userInfo } = useWeb3AuthUser();
+  const { address } = useAccount();
+
+  function uiConsole(...args: any[]): void {
+    const el = document.querySelector('#console>p');
+    if (el) {
+      el.innerHTML = JSON.stringify(args || {}, null, 2);
+      console.log(...args);
+    }
+  }
+  const loggedInView = (
+    <div className="grid">
+      <h2>Connected to {connectorName}</h2>
+      <div className="account-info">
+        <p>
+          <strong>Address:</strong> {address}
+        </p>
+      </div>
+
+      <div className="flex-container">
+        <button onClick={() => uiConsole(userInfo)} className="card">
+          Get User Info
+        </button>
+
+        <button onClick={() => disconnect()} className="card">
+          Log Out
+        </button>
+      </div>
+
+      {disconnectLoading && <div className="loading">Disconnecting...</div>}
+      {disconnectError && <div className="error">{disconnectError.message}</div>}
+    </div>
+  );
+
+  const unloggedInView = (
+    <div className="grid">
+      <button onClick={() => connect()} className="card">
+        Connect with Web3Auth
+      </button>
+      {connectLoading && <div className="loading">Connecting...</div>}
+      {connectError && <div className="error">{connectError.message}</div>}
+    </div>
+  );
+
+  return (
+    <div className="container">
+      <h1 className="title">
+        <a target="_blank" href="https://web3auth.io/docs/sdk/pnp/web/modal" rel="noreferrer">
+          Web3Auth
+        </a>{' '}
+        + Sei Global Wallet Integration
+      </h1>
+
+      {isConnected ? loggedInView : unloggedInView}
+
+      <div id="console" style={{ whiteSpace: 'pre-line' }}>
+        <p style={{ whiteSpace: 'pre-line' }}></p>
+      </div>
+    </div>
+  );
+}
+
+export default App;
+```
+
+**Setup your main.tsx with Web3Auth Provider:**
+
+```tsx copy
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import { Web3AuthProvider } from '@web3auth/modal/react';
+import { WagmiProvider } from 'wagmi';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { createConfig, http } from 'wagmi';
+import { sei, seiTestnet } from 'wagmi/chains';
+import web3AuthContextConfig from './web3authContext';
+import App from './App';
+
+const queryClient = new QueryClient();
+
+const wagmiConfig = createConfig({
+  chains: [sei, seiTestnet],
+  transports: {
+    [sei.id]: http('https://evm-rpc.sei-apis.com'),
+    [seiTestnet.id]: http('https://evm-rpc-testnet.sei-apis.com')
+  }
+});
+
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <Web3AuthProvider config={web3AuthContextConfig}>
+      <WagmiProvider config={wagmiConfig}>
+        <QueryClientProvider client={queryClient}>
+          <App />
+        </QueryClientProvider>
+      </WagmiProvider>
+    </Web3AuthProvider>
+  </StrictMode>
+);
+```
+
+**Run Your App:**
+
+```bash copy
+npm run dev
+```
+
+**Note:** Replace the `clientId` in `web3authContext.ts` with your actual Web3Auth client ID from your [Web3Auth Dashboard](https://dashboard.web3auth.io).
 
 </details>
 

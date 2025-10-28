@@ -1,14 +1,13 @@
 'use client';
 
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useCallback } from 'react';
 import { Button, Flex, Select } from '@radix-ui/themes';
 import { toast } from 'sonner';
-import { IconDroplet, IconShieldCheck, IconHourglass, IconCheck, IconLoader2, IconWorld } from '@tabler/icons-react';
-import { isAddress } from 'viem';
+import { IconDroplet, IconShieldCheck, IconHourglass, IconCheck, IconLoader2, IconExternalLink } from '@tabler/icons-react';
+import { isAddress } from 'viem/utils';
 import HCaptcha from '@hcaptcha/react-hcaptcha';
-import { sendGAEvent } from '@next/third-parties/google';
-
-const VITE_FAUCET_API_URL = 'https://faucet-v3.seinetwork.io';
+import { VITE_FAUCET_API_URL } from './constants';
+import usePollMessageStatus from './usePollMessageStatus';
 
 const RequestFaucetCard = () => {
 	const [sendingRequest, setSendingRequest] = useState(false);
@@ -19,39 +18,34 @@ const RequestFaucetCard = () => {
 	const [txHash, setTxHash] = useState<string | null>(null);
 
 	const captchaRef = useRef<HCaptcha>(null);
+	const { isPolling, pollingMessage, startPolling, stopPolling } = usePollMessageStatus();
 
 	const isValidAddress = isAddress(destAddress);
 
-	const resetCaptcha = () => {
+	const resetForm = useCallback(() => {
+		setNextUseTime(null);
+		setTxHash(null);
+		stopPolling();
+	}, [stopPolling]);
+
+	const resetCaptcha = useCallback(() => {
 		captchaRef.current?.resetCaptcha();
 		setCaptchaToken(null);
-	};
+	}, []);
 
-	const handleCaptchaVerification = () => {
+	const handleAddressChange = useCallback(
+		(e: React.ChangeEvent<HTMLInputElement>) => {
+			setDestAddress(e.target.value);
+			resetForm();
+		},
+		[resetForm]
+	);
+
+	const handleCaptchaVerification = useCallback(() => {
 		captchaRef.current?.execute();
-	};
+	}, []);
 
-	const handleAddressChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-		setDestAddress(e.target.value);
-		setNextUseTime(null);
-		setTxHash(null); // Reset TX hash on new input
-	};
-
-	const fetchTransactionHash = async (messageId: string) => {
-		try {
-			const response = await fetch(`${VITE_FAUCET_API_URL}/message/${messageId}`);
-			if (!response.ok) throw new Error('Failed to fetch transaction hash');
-
-			const responseJson = await response.json();
-			if (responseJson.status === 'success' && responseJson.data?.txHash) {
-				setTxHash(responseJson.data.txHash);
-			}
-		} catch (error) {
-			console.error('Error fetching transaction hash:', error);
-		}
-	};
-
-	const handleSubmit = async () => {
+	const handleSubmit = useCallback(async () => {
 		if (!captchaToken) {
 			toast.warning('Please complete the captcha verification.');
 			return;
@@ -75,10 +69,12 @@ const RequestFaucetCard = () => {
 			const responseJson = await response.json();
 			if (responseJson.status === 'success') {
 				const messageId = responseJson.data.messageId;
-				console.log('response', responseJson);
 				toast.success('Tokens requested successfully!');
-				await fetchTransactionHash(messageId);
-				sendGAEvent('event', 'faucetUsed', { address: destAddress });
+				startPolling(messageId, setTxHash);
+				if (typeof window !== 'undefined') {
+					const g = (window as any).gtag as undefined | ((...args: any[]) => void);
+					if (typeof g === 'function') g('event', 'faucetUsed', { address: destAddress });
+				}
 			} else if (responseJson.data?.nextAllowedUseDate) {
 				setNextUseTime(responseJson.data.nextAllowedUseDate);
 				toast.error(`Rate limited. Try again after ${responseJson.data.nextAllowedUseDate}`);
@@ -91,7 +87,9 @@ const RequestFaucetCard = () => {
 		} finally {
 			setSendingRequest(false);
 		}
-	};
+	}, [captchaToken, isValidAddress, selectedChain, destAddress, startPolling, resetCaptcha]);
+
+	const isSubmitDisabled = !!nextUseTime || !isValidAddress || !captchaToken || isPolling;
 
 	return (
 		<div className='w-full text-neutral-900 dark:text-neutral-100 flex flex-col items-center gap-6'>
@@ -117,7 +115,7 @@ const RequestFaucetCard = () => {
 					onChange={handleAddressChange}
 				/>
 				<Select.Root value={selectedChain} onValueChange={setSelectedChain}>
-					<Select.Trigger className='bg-neutral-200 dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 px-4 py-2 text-lg rounded-md cursor-pointer focus:ring-2 focus:ring-neutral-400 dark:focus:ring-neutral-500'>
+					<Select.Trigger className='bg-neutral-200 dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 px-4 py-2 text-lg rounded-md cursor-pointer focus:ring-2 focus:ring-neutral-400 dark:focus-within:ring-neutral-500'>
 						{selectedChain === 'atlantic-2' ? 'Testnet' : 'Devnet'}
 					</Select.Trigger>
 					<Select.Content className='bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 text-lg rounded-md shadow-lg'>
@@ -127,7 +125,7 @@ const RequestFaucetCard = () => {
 			</div>
 
 			{nextUseTime && (
-				<div className='flex items-center gap-3 p-4 border-l-4 border-red-500 bg-red-100 text-red-800 rounded w-full'>
+				<div className='flex items-center gap-3 p-4 border-l-4 border-red-500 bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-200 rounded w-full'>
 					<IconHourglass className='w-6 h-6' />
 					<p className='text-lg font-medium'>You can request SEI testnet tokens again after {nextUseTime}.</p>
 				</div>
@@ -147,24 +145,39 @@ const RequestFaucetCard = () => {
 
 				<Button
 					className={`w-full flex items-center gap-3 justify-center !p-6 !rounded-2xl ${
-						!!nextUseTime || !isValidAddress || !captchaToken
+						isSubmitDisabled
 							? 'bg-neutral-500 cursor-not-allowed'
 							: 'bg-neutral-800 hover:bg-neutral-900 dark:bg-neutral-300 dark:hover:bg-neutral-400 text-white dark:text-black'
 					}`}
-					disabled={!!nextUseTime || !isValidAddress || !captchaToken}
+					disabled={isSubmitDisabled}
 					loading={sendingRequest}
 					onClick={handleSubmit}>
 					{sendingRequest ? <IconLoader2 className='w-8 h-8 animate-spin' /> : <IconCheck className='w-8 h-8' />}
-					Request SEI
+					{isPolling ? 'Processing...' : 'Request SEI'}
 				</Button>
 
-				{txHash && (
-					<Button asChild variant='ghost' className='flex items-center gap-2 w-full !p-6 !rounded-2xl'>
-						<a href={`https://www.seistream.app/transactions/${txHash}?chain=${selectedChain}`} target='_blank' rel='noopener noreferrer'>
-							<IconWorld className='w-6 h-6' />
-							View Transaction on SeiStream
-						</a>
-					</Button>
+				{(isPolling || txHash) && (
+					<div
+						className={`flex items-center gap-3 p-4 border-l-4 rounded w-full ${
+							isPolling
+								? 'border-blue-500 bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200'
+								: 'border-green-500 bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200'
+						}`}>
+						{isPolling ? <IconLoader2 className='w-6 h-6 animate-spin' /> : <IconCheck className='w-6 h-6' />}
+						<div className='flex-1'>
+							{isPolling ? (
+								<p className='text-lg font-medium'>{pollingMessage}</p>
+							) : (
+								<div className='flex flex-row gap-2 text-lg font-medium'>
+									<p>Transaction confirmed!</p>
+									<a href={`https://testnet.seiscan.io/tx/${txHash}`} target='_blank' rel='noopener noreferrer' className='flex items-center gap-2'>
+										View on Explorer
+										<IconExternalLink className='w-4 h-4' />
+									</a>
+								</div>
+							)}
+						</div>
+					</div>
 				)}
 			</Flex>
 		</div>

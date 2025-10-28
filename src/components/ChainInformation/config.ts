@@ -10,7 +10,7 @@ export const SEI_MAINNET_CHAIN_PARAMS = {
 		symbol: 'SEI',
 		decimals: 18
 	},
-	blockExplorerUrls: ['https://seitrace.com']
+	blockExplorerUrls: ['https://seiscan.io']
 };
 
 // Testnet (atlantic-2)
@@ -23,7 +23,7 @@ export const SEI_TESTNET_CHAIN_PARAMS = {
 		symbol: 'SEI',
 		decimals: 18
 	},
-	blockExplorerUrls: ['https://seitrace.com/?chain=atlantic-2']
+	blockExplorerUrls: ['https://testnet.seiscan.io']
 };
 
 export const networks: NetworkEntry[] = [
@@ -34,7 +34,8 @@ export const networks: NetworkEntry[] = [
 		hexChainId: '0x531',
 		rpcUrl: 'https://evm-rpc.sei-apis.com',
 		explorerLinks: [
-			{ name: 'SeiTrace', url: 'https://seitrace.com/?chain=pacific-1' },
+			{ name: 'Seiscan', url: 'https://seiscan.io' },
+			{ name: 'SeiTrace', url: 'https://seitrace.com' },
 			{ name: 'SeiStream', url: 'https://seistream.app' }
 		],
 		chainParams: SEI_MAINNET_CHAIN_PARAMS
@@ -46,7 +47,8 @@ export const networks: NetworkEntry[] = [
 		hexChainId: '0x530',
 		rpcUrl: 'https://evm-rpc-testnet.sei-apis.com',
 		explorerLinks: [
-			{ name: 'SeiTrace', url: 'https://seitrace.com/?chain=atlantic-2' },
+			{ name: 'Seiscan', url: 'https://testnet.seiscan.io' },
+			{ name: 'SeiTrace', url: 'https://testnet.seitrace.com' },
 			{ name: 'SeiStream', url: 'https://testnet.seistream.app' }
 		],
 		chainParams: SEI_TESTNET_CHAIN_PARAMS
@@ -56,31 +58,31 @@ export const networks: NetworkEntry[] = [
 		name: 'Mainnet',
 		chainId: 'pacific-1',
 		rpcUrl: 'https://rpc.sei-apis.com',
-		explorerLinks: [{ name: 'SeiTrace', url: 'https://seitrace.com/?chain=pacific-1' }]
+		explorerLinks: [{ name: 'SeiTrace', url: 'https://seitrace.com' }]
 	},
 	{
 		type: 'Cosmos',
 		name: 'Testnet',
 		chainId: 'atlantic-2',
 		rpcUrl: 'https://rpc-testnet.sei-apis.com',
-		explorerLinks: [{ name: 'SeiTrace', url: 'https://seitrace.com/?chain=atlantic-2' }]
+		explorerLinks: [{ name: 'SeiTrace', url: 'https://testnet.seitrace.com' }]
 	}
 ];
 
 export async function addOrSwitchSeiNetwork(chain_params: any) {
-	if (!window.ethereum) {
+	if (typeof window === 'undefined' || !(window as any).ethereum) {
 		throw new Error('MetaMask is not installed');
 	}
 	try {
 		// Try switching to Sei
-		await window.ethereum.request({
+		await (window as any).ethereum.request({
 			method: 'wallet_switchEthereumChain',
 			params: [{ chainId: chain_params.chainId }]
 		});
 	} catch (switchError: any) {
 		// This error code indicates the chain has not been added to MetaMask
 		if (switchError.code === 4902) {
-			await window.ethereum.request({
+			await (window as any).ethereum.request({
 				method: 'wallet_addEthereumChain',
 				params: [chain_params]
 			});

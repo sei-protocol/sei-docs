@@ -60,12 +60,6 @@ export default {
 	'dev-interoperability': 'EVM ↔ CosmWasm',
 	pointers: 'Pointer Contracts',
 
-	'-- Developer Resources': {
-		type: 'separator',
-		title: 'Developer Resources'
-	},
-	'mcp-server': 'MCP Server',
-
 	'-- Resources': {
 		type: 'separator',
 		title: 'Resources'

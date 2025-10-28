@@ -18,14 +18,14 @@ export type EvmChainConfigs = {
 // Cosmos configs
 export const CHAIN_CONFIGS: ChainConfigs = {
 	'pacific-1': {
-		restUrl: 'https://rest.pacific-1.sei.io',
-		rpcUrl: 'https://rpc.pacific-1.sei.io/',
+		restUrl: 'https://rest.sei-apis.com/',
+		rpcUrl: 'https://rpc.sei-apis.com',
 		explorerUrl: 'https://seitrace.com'
 	},
 	'atlantic-2': {
 		restUrl: 'https://rest-testnet.sei-apis.com',
 		rpcUrl: 'https://rpc-testnet.sei-apis.com/',
-		explorerUrl: 'https://seitrace.com'
+		explorerUrl: 'https://testnet.seitrace.com'
 	}
 };
 
