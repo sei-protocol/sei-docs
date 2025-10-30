@@ -102,7 +102,11 @@ export default withNextra({
 				destination: '/cosmos-sdk',
 				permanent: true
 			},
-			// EVM category landing fallbacks
+			{
+				source: '/cosmos-sdk/api/:path*',
+				destination: '/cosmos-sdk',
+				permanent: true
+			},
 			{
 				source: '/evm/bridging',
 				destination: '/evm/bridging/layerzero',
@@ -128,15 +132,9 @@ export default withNextra({
 				destination: '/evm/ai-tooling/cambrian-agent-kit',
 				permanent: true
 			},
-			// Specific EVM subpaths mentioned
 			{
 				source: '/evm/agent-kits/cambrian-agent-kit',
 				destination: '/evm/ai-tooling/cambrian-agent-kit',
-				permanent: true
-			},
-			{
-				source: '/evm/precompiles/p256',
-				destination: '/evm/precompiles/P256',
 				permanent: true
 			},
 			{
@@ -267,7 +265,6 @@ export default withNextra({
 				destination: '/node/troubleshooting',
 				permanent: true
 			},
-			// Specific strays
 			{
 				source: '/.sei/:path*',
 				destination: '/node/troubleshooting',
@@ -328,12 +325,6 @@ export default withNextra({
 				destination: '/evm/optimizing-for-parallelization',
 				permanent: true
 			},
-			{
-				source: '/learn/general-submit-feedback',
-				destination: '/learn/general-submit-feedback',
-				permanent: true
-			},
-			// Additional specific redirects from report
 			{
 				source: '/build-on-sei/evm',
 				destination: '/evm/evm-general',
