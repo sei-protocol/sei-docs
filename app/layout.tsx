@@ -14,6 +14,7 @@ import 'katex/dist/katex.min.css';
 import '../src/vendor/bytebellai/style.css';
 
 export const metadata: Metadata = {
+	metadataBase: new URL('https://docs.sei.io'),
 	title: {
 		default: 'Sei Documentation | Developer Guides & Resources',
 		template: '%s | Sei Docs'
@@ -73,7 +74,6 @@ export default async function RootLayout({ children }) {
 		<html lang='en' dir='ltr' suppressHydrationWarning style={{ width: '100%', height: '100%' }}>
 			<head>
 				<meta name='color-scheme' content='dark light' />
-				<link rel='canonical' href='https://docs.sei.io' />
 				{/* Performance: avoid early preconnects to heavy third-parties */}
 				<script
 					type='application/ld+json'
