@@ -244,7 +244,7 @@ export default withNextra({
 			},
 			{
 				source: '/advanced/native-oracle',
-				destination: '/reference/precompiles/oracle',
+				destination: '/evm/precompiles/oracle',
 				permanent: true
 			},
 			{
@@ -273,7 +273,6 @@ export default withNextra({
 				destination: '/learn/general-overview',
 				permanent: true
 			},
-			// Swagger
 			{
 				source: '/swagger/:path*',
 				destination: '/node/swagger',
@@ -407,17 +406,17 @@ export default withNextra({
 			},
 			{
 				source: '/subgraphs/:path*',
-				destination: '/providers/indexers/the-graph',
+				destination: '/evm/indexer-providers/the-graph',
 				permanent: true
 			},
 			{
 				source: '/whitepaper/:path*',
-				destination: '/learn/general-overview',
+				destination: '/learn',
 				permanent: true
 			},
 			{
 				source: '/general-overview',
-				destination: '/learn/general-overview',
+				destination: '/learn',
 				permanent: true
 			},
 			{
@@ -482,7 +481,7 @@ export default withNextra({
 			},
 			{
 				source: '/user-guides/wrapped-sei',
-				destination: '/learn/wrapped-sei',
+				destination: '/evm/tokens',
 				permanent: true
 			},
 			{
@@ -897,7 +896,7 @@ export default withNextra({
 			},
 			{
 				source: '/learn/about-sei',
-				destination: '/learn/general-overview',
+				destination: '/learn',
 				permanent: true
 			},
 			{
@@ -978,6 +977,76 @@ export default withNextra({
 			{
 				source: '/learn/user-FAQ',
 				destination: '/learn/user-quickstart',
+				permanent: true
+			},
+			{
+				source: '/dev-advanced-concepts-actions-and-blinks',
+				destination: '/evm/ai-tooling/mcp-server',
+				permanent: true
+			},
+			{
+				source: '/evm/cosmwasm-precompiles/:slug*',
+				destination: '/evm/precompiles/cosmwasm-precompiles/:slug*',
+				permanent: true
+			},
+			{
+				source: '/cosmos-sdk/querying-state',
+				destination: '/evm/querying-the-evm',
+				permanent: true
+			},
+			{
+				source: '/sei-backup-:rest*',
+				destination: '/node/troubleshooting',
+				permanent: true
+			},
+			{
+				source: '/evm/ibc-protocol',
+				destination: '/evm/bridging/layerzero',
+				permanent: true
+			},
+			{
+				source: '/evm/best-practices',
+				destination: '/evm/optimizing-for-parallelization',
+				permanent: true
+			},
+			{
+				source: '/evm/ai-tooling/src/:rest*',
+				destination: '/evm/ai-tooling/mcp-server',
+				permanent: true
+			},
+			{
+				source: '/evm/components/:rest*',
+				destination: '/evm/building-a-frontend',
+				permanent: true
+			},
+			{
+				source: '/evm/wagmi',
+				destination: '/evm/wallet-integrations/thirdweb',
+				permanent: true
+			},
+			{
+				source: '/evm/web3authContext',
+				destination: '/evm/wallet-integrations/thirdweb',
+				permanent: true
+			},
+			{
+				source: '/evm/App',
+				destination: '/evm/building-a-frontend',
+				permanent: true
+			},
+			{
+				source: '/tools/:path*',
+				destination: '/learn/pointers',
+				permanent: true
+			},
+			{
+				source: '/learn/wrapped-sei@next.config.mjs',
+				destination: '/evm/tokens',
+				permanent: true
+			},
+			{
+				source: '/cosmos-sdk/fee-grants',
+				destination: '/cosmos-sdk',
 				permanent: true
 			}
 		];
