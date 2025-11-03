@@ -83,6 +83,11 @@ export default withNextra({
 	async redirects() {
 		return [
 			{
+				source: '/:module(cosmos|cosmwasm)/api/:path*',
+				destination: '/reference/api/:module/:path*',
+				permanent: true
+			},
+			{
 				source: '/cosmos/:path*',
 				destination: '/cosmos-sdk',
 				permanent: true
@@ -200,6 +205,56 @@ export default withNextra({
 			{
 				source: '/evm/test',
 				destination: '/evm/debugging-contracts',
+				permanent: true
+			},
+			{
+				source: '/develop/get-started/local-dependencies',
+				destination: '/build/installing-seid',
+				permanent: true
+			},
+			{
+				source: '/develop/media-package',
+				destination: '/learn/general-brand-kit',
+				permanent: true
+			},
+			{
+				source: '/develop/resources',
+				destination: '/learn/pointers',
+				permanent: true
+			},
+			{
+				source: '/develop/get-started/spot-exchange-tutorial',
+				destination: '/evm/ecosystem-tutorials',
+				permanent: true
+			},
+			{
+				source: '/full-node/run-a-sei-validator/validator-faq',
+				destination: '/node/validators',
+				permanent: true
+			},
+			{
+				source: '/advanced/parallelism',
+				destination: '/learn/general-overview',
+				permanent: true
+			},
+			{
+				source: '/advanced/governance',
+				destination: '/learn/general-governance',
+				permanent: true
+			},
+			{
+				source: '/advanced/native-oracle',
+				destination: '/reference/precompiles/oracle',
+				permanent: true
+			},
+			{
+				source: '/advanced/ibc-transfers',
+				destination: '/learn/ibc-relayer',
+				permanent: true
+			},
+			{
+				source: '/advanced/javascript-reference@next.config.mjs',
+				destination: '/learn/general-overview',
 				permanent: true
 			},
 			// Legacy develop/advanced/full-node paths
@@ -377,7 +432,7 @@ export default withNextra({
 			},
 			{
 				source: '/general-submit-feedback',
-				destination: '/learn/general-submit-feedback',
+				destination: '/learn',
 				permanent: true
 			},
 			{
@@ -412,7 +467,7 @@ export default withNextra({
 			},
 			{
 				source: '/user-guides/bridging',
-				destination: '/learn/bridging',
+				destination: '/evm/bridging',
 				permanent: true
 			},
 			{
@@ -437,7 +492,7 @@ export default withNextra({
 			},
 			{
 				source: '/user-FAQ',
-				destination: '/learn/user-FAQ',
+				destination: '/learn/user-quickstart',
 				permanent: true
 			},
 			{
@@ -691,13 +746,13 @@ export default withNextra({
 				permanent: true
 			},
 			{
-				source: '/seid/:slug*',
-				destination: '/reference/seid/:slug*',
+				source: '/seid',
+				destination: '/reference/seid',
 				permanent: true
 			},
 			{
-				source: '/seid',
-				destination: '/reference/seid',
+				source: '/seid/:slug*',
+				destination: '/reference/seid/:slug*',
 				permanent: true
 			},
 			{
@@ -841,16 +896,6 @@ export default withNextra({
 				permanent: true
 			},
 			{
-				source: '/advanced/parallelism',
-				destination: '/learn/general-overview',
-				permanent: true
-			},
-			{
-				source: '/advanced/governance',
-				destination: '/learn/general-governance',
-				permanent: true
-			},
-			{
 				source: '/learn/about-sei',
 				destination: '/learn/general-overview',
 				permanent: true
@@ -868,6 +913,71 @@ export default withNextra({
 			{
 				source: '/learn/mcp-server',
 				destination: '/evm/ai-tooling/mcp-server',
+				permanent: true
+			},
+			{
+				source: '/evm/precompiles/cosmwasm-precompiles',
+				destination: '/evm/precompiles/cosmwasm-precompiles/example-usage',
+				permanent: true
+			},
+			{
+				source: '/cosmos.crypto.secp256k1.PubKey',
+				destination: '/reference/api',
+				permanent: true
+			},
+			{
+				source: '/learn/general-submit-feedback',
+				destination: '/learn',
+				permanent: true
+			},
+			{
+				source: '/.sei_backup',
+				destination: '/node/troubleshooting',
+				permanent: true
+			},
+			{
+				source: '/.sei_backup/:path*',
+				destination: '/node/troubleshooting',
+				permanent: true
+			},
+			{
+				source: '/node/priv_validator_state.json.tmp',
+				destination: '/node/troubleshooting',
+				permanent: true
+			},
+			{
+				source: '/misc/:path*',
+				destination: '/node/troubleshooting',
+				permanent: true
+			},
+			{
+				source: '/cosmos-sdk/building-a-frontend',
+				destination: '/evm/building-a-frontend',
+				permanent: true
+			},
+			{
+				source: '/cosmos-sdk/cosm-wasm-general',
+				destination: '/cosmos-sdk',
+				permanent: true
+			},
+			{
+				source: '/cosmos-sdk/nft-contract-tutorial',
+				destination: '/evm/solidity-resources',
+				permanent: true
+			},
+			{
+				source: '/cosmos-sdk/tokenfactory-allowlist',
+				destination: '/learn/dev-token-standards',
+				permanent: true
+			},
+			{
+				source: '/evm/nft-contract-tutorial',
+				destination: '/evm/solidity-resources',
+				permanent: true
+			},
+			{
+				source: '/learn/user-FAQ',
+				destination: '/learn/user-quickstart',
 				permanent: true
 			}
 		];
