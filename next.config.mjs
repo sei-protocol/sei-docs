@@ -209,7 +209,7 @@ export default withNextra({
 			},
 			{
 				source: '/develop/get-started/local-dependencies',
-				destination: '/build/installing-seid',
+				destination: '/evm/installing-seid',
 				permanent: true
 			},
 			{
@@ -257,10 +257,9 @@ export default withNextra({
 				destination: '/learn/general-overview',
 				permanent: true
 			},
-			// Legacy develop/advanced/full-node paths
 			{
 				source: '/develop/:path*',
-				destination: '/build',
+				destination: '/evm',
 				permanent: true
 			},
 			{
@@ -400,11 +399,6 @@ export default withNextra({
 				permanent: true
 			},
 			{
-				source: '/evm/installing-seid',
-				destination: '/build/installing-seid',
-				permanent: true
-			},
-			{
 				source: '/subgraphs/:path*',
 				destination: '/evm/indexer-providers/the-graph',
 				permanent: true
@@ -496,7 +490,7 @@ export default withNextra({
 			},
 			{
 				source: '/dev-intro',
-				destination: '/build',
+				destination: '/evm',
 				permanent: true
 			},
 			{
@@ -506,7 +500,7 @@ export default withNextra({
 			},
 			{
 				source: '/dev-token-standards',
-				destination: '/build/dev-token-standards',
+				destination: '/learn/dev-token-standards',
 				permanent: true
 			},
 			{
@@ -521,12 +515,12 @@ export default withNextra({
 			},
 			{
 				source: '/dev-smart-contracts',
-				destination: '/build/dev-smart-contracts',
+				destination: '/evm/evm-general',
 				permanent: true
 			},
 			{
 				source: '/dev-querying-state',
-				destination: '/build/querying-state',
+				destination: '/evm/querying-the-evm',
 				permanent: true
 			},
 			{
@@ -601,17 +595,17 @@ export default withNextra({
 			},
 			{
 				source: '/dev-frontend-dapps',
-				destination: '/build/dev-frontend-dapps',
+				destination: '/evm/building-a-frontend',
 				permanent: true
 			},
 			{
 				source: '/dev-node/intro',
-				destination: '/node/intro',
+				destination: '/node',
 				permanent: true
 			},
 			{
 				source: '/dev-node/quickstart',
-				destination: '/node/quickstart',
+				destination: '/node/node-operators',
 				permanent: true
 			},
 			{
@@ -756,92 +750,92 @@ export default withNextra({
 			},
 			{
 				source: '/dev-tutorials/installing-seid',
-				destination: '/build/installing-seid',
+				destination: '/evm//installing-seid-cli',
 				permanent: true
 			},
 			{
 				source: '/dev-tutorials/building-a-frontend',
-				destination: '/build/building-a-frontend',
+				destination: '/evm/building-a-frontend',
 				permanent: true
 			},
 			{
 				source: '/dev-tutorials/cosmwasm-general',
-				destination: '/build/cosmwasm-general',
+				destination: '/cosmos-sdk',
 				permanent: true
 			},
 			{
 				source: '/dev-tutorials/evm-general',
-				destination: '/build/evm-general',
+				destination: '/evm/evm-general',
 				permanent: true
 			},
 			{
 				source: '/dev-tutorials/evm-cli-tutorial',
-				destination: '/build/evm-cli-tutorial',
+				destination: '/evm/installing-seid-cli',
 				permanent: true
 			},
 			{
 				source: '/dev-tutorials/tokenfactory-tutorial',
-				destination: '/cosmwasm/tokenfactory-tutorial',
+				destination: '/cosmos-sdk',
 				permanent: true
 			},
 			{
 				source: '/dev-tutorials/tokenfactory-allowlist',
-				destination: '/build/tokenfactory-allowlist',
+				destination: '/cosmos-sdk',
 				permanent: true
 			},
 			{
 				source: '/dev-tutorials/nft-contract-tutorial',
-				destination: '/build/nft-contract-tutorial',
+				destination: '/evm/evm-hardhat',
 				permanent: true
 			},
 			{
 				source: '/dev-tutorials/pointer-contracts',
-				destination: '/build/pointer-contracts',
+				destination: '/cosmos-sdk',
 				permanent: true
 			},
 			{
 				source: '/dev-tutorials/multi-sig-accounts',
-				destination: '/build/multi-sig-accounts',
+				destination: '/cosmos-sdk',
 				permanent: true
 			},
 			{
 				source: '/dev-tutorials/ibc-protocol',
-				destination: '/build/ibc-protocol',
+				destination: '/cosmos-sdk',
 				permanent: true
 			},
 			{
 				source: '/dev-tutorials/ledger-ethers',
-				destination: '/build/ledger-ethers',
+				destination: '/evm/ledger-ethers',
 				permanent: true
 			},
 			{
 				source: '/resources-resources',
-				destination: '/build/resources-resources',
+				destination: '/evm/solidity-resources',
 				permanent: true
 			},
 			{
 				source: '/resources-tools-and-resources',
-				destination: '/build/resources-tools-and-resources',
+				destination: '/evm/solidity-resources',
 				permanent: true
 			},
 			{
 				source: '/dev-ecosystem-providers/wallets',
-				destination: '/providers/wallets',
+				destination: '/learn/wallets',
 				permanent: true
 			},
 			{
 				source: '/dev-ecosystem-providers/explorers',
-				destination: '/providers/explorers',
+				destination: '/learn/explorers',
 				permanent: true
 			},
 			{
 				source: '/dev-ecosystem-providers/rpc-providers',
-				destination: '/providers/rpc-providers',
+				destination: '/learn/rpc-providers',
 				permanent: true
 			},
 			{
 				source: '/dev-ecosystem-providers/indexers/indexers',
-				destination: '/providers/indexers/indexers',
+				destination: '/learn/indexers',
 				permanent: true
 			},
 			{
@@ -981,7 +975,7 @@ export default withNextra({
 			},
 			{
 				source: '/dev-advanced-concepts-actions-and-blinks',
-				destination: '/evm/ai-tooling/mcp-server',
+				destination: '/evm/evm-general',
 				permanent: true
 			},
 			{
@@ -991,7 +985,7 @@ export default withNextra({
 			},
 			{
 				source: '/cosmos-sdk/querying-state',
-				destination: '/evm/querying-the-evm',
+				destination: '/cosmos-sdk',
 				permanent: true
 			},
 			{
@@ -1001,7 +995,7 @@ export default withNextra({
 			},
 			{
 				source: '/evm/ibc-protocol',
-				destination: '/evm/bridging/layerzero',
+				destination: '/cosmos-sdk',
 				permanent: true
 			},
 			{
@@ -1021,7 +1015,7 @@ export default withNextra({
 			},
 			{
 				source: '/evm/wagmi',
-				destination: '/evm/wallet-integrations/thirdweb',
+				destination: '/evm/building-a-frontend',
 				permanent: true
 			},
 			{
@@ -1036,7 +1030,7 @@ export default withNextra({
 			},
 			{
 				source: '/tools/:path*',
-				destination: '/learn/pointers',
+				destination: '/evm',
 				permanent: true
 			},
 			{
@@ -1046,6 +1040,21 @@ export default withNextra({
 			},
 			{
 				source: '/cosmos-sdk/fee-grants',
+				destination: '/cosmos-sdk',
+				permanent: true
+			},
+			{
+				source: '/.bashrc',
+				destination: '/',
+				permanent: true
+			},
+			{
+				source: '/cosmwasm.wasm.v1.MsgExecuteContract',
+				destination: '/cosmos-sdk',
+				permanent: true
+			},
+			{
+				source: '/cosmos.bank.v1beta1.MsgSend',
 				destination: '/cosmos-sdk',
 				permanent: true
 			}
