@@ -80,6 +80,7 @@ export default {
 	'indexer-providers': 'Indexers',
 	'wallet-integrations': 'Wallet Integrations',
 	bridging: 'Bridging',
+	oracles: 'Oracles',
 	'ai-tooling': 'AI Tooling',
 	'usdc-on-sei': 'USDC on Sei',
 	'-- Reference': {

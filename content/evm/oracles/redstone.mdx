@@ -1,0 +1,133 @@
+---
+title: 'RedStone'
+description: 'Complete guide to integrating RedStone oracles with Sei'
+---
+
+# RedStone
+
+RedStone is a modular oracle network that provides real-time data feeds to smart contracts through a unique approach called "data-on-demand". Instead of constantly pushing data to the blockchain, RedStone delivers signed data packages directly to smart contracts at the time of transaction execution. This architecture significantly reduces gas costs while maintaining high data freshness and reliability.
+
+## What You'll Be Doing in This Guide
+
+In this tutorial, you'll learn how to:
+
+1. Integrate RedStone's data feeds into your application on the SEI network
+2. Retrieve real-time SEI token price data using RedStone's SDK and data packages
+3. Understand RedStone's unique "data-on-demand" architecture
+4. Implement fetching and data verification
+
+By the end of this guide, you'll have a working demo that can fetch SEI price data from RedStone's oracle network using their data package system.
+
+## Prerequisites
+
+Before starting this tutorial, ensure you have:
+
+### Technical Requirements
+
+- **Solidity Knowledge**: Basic understanding of Solidity smart contract development
+- **JavaScript/Node.js**: For off-chain data fetching using RedStone SDK
+- **Development Environment**: Remix IDE, Hardhat, or similar Solidity development setup
+- **SEI Network Access**: RPC endpoint and mainnet access for SEI
+
+### Required Dependencies
+
+- RedStone SDK (`@redstone-finance/sdk`)
+- RedStone EVM Connector (`@redstone-finance/evm-connector`)
+
+### SEI Network Configuration
+
+Make sure your development environment is configured for SEI:
+
+- **Mainnet RPC**: `https://evm-rpc.sei-apis.com`
+- **Chain ID**: 1329 (mainnet)
+
+## RedStone Architecture Overview
+
+RedStone uses a unique "data-on-demand" model:
+
+1. **Data Providers**: Collect data from multiple sources and sign data packages
+2. **Data Packages**: Signed data structures containing price information and metadata
+3. **Gateway Network**: Distributes data packages to consumers
+4. **Smart Contracts**: Verify signatures and extract data on-chain
+
+## Steps to Fetch SEI Price Data
+
+Let's implement the JavaScript code to fetch SEI price data using RedStone's SDK:
+
+```javascript
+import { requestDataPackages, getSignersForDataServiceId } from '@redstone-finance/sdk';
+
+async function fetchSEIPrice() {
+  try {
+    // Fetch data packages from RedStone DDL based on provided configuration
+    const dataPackages = await requestDataPackages({
+      // For production environment, "redstone-primary-prod" is the standard service
+      dataServiceId: 'redstone-primary-prod',
+
+      // Array of tokens to fetch - we're requesting SEI price data
+      dataPackagesIds: ['SEI'],
+
+      // Ensure minimum number of signers for each token
+      // 'uniqueSignersCount' packages closest to median are returned
+      // Throws error if there are fewer signers available
+      uniqueSignersCount: 3,
+
+      // (Optional) Wait time for gateway responses in milliseconds
+      // Default: 500ms, here we set it to 1000ms for better reliability
+      waitForAllGatewaysTimeMs: 1000,
+
+      // (Optional) Filter out packages older than specified time
+      // Here we accept packages up to 60 seconds old
+      maxTimestampDeviationMS: 60 * 1000,
+
+      // (Optional) Accept packages only from authorized signers
+      // This provides additional security against man-in-the-middle attacks
+      authorizedSigners: getSignersForDataServiceId('redstone-primary-prod'),
+
+      // (Optional) Don't throw error for missing feeds
+      // Useful when requesting multiple tokens where some might be unavailable
+      ignoreMissingFeed: true
+    });
+
+    // Extract SEI price from the data package
+    const seiPrice = dataPackages['SEI'][0].dataPackage.dataPoints[0]?.numericDataPointArgs.value;
+
+    console.log('SEI price:', seiPrice);
+    console.log('Full data package:', dataPackages['SEI'][0]);
+
+    return {
+      price: seiPrice,
+      timestamp: dataPackages['SEI'][0].dataPackage.timestampMilliseconds,
+      dataPackage: dataPackages['SEI'][0]
+    };
+  } catch (error) {
+    console.error('Error fetching SEI price:', error);
+    throw error;
+  }
+}
+
+// Usage example
+fetchSEIPrice()
+  .then((result) => {
+    console.log(`SEI Price: $${result.price}`);
+    console.log(`Last Updated: ${new Date(result.timestamp)}`);
+  })
+  .catch((error) => {
+    console.error('Failed to fetch price:', error);
+  });
+```
+
+### Data Package Structure
+
+A RedStone data package contains:
+
+- **dataPoints**: Array of price data points
+- **timestampMilliseconds**: When the data was signed
+- **signature**: Cryptographic signature from the data provider
+- **dataPackageId**: Identifier for the specific data feed (e.g., "SEI")
+
+## Resources
+
+- [RedStone Documentation](https://docs.redstone.finance/)
+- [RedStone GitHub Repository](https://github.com/redstone-finance)
+- [SEI Network Documentation](https://docs.sei.io/)
