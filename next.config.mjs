@@ -51,6 +51,14 @@ export default withNextra({
 	async headers() {
 		return [
 			{
+				source: '/_next/static/css/(.*)',
+				headers: [
+					{ key: 'Cache-Control', value: 'public, max-age=3600, immutable' },
+					{ key: 'Vercel-CDN-Cache-Control', value: 'public, max-age=3600, immutable' },
+					{ key: 'X-Robots-Tag', value: 'noindex' }
+				]
+			},
+			{
 				source: '/_next/static/(.*)',
 				headers: [
 					{ key: 'Cache-Control', value: 'public, max-age=3600, immutable' },
@@ -84,7 +92,7 @@ export default withNextra({
 		return [
 			{
 				source: '/:module(cosmos|cosmwasm)/api/:path*',
-				destination: '/reference/api/:module/:path*',
+				destination: '/cosmos-sdk',
 				permanent: true
 			},
 			{
@@ -720,22 +728,22 @@ export default withNextra({
 			},
 			{
 				source: '/endpoints',
-				destination: '/reference/endpoints',
+				destination: '/evm',
 				permanent: true
 			},
 			{
 				source: '/endpoints/cosmos',
-				destination: '/reference/cosmos',
+				destination: '/cosmos-sdk',
 				permanent: true
 			},
 			{
 				source: '/endpoints/cosmos/api/:slug*',
-				destination: '/reference/api/:slug*',
+				destination: '/cosmos-sdk',
 				permanent: true
 			},
 			{
 				source: '/endpoints/evm',
-				destination: '/reference/evm',
+				destination: '/evm',
 				permanent: true
 			},
 			{
@@ -1056,6 +1064,11 @@ export default withNextra({
 			{
 				source: '/cosmos.bank.v1beta1.MsgSend',
 				destination: '/cosmos-sdk',
+				permanent: true
+			},
+			{
+				source: '/evm/precompiles/p256',
+				destination: '/evm/precompiles/P256',
 				permanent: true
 			}
 		];
