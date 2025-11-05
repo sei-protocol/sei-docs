@@ -39,13 +39,23 @@ export function EcosystemContractsTabs({ groupedData, nameKey, addressKey }: Eco
 				const name = String(contract[nameKey] || '').toLowerCase();
 				const address = String(contract[addressKey] || '').toLowerCase();
 				if (name.includes(q) || address.includes(q)) {
-					// open the matched section
 					setOpenSections((prev) => ({ ...prev, [group.projectName]: true }));
-					// attempt to scroll to the matched contract row/card
 					const id = `contract-${slugify(group.projectName)}-${address}`;
 					requestAnimationFrame(() => {
 						const el = document.getElementById(id);
-						if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+						if (!el) return;
+
+						// Center the element in the viewport for better visibility (works for both <tr> and card <div>)
+						const rect = el.getBoundingClientRect();
+						const currentScrollY = window.scrollY || window.pageYOffset;
+						const absoluteTop = rect.top + currentScrollY;
+						const viewportHeight = window.innerHeight;
+						const targetTop = absoluteTop - Math.max(0, (viewportHeight - rect.height) / 2);
+
+						const maxScroll = Math.max(0, (document.documentElement.scrollHeight || document.body.scrollHeight) - viewportHeight);
+						const clampedTop = Math.min(Math.max(0, targetTop), maxScroll);
+
+						window.scrollTo({ top: clampedTop, behavior: 'smooth' });
 					});
 					return;
 				}
