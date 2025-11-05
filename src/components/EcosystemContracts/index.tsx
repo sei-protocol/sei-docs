@@ -1,5 +1,5 @@
 import { Callout } from 'nextra/components';
-import { EcosystemContractsTabs } from './TabsView';
+import EcosystemContractsTabs from './TabsView';
 
 // CSV file component - reads a local CSV file at build time
 // Just download your Google Sheet as CSV and place it in your project
