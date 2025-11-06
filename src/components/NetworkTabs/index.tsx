@@ -55,7 +55,7 @@ export function NetworkTabs({}: NetworkTabsProps) {
 							<div>
 								<div className='flex items-center gap-2 mb-4'>
 									<div className={`${statusIndicatorClass} bg-green-500`}></div>
-									<h3 className={sectionTitleClass}>EVM Network</h3>
+									<h3 className={sectionTitleClass}>EVM</h3>
 								</div>
 
 								<div className='space-y-4'>
@@ -89,44 +89,6 @@ export function NetworkTabs({}: NetworkTabsProps) {
 									</div>
 								</div>
 							</div>
-
-							<div>
-								<div className='flex items-center gap-2 mb-4'>
-									<div className={`${statusIndicatorClass} bg-green-500`}></div>
-									<h3 className={sectionTitleClass}>Cosmos Network</h3>
-								</div>
-
-								<div className='space-y-4'>
-									<div className='flex flex-col'>
-										<div className={labelClass}>Chain ID:</div>
-										<div className='flex items-center justify-between'>
-											<span className={valueClass}>pacific-1</span>
-											<CopyButton textToCopy='pacific-1' />
-										</div>
-									</div>
-
-									<div className='flex flex-col'>
-										<div className={labelClass}>RPC URL:</div>
-										<div className='flex items-center justify-between'>
-											<a href='https://rpc.sei-apis.com' target='_blank' rel='noopener noreferrer' className={linkClass}>
-												https://rpc.sei-apis.com
-											</a>
-											<CopyButton textToCopy='https://rpc.sei-apis.com' />
-										</div>
-									</div>
-
-									<div className='flex flex-col'>
-										<div className={labelClass}>Explorer:</div>
-										<div className='flex items-center justify-between'>
-											<span className={valueClass}>seitrace.com</span>
-											<a href='https://seitrace.com' target='_blank' rel='noopener noreferrer' className={visitLinkClass}>
-												Visit
-												<IconChevronRight className='w-4 h-4 ml-1' />
-											</a>
-										</div>
-									</div>
-								</div>
-							</div>
 						</div>
 					</div>
 				);
@@ -137,7 +99,7 @@ export function NetworkTabs({}: NetworkTabsProps) {
 							<div>
 								<div className='flex items-center gap-2 mb-4'>
 									<div className={`${statusIndicatorClass} bg-blue-500`}></div>
-									<h3 className={sectionTitleClass}>EVM Network</h3>
+									<h3 className={sectionTitleClass}>EVM</h3>
 								</div>
 
 								<div className='space-y-4'>
@@ -181,54 +143,6 @@ export function NetworkTabs({}: NetworkTabsProps) {
 									</div>
 								</div>
 							</div>
-
-							<div>
-								<div className='flex items-center gap-2 mb-4'>
-									<div className={`${statusIndicatorClass} bg-blue-500`}></div>
-									<h3 className={sectionTitleClass}>Cosmos Network</h3>
-								</div>
-
-								<div className='space-y-4'>
-									<div className='flex flex-col'>
-										<div className={labelClass}>Chain ID:</div>
-										<div className='flex items-center justify-between'>
-											<span className={valueClass}>atlantic-2</span>
-											<CopyButton textToCopy='atlantic-2' />
-										</div>
-									</div>
-
-									<div className='flex flex-col'>
-										<div className={labelClass}>RPC URL:</div>
-										<div className='flex items-center justify-between'>
-											<a href='https://rpc-testnet.sei-apis.com' target='_blank' rel='noopener noreferrer' className={linkClass}>
-												https://rpc-testnet.sei-apis.com
-											</a>
-											<CopyButton textToCopy='https://rpc-testnet.sei-apis.com' />
-										</div>
-									</div>
-
-									<div className='flex flex-col'>
-										<div className={labelClass}>Explorer:</div>
-										<div className='flex items-center justify-between'>
-											<span className={valueClass}>seitrace.com</span>
-											<a href='https://testnet.seitrace.com/' target='_blank' rel='noopener noreferrer' className={visitLinkClass}>
-												Visit
-												<IconChevronRight className='w-4 h-4 ml-1' />
-											</a>
-										</div>
-									</div>
-									<div className='flex flex-col'>
-										<div className={labelClass}>Faucet:</div>
-										<div className='flex items-center justify-between'>
-											<span className={valueClass}>Testnet faucet</span>
-											<a href='/learn/faucet' rel='noopener noreferrer' className={visitLinkClass}>
-												Visit
-												<IconChevronRight className='w-4 h-4 ml-1' />
-											</a>
-										</div>
-									</div>
-								</div>
-							</div>
 						</div>
 					</div>
 				);
@@ -239,7 +153,7 @@ export function NetworkTabs({}: NetworkTabsProps) {
 							<div>
 								<div className='flex items-center gap-2 mb-4'>
 									<div className={`${statusIndicatorClass} bg-purple-500`}></div>
-									<h3 className={sectionTitleClass}>EVM Network</h3>
+									<h3 className={sectionTitleClass}>EVM</h3>
 								</div>
 
 								<div className='space-y-4'>
@@ -256,38 +170,6 @@ export function NetworkTabs({}: NetworkTabsProps) {
 										<div className='flex items-center justify-between'>
 											<span className={valueClass}>http://localhost:8545</span>
 											<CopyButton textToCopy='http://localhost:8545' />
-										</div>
-									</div>
-
-									<div className='flex flex-col'>
-										<div className={labelClass}>Explorer:</div>
-										<div className='flex items-center justify-between'>
-											<span className={valueClass}>N/A</span>
-										</div>
-									</div>
-								</div>
-							</div>
-
-							<div>
-								<div className='flex items-center gap-2 mb-4'>
-									<div className={`${statusIndicatorClass} bg-purple-500`}></div>
-									<h3 className={sectionTitleClass}>Cosmos Network</h3>
-								</div>
-
-								<div className='space-y-4'>
-									<div className='flex flex-col'>
-										<div className={labelClass}>Chain ID:</div>
-										<div className='flex items-center justify-between'>
-											<span className={valueClass}>sei-local</span>
-											<CopyButton textToCopy='sei-local' />
-										</div>
-									</div>
-
-									<div className='flex flex-col'>
-										<div className={labelClass}>RPC URL:</div>
-										<div className='flex items-center justify-between'>
-											<span className={valueClass}>http://localhost:26657</span>
-											<CopyButton textToCopy='http://localhost:26657' />
 										</div>
 									</div>
 
