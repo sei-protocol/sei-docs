@@ -51,14 +51,14 @@ export function NetworkTabs({}: NetworkTabsProps) {
 			case 'mainnet':
 				return (
 					<div key={tab} className={contentClass} aria-hidden={ariaHidden} data-search-content data-tab-value='mainnet'>
-						<div className='grid grid-cols-1 md:grid-cols-2 gap-8'>
+						<div className='gap-6 max-w-xl md:max-w-2xl mx-auto'>
 							<div>
 								<div className='flex items-center gap-2 mb-4'>
 									<div className={`${statusIndicatorClass} bg-green-500`}></div>
 									<h3 className={sectionTitleClass}>EVM</h3>
 								</div>
 
-								<div className='space-y-4'>
+								<div className='space-y-3'>
 									<div className='flex flex-col'>
 										<div className={labelClass}>Chain ID:</div>
 										<div className='flex items-center justify-between'>
@@ -95,14 +95,14 @@ export function NetworkTabs({}: NetworkTabsProps) {
 			case 'testnet':
 				return (
 					<div key={tab} className={contentClass} aria-hidden={ariaHidden} data-search-content data-tab-value='testnet'>
-						<div className='grid grid-cols-1 md:grid-cols-2 gap-8'>
+						<div className='grid grid-cols-1 gap-6 max-w-xl md:max-w-2xl mx-auto'>
 							<div>
 								<div className='flex items-center gap-2 mb-4'>
 									<div className={`${statusIndicatorClass} bg-blue-500`}></div>
 									<h3 className={sectionTitleClass}>EVM</h3>
 								</div>
 
-								<div className='space-y-4'>
+								<div className='space-y-3'>
 									<div className='flex flex-col'>
 										<div className={labelClass}>Chain ID:</div>
 										<div className='flex items-center justify-between'>
@@ -149,14 +149,14 @@ export function NetworkTabs({}: NetworkTabsProps) {
 			case 'localnet':
 				return (
 					<div key={tab} className={contentClass} aria-hidden={ariaHidden} data-search-content data-tab-value='localnet'>
-						<div className='grid grid-cols-1 md:grid-cols-2 gap-8'>
+						<div className='grid grid-cols-1 gap-6 max-w-xl md:max-w-2xl mx-auto'>
 							<div>
 								<div className='flex items-center gap-2 mb-4'>
 									<div className={`${statusIndicatorClass} bg-purple-500`}></div>
 									<h3 className={sectionTitleClass}>EVM</h3>
 								</div>
 
-								<div className='space-y-4'>
+								<div className='space-y-3'>
 									<div className='flex flex-col'>
 										<div className={labelClass}>Chain ID:</div>
 										<div className='flex items-center justify-between'>
