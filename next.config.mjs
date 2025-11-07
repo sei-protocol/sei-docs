@@ -1067,8 +1067,8 @@ export default withNextra({
 				permanent: true
 			},
 			{
-				source: '/evm/precompiles/p256',
-				destination: '/evm/precompiles/P256',
+				source: '/evm/indexer-providers/alchemy',
+				destination: '/evm/indexer-providers/goldsky',
 				permanent: true
 			}
 		];

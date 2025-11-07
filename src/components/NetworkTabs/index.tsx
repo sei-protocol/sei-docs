@@ -39,7 +39,7 @@ export function NetworkTabs({}: NetworkTabsProps) {
 	const statusIndicatorClass = 'w-2 h-2 rounded-full';
 	const labelClass = 'text-neutral-500 dark:text-neutral-500 mb-1';
 	const valueClass = 'text-neutral-700 dark:text-neutral-300';
-	const linkClass = 'text-neutral-700 hover:text-neutral-900 dark:text-neutral-300 dark:hover:text-white transition-colors truncate max-w-[260px]';
+	const linkClass = 'text-neutral-700 hover:text-neutral-900 dark:text-neutral-300 dark:hover:text-white transition-colors';
 	const visitLinkClass = 'text-neutral-700 hover:text-neutral-900 dark:text-neutral-300 dark:hover:text-white flex items-center transition-colors';
 
 	// Helper function to render tab content
@@ -51,14 +51,14 @@ export function NetworkTabs({}: NetworkTabsProps) {
 			case 'mainnet':
 				return (
 					<div key={tab} className={contentClass} aria-hidden={ariaHidden} data-search-content data-tab-value='mainnet'>
-						<div className='grid grid-cols-1 md:grid-cols-2 gap-8'>
+						<div className='w-full'>
 							<div>
 								<div className='flex items-center gap-2 mb-4'>
 									<div className={`${statusIndicatorClass} bg-green-500`}></div>
 									<h3 className={sectionTitleClass}>EVM</h3>
 								</div>
 
-								<div className='space-y-4'>
+								<div className='space-y-3'>
 									<div className='flex flex-col'>
 										<div className={labelClass}>Chain ID:</div>
 										<div className='flex items-center justify-between'>
@@ -95,14 +95,14 @@ export function NetworkTabs({}: NetworkTabsProps) {
 			case 'testnet':
 				return (
 					<div key={tab} className={contentClass} aria-hidden={ariaHidden} data-search-content data-tab-value='testnet'>
-						<div className='grid grid-cols-1 md:grid-cols-2 gap-8'>
+						<div className='grid grid-cols-1 gap-6 w-full'>
 							<div>
 								<div className='flex items-center gap-2 mb-4'>
 									<div className={`${statusIndicatorClass} bg-blue-500`}></div>
 									<h3 className={sectionTitleClass}>EVM</h3>
 								</div>
 
-								<div className='space-y-4'>
+								<div className='space-y-3'>
 									<div className='flex flex-col'>
 										<div className={labelClass}>Chain ID:</div>
 										<div className='flex items-center justify-between'>
@@ -149,14 +149,14 @@ export function NetworkTabs({}: NetworkTabsProps) {
 			case 'localnet':
 				return (
 					<div key={tab} className={contentClass} aria-hidden={ariaHidden} data-search-content data-tab-value='localnet'>
-						<div className='grid grid-cols-1 md:grid-cols-2 gap-8'>
+						<div className='grid grid-cols-1 gap-6 w-full'>
 							<div>
 								<div className='flex items-center gap-2 mb-4'>
 									<div className={`${statusIndicatorClass} bg-purple-500`}></div>
 									<h3 className={sectionTitleClass}>EVM</h3>
 								</div>
 
-								<div className='space-y-4'>
+								<div className='space-y-3'>
 									<div className='flex flex-col'>
 										<div className={labelClass}>Chain ID:</div>
 										<div className='flex items-center justify-between'>
@@ -190,10 +190,10 @@ export function NetworkTabs({}: NetworkTabsProps) {
 	};
 
 	return (
-		<div className='network-tabs'>
+		<div className='network-tabs w-full'>
 			<div className='flex flex-wrap gap-2 mb-6'>
 				<a href='#mainnet' onClick={() => setActiveTab('mainnet')} className={tabButtonClass('mainnet')}>
-					Mainnet
+					Mainnet (pacific-1)
 				</a>
 				<a href='#testnet' onClick={() => setActiveTab('testnet')} className={tabButtonClass('testnet')}>
 					Testnet (atlantic-2)
