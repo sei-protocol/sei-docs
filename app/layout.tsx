@@ -11,7 +11,6 @@ import '@radix-ui/themes/styles.css';
 import 'nextra-theme-docs/style.css';
 import './globals.css';
 import 'katex/dist/katex.min.css';
-import '../src/vendor/bytebellai/style.css';
 
 export const metadata: Metadata = {
 	metadataBase: new URL('https://docs.sei.io'),
