@@ -1,7 +1,18 @@
 'use client';
 
-import React, { useState } from 'react';
-import { IconExternalLink, IconCopy, IconCheck, IconArrowRight, IconSearch, IconChevronDown, IconServer, IconInfoCircle, IconChevronUp } from '@tabler/icons-react';
+import React, { useState, useEffect } from 'react';
+import {
+	IconExternalLink,
+	IconCopy,
+	IconCheck,
+	IconArrowRight,
+	IconSearch,
+	IconChevronDown,
+	IconServer,
+	IconInfoCircle,
+	IconChevronUp,
+	IconAlertCircle
+} from '@tabler/icons-react';
 
 type EndpointType = 'public' | 'premium' | 'community';
 type Network = 'mainnet' | 'testnet' | 'localnet';
@@ -15,6 +26,12 @@ interface RpcEndpoint {
 	latency?: string;
 	rateLimit?: string;
 	notes?: string;
+}
+
+interface BaseHeightInfo {
+	baseHeight: number | null;
+	loading: boolean;
+	error: boolean;
 }
 
 // Sample RPC endpoints data - this could come from an API or config file
@@ -113,6 +130,7 @@ export function RpcSelector() {
 	const [searchTerm, setSearchTerm] = useState('');
 	const [expandedEndpoint, setExpandedEndpoint] = useState<string | null>(null);
 	const [showAllEndpoints, setShowAllEndpoints] = useState(false);
+	const [baseHeights, setBaseHeights] = useState<Record<string, BaseHeightInfo>>({});
 
 	const handleCopy = (url: string) => {
 		navigator.clipboard.writeText(url);
@@ -120,11 +138,81 @@ export function RpcSelector() {
 		setTimeout(() => setCopiedUrl(null), 2000);
 	};
 
+	const fetchBaseHeight = async (url: string): Promise<number | null> => {
+		try {
+			console.log('Fetching base height for:', url);
+
+			const response = await fetch(url, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					jsonrpc: '2.0',
+					method: 'eth_getBlockByNumber',
+					params: ['0x1', false],
+					id: 1
+				}),
+				mode: 'cors'
+			});
+
+			console.log('Response status:', response.status);
+
+			if (!response.ok) {
+				console.error('Response not OK:', response.status, response.statusText);
+				throw new Error(`HTTP error! status: ${response.status}`);
+			}
+
+			const data = await response.json();
+			console.log('Response data:', data);
+
+			if (data.error && data.error.message) {
+				console.log('Error message found:', data.error.message);
+				// Extract base height from error message
+				// Example: "height is not available (requested height: 0, base height: 161939999)"
+				const match = data.error.message.match(/base height:\s*(\d+)/);
+				if (match) {
+					const baseHeight = parseInt(match[1], 10);
+					console.log('Extracted base height:', baseHeight);
+					return baseHeight;
+				}
+			}
+
+			// If no error, the endpoint has full history
+			console.log('No error found, full history available');
+			return null;
+		} catch (error) {
+			console.error(`Failed to fetch base height for ${url}:`, error);
+			throw error;
+		}
+	};
+
 	const toggleEndpointDetails = (url: string) => {
 		if (expandedEndpoint === url) {
 			setExpandedEndpoint(null);
 		} else {
 			setExpandedEndpoint(url);
+			// Fetch base height when expanding if not already fetched
+			if (!baseHeights[url]) {
+				setBaseHeights((prev) => ({
+					...prev,
+					[url]: { baseHeight: null, loading: true, error: false }
+				}));
+
+				fetchBaseHeight(url)
+					.then((baseHeight) => {
+						setBaseHeights((prev) => ({
+							...prev,
+							[url]: { baseHeight, loading: false, error: false }
+						}));
+					})
+					.catch(() => {
+						setBaseHeights((prev) => ({
+							...prev,
+							[url]: { baseHeight: null, loading: false, error: true }
+						}));
+					});
+			}
 		}
 	};
 
@@ -256,6 +344,30 @@ export function RpcSelector() {
 														</div>
 													)}
 												</div>
+												<div>
+													<span className='text-neutral-500 dark:text-neutral-400'>Historical Data:</span>
+													{baseHeights[endpoint.url]?.loading ? (
+														<span className='ml-2 text-neutral-600 dark:text-neutral-400 italic'>Checking availability...</span>
+													) : baseHeights[endpoint.url]?.error ? (
+														<span className='ml-2 text-orange-600 dark:text-orange-400'>Unable to verify</span>
+													) : baseHeights[endpoint.url]?.baseHeight ? (
+														<span className='ml-2 text-neutral-800 dark:text-neutral-300'>
+															Available from block {baseHeights[endpoint.url]?.baseHeight?.toLocaleString()}
+														</span>
+													) : baseHeights[endpoint.url] ? (
+														<span className='ml-2 text-green-600 dark:text-green-400'>Full history available</span>
+													) : (
+														<span className='ml-2 text-neutral-600 dark:text-neutral-400 italic'>Click to check</span>
+													)}
+												</div>
+												{baseHeights[endpoint.url]?.baseHeight && (
+													<div className='flex items-start bg-orange-50 dark:bg-orange-900/10 border border-orange-200 dark:border-orange-800 rounded-md p-2'>
+														<IconAlertCircle className='h-4 w-4 text-orange-500 mr-2 mt-0.5 flex-shrink-0' />
+														<span className='text-xs text-orange-800 dark:text-orange-300'>
+															Historical blocks before {baseHeights[endpoint.url]?.baseHeight?.toLocaleString()} are not available on this endpoint.
+														</span>
+													</div>
+												)}
 												{endpoint.notes && (
 													<div className='flex items-start'>
 														<IconInfoCircle className='h-4 w-4 text-blue-500 mr-2 mt-0.5' />

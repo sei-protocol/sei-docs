@@ -19,10 +19,5 @@ export default {
 		type: 'separator',
 		title: 'Modules'
 	},
-	'multi-sig-accounts': 'Multi-Sig Accounts',
-	'-- Reference': {
-		type: 'separator',
-		title: 'Reference'
-	},
-	api: 'REST API'
+	'multi-sig-accounts': 'Multi-Sig Accounts'
 };
