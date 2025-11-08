@@ -83,6 +83,7 @@ export default {
 	oracles: 'Oracles',
 	'ai-tooling': 'AI Tooling',
 	'usdc-on-sei': 'USDC on Sei',
+	oracles: 'Oracles',
 	'-- Reference': {
 		type: 'separator',
 		title: 'Reference'

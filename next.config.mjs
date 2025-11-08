@@ -51,6 +51,14 @@ export default withNextra({
 	async headers() {
 		return [
 			{
+				source: '/_next/static/css/(.*)',
+				headers: [
+					{ key: 'Cache-Control', value: 'public, max-age=3600, immutable' },
+					{ key: 'Vercel-CDN-Cache-Control', value: 'public, max-age=3600, immutable' },
+					{ key: 'X-Robots-Tag', value: 'noindex' }
+				]
+			},
+			{
 				source: '/_next/static/(.*)',
 				headers: [
 					{ key: 'Cache-Control', value: 'public, max-age=3600, immutable' },
@@ -83,6 +91,11 @@ export default withNextra({
 	async redirects() {
 		return [
 			{
+				source: '/:module(cosmos|cosmwasm)/api/:path*',
+				destination: '/cosmos-sdk',
+				permanent: true
+			},
+			{
 				source: '/cosmos/:path*',
 				destination: '/cosmos-sdk',
 				permanent: true
@@ -102,7 +115,11 @@ export default withNextra({
 				destination: '/cosmos-sdk',
 				permanent: true
 			},
-			// EVM category landing fallbacks
+			{
+				source: '/cosmos-sdk/api/:path*',
+				destination: '/cosmos-sdk',
+				permanent: true
+			},
 			{
 				source: '/evm/bridging',
 				destination: '/evm/bridging/layerzero',
@@ -128,15 +145,9 @@ export default withNextra({
 				destination: '/evm/ai-tooling/cambrian-agent-kit',
 				permanent: true
 			},
-			// Specific EVM subpaths mentioned
 			{
 				source: '/evm/agent-kits/cambrian-agent-kit',
 				destination: '/evm/ai-tooling/cambrian-agent-kit',
-				permanent: true
-			},
-			{
-				source: '/evm/precompiles/p256',
-				destination: '/evm/precompiles/P256',
 				permanent: true
 			},
 			{
@@ -204,10 +215,59 @@ export default withNextra({
 				destination: '/evm/debugging-contracts',
 				permanent: true
 			},
-			// Legacy develop/advanced/full-node paths
+			{
+				source: '/develop/get-started/local-dependencies',
+				destination: '/evm/installing-seid',
+				permanent: true
+			},
+			{
+				source: '/develop/media-package',
+				destination: '/learn/general-brand-kit',
+				permanent: true
+			},
+			{
+				source: '/develop/resources',
+				destination: '/learn/pointers',
+				permanent: true
+			},
+			{
+				source: '/develop/get-started/spot-exchange-tutorial',
+				destination: '/evm/ecosystem-tutorials',
+				permanent: true
+			},
+			{
+				source: '/full-node/run-a-sei-validator/validator-faq',
+				destination: '/node/validators',
+				permanent: true
+			},
+			{
+				source: '/advanced/parallelism',
+				destination: '/learn/general-overview',
+				permanent: true
+			},
+			{
+				source: '/advanced/governance',
+				destination: '/learn/general-governance',
+				permanent: true
+			},
+			{
+				source: '/advanced/native-oracle',
+				destination: '/evm/precompiles/oracle',
+				permanent: true
+			},
+			{
+				source: '/advanced/ibc-transfers',
+				destination: '/learn/ibc-relayer',
+				permanent: true
+			},
+			{
+				source: '/advanced/javascript-reference@next.config.mjs',
+				destination: '/learn/general-overview',
+				permanent: true
+			},
 			{
 				source: '/develop/:path*',
-				destination: '/build',
+				destination: '/evm',
 				permanent: true
 			},
 			{
@@ -220,7 +280,6 @@ export default withNextra({
 				destination: '/learn/general-overview',
 				permanent: true
 			},
-			// Swagger
 			{
 				source: '/swagger/:path*',
 				destination: '/node/swagger',
@@ -267,7 +326,6 @@ export default withNextra({
 				destination: '/node/troubleshooting',
 				permanent: true
 			},
-			// Specific strays
 			{
 				source: '/.sei/:path*',
 				destination: '/node/troubleshooting',
@@ -329,12 +387,6 @@ export default withNextra({
 				permanent: true
 			},
 			{
-				source: '/learn/general-submit-feedback',
-				destination: '/learn/general-submit-feedback',
-				permanent: true
-			},
-			// Additional specific redirects from report
-			{
 				source: '/build-on-sei/evm',
 				destination: '/evm/evm-general',
 				permanent: true
@@ -355,23 +407,18 @@ export default withNextra({
 				permanent: true
 			},
 			{
-				source: '/evm/installing-seid',
-				destination: '/build/installing-seid',
-				permanent: true
-			},
-			{
 				source: '/subgraphs/:path*',
-				destination: '/providers/indexers/the-graph',
+				destination: '/evm/indexer-providers/the-graph',
 				permanent: true
 			},
 			{
 				source: '/whitepaper/:path*',
-				destination: '/learn/general-overview',
+				destination: '/learn',
 				permanent: true
 			},
 			{
 				source: '/general-overview',
-				destination: '/learn/general-overview',
+				destination: '/learn',
 				permanent: true
 			},
 			{
@@ -386,7 +433,7 @@ export default withNextra({
 			},
 			{
 				source: '/general-submit-feedback',
-				destination: '/learn/general-submit-feedback',
+				destination: '/learn',
 				permanent: true
 			},
 			{
@@ -421,7 +468,7 @@ export default withNextra({
 			},
 			{
 				source: '/user-guides/bridging',
-				destination: '/learn/bridging',
+				destination: '/evm/bridging',
 				permanent: true
 			},
 			{
@@ -436,7 +483,7 @@ export default withNextra({
 			},
 			{
 				source: '/user-guides/wrapped-sei',
-				destination: '/learn/wrapped-sei',
+				destination: '/evm/tokens',
 				permanent: true
 			},
 			{
@@ -446,12 +493,12 @@ export default withNextra({
 			},
 			{
 				source: '/user-FAQ',
-				destination: '/learn/user-FAQ',
+				destination: '/learn/user-quickstart',
 				permanent: true
 			},
 			{
 				source: '/dev-intro',
-				destination: '/build',
+				destination: '/evm',
 				permanent: true
 			},
 			{
@@ -461,7 +508,7 @@ export default withNextra({
 			},
 			{
 				source: '/dev-token-standards',
-				destination: '/build/dev-token-standards',
+				destination: '/learn/dev-token-standards',
 				permanent: true
 			},
 			{
@@ -476,12 +523,12 @@ export default withNextra({
 			},
 			{
 				source: '/dev-smart-contracts',
-				destination: '/build/dev-smart-contracts',
+				destination: '/evm/evm-general',
 				permanent: true
 			},
 			{
 				source: '/dev-querying-state',
-				destination: '/build/querying-state',
+				destination: '/evm/querying-the-evm',
 				permanent: true
 			},
 			{
@@ -556,17 +603,17 @@ export default withNextra({
 			},
 			{
 				source: '/dev-frontend-dapps',
-				destination: '/build/dev-frontend-dapps',
+				destination: '/evm/building-a-frontend',
 				permanent: true
 			},
 			{
 				source: '/dev-node/intro',
-				destination: '/node/intro',
+				destination: '/node',
 				permanent: true
 			},
 			{
 				source: '/dev-node/quickstart',
-				destination: '/node/quickstart',
+				destination: '/node/node-operators',
 				permanent: true
 			},
 			{
@@ -681,27 +728,22 @@ export default withNextra({
 			},
 			{
 				source: '/endpoints',
-				destination: '/reference/endpoints',
+				destination: '/evm',
 				permanent: true
 			},
 			{
 				source: '/endpoints/cosmos',
-				destination: '/reference/cosmos',
+				destination: '/cosmos-sdk',
 				permanent: true
 			},
 			{
 				source: '/endpoints/cosmos/api/:slug*',
-				destination: '/reference/api/:slug*',
+				destination: '/cosmos-sdk',
 				permanent: true
 			},
 			{
 				source: '/endpoints/evm',
-				destination: '/reference/evm',
-				permanent: true
-			},
-			{
-				source: '/seid/:slug*',
-				destination: '/reference/seid/:slug*',
+				destination: '/evm',
 				permanent: true
 			},
 			{
@@ -710,93 +752,98 @@ export default withNextra({
 				permanent: true
 			},
 			{
+				source: '/seid/:slug*',
+				destination: '/reference/seid/:slug*',
+				permanent: true
+			},
+			{
 				source: '/dev-tutorials/installing-seid',
-				destination: '/build/installing-seid',
+				destination: '/evm//installing-seid-cli',
 				permanent: true
 			},
 			{
 				source: '/dev-tutorials/building-a-frontend',
-				destination: '/build/building-a-frontend',
+				destination: '/evm/building-a-frontend',
 				permanent: true
 			},
 			{
 				source: '/dev-tutorials/cosmwasm-general',
-				destination: '/build/cosmwasm-general',
+				destination: '/cosmos-sdk',
 				permanent: true
 			},
 			{
 				source: '/dev-tutorials/evm-general',
-				destination: '/build/evm-general',
+				destination: '/evm/evm-general',
 				permanent: true
 			},
 			{
 				source: '/dev-tutorials/evm-cli-tutorial',
-				destination: '/build/evm-cli-tutorial',
+				destination: '/evm/installing-seid-cli',
 				permanent: true
 			},
 			{
 				source: '/dev-tutorials/tokenfactory-tutorial',
-				destination: '/cosmwasm/tokenfactory-tutorial',
+				destination: '/cosmos-sdk',
 				permanent: true
 			},
 			{
 				source: '/dev-tutorials/tokenfactory-allowlist',
-				destination: '/build/tokenfactory-allowlist',
+				destination: '/cosmos-sdk',
 				permanent: true
 			},
 			{
 				source: '/dev-tutorials/nft-contract-tutorial',
-				destination: '/build/nft-contract-tutorial',
+				destination: '/evm/evm-hardhat',
 				permanent: true
 			},
 			{
 				source: '/dev-tutorials/pointer-contracts',
-				destination: '/build/pointer-contracts',
+				destination: '/cosmos-sdk',
 				permanent: true
 			},
 			{
 				source: '/dev-tutorials/multi-sig-accounts',
-				destination: '/build/multi-sig-accounts',
+				destination: '/cosmos-sdk',
 				permanent: true
 			},
 			{
 				source: '/dev-tutorials/ibc-protocol',
-				destination: '/build/ibc-protocol',
+				destination: '/cosmos-sdk',
 				permanent: true
 			},
 			{
 				source: '/dev-tutorials/ledger-ethers',
-				destination: '/build/ledger-ethers',
+				destination: '/evm/ledger-ethers',
 				permanent: true
 			},
 			{
 				source: '/resources-resources',
-				destination: '/build/resources-resources',
+				destination: '/evm/solidity-resources',
 				permanent: true
 			},
 			{
 				source: '/resources-tools-and-resources',
-				destination: '/build/resources-tools-and-resources',
+				destination: '/evm/solidity-resources',
 				permanent: true
 			},
 			{
 				source: '/dev-ecosystem-providers/wallets',
-				destination: '/providers/wallets',
+				destination: '/learn/wallets',
 				permanent: true
 			},
 			{
 				source: '/dev-ecosystem-providers/explorers',
-				destination: '/providers/explorers',
+				destination: '/learn/explorers',
 				permanent: true
 			},
 			{
 				source: '/dev-ecosystem-providers/rpc-providers',
-				destination: '/providers/rpc-providers',
+				destination: '/learn/rpc-providers',
 				permanent: true
 			},
 			{
 				source: '/dev-ecosystem-providers/indexers/indexers',
-				destination: '/providers/indexers/indexers',
+				destination: '/learn/indexers',
 				permanent: true
 			},
 			{
@@ -850,18 +897,8 @@ export default withNextra({
 				permanent: true
 			},
 			{
-				source: '/advanced/parallelism',
-				destination: '/learn/general-overview',
-				permanent: true
-			},
-			{
-				source: '/advanced/governance',
-				destination: '/learn/general-governance',
-				permanent: true
-			},
-			{
 				source: '/learn/about-sei',
-				destination: '/learn/general-overview',
+				destination: '/learn',
 				permanent: true
 			},
 			{
@@ -877,6 +914,161 @@ export default withNextra({
 			{
 				source: '/learn/mcp-server',
 				destination: '/evm/ai-tooling/mcp-server',
+				permanent: true
+			},
+			{
+				source: '/evm/precompiles/cosmwasm-precompiles',
+				destination: '/evm/precompiles/cosmwasm-precompiles/example-usage',
+				permanent: true
+			},
+			{
+				source: '/cosmos.crypto.secp256k1.PubKey',
+				destination: '/reference/api',
+				permanent: true
+			},
+			{
+				source: '/learn/general-submit-feedback',
+				destination: '/learn',
+				permanent: true
+			},
+			{
+				source: '/.sei_backup',
+				destination: '/node/troubleshooting',
+				permanent: true
+			},
+			{
+				source: '/.sei_backup/:path*',
+				destination: '/node/troubleshooting',
+				permanent: true
+			},
+			{
+				source: '/node/priv_validator_state.json.tmp',
+				destination: '/node/troubleshooting',
+				permanent: true
+			},
+			{
+				source: '/misc/:path*',
+				destination: '/node/troubleshooting',
+				permanent: true
+			},
+			{
+				source: '/cosmos-sdk/building-a-frontend',
+				destination: '/evm/building-a-frontend',
+				permanent: true
+			},
+			{
+				source: '/cosmos-sdk/cosm-wasm-general',
+				destination: '/cosmos-sdk',
+				permanent: true
+			},
+			{
+				source: '/cosmos-sdk/nft-contract-tutorial',
+				destination: '/evm/solidity-resources',
+				permanent: true
+			},
+			{
+				source: '/cosmos-sdk/tokenfactory-allowlist',
+				destination: '/learn/dev-token-standards',
+				permanent: true
+			},
+			{
+				source: '/evm/nft-contract-tutorial',
+				destination: '/evm/solidity-resources',
+				permanent: true
+			},
+			{
+				source: '/learn/user-FAQ',
+				destination: '/learn/user-quickstart',
+				permanent: true
+			},
+			{
+				source: '/dev-advanced-concepts-actions-and-blinks',
+				destination: '/evm/evm-general',
+				permanent: true
+			},
+			{
+				source: '/evm/cosmwasm-precompiles/:slug*',
+				destination: '/evm/precompiles/cosmwasm-precompiles/:slug*',
+				permanent: true
+			},
+			{
+				source: '/cosmos-sdk/querying-state',
+				destination: '/cosmos-sdk',
+				permanent: true
+			},
+			{
+				source: '/sei-backup-:rest*',
+				destination: '/node/troubleshooting',
+				permanent: true
+			},
+			{
+				source: '/evm/ibc-protocol',
+				destination: '/cosmos-sdk',
+				permanent: true
+			},
+			{
+				source: '/evm/best-practices',
+				destination: '/evm/optimizing-for-parallelization',
+				permanent: true
+			},
+			{
+				source: '/evm/ai-tooling/src/:rest*',
+				destination: '/evm/ai-tooling/mcp-server',
+				permanent: true
+			},
+			{
+				source: '/evm/components/:rest*',
+				destination: '/evm/building-a-frontend',
+				permanent: true
+			},
+			{
+				source: '/evm/wagmi',
+				destination: '/evm/building-a-frontend',
+				permanent: true
+			},
+			{
+				source: '/evm/web3authContext',
+				destination: '/evm/wallet-integrations/thirdweb',
+				permanent: true
+			},
+			{
+				source: '/evm/App',
+				destination: '/evm/building-a-frontend',
+				permanent: true
+			},
+			{
+				source: '/tools/:path*',
+				destination: '/evm',
+				permanent: true
+			},
+			{
+				source: '/learn/wrapped-sei@next.config.mjs',
+				destination: '/evm/tokens',
+				permanent: true
+			},
+			{
+				source: '/cosmos-sdk/fee-grants',
+				destination: '/cosmos-sdk',
+				permanent: true
+			},
+			{
+				source: '/.bashrc',
+				destination: '/',
+				permanent: true
+			},
+			{
+				source: '/cosmwasm.wasm.v1.MsgExecuteContract',
+				destination: '/cosmos-sdk',
+				permanent: true
+			},
+			{
+				source: '/cosmos.bank.v1beta1.MsgSend',
+				destination: '/cosmos-sdk',
+				permanent: true
+			},
+			{
+				source: '/evm/indexer-providers/alchemy',
+				destination: '/evm/indexer-providers/goldsky',
 				permanent: true
 			}
 		];

@@ -1,4 +1,5 @@
 import { Callout } from 'nextra/components';
+import EcosystemContractsTabs from './TabsView';
 
 // CSV file component - reads a local CSV file at build time
 // Just download your Google Sheet as CSV and place it in your project
@@ -81,35 +82,6 @@ export async function RemoteSheetData() {
 
 	// ---------------------------- helpers ----------------------------
 
-	const ContractLink = ({ address, name }: { address: string; name: string }) => {
-		if (!address || !address.trim()) {
-			return <span className='text-gray-500 italic'>No contract address</span>;
-		}
-
-		// Clean the address
-		const cleanAddress = address.trim();
-
-		let explorerName = 'SeiScan';
-
-		let explorerUrl = `https://seiscan.io/address/${cleanAddress}`;
-		const shortAddress = `${cleanAddress}`;
-
-		return (
-			<div className='flex items-center gap-2'>
-				<code className='text-xs bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded font-mono'>{shortAddress}</code>
-				{explorerUrl !== '#' && (
-					<a
-						href={explorerUrl}
-						target='_blank'
-						rel='noopener noreferrer'
-						className='text-red-600 hover:text-red-800 text-xs bg-red-50 hover:bg-red-100 px-2 py-1 rounded transition-colors no-underline'>
-						{explorerName} ↗
-					</a>
-				)}
-			</div>
-		);
-	};
-
 	const groupDataByProject = (data: any[]) => {
 		if (!data || data.length === 0) return [];
 
@@ -141,81 +113,7 @@ export async function RemoteSheetData() {
 
 		const groupedData = groupDataByProject(data);
 		const headers = Object.keys(data[0]);
-		const totalContracts = data.length;
-		const totalProjects = groupedData.length;
-
-		return (
-			<div className='space-y-8'>
-				{/* Summary stats */}
-
-				{/* Project groups */}
-				{groupedData.map((group, groupIndex) => (
-					<div key={groupIndex} className='space-y-4'>
-						{/* Project header */}
-						<div className='flex items-center justify-between'>
-							<div className='flex items-center gap-3'>
-								<h3 className='text-lg font-bold text-gray-900 dark:text-white'>{group.projectName}</h3>
-								<span className='text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded-full'>
-									{group.contractCount} contract{group.contractCount !== 1 ? 's' : ''}
-								</span>
-							</div>
-							<div className='text-xs text-gray-500 dark:text-gray-400'>#{groupIndex + 1}</div>
-						</div>
-
-						{/* Contracts table for this project */}
-						<div className='overflow-x-auto'>
-							<table className='w-full border-collapse border border-gray-200 dark:border-gray-700 rounded-lg'>
-								<thead>
-									<tr className='bg-gray-50 dark:bg-gray-800'>
-										<th className='border border-gray-200 dark:border-gray-700 px-4 py-3 text-left text-sm font-semibold text-gray-900 dark:text-white'>#</th>
-										<th className='border border-gray-200 dark:border-gray-700 px-4 py-3 text-left text-sm font-semibold text-gray-900 dark:text-white'>
-											Contract Name
-										</th>
-										<th className='border border-gray-200 dark:border-gray-700 px-4 py-3 text-left text-sm font-semibold text-gray-900 dark:text-white'>
-											Contract Address
-										</th>
-									</tr>
-								</thead>
-								<tbody>
-									{group.contracts.map((contract, contractIndex) => (
-										<tr key={contractIndex} className='transition-colors'>
-											<td className='border border-gray-200 dark:border-gray-700 px-4 py-3 text-sm text-gray-600 dark:text-gray-400'>{contractIndex + 1}</td>
-											<td className='border border-gray-200 dark:border-gray-700 px-4 py-3 text-sm text-gray-900 dark:text-white font-medium'>
-												{contract[headers[2]] || 'Unnamed Contract'}
-											</td>
-											<td className='border border-gray-200 dark:border-gray-700 px-4 py-3 text-sm'>
-												<ContractLink address={contract[headers[1]]} name={group.projectName} />
-											</td>
-										</tr>
-									))}
-								</tbody>
-							</table>
-						</div>
-
-						{/* Mobile card view for this project */}
-						<div className='block sm:hidden space-y-3'>
-							{group.contracts.map((contract, contractIndex) => (
-								<div key={contractIndex} className='border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800'>
-									<div className='flex items-center justify-between mb-3'>
-										<span className='text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide'>Contract #{contractIndex + 1}</span>
-									</div>
-									<div className='space-y-2'>
-										<div>
-											<span className='text-xs text-gray-500 dark:text-gray-400 block mb-1'>Contract Name</span>
-											<span className='text-sm font-medium text-gray-900 dark:text-white'>{contract[headers[2]] || 'Unnamed Contract'}</span>
-										</div>
-										<div>
-											<span className='text-xs text-gray-500 dark:text-gray-400 block mb-1'>Contract Address</span>
-											<ContractLink address={contract[headers[1]]} name={group.projectName} />
-										</div>
-									</div>
-								</div>
-							))}
-						</div>
-					</div>
-				))}
-			</div>
-		);
+		return <EcosystemContractsTabs groupedData={groupedData} nameKey={headers[2]} addressKey={headers[1]} />;
 	};
 
 	// ---------------------------- rendering ----------------------------

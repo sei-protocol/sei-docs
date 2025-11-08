@@ -9,32 +9,33 @@ export async function generateMetadata(props) {
 	if (Array.isArray(params?.mdxPath) && params.mdxPath[0] === '.well-known') {
 		return {};
 	}
+	let loadedMetadata = {};
 	try {
 		const { metadata } = await importPage(params.mdxPath);
-		return metadata;
+		loadedMetadata = metadata ?? {};
 	} catch {
-		return {};
+		loadedMetadata = {};
 	}
 
 	const siteUrl = 'https://docs.sei.io';
 	const path = Array.isArray(params?.mdxPath) && params.mdxPath.length > 0 ? `/${params.mdxPath.join('/')}` : '/';
-	const frontmatterCanonical = metadata?.canonical;
+	const frontmatterCanonical = loadedMetadata?.canonical;
 	const canonicalUrl = frontmatterCanonical
 		? frontmatterCanonical.startsWith('http')
 			? frontmatterCanonical
 			: `${siteUrl}${frontmatterCanonical}`
 		: `${siteUrl}${path}`;
 
-	const noindex = Boolean(metadata?.noindex);
+	const noindex = Boolean(loadedMetadata?.noindex);
 
 	return {
-		...metadata,
+		...loadedMetadata,
 		alternates: {
-			...(metadata?.alternates ?? {}),
+			...(loadedMetadata?.alternates ?? {}),
 			canonical: canonicalUrl
 		},
 		openGraph: {
-			...(metadata?.openGraph ?? {}),
+			...(loadedMetadata?.openGraph ?? {}),
 			url: canonicalUrl
 		},
 		robots: noindex
@@ -43,7 +44,7 @@ export async function generateMetadata(props) {
 					follow: false,
 					googleBot: { index: false, follow: false }
 				}
-			: metadata?.robots
+			: loadedMetadata?.robots
 	};
 }
 
