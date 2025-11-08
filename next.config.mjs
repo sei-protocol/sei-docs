@@ -20,15 +20,26 @@ export default withNextra({
 	productionBrowserSourceMaps: false,
 	compress: true,
 	turbopack: {},
+	poweredByHeader: false,
+	reactStrictMode: true,
 	experimental: {
-		optimizePackageImports: ['@tabler/icons-react', '@radix-ui/themes', 'sonner', 'viem']
+		optimizePackageImports: ['@tabler/icons-react', '@radix-ui/themes', 'sonner', 'viem', 'nextra-theme-docs'],
+		webpackBuildWorker: true,
+		parallelServerCompiles: true,
+		parallelServerBuildTraces: true
 	},
 	compiler: {
 		removeConsole: process.env.NODE_ENV === 'production',
 		reactRemoveProperties: process.env.NODE_ENV === 'production' ? { properties: ['^data-test$', '^data-testid$', '^data-cy$'] } : false
 	},
+	modularizeImports: {
+		'@tabler/icons-react': {
+			transform: '@tabler/icons-react/dist/esm/icons/{{member}}'
+		}
+	},
 	images: {
 		unoptimized: false,
+		formats: ['image/avif', 'image/webp'],
 		contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
 		remotePatterns: [
 			{
@@ -48,21 +59,90 @@ export default withNextra({
 			}
 		]
 	},
+	webpack: (config, { dev, isServer }) => {
+		// Production optimizations
+		if (!dev) {
+			config.optimization = {
+				...config.optimization,
+				moduleIds: 'deterministic',
+				minimize: true,
+				usedExports: true,
+				sideEffects: true,
+				concatenateModules: true,
+				splitChunks: {
+					chunks: 'all',
+					cacheGroups: {
+						default: false,
+						vendors: false,
+						// Framework chunk for React/Next.js
+						framework: {
+							name: 'framework',
+							chunks: 'all',
+							test: /(?<!node_modules.*)[\\/]node_modules[\\/](react|react-dom|scheduler|prop-types|use-sync-external-store)[\\/]/,
+							priority: 40,
+							enforce: true
+						},
+						// Nextra and theme
+						nextra: {
+							name: 'nextra',
+							chunks: 'all',
+							test: /[\\/]node_modules[\\/](nextra|nextra-theme-docs)[\\/]/,
+							priority: 35,
+							enforce: true
+						},
+						// UI libraries
+						ui: {
+							name: 'ui',
+							chunks: 'all',
+							test: /[\\/]node_modules[\\/](@radix-ui|sonner)[\\/]/,
+							priority: 30,
+							enforce: true
+						},
+						// Icons
+						icons: {
+							name: 'icons',
+							chunks: 'all',
+							test: /[\\/]node_modules[\\/]@tabler[\\/]icons-react[\\/]/,
+							priority: 25,
+							enforce: true
+						},
+						// Common chunks
+						commons: {
+							name: 'commons',
+							minChunks: 2,
+							priority: 20
+						}
+					},
+					maxInitialRequests: 25,
+					minSize: 20000
+				}
+			};
+		}
+
+		return config;
+	},
 	async headers() {
 		return [
 			{
 				source: '/_next/static/css/(.*)',
 				headers: [
-					{ key: 'Cache-Control', value: 'public, max-age=3600, immutable' },
-					{ key: 'Vercel-CDN-Cache-Control', value: 'public, max-age=3600, immutable' },
+					{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+					{ key: 'Vercel-CDN-Cache-Control', value: 'public, max-age=31536000, immutable' },
 					{ key: 'X-Robots-Tag', value: 'noindex' }
+				]
+			},
+			{
+				source: '/_next/static/js/(.*)',
+				headers: [
+					{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+					{ key: 'Vercel-CDN-Cache-Control', value: 'public, max-age=31536000, immutable' }
 				]
 			},
 			{
 				source: '/_next/static/(.*)',
 				headers: [
-					{ key: 'Cache-Control', value: 'public, max-age=3600, immutable' },
-					{ key: 'Vercel-CDN-Cache-Control', value: 'public, max-age=3600, immutable' }
+					{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+					{ key: 'Vercel-CDN-Cache-Control', value: 'public, max-age=31536000, immutable' }
 				]
 			},
 			{
