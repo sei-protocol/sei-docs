@@ -222,6 +222,21 @@ The staking precompile operates with **different decimal precision for different
   </table>
 </div>
 
+<Callout type="warning">
+**Granularity for delegate():**
+
+`msg.value` is truncated to 6 decimals (uSEI). Always send amounts that are a multiple of `1e12` wei (last 12 digits zero) to avoid unintended truncation.
+
+- OK: `1_000_000_000_000` wei (`0.000001000000` SEI)
+- NOT OK: `1_000_000_000_001` wei (`0.000001000000000001` SEI)
+- NOT OK: `1_000_000_330_000` wei (`0.000001000000330000` SEI)
+
+Examples:
+
+- Delegate 10 SEI → `10000000000000000000` wei (18 decimals)
+- Undelegate 10 SEI → `10000000` uSEI (6 decimals)
+  </Callout>
+
 ### How This Works in Practice
 
 **delegate() Function (Uses 18 decimals):**
@@ -236,6 +251,7 @@ The staking precompile operates with **different decimal precision for different
 **Reading/Query Operations (Return 6 decimals):**
 
 - `delegation()` - returns amounts in 6 decimal precision
+- Rewards/claim withdrawals also use 6 decimal precision (uSEI)
 
 ### Why This Mixed System Exists
 
@@ -268,6 +284,31 @@ const delegateAmount = prepareAmountForDelegate(userInputAmount); // 18 decimals
 
 // For undelegate() and redelegate()
 const undelegateAmount = prepareAmountForUndelegateRedelegate(userInputAmount); // 6 decimals
+```
+
+### Normalization Guidelines (Clients and Indexers)
+
+- **Normalize to a single unit** for analytics and reconciliation:
+  - Display: convert to `SEI` (`wei / 1e18`, `uSEI / 1e6`)
+  - Storage/aggregation: prefer `uSEI` (6 decimals)
+- **Reconciling delegate vs. undelegate/redelegate/rewards:** convert delegate `msg.value` from wei to uSEI using integer division by `1e12` (floor), which matches the precompile’s internal truncation.
+- **Enforce granularity at source:** construct `msg.value` as a multiple of `1e12` wei by formatting user input to 6 decimals prior to `parseUnits`.
+
+```typescript copy
+// Convert delegate msg.value (wei) to uSEI (6 decimals) for reconciliation
+function weiToUseiForDelegate(valueWei: bigint): bigint {
+  return valueWei / 1_000_000_000_000n; // floor to 6-decimal granularity
+}
+
+// Convert uSEI to SEI for display
+function useiToSeiString(amountUsei: bigint): string {
+  return ethers.formatUnits(amountUsei, 6);
+}
+
+// Ensure msg.value is a multiple of 1e12 wei (last 12 digits zero)
+function normalizeWeiForDelegate(valueWei: bigint): bigint {
+  return (valueWei / 1_000_000_000_000n) * 1_000_000_000_000n;
+}
 ```
 
 ## Decimal Conversion Helpers
@@ -843,6 +884,19 @@ const delegateTx = await staking.delegate(validatorAddress, {
   </table>
 </div>
 
+## FAQ: Precision and Normalization
+
+- **What are the base units and precision standards defined for SEI across operations?**
+  - `delegate()`: accepts `msg.value` in wei (18 decimals), but is internally truncated to 6-decimal `uSEI`. Effective granularity is 1 uSEI = `1e12` wei.
+  - `undelegate()` / `redelegate()`: amounts use 6-decimal `uSEI`.
+  - Queries and rewards/claim withdrawals: amounts are in 6-decimal `uSEI`.
+- **Should applications normalize between 18 and 6 decimals?**
+  - Yes. For reconciliation, convert delegate `wei` to `uSEI` via integer division by `1e12` (floor). For display, convert to SEI (`wei → /1e18`, `uSEI → /1e6`).
+- **Is this behavior consistent and intentional?**
+  - Yes. This is intentional and not planned to change. Delegation uses EVM-native `msg.value` (18 decimals), while staking operations are executed in the Cosmos staking module, which uses 6-decimal `uSEI`.
+- **Why multiple decimal precisions on one chain?**
+  - To bridge EVM conventions (18-decimal `msg.value`) with the Cosmos staking module’s native 6-decimal accounting while keeping queries and non-`delegate()` writes consistent at 6 decimals.
+
 ## Important Notes
 
 <Callout type="info"> Remember the key rule: delegate() uses 18 decimals, undelegate()/redelegate() use 6 decimals, delegation() returns 6 decimals! </Callout>
@@ -853,6 +907,8 @@ const delegateTx = await staking.delegate(validatorAddress, {
 - **undelegate() and redelegate()** use 6 decimals (uSEI) for amount parameters
 - **Query results** return amounts in 6 decimal precision
 - **Best practice:** Use appropriate conversion functions for each operation
+- **Rewards/claims:** rewards withdrawals and distribution amounts use 6 decimals (uSEI)
+- **Granularity:** `delegate()` `msg.value` must be a multiple of `1e12` wei (last 12 digits zero) because the precompile truncates to 6 decimals internally
 
 ### Validator Addresses
 
