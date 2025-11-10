@@ -5,6 +5,8 @@ import * as TabsPrimitive from '@radix-ui/react-tabs';
 
 interface TabsProps {
 	defaultValue: string;
+	value?: string;
+	onValueChange?: (value: string) => void;
 	className?: string;
 	children: React.ReactNode;
 }
@@ -26,8 +28,8 @@ interface TabsContentProps {
 	children: React.ReactNode;
 }
 
-export const Tabs = React.forwardRef<HTMLDivElement, TabsProps>(({ defaultValue, className, children }, ref) => (
-	<TabsPrimitive.Root ref={ref} defaultValue={defaultValue} className={className || 'w-full'}>
+export const Tabs = React.forwardRef<HTMLDivElement, TabsProps>(({ defaultValue, value, onValueChange, className, children }, ref) => (
+	<TabsPrimitive.Root ref={ref} defaultValue={defaultValue} value={value} onValueChange={onValueChange} className={className || 'w-full'}>
 		{children}
 	</TabsPrimitive.Root>
 ));

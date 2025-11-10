@@ -10,6 +10,8 @@ export default {
 	'dev-gas': 'Gas',
 	accounts: 'Account Linking',
 
+	'sip-03-migration': 'SIP-03 Migration',
+
 	'-- Sei Giga Platform': {
 		type: 'separator',
 		title: 'Sei Giga Platform'

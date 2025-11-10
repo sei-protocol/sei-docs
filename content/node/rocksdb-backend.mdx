@@ -1,0 +1,119 @@
+---
+title: 'RocksDB Backend Setup & Performance'
+description: 'Build and enable the RocksDB backend for seid to significantly improve iteration-heavy operations and traceBlock latency, especially on long-history RPC and archive nodes.'
+keywords: ['rocksdb', 'sei node', 'state store', 'performance', 'traceBlock', 'archive node', 'rpc']
+---
+
+import { ImageWithCaption } from '../../src/components';
+
+import image1 from '../../public/assets/pebbledb-vs-rocksdb.png';
+
+# RocksDB Backend Setup & Performance Guide
+
+## Overview
+
+As Sei nodes accumulate more history and state data, iteration-heavy operations—like those performed during `traceBlock` calls—can become significantly slower. This is especially true for archive or RPC nodes where the state store contains millions of versions.
+
+To address this, Sei supports **RocksDB** as an alternative backend to PebbleDB. RocksDB provides native **multi-version concurrency control (MVCC)** and **column family support**, which leads to substantial iteration performance improvements as history grows.
+
+## Why RocksDB?
+
+PebbleDB lacks native MVCC support, meaning Sei must manually encode versions into keys. This retrofit approach causes iteration time to grow linearly with the amount of stored history. As a result:
+
+- Archive nodes with large state stores experience **slower debug trace latency**.
+- Each key lookup may require scanning multiple key versions.
+- Iterations (e.g., over Oracle or EVM module keys) become increasingly expensive over time.
+
+By contrast, **RocksDB** supports native user-defined timestamps and optimized column families for versioned data access. This means:
+
+- Iterations over keys at a single version are **much faster**.
+- Historical data growth has **minimal effect on iteration cost**.
+- The performance advantage **amplifies with larger node history**.
+
+In Sei’s benchmarks, RocksDB achieved up to **10–30× faster traceBlock iteration times** compared to PebbleDB, with even greater benefits observed on archive nodes.
+
+## Example: TraceBlock Latency Comparison
+
+The following chart compares iteration (trace time) performance between **PebbleDB** and **RocksDB** over a 3 million block history:
+
+<ImageWithCaption img={image1} alt="PebbleDB vs RocksDB Trace Times" caption="Trace Times: Pebble vs Rocks (3M history): RocksDB shows a significantly flatter latency curve as state grows, while PebbleDB’s iteration times increase sharply for older blocks." />
+
+## Setup Instructions
+
+RocksDB only needs to be built once. After that, you can install `seid` with RocksDB support directly.
+
+### Prerequisites
+
+Ensure your system includes the following packages:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y build-essential pkg-config cmake git zlib1g-dev \
+    libbz2-dev libsnappy-dev liblz4-dev libzstd-dev libjemalloc-dev \
+    libgflags-dev liburing-dev
+```
+
+### Build & Install
+
+Refer to the Sei `Makefile` [here](https://github.com/sei-protocol/sei-chain/blob/main/Makefile#L116) for the official targets.
+
+```bash
+# Step 1: Build RocksDB (one-time setup)
+make build-rocksdb
+
+# Step 2: Install seid with RocksDB backend
+make install-rocksdb
+```
+
+Once installed, your `seid` binary will be built with RocksDB backend support:
+
+```bash
+seid version
+# should include "rocksdbBackend" build tag
+```
+
+### Configuration
+
+After installation, update your configuration file to enable the RocksDB backend:
+
+```bash
+~/.sei/config/app.toml
+```
+
+Set
+
+```toml
+ss-backend = "rocksdb"
+```
+
+### Node Setup Notes
+
+- RPC Nodes — must perform a state sync when spinning up a new node configured with RocksDB.
+- Archive Nodes — currently, RocksDB is not supported for existing data unless syncing from genesis. A migration route from PebbleDB to RocksDB is being developed and will be shared soon.
+
+## Summary
+
+| Feature                       | PebbleDB           | RocksDB                               |
+| ----------------------------- | ------------------ | ------------------------------------- |
+| MVCC Support                  | No                 | ✅ Native via user-defined timestamps |
+| Column Families               | No                 | ✅ Yes                                |
+| Iteration Speed (Large State) | Slows with history | ✅ Up to 30× faster                   |
+| Installation                  | Default            | One-time build (`make build-rocksdb`) |
+
+## TL;DR
+
+- RocksDB backend drastically improves trace iteration and historical query performance.
+- Install once, then simply run:
+
+```bash
+make install-rocksdb
+```
+
+- Update ~/.sei/config/app.toml to use RocksDB:
+
+```toml
+ss-backend = "rocksdb"
+```
+
+- RPC nodes require state sync; archive nodes must currently sync from genesis
+- Expect **10–30× faster** trace latencies, especially on archive nodes or long-history setups.

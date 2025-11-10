@@ -1,0 +1,180 @@
+---
+title: 'API3'
+description: 'Complete guide to integrating API3 with Sei'
+---
+
+# API3
+
+API3 is a decentralized oracle network that provides real-time data feeds to smart contracts. Unlike traditional oracles that rely on third-party intermediaries, API3 connects APIs directly to the blockchain through first-party oracles operated by the API providers themselves. This approach reduces trust assumptions and potential points of failure.
+
+## What You'll Be Doing in This Guide
+
+In this tutorial, you'll learn how to:
+
+1. Integrate API3's data feeds into your smart contract on the SEI network
+2. Retrieve real-time SEI token price data using API3's proxy contract
+3. Understand the structure of API3's reader proxy interface
+4. Deploy and test your integration on SEI
+
+By the end of this guide, you'll have a working smart contract that can fetch SEI price data from API3's decentralized oracle network.
+
+## Prerequisites
+
+Before starting this tutorial, ensure you have:
+
+### Technical Requirements
+
+- **Solidity Knowledge**: Basic understanding of Solidity smart contract development
+- **Development Environment**: Remix IDE, Hardhat, or similar Solidity development setup
+- **SEI Network Access**: RPC endpoint and mainnet access for SEI
+
+### Required Dependencies
+
+- OpenZeppelin Contracts library (`@openzeppelin/contracts`)
+- API3 Contracts library (`@api3/contracts`)
+
+#### Install
+
+```bash copy
+# npm
+npm install @openzeppelin/contracts @api3/contracts
+
+# yarn
+yarn add @openzeppelin/contracts @api3/contracts
+
+# pnpm
+pnpm add @openzeppelin/contracts @api3/contracts
+```
+
+### SEI Network Configuration
+
+Make sure your development environment is configured for SEI:
+
+- **Mainnet RPC**: `https://evm-rpc.sei-apis.com`
+- **Chain ID**: 1329 (mainnet)
+
+## Contract Code
+
+Here's the complete smart contract code for integrating with API3 to read SEI price data:
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@api3/contracts/interfaces/IApi3ReaderProxy.sol";
+
+contract DataFeedReaderExample is Ownable {
+    // This contract reads from a single proxy. Your contract can read from
+    // multiple proxies.
+    address public proxy;
+
+    constructor(address proxy_) Ownable(msg.sender) {
+        setProxy(proxy_);
+
+    }
+
+    // Updating the proxy address is a security-critical action. In this
+    // example, only the owner is allowed to do so.
+    // You may want to update your proxy to switch to another data feed, enable
+    // OEV support, or even switch to another oracle solution. Implementing a
+    // method to update proxies is highly recommended.
+    function setProxy(address proxy_) public onlyOwner {
+        proxy = proxy_;
+    }
+
+    function readDataFeed()
+        external
+        view
+        returns (int224 value, uint256 timestamp)
+    {
+        (value, timestamp) = IApi3ReaderProxy(proxy).read();
+        // If you have any assumptions about `value` and `timestamp`, make sure
+        // to validate them right after reading from the proxy. For example,
+        // if the value you are reading is the spot price of an asset, you may
+        // want to reject non-positive values...
+        require(value > 0, "Value not positive");
+        // ...and if the data feed is being updated with a one day-heartbeat
+        // interval, you may want to check for that.
+        require(
+            timestamp + 1 days > block.timestamp,
+            "Timestamp older than one day"
+        );
+        // After validation, you can implement your contract logic here.
+
+        // Refer to https://docs.api3.org/dapps/integration/contract-integration.html
+        // for more information about how to integrate your contract securely.
+    }
+}
+```
+
+### Contract Breakdown
+
+**Key Components:**
+
+1. **Proxy Address**: The contract stores the API3 proxy address that provides SEI price data
+2. **Data Validation**: The contract validates that price values are positive and timestamps are recent
+3. **IApi3ReaderProxy Interface**: This interface provides the `read()` function to fetch price data
+
+**The `readDataFeed()` Function:**
+
+- Returns `int224 value`: The SEI price (likely in USD with 18 decimal places)
+- Returns `uint256 timestamp`: When the price was last updated
+- Validates data freshness (within 1 day)
+- Ensures price is positive
+
+## Proxy Address
+
+For this tutorial, we'll be using the following API3 proxy address on SEI:
+
+[`0x09c6e594DE2EB633902f00B87A43b27F80a31a60`](https://seiscan.io/address/0x09c6e594DE2EB633902f00B87A43b27F80a31a60)
+
+This proxy provides real-time [SEI/USD](https://market.api3.org/sei/sei-usd/integrate) price data from API3's decentralized oracle network.
+
+## How to Test
+
+### 1. Deploy the Contract
+
+**Using Remix IDE:**
+
+1. Open [Remix IDE](https://remix.ethereum.org/)
+2. Create a new file called `DataFeedReaderExample.sol`
+3. Paste the contract code above
+4. Compile the contract using Solidity compiler ^0.8.0
+5. Deploy with constructor parameter: `0x09c6e594DE2EB633902f00B87A43b27F80a31a60`
+
+**Using Hardhat:**
+
+```javascript
+const proxy = '0x09c6e594DE2EB633902f00B87A43b27F80a31a60';
+const DataFeedReader = await ethers.getContractFactory('DataFeedReaderExample');
+const reader = await DataFeedReader.deploy(proxy);
+await reader.deployed();
+```
+
+### 2. Read Price Data
+
+After deployment, call the `readDataFeed()` function to retrieve the current SEI price:
+
+```javascript
+// Using ethers.js
+const result = await reader.readDataFeed();
+console.log('SEI Price:', ethers.utils.formatUnits(result.value, 18));
+console.log('Last Updated:', new Date(result.timestamp * 1000));
+```
+
+**Expected Output Format:**
+
+- `value`: SEI price in USD (with 18 decimals, e.g., `3000000000000000` = $0.3)
+- `timestamp`: Unix timestamp of the last price update
+
+### 3. Integration Examples
+
+**Basic Price Display:**
+
+```solidity
+function getSEIPriceFormatted() external view returns (string memory) {
+    (int224 value, uint256 timestamp) = readDataFeed();
+    return string(abi.encodePacked("$", uint224(value) / 1e18));
+}
+```
