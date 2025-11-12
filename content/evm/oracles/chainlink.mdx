@@ -1,0 +1,423 @@
+---
+title: 'Chainlink Data Streams'
+description: 'Complete guide to integrating Chainlink Data Streams with Sei Network'
+---
+
+import { Callout } from 'nextra/components';
+
+## What is Chainlink?
+
+Chainlink is the world's most widely adopted decentralized oracle network, enabling smart contracts to securely access off-chain data, APIs, and traditional payment systems. Chainlink Data Streams is a pull-based oracle solution that delivers high-frequency, low-latency market data directly to smart contracts.
+
+## What This Guide Teaches You
+
+This tutorial will walk you through integrating Chainlink Data Streams on Sei Network to:
+
+1. **Fetch real-time price data** using the Chainlink Data Streams SDK
+2. **Deploy a smart contract** that can verify and decode price reports on-chain
+3. **Combine off-chain and on-chain components** to create a complete oracle solution
+4. **Verify SEI/USDT price feeds** as a practical example
+
+By the end of this guide, you'll have a working implementation that fetches price data off-chain and verifies it on-chain using Chainlink's data streams SDK.
+
+## Prerequisites
+
+Before starting this tutorial, ensure you have:
+
+### Technical Requirements
+
+- **Node.js** (v16 or higher) and npm installed
+- **Basic knowledge** of TypeScript/JavaScript
+- **Solidity development experience** (basic to intermediate)
+- **Familiarity with smart contract deployment** tools like Remix or Hardhat
+
+### Sei Network Setup
+
+**Testnet** :
+
+- **Sei testnet RPC**: `https://evm-rpc-testnet.sei-apis.com`
+- **Chain ID**: 1328
+
+**Mainnet** :
+
+- **SEI mainnet RPC**: `https://evm-rpc.sei-apis.com`
+- **Chain ID**: 1329
+
+### Chainlink Data Streams Access
+
+<Callout type="info">You need to contact Chainlink for getting access to API credentials of Data Streams.</Callout>
+
+- **API credentials**: Contact Chainlink to get access to Data Streams on Sei Mainnet/testnet
+- **API Key** and **User Secret** for testnet access
+- **Feed IDs**: We'll use [SEI/USDT](https://docs.chain.link/data-streams/crypto-streams?page=1&testnetPage=1&testnetSearch=SEI#testnet-crypto-streams) feed ID `0x0003dba2d8553dfd7afe35c2bfe217ef5106d7805e5272c04a08940ddb868117`
+- **VerifierProxy contract address** on [Sei mainnet/testnet](https://docs.chain.link/data-streams/crypto-streams?page=1&testnetPage=1#overview): [`0x60fAa7faC949aF392DFc858F5d97E3EEfa07E9EB`](https://seiscan.io/address/0x60fAa7faC949aF392DFc858F5d97E3EEfa07E9EB)
+
+## Step-by-Step Tutorial
+
+### Step 1: Project Setup
+
+Create a new directory and initialize your project:
+
+```bash
+mkdir chainlink-data-streams-sei
+cd chainlink-data-streams-sei
+npm init -y
+```
+
+Install the required dependencies:
+
+```bash
+npm install @chainlink/data-streams-sdk dotenv tsx ethers
+npm install -D typescript @types/node
+```
+
+Create a `.env` file in your project root:
+
+```env
+API_KEY=your_chainlink_api_key_here
+USER_SECRET=your_chainlink_user_secret_here
+```
+
+### Step 2: Fetching Price Data with TypeScript
+
+Create a file called `singleStream.ts` with the following code:
+
+```typescript
+import { createClient, decodeReport, LogLevel, getReportVersion, formatReport } from '@chainlink/data-streams-sdk';
+import 'dotenv/config';
+
+async function main() {
+  if (process.argv.length < 3) {
+    console.error('Please provide a feed ID as an argument');
+    console.error('Example: npx tsx singleStream.ts 0x0003dba2d8553dfd7afe35c2bfe217ef5106d7805e5272c04a08940ddb868117');
+    process.exit(1);
+  }
+
+  const feedId = process.argv[2];
+  const version = getReportVersion(feedId);
+
+  try {
+    const config = {
+      apiKey: process.env.API_KEY || 'YOUR_API_KEY',
+      userSecret: process.env.USER_SECRET || 'YOUR_USER_SECRET',
+      endpoint: 'https://api.testnet-dataengine.chain.link',
+      wsEndpoint: 'wss://ws.testnet-dataengine.chain.link',
+      // Comment to disable SDK logging:
+      logging: {
+        logger: console,
+        logLevel: LogLevel.INFO
+      }
+    };
+
+    const client = createClient(config);
+    console.log(`\nFetching latest report for feed ${feedId} (${version})...\n`);
+
+    // Get raw report data
+    const report = await client.getLatestReport(feedId);
+    console.log(`Raw Report Blob: ${report.fullReport}`);
+
+    // Decode the report
+    const decodedData = decodeReport(report.fullReport, report.feedID);
+
+    // Combine decoded data with report metadata
+    const decodedReport = {
+      ...decodedData,
+      feedID: report.feedID,
+      validFromTimestamp: report.validFromTimestamp,
+      observationsTimestamp: report.observationsTimestamp
+    };
+    console.log(formatReport(decodedReport, version));
+  } catch (error) {
+    if (error instanceof Error) {
+      console.error('Error:', error.message);
+    } else {
+      console.error('Unknown error:', error);
+    }
+    process.exit(1);
+  }
+}
+
+main();
+```
+
+This script:
+
+- **Creates a Data Streams client** with your API credentials
+- **Fetches the latest report** for a given feed ID
+- **Decodes the raw report** into readable price data
+- **Displays both raw and formatted data** for debugging
+
+### Step 3: Smart Contract Deployment
+
+Create and deploy the verification contract on Sei Network. Copy this Solidity code into Remix IDE:
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import {Common} from "@chainlink/contracts@1.5.0/src/v0.8/llo-feeds/libraries/Common.sol";
+import {IVerifierFeeManager} from "@chainlink/contracts@1.5.0/src/v0.8/llo-feeds/v0.3.0/interfaces/IVerifierFeeManager.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+
+using SafeERC20 for IERC20;
+
+/**
+ * THIS IS AN EXAMPLE CONTRACT FOR DEMONSTRATION PURPOSES.
+ * This contract verifies Chainlink Data Streams reports onchain
+ * and handles fee payments automatically.
+ */
+
+interface IVerifierProxy {
+  function verify(
+    bytes calldata payload,
+    bytes calldata parameterPayload
+  ) external payable returns (bytes memory verifierResponse);
+
+  function s_feeManager() external view returns (IVerifierFeeManager);
+}
+
+interface IFeeManager {
+  function getFeeAndReward(
+    address subscriber,
+    bytes memory unverifiedReport,
+    address quoteAddress
+  ) external returns (Common.Asset memory, Common.Asset memory, uint256);
+
+  function i_linkAddress() external view returns (address);
+  function i_rewardManager() external view returns (address);
+}
+
+contract ClientReportsVerifier {
+  // Errors
+  error NothingToWithdraw();
+  error NotOwner(address caller);
+  error InvalidReportVersion(uint16 version);
+
+  // Report schema v3 (crypto streams)
+  struct ReportV3 {
+    bytes32 feedId;
+    uint32 validFromTimestamp;
+    uint32 observationsTimestamp;
+    uint192 nativeFee;
+    uint192 linkFee;
+    uint32 expiresAt;
+    int192 price;
+    int192 bid;
+    int192 ask;
+  }
+
+  // Storage
+  IVerifierProxy public immutable i_verifierProxy;
+  address private immutable i_owner;
+  int192 public lastDecodedPrice;
+
+  // Events
+  event DecodedPrice(int192 price);
+
+  constructor(address _verifierProxy) {
+    i_owner = msg.sender;
+    i_verifierProxy = IVerifierProxy(_verifierProxy);
+  }
+
+  modifier onlyOwner() {
+    if (msg.sender != i_owner) revert NotOwner(msg.sender);
+    _;
+  }
+
+  /**
+   * @notice Verify a Data Streams report and extract price
+   * @param unverifiedReport Full payload from Data Streams API
+   */
+  function verifyReport(bytes memory unverifiedReport) external {
+    // Extract report data and version
+    (, bytes memory reportData) = abi.decode(unverifiedReport, (bytes32[3], bytes));
+
+    uint16 reportVersion = (uint16(uint8(reportData[0])) << 8) | uint16(uint8(reportData[1]));
+    if (reportVersion != 3) {
+      revert InvalidReportVersion(reportVersion);
+    }
+
+    // Handle fees
+    IFeeManager feeManager = IFeeManager(address(i_verifierProxy.s_feeManager()));
+    bytes memory parameterPayload;
+
+    if (address(feeManager) != address(0)) {
+      address feeToken = feeManager.i_linkAddress();
+      (Common.Asset memory fee,,) = feeManager.getFeeAndReward(
+        address(this),
+        reportData,
+        feeToken
+      );
+
+      IERC20(feeToken).approve(feeManager.i_rewardManager(), fee.amount);
+      parameterPayload = abi.encode(feeToken);
+    } else {
+      parameterPayload = bytes("");
+    }
+
+    // Verify through proxy
+    bytes memory verified = i_verifierProxy.verify(unverifiedReport, parameterPayload);
+
+    // Decode and store price
+    ReportV3 memory report = abi.decode(verified, (ReportV3));
+    lastDecodedPrice = report.price;
+    emit DecodedPrice(report.price);
+  }
+
+  /**
+   * @notice Withdraw ERC-20 tokens from contract
+   */
+  function withdrawToken(address _beneficiary, address _token) external onlyOwner {
+    uint256 amount = IERC20(_token).balanceOf(address(this));
+    if (amount == 0) revert NothingToWithdraw();
+    IERC20(_token).safeTransfer(_beneficiary, amount);
+  }
+
+  /**
+   * @notice Get the last decoded price
+   */
+  function getLastPrice() external view returns (int192) {
+    return lastDecodedPrice;
+  }
+}
+```
+
+**Deployment steps in Remix:**
+
+1. Switch to Sei Testnet in MetaMask
+2. Deploy with Sei testnet VerifierProxy address: `0x60fAa7faC949aF392DFc858F5d97E3EEfa07E9EB`
+3. Save the contract address for testing
+
+### Step 4: Complete Integration Script
+
+Create `verifyOnChain.ts` to combine off-chain fetching with on-chain verification:
+
+```typescript
+import { createClient, LogLevel } from '@chainlink/data-streams-sdk';
+import 'dotenv/config';
+
+// You'll need to install ethers: npm install ethers
+import { ethers } from 'ethers';
+
+async function main() {
+  const feedId = '0x0003dba2d8553dfd7afe35c2bfe217ef5106d7805e5272c04a08940ddb868117';
+
+  // 1. Fetch the latest report
+  const config = {
+    apiKey: process.env.API_KEY!,
+    userSecret: process.env.USER_SECRET!,
+    endpoint: 'https://api.testnet-dataengine.chain.link',
+    wsEndpoint: 'wss://ws.testnet-dataengine.chain.link',
+    logging: {
+      logger: console,
+      logLevel: LogLevel.INFO
+    }
+  };
+
+  const client = createClient(config);
+  console.log('Fetching latest report...');
+
+  const report = await client.getLatestReport(feedId);
+  console.log(`Got report: ${report.fullReport}`);
+
+  // 2. Connect to Sei testnet and your deployed contract
+  const provider = new ethers.JsonRpcProvider('https://evm-rpc-testnet.sei-apis.com');
+  const wallet = new ethers.Wallet(process.env.PRIVATE_KEY!, provider);
+
+  const contractAddress = 'YOUR_DEPLOYED_CONTRACT_ADDRESS';
+  const abi = ['function verifyReport(bytes memory unverifiedReport) external', 'function getLastPrice() external view returns (int192)', 'event DecodedPrice(int192 price)'];
+
+  const contract = new ethers.Contract(contractAddress, abi, wallet);
+
+  // 3. Verify the report on-chain
+  console.log('Verifying report on-chain...');
+  const tx = await contract.verifyReport(report.fullReport);
+  await tx.wait();
+
+  // 4. Get the decoded price
+  const price = await contract.getLastPrice();
+  console.log(`Price verified on-chain: ${ethers.formatUnits(price.toString(), 18)} SEI/USDT`);
+}
+
+main().catch(console.error);
+```
+
+## How to Run and Test
+
+### 1. Test Off-chain Data Fetching
+
+Run the single stream script to verify off-chain fetching and decoding:
+
+```bash
+npx tsx singleStream.ts 0x0003dba2d8553dfd7afe35c2bfe217ef5106d7805e5272c04a08940ddb868117
+```
+
+**Expected output:**
+
+```bash
+npx tsx singleStream.ts 0x0003dba2d8553dfd7afe35c2bfe217ef5106d7805e5272c04a08940ddb868117
+[DataStreams] Data Streams client initialized
+
+Fetching latest report for feed 0x0003dba2d8553dfd7afe35c2bfe217ef5106d7805e5272c04a08940ddb868117 (V3)...
+
+[DataStreams] Request successful: GET https://api.testnet-dataengine.chain.link/api/v1/reports/latest?feedID=0x0003dba2d8553dfd7afe35c2bfe217ef5106d7805e5272c04a08940ddb868117 - 200
+Raw Report Blob: 0x00090d9e8d96765a0c49e03a6ae05c82e8f8de70cf179baa632f18313e54bd690000000000000000000000000000000000000000000000000000000002ad82fe000000000000000000000000000000000000000000000000000000030000000100000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000002200000000000000000000000000000000000000000000000000000000000000280010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001200003dba2d8553dfd7afe35c2bfe217ef5106d7805e5272c04a08940ddb868117000000000000000000000000000000000000000000000000000000006911a843000000000000000000000000000000000000000000000000000000006911a843000000000000000000000000000000000000000000000000000050fde585ef340000000000000000000000000000000000000000000000000045e76ab072da670000000000000000000000000000000000000000000000000000000069393543000000000000000000000000000000000000000000000000027f85b14842c1b4000000000000000000000000000000000000000000000000027f47776cef65d0000000000000000000000000000000000000000000000000027fb6ed8fc487e400000000000000000000000000000000000000000000000000000000000000027d2c18d803d4e1818fff6521a21a336a03e334ae5af3dccee1ee241239c1661d8a3d0384d5ae6159d4ac1151ffbc9d717304359ce7a904faeb1c5f23375c1e69000000000000000000000000000000000000000000000000000000000000000218da9942080bfb1d679e0185216226c52fd6eaf34fb4c9ee139dd1c87f235a3e18d4822b9454d61d010584f27ccdc6812df13dfe50409252d6cbc774f26b53d2
+
+Report Metadata:
+Feed ID: 0x0003dba2d8553dfd7afe35c2bfe217ef5106d7805e5272c04a08940ddb868117
+Valid From: 1762764867
+Observations: 1762764867
+
+Decoded Data:
+Native Fee: 89051407707956
+LINK Fee: 19676218805901927
+Expires At: 1765356867
+Price: 180009506586149300
+Bid Price: 179941088372418000
+Ask Price: 180063641553635300
+```
+
+### 2. Test Smart Contract Deployment
+
+1. Copy the raw report blob from Step 1 output (the long hex string starting with `0x00090d9e...`)
+2. Call `verifyReport()` and paste the entire blob as the `unverifiedReport` parameter
+3. Call `getLastPrice()` - you should see the decoded price (e.g., `180009506586149300`)
+
+### 3. Test Complete Integration
+
+**Step 3a: Setup Integration Script**
+
+Add your private key to `.env`:
+
+```env
+API_KEY=your_chainlink_api_key_here
+USER_SECRET=your_chainlink_user_secret_here
+PRIVATE_KEY=your_sei_testnet_private_key_here
+```
+
+Update `verifyOnChain.ts` with your deployed contract address:
+
+Replace `YOUR_DEPLOYED_CONTRACT_ADDRESS` in the script with your actual contract address.
+
+**Step 3b: Run Integration Test**
+
+```bash
+npx tsx verifyOnChain.ts
+```
+
+**Expected Output:**
+
+```bash
+npx tsx singleStream.ts
+[DataStreams] Data Streams client initialized
+Fetching latest report...
+[DataStreams] Request successful: GET https://api.testnet-dataengine.chain.link/api/v1/reports/latest?feedID=0x0003dba2d8553dfd7afe35c2bfe217ef5106d7805e5272c04a08940ddb868117 - 200
+Got report: 0x00090d9e8d96765a0c49e03a6ae05c82e8f8de70cf179baa632f18313e54bd690000000000000000000000000000000000000000000000000000000002ad80fd000000000000000000000000000000000000000000000000000000030000000100000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000002200000000000000000000000000000000000000000000000000000000000000280000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001200003dba2d8553dfd7afe35c2bfe217ef5106d7805e5272c04a08940ddb868117000000000000000000000000000000000000000000000000000000006911a794000000000000000000000000000000000000000000000000000000006911a794000000000000000000000000000000000000000000000000000051070460a3df0000000000000000000000000000000000000000000000000045e8f0bff5bcd30000000000000000000000000000000000000000000000000000000069393494000000000000000000000000000000000000000000000000027fe207ce1890f4000000000000000000000000000000000000000000000000027fb2bbee1e2038000000000000000000000000000000000000000000000000028013671aa35a0400000000000000000000000000000000000000000000000000000000000000024ef8f65551057e6a89745ffd306a5202162d6b280fc9754360175b54a95f11598da55d6d7d965384479c9d4ff248cd00ffd89078d05de048299c61c48d0361c8000000000000000000000000000000000000000000000000000000000000000278bc17f79bf5d6483310b28fe004e884a64e603cbc212044492098af36b4d50047bf5dc8af1e50abfc5f38060fb7f4b6dc9089589915144211fa6e6ff049dd1e
+Verifying report on-chain...
+Price verified on-chain: 0.180009506586149300 SEI/USDT
+```
+
+## Resources
+
+- [Chainlink Data Streams Documentation](https://docs.chain.link/data-streams/)

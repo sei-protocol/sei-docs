@@ -232,7 +232,7 @@ export default withNextra({
 			},
 			{
 				source: '/develop/get-started/spot-exchange-tutorial',
-				destination: '/evm/ecosystem-tutorials',
+				destination: '/evm/evm-general',
 				permanent: true
 			},
 			{
