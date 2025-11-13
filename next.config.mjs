@@ -1085,6 +1085,11 @@ export default withNextra({
 				source: '/evm/precompiles/P256',
 				destination: '/evm/precompiles/p256-precompile',
 				permanent: true
+			},
+			{
+				source: '/evm/installing-seid',
+				destination: '/evm/installing-seid-cli',
+				permanent: true
 			}
 		];
 	}

@@ -5,6 +5,6 @@ export default {
 	json: 'JSON',
 	oracle: 'Oracle',
 	staking: 'Staking',
-	P256: 'p256-precompile',
+	'p256-precompile': 'P256',
 	'cosmwasm-precompiles': 'Cosmos'
 };
