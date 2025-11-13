@@ -202,12 +202,12 @@ export default withNextra({
 			},
 			{
 				source: '/evm/contracts',
-				destination: '/evm/debugging-contracts',
+				destination: '/evm/evm-general',
 				permanent: true
 			},
 			{
 				source: '/evm/cache',
-				destination: '/evm/debugging-contracts',
+				destination: '/evm/evm-general',
 				permanent: true
 			},
 			{
@@ -242,7 +242,7 @@ export default withNextra({
 			},
 			{
 				source: '/advanced/parallelism',
-				destination: '/learn/general-overview',
+				destination: '/learn/parallelization-engine',
 				permanent: true
 			},
 			{
@@ -252,17 +252,17 @@ export default withNextra({
 			},
 			{
 				source: '/advanced/native-oracle',
-				destination: '/evm/precompiles/oracle',
+				destination: '/learn/oracles',
 				permanent: true
 			},
 			{
 				source: '/advanced/ibc-transfers',
-				destination: '/learn/ibc-relayer',
+				destination: '/cosmos-sdk',
 				permanent: true
 			},
 			{
 				source: '/advanced/javascript-reference@next.config.mjs',
-				destination: '/learn/general-overview',
+				destination: '/learn',
 				permanent: true
 			},
 			{
@@ -277,7 +277,7 @@ export default withNextra({
 			},
 			{
 				source: '/advanced/:path*',
-				destination: '/learn/general-overview',
+				destination: '/learn',
 				permanent: true
 			},
 			{
@@ -313,62 +313,62 @@ export default withNextra({
 			},
 			{
 				source: '/data',
-				destination: '/node/troubleshooting',
+				destination: '/node',
 				permanent: true
 			},
 			{
 				source: '/config',
-				destination: '/node/troubleshooting',
+				destination: '/node',
 				permanent: true
 			},
 			{
 				source: '/tmp',
-				destination: '/node/troubleshooting',
+				destination: '/node',
 				permanent: true
 			},
 			{
 				source: '/.sei/:path*',
-				destination: '/node/troubleshooting',
+				destination: '/node',
 				permanent: true
 			},
 			{
 				source: '/.hermes/:path*',
-				destination: '/node/troubleshooting',
+				destination: '/node',
 				permanent: true
 			},
 			{
 				source: '/key_backup/:path*',
-				destination: '/node/troubleshooting',
+				destination: '/node',
 				permanent: true
 			},
 			{
 				source: '/sei-config-:rest*',
-				destination: '/node/troubleshooting',
+				destination: '/node',
 				permanent: true
 			},
 			{
 				source: '/sei-data-:rest*',
-				destination: '/node/troubleshooting',
+				destination: '/node',
 				permanent: true
 			},
 			{
 				source: '/validator_key_',
-				destination: '/node/troubleshooting',
+				destination: '/node',
 				permanent: true
 			},
 			{
 				source: '/priv_validator_:rest*',
-				destination: '/node/troubleshooting',
+				destination: '/node',
 				permanent: true
 			},
 			{
 				source: '/genesis.json',
-				destination: '/node/troubleshooting',
+				destination: '/node',
 				permanent: true
 			},
 			{
 				source: '/block',
-				destination: '/node/troubleshooting',
+				destination: '/node',
 				permanent: true
 			},
 			{
@@ -923,7 +923,7 @@ export default withNextra({
 			},
 			{
 				source: '/cosmos.crypto.secp256k1.PubKey',
-				destination: '/reference/api',
+				destination: '/cosmos-sdk',
 				permanent: true
 			},
 			{
@@ -933,22 +933,22 @@ export default withNextra({
 			},
 			{
 				source: '/.sei_backup',
-				destination: '/node/troubleshooting',
+				destination: '/node',
 				permanent: true
 			},
 			{
 				source: '/.sei_backup/:path*',
-				destination: '/node/troubleshooting',
+				destination: '/node',
 				permanent: true
 			},
 			{
 				source: '/node/priv_validator_state.json.tmp',
-				destination: '/node/troubleshooting',
+				destination: '/node',
 				permanent: true
 			},
 			{
 				source: '/misc/:path*',
-				destination: '/node/troubleshooting',
+				destination: '/node',
 				permanent: true
 			},
 			{
@@ -963,7 +963,7 @@ export default withNextra({
 			},
 			{
 				source: '/cosmos-sdk/nft-contract-tutorial',
-				destination: '/evm/solidity-resources',
+				destination: '/cosmos-sdk',
 				permanent: true
 			},
 			{
@@ -973,7 +973,7 @@ export default withNextra({
 			},
 			{
 				source: '/evm/nft-contract-tutorial',
-				destination: '/evm/solidity-resources',
+				destination: '/evm/evm-general',
 				permanent: true
 			},
 			{
@@ -1069,6 +1069,21 @@ export default withNextra({
 			{
 				source: '/evm/indexer-providers/alchemy',
 				destination: '/evm/indexer-providers/goldsky',
+				permanent: true
+			},
+			{
+				source: '/evm/oracles',
+				destination: '/evm/oracles/chainlink',
+				permanent: true
+			},
+			{
+				source: '/evm/precompiles/p256',
+				destination: '/evm/precompiles/p256-precompile',
+				permanent: true
+			},
+			{
+				source: '/evm/precompiles/P256',
+				destination: '/evm/precompiles/p256-precompile',
 				permanent: true
 			}
 		];
