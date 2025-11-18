@@ -1230,6 +1230,16 @@ export default withNextra({
 				source: '/wallets/wallet-integration',
 				destination: '/learn/wallets',
 				permanent: true
+			},
+			{
+				source: '/interacting-with-sei',
+				destination: '/learn',
+				permanent: true
+			},
+			{
+				source: '/node/validator-faq',
+				destination: '/node/validators',
+				permanent: true
 			}
 		];
 	}
