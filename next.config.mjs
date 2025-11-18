@@ -1090,6 +1090,101 @@ export default withNextra({
 				source: '/evm/installing-seid',
 				destination: '/evm/installing-seid-cli',
 				permanent: true
+			},
+			{
+				source: '/build',
+				destination: '/evm',
+				permanent: true
+			},
+			{
+				source: '/learn/general-overview',
+				destination: '/learn',
+				permanent: true
+			},
+			{
+				source: '/introduction/dex-optimizations',
+				destination: '/learn/parallelization-engine',
+				permanent: true
+			},
+			{
+				source: '/front-end-development/react-tutorial',
+				destination: '/evm/building-a-frontend',
+				permanent: true
+			},
+			{
+				source: '/interoperability/precompiles/cosmwasm',
+				destination: '/evm/precompiles/cosmwasm-precompiles/example-usage',
+				permanent: true
+			},
+			{
+				source: '/interoperability/precompiles/cosmwasm/:slug*',
+				destination: '/evm/precompiles/cosmwasm-precompiles/:slug*',
+				permanent: true
+			},
+			{
+				source: '/interoperability/overview',
+				destination: '/learn/dev-interoperability',
+				permanent: true
+			},
+			{
+				source: '/interoperability/pointer-contracts',
+				destination: '/learn/pointers',
+				permanent: true
+			},
+			{
+				source: '/nodes-and-validators/joining-testnets',
+				destination: '/node',
+				permanent: true
+			},
+			{
+				source: '/nodes-and-validators/seinami-incentivized-testnet',
+				destination: '/node',
+				permanent: true
+			},
+			{
+				source: '/oracle/oracle-participation',
+				destination: '/learn/oracles',
+				permanent: true
+			},
+			{
+				source: '/overview',
+				destination: '/',
+				permanent: true
+			},
+			{
+				source: '/quickstart/nft-contract-tutorial',
+				destination: '/evm/evm-foundry',
+				permanent: true
+			},
+			{
+				source: '/reference/cosmos',
+				destination: '/cosmos-sdk',
+				permanent: true
+			},
+			{
+				source: '/running-validator/:slug*',
+				destination: '/node/validators',
+				permanent: true
+			},
+			{
+				source: '/running-sei-node/:slug*',
+				destination: '/node',
+				permanent: true
+			},
+			{
+				source: '/running-validator/validator-faq',
+				destination: '/node/validators',
+				permanent: true
+			},
+			{
+				source: '/order-matching/:slug*',
+				destination: '/evm',
+				permanent: true
+			},
+			{
+				source: '/smart-contracts-and-local-development/set-up-a-local-network',
+				destination: '/node',
+				permanent: true
 			}
 		];
 	}
