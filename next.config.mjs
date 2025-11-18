@@ -1205,6 +1205,31 @@ export default withNextra({
 				source: '/governance',
 				destination: '/learn/general-governance',
 				permanent: true
+			},
+			{
+				source: '/learn/getting-tokens',
+				destination: '/learn',
+				permanent: true
+			},
+			{
+				source: '/learn/linking-addresses',
+				destination: '/learn/accounts',
+				permanent: true
+			},
+			{
+				source: '/node/security-practices',
+				destination: '/node',
+				permanent: true
+			},
+			{
+				source: '/reference/precompiles/:slug*',
+				destination: '/cosmos-sdk',
+				permanent: true
+			},
+			{
+				source: '/wallets/wallet-integration',
+				destination: '/learn/wallets',
+				permanent: true
 			}
 		];
 	}
