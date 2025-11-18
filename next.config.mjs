@@ -1122,6 +1122,11 @@ export default withNextra({
 				permanent: true
 			},
 			{
+				source: '/interoperability/precompiles/:slug*',
+				destination: '/evm/precompiles/:slug*',
+				permanent: true
+			},
+			{
 				source: '/interoperability/overview',
 				destination: '/learn/dev-interoperability',
 				permanent: true
@@ -1184,6 +1189,21 @@ export default withNextra({
 			{
 				source: '/smart-contracts-and-local-development/set-up-a-local-network',
 				destination: '/node',
+				permanent: true
+			},
+			{
+				source: '/learn/wallet-setup',
+				destination: '/learn/wallets',
+				permanent: true
+			},
+			{
+				source: '/node/oracle-price-feeder',
+				destination: '/learn/oracles',
+				permanent: true
+			},
+			{
+				source: '/governance',
+				destination: '/learn/general-governance',
 				permanent: true
 			}
 		];
