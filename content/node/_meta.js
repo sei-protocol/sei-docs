@@ -7,12 +7,14 @@ export default {
 		title: 'Node Operations'
 	},
 	'node-operators': 'Overview',
+	seictl: 'Seictl Setup Helper',
 	statesync: 'Statesync',
 	snapshot: 'Snapshot Sync',
 	'node-types': 'Node Types',
 	troubleshooting: 'Troubleshooting',
 	swagger: 'API configuration',
 	validators: 'Validator Operations Guide',
+	'oracle-pricefeeder': 'Sei Oracle Price Feeder',
 
 	'-- Advanced Operations': {
 		type: 'separator',
