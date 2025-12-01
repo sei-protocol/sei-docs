@@ -1,0 +1,131 @@
+---
+title: 'Migrate Your EVM dApp to Sei'
+description: 'Step-by-step checklist for teams that already run on another EVM chain and want to redeploy on Sei, including environment prep, contract migration, liquidity planning, and a QuickSwap-style example.'
+keywords:
+  - Sei EVM migration
+  - cross-chain deployment
+  - EVM compatibility
+  - Sei guide
+  - smart contract rollout
+---
+
+import { Callout } from 'nextra/components';
+
+# How to migrate to Sei from another EVM chain
+
+Sei offers full EVM bytecode compatibility plus near-instant finality and sub-second blocks. This guide distills what product teams need to do when they already run on Polygon, Base, Ethereum or another EVM chain and want to bring your dApp stack to Sei.
+
+## 1. Evaluate compatibility deltas
+
+Revisit the [Divergence from Ethereum](./differences-with-ethereum) doc and confirm every assumption your contracts/frontends make still holds.
+
+| Dimension  | Sei EVM                    | Practical effect                                                            |
+| ---------- | -------------------------- | --------------------------------------------------------------------------- |
+| Block time | 400 ms                     | Faster TX inclusion → smaller `deadline` buffers and quicker price oracles. |
+| Finality   | Instant                    | No separate “safe/latest” commitment levels to poll.                        |
+| Gas limit  | 10M gas + 21 MB byte limit | Batch contract deployments by 10M gas blocks.                               |
+| Base fee   | Dynamic but never burned   | Validators receive 100% of fees.                                            |
+| Execution  | Parallelized EVM           | No changes to your solidity code are necessary.                             |
+
+Document any feature that relies on pending state, blob opcodes, or `PREVRANDAO` entropy and plan alternatives before touching code.
+
+## 2. Prepare your local and CI environments
+
+1. **Add Sei RPC endpoints** – mainnet chain ID `1329` (`https://evm-rpc.sei-apis.com`) and testnet chain ID `1328` (`https://evm-rpc-testnet.sei-apis.com`). Use [`ChainInformation`](./networks) for the latest values.
+2. **Extend toolchains** – add Sei entries to Hardhat, Foundry, Tenderly, Sourcify, etc. Example Hardhat snippet:
+
+```ts
+// hardhat.config.ts
+import '@nomicfoundation/hardhat-verify';
+
+const config = {
+  networks: {
+    seiMainnet: {
+      url: process.env.SEI_MAINNET_RPC ?? 'https://evm-rpc.sei-apis.com',
+      chainId: 1329,
+      accounts: process.env.DEPLOYER_KEYS?.split(',') ?? []
+    },
+    seiTestnet: {
+      url: process.env.SEI_TESTNET_RPC ?? 'https://evm-rpc-testnet.sei-apis.com',
+      chainId: 1328,
+      accounts: process.env.DEPLOYER_KEYS?.split(',') ?? []
+    }
+  }
+};
+
+export default config;
+```
+
+3. **Mirror Foundry profiles** – the [Foundry guide](./evm-foundry) shows how to run `forge script`/`forge create` against `SEI_TESTNET_RPC`/`SEI_MAINNET_RPC`. Bake those URLs plus the dummy Seitrace API key (`forge verify-contract --verifier blockscout --etherscan-api-key dummy --chain-id 1328`) into your CI templates so scripts and verifications stay deterministic.
+4. **Wallets & relayers** – pre-configure MetaMask/Safe with Sei chain params or use [`addOrSwitchSeiNetwork`](../../src/components/ChainInformation/config.ts) logic in your UI. Teams using Safe transaction relays should include `chainId: 1329` payloads in their service manifests.
+5. **Indexer coverage** – confirm your data stack (SeiScan, SeiTrace, self-hosted Erigon, or firehoses) exposes Sei endpoints before launch day. When running your own node, configure it with the matching release tag noted above.
+
+## 3. Bootstrap common infrastructure
+
+Most teams re-use canonical helper contracts instead of redeploying them. Sei already exposes the addresses below (pulled from `src/components/EcosystemContracts/Ecosystem-Contracts.csv`); reference them instead of redeploying:
+
+| Component               | Address                                      | Notes                                                       |
+| ----------------------- | -------------------------------------------- | ----------------------------------------------------------- |
+| Permit2                 | `0xB952578f3520EE8Ea45b7914994dcf4702cEe578` | Shared allowance manager used by many DEX and wallet flows. |
+| Multicall3              | `0xcA11bde05977b3631167028862bE2a173976CA11` | Enables batching and view aggregation in SDKs.              |
+| ImmutableCreate2Factory | `0x0000000000FFe8B47B3e2130213B802212439497` | Deterministic deployments with `CREATE2`.                   |
+| SingletonFactory        | `0xce0042B868300000d44A59004Da54A005ffdcf9f` |
+
+When you depend on other third-party contracts (e.g., LayerZero, Stargate, Safe), consult the full [Ecosystem Contracts page](./ecosystem-contracts) to keep addresses in sync.
+
+## 4. Port contracts and configuration
+
+1. **Parameterize chain-specific constants** – block delays, base-fee safeguards, sequencer grace periods, and `CHAIN_ID` checks should all branch on Sei IDs.
+2. **Adjust gas & byte-size assumptions** – keep `gasLimit` buffers modest, but ensure calldata stays < 21 MB.
+3. **SELFDESTRUCT & blob opcodes** – refactor destructive flows to "soft close" contracts and remove any blob transaction assumptions (Sei runs without blobs).
+4. **Testing** – run Foundry/Hardhat suites against Sei RPC plus local anvil forks fed by Sei EVM state. Follow the [Hardhat tutorial](./evm-hardhat) to reuse its Ignition modules for ERC20/721 smoke tests.
+
+## 5. Plan bridging & omnichain connectivity
+
+- **LayerZero V2** – reuse the [`EndpointId.SEI_V2_MAINNET (30280)` config](./bridging/layerzero) so you only maintain one `layerzero.config.ts`. Generate DVN/ULN wiring with `generateConnectionsConfig` and keep enforced gas options symmetrical between Sei and the source chain.
+- **Utility tasks** – port the Hardhat tasks from the LayerZero guide (`lz:deploy`, `lz:oapp:wire`, `mint`) so QA can mint/move OFTs without touching Solidity.
+- **Circle CCTP / other bridges** – if you rely on canonical assets (USDC, ETH), confirm the provider has a Sei endpoint or plan to mint IBC/TokenFactory representations.
+- **Pointer contracts** – when bridging non-EVM assets, register pointer contracts as described in [Pointer Contracts](../../learn/pointers) so wallets on both sides can read the same supply.
+
+## 6. Handle assets and liquidity
+
+1. **Bridge canonical assets** – follow the [Bridging guide](./bridging) to move core tokens.
+2. **Oracle & price feeds** – choose oracles already live on Sei (Built-in Oracle, Pyth, Chainlink).
+
+## 7. Launch checklist
+
+- ✅ Re-deploy contracts on atlantic-2 (testnet) first, run full integration tests, and verify the contract via Hardhat plugins.
+- ✅ Deploy the contracts to pacific-1 (mainnet), rerun smoke tests, and re-verify the contracts before announcing.
+- ✅ Create documentation for migrating LPs/users, including faucet instructions and explorer links.
+
+<Callout type="warning">Fees on Sei are not burned. If your protocol redistributes "burn rebates" to users, redesign that logic so it does not expect a base-fee burn component.</Callout>
+
+## 8. Operational readiness & monitoring
+
+- **Automated verification** – drive everything through the [Seitrace verification APIs](./evm-verify-contracts) (`https://seitrace.com/pacific-1/api`) from CI to guarantee parity with public explorers.
+- **RPC + indexer health** – for mission-critical paths, pair a community RPC (e.g., `https://evm-rpc.sei-apis.com`) with a self-hosted node built from the matching `sei-chain` release or consider adding
+- **Gas parameter drift** – periodically run the `seid q params subspace evm KeyTargetGasUsedPerBlock` commands listed in [Divergence from Ethereum](./differences-with-ethereum) so dashboards stay aligned with on-chain fee policy.
+- **Alerting** – subscribe to SeiTrace websockets for block/tx feeds and monitor Cosmos events (staking, slashing) that can indirectly touch EVM state.
+
+## Example: QuickSwap-style deployment on Sei
+
+Let’s mirror a Uniswap v3/QuickSwap experience:
+
+1. **Routers & factories** – Deploy your own `SwapRouter`, `Factory`, and NFT position managers, or fork the already-live DragonSwap stack:
+   - Router: `0xdD489C75be1039ec7d843A6aC2Fd658350B067Cf`
+   - V3 Factory: `0x75FC67473A91335B5b8F8821277262a13B38c9b3`
+   - Position Manager: `0x8B3c541c30f9b29560f56B9E44b59718916B69EF`
+2. **Permit and multicall support** – Point your frontend SDK to the shared `Permit2` and `Multicall3` addresses from the table above so wallet flows stay identical to Polygon/Base.
+3. **Liquidity migration script** – build a helper that withdraws LP on Polygon/Base, bridges underlying tokens to Sei (via IBC or CCTP), then mints new Sei LP positions. Include gas estimations tuned for Sei’s `10M` block cap.
+4. **Price oracles** – reuse TWAP/Chainlink logic but shorten observation windows because Sei blocks arrive ~30× faster; this keeps time-weighted math comparable.
+5. **Verification & registry** – pipe your Ignition/Foundry deployments straight into Seitrace verification (see [evm-verify-contracts](./evm-verify-contracts)) and submit metadata to the [Ecosystem Contracts registry](./ecosystem-contracts) (CSV PR + sheet entry) so integrators discover your addresses quickly.
+6. **Bridge liquidity** – pair your LP onboarding campaign with the [LayerZero task flow](./bridging/layerzero#step-6-wire-the-contracts) so partner chains can send assets into Sei as soon as pools go live.
+
+Following this pattern is similar for a Base-native Uniswap fork: replace DragonSwap addresses with your newly deployed Sei contracts, double-check `CREATE2` salts against the ImmutableCreate2Factory, and ship.
+
+## Helpful references
+
+- [Divergence from Ethereum](./differences-with-ethereum) – opcode, gas, and state nuances.
+- [EVM Networks](./networks) – RPCs, explorers, and MetaMask payloads.
+- [Precompiles](./precompiles/example-usage) – interoperability patterns.
+- [Ecosystem Contracts](./ecosystem-contracts) – canonical addresses (backed by `src/components/EcosystemContracts/Ecosystem-Contracts.csv`).
