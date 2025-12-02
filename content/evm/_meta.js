@@ -8,6 +8,7 @@ export default {
 	},
 	networks: 'Network Information',
 	'differences-with-ethereum': 'Divergence from Ethereum',
+	'migrate-from-other-evms': 'Migrate from Other EVMs',
 
 	'-- seid CLI': {
 		type: 'separator',
