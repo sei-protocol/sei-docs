@@ -9,6 +9,7 @@ export default {
 	networks: 'Network Information',
 	'differences-with-ethereum': 'Divergence from Ethereum',
 	'migrate-from-other-evms': 'Migrate from Other EVMs',
+	'migrate-from-solana': 'Migrate from Solana',
 
 	'-- seid CLI': {
 		type: 'separator',
@@ -59,19 +60,19 @@ export default {
 	},
 	'scaffold-sei': {
 		title: 'Scaffold Sei',
-		href: 'https://sei-js.docs.sei.io/create-sei'
+		href: 'https://sei-js.docs.sei.io/create-sei/introduction'
 	},
 	'mcp-server-seijs': {
 		title: 'MCP Server',
-		href: 'https://sei-js.docs.sei.io/mcp-server'
+		href: 'https://sei-js.docs.sei.io/mcp-server/introduction'
 	},
 	'sei-x402': {
 		title: 'X402',
-		href: 'https://sei-js.docs.sei.io/x402'
+		href: 'https://sei-js.docs.sei.io/x402/introduction'
 	},
 	'seijs-ledger': {
 		title: 'Ledger',
-		href: 'https://sei-js.docs.sei.io/ledger'
+		href: 'https://sei-js.docs.sei.io/ledger/introduction'
 	},
 
 	'-- Ecosystem Tutorials': {
