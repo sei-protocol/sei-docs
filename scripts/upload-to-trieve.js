@@ -4,6 +4,7 @@ const path = require('path');
 // Configuration
 const TRIEVE_API_BASE = 'https://api.trieve.ai/api';
 const SCRAPED_DOCS_DIR = './public/_scraped-docs';
+const KNOWLEDGE_BASE_DIR = './knowledge-base';
 const DELAY_BETWEEN_OPERATIONS = 500;
 
 async function uploadToTrieve() {
@@ -116,11 +117,13 @@ async function getAllExistingFiles(apiKey, datasetId) {
 }
 
 async function loadScrapedFiles() {
+	const fileData = [];
+
+	// Load scraped docs (.mdx files)
 	try {
 		const files = await fs.readdir(SCRAPED_DOCS_DIR);
 		const mdxFiles = files.filter((file) => file.endsWith('.mdx'));
 
-		const fileData = [];
 		for (const fileName of mdxFiles) {
 			const filePath = path.join(SCRAPED_DOCS_DIR, fileName);
 			const content = await fs.readFile(filePath, 'utf8');
@@ -131,11 +134,57 @@ async function loadScrapedFiles() {
 				filePath
 			});
 		}
-
-		return fileData;
+		console.log(`   📚 Loaded ${mdxFiles.length} files from scraped docs`);
 	} catch (error) {
-		throw new Error(`Failed to load scraped files: ${error.message}`);
+		console.warn(`⚠️  Could not load scraped docs: ${error.message}`);
 	}
+
+	// Load knowledge base files (.md files, recursively)
+	try {
+		const kbFiles = await loadKnowledgeBaseFiles(KNOWLEDGE_BASE_DIR);
+		fileData.push(...kbFiles);
+		console.log(`   📚 Loaded ${kbFiles.length} files from knowledge base`);
+	} catch (error) {
+		console.warn(`⚠️  Could not load knowledge base: ${error.message}`);
+	}
+
+	return fileData;
+}
+
+async function loadKnowledgeBaseFiles(dir, basePath = '') {
+	const fileData = [];
+
+	try {
+		const entries = await fs.readdir(dir, { withFileTypes: true });
+
+		for (const entry of entries) {
+			const fullPath = path.join(dir, entry.name);
+
+			if (entry.isDirectory()) {
+				// Recursively load subdirectories
+				const subPath = basePath ? `${basePath}/${entry.name}` : entry.name;
+				const subFiles = await loadKnowledgeBaseFiles(fullPath, subPath);
+				fileData.push(...subFiles);
+			} else if (entry.name.endsWith('.md')) {
+				const content = await fs.readFile(fullPath, 'utf8');
+				// Use path-based naming for knowledge base files to avoid collisions
+				const fileName = basePath ? `kb-${basePath.replace(/\//g, '-')}-${entry.name}` : `kb-${entry.name}`;
+
+				fileData.push({
+					fileName,
+					content,
+					filePath: fullPath
+				});
+			}
+		}
+	} catch (error) {
+		// Directory might not exist, that's okay
+		if (error.code !== 'ENOENT') {
+			throw error;
+		}
+	}
+
+	return fileData;
 }
 
 async function compareFiles(existingFiles, scrapedFiles) {
