@@ -1,0 +1,462 @@
+# Account Abstraction with EIP-7702 using thirdweb
+
+## Overview
+
+This comprehensive guide demonstrates how to integrate thirdweb's EIP-7702 Account Abstraction SDK into your application. EIP-7702 represents the next generation of account abstraction, allowing Externally Owned Accounts (EOAs) to temporarily function as smart contracts, enabling gasless transactions and advanced wallet features without requiring users to migrate to new wallet addresses.
+
+## What This Guide Covers
+
+- Understanding EIP-7702
+- Setting up a React application with thirdweb's EIP-7702 implementation
+- Implementing social logins with smart account features
+- Creating gasless transaction experiences on Sei Network
+
+## Prerequisites
+
+Before starting, ensure you have:
+
+- Node.js v18+ installed
+- Basic knowledge of React and TypeScript
+- A thirdweb account with API key from [thirdweb Dashboard](https://thirdweb.com/dashboard)
+- **For Mainnet**: An active thirdweb Pay As You Go subscription ($5/month minimum) for gas sponsorship
+
+## What is EIP-7702?
+
+EIP-7702 is an Ethereum Improvement Proposal that introduces native account abstraction by allowing EOAs to temporarily delegate execution to smart contracts. This approach offers several advantages over traditional ERC-4337 implementations:
+
+### Sei Network Setup
+
+**Testnet** :
+
+- **Sei testnet RPC**: `https://evm-rpc-testnet.sei-apis.com`
+- **Chain ID**: 1328
+
+**Mainnet** :
+
+- **SEI mainnet RPC**: `https://evm-rpc.sei-apis.com`
+- **Chain ID**: 1329
+
+## Step 1: Deploy a Storage Contract
+
+For this example, we'll deploy a simple Storage contract that stores and retrieves numbers. This will demonstrate gasless transactions and smart account features with EIP-7702.
+
+### Storage Contract (Solidity)
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract Storage {
+    uint256 private value;
+
+    function store(uint256 num) public {
+        value = num;
+    }
+
+    function retrieve() public view returns (uint256) {
+        return value;
+    }
+}
+```
+
+Deploy this contract using [Remix](https://remix.ethereum.org/) or your preferred deployment tool. Note the contract address for later use.
+
+## Step 2: Project Setup
+
+### Create a New Project
+
+```bash
+npm create vite@latest eip7702-demo -- --template react-ts
+cd eip7702-demo
+npm install
+```
+
+### Install Dependencies
+
+```bash
+npm install thirdweb@^5
+```
+
+### Configure Environment Variables
+
+Create a `.env` file in your project root:
+
+```env
+VITE_TEMPLATE_CLIENT_ID=your_thirdweb_client_id_here
+VITE_STORAGE_CONTRACT_ADDRESS=your_deployed_contract_address_here
+```
+
+Get your Client ID from [thirdweb Dashboard](https://thirdweb.com/dashboard) → Settings → API Keys.
+
+### Enable Gas Sponsorship (Production)
+
+For mainnet gas sponsorship:
+
+1. Visit [thirdweb Dashboard Billing](https://thirdweb.com/dashboard/settings/billing)
+2. Subscribe to the **Pay As You Go** plan ($5/month minimum)
+3. Enable gas sponsorship in your project settings
+
+## Step 3: Configure thirdweb Client
+
+Create `src/client.ts`:
+
+```typescript
+import { createThirdwebClient } from 'thirdweb';
+
+export const client = createThirdwebClient({
+  clientId: import.meta.env.VITE_TEMPLATE_CLIENT_ID
+});
+```
+
+## Step 4: Setup ThirdwebProvider
+
+First, update `src/main.tsx` to include the ThirdwebProvider:
+
+```typescript
+import React from 'react'
+import ReactDOM from 'react-dom/client'
+import { ThirdwebProvider } from "thirdweb/react"
+import App from './App.tsx'
+import './index.css'
+
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <ThirdwebProvider>
+      <App />
+    </ThirdwebProvider>
+  </React.StrictMode>,
+)
+```
+
+## Step 5: EIP-7702 Smart Account Implementation
+
+Now replace `src/App.tsx` with the complete EIP-7702 implementation:
+
+```typescript
+import React, { useState } from "react";
+import {
+  ConnectButton,
+  TransactionButton,
+  useActiveAccount,
+  useWalletBalance,
+  useReadContract,
+} from "thirdweb/react";
+import { inAppWallet } from "thirdweb/wallets";
+import { client } from "./client";
+import {
+  getContract,
+  prepareContractCall,
+  sendAndConfirmTransaction,
+} from "thirdweb";
+import { defineChain } from "thirdweb/chains";
+
+const { VITE_TEMPLATE_CLIENT_ID: THIRDWEB_API_KEY } = import.meta.env;
+// Configure Sei network
+const rpc = `https://1329.rpc.thirdweb.com/${THIRDWEB_API_KEY}`;
+const seiChain = defineChain({
+  id: 1329,
+  rpc,
+});
+
+// Choose your target chain - EIP-7702 enabled chains
+const targetChain = seiChain;
+
+// Get contract address from environment
+const CONTRACT_ADDRESS = import.meta.env.VITE_STORAGE_CONTRACT_ADDRESS;
+
+// Configure the Storage contract
+const storageContract = getContract({
+  client,
+  chain: targetChain,
+  address: CONTRACT_ADDRESS,
+});
+
+// Configure EIP-7702 enabled wallet
+const wallets = [
+  inAppWallet({
+    auth: {
+      options: [
+        "google",
+        "email",
+        "passkey",
+        "apple",
+        "facebook",
+        "discord",
+        "x",
+        "telegram",
+        "phone",
+        "guest",
+      ],
+    },
+    // Enable EIP-7702 smart account features
+    executionMode: {
+      mode: "EIP7702",
+      sponsorGas: true, // Enable gasless transactions
+    },
+  }),
+];
+
+function App() {
+  const account = useActiveAccount();
+  const [transactionStatus, setTransactionStatus] = useState<string>("");
+
+  // Get wallet balance
+  const { data: balance } = useWalletBalance({
+    client,
+    chain: targetChain,
+    address: account?.address,
+  });
+
+  const { data: storeValue } = useReadContract({
+    contract: storageContract,
+    method: "function retrieve() view returns (uint256)",
+  });
+
+  // Custom store function with status updates
+  const handleCustomStore = async (storeNumber: number) => {
+    if (!account) return;
+
+    setTransactionStatus("Preparing transaction...");
+
+    try {
+      const transaction = prepareContractCall({
+        contract: storageContract,
+        method: "function store(uint256 number)",
+        params: [BigInt(storeNumber)],
+      });
+
+      setTransactionStatus("Sending transaction...");
+
+      const result = await sendAndConfirmTransaction({
+        transaction,
+        account,
+      });
+
+      setTransactionStatus(`Success! Transaction: ${result.transactionHash}`);
+
+      // Reset status after 5 seconds
+      setTimeout(() => setTransactionStatus(""), 5000);
+    } catch (error) {
+      console.error("Store failed:", error);
+      setTransactionStatus(
+        `Error: ${
+          error instanceof Error ? error.message : "Transaction failed"
+        }`
+      );
+
+      // Reset status after 5 seconds
+      setTimeout(() => setTransactionStatus(""), 5000);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8">
+      <div className="max-w-4xl mx-auto px-4">
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">
+            EIP-7702 Account Abstraction Demo
+          </h1>
+        </div>
+
+        {/* Connection Section */}
+        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+          <h2 className="text-2xl font-semibold mb-4 text-gray-800">
+            Connect Your Smart Account
+          </h2>
+          <p className="text-gray-600 mb-4">
+            Connect with social login and get instant smart account features -
+            no wallet setup required!
+          </p>
+          <ConnectButton
+            client={client}
+            wallets={wallets}
+            chain={targetChain}
+            connectButton={{
+              label: "Connect with EIP-7702 Smart Account",
+              className:
+                "!bg-indigo-600 !hover:bg-indigo-700 !text-white !py-3 !px-6 !rounded-lg !font-medium",
+            }}
+          />
+
+          {/* Display account info */}
+          {account && (
+            <div className="mt-4 p-4 bg-green-50 rounded-lg">
+              <h3 className="font-semibold text-green-800 mb-2">
+                ✅ Smart Account Connected
+              </h3>
+              <p className="text-sm text-gray-700">
+                <strong>Address:</strong> {account.address}
+              </p>
+              <p className="text-sm text-gray-700">
+                <strong>Balance:</strong> {balance?.displayValue}{" "}
+                {balance?.symbol}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {account && (
+          <>
+            {/* Contract Information */}
+            <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="text-center p-4 bg-blue-50 rounded-lg">
+                  <p className="text-sm text-gray-600">Store Value</p>
+                </div>
+                <div className="text-center p-4 bg-purple-50 rounded-lg">
+                  <p className="text-2xl font-bold text-purple-600">
+                    {storeValue?.toString() || "0"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Transaction Section */}
+            <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+              <div className="space-y-6">
+                <div className="border-l-4 border-blue-500 pl-4">
+                  <h4 className="font-semibold text-gray-800 mb-2">Store</h4>
+                  <TransactionButton
+                    transaction={() =>
+                      prepareContractCall({
+                        contract: storageContract,
+                        method: "function store(uint256 to)",
+                        params: [BigInt(37)],
+                      })
+                    }
+                    onTransactionSent={(result) => {
+                      console.log("Transaction sent:", result.transactionHash);
+                      setTransactionStatus(
+                        "Transaction sent, waiting for confirmation..."
+                      );
+                    }}
+                    onTransactionConfirmed={(result) => {
+                      console.log(
+                        "Transaction confirmed:",
+                        result.transactionHash
+                      );
+                      setTransactionStatus(
+                        `Store was successfully! TX: ${result.transactionHash}`
+                      );
+                      setTimeout(() => setTransactionStatus(""), 5000);
+                    }}
+                    onError={(error) => {
+                      console.error("Transaction error:", error);
+                      setTransactionStatus(`❌ Error: ${error.message}`);
+                      setTimeout(() => setTransactionStatus(""), 5000);
+                    }}
+                  >
+                    Store 37
+                  </TransactionButton>
+                </div>
+              </div>
+            </div>
+
+            {/* Custom Store Button */}
+            <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+              <div className="border-l-4 border-green-500 pl-4">
+                <h4 className="font-semibold text-gray-800 mb-2">
+                  Custom Implementation
+                </h4>
+                <button
+                  onClick={() => {
+                    const amount = prompt("Enter number to store");
+                    const num = Number(amount);
+                    if (!isNaN(num)) {
+                      handleCustomStore(num);
+                    }
+                  }}
+                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                >
+                  Store Custom Number
+                </button>
+              </div>
+            </div>
+
+            {/* Status Display */}
+            {transactionStatus && (
+              <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+                <h4 className="font-semibold mb-2">Transaction Status</h4>
+                <p className="text-sm text-gray-700 font-mono bg-gray-100 p-3 rounded">
+                  {transactionStatus}
+                </p>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default App;
+
+```
+
+## Step 6: Package Configuration
+
+Update your `package.json`:
+
+```json
+{
+  "name": "eip7702-storage-abstraction-demo",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "thirdweb": "^5"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.56",
+    "@types/react-dom": "^18.2.19",
+    "@vitejs/plugin-react": "^4.2.1",
+    "typescript": "^5.2.2",
+    "vite": "^5.0.8"
+  }
+}
+```
+
+## Step 7: Run the Application
+
+### Start Development Server
+
+```bash
+npm run dev
+```
+
+### Test EIP-7702 Features
+
+1. **Open** `http://localhost:5173` in your browser
+2. **Connect** using any social login (Google, email, etc.)
+3. **Observe** the automatic smart account creation (no gas required!)
+4. **Test** gasless storage operations:
+   - Store the predefined value (37) using the "Store 37" button
+   - Store custom numbers using the "Store Custom Number" button
+   - Read stored values displayed in the interface
+5. **Monitor** console for transaction hashes and status updates
+6. **Thirdweb Dashboard**: View more details in your thirdweb dashboard
+
+## Troubleshooting
+
+### Network Issues
+
+If experiencing connectivity problems:
+
+1. Check the [thirdweb status page](https://status.thirdweb.com)
+2. Verify your API key is active and has sufficient credits
+
+## Resources
+
+### Documentation & Tools
+
+- **[thirdweb Portal](https://portal.thirdweb.com/)**: Comprehensive SDK documentation
+- **[thirdweb Dashboard](https://thirdweb.com/dashboard)**: Manage projects and API keys
+- **[GitHub Repository](https://github.com/thirdweb-dev)**: Source code and examples
+- **[Developer Blog](https://blog.thirdweb.com/)**: Latest updates and tutorials
+- **[Sei Tech Chat](https://t.me/+7N5zdbDEF7IwZWJk)**: Developer community and support
