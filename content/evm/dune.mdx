@@ -1,0 +1,421 @@
+---
+title: 'Dune Analytics'
+description: 'Complete guide to working with Dune Analytics on Sei Network'
+---
+
+## What is Dune Analytics?
+
+Dune Analytics is a powerful blockchain analytics platform that allows you to query, visualize, and share blockchain data using SQL. For game developers, it's an invaluable tool for:
+
+- **Player Analytics**: Track user acquisition, retention, and engagement
+- **Transaction Analysis**: Monitor game economy and player behavior
+- **Performance Metrics**: Measure daily/weekly active users, transaction volumes
+- **Cohort Analysis**: Understand player lifecycle and retention patterns
+- **Custom Dashboards**: Create visual reports for stakeholders
+
+### Key Features:
+
+- SQL-based querying interface
+- Pre-indexed blockchain data from multiple networks
+- Visualization tools for charts and dashboards
+- Real-time data updates
+
+## Prerequisites
+
+Before you begin, make sure you have:
+
+1. **Dune Account**: Sign up at [dune.com](https://dune.com)
+2. **Basic SQL Knowledge**: Understanding of SELECT, JOIN, WHERE, GROUP BY clauses
+3. **Contract Addresses**: Know your game's smart contract addresses
+4. **Understanding of Your Game Logic**: Know what transactions represent in your game context
+
+### SQL Knowledge Requirements:
+
+- Basic SELECT statements
+- JOINs (INNER, LEFT)
+- Aggregate functions (COUNT, SUM, AVG)
+- Date functions (DATE_TRUNC, DATE_DIFF)
+- Common Table Expressions (WITH clauses)
+
+## Getting Started
+
+### Step 1: Access the Template Dashboard
+
+Visit the Sei Games Query Templates: [Game Query Templates](https://dune.com/sei/sei-games-query-templates)
+
+### Step 2: Understanding the Dashboard Structure
+
+The template dashboard contains several key metrics:
+
+- Total unique users
+- Cohort retention analysis
+- User acquisition trends
+- Transaction volume analysis
+- Daily/Weekly active users
+
+Below are the SQL queries powering these metrics.
+
+## How to Fork and Use Query Templates
+
+### Forking a Query
+
+1. **Navigate to the Query**: Click on any visualization in the dashboard
+2. **Access Query Editor**: Click "Edit Query" or the query title
+3. **Fork the Query**: Click the "Fork" button in the top right
+4. **Rename Your Fork**: Give it a descriptive name like "MyGame - Daily Active Users"
+5. **Customize**: Replace placeholder values with your actual contract addresses
+
+### Making Queries Private/Public
+
+- **Private Queries**: Only visible to you
+- **Public Queries**: Visible to all Dune users
+- **Unlisted**: Not searchable but accessible via direct link
+
+## Query Templates for Game Analytics
+
+### 1. Total Unique Users
+
+**Purpose**: Get the total number of unique players who have ever interacted with your game.
+
+```sql
+WITH my_game_contracts AS (
+  SELECT
+    address
+  FROM UNNEST(ARRAY[
+    0xYOUR_CONTRACT_ADDRESS_1,
+    0xYOUR_CONTRACT_ADDRESS_2
+  ]) AS _u(address)
+)
+
+SELECT
+  COUNT(DISTINCT t."from") AS total_unique_users
+FROM sei.transactions AS t
+JOIN my_game_contracts AS c
+  ON t."to" = c.address
+WHERE
+  t.success = TRUE
+```
+
+**How to Use**:
+
+- Replace `0xYOUR_CONTRACT_ADDRESS_1` with your actual contract addresses
+- Add or remove addresses as needed
+
+---
+
+### 2. Cohort Retention Analysis
+
+**Purpose**: Analyze how well you retain players over time by tracking weekly cohorts.
+
+```sql
+WITH my_game_contracts AS (
+    SELECT array[
+        0xYOUR_CONTRACT_ADDRESS_1,
+        0xYOUR_CONTRACT_ADDRESS_2
+    ] AS addresses
+),
+
+-- Find the first time every user was ever seen (Define the Cohort)
+user_cohorts AS (
+    SELECT
+        t."from" AS user_address,
+        MIN(DATE_TRUNC('week', t.block_date)) AS cohort_week
+    FROM sei.transactions t
+    CROSS JOIN UNNEST(
+        (SELECT addresses FROM my_game_contracts)
+    ) AS c (address)
+    WHERE t."to" = c.address
+        AND t.success = true
+    GROUP BY 1
+),
+
+-- Find all weeks where users were active (Activity Log)
+user_activity AS (
+    SELECT DISTINCT
+        t."from" AS user_address,
+        DATE_TRUNC('week', t.block_date) AS activity_week
+    FROM sei.transactions t
+    CROSS JOIN UNNEST(
+        (SELECT addresses FROM my_game_contracts)
+    ) AS c (address)
+    WHERE t."to" = c.address
+        AND t.success = true
+),
+
+-- Calculate Cohort Size
+cohort_size AS (
+    SELECT cohort_week, COUNT(user_address) AS total_users
+    FROM user_cohorts
+    GROUP BY 1
+),
+
+-- Calculate the time difference (offset) and retained users
+retention_data AS (
+    SELECT
+        c.cohort_week,
+        DATE_DIFF('week', c.cohort_week, a.activity_week) AS week_offset,
+        COUNT(DISTINCT c.user_address) AS retained_users
+    FROM user_cohorts c
+    JOIN user_activity a ON c.user_address = a.user_address
+    WHERE a.activity_week >= c.cohort_week
+    GROUP BY 1, 2
+)
+
+-- Final Output: Dynamic List Format for Heatmap Visualization
+SELECT
+    d.cohort_week,
+    s.total_users AS cohort_size,
+    d.week_offset,
+    ROUND(d.retained_users * 100.0 / s.total_users, 2) AS retention_percentage
+FROM retention_data d
+JOIN cohort_size s ON d.cohort_week = s.cohort_week
+ORDER BY 1 ASC, 3 ASC;
+```
+
+**Key Metrics**:
+
+- `cohort_week`: When users first joined
+- `week_offset`: Weeks since first interaction (0 = first week, 1 = second week, etc.)
+- `retention_percentage`: Percentage of cohort still active
+
+---
+
+### 3. Weekly User Acquisition
+
+**Purpose**: Track how many new users you're acquiring each week.
+
+```sql
+WITH my_game_contracts AS (
+  SELECT
+    address
+  FROM UNNEST(ARRAY[
+    0xYOUR_CONTRACT_ADDRESS_1,
+    0xYOUR_CONTRACT_ADDRESS_2
+  ]) AS _u(address)
+),
+
+user_first_seen AS (
+  SELECT
+    t."from" AS user_address,
+    MIN(t.block_date) AS first_interaction_date
+  FROM sei.transactions AS t
+  JOIN my_game_contracts AS c
+    ON t."to" = c.address
+  WHERE
+    t.success = TRUE
+  GROUP BY 1
+)
+
+SELECT
+  DATE_TRUNC('week', first_interaction_date) AS acquisition_week,
+  COUNT(user_address) AS new_users
+FROM user_first_seen
+GROUP BY 1
+ORDER BY 1 DESC
+```
+
+---
+
+### 4. Daily Transaction Volume
+
+**Purpose**: Monitor daily transaction activity in your game.
+
+```sql
+WITH my_game_contracts AS (
+  SELECT
+    address
+  FROM UNNEST(ARRAY[
+    0xYOUR_CONTRACT_ADDRESS_1,
+    0xYOUR_CONTRACT_ADDRESS_2
+  ]) AS _u(address)
+)
+
+SELECT
+  t.block_date,
+  COUNT(*) AS tx_count
+FROM sei.transactions AS t
+JOIN my_game_contracts AS c
+  ON t."to" = c.address
+WHERE
+  t.success = TRUE
+GROUP BY 1
+ORDER BY 1 DESC
+```
+
+---
+
+### 5. Daily Active Users (DAU)
+
+**Purpose**: Track unique daily active users.
+
+```sql
+WITH my_game_contracts AS (
+  SELECT
+    address
+  FROM UNNEST(ARRAY[
+    0xYOUR_CONTRACT_ADDRESS_1,
+    0xYOUR_CONTRACT_ADDRESS_2
+  ]) AS _u(address)
+)
+
+SELECT
+  t.block_date,
+  COUNT(DISTINCT t."from") AS daily_active_users
+FROM sei.transactions AS t
+JOIN my_game_contracts AS c
+  ON t."to" = c.address
+WHERE
+  t.success = TRUE
+GROUP BY 1
+ORDER BY 1 DESC
+```
+
+---
+
+### 6. Weekly Transaction Volume
+
+**Purpose**: Analyze weekly transaction patterns.
+
+```sql
+WITH my_game_contracts AS (
+  SELECT
+    address
+  FROM UNNEST(ARRAY[
+    0xYOUR_CONTRACT_ADDRESS_1,
+    0xYOUR_CONTRACT_ADDRESS_2
+  ]) AS _u(address)
+)
+
+SELECT
+  DATE_TRUNC('week', t.block_date) AS week_start,
+  COUNT(*) AS tx_count
+FROM sei.transactions AS t
+JOIN my_game_contracts AS c
+  ON t."to" = c.address
+WHERE
+  t.success = TRUE
+GROUP BY 1
+ORDER BY 1 DESC
+```
+
+---
+
+### 7. Weekly Active Users (WAU)
+
+**Purpose**: Track unique weekly active users.
+
+```sql
+WITH my_game_contracts AS (
+  SELECT
+    address
+  FROM UNNEST(ARRAY[
+    0xYOUR_CONTRACT_ADDRESS_1,
+    0xYOUR_CONTRACT_ADDRESS_2
+  ]) AS _u(address)
+)
+
+SELECT
+  DATE_TRUNC('week', t.block_date) AS week_start,
+  COUNT(DISTINCT t."from") AS weekly_active_users
+FROM sei.transactions AS t
+JOIN my_game_contracts AS c
+  ON t."to" = c.address
+WHERE
+  t.success = TRUE
+GROUP BY 1
+ORDER BY 1 DESC
+```
+
+---
+
+### 8. Daily User Acquisition
+
+**Purpose**: Track new user acquisition on a daily basis.
+
+```sql
+WITH my_game_contracts AS (
+  SELECT
+    address
+  FROM UNNEST(ARRAY[
+    0xYOUR_CONTRACT_ADDRESS_1,
+    0xYOUR_CONTRACT_ADDRESS_2
+  ]) AS _u(address)
+),
+
+user_first_seen AS (
+  SELECT
+    t."from" AS user_address,
+    MIN(t.block_date) AS first_interaction_date
+  FROM sei.transactions AS t
+  JOIN my_game_contracts AS c
+    ON t."to" = c.address
+  WHERE
+    t.success = TRUE
+  GROUP BY 1
+)
+
+SELECT
+  first_interaction_date,
+  COUNT(user_address) AS new_users
+FROM user_first_seen
+GROUP BY 1
+ORDER BY 1 DESC
+```
+
+## Customizing Queries for Your Game
+
+### 1. Replace Contract Addresses
+
+**Find this section in each query**:
+
+```sql
+FROM UNNEST(ARRAY[
+  0xYOUR_CONTRACT_ADDRESS_1,
+  0xYOUR_CONTRACT_ADDRESS_2
+]) AS _u(address)
+```
+
+**Replace with your actual addresses**:
+
+```sql
+FROM UNNEST(ARRAY[
+  0xa1b2c3d4e5f6789012345678901234567890abcd,
+  0x1234567890abcdef1234567890abcdef12345678,
+  0xfedcba0987654321fedcba0987654321fedcba09
+]) AS _u(address)
+```
+
+### 2. Filter by Specific Functions
+
+To track specific game actions, add function signature filtering:
+
+```sql
+WHERE
+  t.success = TRUE
+  AND t.data LIKE '0x12345678%'  -- Replace with your function signature
+```
+
+### 3. Add Time Filters
+
+To analyze specific periods:
+
+```sql
+WHERE
+  t.success = TRUE
+  AND t.block_date >= '2024-01-01'
+  AND t.block_date <= '2024-12-31'
+```
+
+## Best Practices
+
+### Performance Optimization
+
+1. **Use Date Filters**: Always include date ranges to limit data scope
+2. **Index Awareness**: Filter on indexed columns (block_date, address) first
+3. **Limit Results**: Use `LIMIT` for testing large queries
+
+---
+
+## Resources
+
+- [Dune Analytics Documentation](https://dune.com/docs)
