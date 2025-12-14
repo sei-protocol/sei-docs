@@ -7,5 +7,8 @@ export default {
 	},
 	api3: {
 		title: 'API3'
+	},
+	'pyth-network': {
+		title: 'Pyth Network'
 	}
 };

@@ -1,0 +1,428 @@
+---
+title: 'Pyth Network'
+description: 'Complete guide to integrating Pyth Network with Sei'
+---
+
+# Pyth Network
+
+Pyth Network is a first-party oracle solution that provides high-fidelity, low-latency financial market data on-chain. Unlike traditional push-based oracles, Pyth uses a unique "pull" model where applications retrieve signed price updates on-demand, significantly reducing gas costs while maintaining data freshness. With over 400+ price feeds across cryptocurrencies, equities, FX, and commodities, Pyth aggregates data directly from 120+ institutional data publishers including major exchanges and trading firms.
+
+## What You'll Be Doing in This Guide
+
+In this tutorial, you'll learn how to:
+
+1. Integrate Pyth Network's pull-based oracle system into your Sei EVM application
+2. Fetch real-time SEI token price data using Pyth's JavaScript SDK
+3. Create a smart contract that consumes Pyth price feeds with proper price update mechanisms
+4. Understand Pyth's on-demand architecture and implement efficient price fetching strategies
+
+By the end of this guide, you'll have a working demo that can fetch and utilize Sei price data from Pyth Network's oracle system with proper on-chain verification.
+
+## Prerequisites
+
+Before starting this tutorial, ensure you have:
+
+### Technical Requirements
+
+- **Solidity Knowledge**: Basic understanding of Solidity smart contract development
+- **JavaScript/Node.js**: For off-chain price data fetching using Pyth EVM SDK
+- **Development Environment**: Remix IDE, Hardhat, Foundry, or similar Solidity development setup
+- **Sei Network Access**: RPC endpoint and familiarity with Sei's EVM environment
+
+### Required Dependencies
+
+- Pyth EVM JavaScript SDK (`@pythnetwork/pyth-evm-js`)
+- Pyth Solidity SDK (`@pythnetwork/pyth-sdk-solidity`)
+
+#### Install
+
+```bash
+# npm
+npm install @pythnetwork/pyth-evm-js @pythnetwork/pyth-sdk-solidity
+
+# yarn
+yarn add @pythnetwork/pyth-evm-js @pythnetwork/pyth-sdk-solidity
+
+# pnpm
+pnpm add @pythnetwork/pyth-evm-js @pythnetwork/pyth-sdk-solidity
+```
+
+### Sei Network Configuration
+
+Make sure your development environment is configured for Sei:
+
+- **Mainnet RPC**: `https://evm-rpc.sei-apis.com`
+- **Chain ID**: 1329 (mainnet)
+- **Testnet RPC**: `https://evm-rpc-testnet.sei-apis.com`
+- **Testnet Chain ID**: 1328 (testnet)
+
+## Pyth Architecture Overview
+
+Pyth's pull-based oracle model consists of:
+
+1. **Publishers**: 120+ institutional data providers that sign and submit price data to Pythnet
+2. **Pythnet**: Dedicated blockchain that aggregates publisher data using a stake-weighted algorithm
+3. **Hermes**: Off-chain price service that provides signed price update messages
+4. **Target Chains**: EVM networks (like Sei) where applications consume price data on-demand
+5. **Price Update Mechanism**: Users submit price update data alongside their transactions
+
+## Steps to Integrate Pyth Price Feeds
+
+### Step 1: Smart Contract Integration
+
+Create a smart contract that integrates with Pyth's on-chain price feeds:
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "@pythnetwork/pyth-sdk-solidity/IPyth.sol";
+import "@pythnetwork/pyth-sdk-solidity/PythStructs.sol";
+
+contract SeiPythPriceDemo {
+    IPyth pyth;
+
+    // SEI/USD price feed ID
+    bytes32 constant SEI_USD_PRICE_FEED_ID = 0x53614f1cb0c031d4af66c04cb9c756234adad0e1cee85303795091499a4084eb;
+
+    constructor(address pythContract) {
+        pyth = IPyth(pythContract);
+    }
+
+    /**
+     * @notice Get the latest SEI/USD price with required price update
+     * @param priceUpdateData Price update data from Pyth Hermes API
+     * @return price The current SEI price with confidence interval
+     */
+    function getSeiPrice(bytes[] calldata priceUpdateData)
+        external
+        payable
+        returns (PythStructs.Price memory)
+    {
+        // Get the required fee for updating the price feeds
+        uint fee = pyth.getUpdateFee(priceUpdateData);
+
+        // Update the price feeds with the provided data (requires fee payment)
+        pyth.updatePriceFeeds{value: fee}(priceUpdateData);
+
+        // Fetch and return the updated SEI price
+        return pyth.getPriceNoOlderThan(SEI_USD_PRICE_FEED_ID, 60);
+    }
+
+    /**
+     * @notice Get SEI price without updating (uses last known price)
+     * @return price The last known SEI price
+     */
+    function getLatestSeiPrice() external view returns (PythStructs.Price memory) {
+        return pyth.getPriceNoOlderThan(SEI_USD_PRICE_FEED_ID, 60);
+    }
+
+    /**
+     * @notice Check if the price data is fresh enough for usage
+     * @param maxAge Maximum age of price data in seconds
+     * @return bool True if price is fresh enough
+     */
+    function isPriceFresh(uint maxAge) external view returns (bool) {
+        PythStructs.Price memory price = pyth.getPriceNoOlderThan(SEI_USD_PRICE_FEED_ID, 1000);
+
+        return (block.timestamp - price.publishTime) <= maxAge;
+    }
+
+    /**
+     * @notice Get the fee required for price update
+     * @param priceUpdateData Price update data
+     * @return fee The required fee amount
+     */
+    function getUpdateFee(bytes[] calldata priceUpdateData) external view returns (uint fee) {
+        return pyth.getUpdateFee(priceUpdateData);
+    }
+
+    receive() external payable { }
+}
+```
+
+You can fetch Price Feeds at [docs](https://docs.pyth.network/price-feeds/core/price-feeds/price-feed-ids?search=sei&pageSize=50).
+
+Deploy the contract using [Remix](https://remix.ethereum.org/) with the constructor arguments set to the Pyth contract address on Sei:
+
+- **Sei Mainnet/Testnet Pyth Contract**: [0x2880aB155794e7179c9eE2e38200202908C17B43](https://docs.pyth.network/price-feeds/core/contract-addresses/evm)
+
+### Step 2: JavaScript Integration for Price Updates
+
+Create a module to fetch price updates directly from Pyth's Hermes API and interact with your deployed contract:
+
+```javascript
+const ethers = require('ethers');
+const dotenv = require('dotenv');
+dotenv.config();
+
+/**
+ * Fetch SEI price update data from Pyth Hermes API
+ * @returns {Object} Price update data from Hermes
+ */
+async function fetchSeiPriceUpdateData() {
+  const seiPriceId = '0x53614f1cb0c031d4af66c04cb9c756234adad0e1cee85303795091499a4084eb'; // SEI/USD Price Feed ID
+  const hermesUrl = `https://hermes.pyth.network/v2/updates/price/latest?ids%5B%5D=${seiPriceId}`;
+
+  try {
+    console.log('Fetching SEI price data from Hermes...');
+    const response = await fetch(hermesUrl, {
+      method: 'GET',
+      headers: {
+        accept: 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log('Hermes API Response:', JSON.stringify(data, null, 2));
+
+    // Extract the binary data array for contract submission
+    const binaryData = data.binary.data;
+    console.log('Binary data for contract:', binaryData);
+
+    // Extract parsed price info for logging
+    const priceInfo = data.parsed[0];
+    console.log('Current SEI Price Info:');
+    console.log(`- Price: ${priceInfo.price.price} (expo: ${priceInfo.price.expo})`);
+    console.log(`- Formatted Price: ${(priceInfo.price.price * Math.pow(10, priceInfo.price.expo)).toFixed(6)}`);
+    console.log(`- Confidence: ${priceInfo.price.conf}`);
+    console.log(`- Publish Time: ${new Date(priceInfo.price.publish_time * 1000)}`);
+
+    return {
+      binaryData,
+      priceInfo
+    };
+  } catch (error) {
+    console.error('Error fetching SEI price data:', error);
+    throw error;
+  }
+}
+
+/**
+ * Update SEI price on smart contract and query the result
+ * @param {string} contractAddress Deployed contract address
+ * @param {string} privateKey Wallet private key
+ * @param {string} rpcUrl RPC endpoint URL
+ */
+async function updateAndQuerySeiPrice(contractAddress, privateKey, rpcUrl = 'https://evm-rpc.sei-apis.com') {
+  try {
+    // Setup provider and wallet
+    const provider = new ethers.JsonRpcProvider(rpcUrl);
+    const wallet = new ethers.Wallet(privateKey, provider);
+
+    // Contract ABI
+    const contractAbi = ['function getSeiPrice(bytes[] calldata priceUpdateData) external payable returns (tuple(int64 price, uint64 conf, int32 expo, uint256 publishTime))', 'function getLatestSeiPrice(uint256 time) external view returns (tuple(int64 price, uint64 conf, int32 expo, uint256 publishTime))', 'function isPriceFresh(uint256 maxAge) external view returns (bool)', 'function getUpdateFee(bytes[] calldata priceUpdateData) external view returns (uint256)', 'receive() external payable'];
+
+    const contract = new ethers.Contract(contractAddress, contractAbi, wallet);
+    const seiPriceId = '0x53614f1cb0c031d4af66c04cb9c756234adad0e1cee85303795091499a4084eb';
+
+    // Step 1: Fetch price update data from Hermes
+    const { binaryData, priceInfo } = await fetchSeiPriceUpdateData();
+
+    // Step 2: Convert binary data to bytes array format
+    const priceUpdateData = binaryData.map((hexData) => `0x${hexData}`);
+
+    console.log('Sending Fee Data', priceUpdateData);
+
+    // Step 3: Get update fee (should be small)
+    console.log('\nGetting update fee...');
+    const updateFee = await contract.getUpdateFee(priceUpdateData);
+    console.log(`Update fee: ${ethers.formatEther(updateFee)} SEI`);
+
+    // Step 4: Update price on contract with 1 SEI (as requested)
+    console.log('\nUpdating price on smart contract...');
+    const tx = await contract.getSeiPrice(priceUpdateData, {
+      value: updateFee
+    });
+
+    console.log(`Transaction submitted: ${tx.hash}`);
+    const receipt = await tx.wait();
+    console.log(`✅ Transaction confirmed in block: ${receipt.blockNumber}`);
+
+    const time = 120; // 120 seconds freshness
+
+    const onChainPrice = await contract.getLatestSeiPrice(time);
+
+    console.log('Onchain Query Raw', onChainPrice);
+
+    // Step 5: Log the results
+    console.log('\n📊 On-Chain SEI Price Data:');
+    console.log(`- Raw Price: ${onChainPrice.price.toString()}`);
+    console.log(`- Confidence: ${onChainPrice.conf.toString()}`);
+    console.log(`- Exponent: ${onChainPrice.expo.toString()}`);
+    console.log(`- Publish Time: ${new Date(parseInt(onChainPrice.publishTime.toString()) * 1000)}`);
+
+    // Format the price properly
+    const formattedPrice = (parseInt(onChainPrice.price.toString()) * Math.pow(10, parseInt(onChainPrice.expo.toString()))).toFixed(6);
+    console.log(`- Formatted Price: ${formattedPrice}`);
+
+    return {
+      txHash: receipt.hash,
+      blockNumber: receipt.blockNumber,
+      price: formattedPrice,
+      rawPrice: onChainPrice
+    };
+  } catch (error) {
+    console.error('❌ Error in price update process:', error);
+    throw error;
+  }
+}
+
+/**
+ * Complete demonstration function
+ */
+async function demonstrateSeiPriceIntegration() {
+  // Configuration
+  const contractAddress = process.env.CONTRACT_ADDRESS;
+  const privateKey = process.env.PRIVATE_KEY;
+  const rpcUrl = 'https://evm-rpc.sei-apis.com';
+
+  console.log('🚀 Starting SEI-Pyth integration demo...');
+  console.log(`📍 Contract Address: ${contractAddress}`);
+  console.log(`🌐 RPC URL: ${rpcUrl}\n`);
+
+  try {
+    const result = await updateAndQuerySeiPrice(contractAddress, privateKey, rpcUrl);
+
+    console.log('\n🎉 Demo completed successfully!');
+    console.log(`📋 Summary:`);
+    console.log(`   - Transaction: ${result.txHash}`);
+    console.log(`   - Block: ${result.blockNumber}`);
+    console.log(`   - Final SEI Price: ${result.price}`);
+  } catch (error) {
+    console.error('❌ Demo failed:', error.message);
+  }
+}
+
+// Export functions for use in other modules
+module.exports = {
+  fetchSeiPriceUpdateData,
+  updateAndQuerySeiPrice,
+  demonstrateSeiPriceIntegration
+};
+
+// Run demo if this file is executed directly
+if (require.main === module) {
+  demonstrateSeiPriceIntegration();
+}
+```
+
+### Step 3: Complete Integration Example
+
+Here's a simple usage example that puts it all together:
+
+```javascript
+// demo.js - Simple demonstration script
+import { demonstrateSeiPriceIntegration } from './SeiPythIntegration.js';
+
+// Set your environment variables or update these values
+process.env.PRIVATE_KEY = 'your_private_key_here';
+process.env.CONTRACT_ADDRESS = 'your_deployed_contract_address';
+
+// Run the complete demo
+demonstrateSeiPriceIntegration()
+  .then(() => {
+    console.log('🎯 Integration demo completed successfully!');
+  })
+  .catch((error) => {
+    console.error('❌ Demo failed:', error);
+  });
+```
+
+### Expected Output
+
+When you run the integration, you should see output similar to:
+
+```
+🚀 Starting SEI-Pyth integration demo...
+📍 Contract Address: 0x1234...
+🌐 RPC URL: https://evm-rpc.sei-apis.com
+
+Fetching SEI price data from Hermes...
+Hermes API Response: {
+  "binary": {
+    "encoding": "hex",
+    "data": [
+      "504e41550100000003b801000000040d00c02716aaef50b26e9f5c8dee2dde71f1cb523b9fe38877d6457da7d3f984cb0f44c65a8a8d8f5587eec6ce005db3365d7f2868978823d843de49c2ffb1ae17e7010288ce3817b8396346754ddd813cd1a35b4f15782893a1ae3ee4de51080ccc840c7b88832033beba9204a30f1c4e059442c1a64c9e9c57ea310009f7e0cb1efe0b0103fbe82479fed9995123311d70e83f8b20435cfb66b89e6ba8ddced501d3ff5b5654d22b0573c2b6538c0e5c28a7f8418e699468bc9e8c00ea756118df6ab9659e0004e10d0cdf4954f815108113fda132295ed73733849fb0611a7bd3b871eaef1aaa211a38e2f6a617d7a58797dfd2aaaf12e88770475c6559b5a132bf284b87aed201060388e9ee8fc803605bea4b3bf7c104d2359104cce7c2d60ca58d0e8a1ac000cd5f322f1c16947ed97a70c99de2cba51f436ce7b43211d330472828e1318daa820008191ecf62b84f888cbda0294cb151948bc39186921122cc543e269e05273b12f518bdfc2da229ac6dedecc2c89ac670edbc0f0ca3424e28d90ceffb7b4e176210010b2feae893273409fff17720de6a5f8d2bed6ece099adb8ce1880c273bd01a390a06ae0f6aec9a98b3105562403848073bd47f678894153da9618aa4c275ed7dc9000cbbb6f9686d60398bb23f42c24d0274b0ac68e90f60b3cdd125497de535fdffd9524f5370cc7dbe17edc165ea9de7d61ad58ab387a7aa6db0008cc5e91c48da7b000d71a9d65ec765e47a405a8445673804963e0c629aff990a4411150189c81dd9cb42ae9348bab2b15120dd8e38328e05d85515af3cb9ef3c60903c79d2bf8e3abc000e3b6c1639fcf6760062d85af6ebf315c193f6052d9d8918091574cc40b6ccc2e412ffdeedab67efb78b176a51725ba531de0220d1e5fbe352ed76f65e8e351211010fa8944d28066de93cc1eb44064a3d21d8fc0af2ddc6fc28a1a7034154b12e8a341d2cc3e1f9b5e843dc9f19726e678e68f94982246c5934994962402060395bf40010c944fc68cc1ed819bfaf996de32b7a30d1445a33748c1df4542c83b03a519c9f37c1e13cbf6d430a569231fcb1f6648a9e014f76e4fb503d4c4985661edaa41100119a139ea9b19356f41e1b88c95115711c1607d8bbce8a4674b2ab58f740a33a5f099a4e1cd8b8eb34f1f43646d351ade0e2378899954b24e8ec914c6063c6ffba00693c134700000000001ae101faedac5851e32b9b23b5f9411a8c2bac4aae3ed4dd7b811dd1a72ea4aa71000000000a78e923014155575600000000000f86903100002710eef8b9040c0286d504ba1ceff06c1a7a72e5f41c0100550053614f1cb0c031d4af66c04cb9c756234adad0e1cee85303795091499a4084eb0000000000cabe1a0000000000003ecdfffffff800000000693c134700000000693c13460000000000c9c09a000000000000431a0dabff43139e963fa07e8d3c2badf8f0bb992fa5fd9b34778a5ae09be3bc303b90386457814f5ef36ded3449bff37160d29194f04048bed90c4031864fd5b4963d7fb0fed0f65f95f47e6f93598d9104fa50733dc9c7492ae53fd8b644980c63a57ae8b555db7372afc5287fec7c0ef672244e74fb6bb7dc0ac8866ccf1bdbaa038cb0241f380bcd329e54f0bdd0d4beac02041fcd12ff5a134e1b7095e782c75e3fb3655d1b9d58193358fbe4c1cfa132ec398b143d4c9cf5937adcaacb96d2f1b2d7210b81d4d96ba99da5890756264f7cf7147547f7b457402266f6895fd7958c32f157257a6392071b9c83bbffe186607afe257be8fdcced8cbf323a2282886fffb7ea"
+    ]
+  },
+  "parsed": [
+    {
+      "id": "53614f1cb0c031d4af66c04cb9c756234adad0e1cee85303795091499a4084eb",
+      "price": {
+        "price": "13286938",
+        "conf": "16077",
+        "expo": -8,
+        "publish_time": 1765544775
+      },
+      "ema_price": {
+        "price": "13222042",
+        "conf": "17178",
+        "expo": -8,
+        "publish_time": 1765544775
+      }
+    }
+  ]
+}
+
+Current SEI Price Info:
+- Price: 13286938 (expo: -8)
+- Formatted Price: $0.132869
+- Confidence: 16077
+- Publish Time: Thu Dec 12 2024 10:52:55 GMT+0000
+
+Getting update fee...
+Update fee: 0.000000000000001 SEI
+
+Updating price on smart contract...
+Transaction submitted: 0xabc123...
+✅ Transaction confirmed in block: 12345678
+
+Querying updated price with 120 second time limit...
+
+📊 On-Chain SEI Price Data:
+- Raw Price: 13286938
+- Confidence: 16077
+- Exponent: -8
+- Publish Time: Thu Dec 12 2024 10:52:55 GMT+0000
+- Formatted Price: $0.132869
+
+🎉 Demo completed successfully!
+📋 Summary:
+   - Transaction: 0xabc123...
+   - Block: 12345678
+   - Final SEI Price: $0.132869
+```
+
+### Data Structure Details
+
+Pyth price data includes several important fields:
+
+- **price**: The asset price (scaled by `expo`)
+- **conf**: Confidence interval (±range around the price)
+- **expo**: The exponent for scaling the price (e.g., -6 means divide by 1,000,000)
+- **publishTime**: Unix timestamp when the price was last updated
+
+### Fee Structure
+
+- **Update Fee**: Small fee paid in native token (SEI) to submit price update data
+- **Variable Cost**: Fee depends on the number of price feeds being updated
+- **Gas Efficiency**: Pull model is more gas-efficient than traditional push oracles
+
+## Best Practices
+
+1. **Price Freshness**: Always check price age before using in critical applications
+2. **Confidence Intervals**: Consider the confidence interval for risk management
+3. **Fee Management**: Monitor update fees and optimize update frequency
+4. **Error Handling**: Implement robust error handling for price update failures
+
+## Resources
+
+- [Pyth Network Documentation](https://docs.pyth.network/)
+- [Pyth Price Feed IDs](https://docs.pyth.network/price-feeds/core/contract-addresses/evm)
+- [Pyth EVM SDK GitHub](https://github.com/pyth-network/pyth-crosschain)
+- [Hermes Price Service API](https://api-reference.pyth.network/price-feeds/evm)
