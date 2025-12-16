@@ -27,17 +27,25 @@ Before starting, ensure you have:
 
 EIP-7702 is an Ethereum Improvement Proposal that introduces native account abstraction by allowing EOAs to temporarily delegate execution to smart contracts. This approach offers several advantages over traditional ERC-4337 implementations:
 
-### Sei Network Setup
+- **Same Address**: Users keep their existing EOA address—no migration to a new smart contract wallet required
+- **Native Protocol Support**: Built into the protocol layer, not requiring external bundler infrastructure
+- **Lower Gas Costs**: More efficient than ERC-4337 since it doesn't need separate UserOperation bundling
+- **Temporary Delegation**: EOAs can temporarily act as smart contracts for a single transaction, then revert to normal behavior
+- **Backward Compatible**: Works with existing wallets and infrastructure without breaking changes
 
-**Testnet** :
+## Sei Network Configuration
 
-- **Sei testnet RPC**: `https://evm-rpc-testnet.sei-apis.com`
+**Testnet:**
+
+- **RPC URL**: `https://evm-rpc-testnet.sei-apis.com`
 - **Chain ID**: 1328
+- **Block Explorer**: [Seiscan Testnet](https://testnet.seiscan.io)
 
-**Mainnet** :
+**Mainnet:**
 
-- **SEI mainnet RPC**: `https://evm-rpc.sei-apis.com`
+- **RPC URL**: `https://evm-rpc.sei-apis.com`
 - **Chain ID**: 1329
+- **Block Explorer**: [Seiscan](https://seiscan.io)
 
 ## Step 1: Deploy a Storage Contract
 
@@ -80,6 +88,36 @@ npm install
 npm install thirdweb@^5
 ```
 
+### Install and Configure Tailwind CSS
+
+Install Tailwind CSS and its dependencies:
+
+```bash
+npm install -D tailwindcss postcss autoprefixer
+npx tailwindcss init -p
+```
+
+Update `tailwind.config.js`:
+
+```javascript
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
+  theme: {
+    extend: {}
+  },
+  plugins: []
+};
+```
+
+Replace the contents of `src/index.css` with:
+
+```css
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+```
+
 ### Configure Environment Variables
 
 Create a `.env` file in your project root:
@@ -99,7 +137,20 @@ For mainnet gas sponsorship:
 2. Subscribe to the **Pay As You Go** plan ($5/month minimum)
 3. Enable gas sponsorship in your project settings
 
-## Step 3: Configure thirdweb Client
+## Step 3: Configure Vite
+
+Create or update `vite.config.ts`:
+
+```typescript
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+
+export default defineConfig({
+  plugins: [react()]
+});
+```
+
+## Step 4: Configure thirdweb Client
 
 Create `src/client.ts`:
 
@@ -111,7 +162,7 @@ export const client = createThirdwebClient({
 });
 ```
 
-## Step 4: Setup ThirdwebProvider
+## Step 5: Setup ThirdwebProvider
 
 First, update `src/main.tsx` to include the ThirdwebProvider:
 
@@ -131,9 +182,15 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 )
 ```
 
-## Step 5: EIP-7702 Smart Account Implementation
+## Step 6: EIP-7702 Smart Account Implementation
 
-Now replace `src/App.tsx` with the complete EIP-7702 implementation:
+Now replace `src/App.tsx` with the complete EIP-7702 implementation.
+
+**Key Configuration:**
+The `executionMode` configuration enables EIP-7702 features:
+
+- `mode: "EIP7702"` - Enables EIP-7702 account abstraction (EOA acts as smart contract temporarily)
+- `sponsorGas: true` - Enables gasless transactions (thirdweb pays gas on behalf of users)
 
 ```typescript
 import React, { useState } from "react";
@@ -224,7 +281,7 @@ function App() {
     try {
       const transaction = prepareContractCall({
         contract: storageContract,
-        method: "function store(uint256 number)",
+        method: "function store(uint256 num)",
         params: [BigInt(storeNumber)],
       });
 
@@ -302,11 +359,9 @@ function App() {
           <>
             {/* Contract Information */}
             <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="flex items-center justify-center gap-4">
                 <div className="text-center p-4 bg-blue-50 rounded-lg">
-                  <p className="text-sm text-gray-600">Store Value</p>
-                </div>
-                <div className="text-center p-4 bg-purple-50 rounded-lg">
+                  <p className="text-sm text-gray-600 mb-1">Current Stored Value</p>
                   <p className="text-2xl font-bold text-purple-600">
                     {storeValue?.toString() || "0"}
                   </p>
@@ -323,7 +378,7 @@ function App() {
                     transaction={() =>
                       prepareContractCall({
                         contract: storageContract,
-                        method: "function store(uint256 to)",
+                        method: "function store(uint256 num)",
                         params: [BigInt(37)],
                       })
                     }
@@ -339,7 +394,7 @@ function App() {
                         result.transactionHash
                       );
                       setTransactionStatus(
-                        `Store was successfully! TX: ${result.transactionHash}`
+                        `Stored successfully! TX: ${result.transactionHash}`
                       );
                       setTimeout(() => setTransactionStatus(""), 5000);
                     }}
@@ -396,7 +451,7 @@ export default App;
 
 ```
 
-## Step 6: Package Configuration
+## Step 7: Package Configuration
 
 Update your `package.json`:
 
@@ -419,13 +474,16 @@ Update your `package.json`:
     "@types/react": "^18.2.56",
     "@types/react-dom": "^18.2.19",
     "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.4.18",
+    "postcss": "^8.4.35",
+    "tailwindcss": "^3.4.1",
     "typescript": "^5.2.2",
     "vite": "^5.0.8"
   }
 }
 ```
 
-## Step 7: Run the Application
+## Step 8: Run the Application
 
 ### Start Development Server
 
@@ -453,13 +511,24 @@ If experiencing connectivity problems:
 
 1. Check the [thirdweb status page](https://status.thirdweb.com)
 2. Verify your API key is active and has sufficient credits
+3. Ensure you're connected to the correct network (Chain ID 1329 for mainnet, 1328 for testnet)
+
+### Transaction Verification
+
+After a successful transaction, you can verify it on the block explorer:
+
+- **Mainnet**: [Seiscan](https://seiscan.io)
+- **Testnet**: [Seiscan Testnet](https://testnet.seiscan.io)
+
+Search for your transaction hash to see full details including gas used, status, and event logs.
 
 ## Resources
 
-### Documentation & Tools
+### thirdweb Documentation & Tools
 
 - **[thirdweb Portal](https://portal.thirdweb.com/)**: Comprehensive SDK documentation
+- **[EIP-7702 Documentation](https://portal.thirdweb.com/connect/account-abstraction/eip-7702)**: Official thirdweb EIP-7702 guide
 - **[thirdweb Dashboard](https://thirdweb.com/dashboard)**: Manage projects and API keys
 - **[GitHub Repository](https://github.com/thirdweb-dev)**: Source code and examples
 - **[Developer Blog](https://blog.thirdweb.com/)**: Latest updates and tutorials
-- **[Sei Tech Chat](https://t.me/+7N5zdbDEF7IwZWJk)**: Developer community and support
+- **[EIP-7702 Specification](https://eips.ethereum.org/EIPS/eip-7702)**: Official Ethereum Improvement Proposal
