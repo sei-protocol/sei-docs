@@ -85,6 +85,7 @@ export default {
 	'ai-tooling': 'AI Tooling',
 	'usdc-on-sei': 'USDC on Sei',
 	oracles: 'Oracles',
+	vrf: 'VRF',
 	'-- Reference': {
 		type: 'separator',
 		title: 'Reference'
