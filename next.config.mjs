@@ -342,12 +342,12 @@ export default withNextra({
 				permanent: true
 			},
 			{
-				source: '/sei-config-:rest*',
+				source: '/sei-config-:rest(.*)',
 				destination: '/node',
 				permanent: true
 			},
 			{
-				source: '/sei-data-:rest*',
+				source: '/sei-data-:rest(.*)',
 				destination: '/node',
 				permanent: true
 			},
@@ -357,7 +357,7 @@ export default withNextra({
 				permanent: true
 			},
 			{
-				source: '/priv_validator_:rest*',
+				source: '/priv_validator_:rest(.*)',
 				destination: '/node',
 				permanent: true
 			},
@@ -997,7 +997,7 @@ export default withNextra({
 				permanent: true
 			},
 			{
-				source: '/sei-backup-:rest*',
+				source: '/sei-backup-:rest(.*)',
 				destination: '/node/troubleshooting',
 				permanent: true
 			},
