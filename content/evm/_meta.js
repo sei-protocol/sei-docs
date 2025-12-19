@@ -84,6 +84,7 @@ export default {
 	bridging: 'Bridging',
 	'ai-tooling': 'AI Tooling',
 	'usdc-on-sei': 'USDC on Sei',
+	dune: 'Dune Analytics',
 	oracles: 'Oracles',
 	vrf: 'VRF',
 	'-- Reference': {
