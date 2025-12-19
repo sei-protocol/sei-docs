@@ -299,20 +299,7 @@ const dotenv = require('dotenv');
 dotenv.config();
 
 // Contract ABI (simplified for key functions)
-const ENTROPY_DEMO_ABI = [
-  'function playDiceGame(uint256 targetNumber) external payable returns (uint64)',
-  'function getGameDetails(uint64 sequenceNumber) external view returns (tuple(address player, uint256 betAmount, uint256 targetNumber, bool fulfilled, bool won, uint256 diceRoll, uint256 timestamp))',
-  'function isRequestFulfilled(uint64 sequenceNumber) external view returns (bool)',
-  'function getPlayerBalance(address player) external view returns (uint256)',
-  'function withdraw() external',
-  'function getEntropyFee() external view returns (uint128)',
-  'function playMultipleDiceGames(uint256[] calldata targetNumbers) external payable returns (uint64[])',
-  'function gameCounter() external view returns (uint256)',
-  'event GameRequested(uint64 indexed sequenceNumber, address indexed player, uint256 betAmount, uint256 targetNumber)',
-  'event GameResolved(uint64 indexed sequenceNumber, address indexed player, bool won, uint256 diceRoll)',
-  'event RandomnessRequested(uint64 indexed sequenceNumber)',
-  'event RandomnessFulfilled(uint64 indexed sequenceNumber, bytes32 randomNumber)'
-];
+const ENTROPY_DEMO_ABI = ['function playDiceGame(uint256 targetNumber) external payable returns (uint64)', 'function getGameDetails(uint64 sequenceNumber) external view returns (tuple(address player, uint256 betAmount, uint256 targetNumber, bool fulfilled, bool won, uint256 diceRoll, uint256 timestamp))', 'function isRequestFulfilled(uint64 sequenceNumber) external view returns (bool)', 'function getPlayerBalance(address player) external view returns (uint256)', 'function withdraw() external', 'function getEntropyFee() external view returns (uint128)', 'function gameCounter() external view returns (uint256)', 'event GameRequested(uint64 indexed sequenceNumber, address indexed player, uint256 betAmount, uint256 targetNumber)', 'event GameResolved(uint64 indexed sequenceNumber, address indexed player, bool won, uint256 diceRoll)', 'event RandomnessRequested(uint64 indexed sequenceNumber)', 'event RandomnessFulfilled(uint64 indexed sequenceNumber, bytes32 randomNumber)'];
 
 /**
  * Play a dice game using Pyth Entropy randomness
@@ -322,7 +309,7 @@ const ENTROPY_DEMO_ABI = [
  * @param {string} betAmount Bet amount in SEI
  * @param {string} rpcUrl RPC endpoint URL
  */
-async function playEntropyDiceGame(contractAddress, privateKey, targetNumber, betAmount, rpcUrl = 'https://evm-rpc-testnet.sei-apis.com') {
+async function playEntropyDiceGame(contractAddress, privateKey, targetNumber, betAmount, rpcUrl = 'https://evm-rpc.sei-apis.com') {
   try {
     console.log('🎲 Starting Pyth Entropy Dice Game...');
 
@@ -332,6 +319,9 @@ async function playEntropyDiceGame(contractAddress, privateKey, targetNumber, be
 
     // Create contract instance
     const contract = new ethers.Contract(contractAddress, ENTROPY_DEMO_ABI, wallet);
+
+    const balance = await provider.getBalance(wallet.address);
+    console.log(`💼 Player Wallet: ${wallet.address} | Balance: ${ethers.formatEther(balance)} SEI`);
 
     console.log(`🎯 Player: ${wallet.address}`);
     console.log(`💰 Bet Amount: ${betAmount} SEI`);
@@ -452,102 +442,11 @@ async function waitForEntropyFulfillment(contract, sequenceNumber, timeoutMs = 1
 }
 
 /**
- * Play multiple dice games using batch functionality
- * @param {string} contractAddress Contract address
- * @param {string} privateKey Player's private key
- * @param {number[]} targetNumbers Array of target numbers
- * @param {string} totalBetAmount Total bet amount in SEI
- * @param {string} rpcUrl RPC URL
- */
-async function playMultipleEntropyGames(contractAddress, privateKey, targetNumbers, totalBetAmount, rpcUrl = 'https://evm-rpc-testnet.sei-apis.com') {
-  try {
-    console.log('🎰 Starting Multiple Entropy Games...');
-
-    const provider = new ethers.JsonRpcProvider(rpcUrl);
-    const wallet = new ethers.Wallet(privateKey, provider);
-    const contract = new ethers.Contract(contractAddress, ENTROPY_DEMO_ABI, wallet);
-
-    // Get entropy fee
-    const entropyFee = await contract.getEntropyFee();
-    const totalEntropyFee = entropyFee * BigInt(targetNumbers.length);
-
-    console.log(`🎯 Games: ${targetNumbers.length}`);
-    console.log(`🎲 Targets: ${targetNumbers.join(', ')}`);
-    console.log(`💰 Total Bet: ${totalBetAmount} SEI`);
-    console.log(`⚡ Total Entropy Fee: ${ethers.formatEther(totalEntropyFee)} SEI`);
-
-    const totalPayment = ethers.parseEther(totalBetAmount) + totalEntropyFee;
-
-    const tx = await contract.playMultipleDiceGames(targetNumbers, {
-      value: totalPayment,
-      gasLimit: 500000
-    });
-
-    console.log(`📝 Transaction Hash: ${tx.hash}`);
-    const receipt = await tx.wait();
-    console.log(`✅ Transaction confirmed in block: ${receipt.blockNumber}`);
-
-    // Extract all sequence numbers from events
-    const gameEvents = receipt.logs.filter((log) => {
-      try {
-        const decoded = contract.interface.parseLog({
-          topics: log.topics,
-          data: log.data
-        });
-        return decoded.name === 'GameRequested';
-      } catch {
-        return false;
-      }
-    });
-
-    const sequenceNumbers = gameEvents.map((event) => {
-      const decoded = contract.interface.parseLog({
-        topics: event.topics,
-        data: event.data
-      });
-      return decoded.args[0];
-    });
-
-    console.log(`🎟️ Sequence Numbers: ${sequenceNumbers.map((n) => n.toString()).join(', ')}`);
-
-    // Wait for all games to be fulfilled
-    console.log('\n⏳ Waiting for all games to be fulfilled...');
-    await Promise.all(sequenceNumbers.map((seq) => waitForEntropyFulfillment(contract, seq)));
-
-    // Get results for all games
-    const results = [];
-    for (let i = 0; i < sequenceNumbers.length; i++) {
-      const gameDetails = await contract.getGameDetails(sequenceNumbers[i]);
-      results.push({
-        sequenceNumber: sequenceNumbers[i].toString(),
-        targetNumber: Number(gameDetails.targetNumber),
-        diceRoll: Number(gameDetails.diceRoll),
-        won: gameDetails.won
-      });
-    }
-
-    // Display results
-    console.log('\n🎯 BATCH GAME RESULTS:');
-    results.forEach((result, i) => {
-      console.log(`Game ${i + 1}: Target ${result.targetNumber}, Roll ${result.diceRoll} - ${result.won ? '🎉 WIN' : '💔 LOSS'}`);
-    });
-
-    const wins = results.filter((r) => r.won).length;
-    console.log(`\n📊 Summary: ${wins}/${results.length} wins`);
-
-    return results;
-  } catch (error) {
-    console.error('❌ Error playing multiple Entropy games:', error.message);
-    throw error;
-  }
-}
-
-/**
  * Monitor Entropy events in real-time
  * @param {string} contractAddress Contract address
  * @param {string} rpcUrl RPC URL
  */
-async function monitorEntropyEvents(contractAddress, rpcUrl = 'https://evm-rpc-testnet.sei-apis.com') {
+async function monitorEntropyEvents(contractAddress, rpcUrl = 'https://evm-rpc.sei-apis.com') {
   try {
     console.log('👂 Starting Entropy event monitoring...');
 
@@ -579,12 +478,12 @@ async function monitorEntropyEvents(contractAddress, rpcUrl = 'https://evm-rpc-t
 }
 
 /**
- * Complete Pyth Entropy demonstration
+ * Simple Pyth Entropy demonstration
  */
 async function demonstratePythEntropyIntegration() {
   const contractAddress = process.env.CONTRACT_ADDRESS;
   const privateKey = process.env.PRIVATE_KEY;
-  const rpcUrl = 'https://evm-rpc-testnet.sei-apis.com';
+  const rpcUrl = 'https://evm-rpc.sei-apis.com';
 
   console.log('🚀 Starting SEI Pyth Entropy Integration Demo...');
   console.log(`📍 Contract Address: ${contractAddress}`);
@@ -592,19 +491,15 @@ async function demonstratePythEntropyIntegration() {
 
   try {
     // Play a single dice game
-    const singleResult = await playEntropyDiceGame(contractAddress, privateKey, 3, '0.1', rpcUrl);
-
-    console.log('\n---\n');
-
-    // Play multiple dice games
-    const multipleResults = await playMultipleEntropyGames(contractAddress, privateKey, [1, 2, 3, 4], '0.2', rpcUrl);
+    const result = await playEntropyDiceGame(contractAddress, privateKey, 3, '0.1', rpcUrl);
 
     console.log('\n🎉 Pyth Entropy Demo completed successfully!');
-    console.log(`📋 Single Game Summary:`);
-    console.log(`   - Sequence: ${singleResult.sequenceNumber}`);
-    console.log(`   - Target: ${singleResult.targetNumber}, Roll: ${singleResult.diceRoll}`);
-    console.log(`   - Result: ${singleResult.won ? 'WON' : 'LOST'}`);
-    console.log(`   - Transaction: ${singleResult.txHash}`);
+    console.log(`📋 Game Summary:`);
+    console.log(`   - Sequence: ${result.sequenceNumber}`);
+    console.log(`   - Target: ${result.targetNumber}, Roll: ${result.diceRoll}`);
+    console.log(`   - Result: ${result.won ? 'WON' : 'LOST'}`);
+    console.log(`   - Transaction: ${result.txHash}`);
+    console.log(`   - Block: ${result.blockNumber}`);
   } catch (error) {
     console.error('❌ Demo failed:', error.message);
   }
@@ -613,7 +508,6 @@ async function demonstratePythEntropyIntegration() {
 // Export functions for use in other modules
 module.exports = {
   playEntropyDiceGame,
-  playMultipleEntropyGames,
   waitForEntropyFulfillment,
   monitorEntropyEvents,
   demonstratePythEntropyIntegration
@@ -650,67 +544,103 @@ demonstratePythEntropyIntegration()
 // monitorEntropyEvents(process.env.CONTRACT_ADDRESS);
 ```
 
+### Step 4: Understanding Pyth Entropy Key Concepts
+
+Before implementing the complete example, it's important to understand the key aspects of working with Pyth Entropy:
+
+1. Two-Phase Process
+   Entropy uses a two-phase approach:
+
+Request Phase: Your contract calls entropy.requestV2() and receives a sequenceNumber
+Fulfillment Phase: Off-chain keepers fulfill the request by calling your contract's entropyCallback() method
+
+2. Asynchronous Nature
+   Unlike synchronous random number generation, Entropy requests are asynchronous:
+
+The random number is not available immediately after the request
+Your application must handle the waiting period (typically 1-3 blocks)
+Use events and polling to know when randomness is fulfilled
+
+3. Fee Management
+   Entropy requires payment for each randomness request:
+
+Always call getFeeV2() to get the current fee before making requests
+Fees are paid in the native token (SEI) as msg.value
+Fees are dynamic and may change based on network conditions
+
+4. Callback Implementation
+   Your contract must implement the entropyCallback function:
+
+This method is called automatically when randomness is fulfilled
+It receives the sequenceNumber, providerAddress, and randomNumber
+All your game logic should be handled in this callback
+
+5. Sequence Number Tracking
+   Each request has a unique sequenceNumber:
+
+Use this to map requests to your application state
+Store game/request data using the sequence number as the key
+Multiple requests can be pending simultaneously
+
+6. Error Handling
+   Always implement proper error handling:
+
+Requests can fail or timeout
+Network issues may prevent fulfillment
+Have fallback mechanisms for failed requests
+
+7. Gas Considerations
+   The callback execution has gas limits:
+
+Keep callback logic simple to avoid out-of-gas errors
+For complex logic, consider using custom gas limits with requestV2 variants
+Store expensive computations for later execution
+
 ### Expected Output
+
+To run the complete demo, execute the `demo.js` script:
+
+```bash
+node demo.js
+```
 
 When you run the Pyth Entropy integration, you should see output similar to:
 
 ```
 🚀 Starting SEI Pyth Entropy Integration Demo...
-📍 Contract Address: 0x1234567890abcdef...
-🌐 RPC URL: https://evm-rpc-testnet.sei-apis.com
+📍 Contract Address: 0xb879CEabC035CF1ACb95A2A9D679Be633BAa6BD0
+🌐 RPC URL: https://evm-rpc.sei-apis.com
 
 🎲 Starting Pyth Entropy Dice Game...
-🎯 Player: 0xabcdef1234567890...
+💼 Player Wallet: 0x232d055936450052c3df9B8064b2B56B01c49DEc | Balance: 0.931653993763751675 SEI
+🎯 Player: 0x232d055936450052c3df9B8064b2B56B01c49DEc
 💰 Bet Amount: 0.1 SEI
 🎲 Target Number: 3
-⚡ Entropy Fee: 0.001 SEI
-💳 Current Contract Balance: 0.5 SEI
+⚡ Entropy Fee: 0.050000000000000001 SEI
+💳 Current Contract Balance: 1.532691867344799999 SEI
 
 🔄 Submitting game transaction...
-📝 Transaction Hash: 0xdef456789012abcd...
-✅ Transaction confirmed in block: 12345678
-🎟️ Sequence Number: 42
+📝 Transaction Hash: 0x248d1b2b9fd5df95bc0ac6e67179e7e1c50e0a557c6acb9be790f7e2dacecab4
+✅ Transaction confirmed in block: 184783333
+🎟️ Sequence Number: 7547
 
 ⏳ Waiting for Entropy fulfillment...
-.....✅ Entropy request fulfilled!
+.✅ Entropy request fulfilled!
 
 🎯 GAME RESULTS:
-🎲 Dice Roll: 3
+🎲 Dice Roll: 4
 🎯 Target: 3
-🎉 WINNER!
-💰 Bet Amount: 0.099 SEI
-💸 Winnings: 0.495 SEI
-💳 New Balance: 0.995 SEI
-
----
-
-🎰 Starting Multiple Entropy Games...
-🎯 Games: 4
-🎲 Targets: 1, 2, 3, 4
-💰 Total Bet: 0.2 SEI
-⚡ Total Entropy Fee: 0.004 SEI
-
-📝 Transaction Hash: 0x789abc012def...
-✅ Transaction confirmed in block: 12345680
-🎟️ Sequence Numbers: 43, 44, 45, 46
-
-⏳ Waiting for all games to be fulfilled...
-.........✅ All requests fulfilled!
-
-🎯 BATCH GAME RESULTS:
-Game 1: Target 1, Roll 5 - 💔 LOSS
-Game 2: Target 2, Roll 2 - 🎉 WIN
-Game 3: Target 3, Roll 1 - 💔 LOSS
-Game 4: Target 4, Roll 4 - 🎉 WIN
-
-📊 Summary: 2/4 wins
+💔 Better luck next time!
+💰 Bet Amount: 0.1 SEI
+💳 New Balance: 1.632691867344799999 SEI
 
 🎉 Pyth Entropy Demo completed successfully!
-📋 Single Game Summary:
-   - Sequence: 42
-   - Target: 3, Roll: 3
-   - Result: WON
-   - Transaction: 0xdef456789012abcd...
+📋 Game Summary:
+   - Sequence: 7547
+   - Target: 3, Roll: 4
+   - Result: LOST
+   - Transaction: 0x248d1b2b9fd5df95bc0ac6e67179e7e1c50e0a557c6acb9be790f7e2dacecab4
+   - Block: 184783333
 ```
 
 ### Data Structure Details
