@@ -1,5 +1,5 @@
 export default {
-	'pyth-network': {
+	'pyth-network-vrf': {
 		title: 'Pyth Network'
 	}
 };
