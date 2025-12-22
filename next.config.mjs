@@ -19,7 +19,6 @@ const withNextra = nextra({
 export default withNextra({
 	productionBrowserSourceMaps: false,
 	compress: true,
-	turbopack: {},
 	experimental: {
 		optimizePackageImports: ['@tabler/icons-react', '@radix-ui/themes', 'sonner', 'viem', 'nextra-theme-docs']
 	},

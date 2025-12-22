@@ -60,7 +60,7 @@ export default {
 	},
 	'scaffold-sei': {
 		title: 'Scaffold Sei',
-		href: 'https://sei-js.docs.sei.io/create-sei/introduction'
+		href: 'https://sei-js.docs.sei.io/create-sei/welcome'
 	},
 	'mcp-server-seijs': {
 		title: 'MCP Server',
