@@ -9,6 +9,7 @@ import { Footer } from '../components/Footer/Footer';
 import { Theme } from '@radix-ui/themes';
 import { ThemeSwitch } from 'nextra-theme-docs';
 import { usePathname } from 'next/navigation';
+import { Snowflakes } from '../components/Snowflakes/Snowflakes';
 
 // Defer Nextra Search until user clicks the trigger (client-only wrapper)
 const SearchDynamic = dynamic(() => import('../components/NextraSearch/NextraSearch'), { ssr: false, loading: () => <div /> });
@@ -85,6 +86,7 @@ export default function DocsProviders({ children, pageMap }) {
 				pageMap={pageMap}>
 				{isMobile && <ConditionalNavbar />}
 				<Theme accentColor='red' grayColor='gray' scaling='100%'>
+					<Snowflakes />
 					{!isMobile && <ConditionalNavbar />}
 					{children}
 				</Theme>
