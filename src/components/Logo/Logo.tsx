@@ -3,14 +3,6 @@ import { ENABLE_CHRISTMAS_THEME } from '../../constants/featureFlags';
 export function Logo() {
 	return (
 		<svg width='84' viewBox='0 0 194 73' fill='none' xmlns='http://www.w3.org/2000/svg' style={{ overflow: 'visible' }}>
-			{/* Christmas Hat */}
-			{ENABLE_CHRISTMAS_THEME && (
-				<g transform='translate(36 0) rotate(-15) scale(1.5) translate(-36 0)'>
-					<path d='M20 -2 Q 36 -35 60 5 L 20 -2 Z' fill='#9E1F19' />
-					<circle cx='60' cy='5' r='5' fill='white' />
-					<rect x='18' y='-4' width='36' height='8' rx='4' fill='white' />
-				</g>
-			)}
 			<path
 				fillRule='evenodd'
 				clipRule='evenodd'
@@ -29,6 +21,14 @@ export function Logo() {
 				d='M188.957 10.0863C191.722 10.0863 194 7.80873 194 5.04314C194 2.19621 191.722 0 188.957 0C186.191 0 183.913 2.19621 183.913 5.04314C183.913 7.80873 186.191 10.0863 188.957 10.0863ZM185.215 59.2975H192.861V19.5218H185.215V59.2975Z'
 				fill='currentColor'
 			/>
+			{/* Christmas Hat */}
+			{ENABLE_CHRISTMAS_THEME && (
+				<g transform='translate(30 0) rotate(-15) scale(1.5) translate(-36 0)'>
+					<path d='M20 -2 Q 36 -35 60 5 L 20 -2 Z' fill='#9E1F19' />
+					<circle cx='60' cy='5' r='5' fill='white' />
+					<rect x='18' y='-4' width='36' height='8' rx='4' fill='white' />
+				</g>
+			)}
 		</svg>
 	);
 }
