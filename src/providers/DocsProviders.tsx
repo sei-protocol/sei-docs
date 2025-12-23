@@ -46,14 +46,6 @@ export default function DocsProviders({ children, pageMap }) {
 						<>
 							<div className='flex items-center gap-2'>
 								<AskAIAssistant />
-								<a
-									href='https://support.sei.io/hc/en-us'
-									target='_blank'
-									rel='noopener noreferrer'
-									className='text-sm hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors'
-									style={{ textDecoration: 'none' }}>
-									Support
-								</a>
 								<SearchDynamic placeholder='Search docs...' />
 							</div>
 						</>
@@ -71,14 +63,6 @@ export default function DocsProviders({ children, pageMap }) {
 						<div className='flex-grow flex justify-start'>
 							<AskAIAssistant />
 						</div>
-						<a
-							href='https://support.sei.io/hc/en-us'
-							target='_blank'
-							rel='noopener noreferrer'
-							className='text-sm hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors'
-							style={{ textDecoration: 'none' }}>
-							Support
-						</a>
 						<SearchDynamic placeholder='Search docs...' />
 						{isHomepage && <ThemeSwitch />}
 					</div>
