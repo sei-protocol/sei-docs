@@ -1,4 +1,4 @@
-import { ENABLE_CHRISTMAS_THEME } from '../../constants/featureFlags';
+import { ENABLE_CHRISTMAS_THEME, ENABLE_NEW_YEAR_THEME } from '../../constants/featureFlags';
 
 export function Logo() {
 	return (
@@ -29,6 +29,15 @@ export function Logo() {
 					<rect x='18' y='-4' width='36' height='8' rx='4' fill='white' />
 				</g>
 			)}
+			{/* New Year Hat */}
+			{ENABLE_NEW_YEAR_THEME && (
+				<g transform='translate(15 5) rotate(-30) scale(1.2) translate(-36 0)'>
+					<path d='M25 5 L 55 5 L 40 -35 Z' fill='#FFD700' />
+					<circle cx='40' cy='-35' r='4' fill='#FF4500' />
+					<circle cx='35' cy='-15' r='3' fill='#4169E1' />
+					<circle cx='45' cy='-5' r='3' fill='#32CD32' />
+				</g>
+			)}
 		</svg>
 	);
 }
@@ -48,6 +57,15 @@ export function LogoMobile() {
 					<path d='M20 -2 Q 36 -35 60 5 L 20 -2 Z' fill='#9E1F19' />
 					<circle cx='60' cy='5' r='5' fill='white' />
 					<rect x='18' y='-4' width='36' height='8' rx='4' fill='white' />
+				</g>
+			)}
+			{/* New Year Hat */}
+			{ENABLE_NEW_YEAR_THEME && (
+				<g transform='translate(15 5) rotate(-30) scale(1.2) translate(-36 0)'>
+					<path d='M25 5 L 55 5 L 40 -35 Z' fill='#FFD700' />
+					<circle cx='40' cy='-35' r='4' fill='#FF4500' />
+					<circle cx='35' cy='-15' r='3' fill='#4169E1' />
+					<circle cx='45' cy='-5' r='3' fill='#32CD32' />
 				</g>
 			)}
 		</svg>
