@@ -10,7 +10,8 @@ import { Theme } from '@radix-ui/themes';
 import { ThemeSwitch } from 'nextra-theme-docs';
 import { usePathname } from 'next/navigation';
 import { Snowflakes } from '../components/Snowflakes/Snowflakes';
-import { ENABLE_CHRISTMAS_THEME } from '../constants/featureFlags';
+import { Confetti } from '../components/Confetti/Confetti';
+import { ENABLE_CHRISTMAS_THEME, ENABLE_NEW_YEAR_THEME } from '../constants/featureFlags';
 
 // Defer Nextra Search until user clicks the trigger (client-only wrapper)
 const SearchDynamic = dynamic(() => import('../components/NextraSearch/NextraSearch'), { ssr: false, loading: () => <div /> });
@@ -88,8 +89,11 @@ export default function DocsProviders({ children, pageMap }) {
 				{isMobile && <ConditionalNavbar />}
 				<Theme accentColor='red' grayColor='gray' scaling='100%'>
 					{ENABLE_CHRISTMAS_THEME && <Snowflakes />}
-					{!isMobile && <ConditionalNavbar />}
-					{children}
+					{ENABLE_NEW_YEAR_THEME && <Confetti />}
+					<div className='relative z-10'>
+						{!isMobile && <ConditionalNavbar />}
+						{children}
+					</div>
 				</Theme>
 			</Layout>
 		</>

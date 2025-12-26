@@ -5,15 +5,15 @@ import Snowfall from 'react-snowfall';
 
 export const Snowflakes = () => {
 	return (
-		<Snowfall
-			style={{
-				position: 'fixed',
-				width: '100vw',
-				height: '100vh',
-				zIndex: 50,
-				pointerEvents: 'none'
-			}}
-			snowflakeCount={200}
-		/>
+		<div className='fixed inset-0 w-screen h-screen z-0 pointer-events-none'>
+			<Snowfall
+				style={{
+					position: 'absolute',
+					width: '100%',
+					height: '100%'
+				}}
+				snowflakeCount={150}
+			/>
+		</div>
 	);
 };
