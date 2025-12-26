@@ -90,8 +90,10 @@ export default function DocsProviders({ children, pageMap }) {
 				<Theme accentColor='red' grayColor='gray' scaling='100%'>
 					{ENABLE_CHRISTMAS_THEME && <Snowflakes />}
 					{ENABLE_NEW_YEAR_THEME && <Confetti />}
-					{!isMobile && <ConditionalNavbar />}
-					{children}
+					<div className='relative z-10'>
+						{!isMobile && <ConditionalNavbar />}
+						{children}
+					</div>
 				</Theme>
 			</Layout>
 		</>

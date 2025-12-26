@@ -2,7 +2,6 @@
 
 import React from 'react';
 import ReactConfetti from 'react-confetti';
-import { useWindowSize } from 'react-use';
 
 export const Confetti = () => {
 	// We need window size for react-confetti to work properly full screen
@@ -27,16 +26,8 @@ export const Confetti = () => {
 	}, []);
 
 	return (
-		<ReactConfetti
-			width={dimensions.width}
-			height={dimensions.height}
-			style={{
-				position: 'fixed',
-				zIndex: 50,
-				pointerEvents: 'none'
-			}}
-			numberOfPieces={200}
-			recycle={true}
-		/>
+		<div className='fixed inset-0 w-screen h-screen z-0 pointer-events-none'>
+			<ReactConfetti width={dimensions.width} height={dimensions.height} numberOfPieces={50} recycle={true} />
+		</div>
 	);
 };
