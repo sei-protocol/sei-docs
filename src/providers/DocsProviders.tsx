@@ -4,7 +4,7 @@ import { Layout, Navbar } from 'nextra-theme-docs';
 import dynamic from 'next/dynamic';
 import { AskAIAssistant } from '../components/AskAIAssistant/AskAIAssistant';
 import { Logo, LogoMobile } from '../components/Logo';
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Footer } from '../components/Footer/Footer';
 import { Theme } from '@radix-ui/themes';
 import { ThemeSwitch } from 'nextra-theme-docs';
@@ -59,7 +59,6 @@ export default function DocsProviders({ children, pageMap }) {
 			<Navbar
 				logo={<Logo />}
 				logoLink='/'
-				/* Remove excessive horizontal padding on small/medium screens; restore on large */
 				className='flex items-center justify-between w-full dark:bg-neutral-900 bg-neutral-100 px-2 lg:px-4'
 				children={
 					<div className='flex items-center justify-between gap-4'>
@@ -86,14 +85,14 @@ export default function DocsProviders({ children, pageMap }) {
 				search={null}
 				nextThemes={{ attribute: 'class', defaultTheme: 'system' }}
 				pageMap={pageMap}>
-				{isMobile && <ConditionalNavbar />}
 				<Theme accentColor='red' grayColor='gray' scaling='100%'>
 					{ENABLE_CHRISTMAS_THEME && <Snowflakes />}
 					{ENABLE_NEW_YEAR_THEME && <Confetti />}
-					<div className='relative z-10'>
+					<div className='relative z-50'>
 						{!isMobile && <ConditionalNavbar />}
-						{children}
+						{isMobile && <ConditionalNavbar />}
 					</div>
+					<div className='relative z-10'>{children}</div>
 				</Theme>
 			</Layout>
 		</>
