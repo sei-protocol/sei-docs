@@ -79,6 +79,7 @@ export default {
 		type: 'separator',
 		title: 'Ecosystem Tutorials'
 	},
+	x402: 'x402 Protocol',
 	'indexer-providers': 'Indexers',
 	'wallet-integrations': 'Wallet Integrations',
 	bridging: 'Bridging',
