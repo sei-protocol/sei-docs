@@ -1,25 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { EcosystemDocsCategory, EcosystemResponse, getSeiEcosystemAppByCategory } from '../../data/ecosystemData';
-import { EcosystemSkeleton } from './EcosystemSkeleton';
+import { EcosystemDocsCategory, EcosystemItem } from '../../data/ecosystemData';
+import ecosystemData from '../../data/ecosystem-cache.json';
 import AppCardV2 from './AppCard.v2';
 
+// Ensure the data is typed correctly
+const appsData = (ecosystemData as { data: EcosystemItem[] }).data;
+
 function AppCardsGridCategory({ category }: { category: EcosystemDocsCategory }) {
-	const [apps, setApps] = useState<EcosystemResponse['data']>([]);
-	const [loading, setLoading] = useState(true);
+	const apps = appsData.filter((app) => app.fieldData['docs-category'] === category);
 
-	useEffect(() => {
-		getSeiEcosystemAppByCategory(category).then((res) => {
-			const data = res.data;
-			setApps(data);
-			setLoading(false);
-		});
-	}, [category]);
-
-	if (!apps || loading) return <EcosystemSkeleton />;
-
-	if (apps.length === 0) return null;
+	if (!apps || apps.length === 0) return null;
 
 	return (
 		<div>
