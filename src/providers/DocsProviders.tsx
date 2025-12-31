@@ -4,13 +4,14 @@ import { Layout, Navbar } from 'nextra-theme-docs';
 import dynamic from 'next/dynamic';
 import { AskAIAssistant } from '../components/AskAIAssistant/AskAIAssistant';
 import { Logo, LogoMobile } from '../components/Logo';
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Footer } from '../components/Footer/Footer';
 import { Theme } from '@radix-ui/themes';
 import { ThemeSwitch } from 'nextra-theme-docs';
 import { usePathname } from 'next/navigation';
 import { Snowflakes } from '../components/Snowflakes/Snowflakes';
-import { ENABLE_CHRISTMAS_THEME } from '../constants/featureFlags';
+import { Confetti } from '../components/Confetti/Confetti';
+import { ENABLE_CHRISTMAS_THEME, ENABLE_NEW_YEAR_THEME } from '../constants/featureFlags';
 
 // Defer Nextra Search until user clicks the trigger (client-only wrapper)
 const SearchDynamic = dynamic(() => import('../components/NextraSearch/NextraSearch'), { ssr: false, loading: () => <div /> });
@@ -58,7 +59,6 @@ export default function DocsProviders({ children, pageMap }) {
 			<Navbar
 				logo={<Logo />}
 				logoLink='/'
-				/* Remove excessive horizontal padding on small/medium screens; restore on large */
 				className='flex items-center justify-between w-full dark:bg-neutral-900 bg-neutral-100 px-2 lg:px-4'
 				children={
 					<div className='flex items-center justify-between gap-4'>
@@ -88,8 +88,9 @@ export default function DocsProviders({ children, pageMap }) {
 				{isMobile && <ConditionalNavbar />}
 				<Theme accentColor='red' grayColor='gray' scaling='100%'>
 					{ENABLE_CHRISTMAS_THEME && <Snowflakes />}
+					{ENABLE_NEW_YEAR_THEME && <Confetti />}
 					{!isMobile && <ConditionalNavbar />}
-					{children}
+					<div className='relative z-10'>{children}</div>
 				</Theme>
 			</Layout>
 		</>
