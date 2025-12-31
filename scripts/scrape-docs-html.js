@@ -312,7 +312,7 @@ function extractAndCleanContent(document) {
 	return content
 		.replace(/\n\s*\n\s*\n/g, '\n\n')
 		.replace(/[ \t]+/g, ' ')
-		.replace(/^\s+|\s+$/gm, '')
+		.replace(/^[ \t]+|[ \t]+$/gm, '')
 		.trim();
 }
 

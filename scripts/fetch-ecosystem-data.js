@@ -8,9 +8,7 @@ const https = require('https');
 async function fetchEcosystemData() {
 	console.log('Fetching ecosystem data...');
 	try {
-		const agent = new https.Agent({
-			rejectUnauthorized: false
-		});
+		const agent = new https.Agent({});
 
 		const response = await fetch('https://app-api.seinetwork.io/sanity/ecosystem');
 		if (!response.ok) {
