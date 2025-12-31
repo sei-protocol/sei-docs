@@ -85,13 +85,11 @@ export default function DocsProviders({ children, pageMap }) {
 				search={null}
 				nextThemes={{ attribute: 'class', defaultTheme: 'system' }}
 				pageMap={pageMap}>
+				{isMobile && <ConditionalNavbar />}
 				<Theme accentColor='red' grayColor='gray' scaling='100%'>
 					{ENABLE_CHRISTMAS_THEME && <Snowflakes />}
 					{ENABLE_NEW_YEAR_THEME && <Confetti />}
-					<div className='relative z-50'>
-						{!isMobile && <ConditionalNavbar />}
-						{isMobile && <ConditionalNavbar />}
-					</div>
+					{!isMobile && <ConditionalNavbar />}
 					<div className='relative z-10'>{children}</div>
 				</Theme>
 			</Layout>
