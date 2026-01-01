@@ -1239,6 +1239,11 @@ export default withNextra({
 				source: '/node/validator-faq',
 				destination: '/node/validators',
 				permanent: true
+			},
+			{
+				source: '/cosmos-sdk/execute-multiple',
+				destination: '/cosmos-sdk',
+				permanent: true
 			}
 		];
 	}
