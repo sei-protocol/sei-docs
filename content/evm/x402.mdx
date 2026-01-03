@@ -1,0 +1,417 @@
+# x402 Protocol on Sei
+
+x402 Protocol brings HTTP micro payments to Sei, enabling you to monetize APIs, premium content, and digital services with instant, low-cost payments. Whether you're building AI APIs, data feeds, or premium content platforms, x402 makes it simple to add payment gates to any HTTP endpoint.
+
+**Works with Sei's advantages:** Sei's fast finality, low gas fees, and EVM compatibility make it perfect for micro payments. x402 leverages these features to enable seamless payment flows that complete in milliseconds.
+
+import { Callout } from 'nextra/components';
+
+<Callout type="info">
+
+**Why x402 on Sei?**
+
+- **Fast & Cheap Payments**: Sei's 400ms finality and low gas fees make micropayments practical. Perfect for pay-per-request APIs and streaming content.
+- **EVM Compatible**: Use familiar tools like Viem, Ethers.js, and Hardhat. All existing Ethereum tooling works seamlessly on Sei.
+- **Built-in Wallet Support**: Integrates with Sei wallets, MetaMask, and any EIP-6963 compatible wallet for smooth user experiences.
+
+</Callout>
+
+## Use Cases on Sei
+
+The x402 protocol enables a wide range of monetization strategies for web services and APIs:
+
+- **AI & Machine Learning Services**: Per-inference pricing for LLM APIs, image generation, and data processing.
+- **Premium Content & Media**: Pay-per-view articles, videos, and subscription gates.
+- **Real-Time Data & APIs**: Market data feeds, weather and IoT data monetization.
+- **Infrastructure & CDN Services**: Bandwidth metering and storage payments.
+
+## sei-js Integration
+
+The `sei-js` library provides a suite of packages to simplify working with x402 on Sei. You can find more details in the [sei-js x402 documentation](https://sei-js.docs.sei.io/x402/introduction).
+
+### Core Concepts
+
+- [**Protocol Overview**](https://sei-js.docs.sei.io/x402/overview): Learn about the architecture of x402.
+- [**Quickstart Guide**](https://sei-js.docs.sei.io/x402/quickstart): Build your first paid API.
+- [**Facilitators**](https://sei-js.docs.sei.io/x402/facilitators/introduction): Understanding payment facilitators.
+- [**Client Integration**](https://sei-js.docs.sei.io/x402/clients/fetch): How to integrate x402 in your frontend.
+
+### Available Packages
+
+- [**x402**](https://sei-js.docs.sei.io/x402/packages/x402): The core protocol implementation.
+- [**x402-fetch**](https://sei-js.docs.sei.io/x402/packages/x402-fetch): A fetch wrapper for making x402-compliant requests.
+- [**x402-axios**](https://sei-js.docs.sei.io/x402/packages/x402-axios): Axios interceptors for x402 payments.
+- [**x402-express**](https://sei-js.docs.sei.io/x402/packages/x402-express): Express middleware for serving paid content.
+- [**x402-hono**](https://sei-js.docs.sei.io/x402/packages/x402-hono): Middleware for Hono applications.
+- [**x402-next**](https://sei-js.docs.sei.io/x402/packages/x402-next): Components and utilities for Next.js applications.
+
+These packages help streamline both the client-side (paying) and server-side (charging) aspects of the protocol.
+
+---
+
+# Axiom Kit Integration
+
+While you can build x402 integrations using standard tools and the libraries mentioned above, you can also optionally use Axiom Kit for a more agent-centric approach. This guide demonstrates an end-to-end x402 (HTTP 402 Payment Required) micropayment flow on the Sei testnet using AxiomKit.
+
+## What is x402?
+
+x402 is an open standard protocol for internet-native payments that enables users to send and receive payments globally in a simple, secure, and interoperable manner. The protocol leverages the HTTP 402 status code ("Payment Required") to facilitate blockchain-based micropayments directly through HTTP requests.
+
+### Key Features of x402:
+
+- **HTTP-Native**: Uses standard HTTP status codes and headers
+- **Blockchain Integration**: Supports multiple blockchain networks
+- **Real-time Settlement**: Enables instant payment verification
+- **Interoperable**: Works across different payment schemes and networks
+- **Micropayment Support**: Designed for small, frequent transactions
+
+## Protocol Overview
+
+The x402 protocol follows a specific flow:
+
+1. **Initial Request**: Client makes a request to a protected resource
+2. **402 Response**: Server responds with HTTP 402 and payment requirements
+3. **Payment Execution**: Client executes blockchain payment
+4. **Payment Proof**: Client includes payment proof in subsequent request
+5. **Resource Access**: Server verifies payment and grants access
+
+## Axiom Integration
+
+Axiom is a blockchain interaction framework that provides tools and libraries for building decentralized applications. In this implementation, Axiom integrates with x402 to enable seamless blockchain payments within Sei network applications.
+
+### Axiom Components Used:
+
+- **@axiomkit/core**: Core framework for building blockchain agents
+- **@axiomkit/sei**: Sei blockchain integration
+- **AxiomSeiWallet**: Wallet management for Sei transactions
+- **Context and Actions**: Framework for building interactive blockchain agents
+
+## Sei Blockchain Implementation
+
+This implementation uses the Sei testnet for x402 payments with the following configuration:
+
+### Network Configuration
+
+```typescript
+export const X402_CONFIG = {
+  network: 'sei-testnet',
+  chainId: 1328,
+  asset: 'USDC',
+  assetAddress: '0x4fCF1784B31630811181f670Aea7A7bEF803eaED', // Sei Testnet USDC
+  assetDecimals: 6,
+  recipient: '0x9dC2aA0038830c052253161B1EE49B9dD449bD66',
+  rpcUrl: 'https://evm-rpc-testnet.sei-apis.com'
+};
+```
+
+## Technical Architecture
+
+The x402 implementation consists of several key components:
+
+### 1. Payment Challenge Generation
+
+```typescript
+function generatePaymentChallenge() {
+  const reference = `sei-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+  const amountInUnits = parseUnits('0.001', X402_CONFIG.assetDecimals);
+
+  return {
+    x402Version: 1,
+    accepts: [
+      {
+        scheme: 'exact',
+        network: X402_CONFIG.network,
+        maxAmountRequired: amountInUnits.toString(),
+        resource: '/api/weather',
+        description: 'Get current weather data',
+        mimeType: 'application/json',
+        payTo: X402_CONFIG.recipient,
+        maxTimeoutSeconds: 300,
+        asset: X402_CONFIG.assetAddress,
+        extra: {
+          name: X402_CONFIG.asset,
+          version: '2',
+          reference: reference
+        }
+      }
+    ]
+  };
+}
+```
+
+### 2. Payment Verification
+
+```typescript
+async function verifyPayment(paymentHeader: string) {
+  const paymentData = JSON.parse(Buffer.from(paymentHeader, 'base64').toString());
+  const { x402Version, scheme, network, payload } = paymentData;
+
+  // Validate payment format
+  if (x402Version !== 1 || scheme !== 'exact' || network !== X402_CONFIG.network) {
+    return { isValid: false, reason: 'Invalid payment format or network' };
+  }
+
+  // Verify transaction on-chain
+  const receipt = await publicClient.getTransactionReceipt({
+    hash: payload.txHash as `0x${string}`
+  });
+
+  return { isValid: receipt?.status === 'success', txHash: payload.txHash };
+}
+```
+
+### 3. Axiom Agent Integration
+
+The Axiom agent handles the complete x402 flow:
+
+```typescript
+action({
+  name: 'getWeather',
+  description: 'Get current weather data. This requires an x402 payment of $0.001 USDC.',
+  async handler({ location }, { memory }) {
+    // Step 1: Request weather data (returns 402 Payment Required)
+    const weatherResponse = await fetch(`${baseUrl}/api/weather`);
+
+    if (weatherResponse.status !== 402) {
+      throw new Error(`Expected 402 Payment Required, got ${weatherResponse.status}`);
+    }
+
+    const paymentChallenge = await weatherResponse.json();
+
+    // Step 2: Make x402 payment
+    const txHash = await makeX402Payment(amount, recipient, reference);
+
+    // Step 3: Retry request with payment proof
+    const paymentProof = {
+      x402Version: 1,
+      scheme: 'exact',
+      network: X402_CONFIG.network,
+      payload: { txHash, amount, from: seiWallet.walletAddress }
+    };
+
+    const weatherDataResponse = await fetch(`${baseUrl}/api/weather`, {
+      headers: { 'X-Payment': Buffer.from(JSON.stringify(paymentProof)).toString('base64') }
+    });
+
+    return weatherDataResponse.json();
+  }
+});
+```
+
+## Payment Flow
+
+### 1. Initial Request
+
+```
+Client → GET /api/weather
+Server → 402 Payment Required + Payment Challenge
+```
+
+### 2. Payment Challenge Response
+
+```json
+{
+  "x402Version": 1,
+  "accepts": [
+    {
+      "scheme": "exact",
+      "network": "sei-testnet",
+      "maxAmountRequired": "1000",
+      "resource": "/api/weather",
+      "description": "Get current weather data",
+      "mimeType": "application/json",
+      "payTo": "0x9dC2aA0038830c052253161B1EE49B9dD449bD66",
+      "maxTimeoutSeconds": 300,
+      "asset": "0x4fCF1784B31630811181f670Aea7A7bEF803eaED",
+      "extra": {
+        "name": "USDC",
+        "version": "2",
+        "reference": "sei-1234567890-abc123"
+      }
+    }
+  ]
+}
+```
+
+### 3. Payment Execution
+
+The Axiom agent executes a USDC transfer on Sei testnet:
+
+```typescript
+const transferData = encodeFunctionData({
+  abi: [
+    {
+      name: 'transfer',
+      type: 'function',
+      stateMutability: 'nonpayable',
+      inputs: [
+        { name: 'to', type: 'address' },
+        { name: 'amount', type: 'uint256' }
+      ],
+      outputs: [{ name: '', type: 'bool' }]
+    }
+  ],
+  functionName: 'transfer',
+  args: [recipient, amountInUnits]
+});
+
+const hash = await seiWallet.walletClient.sendTransaction({
+  to: X402_CONFIG.assetAddress,
+  data: transferData
+});
+```
+
+### 4. Payment Proof Submission
+
+```
+Client → GET /api/weather + X-Payment Header (base64 encoded payment proof)
+Server → Verifies payment + Returns weather data
+```
+
+## Code Examples
+
+### Complete Weather API Implementation
+
+```typescript
+export async function GET(req: NextRequest) {
+  const paymentHeader = req.headers.get('x-payment');
+
+  if (!paymentHeader) {
+    // No payment provided, return 402 with payment requirements
+    return NextResponse.json(generatePaymentChallenge(), { status: 402 });
+  }
+
+  // Verify the payment
+  const verification = await verifyPayment(paymentHeader);
+
+  if (!verification.isValid) {
+    // Invalid payment, return 402 with error
+    const challenge = generatePaymentChallenge();
+    challenge.error = verification.reason || 'Payment verification failed';
+    return NextResponse.json(challenge, { status: 402 });
+  }
+
+  // Payment verified, return weather data
+  const weatherData = {
+    location: 'Sei Network',
+    temperature: '99°F',
+    conditions: 'Sunny',
+    humidity: '45%',
+    windSpeed: '8 mph',
+    timestamp: new Date().toISOString(),
+    payment: verification
+  };
+
+  return NextResponse.json(weatherData);
+}
+```
+
+### Axiom Agent Weather Action
+
+```typescript
+action({
+  name: 'getWeather',
+  description: 'Get current weather data. This requires an x402 payment of $0.001 USDC.',
+  schema: {
+    location: z.string().optional().describe('Optional location for weather data.')
+  },
+  async handler({ location }, { memory }) {
+    try {
+      // Step 1: Request weather data (this will return 402 Payment Required)
+      const weatherResponse = await fetch(`${baseUrl}/api/weather`);
+
+      if (weatherResponse.status !== 402) {
+        throw new Error(`Expected 402 Payment Required, got ${weatherResponse.status}`);
+      }
+
+      const paymentChallenge = await weatherResponse.json();
+
+      // Step 2: Make x402 payment
+      const reference = paymentChallenge.accepts[0].extra.reference;
+      const amount = '0.001'; // $0.001 USDC
+      const recipient = paymentChallenge.accepts[0].payTo;
+
+      const txHash = await makeX402Payment(amount, recipient, reference);
+
+      // Step 3: Wait for transaction confirmation
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+
+      // Step 4: Retry weather request with payment proof
+      const paymentProof = {
+        x402Version: 1,
+        scheme: 'exact',
+        network: X402_CONFIG.network,
+        payload: {
+          txHash: txHash,
+          amount: parseUnits(amount, X402_CONFIG.assetDecimals).toString(),
+          from: seiWallet.walletAddress
+        }
+      };
+
+      const paymentHeader = Buffer.from(JSON.stringify(paymentProof)).toString('base64');
+
+      const weatherDataResponse = await fetch(`${baseUrl}/api/weather`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Payment': paymentHeader
+        }
+      });
+
+      const weatherData = await weatherDataResponse.json();
+
+      // Update memory
+      memory.transactions.unshift(txHash);
+      memory.lastTransaction = txHash;
+
+      return actionResponse(`🌤️ **Weather Data Retrieved**
+
+**Location:** ${weatherData.location}
+**Temperature:** ${weatherData.temperature}
+**Conditions:** ${weatherData.conditions}
+**Humidity:** ${weatherData.humidity}
+**Wind Speed:** ${weatherData.windSpeed}
+
+✅ **Payment Successful!**
+
+**Transaction Hash:** ${txHash}
+**Amount:** $${amount} USDC
+**Status:** Confirmed on Sei Testnet
+
+🔗 **View Transaction:** [SeiTrace](https://seitrace.com/tx/${txHash}?chain=atlantic-2)`);
+    } catch (error) {
+      return actionResponse(`❌ **Weather Request Failed**
+
+${error.message}
+
+Please try again or check your wallet balance for USDC tokens needed for the payment.`);
+    }
+  }
+});
+```
+
+## Security Considerations
+
+### Payment Verification
+
+- **On-chain Verification**: All payments are verified against the Sei blockchain.
+- **Transaction Receipt Validation**: Ensures transaction success and proper recipient.
+- **Payment Caching**: Prevents double-spending by caching verified payments.
+- **Reference Validation**: Unique payment references prevent replay attacks.
+
+### Network Security
+
+- **HTTPS Required**: All API communications use secure connections.
+- **Base64 Encoding**: Payment proofs are base64 encoded for safe transmission.
+- **Timeout Handling**: Payment challenges include timeout mechanisms.
+- **Error Handling**: Comprehensive error handling prevents information leakage.
+
+### Wallet Security
+
+- **Private Key Management**: Private keys are stored securely in environment variables.
+- **Transaction Signing**: All transactions are properly signed before submission.
+- **Balance Validation**: Sufficient balance checks before payment execution.
+
+## Tutorials & Resources
+
+- **[Sei-js X402 Documentation](https://sei-js.docs.sei.io/x402/introduction)**: Comprehensive guide on using the x402 protocol with the sei-js library, including package details and examples.
+- **[AxiomKit X402 Demo Repository](https://github.com/AxiomKit/axiomkit-showcase)**: The complete source code for the Axiom integration demo used in this guide, including installation and configuration instructions.
