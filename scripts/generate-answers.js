@@ -40,7 +40,7 @@ const OpenAI = require('openai');
 
 const SEED_QUESTIONS_PATH = path.join(__dirname, '../src/data/seed-questions.json');
 const ANSWERS_DIR = path.join(__dirname, '../content/answers');
-const DEFAULT_CSV_PATH = path.join(__dirname, '../content/answers/pseocontent.csv');
+const DEFAULT_CSV_PATH = path.join(__dirname, './pseocontent.csv');
 const DEFAULT_CONCURRENCY = 5;
 
 // Category to related docs mapping for "Learn more" links
