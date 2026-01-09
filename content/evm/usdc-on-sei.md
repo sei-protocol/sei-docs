@@ -1,3 +1,9 @@
+---
+title: 'USDC on Sei'
+description: 'Guide to integrating USDC stablecoin on Sei using Viem and Node.js for transfers and balance checks.'
+keywords: ['USDC', 'Sei', 'Circle', 'stablecoin', 'ERC-20', 'Viem', 'payments', 'token transfer', 'web3', 'cryptocurrency']
+---
+
 # USDC on Sei (Developers)
 
 ## Addresses and Decimals
