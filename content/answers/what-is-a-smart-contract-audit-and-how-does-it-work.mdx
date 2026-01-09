@@ -1,0 +1,223 @@
+---
+title: 'What is a Smart Contract Audit and How Does It Work?'
+description: 'Learn about what is smart contract audit and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'evm', 'what', 'smart', 'contract', 'audit', 'and', 'how', 'does', 'work']
+---
+
+import { Callout } from 'nextra/components';
+
+# What is a Smart Contract Audit and How Does It Work?
+
+## Overview
+
+A smart contract audit is a structured security review of a blockchain contract’s code, design, and deployment configuration to identify vulnerabilities, logic errors, and economic attack vectors before mainnet release. It typically results in a written report that documents findings by severity and provides remediation guidance and verification of fixes. In short, **what is smart contract audit**: an independent, systematic process to reduce the likelihood of exploits and unexpected behavior in immutable on-chain programs.
+
+## How It Works
+
+### 1) Define scope and threat model
+
+Audits start by clarifying what will be reviewed and what “correct” behavior means:
+
+- **In-scope repos/contracts** (including proxies, libraries, and scripts)
+- **Intended invariants** (e.g., “total supply never decreases,” “only owner can pause,” “no user can withdraw more than deposited”)
+- **Trust assumptions** (admins, multisigs, oracles, bridges, off-chain signers)
+- **Economic/security goals** (MEV resistance, liquidation safety, replay protection)
+
+A good threat model determines whether the audit focuses only on code correctness or also includes **economic design** (e.g., incentives, pricing, oracle manipulation).
+
+### 2) Automated analysis (fast coverage)
+
+Auditors usually run tooling to quickly detect common issues:
+
+- **Static analyzers**: Slither, Semgrep, Mythril
+- **Dependency and compiler checks**: OpenZeppelin versions, Solidity compiler settings
+- **Known vulnerability patterns**: reentrancy, unchecked external calls, incorrect access control, integer/precision issues, signature malleability, unsafe upgrades
+
+Example (typical Solidity audit tool run):
+
+```bash
+# Static analysis (example)
+slither .
+```
+
+### 3) Manual code review (deep correctness)
+
+Manual review is where most high-impact issues are found, including:
+
+- **Access control flaws** (wrong role checks, missing `onlyOwner`, privilege escalation)
+- **State machine bugs** (incorrect transitions, pause/unpause bypasses)
+- **Upgradeable proxy pitfalls** (storage collisions, initializer misuse)
+- **Cross-contract interactions** (reentrancy via callbacks, ERC777 hooks, external integrations)
+- **Economic attacks** (sandwiching, oracle manipulation, griefing, insolvent vaults)
+
+Auditors also validate **business logic** against specs and expected invariants.
+
+### 4) Testing and formal methods (when appropriate)
+
+Depending on criticality, audits include:
+
+- **Unit/integration tests**: edge cases, revert conditions, role restrictions
+- **Fuzzing & property testing**: Foundry, Echidna
+- **Formal verification** (select contracts): proving invariants and safety properties
+
+Example (Foundry tests and fuzzing):
+
+```bash
+forge test -vvv
+forge test --fuzz-runs 10000
+```
+
+### 5) Exploit simulations and PoCs
+
+Auditors often create proof-of-concept exploits to demonstrate impact and ensure fixes are effective.
+
+A minimal pattern frequently checked is **reentrancy** in withdrawal logic:
+
+```solidity
+// Vulnerable pattern (illustrative)
+function withdraw(uint256 amount) external {
+    require(balances[msg.sender] >= amount, "insufficient");
+    (bool ok,) = msg.sender.call{value: amount}(""); // external call
+    require(ok, "send failed");
+    balances[msg.sender] -= amount; // state update after call (bad)
+}
+```
+
+Typical mitigation uses checks-effects-interactions and/or a reentrancy guard:
+
+```solidity
+function withdraw(uint256 amount) external nonReentrant {
+    require(balances[msg.sender] >= amount, "insufficient");
+    balances[msg.sender] -= amount; // effects first
+    (bool ok,) = msg.sender.call{value: amount}(""); // interactions last
+    require(ok, "send failed");
+}
+```
+
+### 6) Reporting, remediation, and verification
+
+Audit reports generally include:
+
+- **Findings by severity** (Critical/High/Medium/Low/Informational)
+- **Impact and likelihood**
+- **Reproduction steps**
+- **Recommended fixes**
+- **Diff review / re-audit** after patches
+
+Many teams also run a **post-fix verification** or a shorter re-review to ensure changes don’t introduce new issues.
+
+### 7) Continuous security (audits aren’t one-and-done)
+
+Because contracts evolve, mature teams treat audits as part of an ongoing process:
+
+- Pre-deploy audits + post-deploy monitoring
+- Bug bounty programs
+- Incident response playbooks
+- Repeat audits for major upgrades
+
+## What an Audit Typically Covers
+
+### Security vulnerabilities
+
+- Reentrancy
+- Incorrect access control / authorization
+- Price/oracle manipulation
+- Signature verification issues (EIP-712, replay protection, domain separator mistakes)
+- Flash loan and MEV-driven attacks
+- Denial of service (gas griefing, unexpected reverts)
+- Upgradeability mistakes (initializers, admin roles, proxy storage layout)
+
+### Correctness and reliability
+
+- Invariants and accounting correctness
+- Precision/rounding and decimal conversions
+- Boundary checks and overflow/underflow (still relevant around casting)
+- Pausability and emergency controls behavior
+- Event correctness (important for indexers and off-chain systems)
+
+### Deployment and operational safety
+
+- Constructor/initializer configuration
+- Admin key management (multisig, timelocks)
+- Upgrade procedures and safeguards
+- Integration risks (DEXs, bridges, external protocols)
+
+## On Sei Network
+
+Sei is a high-performance Layer 1 with **EVM compatibility**, **parallelization**, and **~400ms finality**, which can change how risk is evaluated and tested—especially for high-throughput DeFi applications.
+
+### EVM compatibility: audit skills and tooling carry over
+
+If you deploy Solidity contracts on Sei’s EVM environment, the core audit methodology remains the same:
+
+- Solidity patterns, OpenZeppelin libraries, and EVM security best practices still apply
+- Standard tooling (Foundry/Hardhat/Slither) remains highly relevant
+- Auditors should verify chain-specific configuration (RPC, chain ID, gas and fee assumptions, deployment scripts)
+
+Example (Hardhat deploy-style workflow):
+
+```bash
+npx hardhat test
+npx hardhat run scripts/deploy.ts --network sei
+```
+
+### Parallelization: focus on correct state assumptions and composability
+
+Sei’s parallel execution model enables high throughput, but smart contracts must still be written as if transactions can be interleaved with other users’ actions. Audits on Sei should pay extra attention to:
+
+- **State-dependent assumptions** (e.g., “this price stays stable during a sequence of actions”)
+- **Composability and callbacks** (external calls still introduce complex control flow)
+- **MEV and ordering-sensitive logic** (even with fast blocks, price moves and sandwiching are still possible)
+
+Practically, auditors often recommend:
+
+- Using explicit **slippage checks** and deadlines for swaps
+- Minimizing reliance on “current state” without guardrails
+- Designing functions to be **atomic** and resistant to partial execution assumptions
+
+### ~400ms finality: operational benefits, not a substitute for security
+
+Fast finality improves UX and reduces the time window for certain operational races (e.g., waiting for confirmations), but it does **not** remove common smart contract risks:
+
+- Logic bugs and access control flaws remain exploitable
+- Economic vulnerabilities can still be triggered in a single block/transaction
+- Bridge/oracle dependencies remain critical attack surfaces
+
+Audits should still validate:
+
+- Emergency actions (pause, rescue) and their permissions
+- Timelock and governance flows (if used)
+- Price/oracle robustness and circuit breakers
+
+## When You Need a Smart Contract Audit
+
+You should strongly consider an audit when:
+
+- Deploying to mainnet for the first time (especially with TVL risk)
+- Handling custody of user funds or minting/burning assets
+- Introducing upgradeability or governance
+- Integrating with external protocols (DEXs, lending markets, bridges)
+- Making any major refactor or new feature release
+
+## Best Practices to Prepare for an Audit (and get better results)
+
+- Provide a clear **spec** (expected behaviors + invariants)
+- Ship a strong **test suite** (unit + integration + fuzz tests)
+- Freeze scope (minimize code changes during review)
+- Document admin roles, upgrade paths, and operational procedures
+- Run static analysis and linting before auditors start
+
+## Summary
+
+A smart contract audit is a professional security and correctness assessment that combines automated tooling, manual review, and adversarial testing to uncover vulnerabilities before deployment. In general blockchain environments, it focuses on preventing exploits in immutable programs and validating economic and governance assumptions. On Sei Network, audits follow standard EVM security practices while paying particular attention to high-throughput behaviors enabled by parallelization and leveraging Sei’s fast (~400ms) finality for better UX—without treating it as a replacement for robust contract security.
+
+## Related Documentation
+
+- [EVM Overview](/evm)
+- [Networks & RPC](/evm/networks)
+- [Deploy with Hardhat](/evm/evm-hardhat)
+- [Deploy with Foundry](/evm/evm-foundry)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._

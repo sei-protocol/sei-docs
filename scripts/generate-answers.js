@@ -3,35 +3,45 @@
  * Generate SEO-friendly answer pages from seed questions.
  *
  * Usage:
- *   node scripts/generate-answers.js                     # Generate all missing answers
+ *   node scripts/generate-answers.js                     # Generate all missing answers (reads from CSV)
  *   node scripts/generate-answers.js --dry-run           # Preview what would be generated
  *   node scripts/generate-answers.js --force             # Regenerate all answers
  *   node scripts/generate-answers.js --id=deploy-smart-contract-sei  # Generate specific answer
- *   node scripts/generate-answers.js --csv=path/to/file.csv          # Generate from CSV
+ *   node scripts/generate-answers.js --csv=path/to/file.csv          # Generate from custom CSV
  *   node scripts/generate-answers.js --import-csv=path/to/file.csv   # Import CSV to seed-questions.json
  *   node scripts/generate-answers.js --priority=high                 # Only high priority (MSV >= 1000)
  *   node scripts/generate-answers.js --priority=medium               # Medium+ priority (MSV >= 100)
  *   node scripts/generate-answers.js --category=evm                  # Only specific category
  *   node scripts/generate-answers.js --min-msv=500                   # Custom MSV threshold
  *   node scripts/generate-answers.js --limit=10                      # Limit number of questions
+ *   node scripts/generate-answers.js --concurrency=5                 # Parallel requests (default: 5)
  *
  * Configuration:
- *   Set AI_PROVIDER env var to 'claude', 'gemini', 'groq', or 'manual' (default: manual)
- *   Set ANTHROPIC_API_KEY, GEMINI_API_KEY, or GROQ_API_KEY for AI generation
+ *   Set AI_PROVIDER env var to 'gemini', 'openai', or 'claude'
+ *   Auto-detects provider based on available API keys (prefers gemini as it's free)
  *
- * The script reads questions from src/data/seed-questions.json and generates
- * MDX files in content/answers/ that are:
+ *   API Keys (set whichever you have):
+ *     GEMINI_API_KEY   - Google Gemini (FREE tier available - recommended)
+ *     OPENAI_API_KEY   - OpenAI/ChatGPT (paid)
+ *     ANTHROPIC_API_KEY - Claude (paid)
+ *
+ * The script reads questions from content/answers/pseocontent.csv by default
+ * (falls back to src/data/seed-questions.json) and generates MDX files in
+ * content/answers/ that are:
  *   - Hidden from navigation (via _meta.js)
  *   - Accessible via direct URL
  *   - Included in sitemap for SEO
+ *   - Sorted by MSV (Monthly Search Volume) for priority ordering
  */
 
 const fs = require('fs');
 const path = require('path');
+const OpenAI = require('openai');
 
 const SEED_QUESTIONS_PATH = path.join(__dirname, '../src/data/seed-questions.json');
 const ANSWERS_DIR = path.join(__dirname, '../content/answers');
-const CONTENT_DIR = path.join(__dirname, '../content');
+const DEFAULT_CSV_PATH = path.join(__dirname, '../content/answers/pseocontent.csv');
+const DEFAULT_CONCURRENCY = 5;
 
 // Category to related docs mapping for "Learn more" links
 const CATEGORY_DOCS = {
@@ -196,57 +206,6 @@ function csvToQuestions(rows) {
 }
 
 /**
- * Generate MDX content for a question (manual/placeholder mode)
- */
-function generateManualMDX(question) {
-	const { id, question: q, category, keyword } = question;
-	const relatedDocs = CATEGORY_DOCS[category] || CATEGORY_DOCS.glossary;
-	const slug = id || slugify(q);
-
-	// Build keywords array
-	const keywordParts = keyword ? keyword.split(' ').filter((k) => k.length > 2) : [];
-	const slugParts = slug.split('-').filter((k) => k.length > 2);
-	const allKeywords = ['sei', 'blockchain', category, ...new Set([...keywordParts, ...slugParts])];
-
-	const relatedLinks = relatedDocs.map((doc) => `- [${doc.title}](${doc.href})`).join('\n');
-
-	return `---
-title: '${q.replace(/'/g, "\\'")}'
-description: 'Learn about ${keyword || q.replace(/'/g, "\\'")} and how it works in blockchain and on Sei Network.'
-keywords: [${allKeywords.map((k) => `'${k}'`).join(', ')}]
----
-
-import { Callout } from 'nextra/components';
-
-# ${q}
-
-<Callout type="info">
-This guide explains ${keyword || 'this concept'} in the context of blockchain technology and Sei Network.
-</Callout>
-
-{/* TODO: Add comprehensive answer here */}
-
-## Overview
-
-_This content is being prepared. Please check the related documentation below._
-
-## How It Works on Sei
-
-Sei is a high-performance Layer 1 blockchain with EVM compatibility. Here's how ${keyword || 'this concept'} applies to Sei:
-
-_Content coming soon._
-
-## Related Documentation
-
-${relatedLinks}
-
----
-
-_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._
-`;
-}
-
-/**
  * Generate answer using Gemini API (free tier)
  */
 async function generateWithGemini(question, apiKey) {
@@ -269,40 +228,53 @@ Guidelines:
 - Do NOT include the question as a heading (it will be added separately)
 - Format the response as markdown content (not full MDX)
 
-Respond with ONLY the markdown content for the answer body.`;
+Respond with ONLY the markdown content for the answer body.
 
-	const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({
-			contents: [{ parts: [{ text: prompt }] }],
-			generationConfig: {
-				temperature: 0.7,
-				maxOutputTokens: 2048
-			}
-		})
-	});
+IMPORTANT: DO NOT OMIT CONTENTS TO BE ADDED LATER. ADD EVERYTHING TO THE ANSWER.`;
 
-	if (!response.ok) {
-		throw new Error(`Gemini API error: ${response.status} ${response.statusText}`);
+	// Try models in order of preference (newest first)
+	const models = ['gemini-2.0-flash', 'gemini-1.5-flash-latest', 'gemini-1.5-flash'];
+	let lastError = null;
+
+	for (const model of models) {
+		const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				contents: [{ parts: [{ text: prompt }] }],
+				generationConfig: {
+					temperature: 0.7,
+					maxOutputTokens: 2048
+				}
+			})
+		});
+
+		if (response.ok) {
+			const data = await response.json();
+			return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+		}
+
+		// If 404, try next model
+		if (response.status === 404) {
+			lastError = `Model ${model} not found`;
+			continue;
+		}
+
+		// For other errors, throw immediately
+		const errorText = await response.text();
+		throw new Error(`Gemini API error: ${response.status} ${response.statusText} - ${errorText}`);
 	}
 
-	const data = await response.json();
-	return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+	throw new Error(`Gemini API error: No available models. Last error: ${lastError}`);
 }
 
 /**
- * Generate answer using Groq API (free tier)
+ * Generate answer using OpenAI API with flex service tier
  */
-async function generateWithGroq(question, apiKey) {
+async function generateWithOpenAI(question, apiKey) {
 	const { question: q, category, keyword } = question;
 
-	const prompt = `You are a technical documentation assistant for Sei Network, a high-performance Layer 1 blockchain with EVM compatibility.
-
-Generate a comprehensive, SEO-friendly answer for this question: "${q}"
-
-Target keyword: ${keyword || 'N/A'}
-Category: ${category}
+	const instructions = `You are a technical documentation assistant for Sei Network, a high-performance Layer 1 blockchain with EVM compatibility.
 
 Guidelines:
 - Start with a clear, concise definition (2-3 sentences)
@@ -316,26 +288,27 @@ Guidelines:
 
 Respond with ONLY the markdown content for the answer body.`;
 
-	const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-		method: 'POST',
-		headers: {
-			'Content-Type': 'application/json',
-			Authorization: `Bearer ${apiKey}`
-		},
-		body: JSON.stringify({
-			model: 'llama-3.1-70b-versatile',
-			messages: [{ role: 'user', content: prompt }],
-			temperature: 0.7,
-			max_tokens: 2048
-		})
+	const input = `Generate a comprehensive, SEO-friendly answer for this question: "${q}"
+
+Target keyword: ${keyword || 'N/A'}
+Category: ${category}`;
+
+	const client = new OpenAI({
+		apiKey,
+		timeout: 15 * 1000 * 60 // 15 minutes timeout
 	});
 
-	if (!response.ok) {
-		throw new Error(`Groq API error: ${response.status} ${response.statusText}`);
-	}
+	const response = await client.responses.create(
+		{
+			model: 'gpt-5.2',
+			instructions,
+			input,
+			service_tier: 'flex'
+		},
+		{ timeout: 15 * 1000 * 60 }
+	);
 
-	const data = await response.json();
-	return data.choices?.[0]?.message?.content || '';
+	return response.output_text || '';
 }
 
 /**
@@ -478,11 +451,24 @@ async function main() {
 	const categoryFilter = args.find((a) => a.startsWith('--category='))?.split('=')[1];
 	const minMsv = parseInt(args.find((a) => a.startsWith('--min-msv='))?.split('=')[1] || '0', 10);
 	const limit = parseInt(args.find((a) => a.startsWith('--limit='))?.split('=')[1] || '0', 10);
+	const concurrency = parseInt(args.find((a) => a.startsWith('--concurrency='))?.split('=')[1] || String(DEFAULT_CONCURRENCY), 10);
 
-	const provider = process.env.AI_PROVIDER || 'manual';
 	const claudeKey = process.env.ANTHROPIC_API_KEY;
 	const geminiKey = process.env.GEMINI_API_KEY;
-	const groqKey = process.env.GROQ_API_KEY;
+	const openaiKey = process.env.OPENAI_API_KEY;
+
+	// Auto-detect provider: prefer gemini (free), then check others
+	let provider = process.env.AI_PROVIDER;
+	if (!provider) {
+		if (geminiKey) provider = 'gemini';
+		else if (openaiKey) provider = 'openai';
+		else if (claudeKey) provider = 'claude';
+	}
+
+	if (!provider) {
+		console.error('❌ No AI provider configured. Set one of: GEMINI_API_KEY, OPENAI_API_KEY, or ANTHROPIC_API_KEY');
+		process.exit(1);
+	}
 
 	// Handle import-only mode
 	if (importCsvPath) {
@@ -492,10 +478,11 @@ async function main() {
 
 	console.log(`\n📝 Answer Generator for Sei Docs`);
 	console.log(`   Provider: ${provider}`);
+	console.log(`   Concurrency: ${concurrency}`);
 	console.log(`   Dry run: ${dryRun}`);
 	console.log(`   Force regenerate: ${force}`);
+	console.log(`   Source: ${csvPath || 'content/answers/pseocontent.csv (default)'}`);
 	if (specificId) console.log(`   Specific ID: ${specificId}`);
-	if (csvPath) console.log(`   CSV source: ${csvPath}`);
 	if (priorityFilter) console.log(`   Priority filter: ${priorityFilter}`);
 	if (categoryFilter) console.log(`   Category filter: ${categoryFilter}`);
 	if (minMsv) console.log(`   Min MSV: ${minMsv}`);
@@ -512,16 +499,22 @@ async function main() {
 		}
 	}
 
-	// Load questions from CSV or JSON
+	// Load questions from CSV (default) or JSON fallback
 	let questions;
-	if (csvPath) {
-		const content = fs.readFileSync(csvPath, 'utf8');
+	const effectiveCsvPath = csvPath || DEFAULT_CSV_PATH;
+
+	if (fs.existsSync(effectiveCsvPath)) {
+		const content = fs.readFileSync(effectiveCsvPath, 'utf8');
 		const rows = parseCSV(content);
 		questions = csvToQuestions(rows);
-		console.log(`📄 Loaded ${questions.length} questions from CSV\n`);
-	} else {
+		console.log(`📄 Loaded ${questions.length} questions from CSV: ${effectiveCsvPath}\n`);
+	} else if (fs.existsSync(SEED_QUESTIONS_PATH)) {
 		const seedData = JSON.parse(fs.readFileSync(SEED_QUESTIONS_PATH, 'utf8'));
 		questions = seedData.questions;
+		console.log(`📄 Loaded ${questions.length} questions from JSON\n`);
+	} else {
+		console.error('❌ No question source found. Create content/answers/pseocontent.csv or src/data/seed-questions.json');
+		process.exit(1);
 	}
 
 	// Apply filters
@@ -566,34 +559,31 @@ async function main() {
 	let skipped = 0;
 	let failed = 0;
 
-	for (const question of questions) {
+	/**
+	 * Process a single question - returns result object
+	 */
+	async function processQuestion(question) {
 		const slug = question.id || slugify(question.question);
 		const filePath = path.join(ANSWERS_DIR, `${slug}.mdx`);
 		const exists = fs.existsSync(filePath);
 
 		if (exists && !force) {
 			console.log(`⏭️  Skipping (exists): ${slug}`);
-			skipped++;
-			continue;
+			return { status: 'skipped', slug };
 		}
 
 		console.log(`📄 Generating: ${slug}`);
 
 		try {
-			let content;
-
-			if (provider === 'claude' && claudeKey) {
-				const aiContent = await generateWithClaude(question, claudeKey);
-				content = wrapInMDX(question, aiContent);
-			} else if (provider === 'gemini' && geminiKey) {
-				const aiContent = await generateWithGemini(question, geminiKey);
-				content = wrapInMDX(question, aiContent);
-			} else if (provider === 'groq' && groqKey) {
-				const aiContent = await generateWithGroq(question, groqKey);
-				content = wrapInMDX(question, aiContent);
-			} else {
-				content = generateManualMDX(question);
+			let aiContent;
+			if (provider === 'gemini') {
+				aiContent = await generateWithGemini(question, geminiKey);
+			} else if (provider === 'openai') {
+				aiContent = await generateWithOpenAI(question, openaiKey);
+			} else if (provider === 'claude') {
+				aiContent = await generateWithClaude(question, claudeKey);
 			}
+			const content = wrapInMDX(question, aiContent);
 
 			if (dryRun) {
 				console.log(`   Would write to: ${filePath}`);
@@ -603,16 +593,42 @@ async function main() {
 				console.log(`   ✅ Written: ${filePath}`);
 			}
 
-			generated++;
-
-			// Rate limiting for API calls
-			if (provider !== 'manual') {
-				await new Promise((r) => setTimeout(r, 1000));
-			}
+			return { status: 'generated', slug };
 		} catch (error) {
-			console.error(`   ❌ Failed: ${error.message}`);
-			failed++;
+			console.error(`   ❌ Failed (${slug}): ${error.message}`);
+			return { status: 'failed', slug, error: error.message };
 		}
+	}
+
+	/**
+	 * Process questions in parallel batches with concurrency limit
+	 */
+	async function processInBatches(items, batchSize) {
+		const results = [];
+		for (let i = 0; i < items.length; i += batchSize) {
+			const batch = items.slice(i, i + batchSize);
+			const batchNum = Math.floor(i / batchSize) + 1;
+			const totalBatches = Math.ceil(items.length / batchSize);
+			console.log(`\n🔄 Processing batch ${batchNum}/${totalBatches} (${batch.length} items)...`);
+
+			const batchResults = await Promise.all(batch.map(processQuestion));
+			results.push(...batchResults);
+
+			// Small delay between batches to avoid rate limiting
+			if (i + batchSize < items.length) {
+				await new Promise((r) => setTimeout(r, 500));
+			}
+		}
+		return results;
+	}
+
+	const results = await processInBatches(questions, concurrency);
+
+	// Tally results
+	for (const result of results) {
+		if (result.status === 'generated') generated++;
+		else if (result.status === 'skipped') skipped++;
+		else if (result.status === 'failed') failed++;
 	}
 
 	console.log(`\n📊 Summary:`);

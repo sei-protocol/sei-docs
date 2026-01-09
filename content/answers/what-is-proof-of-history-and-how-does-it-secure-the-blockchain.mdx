@@ -1,0 +1,111 @@
+---
+title: 'What is Proof Of History and How Does It Secure the Blockchain?'
+description: 'Learn about what is proof of history and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'glossary', 'what', 'proof', 'history', 'and', 'how', 'does', 'secure', 'the', 'blockchain']
+---
+
+import { Callout } from 'nextra/components';
+
+# What is Proof Of History and How Does It Secure the Blockchain?
+
+## Overview
+
+Proof of History (PoH) is a cryptographic technique that creates a verifiable, ordered record of time—effectively a “clock”—for blockchain events. It does this by producing a sequence of hashes where each output depends on the previous one, making the passage of time and event ordering auditable. For the target query _what is proof of history_, the core idea is: PoH proves that specific data existed **at or before** a certain point in a cryptographic timeline.
+
+PoH is best known from Solana’s design, where it’s used to improve throughput by providing a high-speed source of ordering for transactions.
+
+## How It Works
+
+### 1) Verifiable delay via sequential hashing
+
+PoH relies on a computation that is:
+
+- **Fast to verify**
+- **Inherently sequential to compute** (you can’t parallelize “the next hash” without the previous hash)
+
+A simplified model looks like:
+
+1. Start with a seed value.
+2. Repeatedly hash it:
+   - `h1 = hash(seed)`
+   - `h2 = hash(h1)`
+   - `h3 = hash(h2)`
+3. At any time, insert (“stamp”) an event into the sequence by hashing in the event data, creating a cryptographic proof that the event occurred _after_ some number of hashes.
+
+Because each step depends on the prior step, producing `hn` implies the producer performed the preceding `n-1` steps in order. Observers can verify the sequence and confirm that time (measured in hash-steps) advanced.
+
+### 2) Event ordering without relying solely on timestamps
+
+In distributed systems, wall-clock time is hard: nodes can disagree, clocks drift, and timestamps can be manipulated. PoH offers an alternative:
+
+- **Relative time** is measured by the number of sequential hash steps.
+- Events are ordered by their position in the PoH sequence.
+
+This can reduce coordination overhead when many nodes need to agree on ordering.
+
+### 3) How PoH contributes to blockchain security
+
+PoH by itself is not usually a full consensus mechanism; it is typically paired with a consensus protocol (e.g., PoS). Its security contribution is mainly:
+
+- **Tamper-evident ordering:** Rewriting history requires regenerating the sequential hash chain from the point of alteration onward.
+- **Deterministic sequencing:** Nodes can verify a proposed order of transactions/events against the PoH record.
+- **Reduced ambiguity in leader proposals:** If a leader proposes a block with PoH references, validators can more easily validate ordering claims.
+
+However, PoH does **not** replace:
+
+- **Sybil resistance** (usually provided by PoS/PoW)
+- **Finality rules** (how the network resolves forks and finalizes state)
+- **Economic security** (stake slashing, incentives, etc.)
+
+### 4) Conceptual example (hash chain “clock”)
+
+Below is a simplified illustration of building a sequential hash chain. This is not a production PoH implementation, but it shows the “sequential and verifiable” property:
+
+```typescript
+import { createHash } from 'crypto';
+
+function sha256(data: Buffer | string) {
+  return createHash('sha256').update(data).digest('hex');
+}
+
+// Build a simple sequential hash chain
+let h = sha256('seed');
+for (let i = 0; i < 5; i++) {
+  h = sha256(h);
+  console.log(`step=${i + 1} hash=${h}`);
+}
+
+// "Stamp" an event by hashing it into the chain at a specific step
+const event = JSON.stringify({ tx: '0xabc...', note: 'example event' });
+const stamped = sha256(h + event);
+console.log('stamped_event_hash=', stamped);
+```
+
+Verification is straightforward: recompute the chain from the seed up to the claimed step and check the resulting hashes match.
+
+## On Sei Network
+
+Sei Network does **not** use Proof of History as its consensus clock. Instead, Sei is designed for high throughput and low latency via **parallelization** and fast finality (approximately **~400ms**), while maintaining strong consensus guarantees.
+
+Key points for how this relates to Sei:
+
+- **Ordering and finality on Sei:** Transaction ordering and block production are handled by Sei’s consensus and execution pipeline, with rapid finality that reduces the need for an external “proof of time” construct like PoH.
+- **Parallel execution:** Sei’s architecture focuses on executing transactions in parallel when possible, improving performance without relying on PoH-based sequencing.
+- **EVM compatibility:** Sei’s EVM environment allows Solidity smart contracts to run with familiar tooling. Timing/ordering assumptions for smart contracts on Sei should be based on **block height/finality** and Sei’s consensus rules—not PoH-style time proofs.
+
+If you’re building on Sei, treat PoH as a helpful glossary concept for understanding how some chains optimize ordering, but rely on Sei’s native properties—**parallelization** and **~400ms finality**—for performance and settlement guarantees.
+
+## Why It Matters
+
+Understanding _what is proof of history_ helps clarify a broader design space in blockchain architecture: some networks accelerate throughput by proving event ordering with a cryptographic time sequence, while others (like Sei) achieve performance through **fast finality and parallel execution** without adopting PoH.
+
+## Related Documentation
+
+- [Getting Started](/learn)
+- [Token Standards](/learn/dev-token-standards)
+- [Staking](/learn/general-staking)
+- [Oracles](/learn/oracles)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._

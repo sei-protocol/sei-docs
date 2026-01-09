@@ -1,0 +1,248 @@
+---
+title: 'What is Yield Farming in Crypto and How Does It Work?'
+description: 'Learn about what is yield farming and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'glossary', 'what', 'yield', 'farming', 'crypto', 'and', 'how', 'does', 'work']
+---
+
+import { Callout } from 'nextra/components';
+
+# What is Yield Farming in Crypto and How Does It Work?
+
+## Overview
+
+Yield farming is a DeFi strategy where users deposit crypto assets into smart contract protocols to earn returns, typically paid as interest, fees, and/or newly minted incentive tokens. In practice, it’s a way to “put your crypto to work” by supplying liquidity or lending assets in exchange for ongoing rewards.
+
+When people search **what is yield farming**, they’re usually referring to earning variable, protocol-driven yields by providing capital to decentralized markets (DEXs, lending markets, derivatives, or vaults).
+
+## How It Works
+
+### 1) You deposit assets into a protocol
+
+Yield farming generally starts with depositing tokens into a smart contract:
+
+- **Lending markets:** Deposit USDC/ETH, earn interest from borrowers.
+- **DEX liquidity pools:** Deposit a pair (e.g., USDC/SEI) to facilitate trading, earn swap fees.
+- **Vaults/strategies:** Deposit into an aggregator that auto-compounds rewards and rebalances.
+
+In return you receive a **receipt token** (often called LP tokens, aTokens, cTokens, vault shares) representing your claim on the pool plus earned yield.
+
+### 2) The protocol generates yield from one or more sources
+
+Common yield sources include:
+
+- **Trading fees:** DEX users pay fees; liquidity providers receive a share.
+- **Borrow interest:** Borrowers pay interest; lenders receive it.
+- **Incentives (liquidity mining):** Protocols distribute governance/reward tokens to attract liquidity.
+- **MEV/strategy yield (vaults):** Some vaults capture additional returns via automated strategies (varies by design).
+
+Yields are often advertised as:
+
+- **APR (Annual Percentage Rate):** Simple annualized rate (no compounding assumed).
+- **APY (Annual Percentage Yield):** Includes compounding effects (auto-compounding vaults often quote APY).
+
+### 3) Rewards accrue over time and can be claimed/compounded
+
+Depending on the protocol, rewards may:
+
+- Accrue continuously and be claimable anytime
+- Be distributed per block/epoch
+- Auto-compound back into the position (vaults)
+
+### 4) You can “stack” strategies (composability)
+
+DeFi is composable: users can layer strategies to increase yields, e.g.:
+
+1. Provide liquidity to a DEX (earn fees + incentives)
+2. Stake the LP token in a farm (earn additional incentives)
+3. Use a vault to auto-compound (improve effective APY)
+
+This stacking can amplify returns—but also risk.
+
+### 5) Key risks in yield farming
+
+Yield farming returns are not guaranteed. Key risks include:
+
+- **Smart contract risk:** Bugs/exploits can lead to loss of funds.
+- **Impermanent loss (IL):** Providing liquidity to volatile pairs can underperform holding the tokens outright.
+- **Liquidation risk:** If leverage is used (borrow against collateral), price moves can trigger liquidation.
+- **Token incentive risk:** Rewards paid in volatile tokens can drop in value.
+- **Oracle/bridge risk:** Cross-chain assets and price feeds can fail or be attacked.
+- **Governance risk:** Protocol parameters can change, impacting yield.
+
+## On Sei Network
+
+Sei Network is a high-performance Layer 1 with **EVM compatibility**, designed for low-latency trading and DeFi. Yield farming on Sei follows the same DeFi fundamentals (liquidity provision, lending, staking LP/vault shares), but benefits from Sei’s network characteristics:
+
+- **Fast finality (~400ms):** Positions can be entered/exited and rewards compounded with minimal settlement delay—useful for active liquidity management and vault strategies.
+- **Parallelization:** High throughput and parallel transaction execution can improve user experience during demand spikes, reducing congestion for common DeFi interactions (swaps, adds/removes liquidity, claims).
+- **EVM compatibility:** Many familiar Ethereum-style DeFi primitives (ERC-20 tokens, AMMs, staking/farming contracts, vault patterns) can be deployed and used with standard tooling.
+
+Typical yield farming flows on Sei include:
+
+- **AMM liquidity pools** (earn swap fees and incentives)
+- **Staking LP tokens** in farming contracts (earn additional token emissions)
+- **Lending/borrowing markets** (earn interest on supplied assets; optional looping strategies increase yield at higher risk)
+- **Vaults/auto-compounders** (optimize harvesting and compounding frequency, potentially improving net APY after costs)
+
+## Example: Yield Farming Pattern (Solidity)
+
+Below is a simplified example of a “farm” contract where users stake an LP token and earn a reward token over time. This pattern is common across EVM chains, including Sei’s EVM environment.
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+
+contract SimpleFarm {
+    using SafeERC20 for IERC20;
+
+    IERC20 public immutable lpToken;
+    IERC20 public immutable rewardToken;
+
+    uint256 public rewardRatePerSecond; // rewards emitted per second
+    uint256 public lastUpdate;
+    uint256 public accRewardPerShare; // scaled by 1e12
+    uint256 public totalStaked;
+
+    mapping(address => uint256) public staked;
+    mapping(address => uint256) public rewardDebt;
+
+    constructor(IERC20 _lpToken, IERC20 _rewardToken, uint256 _rate) {
+        lpToken = _lpToken;
+        rewardToken = _rewardToken;
+        rewardRatePerSecond = _rate;
+        lastUpdate = block.timestamp;
+    }
+
+    function _updatePool() internal {
+        if (block.timestamp <= lastUpdate) return;
+        if (totalStaked == 0) {
+            lastUpdate = block.timestamp;
+            return;
+        }
+        uint256 dt = block.timestamp - lastUpdate;
+        uint256 rewards = dt * rewardRatePerSecond;
+        accRewardPerShare += (rewards * 1e12) / totalStaked;
+        lastUpdate = block.timestamp;
+    }
+
+    function pendingRewards(address user) external view returns (uint256) {
+        uint256 _acc = accRewardPerShare;
+        if (block.timestamp > lastUpdate && totalStaked != 0) {
+            uint256 dt = block.timestamp - lastUpdate;
+            uint256 rewards = dt * rewardRatePerSecond;
+            _acc += (rewards * 1e12) / totalStaked;
+        }
+        return (staked[user] * _acc) / 1e12 - rewardDebt[user];
+    }
+
+    function deposit(uint256 amount) external {
+        _updatePool();
+        _harvest(msg.sender);
+
+        lpToken.safeTransferFrom(msg.sender, address(this), amount);
+        staked[msg.sender] += amount;
+        totalStaked += amount;
+
+        rewardDebt[msg.sender] = (staked[msg.sender] * accRewardPerShare) / 1e12;
+    }
+
+    function withdraw(uint256 amount) external {
+        _updatePool();
+        _harvest(msg.sender);
+
+        staked[msg.sender] -= amount;
+        totalStaked -= amount;
+        lpToken.safeTransfer(msg.sender, amount);
+
+        rewardDebt[msg.sender] = (staked[msg.sender] * accRewardPerShare) / 1e12;
+    }
+
+    function harvest() external {
+        _updatePool();
+        _harvest(msg.sender);
+        rewardDebt[msg.sender] = (staked[msg.sender] * accRewardPerShare) / 1e12;
+    }
+
+    function _harvest(address user) internal {
+        uint256 accumulated = (staked[user] * accRewardPerShare) / 1e12;
+        uint256 pending = accumulated - rewardDebt[user];
+        if (pending > 0) {
+            rewardToken.safeTransfer(user, pending);
+        }
+    }
+}
+```
+
+## Example: Interacting with a Farm on Sei (TypeScript)
+
+Using `ethers` against Sei’s EVM RPC looks similar to Ethereum.
+
+```typescript
+import { ethers } from 'ethers';
+
+const RPC_URL = process.env.SEI_EVM_RPC!;
+const PRIVATE_KEY = process.env.PRIVATE_KEY!;
+
+const provider = new ethers.JsonRpcProvider(RPC_URL);
+const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
+
+// Minimal ABI
+const farmAbi = ['function deposit(uint256 amount) external', 'function withdraw(uint256 amount) external', 'function harvest() external', 'function pendingRewards(address user) view returns (uint256)'];
+
+const erc20Abi = ['function approve(address spender, uint256 amount) external returns (bool)', 'function decimals() view returns (uint8)'];
+
+async function main() {
+  const farmAddress = '0xFARM_CONTRACT_ADDRESS';
+  const lpTokenAddress = '0xLP_TOKEN_ADDRESS';
+
+  const farm = new ethers.Contract(farmAddress, farmAbi, wallet);
+  const lp = new ethers.Contract(lpTokenAddress, erc20Abi, wallet);
+
+  const decimals: number = await lp.decimals();
+  const amount = ethers.parseUnits('1.0', decimals);
+
+  // Approve LP token spending
+  const approveTx = await lp.approve(farmAddress, amount);
+  await approveTx.wait();
+
+  // Deposit into the farm
+  const depositTx = await farm.deposit(amount);
+  await depositTx.wait();
+
+  // Check pending rewards
+  const pending = await farm.pendingRewards(wallet.address);
+  console.log('Pending rewards:', pending.toString());
+
+  // Harvest rewards
+  const harvestTx = await farm.harvest();
+  await harvestTx.wait();
+}
+
+main().catch(console.error);
+```
+
+## Practical Tips for Yield Farming
+
+- **Prefer audited, battle-tested protocols** and verify token contracts and pool addresses.
+- **Understand IL** before providing liquidity to volatile pairs; stablecoin pairs often have lower IL.
+- **Compare net yield**, not just headline APY—account for token volatility and any fees.
+- **Start small** and monitor positions; yields and incentives can change quickly.
+- **Use Sei’s fast finality** to rebalance/exit efficiently when market conditions shift, but avoid over-trading if fees and tax considerations (jurisdiction-dependent) apply.
+
+## Summary
+
+Yield farming is the practice of earning returns by supplying crypto to DeFi protocols, commonly through lending and providing DEX liquidity, with rewards coming from fees, interest, and incentive tokens. On Sei Network, yield farming uses familiar EVM-based DeFi patterns while benefiting from **parallelization** and **~400ms finality**, enabling smoother interactions and faster position management in high-activity markets.
+
+## Related Documentation
+
+- [Getting Started](/learn)
+- [Token Standards](/learn/dev-token-standards)
+- [Staking](/learn/general-staking)
+- [Oracles](/learn/oracles)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._

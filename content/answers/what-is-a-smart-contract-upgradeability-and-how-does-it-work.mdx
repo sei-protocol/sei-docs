@@ -1,0 +1,162 @@
+---
+title: 'What is a Smart Contract Upgradeability and How Does It Work?'
+description: 'Learn about what is smart contract upgradeability and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'evm', 'what', 'smart', 'contract', 'upgradeability', 'and', 'how', 'does', 'work']
+---
+
+import { Callout } from 'nextra/components';
+
+# What is a Smart Contract Upgradeability and How Does It Work?
+
+## Overview
+
+Smart contract upgradeability is a pattern that lets a deployed smart contract change its logic over time without changing the contract address users interact with. It solves the problem that on most blockchains, deployed bytecode is immutable—so bug fixes, feature additions, and performance improvements typically require a new deployment and user migration.
+
+In short, **what is smart contract upgradeability**? It’s the ability to evolve a contract’s behavior after deployment, usually by separating persistent state (storage) from executable logic (implementation code) and adding controlled mechanisms to switch the logic safely.
+
+## How It Works
+
+### Why upgradeability exists
+
+In a standard (non-upgradeable) contract:
+
+- The **address** is tied to a fixed bytecode.
+- The **storage layout** is fixed by the compiled contract.
+- Any change requires deploying a **new contract address** and migrating state/users.
+
+Upgradeability introduces a stable “entry point” address that delegates execution to a replaceable implementation.
+
+### The proxy pattern (most common in EVM)
+
+The most widely used mechanism is a **proxy contract**:
+
+- Users call the **proxy address** (stable).
+- The proxy uses `delegatecall` to run code from an **implementation contract** (replaceable).
+- With `delegatecall`, the implementation’s logic executes **in the proxy’s storage context**, so state remains in the proxy while logic can change.
+
+Core components:
+
+- **Proxy**: holds state and forwards calls.
+- **Implementation (Logic) contract**: contains functions/logic; can be swapped.
+- **Admin/Upgrade authority**: controls who can upgrade.
+- **Initializer**: replaces constructors (since constructors run only on implementation deployment, not via proxy).
+
+### Common upgradeability standards
+
+- **Transparent Proxy (OpenZeppelin)**: separates admin behavior from user calls to avoid selector clashes.
+- **UUPS (EIP-1822)**: upgrade function lives in the implementation; proxy is minimal. Often cheaper and common in modern deployments.
+- **Beacon Proxy**: multiple proxies share a beacon that points to the current implementation (useful for many instances).
+
+### Storage layout compatibility (critical)
+
+Because the proxy keeps the storage, upgrades must preserve storage meaning:
+
+- Never reorder existing state variables.
+- Only append new variables at the end.
+- Use reserved “storage gaps” or explicit storage slots.
+- Avoid changing types/sizes that would shift slot packing.
+
+If storage layout is broken, you can corrupt balances, roles, or critical configuration.
+
+### Upgrade governance and safety
+
+Upgrades are powerful and risky. Best practices include:
+
+- **Role-based access control** (only authorized accounts can upgrade).
+- **Timelocks** to delay upgrades and allow review.
+- **On-chain governance** (DAO votes) for protocol-level contracts.
+- **Audits and tests** for new implementations.
+- **Emergency pause** / circuit breakers (when appropriate).
+
+### Minimal UUPS example (Solidity)
+
+Below is an illustrative UUPS-style upgradeable contract using OpenZeppelin. In practice, use audited libraries and follow their initialization and access-control patterns.
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+
+contract CounterV1 is Initializable, UUPSUpgradeable, OwnableUpgradeable {
+    uint256 public value;
+
+    function initialize(uint256 initialValue) public initializer {
+        __Ownable_init(msg.sender);
+        __UUPSUpgradeable_init();
+        value = initialValue;
+    }
+
+    function increment() external {
+        value += 1;
+    }
+
+    // Only the owner can upgrade the implementation
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
+}
+```
+
+### Upgrading using Hardhat (TypeScript)
+
+A typical flow uses `@openzeppelin/hardhat-upgrades`:
+
+```typescript
+import { ethers, upgrades } from 'hardhat';
+
+async function main() {
+  const CounterV1 = await ethers.getContractFactory('CounterV1');
+  const proxy = await upgrades.deployProxy(CounterV1, [1], { kind: 'uups' });
+  await proxy.waitForDeployment();
+
+  console.log('Proxy address:', await proxy.getAddress());
+
+  // Later: upgrade to CounterV2
+  const CounterV2 = await ethers.getContractFactory('CounterV2');
+  const upgraded = await upgrades.upgradeProxy(await proxy.getAddress(), CounterV2);
+  console.log('Upgraded proxy still at:', await upgraded.getAddress());
+}
+
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});
+```
+
+## On Sei Network
+
+Sei is an **EVM-compatible Layer 1**, so the same upgradeability patterns (Transparent, UUPS, Beacon) and tooling (Hardhat, Foundry, OpenZeppelin Upgrades) apply directly. Contracts on Sei can be upgraded through proxies exactly as they would be on other EVM chains—users keep interacting with the same proxy address while the implementation changes.
+
+Where Sei’s architecture matters:
+
+- **Fast finality (~400ms)**: Upgrade transactions (e.g., `upgradeTo`) reach finality quickly, reducing the window of uncertainty between submitting an upgrade and having it confirmed on-chain. This can be beneficial for operational safety, incident response, and coordinated releases.
+- **Parallelization**: Sei’s parallel execution model can improve throughput for contract interactions, and upgradeable systems that serve many users can benefit from higher performance. The upgrade itself is still a normal on-chain transaction, but overall app responsiveness and scaling can improve.
+- **EVM compatibility**: Existing Ethereum upgradeability best practices transfer—use OpenZeppelin’s proxy standards, maintain storage layout discipline, and secure upgrade authority.
+
+### Deploying on Sei (example CLI flow)
+
+Using Hardhat, you’d configure Sei’s EVM RPC endpoint and deploy normally:
+
+```bash
+npm install --save-dev hardhat @openzeppelin/hardhat-upgrades
+npx hardhat compile
+npx hardhat run scripts/deploy.ts --network sei
+```
+
+## Key Takeaways
+
+- Smart contract upgradeability keeps a stable address while allowing logic changes, most commonly via **proxy + delegatecall**.
+- The hardest part is **storage layout safety** and **upgrade authorization security**.
+- On Sei Network, upgradeability works the same as on other EVM chains, with the added operational benefit of **~400ms finality** and performance advantages from **parallelization**.
+
+## Related Documentation
+
+- [EVM Overview](/evm)
+- [Networks & RPC](/evm/networks)
+- [Deploy with Hardhat](/evm/evm-hardhat)
+- [Deploy with Foundry](/evm/evm-foundry)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._

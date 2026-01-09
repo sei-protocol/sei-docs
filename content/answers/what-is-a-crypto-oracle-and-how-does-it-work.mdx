@@ -1,0 +1,168 @@
+---
+title: 'What is a Crypto Oracle and How Does It Work?'
+description: 'Learn about what is crypto oracle and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'glossary', 'what', 'crypto', 'oracle', 'and', 'how', 'does', 'work']
+---
+
+import { Callout } from 'nextra/components';
+
+# What is a Crypto Oracle and How Does It Work?
+
+## Overview
+
+A **crypto oracle** is a service that delivers **off-chain data** (data from outside the blockchain) to **on-chain smart contracts** in a way contracts can reliably consume. Put simply, it answers the question **“what is crypto oracle”** by acting as the bridge between blockchains and real-world information like asset prices, event outcomes, randomness, and API responses.
+
+Because blockchains can’t directly fetch external data without breaking determinism, oracles provide a standardized, verifiable method to import that data so decentralized applications (dApps) can make decisions based on real-world conditions.
+
+## How It Works
+
+### Why smart contracts need oracles
+
+Smart contracts execute deterministically: every node must be able to reproduce the same result from the same inputs. If a contract tried to call a normal web API directly, different nodes could get different responses (or no response), causing consensus failure. Oracles solve this by **bringing external data on-chain** through a process nodes can validate.
+
+### Common oracle types
+
+- **Price oracles**: Provide token/asset prices (e.g., ETH/USD) for lending, derivatives, stablecoins.
+- **Data feed oracles**: Supply non-price data (weather, sports results, interest rates).
+- **Randomness oracles (VRF)**: Provide verifiable randomness for games, NFT mints, lotteries.
+- **Cross-chain/messaging oracles**: Relay information between chains (sometimes paired with bridges).
+- **Compute oracles**: Provide results of off-chain computation (e.g., ML scoring, aggregation).
+
+### Oracle delivery models
+
+- **Push model**: Oracle periodically publishes data to an on-chain contract (e.g., a price feed updated every N seconds).
+- **Pull model**: A contract (or user) requests data; an oracle responds later with the result (request/response pattern).
+
+### Trust and security models
+
+Oracles introduce an important dependency: the contract is only as trustworthy as its data source and delivery mechanism.
+
+Typical security approaches include:
+
+- **Decentralized oracle networks (DONs)**: Multiple independent nodes fetch/aggregate the same data.
+- **Aggregation & medianization**: Combine many sources; use median to reduce outliers.
+- **Signed data**: Oracles sign the payload; on-chain verifies signature(s).
+- **Staleness checks**: Contracts reject data older than a threshold.
+- **Circuit breakers**: Pause sensitive actions if data deviates too sharply.
+- **Economic incentives/slashing**: Misbehavior can be penalized.
+
+### High-level flow
+
+1. **Smart contract needs external data** (e.g., BTC/USD price).
+2. **Oracle nodes fetch data** from multiple APIs/exchanges.
+3. **Oracle network aggregates** and finalizes a value.
+4. **Oracle publishes on-chain** (push) or returns result (pull).
+5. **Contract reads oracle value** and proceeds (liquidations, swaps, payouts, etc.).
+
+## On Sei Network
+
+Sei Network is a high-performance Layer 1 with **EVM compatibility**, enabling Solidity-based dApps to integrate oracle data similarly to other EVM chains. For oracle-driven applications (DeFi, perps, lending), Sei’s **parallelized execution** and **~400ms finality** can significantly improve the user experience: price updates and state transitions confirm quickly, reducing latency between “data update” and “action taken.”
+
+Key implications on Sei:
+
+- **Faster reaction to market moves**: With low finality time, oracle updates can be acted on quickly (e.g., liquidations, margin checks).
+- **Higher throughput for oracle consumers**: Parallelization helps when many contracts/users read feeds and execute trades simultaneously.
+- **EVM tooling compatibility**: Standard Solidity patterns (interfaces, feed readers, staleness checks) apply, making it straightforward to port existing oracle-integrated contracts.
+
+> Note: The exact oracle provider integration (addresses, interfaces, update cadence) depends on the specific oracle network deployed on Sei. Always use the official provider documentation and deployed contract addresses for Sei.
+
+## Example: Reading an Oracle Price Feed (Solidity)
+
+Below is a **generic EVM-style** example of consuming a price feed and enforcing basic safety checks (staleness and nonzero price). Replace the interface and function signatures with those from your chosen oracle provider on Sei.
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+interface IPriceFeed {
+    // Example interface (varies by provider)
+    function latestAnswer() external view returns (int256);
+    function latestTimestamp() external view returns (uint256);
+}
+
+contract OracleConsumer {
+    IPriceFeed public immutable feed;
+
+    // Example: reject data older than 60 seconds
+    uint256 public constant MAX_STALENESS = 60;
+
+    constructor(address feedAddress) {
+        require(feedAddress != address(0), "invalid feed");
+        feed = IPriceFeed(feedAddress);
+    }
+
+    function getPrice() external view returns (uint256 price) {
+        int256 answer = feed.latestAnswer();
+        uint256 updatedAt = feed.latestTimestamp();
+
+        require(answer > 0, "bad price");
+        require(block.timestamp - updatedAt <= MAX_STALENESS, "stale price");
+
+        // Cast safe after checking answer > 0
+        price = uint256(answer);
+    }
+}
+```
+
+## Example: Deploying to Sei EVM (Hardhat)
+
+This is a typical EVM deployment flow. Use Sei’s EVM RPC endpoint and chain ID for your target network (testnet/mainnet).
+
+```bash
+npm init -y
+npm install --save-dev hardhat @nomicfoundation/hardhat-toolbox
+npx hardhat init
+```
+
+```typescript
+// hardhat.config.ts
+import { HardhatUserConfig } from 'hardhat/config';
+import '@nomicfoundation/hardhat-toolbox';
+
+const config: HardhatUserConfig = {
+  solidity: '0.8.20',
+  networks: {
+    sei: {
+      url: process.env.SEI_EVM_RPC_URL!, // e.g., https://...
+      accounts: [process.env.DEPLOYER_PRIVATE_KEY!],
+      chainId: Number(process.env.SEI_CHAIN_ID!) // set for Sei network
+    }
+  }
+};
+
+export default config;
+```
+
+```bash
+# Compile
+npx hardhat compile
+
+# Deploy
+SEI_EVM_RPC_URL="https://<sei-evm-rpc>" \
+SEI_CHAIN_ID="XXXX" \
+DEPLOYER_PRIVATE_KEY="0x..." \
+npx hardhat run scripts/deploy.ts --network sei
+```
+
+## Best Practices for Using Crypto Oracles
+
+- **Validate freshness**: Enforce staleness thresholds appropriate for your app’s risk (especially for perps/lending).
+- **Handle decimals correctly**: Many feeds return scaled integers (e.g., 1e8). Normalize before using.
+- **Use fallbacks when possible**: Multiple feeds/providers can reduce downtime risk.
+- **Add sanity bounds**: Reject extreme deviations or require multiple confirmations during volatility.
+- **Design for Sei performance**: With ~400ms finality, consider tighter update intervals and risk checks that benefit from fast confirmation.
+
+## Summary
+
+A crypto oracle is the critical infrastructure that lets smart contracts use off-chain data safely and consistently. In general, oracles fetch, aggregate, and publish external information on-chain; on **Sei Network**, the combination of **EVM compatibility**, **parallel execution**, and **~400ms finality** enables oracle-powered dApps to respond quickly and scale under heavy usage.
+
+## Related Documentation
+
+- [Getting Started](/learn)
+- [Token Standards](/learn/dev-token-standards)
+- [Staking](/learn/general-staking)
+- [Oracles](/learn/oracles)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._

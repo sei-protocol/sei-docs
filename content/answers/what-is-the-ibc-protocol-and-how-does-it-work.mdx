@@ -1,0 +1,154 @@
+---
+title: 'What is the IBC Protocol and How Does It Work?'
+description: 'Learn about what is IBC protocol and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'cosmos-sdk', 'what', 'IBC', 'protocol', 'the', 'ibc', 'and', 'how', 'does', 'work']
+---
+
+import { Callout } from 'nextra/components';
+
+# What is the IBC Protocol and How Does It Work?
+
+## Overview
+
+The **Inter-Blockchain Communication (IBC) Protocol** is a standardized protocol for **secure, permissionless messaging and asset transfers between independent blockchains**. In short, _what is IBC protocol_? It’s the interoperability layer used across the Cosmos ecosystem (and beyond) to move tokens and data across chains **without relying on centralized bridges**.
+
+IBC achieves this by using **light clients** to verify another chain’s state and a **packet-based message format** to send and receive cross-chain messages over ordered or unordered channels.
+
+## How It Works
+
+### 1) Core Components
+
+IBC is implemented as a set of modules and standards (ICS — Interchain Standards). The key building blocks are:
+
+- **Clients (Light Clients)**: On-chain verification objects that track another chain’s consensus state (e.g., Tendermint/CometBFT light client).
+- **Connections**: A negotiated, authenticated relationship between two chains’ IBC modules (built on clients).
+- **Channels**: Logical pathways over a connection that carry application-specific packets (e.g., token transfers).
+- **Packets**: The actual cross-chain messages (data + sequencing + timeouts).
+- **Relayers**: Off-chain processes that **observe events** on one chain and **submit proofs** to the other chain. Relayers do not need trust; they just transport data and proofs.
+
+### 2) The Trust Model (Why IBC Is Safer Than Many Bridges)
+
+IBC does **not** depend on a multisig or centralized validator set to attest to events. Instead:
+
+- Chain A maintains a light client of Chain B (and vice versa).
+- When a packet is sent from Chain A to Chain B, a relayer submits:
+  - the packet data
+  - a cryptographic proof that the packet commitment exists on Chain A
+- Chain B verifies the proof against Chain A’s light client state.
+
+Security depends on the **consensus security of the connected chains** (and correct client verification), not on a third-party bridge operator.
+
+### 3) Packet Lifecycle (High-Level Flow)
+
+1. **Handshake**
+
+   - Establish **clients → connection → channel** through on-chain handshakes.
+
+2. **Send Packet**
+
+   - An IBC application (e.g., token transfer) writes a **packet commitment** to Chain A’s state.
+
+3. **Relay**
+
+   - A relayer fetches the packet and proof from Chain A and submits it to Chain B.
+
+4. **Receive + Verify**
+
+   - Chain B verifies the proof via the light client, processes the packet, and writes an acknowledgment.
+
+5. **Acknowledgment**
+
+   - The relayer submits the acknowledgment proof back to Chain A, completing the flow.
+
+6. **Timeouts**
+   - If the packet is not received within a specified time/height, the sender can reclaim funds or trigger timeout logic.
+
+### 4) IBC Token Transfers (ICS-20)
+
+The most common IBC application is **ICS-20 fungible token transfer**, often shown as:
+
+- **Escrow + voucher minting**
+  - When transferring a native token from its origin chain to another chain, the origin chain **escrows** it.
+  - The destination chain **mints a voucher representation** (an IBC denom) that can be redeemed back.
+
+This avoids “wrapped token” trust assumptions typical of external bridges—redemption is governed by IBC verification.
+
+### 5) Beyond Tokens: General Messaging
+
+IBC is generic; it can transport arbitrary application packets. Examples include:
+
+- Interchain accounts / remote execution
+- Cross-chain queries (depending on application design)
+- Cross-chain governance and coordination
+- Interchain middleware (e.g., fee middleware)
+
+## On Sei Network
+
+Sei is a high-performance Layer 1 with **~400ms finality**, **parallelized execution**, and **EVM compatibility** (in addition to Cosmos SDK capabilities). IBC on Sei enables fast, secure interoperability with Cosmos ecosystem chains, with user experience benefits driven by Sei’s performance characteristics:
+
+- **Fast cross-chain UX**: Sei’s rapid finality helps make IBC transfers and acknowledgments feel near-instant once packets reach Sei.
+- **High throughput**: Sei’s parallelization helps handle many simultaneous IBC-related transactions (e.g., receives, acknowledgments) efficiently.
+- **EVM compatibility**: Applications can use Sei’s EVM environment while still leveraging the Cosmos interoperability stack (IBC) at the network level, enabling cross-ecosystem designs.
+
+Common Sei IBC use cases include:
+
+- Moving assets to/from other IBC-enabled networks (DEX liquidity, collateral, treasury operations).
+- Cross-chain app composition where Sei provides fast execution and other chains provide specialized assets or services.
+- Routing tokens via interchain paths where Sei participates as a source, destination, or hop.
+
+## Common Terms You’ll See
+
+- **Port**: Identifies an IBC application module (e.g., `transfer` for ICS-20).
+- **Channel ID**: A specific channel such as `channel-0`, `channel-12`, etc.
+- **Denom Trace**: The path a token took through IBC channels, which determines its IBC denom on the receiving chain.
+- **Ordered vs Unordered Channels**
+  - Ordered: packets must be processed in sequence.
+  - Unordered: packets can be processed independently.
+
+## Practical Example: Sending an IBC Token Transfer
+
+The exact CLI and flags vary by chain configuration, but a typical Cosmos SDK/IBC transfer command looks like:
+
+```bash
+seid tx ibc-transfer transfer transfer <channel-id> <receiver> <amount><denom> \
+  --from <sender> \
+  --gas auto --gas-adjustment 1.3 \
+  --fees 2000usei \
+  --node <rpc-endpoint> \
+  --chain-id <sei-chain-id>
+```
+
+Example (illustrative placeholders):
+
+```bash
+seid tx ibc-transfer transfer transfer channel-0 sei1... 1000000usei \
+  --from mywallet \
+  --gas auto --gas-adjustment 1.3 \
+  --fees 2000usei \
+  --chain-id sei-1
+```
+
+After broadcasting:
+
+- The transfer module emits IBC events (packet send).
+- A relayer picks it up and submits the receive proof to the counterparty chain (and later relays the acknowledgment back).
+
+## Key Benefits of IBC
+
+- **Trust-minimized interoperability**: Uses light-client verification instead of multisigs.
+- **Permissionless operation**: Anyone can run a relayer.
+- **Standardized applications**: ICS specifications make cross-chain behavior consistent.
+- **Composable ecosystem**: Enables chains like Sei to specialize (performance, execution environment) while staying connected to shared liquidity and assets.
+
+## Summary
+
+IBC is the Cosmos ecosystem’s standard for **secure cross-chain communication**, enabling token transfers and arbitrary messages via **light clients, channels, packets, and relayers**. On Sei Network, IBC benefits from Sei’s **~400ms finality**, **parallel execution**, and **EVM compatibility**, enabling fast, scalable cross-chain experiences for both Cosmos SDK and EVM-based applications.
+
+## Related Documentation
+
+- [Cosmos SDK](/cosmos-sdk)
+- [Transactions](/cosmos-sdk/transactions)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._

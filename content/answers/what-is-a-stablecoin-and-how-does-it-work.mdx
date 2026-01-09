@@ -1,0 +1,176 @@
+---
+title: 'What is a Stablecoin and How Does It Work?'
+description: 'Learn about what is stablecoin and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'glossary', 'what', 'stablecoin', 'and', 'how', 'does', 'work']
+---
+
+import { Callout } from 'nextra/components';
+
+# What is a Stablecoin and How Does It Work?
+
+## Overview
+
+A **stablecoin** is a cryptocurrency designed to keep its price **stable** relative to a reference asset, most commonly a fiat currency like the **US dollar (USD)**. If you’re searching **“what is stablecoin”**, the simplest answer is: it’s a digital token that aims to combine crypto’s speed and programmability with the predictable value of traditional money.
+
+Stablecoins are widely used for payments, trading, remittances, on-chain savings, and as a “base currency” in DeFi because they reduce exposure to the volatility typical of many crypto assets.
+
+## How It Works
+
+Stablecoins maintain price stability through one (or a combination) of these mechanisms:
+
+### 1) Fiat-Collateralized Stablecoins (Off-Chain Reserves)
+
+These stablecoins are backed by **cash and cash-equivalents** (e.g., bank deposits, short-term government bills) held by a custodian. In many models, users can **mint** new stablecoins by depositing fiat and **redeem** stablecoins for fiat, which helps keep the token near its peg (e.g., $1).
+
+**How the peg holds (conceptually):**
+
+- If the stablecoin trades above $1, arbitrageurs mint at $1 and sell higher, pushing price down.
+- If it trades below $1, arbitrageurs buy below $1 and redeem for $1, pushing price up.
+
+**Trade-offs:**
+
+- Pros: typically strong price stability.
+- Cons: relies on custodians, banking rails, audits/attestations, and regulatory compliance.
+
+### 2) Crypto-Collateralized Stablecoins (On-Chain Reserves)
+
+These stablecoins are backed by **cryptocurrency collateral** locked in smart contracts, usually **overcollateralized** (e.g., $150 of collateral to mint $100 stablecoin) to handle crypto price swings. If collateral value falls too far, positions can be **liquidated** to protect solvency.
+
+**Core components:**
+
+- Collateral vaults / positions
+- Overcollateralization ratio
+- Oracles to track market prices
+- Liquidation mechanisms and incentives
+
+**Trade-offs:**
+
+- Pros: transparent, on-chain, less reliance on traditional banks.
+- Cons: can be complex; collateral volatility and oracle risk.
+
+### 3) Algorithmic Stablecoins (Supply/Demand Mechanisms)
+
+Algorithmic stablecoins attempt to maintain a peg by **adjusting token supply**, incentives, or using secondary tokens—often without full collateral backing.
+
+**Trade-offs:**
+
+- Pros: capital efficient in theory.
+- Cons: historically higher risk; peg can fail under stress if incentives break.
+
+### 4) Commodity-Backed Stablecoins
+
+These are backed by real-world commodities (e.g., gold), aiming to track the commodity price rather than fiat.
+
+**Trade-offs:**
+
+- Pros: exposure to commodity value on-chain.
+- Cons: depends on custody and redemption guarantees.
+
+---
+
+### Key Concepts You’ll See With Stablecoins
+
+- **Peg:** the target price (e.g., 1 stablecoin = $1).
+- **Mint/Burn:** creating tokens (mint) and destroying them (burn) to manage supply and redemptions.
+- **Reserves/Collateral:** assets backing the stablecoin’s value.
+- **Oracles:** data feeds used by smart contracts to get market prices.
+- **Depegging:** when a stablecoin deviates meaningfully from its target price.
+
+## On Sei Network
+
+Stablecoins on **Sei Network** are typically issued and used as **ERC-20 tokens** on Sei’s EVM, making them easy to integrate with existing Ethereum tooling (wallets, indexers, Solidity contracts). Sei’s design—optimized for high throughput with **parallelization** and fast block execution—supports stablecoin use cases like high-frequency trading, on-chain payments, and DeFi collateral management at scale, with **~400ms finality** improving user experience for transfers and swaps.
+
+Common stablecoin activities on Sei include:
+
+- **Payments & transfers:** fast settlement and quick confirmation UX due to near-instant finality.
+- **DEX trading:** stablecoins serve as quote assets (e.g., stablecoin pairs) and help reduce volatility exposure.
+- **Lending/borrowing:** stablecoins are frequently used as borrowed assets or collateral, depending on protocol design.
+- **Treasury and accounting:** stable-value units simplify on-chain bookkeeping for DAOs and apps.
+
+### Example: Interacting With a Stablecoin (ERC-20) in Solidity on Sei
+
+Below is a minimal example showing how a dApp might accept stablecoin payments using the ERC-20 interface:
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+interface IERC20 {
+    function transferFrom(address from, address to, uint256 amount) external returns (bool);
+    function transfer(address to, uint256 amount) external returns (bool);
+    function balanceOf(address owner) external view returns (uint256);
+}
+
+contract StablecoinCheckout {
+    IERC20 public immutable stablecoin;
+    address public immutable merchant;
+
+    constructor(address stablecoinAddress, address merchantAddress) {
+        stablecoin = IERC20(stablecoinAddress);
+        merchant = merchantAddress;
+    }
+
+    function pay(uint256 amount) external {
+        // User must approve() this contract for `amount` first
+        require(stablecoin.transferFrom(msg.sender, merchant, amount), "transfer failed");
+    }
+}
+```
+
+### Example: Sending a Stablecoin Transfer (EVM) With Ethers.js
+
+This example shows a basic ERC-20 transfer flow (network RPC and chain ID omitted for brevity—use Sei’s EVM endpoints):
+
+```typescript
+import { ethers } from 'ethers';
+
+const ERC20_ABI = ['function transfer(address to, uint256 amount) returns (bool)', 'function decimals() view returns (uint8)'];
+
+async function sendStablecoin(rpcUrl: string, privateKey: string, stablecoinAddress: string, to: string, amountHuman: string) {
+  const provider = new ethers.JsonRpcProvider(rpcUrl);
+  const wallet = new ethers.Wallet(privateKey, provider);
+
+  const token = new ethers.Contract(stablecoinAddress, ERC20_ABI, wallet);
+  const decimals: number = await token.decimals();
+
+  const amount = ethers.parseUnits(amountHuman, decimals);
+  const tx = await token.transfer(to, amount);
+  await tx.wait();
+  return tx.hash;
+}
+```
+
+## Why Stablecoins Matter
+
+Stablecoins are a foundational building block for crypto because they enable:
+
+- **Low-volatility on-chain value transfer**
+- **More predictable pricing** for goods and services
+- **Liquidity** for trading and DeFi
+- **Programmable money** for apps (subscriptions, payroll, escrow)
+
+On Sei, these benefits are amplified by fast settlement (**~400ms finality**) and scalable execution via **parallelization**, making stablecoin-powered applications feel closer to traditional fintech speed while remaining on-chain and composable.
+
+## Risks and Considerations
+
+Even though stablecoins aim to be stable, they are not risk-free:
+
+- **Reserve/custody risk (fiat-backed):** solvency, banking access, transparency of reserves.
+- **Smart contract and oracle risk (crypto-backed):** bugs, oracle manipulation, liquidation failures.
+- **Liquidity/market risk:** thin liquidity can cause temporary depegs.
+- **Regulatory risk:** changes in compliance requirements can affect issuance/redemption.
+
+## Summary
+
+If you’re asking **what is stablecoin**, it’s a cryptocurrency that targets a stable price—usually pegged to fiat like USD—using reserves, collateral, and/or algorithmic mechanisms. Stablecoins power much of on-chain commerce and DeFi, and on **Sei Network** they benefit from EVM compatibility and fast, scalable execution—enabling near-instant transfers and efficient trading with **~400ms finality**.
+
+## Related Documentation
+
+- [Getting Started](/learn)
+- [Token Standards](/learn/dev-token-standards)
+- [Staking](/learn/general-staking)
+- [Oracles](/learn/oracles)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._

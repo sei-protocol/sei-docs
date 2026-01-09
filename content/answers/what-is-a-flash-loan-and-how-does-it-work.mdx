@@ -1,0 +1,147 @@
+---
+title: 'What is a Flash Loan and How Does It Work?'
+description: 'Learn about what is flash loan and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'glossary', 'what', 'flash', 'loan', 'and', 'how', 'does', 'work']
+---
+
+import { Callout } from 'nextra/components';
+
+# What is a Flash Loan and How Does It Work?
+
+## Overview
+
+A **flash loan** is a type of **uncollateralized loan** in DeFi that must be **borrowed and repaid within the same blockchain transaction**. If repayment (plus any fee) doesn’t happen by the end of that transaction, the entire transaction **reverts**, as if it never occurred.
+
+In simple terms, flash loans let users temporarily access large amounts of liquidity for a single atomic operation, enabling strategies like arbitrage, refinancing, or collateral swaps—without needing upfront capital.
+
+## How It Works
+
+Flash loans rely on a core blockchain property: **atomicity**. A transaction either completes fully or fails fully. Flash loan providers (typically lending protocols) enforce repayment with a rule like: “After your actions, the protocol must end this transaction with at least the amount it started with (plus fee).”
+
+### Key Components
+
+- **Liquidity Pool / Lender Contract**: Holds funds that can be borrowed.
+- **Borrower Contract**: Receives the loan and executes logic (arbitrage, swaps, repayments, etc.).
+- **Callback / Execution Hook**: The lender calls the borrower back to run logic with the borrowed funds.
+- **Repayment Check**: At the end of the transaction, the lender verifies funds were returned.
+
+### Typical Flow
+
+1. **Request loan** from a flash loan provider for an amount of token X.
+2. Provider **transfers tokens** to your contract.
+3. Provider invokes a **callback function** (e.g., `executeOperation`) where you run your logic:
+   - Arbitrage across DEXes
+   - Swap collateral types
+   - Repay and re-borrow to refinance
+4. Your contract **repays** the principal + fee back to the lender.
+5. If repayment conditions aren’t met, the transaction **reverts**.
+
+### Common Use Cases
+
+- **Arbitrage**: Exploit price differences across DEXes within one transaction.
+- **Collateral swap / debt refinance**: Repay a position in one protocol and open a new one elsewhere.
+- **Liquidations**: Borrow funds to liquidate an undercollateralized position and repay within the same transaction.
+
+### Risks and Considerations
+
+- **Not “free money”**: Profits must exceed fees + gas costs, and execution must succeed.
+- **MEV and front-running**: Other actors can reorder or copy profitable trades.
+- **Smart contract risk**: Bugs in borrower or integrations can cause reverts or losses (e.g., if funds are not repaid).
+- **Market slippage**: Price impact can erase expected profit.
+
+## On Sei Network
+
+On **Sei Network**, flash loan-style strategies benefit from Sei’s performance characteristics, especially:
+
+- **Fast finality (~400ms)**, which can reduce execution uncertainty for time-sensitive arbitrage and refinancing flows.
+- **Parallelization**, enabling higher throughput and more concurrent activity—important for active DeFi markets and rapid price discovery.
+- **EVM compatibility**, allowing Solidity-based flash loan patterns and tooling familiar from Ethereum to be used on Sei.
+
+While the _concept_ of “what is flash loan” is the same across chains, Sei’s fast finality and high-performance design can make certain transaction-bound strategies (like arbitrage across AMMs or rapid refinancing) more practical—provided liquidity protocols on Sei expose flash loan interfaces.
+
+### Solidity: Minimal Flash Loan Pattern (Conceptual)
+
+Below is a simplified example showing the common structure: a borrower requests a flash loan, receives funds, executes logic, and repays before the transaction ends. (Exact interfaces vary by protocol.)
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+interface IERC20 {
+    function balanceOf(address) external view returns (uint256);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function transfer(address to, uint256 amount) external returns (bool);
+}
+
+interface IFlashLender {
+    function flashLoan(
+        address receiver,
+        address token,
+        uint256 amount,
+        bytes calldata data
+    ) external;
+}
+
+contract FlashBorrower {
+    address public lender;
+
+    constructor(address _lender) {
+        lender = _lender;
+    }
+
+    /// @notice Initiates the flash loan.
+    function startFlashLoan(address token, uint256 amount, bytes calldata data) external {
+        IFlashLender(lender).flashLoan(address(this), token, amount, data);
+    }
+
+    /// @notice Callback invoked by the lender within the same transaction.
+    /// The lender expects `amount + fee` to be returned by the end of this call/tx.
+    function onFlashLoan(
+        address token,
+        uint256 amount,
+        uint256 fee,
+        bytes calldata data
+    ) external returns (bytes32) {
+        require(msg.sender == lender, "unauthorized");
+
+        // 1) Use the borrowed funds (arbitrage, collateral swap, liquidation, etc.)
+        _executeStrategy(token, amount, data);
+
+        // 2) Repay principal + fee before transaction ends
+        uint256 repayment = amount + fee;
+        IERC20(token).transfer(lender, repayment);
+
+        // Return value depends on the lender standard; shown as a placeholder
+        return keccak256("FLASH_LOAN_SUCCESS");
+    }
+
+    function _executeStrategy(address token, uint256 amount, bytes calldata data) internal {
+        // Implement your strategy:
+        // - swap token on DEX A
+        // - swap back on DEX B
+        // - ensure final balance covers repayment + profit
+    }
+}
+```
+
+### Tips for Deploying Flash Loan Strategies on Sei (EVM)
+
+- Use standard **EVM tooling** (Foundry/Hardhat) and Sei’s EVM RPC endpoints.
+- Model **gas and slippage** carefully; profitability depends on execution costs and pool depth.
+- Add protections against **reentrancy**, unexpected callbacks, and unfavorable price movement.
+- Consider MEV-aware execution (private relays/bundling, where available) for competitive arbitrage.
+
+## Summary
+
+A flash loan is an uncollateralized DeFi loan that must be borrowed and repaid within a single atomic transaction, reverting if repayment fails. In general blockchain contexts, flash loans are enabled by transaction atomicity and are used for arbitrage, refinancing, collateral swaps, and liquidations. On Sei Network, the same pattern applies with added advantages from **EVM compatibility**, **parallelization**, and **~400ms finality**, which can make transaction-bound DeFi strategies more responsive and efficient.
+
+## Related Documentation
+
+- [Getting Started](/learn)
+- [Token Standards](/learn/dev-token-standards)
+- [Staking](/learn/general-staking)
+- [Oracles](/learn/oracles)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._

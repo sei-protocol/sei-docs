@@ -1,0 +1,157 @@
+---
+title: 'What is an Oracles and How Does It Work?'
+description: 'Learn about what is oracles and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'glossary', 'what', 'oracles', 'and', 'how', 'does', 'work']
+---
+
+import { Callout } from 'nextra/components';
+
+# What is an Oracles and How Does It Work?
+
+## Overview
+
+Oracles are services that deliver external (off-chain) data and computation results to blockchain smart contracts. In other words, they bridge the gap between deterministic on-chain code and real-world information like asset prices, weather, sports results, randomness, or cross-chain events. If you’re searching **what is oracles**, the core idea is: smart contracts can’t directly “fetch” internet data, so they rely on oracles to bring that data on-chain in a verifiable way.
+
+## How It Works
+
+### Why smart contracts need oracles
+
+Smart contracts must be deterministic—every node re-executes the same transaction and must arrive at the same result. If a contract could call an external API directly (e.g., a price feed endpoint), different nodes might see different responses, breaking consensus. Oracles solve this by **publishing data on-chain** in a way contracts can read deterministically.
+
+### Common oracle models
+
+- **Push-based (data feed) oracles:** The oracle posts updated values (e.g., ETH/USD) to an on-chain contract at a set cadence or when thresholds are met. Contracts read the latest stored value.
+- **Pull/request-response oracles:** A contract requests data; an oracle network fulfills it by delivering a response transaction back to the chain.
+- **Cross-chain oracles / relayers:** Bring information about events on another chain (e.g., “this transaction finalized on chain X”) to the destination chain.
+- **Randomness oracles (VRF):** Provide verifiable randomness with cryptographic proofs, commonly used in gaming and NFT mints.
+
+### Trust, security, and verification
+
+Oracles introduce an additional trust layer (“oracle risk”). Systems mitigate this via:
+
+- **Decentralization:** Multiple independent oracle nodes provide data.
+- **Aggregation:** Median/weighted averages reduce single-source manipulation.
+- **Cryptographic proofs:** Signatures, threshold signatures, VRF proofs, attestations.
+- **Economic incentives:** Staking, slashing, reputation systems.
+- **Data freshness & validation:** Heartbeats, deviation thresholds, circuit breakers.
+
+### Typical on-chain pattern
+
+Most applications consume oracle data by reading from a known on-chain contract:
+
+```solidity
+// Example interface for a price feed oracle contract.
+// The exact interface depends on the oracle provider you use.
+interface IPriceFeed {
+    function latestAnswer() external view returns (int256);
+    function latestTimestamp() external view returns (uint256);
+}
+
+contract UsesOraclePrice {
+    IPriceFeed public immutable feed;
+
+    constructor(address feedAddress) {
+        feed = IPriceFeed(feedAddress);
+    }
+
+    function getPrice() external view returns (int256 price, uint256 updatedAt) {
+        price = feed.latestAnswer();
+        updatedAt = feed.latestTimestamp();
+    }
+}
+```
+
+Applications often add safeguards—e.g., reject stale data:
+
+```solidity
+function getSafePrice(uint256 maxAgeSeconds) external view returns (int256) {
+    int256 price = feed.latestAnswer();
+    uint256 updatedAt = feed.latestTimestamp();
+    require(block.timestamp - updatedAt <= maxAgeSeconds, "ORACLE_STALE");
+    require(price > 0, "ORACLE_INVALID");
+    return price;
+}
+```
+
+## On Sei Network
+
+Sei Network is a high-performance Layer 1 with EVM compatibility designed for low-latency, high-throughput applications. Oracles on Sei work the same conceptually as on other chains—**oracle providers publish data on-chain, and Sei smart contracts read it**—but Sei’s performance characteristics can improve how oracle-driven apps behave in production.
+
+### Why oracles matter on Sei
+
+- **DeFi & derivatives:** Lending, perps, options, and stablecoins depend on high-quality price feeds.
+- **Real-time apps:** Prediction markets, gaming, and marketplaces can use data feeds and VRF-style randomness.
+- **Cross-chain experiences:** Bridging and interop systems often rely on oracle/relayer components for event attestations.
+
+### Performance considerations (what changes on Sei)
+
+- **Fast finality (~400ms):** Oracle updates can reach finality quickly, reducing latency between off-chain events and on-chain usability—critical for trading and liquidation logic.
+- **Parallelization:** Sei’s parallel execution design can help high-volume oracle update transactions and downstream reads coexist more efficiently, especially during periods of high network activity.
+- **EVM compatibility:** Many oracle integration patterns and Solidity contracts are portable to Sei’s EVM environment, so teams can reuse familiar tooling and contract designs.
+
+### Example: consuming an oracle price on Sei (EVM)
+
+Deploy or connect to an oracle feed contract address on Sei, then read it from your Solidity app:
+
+```solidity
+pragma solidity ^0.8.20;
+
+interface ISeiPriceFeed {
+    function latestAnswer() external view returns (int256);
+    function latestTimestamp() external view returns (uint256);
+}
+
+contract SeiLendingRiskChecks {
+    ISeiPriceFeed public immutable seiFeed;
+
+    constructor(address feed) {
+        seiFeed = ISeiPriceFeed(feed);
+    }
+
+    function isHealthy(uint256 collateralValue, uint256 debtValue) external view returns (bool) {
+        // Example oracle usage: ensure price is fresh enough for risk checks
+        uint256 updatedAt = seiFeed.latestTimestamp();
+        require(block.timestamp - updatedAt <= 30, "PRICE_TOO_OLD");
+
+        // Your protocol math would incorporate oracle price(s) here.
+        return collateralValue * 100 >= debtValue * 150; // e.g., 150% collateralization
+    }
+}
+```
+
+### Reading oracle data from an app (TypeScript)
+
+With EVM-compatible RPC endpoints, you can read from oracle contracts using `ethers`:
+
+```typescript
+import { ethers } from 'ethers';
+
+const rpcUrl = process.env.SEI_EVM_RPC!;
+const provider = new ethers.JsonRpcProvider(rpcUrl);
+
+// Minimal ABI for a typical price feed interface
+const abi = ['function latestAnswer() view returns (int256)', 'function latestTimestamp() view returns (uint256)'];
+
+async function readOracle(feedAddress: string) {
+  const feed = new ethers.Contract(feedAddress, abi, provider);
+  const [price, ts] = await Promise.all([feed.latestAnswer(), feed.latestTimestamp()]);
+  return { price: price.toString(), updatedAt: Number(ts) };
+}
+```
+
+## Key Takeaways
+
+- If you’re asking **what is oracles**, it means: a bridge that brings off-chain data and results onto the blockchain so smart contracts can act on real-world events.
+- Oracles work by publishing verified data on-chain (push) or responding to on-chain requests (pull), often using decentralization and cryptographic proofs to reduce trust risk.
+- On Sei Network, oracles integrate through familiar EVM patterns while benefiting from Sei’s **parallelization** and **~400ms finality**, enabling faster, more responsive oracle-driven applications.
+
+## Related Documentation
+
+- [Getting Started](/learn)
+- [Token Standards](/learn/dev-token-standards)
+- [Staking](/learn/general-staking)
+- [Oracles](/learn/oracles)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._

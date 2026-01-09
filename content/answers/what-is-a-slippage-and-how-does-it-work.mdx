@@ -1,0 +1,140 @@
+---
+title: 'What is a Slippage and How Does It Work?'
+description: 'Learn about what is slippage and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'glossary', 'what', 'slippage', 'and', 'how', 'does', 'work']
+---
+
+import { Callout } from 'nextra/components';
+
+# What is a Slippage and How Does It Work?
+
+## Overview
+
+Slippage is the difference between the expected price of a trade and the actual execution price. It usually happens when prices move between the time you submit a transaction and the time it is confirmed, or when there isn’t enough liquidity at your desired price. In simple terms, slippage is the “price drift” you experience when buying or selling on-chain.
+
+## How It Works
+
+In most crypto trading (especially on AMMs/DEXs), slippage occurs because trades are executed against liquidity pools with prices determined by supply and demand. When you submit a trade, the blockchain must include your transaction in a block; by the time it executes, pool reserves or market prices may have changed.
+
+### Common Causes of Slippage
+
+- **Price volatility:** Rapid price movements can change the best available price before your transaction executes.
+- **Low liquidity / shallow pools:** Larger trades move the pool price more, causing worse execution.
+- **Trade size (price impact):** AMM pricing curves (e.g., constant product) adjust price as your swap consumes liquidity.
+- **Network congestion:** Longer confirmation times increase the window for price changes.
+- **MEV / frontrunning (on some networks):** Other transactions can reorder or trade around yours, affecting the execution price.
+
+### Positive vs. Negative Slippage
+
+- **Negative slippage:** You receive fewer tokens than expected (worse price).
+- **Positive slippage:** You receive more tokens than expected (better price). Some DEXs pass this benefit to the trader; others may route it differently depending on design.
+
+### Slippage Tolerance
+
+Most wallets and DEX UIs let you set a **slippage tolerance** (e.g., 0.5%, 1%, 2%). This defines the maximum acceptable deviation from the quoted price. If execution would exceed that limit, the swap reverts to protect you from unexpectedly bad fills.
+
+In AMM-based swaps, slippage tolerance typically translates into a **minimum output amount** (often `amountOutMin`) or a **maximum input amount** (for exact-output swaps). The transaction will only succeed if the on-chain execution meets that constraint.
+
+### Example (Conceptual)
+
+If you expect to receive **1,000 USDC** for selling a token, and you set a **1%** slippage tolerance, then the trade must execute at **≥ 990 USDC**. If the pool price moves such that you would receive **985 USDC**, the transaction reverts.
+
+## On Sei Network
+
+Sei Network is a high-performance Layer 1 with **EVM compatibility**, built for fast and efficient trading. Slippage mechanics on Sei are the same as in other EVM ecosystems—your execution depends on liquidity, price impact, and the state of the pool at the moment your transaction is included.
+
+Where Sei makes a practical difference:
+
+- **~400ms finality reduces time-based slippage risk:** Faster confirmation lowers the time window for adverse price movement between submission and execution compared to slower-finality networks.
+- **Parallelization improves throughput:** Sei’s parallelized execution helps the network handle many transactions efficiently, which can reduce congestion-related delays that often amplify slippage.
+- **EVM compatibility:** Solidity-based DEX contracts on Sei typically expose the same parameters you’ll recognize from other chains (e.g., `amountOutMin`, `deadline`), so slippage protection patterns carry over directly.
+
+Even on a fast chain, slippage can still occur due to **low liquidity**, **large trades**, or **rapid market movement**—speed helps, but it doesn’t eliminate AMM price impact.
+
+## Code Examples
+
+### Solidity: Enforcing Slippage Protection in a Swap
+
+Below is a simplified Uniswap V2–style swap example showing how `amountOutMin` protects against slippage. (Router and interface names may vary by DEX deployment on Sei.)
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+interface IRouter {
+    function swapExactTokensForTokens(
+        uint amountIn,
+        uint amountOutMin,
+        address[] calldata path,
+        address to,
+        uint deadline
+    ) external returns (uint[] memory amounts);
+}
+
+contract SlippageProtectedSwap {
+    IRouter public immutable router;
+
+    constructor(address _router) {
+        router = IRouter(_router);
+    }
+
+    function swap(
+        uint256 amountIn,
+        uint256 minAmountOut, // slippage-protected minimum received
+        address[] calldata path
+    ) external {
+        // In a real implementation, you'd transfer/approve tokenIn first.
+        uint256 deadline = block.timestamp + 60; // short deadline reduces execution uncertainty
+
+        router.swapExactTokensForTokens(
+            amountIn,
+            minAmountOut,
+            path,
+            msg.sender,
+            deadline
+        );
+    }
+}
+```
+
+**Key idea:** `minAmountOut` is derived from your quote and slippage tolerance. If the pool state changes such that output would be lower, the transaction reverts.
+
+### TypeScript: Calculating `amountOutMin` from Slippage Tolerance
+
+```typescript
+import { BigNumber } from 'ethers';
+
+// expectedOut: quoted amount out from a router quoter or UI quote
+// slippageBps: slippage tolerance in basis points (e.g., 50 = 0.50%, 100 = 1%)
+export function amountOutMin(expectedOut: BigNumber, slippageBps: number): BigNumber {
+  const bpsDenominator = BigNumber.from(10_000);
+  const slippage = bpsDenominator.sub(BigNumber.from(slippageBps));
+  return expectedOut.mul(slippage).div(bpsDenominator);
+}
+
+// Example:
+// expectedOut = 1000 units, slippageBps = 100 (1%) => amountOutMin = 990 units
+```
+
+### Best Practices to Reduce Slippage (Especially for On-Chain Swaps)
+
+- **Use deeper liquidity pools** and consider splitting large trades.
+- **Set a reasonable slippage tolerance:** Too low may cause frequent reverts; too high may lead to poor fills.
+- **Use short deadlines** to reduce exposure to price movement.
+- **Avoid trading during extreme volatility** or when liquidity is thin.
+- On Sei, **fast finality** and **high throughput** can help reduce delay-driven slippage, but you still need `amountOutMin`/slippage controls.
+
+## Summary
+
+If you’re searching “**what is slippage**,” the core answer is: slippage is the execution-price difference caused by market movement and liquidity conditions between quote and confirmation. In blockchain trading, it’s managed with slippage tolerance settings and on-chain minimum/maximum bounds (like `amountOutMin`). On Sei Network, the same protections apply, with the added benefit that Sei’s fast (~400ms) finality and parallelized execution can reduce delay-related slippage in practice.
+
+## Related Documentation
+
+- [Getting Started](/learn)
+- [Token Standards](/learn/dev-token-standards)
+- [Staking](/learn/general-staking)
+- [Oracles](/learn/oracles)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._

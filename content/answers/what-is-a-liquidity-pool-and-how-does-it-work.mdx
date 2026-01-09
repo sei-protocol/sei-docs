@@ -1,0 +1,135 @@
+---
+title: 'What is a Liquidity Pool and How Does It Work?'
+description: 'Learn about what is liquidity pool and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'glossary', 'what', 'liquidity', 'pool', 'and', 'how', 'does', 'work']
+---
+
+import { Callout } from 'nextra/components';
+
+# What is a Liquidity Pool and How Does It Work?
+
+## Overview
+
+A **liquidity pool** is a smart contract (or on-chain account/module) that holds reserves of two or more assets so users can trade, lend, or provide liquidity without needing a traditional order book or a direct counterparty. In most DeFi markets, liquidity pools power automated swaps and enable continuous trading, with prices determined algorithmically.
+
+In other words, when people ask **“what is liquidity pool”**, the answer is: it’s an on-chain vault of tokens governed by rules (an AMM formula or similar) that lets anyone swap assets and lets liquidity providers earn fees for supplying those tokens.
+
+## How It Works
+
+### 1) Liquidity Providers (LPs) deposit assets
+
+A pool typically holds a pair like `TOKENA/TOKENB`. Liquidity providers deposit both tokens in a required proportion (often based on the pool’s current price). In return, they receive **LP tokens** (or a position NFT) representing their share of the pool.
+
+- If you own 10% of the LP tokens, you generally own 10% of the pool reserves.
+- LP tokens can often be used elsewhere in DeFi (e.g., farming, collateral), depending on the protocol.
+
+### 2) Traders swap against the pool (AMM pricing)
+
+Instead of matching buyers and sellers, the pool uses an **Automated Market Maker (AMM)** to quote prices. A common AMM model is the constant product formula:
+
+- **Constant product AMM:** `x * y = k`  
+  Where `x` and `y` are the reserves of each token, and `k` is a constant.
+
+When a trader buys `TOKENA`, they add `TOKENB` to the pool and remove `TOKENA`. This changes the reserve ratio, which changes the price—creating **slippage** (worse execution for larger trades relative to pool size).
+
+Other pool designs exist (stable swap curves, concentrated liquidity, weighted pools), but the key idea remains: **the pool’s reserves and rules determine the swap price**.
+
+### 3) Fees reward liquidity providers
+
+Most pools charge a swap fee (e.g., 0.05%–0.30%). Fees are distributed to LPs, usually by:
+
+- Increasing pool reserves (fees stay in the pool), which increases the value of LP shares, or
+- Directly distributing fees according to the protocol rules.
+
+### 4) LP returns and key risks
+
+Liquidity pools can generate yield, but LPs take on risks:
+
+- **Impermanent Loss (IL):** If the relative price of pooled assets changes, LPs may end up with a different asset mix than if they simply held the tokens. This can reduce value versus holding, though fees can offset it.
+- **Smart contract risk:** Bugs, exploits, or oracle issues can lead to losses.
+- **Liquidity risk:** Shallow pools can cause high slippage, reducing trader demand and fee potential.
+- **Depegs/stablecoin risk:** Pools involving stable assets can be exposed to depeg events.
+
+## On Sei Network
+
+Sei Network is a high-performance Layer 1 with **EVM compatibility**, optimized for trading and DeFi. Liquidity pools on Sei behave like pools on other blockchains—LPs deposit assets, traders swap using AMM logic, and fees accrue to LPs—but they benefit from Sei’s design goals:
+
+- **Fast finality (~400ms):** Swaps, liquidity adds/removes, and arbitrage updates can confirm quickly, improving UX and reducing the time users are exposed to price movement while a transaction is pending.
+- **Parallelization:** Sei’s execution model is built to handle high throughput by processing many non-conflicting transactions in parallel, which can help DeFi apps scale during periods of high demand.
+- **EVM compatibility:** Existing Solidity-based AMM and DEX architectures can be deployed on Sei, allowing teams to port or build familiar liquidity pool designs while leveraging Sei’s performance.
+
+### Example: Minimal AMM-style swap interface (Solidity)
+
+Many liquidity pool contracts expose methods similar to the following (exact interfaces vary by DEX):
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+interface ILiquidityPool {
+    function token0() external view returns (address);
+    function token1() external view returns (address);
+
+    /// @notice Swap exact input amount of tokenIn for tokenOut.
+    /// @dev Real implementations include slippage controls, fees, and callbacks.
+    function swapExactIn(
+        address tokenIn,
+        uint256 amountIn,
+        address to,
+        uint256 minAmountOut,
+        uint256 deadline
+    ) external returns (uint256 amountOut);
+}
+```
+
+### Example: Adding liquidity via an EVM router (TypeScript)
+
+On Sei’s EVM, you interact with pool/router contracts using standard Ethereum tooling (ethers.js-style). This is a simplified pattern:
+
+```typescript
+import { ethers } from 'ethers';
+
+const provider = new ethers.JsonRpcProvider(process.env.SEI_EVM_RPC_URL!);
+const wallet = new ethers.Wallet(process.env.PRIVATE_KEY!, provider);
+
+// Router ABI fragment (example only)
+const routerAbi = ['function addLiquidity(address tokenA,address tokenB,uint amountADesired,uint amountBDesired,uint amountAMin,uint amountBMin,address to,uint deadline) returns (uint amountA,uint amountB,uint liquidity)'];
+
+const router = new ethers.Contract('0xRouterAddress', routerAbi, wallet);
+
+const tokenA = '0xTokenA';
+const tokenB = '0xTokenB';
+
+const amountADesired = ethers.parseUnits('10', 18);
+const amountBDesired = ethers.parseUnits('1000', 6);
+
+const tx = await router.addLiquidity(
+  tokenA,
+  tokenB,
+  amountADesired,
+  amountBDesired,
+  0, // amountAMin (set appropriately to protect against slippage)
+  0, // amountBMin
+  await wallet.getAddress(),
+  Math.floor(Date.now() / 1000) + 60 // deadline
+);
+
+await tx.wait();
+```
+
+## Key Takeaways
+
+- A liquidity pool is an on-chain reserve of tokens that enables trading without order-book counterparties.
+- LPs deposit assets and earn swap fees, but face impermanent loss and smart contract risk.
+- On Sei Network, liquidity pools can deliver a smoother trading experience thanks to **~400ms finality**, **parallelized execution**, and **EVM compatibility** for Solidity-based DeFi applications.
+
+## Related Documentation
+
+- [Getting Started](/learn)
+- [Token Standards](/learn/dev-token-standards)
+- [Staking](/learn/general-staking)
+- [Oracles](/learn/oracles)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._

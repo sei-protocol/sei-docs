@@ -1,0 +1,132 @@
+---
+title: 'What is a Soft Fork and How Does It Work?'
+description: 'Learn about what is soft fork and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'glossary', 'what', 'soft', 'fork', 'and', 'how', 'does', 'work']
+---
+
+import { Callout } from 'nextra/components';
+
+# What is a Soft Fork and How Does It Work?
+
+## Overview
+
+A **soft fork** is a backward-compatible blockchain protocol upgrade that **tightens** the rules for what blocks and transactions are considered valid. Nodes that upgrade will enforce the new stricter rules, while nodes that do not upgrade can typically continue operating—though they may not fully understand or enforce the new constraints. In short, **what is soft fork**: a network change where new rules are a subset of the old rules, so old software can still accept the upgraded chain.
+
+## How It Works
+
+### Backward compatibility and “stricter rules”
+
+In a soft fork, the network introduces rules that **reduce** the set of valid blocks/transactions compared to the previous protocol. Because the old protocol’s rules are looser, a non-upgraded node will usually still see upgraded blocks as valid (they still fit within the old, broader definition of validity).
+
+Common examples of “stricter” changes include:
+
+- Disallowing certain transaction patterns that were previously valid
+- Adding additional conditions that must be met for a transaction to be accepted
+- Constraining block contents or script behavior to enable new features safely
+
+### Activation: how a soft fork gets adopted
+
+Soft forks are typically activated via a coordination mechanism that ensures the network converges on the new rules, such as:
+
+- **Miner/validator signaling**: block producers indicate readiness; after a threshold is reached, the new rules activate.
+- **Time/height-based activation**: the fork activates at a specific block height/time if software is sufficiently deployed.
+- **User-activated mechanisms** (in some ecosystems): economic actors enforce new rules via node policy.
+
+Once activated, upgraded nodes reject blocks that violate the new rules. Non-upgraded nodes may still accept those blocks if they appear valid under the old rules—but if a majority of block production follows the new rules, the canonical chain will comply with the stricter validation, keeping the network unified.
+
+### Soft fork vs. hard fork (quick comparison)
+
+- **Soft fork**: backward-compatible; old nodes can usually follow the chain (but won’t enforce new rules).
+- **Hard fork**: not backward-compatible; old nodes will reject new blocks, causing a chain split unless everyone upgrades.
+
+## On Sei Network
+
+Sei is a high-performance Layer 1 with **EVM compatibility**, designed for fast execution and rapid chain convergence (with **~400ms finality**). Protocol upgrades on Sei can introduce rule changes that are conceptually similar to soft forks in other ecosystems—i.e., changes that remain compatible for participants who update promptly—while still leveraging Sei’s architecture to coordinate upgrades efficiently.
+
+Key points for soft-fork-like behavior in a Sei context:
+
+- **Fast finality reduces uncertainty during upgrades**: With ~400ms finality, once an upgrade activates and validators produce blocks under the new rules, the chain converges quickly, minimizing prolonged ambiguity around which blocks are canonical.
+- **Parallelization and high throughput**: Sei’s parallelized execution model helps maintain performance during network transitions, making it easier to roll out rule-tightening changes without congesting the chain.
+- **EVM compatibility considerations**: Changes that affect EVM transaction processing, gas accounting, precompiles, or mempool policies must be carefully coordinated. Even when changes are backward-compatible in principle, clients, indexers, and tooling in the EVM ecosystem may still require updates to reflect new semantics.
+
+### What soft forks might look like for developers
+
+On EVM chains, many developer-visible “soft fork” style changes are introduced as **new constraints** or **new optional behaviors** that don’t invalidate existing, already-valid historical data. Examples can include:
+
+- Enforcing stricter validation for certain transaction fields
+- Updating opcode or precompile behavior behind a feature gate or activation height (must be handled carefully to avoid breaking assumptions)
+- Tightening mempool acceptance rules (policy) without changing consensus rules (note: mempool policy changes are not always consensus changes)
+
+Because Sei is a Cosmos SDK–based chain with an EVM runtime, network upgrades are generally delivered through chain upgrade mechanisms coordinated by validators and node operators. Even when an upgrade is “soft” in spirit, **operators and infrastructure providers should still upgrade on time** to ensure they enforce the latest consensus rules and remain compatible with the network.
+
+## Example: Detecting an Upgrade Height in an EVM dApp
+
+While Solidity contracts can’t directly read “the fork version,” many apps handle network upgrades by checking the **block number** (or timestamp) at which new behavior is expected, then gating logic accordingly.
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+contract UpgradeGatedLogic {
+    uint256 public constant UPGRADE_BLOCK = 12_345_678;
+
+    function featureFlag() public view returns (bool) {
+        // Example: enable a path only after an upgrade activates
+        return block.number >= UPGRADE_BLOCK;
+    }
+
+    function doThing() external view returns (string memory) {
+        if (featureFlag()) {
+            return "Post-upgrade behavior";
+        } else {
+            return "Pre-upgrade behavior";
+        }
+    }
+}
+```
+
+## Example: Monitoring Network Upgrade Status (TypeScript)
+
+Apps and indexers commonly monitor chain parameters (block height, client version, or governance events depending on the ecosystem) and adjust behavior when an upgrade activates.
+
+```typescript
+import { ethers } from 'ethers';
+
+async function main() {
+  const rpcUrl = process.env.RPC_URL!;
+  const provider = new ethers.JsonRpcProvider(rpcUrl);
+
+  const blockNumber = await provider.getBlockNumber();
+  console.log('Current block:', blockNumber);
+
+  const UPGRADE_BLOCK = 12_345_678;
+  if (blockNumber >= UPGRADE_BLOCK) {
+    console.log('Upgrade is active: use new rules/paths');
+  } else {
+    console.log('Upgrade not active yet: use legacy rules/paths');
+  }
+}
+
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});
+```
+
+## Key Takeaways
+
+- **What is soft fork**: a backward-compatible protocol upgrade that makes validation rules stricter so old nodes can still generally follow the chain.
+- Soft forks require **coordination for activation**, typically via validator/miner signaling or scheduled activation.
+- On **Sei Network**, upgrades benefit from **parallelization** and **~400ms finality**, helping the chain converge quickly and maintain performance during transitions, including those that resemble soft forks in practice.
+- Developers should still plan for upgrades by **monitoring activation points** and keeping node/indexer/tooling versions current, especially in the **EVM-compatible** environment.
+
+## Related Documentation
+
+- [Getting Started](/learn)
+- [Token Standards](/learn/dev-token-standards)
+- [Staking](/learn/general-staking)
+- [Oracles](/learn/oracles)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._

@@ -1,0 +1,176 @@
+---
+title: 'What is an Atomic Swap and How Does It Work?'
+description: 'Learn about what is atomic swap and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'glossary', 'what', 'atomic', 'swap', 'and', 'how', 'does', 'work']
+---
+
+import { Callout } from 'nextra/components';
+
+# What is an Atomic Swap and How Does It Work?
+
+## Overview
+
+An **atomic swap** is a trust-minimized way to exchange two different cryptocurrencies directly between two parties **without a centralized exchange or custodian**. The “atomic” part means the swap either completes entirely for both sides or it doesn’t happen at all—preventing partial fills or one-sided loss.
+
+In other words, when people ask **“what is atomic swap”**, the answer is: a cryptographic mechanism for cross-chain (or cross-network) token exchange with built-in all-or-nothing guarantees.
+
+## How It Works
+
+Atomic swaps are commonly implemented using **Hashed Timelock Contracts (HTLCs)** or related constructions. The goal is to ensure that each party can only claim the other party’s funds if they satisfy a cryptographic condition within a specified time window; otherwise, funds can be refunded.
+
+### Key building blocks
+
+- **Hashlock**: Funds can be claimed only by revealing a secret `s` such that `hash(s) = h`.
+- **Timelock**: A deadline after which the sender can reclaim funds if the swap doesn’t complete.
+- **Atomicity guarantee**: Either:
+  - both parties successfully redeem using the same secret, or
+  - both parties eventually refund after timeouts.
+
+### Typical HTLC flow (two chains A and B)
+
+1. **Alice picks a secret**
+
+   - Alice generates a random secret `s` and computes `h = hash(s)`.
+
+2. **Alice locks funds on Chain A**
+
+   - Alice creates an HTLC on Chain A that pays Bob **only if** Bob reveals `s` (matching `h`) before time `T1`.
+   - If not redeemed by `T1`, Alice can refund.
+
+3. **Bob locks funds on Chain B**
+
+   - After seeing Alice’s HTLC, Bob creates a similar HTLC on Chain B that pays Alice **only if** Alice reveals `s` before time `T2`, where `T2 < T1`.
+   - If not redeemed by `T2`, Bob can refund.
+
+4. **Alice redeems on Chain B**
+
+   - Alice claims Bob’s locked funds by revealing `s` on Chain B.
+
+5. **Bob learns the secret and redeems on Chain A**
+
+   - Because `s` is now public on Chain B, Bob extracts it and uses it to redeem Alice’s locked funds on Chain A.
+
+6. **Refund paths (if something goes wrong)**
+   - If Alice never redeems Bob’s HTLC, Bob refunds after `T2`.
+   - If Bob never redeems Alice’s HTLC, Alice refunds after `T1`.
+
+### What atomic swaps require
+
+- Compatible scripting or smart contract capabilities to support hashlocks and timelocks (or an equivalent mechanism).
+- Reliable on-chain finality so both parties can safely proceed at each step.
+- Good timeout selection (`T1` longer than `T2`) to ensure the refund path remains safe.
+
+## On Sei Network
+
+Sei is a high-performance Layer 1 with **EVM compatibility**, fast block times, and **~400ms finality**, which improves the practical user experience of atomic swap-like workflows where each step depends on timely, confirmed on-chain state.
+
+### Why Sei’s architecture helps
+
+- **Fast finality (~400ms):** Atomic swaps involve sequential actions (lock → verify → lock → redeem). Faster finality reduces the time counterparties must wait between steps and lowers exposure to market volatility during the swap window.
+- **Parallelization:** Sei’s parallelized execution helps the chain maintain high throughput under load—useful for swap-heavy environments (e.g., DEX activity or many concurrent HTLC redemptions).
+- **EVM compatibility:** You can implement HTLC-style logic using Solidity on Sei’s EVM, enabling Ethereum-style tooling and contract patterns.
+
+### Example: Simple HTLC-style contract (Solidity)
+
+Below is a minimal illustrative HTLC pattern for Sei EVM. It locks ETH-like native value (or can be adapted for ERC-20) and allows a recipient to claim by revealing the correct preimage before the timeout; otherwise the sender refunds after the deadline.
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+contract SimpleHTLC {
+    address public immutable sender;
+    address public immutable receiver;
+    bytes32 public immutable hashlock;   // h = keccak256(s)
+    uint256 public immutable timelock;   // unix timestamp
+
+    bool public withdrawn;
+    bool public refunded;
+    bytes32 public preimage;             // revealed secret (stored for demonstration)
+
+    constructor(address _receiver, bytes32 _hashlock, uint256 _timelock) payable {
+        require(msg.value > 0, "Must lock value");
+        require(_receiver != address(0), "Bad receiver");
+        require(_timelock > block.timestamp, "Timelock must be in future");
+
+        sender = msg.sender;
+        receiver = _receiver;
+        hashlock = _hashlock;
+        timelock = _timelock;
+    }
+
+    // Receiver claims funds by revealing secret s such that keccak256(s) == hashlock
+    function withdraw(bytes32 _preimage) external {
+        require(msg.sender == receiver, "Not receiver");
+        require(!withdrawn && !refunded, "Already completed");
+        require(block.timestamp < timelock, "Expired");
+        require(keccak256(abi.encodePacked(_preimage)) == hashlock, "Invalid preimage");
+
+        withdrawn = true;
+        preimage = _preimage;
+
+        (bool ok, ) = receiver.call{value: address(this).balance}("");
+        require(ok, "Transfer failed");
+    }
+
+    // Sender refunds after timelock
+    function refund() external {
+        require(msg.sender == sender, "Not sender");
+        require(!withdrawn && !refunded, "Already completed");
+        require(block.timestamp >= timelock, "Not expired");
+
+        refunded = true;
+
+        (bool ok, ) = sender.call{value: address(this).balance}("");
+        require(ok, "Transfer failed");
+    }
+}
+```
+
+### Deploying on Sei EVM (example)
+
+Using Foundry (or similar tooling), you’d point your RPC to Sei’s EVM endpoint and deploy as you would on any EVM chain:
+
+```bash
+export RPC_URL="https://<sei-evm-rpc-endpoint>"
+export PRIVATE_KEY="<your_private_key>"
+
+forge create --rpc-url "$RPC_URL" \
+  --private-key "$PRIVATE_KEY" \
+  src/SimpleHTLC.sol:SimpleHTLC \
+  --constructor-args <receiver> <hashlock> <timelock> \
+  --value 0.1ether
+```
+
+> Note: For real deployments, you typically implement ERC-20 support, stronger event logging, reentrancy protections, better secret handling, and careful timeout/confirmation policies across both networks.
+
+## Benefits and Limitations
+
+### Benefits
+
+- **No centralized custodian:** Reduces exchange counterparty risk.
+- **All-or-nothing execution:** Funds are either swapped or safely refunded.
+- **Transparency:** On-chain verification of locking and redemption.
+
+### Limitations
+
+- **Liquidity and UX:** Finding counterparties and handling timeouts can be complex.
+- **Cross-chain complexity:** Requires each chain to support compatible primitives and reliable confirmation/finality assumptions.
+- **Time risk:** Market moves during the lock period; short finality (like Sei’s ~400ms) helps reduce waiting time, but timeouts must still be carefully chosen.
+
+## Related Terms (Glossary)
+
+- **HTLC (Hashed Timelock Contract):** The most common mechanism for atomic swaps.
+- **Hashlock / Timelock:** Conditions that enforce secret-based redemption and time-based refunds.
+- **Cross-chain swap:** A broader category of swaps between different chains; atomic swaps are one trust-minimized method.
+
+## Related Documentation
+
+- [Getting Started](/learn)
+- [Token Standards](/learn/dev-token-standards)
+- [Staking](/learn/general-staking)
+- [Oracles](/learn/oracles)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._

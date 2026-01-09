@@ -1,0 +1,156 @@
+---
+title: 'What is a Whale and How Does It Work?'
+description: 'Learn about what is whale and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'glossary', 'what', 'whale', 'and', 'how', 'does', 'work']
+---
+
+import { Callout } from 'nextra/components';
+
+# What is a Whale and How Does It Work?
+
+## Overview
+
+A **whale** is an individual, entity, or wallet address that holds a **large amount of a cryptocurrency or token** relative to the overall supply or typical holders. Because their holdings are significant, whales can influence market liquidity, price volatility, governance outcomes, and on-chain activity patterns.
+
+In SEO terms, if you’re asking **“what is whale”** in crypto, it generally refers to a “big holder” whose actions can be visible on-chain and sometimes move markets.
+
+## How It Works
+
+### Why whales matter
+
+Whales can impact a network or market due to the size of their holdings:
+
+- **Market impact (trading/liquidity):** Large buys/sells can move price, widen spreads, or drain liquidity in pools and order books.
+- **Volatility events:** Whale transfers to/from exchanges, bridges, or custodians are often interpreted as potential sell/buy pressure.
+- **Governance influence:** In token-based governance, whales may have outsized voting power (directly or via delegation).
+- **Protocol interactions:** Whales can materially affect staking, lending, and liquidity provisioning by moving large amounts quickly.
+
+### Common whale behaviors on-chain
+
+- **Accumulation/distribution:** Gradual buying to avoid slippage vs. selling in tranches.
+- **Liquidity provision:** Adding/removing significant liquidity from AMMs, affecting price and depth.
+- **Staking and delegation:** Concentrating stake to earn rewards or influence validator selection (in PoS systems).
+- **Arbitrage and MEV strategies:** Taking advantage of price differences or transaction ordering where applicable.
+
+### How whales are identified
+
+There is no universal threshold for “whale.” It’s usually defined **relative to the token’s supply and ecosystem**, for example:
+
+- Top **0.1%** of holders
+- Addresses holding **≥1%** of supply
+- Wallets above a high USD value threshold (e.g., **$1M+** in assets)
+
+Analytics platforms and explorers often label whales by balance size, known exchange/custodian addresses, and behavioral patterns.
+
+## On Sei Network
+
+On **Sei Network**, whales behave similarly to other chains—moving large token balances, providing liquidity, trading, and participating in governance—but several Sei-specific characteristics shape how whale activity plays out:
+
+- **Fast finality (~400ms):** Large transfers and trades can confirm quickly, so whale-driven price moves or liquidity shifts can occur and settle rapidly.
+- **Parallelization:** Sei’s parallelized execution helps the network handle high-throughput activity (including periods of intense trading) more efficiently, which matters when whales trigger bursts of transactions.
+- **EVM compatibility:** Whale activity is easy to monitor and interact with using familiar Ethereum tooling (EVM wallets, Solidity contracts, and standard indexing patterns). Many “whale tracking” approaches used on Ethereum can be applied on Sei’s EVM.
+
+### Monitoring whale activity on Sei
+
+Typical ways to track whales on Sei include:
+
+- **Watching large ERC-20 transfers** (EVM side) or large native token transfers.
+- **Following liquidity pool events** (adds/removes) on DEXs.
+- **Tracking staking and governance moves** (where applicable) for large delegations or votes.
+
+## Practical Examples
+
+### Query large token transfers (EVM logs) with `cast` (Foundry)
+
+You can scan recent blocks for `Transfer(address,address,uint256)` events of an ERC-20 token and filter for large amounts.
+
+```bash
+# Replace RPC_URL and TOKEN with your Sei EVM RPC endpoint and token contract address
+export RPC_URL="https://YOUR_SEI_EVM_RPC"
+export TOKEN="0xYourTokenAddress"
+
+# ERC-20 Transfer event signature:
+# Transfer(address,address,uint256)
+export TRANSFER_TOPIC="0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
+
+# Example: get logs in a block range
+cast logs \
+  --rpc-url $RPC_URL \
+  --from-block 1000000 \
+  --to-block 1001000 \
+  --address $TOKEN \
+  $TRANSFER_TOPIC
+```
+
+From there, you can decode logs and apply a threshold (e.g., transfers greater than 100,000 tokens) to identify “whale” movements.
+
+### Listen for whale transfers in TypeScript (ethers.js)
+
+This example subscribes to `Transfer` events and prints transfers above a threshold.
+
+```typescript
+import { ethers } from 'ethers';
+
+const RPC_URL = 'https://YOUR_SEI_EVM_RPC';
+const TOKEN = '0xYourTokenAddress';
+
+// Minimal ERC-20 ABI for Transfer events
+const abi = ['event Transfer(address indexed from, address indexed to, uint256 value)', 'function decimals() view returns (uint8)'];
+
+async function main() {
+  const provider = new ethers.JsonRpcProvider(RPC_URL);
+  const token = new ethers.Contract(TOKEN, abi, provider);
+
+  const decimals: number = await token.decimals();
+  const threshold = ethers.parseUnits('100000', decimals); // whale threshold (example)
+
+  token.on('Transfer', (from: string, to: string, value: bigint, event: any) => {
+    if (value >= threshold) {
+      console.log('Whale transfer detected:');
+      console.log({ from, to, value: value.toString(), txHash: event.log.transactionHash });
+    }
+  });
+
+  console.log('Listening for whale transfers...');
+}
+
+main().catch(console.error);
+```
+
+### (Optional) Basic on-chain threshold check in Solidity
+
+If you’re building a protocol on Sei EVM and want to apply special handling for very large holders/transfers (e.g., risk checks), you can define a threshold:
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+contract WhaleThreshold {
+    uint256 public immutable whaleThreshold;
+
+    constructor(uint256 _whaleThreshold) {
+        whaleThreshold = _whaleThreshold;
+    }
+
+    function isWhaleBalance(uint256 balance) external view returns (bool) {
+        return balance >= whaleThreshold;
+    }
+}
+```
+
+## Key Takeaways
+
+- A **whale** is a holder with **enough tokens to meaningfully influence** liquidity, price action, governance, or protocol dynamics.
+- Whale behavior is typically tracked through **large transfers, exchange interactions, liquidity events, and staking/governance activity**.
+- On **Sei Network**, whale activity can propagate quickly due to **~400ms finality**, and Sei’s **parallelization** plus **EVM compatibility** makes it practical to monitor and build tooling around whale movements using standard EVM workflows.
+
+## Related Documentation
+
+- [Getting Started](/learn)
+- [Token Standards](/learn/dev-token-standards)
+- [Staking](/learn/general-staking)
+- [Oracles](/learn/oracles)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._

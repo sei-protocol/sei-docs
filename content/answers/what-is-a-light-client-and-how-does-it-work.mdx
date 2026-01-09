@@ -1,0 +1,169 @@
+---
+title: 'What is a Light Client and How Does It Work?'
+description: 'Learn about what is light client and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'glossary', 'what', 'light', 'client', 'and', 'how', 'does', 'work']
+---
+
+import { Callout } from 'nextra/components';
+
+# What is a Light Client and How Does It Work?
+
+## Overview
+
+A **light client** is a blockchain node that verifies key parts of a network’s state (like block headers and consensus proofs) without downloading or executing the entire chain. In other words, when people ask **“what is light client”**, the answer is: a lightweight verifier that trades full data storage and computation for efficiency while still preserving strong security guarantees.
+
+Light clients are commonly used in wallets, mobile apps, embedded devices, and cross-chain systems where running a full node is too expensive.
+
+## How It Works
+
+### What a light client downloads
+
+Unlike a full node (which downloads and validates every block and transaction), a light client typically downloads:
+
+- **Block headers** (small metadata about blocks)
+- **Consensus proofs / validator signatures** (to confirm headers are legitimate)
+- **Occasional state proofs** (e.g., Merkle proofs) for specific queries like account balances or contract storage
+
+### How it verifies data securely
+
+A light client relies on cryptographic commitments to verify information:
+
+1. **Header verification**
+
+   - The client checks that a new block header is valid under the chain’s consensus rules.
+   - In Proof-of-Stake (PoS) systems, this often means verifying that a sufficient portion of the validator set signed the header.
+
+2. **Proof-based queries**
+
+   - When it needs to verify a specific value (e.g., “what is the balance of address X?”), it requests:
+     - The value, plus
+     - A **Merkle proof** (or equivalent) that the value is included in the committed state root inside a verified header.
+   - The client verifies the proof locally without needing the full state.
+
+3. **Security model**
+   - Light clients are secure as long as:
+     - They can obtain honest headers (or can detect invalid ones via signatures/consensus proofs), and
+     - They are not isolated by an attacker (e.g., eclipse attack) into seeing only malicious peers.
+
+### Light client vs full node (quick comparison)
+
+- **Full node**: verifies everything, stores full state/history, highest resource cost.
+- **Light client**: verifies headers + proofs as needed, minimal storage and bandwidth, depends on full nodes for data availability.
+
+## Common Use Cases
+
+- **Wallets and mobile clients** that need strong verification without heavy resource usage
+- **Cross-chain bridges / IBC-style interoperability**, where one chain verifies another chain’s consensus headers
+- **DApps and RPC consumers** that want trust-minimized reads (e.g., verifying balances without trusting an RPC provider)
+- **Hardware/IoT environments** where running a full node is impractical
+
+## On Sei Network
+
+Sei Network is a high-performance Layer 1 with **EVM compatibility**, designed for fast and efficient execution using parallelization and delivering **~400ms finality**. Light clients are particularly valuable on Sei because they let applications and users verify chain state quickly with minimal overhead while benefiting from Sei’s rapid finality.
+
+### What light clients verify on Sei
+
+A Sei light client generally focuses on:
+
+- **Sei block headers** and their consensus validity (validator signatures / consensus proofs)
+- **State commitments** (e.g., a state root or equivalent commitment contained in a verified header)
+- **Merkle proofs** (or chain-specific proofs) for specific application queries
+
+Because Sei finalizes quickly (~400ms), a light client can reach high confidence in recent state updates faster than on many other networks—improving UX for wallets, exchanges, and cross-chain verification.
+
+### EVM compatibility considerations
+
+With Sei’s EVM support, many developers interact using Ethereum-style tooling (JSON-RPC, Solidity contracts, ethers.js). A typical pattern is:
+
+- Use standard RPC for convenience, but
+- Add a **verification layer** (light-client style) when you need trust minimization:
+  - Verify block headers and signatures (consensus-level),
+  - Verify specific state via proofs (where available in your stack).
+
+> Note: The exact proof formats and available endpoints depend on the client stack and interfaces you’re using (Cosmos SDK/CometBFT-style proofs vs EVM JSON-RPC conventions). In trust-minimized designs, your system should be explicit about which parts are verified and which are assumed from the RPC provider.
+
+## Example: Conceptual Light Client Header Verification (Pseudo-Flow)
+
+Below is a simplified, conceptual outline (not chain-specific code) showing how a light client processes new headers:
+
+```typescript
+type Header = {
+  height: number;
+  blockHash: string;
+  stateRoot: string;
+  validatorSetHash: string;
+  signatures: Uint8Array[];
+};
+
+function verifyHeader(header: Header, trustedValidatorSet: Uint8Array): boolean {
+  // 1) Check basic header fields (height monotonicity, hashes, etc.)
+  // 2) Verify signatures meet the consensus threshold for the validator set
+  // 3) Ensure validatorSetHash matches expected/tracked validator set updates
+  return verifyConsensusSignatures(header, trustedValidatorSet);
+}
+
+function verifyStateProof(stateRoot: string, key: Uint8Array, value: Uint8Array, proof: Uint8Array): boolean {
+  // Verify the Merkle proof that (key => value) is included under stateRoot
+  return verifyMerkleProof(stateRoot, key, value, proof);
+}
+```
+
+## Example: Solidity Contract Pattern (On-Chain Light Client Consumer)
+
+In cross-chain or trust-minimized designs, a smart contract can consume results from a verified light client (often maintained by an on-chain light client contract). Here’s a minimal pattern where a contract relies on a verified header/state root:
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+interface ILightClient {
+    function latestHeight() external view returns (uint256);
+    function stateRoot(uint256 height) external view returns (bytes32);
+}
+
+contract ProofConsumer {
+    ILightClient public lightClient;
+
+    constructor(address lightClientAddress) {
+        lightClient = ILightClient(lightClientAddress);
+    }
+
+    function getLatestVerifiedRoot() external view returns (uint256 height, bytes32 root) {
+        height = lightClient.latestHeight();
+        root = lightClient.stateRoot(height);
+    }
+}
+```
+
+This pattern is commonly used in bridges and interoperability systems: the light client verifies headers, and application contracts rely on those verified commitments.
+
+## Key Benefits and Limitations
+
+### Benefits
+
+- **Low resource usage**: minimal storage, bandwidth, and CPU
+- **Faster startup**: no need to sync full chain history
+- **Stronger trust model than plain RPC**: can verify headers and proofs locally
+- **Great fit for Sei’s speed**: ~400ms finality enables rapid, responsive verification
+
+### Limitations
+
+- **Data availability dependence**: must request data/proofs from full nodes
+- **More complex engineering** than trusting an RPC endpoint
+- **Peer isolation risks** (e.g., eclipse attacks) if networking is not robust
+- **Proof support varies by interface**: some environments expose proofs more naturally than others
+
+## Summary
+
+A light client is a lightweight blockchain verifier that validates block headers and cryptographic proofs instead of executing the full chain. In general, it provides a strong security/efficiency tradeoff for wallets, mobile apps, and cross-chain systems. On Sei Network, light clients pair well with Sei’s **parallelized execution**, **EVM compatibility**, and **~400ms finality**, enabling fast, trust-minimized verification for modern applications.
+
+## Related Documentation
+
+- [Getting Started](/learn)
+- [Token Standards](/learn/dev-token-standards)
+- [Staking](/learn/general-staking)
+- [Oracles](/learn/oracles)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._

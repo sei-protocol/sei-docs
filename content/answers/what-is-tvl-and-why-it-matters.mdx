@@ -1,0 +1,158 @@
+---
+title: 'What is TVL and Why It Matters'
+description: 'Learn about what is TVL and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'glossary', 'what', 'TVL', 'tvl', 'and', 'why', 'matters']
+---
+
+import { Callout } from 'nextra/components';
+
+# What is TVL and Why It Matters
+
+## Overview
+
+TVL (Total Value Locked) is the total amount of assets deposited into a blockchain application or ecosystem—most commonly DeFi protocols like DEXs, lending markets, and staking vaults. In practice, TVL is used as a shorthand indicator of how much capital is actively committed to a protocol, which often correlates with usage, liquidity, and perceived trust.
+
+When people ask **“what is TVL?”**, they’re typically asking how much value is currently locked in smart contracts and what that implies about adoption, liquidity depth, and potential risk.
+
+## How It Works
+
+### What TVL includes
+
+TVL generally counts the on-chain value held by a protocol’s smart contracts, such as:
+
+- Liquidity in AMM pools (e.g., token A + token B reserves)
+- Collateral deposited into lending protocols
+- Assets deposited into yield vaults/strategies
+- Some forms of staking or restaking (depends on methodology)
+
+TVL is usually reported in a common unit (often USD) by taking the on-chain balances and multiplying by current market prices.
+
+### A simplified formula
+
+At a high level:
+
+- **TVL (USD)** = Σ (token_balance_in_contract × token_price_USD)
+
+For example, if a protocol holds:
+
+- 1,000,000 USDC and
+- 500 ETH at $2,000/ETH
+
+Then TVL ≈ $1,000,000 + (500 × $2,000) = $2,000,000.
+
+### Why TVL moves
+
+TVL can change for multiple reasons:
+
+1. **Net deposits/withdrawals**: Users add or remove liquidity/collateral.
+2. **Price changes**: Token prices rise/fall, changing USD-denominated TVL even if token balances remain constant.
+3. **Incentives and migrations**: Emissions, points, or better yields can pull liquidity across protocols.
+4. **Security incidents**: Exploits can reduce TVL quickly due to losses or withdrawals.
+
+### TVL vs related metrics
+
+- **TVL** measures capital committed, not necessarily activity.
+- **Volume** measures trading activity (e.g., DEX volume), not how much liquidity is parked.
+- **Market cap** measures token supply value, not how much is deposited in protocols.
+- **Liquidity** is often a component of TVL (especially in AMMs) but can also be reported as “available liquidity” or “depth.”
+
+### Limitations and common pitfalls
+
+TVL is useful, but it can be misleading if taken alone:
+
+- **Double counting**: The same asset may be counted multiple times if it’s re-deposited into layered protocols (e.g., LP token deposited into a vault).
+- **Price volatility**: USD TVL can spike or crash due to price moves rather than user behavior.
+- **Inconsistent definitions**: Some dashboards include staking, bridged assets, or borrowed assets differently.
+- **Quality matters**: High TVL doesn’t automatically mean a protocol is safe, sustainable, or efficient.
+
+## Why TVL Matters
+
+TVL is widely used because it helps evaluate:
+
+- **Liquidity and slippage**: Higher TVL in AMMs often implies better liquidity and lower price impact for trades.
+- **Protocol adoption**: Rising TVL may indicate growing user confidence and participation.
+- **Capital efficiency**: Comparing TVL to fees/revenue can suggest whether a protocol is generating meaningful returns per dollar locked.
+- **Composability and ecosystem health**: TVL concentration across apps can signal where liquidity and activity are clustered.
+- **Risk exposure**: TVL reflects how much value is at risk in smart contracts; higher TVL can make protocols bigger targets and raise the stakes of security.
+
+## On Sei Network
+
+On Sei, TVL reflects the value deposited into **Sei-native applications** (including EVM smart contracts on Sei) such as DEXs, lending markets, and vaults. Because Sei is designed for high throughput with **parallelized execution** and **~400ms finality**, TVL can be especially meaningful for liquidity-driven use cases where fast confirmations and responsive trading experiences attract and retain capital.
+
+Key implications for TVL on Sei:
+
+- **Better user experience can support stickier liquidity**: Fast finality and performant execution can reduce friction for LPs and traders, which may positively influence TVL over time.
+- **Parallelization can help protocols scale with demand**: As usage grows, Sei’s architecture helps mitigate bottlenecks that can make depositing, withdrawing, rebalancing, or trading costly and slow on other networks—factors that often impact TVL retention.
+- **EVM compatibility broadens protocol and asset support**: Sei’s EVM environment enables Solidity-based apps and tooling, potentially accelerating deployment and liquidity onboarding, which can contribute to TVL growth.
+
+When evaluating TVL on Sei (or any chain), consider pairing it with chain- and app-level metrics such as:
+
+- DEX trading volume and fees
+- Active users/wallet interactions
+- Borrow utilization and interest rates (for lending)
+- TVL composition (stablecoins vs volatile assets)
+- Security posture (audits, bug bounties, risk monitoring)
+
+## How TVL is Queried (Example)
+
+If you want to compute TVL for a simple AMM pool or vault, you typically:
+
+1. Read token balances from the protocol contracts.
+2. Convert balances to a common unit using price oracles or off-chain pricing.
+3. Sum the values.
+
+### Solidity (read ERC-20 balances)
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+interface IERC20 {
+    function balanceOf(address account) external view returns (uint256);
+    function decimals() external view returns (uint8);
+}
+
+contract TVLHelper {
+    function tokenBalance(address token, address protocolContract)
+        external
+        view
+        returns (uint256)
+    {
+        return IERC20(token).balanceOf(protocolContract);
+    }
+}
+```
+
+### TypeScript (query balances with ethers)
+
+```typescript
+import { ethers } from 'ethers';
+
+const ERC20_ABI = ['function balanceOf(address) view returns (uint256)', 'function decimals() view returns (uint8)'];
+
+export async function getTokenBalance(rpcUrl: string, token: string, holder: string) {
+  const provider = new ethers.JsonRpcProvider(rpcUrl);
+  const erc20 = new ethers.Contract(token, ERC20_ABI, provider);
+
+  const [bal, dec] = await Promise.all([erc20.balanceOf(holder), erc20.decimals()]);
+
+  return Number(ethers.formatUnits(bal, dec));
+}
+```
+
+> Note: To turn balances into USD TVL, you’ll also need a pricing source (on-chain oracle or off-chain price feed) and a methodology that avoids double counting.
+
+## Summary
+
+**What is TVL?** TVL is the total value of assets deposited into a protocol’s smart contracts, commonly used to gauge liquidity, adoption, and capital commitment in DeFi. It matters because it influences trading conditions, reflects ecosystem confidence, and helps compare protocols—especially when combined with activity and risk metrics. On **Sei Network**, TVL is supported by Sei’s **parallelized execution**, **~400ms finality**, and **EVM compatibility**, which can improve user experience and scalability for liquidity-intensive applications.
+
+## Related Documentation
+
+- [Getting Started](/learn)
+- [Token Standards](/learn/dev-token-standards)
+- [Staking](/learn/general-staking)
+- [Oracles](/learn/oracles)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._

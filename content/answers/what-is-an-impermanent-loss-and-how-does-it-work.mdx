@@ -1,0 +1,144 @@
+---
+title: 'What is an Impermanent Loss and How Does It Work?'
+description: 'Learn about what is impermanent loss and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'glossary', 'what', 'impermanent', 'loss', 'and', 'how', 'does', 'work']
+---
+
+import { Callout } from 'nextra/components';
+
+# What is an Impermanent Loss and How Does It Work?
+
+## Overview
+
+Impermanent loss (IL) is the difference in value between holding two assets in your wallet versus depositing them into an automated market maker (AMM) liquidity pool, measured at the time you withdraw. It’s called “impermanent” because the loss can shrink or disappear if prices return to the level where you deposited—though it becomes permanent once you withdraw while the price ratio is still changed.
+
+In plain terms: if one token in the pool moves in price relative to the other, the AMM rebalances your pool share, and you may end up with more of the losing asset and less of the winning one compared to simply holding.
+
+## How It Works
+
+### Why impermanent loss happens in AMMs
+
+Most AMMs (e.g., Uniswap v2-style pools) maintain a pricing relationship using a **constant product** formula:
+
+- **x \* y = k**, where `x` and `y` are the reserves of token X and token Y.
+
+Traders arbitrage the pool price back to the market price. When the external price changes, arbitrage trades against the pool until the pool’s ratio matches the new price. That process changes the pool reserves—and therefore changes what you, as a liquidity provider (LP), effectively hold.
+
+### The “loss” is relative to holding
+
+Impermanent loss is not necessarily a loss in absolute USD terms—you can still profit if both assets go up. It’s a loss **relative to the alternative strategy of holding the assets outside the pool**.
+
+### IL grows with price divergence
+
+For a 50/50 constant-product pool, impermanent loss depends on how much the price ratio changes. A commonly used approximation for IL when token A changes by a factor `p` relative to token B is:
+
+- **IL(p) = 2√p / (1 + p) − 1**
+
+Where:
+
+- `p = new_price / old_price` (relative price change of one asset vs the other)
+- IL is typically expressed as a negative percentage (e.g., `-5.72%`)
+
+Example reference points (50/50 pool, no fees):
+
+- Price moves **+25%** → IL ≈ **-0.6%**
+- Price moves **+100% (2×)** → IL ≈ **-5.72%**
+- Price moves **+400% (5×)** → IL ≈ **-25.5%**
+
+### Fees can offset impermanent loss
+
+AMMs usually pay LPs trading fees. Your net outcome is:
+
+- **Net PnL ≈ Trading fees + incentives − impermanent loss**
+
+High trading volume and fee rates can outweigh IL, while low volume pools may not compensate for it.
+
+### When it becomes “permanent”
+
+Impermanent loss becomes realized if you withdraw liquidity while the price ratio is different from when you deposited. If the price ratio returns to the original level, IL can reduce significantly (though not necessarily to zero if there are other factors like fees, rebalances, or concentrated liquidity ranges).
+
+### Common factors that influence impermanent loss
+
+- **Volatility:** Higher volatility between the pair increases IL risk.
+- **Correlation:** Highly correlated assets (e.g., stablecoin pairs) tend to have lower IL.
+- **Pool design:** Constant product vs stableswap curves, concentrated liquidity, or dynamic fees.
+- **Time and volume:** More time can mean more fees, but also more chance of divergence.
+
+## On Sei Network
+
+On Sei Network, impermanent loss is the same core phenomenon you see on other AMM-based DEXs: providing liquidity can underperform holding when the relative price of the pair diverges. What differs is the trading environment where that IL is generated and compensated.
+
+### Faster markets, faster fee accrual
+
+Sei’s **~400ms finality** and high throughput make it well-suited for active onchain trading. In general, faster execution and more responsive markets can translate into:
+
+- More frequent trades (potentially more fee generation for LPs)
+- Quicker arbitrage to align pool prices with external markets
+
+This doesn’t eliminate impermanent loss, but it can affect the balance between **fees earned** and **IL incurred**.
+
+### Parallelization and throughput
+
+Sei’s **parallelization** (processing many non-conflicting transactions concurrently) supports dense trading activity and reduces congestion. For LPs, this may improve:
+
+- Market responsiveness and user experience
+- Consistency of pool activity during high demand
+
+Again, IL mechanics remain the same, but the chain’s performance can influence whether fee revenue keeps pace with IL.
+
+### EVM compatibility and familiar AMM mechanics
+
+With Sei’s **EVM compatibility**, many AMM designs and liquidity strategies familiar from Ethereum can be deployed on Sei. That means:
+
+- Constant-product pools behave as expected (x \* y = k)
+- Impermanent loss analysis and tooling generally carry over
+- Solidity-based strategies, vaults, and LP management contracts can be built similarly
+
+## Example: Estimating Impermanent Loss
+
+### Quick calculation (TypeScript)
+
+Use the standard 50/50 constant-product IL formula:
+
+```typescript
+// Impermanent loss for a 50/50 constant-product AMM (e.g., Uniswap v2 style)
+// p = price change factor (e.g., 2 means +100% relative move)
+export function impermanentLoss(p: number): number {
+  if (p <= 0) throw new Error('p must be > 0');
+  const il = (2 * Math.sqrt(p)) / (1 + p) - 1;
+  return il; // negative number, e.g., -0.0572 for -5.72%
+}
+
+// Examples:
+console.log(impermanentLoss(1)); // 0 (no price change)
+console.log(impermanentLoss(2)); // ~ -0.0572  (-5.72%)
+console.log(impermanentLoss(0.5)); // ~ -0.0572  (symmetry for half price)
+```
+
+### Interpreting the result
+
+- If `impermanentLoss(2) ≈ -0.0572`, you underperform holding by ~5.72% **before fees and incentives**.
+- If the pool earned >5.72% in fees/incentives over that period, you could still come out ahead.
+
+## Practical Tips to Manage Impermanent Loss
+
+- **Choose correlated pairs** (e.g., stable/stable, LST/LST) to reduce divergence risk.
+- **Prefer higher-volume pools** where fees have a better chance of offsetting IL.
+- **Understand the AMM design** (constant product vs stableswap vs concentrated liquidity) and its IL profile.
+- **Track net performance** (fees + incentives − IL), not IL alone.
+- **Plan exit timing**: withdrawing after large price divergence realizes IL.
+
+## Summary
+
+If you’re asking “**what is impermanent loss**,” it’s the opportunity cost LPs face when AMM rebalancing causes their pooled position to underperform simply holding the tokens. It arises from the AMM’s pricing mechanics during relative price changes and is often (but not always) offset by trading fees and incentives. On Sei Network, the same principles apply, with the chain’s fast finality, parallelization, and EVM compatibility supporting high-activity trading environments where fee dynamics may be more favorable for active pools.
+
+## Related Documentation
+
+- [Getting Started](/learn)
+- [Token Standards](/learn/dev-token-standards)
+- [Staking](/learn/general-staking)
+- [Oracles](/learn/oracles)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._

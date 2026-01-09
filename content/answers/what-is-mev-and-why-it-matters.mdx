@@ -1,0 +1,139 @@
+---
+title: 'What is MEV and Why It Matters'
+description: 'Learn about what is MEV and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'glossary', 'what', 'MEV', 'mev', 'and', 'why', 'matters']
+---
+
+import { Callout } from 'nextra/components';
+
+# What is MEV and Why It Matters
+
+## Overview
+
+MEV (Maximal/Maximum Extractable Value) is the additional profit that can be captured by controlling the ordering, inclusion, or exclusion of transactions in a block beyond standard transaction fees. It matters because it affects user execution quality (slippage, failed transactions), market fairness, and network trust—especially on high-activity chains and DeFi-heavy ecosystems.
+
+In practice, when people ask **“what is MEV”**, they’re usually referring to strategies where validators, block builders, or sophisticated traders exploit transaction ordering to extract value from other users’ transactions.
+
+## How It Works
+
+MEV exists because blockchains are not just execution environments—they are _sequencing systems_. Before a block is finalized, someone (a validator, proposer, sequencer, or builder) decides which transactions get in and in what order. If an actor can predict outcomes and influence ordering, they may capture profit.
+
+### Where MEV comes from
+
+Most MEV opportunities come from public, transparent mempools and deterministic execution:
+
+- **Public visibility of pending transactions**: If you can see a large swap about to happen, you can trade before/after it.
+- **Ordering control**: If you can place your transaction in a specific position, you can change the price a user gets.
+- **Atomicity and composability**: DeFi transactions often include multiple steps that can be profitably rearranged around.
+
+### Common MEV patterns
+
+1. **Sandwich attacks**  
+   An attacker places a buy before a victim swap and a sell after it, profiting from the induced price movement while the victim gets worse execution.
+
+2. **DEX arbitrage**  
+   When prices diverge across AMMs/venues, bots race to arbitrage. This can be benign (improves price alignment) but can congest blocks and raise fees.
+
+3. **Liquidation MEV**  
+   In lending protocols, liquidations can be profitable. Searchers compete to liquidate accounts, sometimes paying high fees or using private orderflow.
+
+4. **Backrunning**  
+   Placing a transaction immediately after another to capture an expected state change (e.g., arbitrage after a large trade).
+
+5. **Time-bandit attacks (reorg MEV)**  
+   In extreme cases, participants may attempt to reorganize recent blocks if the MEV opportunity is worth more than the cost/risk.
+
+### Why MEV matters
+
+- **User harm**: worse execution prices, increased slippage, more failed transactions.
+- **Higher fees and congestion**: searchers bid up gas to win races.
+- **Centralization pressure**: sophisticated infrastructure (private relays/builders) can dominate extraction.
+- **Protocol risk**: extreme MEV can incentivize chain instability (e.g., reorg attempts).
+
+## On Sei Network
+
+Sei is a high-performance Layer 1 with **~400ms finality**, strong performance characteristics, and **EVM compatibility**, which changes the MEV landscape in important ways.
+
+### Fast finality reduces some MEV surface area
+
+With ~400ms finality, the window to observe pending transactions and react is tighter than on slower-finality networks. This can reduce certain “race-based” MEV dynamics (especially those that rely on long propagation delays and multi-block maneuvering), though it does not eliminate MEV entirely—ordering still matters within a block.
+
+### Parallelization and throughput impact MEV dynamics
+
+Sei’s execution architecture emphasizes **parallelization** and high throughput. In general, higher throughput can:
+
+- **Reduce congestion-driven MEV** by making blockspace less scarce during normal conditions.
+- **Change competitive dynamics** among searchers because more transactions can be included without as many failures.
+- Still leave **ordering-sensitive** opportunities (e.g., swaps on AMMs, liquidations) that depend on state changes rather than pure congestion.
+
+### EVM compatibility brings familiar MEV vectors—and familiar mitigations
+
+Because Sei supports EVM, common Ethereum-style DeFi patterns (AMMs, aggregators, lending markets) can exist on Sei, and so can familiar MEV behaviors like sandwiching and arbitrage. This also means common mitigation patterns used by EVM developers are applicable:
+
+- **Use slippage protections carefully** (too wide increases sandwich risk; too tight causes reverts).
+- **Prefer intent-based / RFQ routing** when available to reduce mempool exposure.
+- **Batching and commitment schemes** (where appropriate) to reduce predictability.
+- **Design liquidation mechanisms** that reduce winner-takes-all races (e.g., auctions, capped incentives).
+
+## Practical Examples (EVM)
+
+### Example: Sandwich risk in an AMM swap
+
+A typical AMM swap call (e.g., UniswapV2-style) is vulnerable if users allow large slippage. Attackers look for swaps with permissive `amountOutMin`.
+
+```solidity
+// Example pattern: user swap with a large slippage tolerance
+// (Not a full AMM implementation; illustrates the call shape.)
+interface IRouter {
+    function swapExactTokensForTokens(
+        uint amountIn,
+        uint amountOutMin,
+        address[] calldata path,
+        address to,
+        uint deadline
+    ) external returns (uint[] memory amounts);
+}
+```
+
+**Mitigation idea:** keep `amountOutMin` tight and use robust quoting (TWAP/aggregator quotes), while balancing revert risk in volatile markets.
+
+### Example: Setting a conservative deadline and slippage
+
+```solidity
+function swapWithProtection(
+    IRouter router,
+    uint amountIn,
+    uint quotedOut,
+    uint maxSlippageBps,
+    address[] calldata path
+) external {
+    uint amountOutMin = quotedOut * (10_000 - maxSlippageBps) / 10_000;
+
+    router.swapExactTokensForTokens(
+        amountIn,
+        amountOutMin,
+        path,
+        msg.sender,
+        block.timestamp + 60 // short deadline reduces exposure window
+    );
+}
+```
+
+This does not “solve” MEV, but it reduces the profit margin attackers can reliably extract.
+
+## Key Takeaways
+
+- **What is MEV?** Extra value extracted by controlling or exploiting transaction ordering, inclusion, or exclusion in blocks.
+- **Why it matters:** it can harm users (slippage, failed txs), increase fees, and create centralization/security risks.
+- **On Sei Network:** Sei’s **~400ms finality**, high throughput, and **parallelization** can reduce certain timing-based MEV pressures, while **EVM compatibility** means familiar MEV patterns (and mitigations) still apply.
+
+## Related Documentation
+
+- [Getting Started](/learn)
+- [Token Standards](/learn/dev-token-standards)
+- [Staking](/learn/general-staking)
+- [Oracles](/learn/oracles)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._

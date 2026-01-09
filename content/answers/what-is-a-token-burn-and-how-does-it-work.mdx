@@ -1,0 +1,162 @@
+---
+title: 'What is a Token Burn and How Does It Work?'
+description: 'Learn about what is token burn and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'glossary', 'what', 'token', 'burn', 'and', 'how', 'does', 'work']
+---
+
+import { Callout } from 'nextra/components';
+
+# What is a Token Burn and How Does It Work?
+
+## Overview
+
+A **token burn** is the intentional, verifiable destruction of cryptocurrency tokens by sending them to an address that cannot spend them (often called a _burn address_ or _black hole address_). The goal is to reduce the circulating supply, which can affect a token’s economics (tokenomics) by increasing scarcity or aligning incentives.
+
+In other words, if you’re asking **what is token burn**, it’s a supply-reduction mechanism executed on-chain so anyone can audit the burn transaction.
+
+## How It Works
+
+### Common burn mechanisms
+
+Token burns are typically implemented in one of these ways:
+
+1. **Send to an irrecoverable address**
+
+   - Tokens are transferred to an address with no known private key (e.g., `0x000000000000000000000000000000000000dEaD` on EVM chains).
+   - The tokens still “exist” in the ledger but are effectively removed from circulation forever.
+
+2. **Burn via smart contract function**
+
+   - Many token standards or custom contracts implement a `burn()` function that reduces the caller’s balance and decreases total supply (or moves tokens to a burn address).
+   - This is often cleaner for accounting because `totalSupply` can be updated directly.
+
+3. **Protocol-level burns**
+   - Some networks burn a portion of transaction fees (or other protocol revenues).
+   - This creates a continuous burn that scales with network usage.
+
+### Why projects burn tokens
+
+Projects may burn tokens to:
+
+- **Reduce circulating supply** and potentially increase scarcity
+- **Offset emissions** (e.g., from staking rewards)
+- **Stabilize tokenomics** or support a long-term policy
+- **Signal commitment** (e.g., burning team allocation, unsold tokens)
+- **Tie burns to revenue** (e.g., buyback-and-burn or fee burns)
+
+### What a burn does—and doesn’t—guarantee
+
+- A burn **does** reduce circulating supply (and sometimes total supply, depending on implementation).
+- A burn **does not** guarantee price increases; price depends on demand, liquidity, market conditions, unlock schedules, and broader token utility.
+
+### How to verify a token burn
+
+You can verify burns by checking:
+
+- The **transaction hash** sending tokens to the burn address
+- The **token contract’s `Transfer` events**
+- The **burn address balance** (it should only increase)
+- Whether **`totalSupply` decreases** (if the contract updates it)
+
+## On Sei Network
+
+On **Sei Network** (an EVM-compatible Layer 1), token burns for ERC-20–style tokens work the same way they do on other EVM chains: projects can burn tokens by transferring them to an irrecoverable address or by calling a `burn()` function in a smart contract.
+
+Sei’s advantages—**high throughput via parallelization** and **~400ms finality**—make burn-related operations (like periodic burns, buyback-and-burn execution, or fee-driven burns) settle quickly and predictably. This can be useful for applications that rely on time-sensitive supply adjustments or transparent, frequent burn events.
+
+## Example: Burning tokens by sending to a burn address (Solidity)
+
+A minimal ERC-20 token burn can be implemented by transferring tokens to a known burn address:
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+interface IERC20 {
+    function transfer(address to, uint256 amount) external returns (bool);
+}
+
+contract BurnHelper {
+    // Common EVM burn address
+    address public constant BURN_ADDRESS = 0x000000000000000000000000000000000000dEaD;
+
+    function burn(IERC20 token, uint256 amount) external {
+        // Caller must have approved this contract to spend `amount`
+        require(token.transfer(BURN_ADDRESS, amount), "Transfer failed");
+    }
+}
+```
+
+**Notes**
+
+- This approach does **not** necessarily reduce `totalSupply` unless the token contract treats transfers to the burn address specially. It does, however, remove tokens from practical circulation.
+
+## Example: Burning tokens by reducing total supply (Solidity)
+
+Many projects implement a `burn()` function that reduces both the holder’s balance and `totalSupply`:
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+
+contract BurnableToken is ERC20 {
+    constructor() ERC20("Burnable Token", "BURN") {
+        _mint(msg.sender, 1_000_000 ether);
+    }
+
+    function burn(uint256 amount) external {
+        _burn(msg.sender, amount); // reduces sender balance and totalSupply
+    }
+}
+```
+
+## Example: Calling burn on Sei EVM (TypeScript)
+
+Using `ethers` to call a `burn(uint256)` function from a dApp:
+
+```typescript
+import { ethers } from 'ethers';
+
+const RPC_URL = process.env.SEI_EVM_RPC!;
+const PRIVATE_KEY = process.env.PRIVATE_KEY!;
+const TOKEN_ADDRESS = '0xYourTokenAddress';
+
+const ABI = ['function burn(uint256 amount) external', 'function decimals() view returns (uint8)'];
+
+async function main() {
+  const provider = new ethers.JsonRpcProvider(RPC_URL);
+  const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
+
+  const token = new ethers.Contract(TOKEN_ADDRESS, ABI, wallet);
+
+  const decimals: number = await token.decimals();
+  const amount = ethers.parseUnits('100', decimals); // burn 100 tokens
+
+  const tx = await token.burn(amount);
+  console.log('Submitted:', tx.hash);
+
+  const receipt = await tx.wait();
+  console.log('Confirmed in block:', receipt.blockNumber);
+}
+
+main().catch(console.error);
+```
+
+## Key Takeaways
+
+- **What is token burn?** It’s the deliberate destruction (or permanent removal from circulation) of tokens, executed transparently on-chain.
+- Burns are commonly done by **sending tokens to an irrecoverable address** or calling a **contract burn function** that reduces `totalSupply`.
+- On **Sei Network**, token burns work like any EVM chain, with the benefit of **parallelized execution** and **~400ms finality** for fast, auditable burn settlement.
+
+## Related Documentation
+
+- [Getting Started](/learn)
+- [Token Standards](/learn/dev-token-standards)
+- [Staking](/learn/general-staking)
+- [Oracles](/learn/oracles)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._

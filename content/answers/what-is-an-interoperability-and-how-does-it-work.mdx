@@ -1,0 +1,185 @@
+---
+title: 'What is an Interoperability and How Does It Work?'
+description: 'Learn about what is interoperability and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'glossary', 'what', 'interoperability', 'and', 'how', 'does', 'work']
+---
+
+import { Callout } from 'nextra/components';
+
+# What is an Interoperability and How Does It Work?
+
+## Overview
+
+Interoperability is the ability of different systems, applications, or networks to communicate, exchange data, and use that data correctly without special effort from the user. In blockchain, interoperability enables separate chains and apps to transfer assets, messages, and state changes across network boundaries.
+
+In short, **what is interoperability** in crypto? It’s the set of standards and mechanisms that let blockchains “talk” to each other securely and predictably.
+
+## How It Works
+
+Blockchain interoperability typically happens through **cross-chain messaging** and **asset bridging**. While implementations vary, most approaches rely on a few core components:
+
+### Cross-chain messaging (the core primitive)
+
+Cross-chain messaging moves _information_ (not just tokens) from Chain A to Chain B—e.g., “User deposited collateral,” “This contract call happened,” or “Mint tokens on the destination.” A common high-level flow is:
+
+1. **Event on source chain:** A user triggers a transaction (deposit, lock, burn, or message send).
+2. **Proof or verification:** The destination chain (or an intermediary network) verifies that the source event occurred.
+3. **Execution on destination chain:** A contract on the destination chain executes logic based on the verified message (mint, unlock, call a function, update state).
+
+### Token bridging (a common use case)
+
+Token bridges move value between chains, usually with one of these models:
+
+- **Lock-and-mint:** Lock tokens on Chain A, mint wrapped tokens on Chain B.
+- **Burn-and-mint:** Burn wrapped tokens on Chain B, mint/unlock on Chain A when returning.
+- **Liquidity-based bridges:** Use liquidity pools on both sides; transfers are balanced through market makers/relayers.
+
+### Verification models
+
+Interoperability security depends heavily on how the destination verifies the source chain:
+
+- **Light-client / proof-based verification:** Destination validates cryptographic proofs of the source chain’s state (often considered the strongest model when correctly implemented).
+- **Validator/committee or multisig attestation:** A trusted set of signers attests to events (simpler, but trust assumptions are higher).
+- **Optimistic verification:** Messages are assumed valid unless challenged within a time window (faster UX, but depends on fraud proofs and challengers).
+- **Oracle/relay-based designs:** External systems relay data; trust shifts to the oracle/relay mechanism.
+
+### Why interoperability matters
+
+Interoperability unlocks:
+
+- **Composable apps across chains** (use liquidity or features wherever they exist)
+- **Better liquidity and market access** (assets move to where demand is)
+- **Scalability and specialization** (different chains optimize for different workloads)
+- **Cross-ecosystem user experiences** (one app can span multiple networks)
+
+## On Sei Network
+
+Sei Network is a high-performance Layer 1 with **EVM compatibility**, designed for fast, scalable on-chain applications. Interoperability on Sei commonly centers around:
+
+### EVM-compatible contracts and tooling
+
+Because Sei supports EVM, developers can deploy Solidity smart contracts and integrate with familiar wallets and tools. This makes it easier to build cross-chain applications that reuse existing EVM-based patterns for bridging and messaging.
+
+### Fast settlement for cross-chain UX
+
+Sei’s ~**400ms finality** helps reduce the perceived waiting time between a source-chain action and a destination-chain effect (subject to the bridge/messaging protocol’s own security model and confirmation requirements). Faster finality can improve:
+
+- bridging UX (quicker confirmations on Sei side),
+- cross-chain arbitrage and trading workflows,
+- multi-step cross-chain app flows where Sei is a hub or destination.
+
+### Parallelization for high throughput
+
+Sei’s **parallelization** enables higher throughput and more consistent performance under load, which benefits interoperability-heavy apps such as:
+
+- cross-chain DEX aggregators,
+- bridging routers,
+- intent-based systems and relayers that process many messages/transactions.
+
+### Typical interoperability patterns for Sei apps
+
+Developers often implement one of these patterns when Sei is involved:
+
+- **Bridge assets to Sei:** Users move tokens to Sei for trading, lending, or app usage.
+- **Send a cross-chain message to a Sei contract:** A source-chain action triggers a contract call on Sei after verification.
+- **Use Sei as a fast execution layer:** Execute latency-sensitive logic on Sei and synchronize outcomes back to other networks.
+
+## Example: Solidity interface for a cross-chain message receiver (EVM)
+
+Below is a simplified pattern often used by messaging protocols: a receiver contract that accepts a verified message and executes application logic. Exact function signatures vary by protocol.
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+interface ICrossChainMessenger {
+    // A generic "send" interface (protocol-specific in practice)
+    function sendMessage(
+        uint256 dstChainId,
+        address dstReceiver,
+        bytes calldata message
+    ) external payable;
+}
+
+contract SeiMessageReceiver {
+    address public trustedMessenger;
+
+    event MessageReceived(uint256 srcChainId, address srcSender, bytes payload);
+
+    constructor(address _trustedMessenger) {
+        trustedMessenger = _trustedMessenger;
+    }
+
+    // Called by the messaging protocol after it verifies the source-chain event/proof
+    function onMessage(
+        uint256 srcChainId,
+        address srcSender,
+        bytes calldata payload
+    ) external {
+        require(msg.sender == trustedMessenger, "UNTRUSTED_MESSENGER");
+
+        // Application logic goes here:
+        // - update state
+        // - mint/unlock tokens
+        // - execute actions based on payload
+        emit MessageReceived(srcChainId, srcSender, payload);
+    }
+}
+```
+
+## Example: Sending a cross-chain message (TypeScript)
+
+This example shows the shape of an EVM-style transaction to a messenger contract. You’ll swap in the real messenger address/ABI and parameters for the protocol you use.
+
+```typescript
+import { ethers } from 'ethers';
+
+async function sendCrossChainMessage() {
+  const rpcUrl = process.env.RPC_URL!;
+  const pk = process.env.PRIVATE_KEY!;
+  const provider = new ethers.JsonRpcProvider(rpcUrl);
+  const wallet = new ethers.Wallet(pk, provider);
+
+  const messengerAddress = '0xYourMessenger';
+  const messengerAbi = ['function sendMessage(uint256 dstChainId, address dstReceiver, bytes message) payable'];
+
+  const messenger = new ethers.Contract(messengerAddress, messengerAbi, wallet);
+
+  const dstChainId = 1234; // destination chain id (example)
+  const dstReceiver = '0xDestinationReceiver';
+  const payload = ethers.toUtf8Bytes('hello from source chain');
+
+  const tx = await messenger.sendMessage(dstChainId, dstReceiver, payload, {
+    value: ethers.parseEther('0.01') // if protocol fees are required
+  });
+
+  console.log('sent:', tx.hash);
+  await tx.wait();
+  console.log('confirmed');
+}
+
+sendCrossChainMessage().catch(console.error);
+```
+
+## Key Considerations (Security & UX)
+
+- **Trust assumptions:** The verification model (light client vs multisig vs optimistic) determines your risk profile.
+- **Finality and confirmations:** Even with fast finality on Sei, other chains and bridges may require additional confirmations.
+- **Replay protection:** Messages should include nonces/unique identifiers to prevent duplicates.
+- **Failure handling:** Design for partial failures (message delivered but execution reverts, delayed relays, or chain congestion).
+- **Monitoring:** Index events and track message lifecycle (sent → verified → executed) for support and reliability.
+
+## Summary
+
+Interoperability is what allows blockchains and applications to exchange assets and messages across different networks—unlocking cross-chain liquidity, composability, and better user experiences. On Sei Network, interoperability benefits from **EVM compatibility**, **parallelization**, and **~400ms finality**, enabling fast, scalable execution for cross-chain apps and workflows.
+
+## Related Documentation
+
+- [Getting Started](/learn)
+- [Token Standards](/learn/dev-token-standards)
+- [Staking](/learn/general-staking)
+- [Oracles](/learn/oracles)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._

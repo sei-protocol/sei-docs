@@ -1,0 +1,144 @@
+---
+title: 'What is a Burn Mechanism and How Does It Work?'
+description: 'Learn about what is burn mechanism and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'glossary', 'what', 'burn', 'mechanism', 'and', 'how', 'does', 'work']
+---
+
+import { Callout } from 'nextra/components';
+
+# What is a Burn Mechanism and How Does It Work?
+
+## Overview
+
+A **burn mechanism** is a protocol rule that permanently removes tokens from circulation by sending them to an irrecoverable address or destroying them at the contract level. The goal is typically to reduce circulating supply, adjust token economics, or align incentives (e.g., by making supply more scarce over time).
+
+In SEO terms, **what is burn mechanism**: it’s a systematic way for a blockchain or token project to “retire” tokens so they can no longer be spent, effectively decreasing supply.
+
+## How It Works
+
+Burning is implemented in a few common ways across blockchains and token standards:
+
+### 1) Send to a “burn” or irrecoverable address
+
+Tokens are transferred to an address with no known private key (e.g., `0x000...dEaD` on EVM chains). The tokens still exist in the ledger but are economically unusable, so they are effectively removed from circulation.
+
+- **Pros:** Simple, transparent, easy to verify on-chain.
+- **Cons:** Tokens still technically “exist” in state; relies on the assumption no one can access the address.
+
+### 2) Contract-level destruction (token supply reduction)
+
+Many token contracts include a `burn()` function that decreases both the holder’s balance and the token’s `totalSupply`. This is a canonical “true burn” at the token standard level.
+
+- **Pros:** Explicit reduction in `totalSupply`, commonly supported in token standards.
+- **Cons:** Requires correct implementation; mistakes can break token accounting.
+
+### 3) Fee burns (burn-on-transfer or protocol fee burning)
+
+A portion of each transaction fee or transfer amount is burned automatically. This can create a deflationary pressure tied to network usage.
+
+- **Pros:** Usage-based burn aligns supply changes with demand/activity.
+- **Cons:** Can make transfers more expensive and complicate integrations if not standard.
+
+### 4) Scheduled or governance-controlled burns
+
+Projects may burn tokens on a set schedule (e.g., quarterly) or via governance proposals.
+
+- **Pros:** Predictable or community-controlled.
+- **Cons:** Requires trust in process (unless fully automated) and can be sensitive to governance risks.
+
+### Verifying a burn
+
+Burn events are generally verifiable by:
+
+- On-chain transaction logs (e.g., `Transfer` events to a burn address).
+- Observing `totalSupply` decreasing (for contract-level burns).
+- Block explorer views of balances held at burn addresses.
+
+## On Sei Network
+
+Sei is a high-performance Layer 1 with **EVM compatibility**, enabling standard Solidity token patterns (including burn functions and burn addresses) to work as they do on other EVM chains—while benefiting from Sei’s **parallelized execution** and **~400ms finality**. This means burn transactions can be confirmed quickly and reliably, and high-throughput burn-on-transfer or fee-burning designs can scale with network activity.
+
+Common ways burn mechanisms are implemented on Sei include:
+
+- **EVM token burns (Solidity):** ERC-20 style tokens can expose `burn()` methods or burn via transfers to a dead address.
+- **Application-level burns:** dApps can burn tokens as part of their business logic (e.g., burning a portion of fees, mint/burn cycles for synthetic assets, or burning NFTs for upgrades).
+- **High-throughput patterns:** Sei’s parallelization can help applications process many burn-related transactions efficiently, useful for mechanisms tied to frequent transfers or automated market activity.
+
+## Example: ERC-20 Burn Function (Solidity)
+
+Below is a minimal pattern showing a contract-level burn that reduces both balances and `totalSupply`:
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+
+contract BurnableToken is ERC20 {
+    constructor() ERC20("BurnableToken", "BURN") {
+        _mint(msg.sender, 1_000_000e18);
+    }
+
+    function burn(uint256 amount) external {
+        _burn(msg.sender, amount);
+    }
+}
+```
+
+**What this does:**
+
+- `_burn(msg.sender, amount)` reduces the caller’s balance and the token’s `totalSupply`.
+- On Sei’s EVM, this is executed and finalized quickly, making supply changes visible almost immediately in explorers and indexers.
+
+## Example: Burn by Sending to a Dead Address (Solidity)
+
+Some projects use a well-known burn address:
+
+```solidity
+pragma solidity ^0.8.20;
+
+interface IERC20 {
+    function transfer(address to, uint256 value) external returns (bool);
+}
+
+contract BurnByTransfer {
+    address public constant DEAD = 0x000000000000000000000000000000000000dEaD;
+
+    function burnToken(IERC20 token, uint256 amount) external {
+        // Caller must have approved this contract beforehand if using transferFrom (not shown).
+        // This example assumes the contract already holds tokens and sends them to DEAD.
+        token.transfer(DEAD, amount);
+    }
+}
+```
+
+**Note:** This method doesn’t necessarily reduce `totalSupply`; it just moves tokens to an unusable address. Whether this is considered “burning” depends on the project’s definition and accounting.
+
+## Why Projects Use Burn Mechanisms
+
+- **Supply reduction:** Lower circulating supply can increase scarcity (though price impact is never guaranteed).
+- **Value capture:** Burning a portion of fees can align token holders with network or dApp usage.
+- **Incentive design:** Can discourage spam (burned fees) or encourage long-term holding.
+- **Economic stability:** Used in mechanisms that balance minting (issuance) and burning (redemption).
+
+## Key Considerations and Risks
+
+- **Transparency:** Burns should be provable on-chain (events, supply changes).
+- **Irreversibility:** A burn is usually permanent; mistakes cannot be undone.
+- **Tokenomics realism:** Burning doesn’t create value by itself—demand, utility, and distribution still matter.
+- **Implementation correctness:** Poorly written burn logic can break accounting or introduce vulnerabilities.
+
+## Summary
+
+A burn mechanism permanently removes tokens from circulation—either by reducing `totalSupply` via contract logic or by sending tokens to an irrecoverable address. On Sei Network, burn mechanisms are commonly implemented through EVM-compatible Solidity contracts and can take advantage of Sei’s **parallelization** and **~400ms finality** for fast, scalable, and verifiable supply adjustments.
+
+## Related Documentation
+
+- [Getting Started](/learn)
+- [Token Standards](/learn/dev-token-standards)
+- [Staking](/learn/general-staking)
+- [Oracles](/learn/oracles)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._

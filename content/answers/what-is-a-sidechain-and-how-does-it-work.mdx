@@ -1,0 +1,145 @@
+---
+title: 'What is a Sidechain and How Does It Work?'
+description: 'Learn about what is sidechain and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'glossary', 'what', 'sidechain', 'and', 'how', 'does', 'work']
+---
+
+import { Callout } from 'nextra/components';
+
+# What is a Sidechain and How Does It Work?
+
+## Overview
+
+A **sidechain** is an independent blockchain that runs in parallel to a “main” blockchain (often called the **mainchain** or **Layer 1**) and is connected to it through a bridge, typically enabling assets or data to move between the two networks. In practice, when people ask **“what is sidechain”**, they’re usually referring to a chain that offloads activity from the mainchain to improve scalability, add features, or experiment with different rules while still interoperating with the main ecosystem.
+
+Sidechains are commonly used to increase throughput, reduce fees, enable custom execution environments (e.g., different virtual machines), or support application-specific requirements without changing the mainchain’s base protocol.
+
+## How It Works
+
+### 1) Independent consensus and security model
+
+A core property of a sidechain is that it typically has its **own validator set and consensus mechanism**. That means:
+
+- The sidechain can process transactions and finalize blocks independently of the mainchain.
+- The sidechain’s security is usually **separate** from the mainchain’s security (unless it uses special “shared security” designs).
+
+This independence enables flexibility, but also means the sidechain’s trust assumptions may differ from the mainchain’s.
+
+### 2) Two-way bridging (pegging)
+
+To move assets between a mainchain and a sidechain, ecosystems rely on a **bridge**. The bridge implements a **two-way peg** conceptually:
+
+- **Mainchain → Sidechain:** Assets are locked (or escrowed) on the mainchain, and a corresponding representation is minted/released on the sidechain.
+- **Sidechain → Mainchain:** The sidechain representation is burned/locked, and the original assets are released back on the mainchain.
+
+Bridges can be implemented in several ways:
+
+- **Federated bridges:** A set of entities collectively controls the bridge (common historically; introduces trust in the federation).
+- **Light-client / proof-based bridges:** One chain verifies cryptographic proofs of the other chain’s state (more trust-minimized, but complex).
+- **Optimistic bridges:** Transfers are assumed valid unless challenged within a dispute window.
+
+### 3) Cross-chain messaging
+
+Beyond asset transfers, some sidechains support **general message passing**, enabling contracts on one chain to trigger actions on another. This can power:
+
+- Cross-chain swaps and routing
+- Cross-chain governance or voting
+- Interoperable dApps spanning multiple chains
+
+### 4) Why sidechains exist (benefits and tradeoffs)
+
+**Benefits**
+
+- Higher throughput / lower fees due to independent blockspace
+- Faster iteration and specialized features (custom gas rules, privacy, app-specific logic)
+- Reduced load on the mainchain
+
+**Tradeoffs**
+
+- Different (often weaker) security assumptions than the mainchain
+- Bridge risk: bridges are frequent attack targets, and can be the weakest link
+- Liquidity fragmentation (assets spread across chains)
+
+### Sidechain vs. Layer 2 (quick distinction)
+
+A **Layer 2** (e.g., optimistic rollups, zk-rollups) generally derives security from the mainchain by posting proofs or transaction data back to it. A **sidechain** usually does **not** inherit mainchain security by default; it operates with its own consensus and relies on bridging for interoperability.
+
+## On Sei Network
+
+Sei is a high-performance Layer 1 with **EVM compatibility**, designed for low-latency execution and high throughput. While **Sei itself is not a sidechain** (it’s a standalone L1), it can participate in **sidechain-like architectures** in two common ways:
+
+1. **Sei as a high-performance execution environment connected to other chains via bridges**
+
+- Projects may treat Sei as a fast settlement/execution domain for trading, DeFi, and high-frequency applications.
+- With Sei’s parallelization and ~**400ms finality**, cross-chain workflows can feel more responsive once messages/bridged transfers arrive on Sei.
+
+2. **Sei as a “mainchain” that connects to app-specific chains**
+
+- An application may choose to run an appchain/sidechain for specialized needs and bridge to Sei for liquidity and user access.
+- Sei’s EVM compatibility makes it straightforward for teams to reuse Solidity tooling and patterns when building cross-chain integrations.
+
+### Practical implications for builders on Sei
+
+- **Bridge integration matters:** If your dApp on Sei accepts assets bridged from another network (or sends assets out), your security model must account for the bridge’s trust assumptions.
+- **Fast finality helps UX:** Once a cross-chain transfer is finalized on Sei, users can proceed quickly thanks to rapid block finality and parallel execution.
+- **EVM interoperability:** Solidity contracts can implement common bridging and “wrapped asset” patterns familiar from other EVM ecosystems.
+
+## Example: Basic lock/mint pattern (illustrative)
+
+Below is a simplified example of a bridge-style contract pattern. Real bridges require rigorous validation of cross-chain proofs, replay protection, rate limits, and robust access controls—this snippet is for conceptual understanding only.
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+interface IERC20 {
+  function transferFrom(address from, address to, uint256 amount) external returns (bool);
+  function transfer(address to, uint256 amount) external returns (bool);
+}
+
+contract SimpleLockbox {
+  IERC20 public immutable token;
+
+  // In real systems this would be a verified bridge module, not a single key.
+  address public bridgeOperator;
+
+  event Locked(address indexed user, uint256 amount, bytes32 indexed destination);
+  event Released(address indexed user, uint256 amount);
+
+  constructor(IERC20 _token, address _bridgeOperator) {
+    token = _token;
+    bridgeOperator = _bridgeOperator;
+  }
+
+  // User locks tokens on this chain; bridge mints/releases representation on the sidechain.
+  function lock(uint256 amount, bytes32 destinationAddressOnOtherChain) external {
+    require(amount > 0, "amount=0");
+    require(token.transferFrom(msg.sender, address(this), amount), "transferFrom failed");
+    emit Locked(msg.sender, amount, destinationAddressOnOtherChain);
+  }
+
+  // Bridge releases tokens back after verifying a burn/lock happened on the other chain.
+  function release(address to, uint256 amount) external {
+    require(msg.sender == bridgeOperator, "not authorized");
+    require(token.transfer(to, amount), "transfer failed");
+    emit Released(to, amount);
+  }
+}
+```
+
+## Key Takeaways
+
+- A sidechain is an independent blockchain connected to a mainchain via a bridge; it can move assets/data across chains while operating under its own consensus.
+- Sidechains help scale and add flexibility but introduce separate security assumptions and bridge risk.
+- On Sei Network, sidechain-style designs commonly show up through **bridged interoperability** and **app-specific chains**, with Sei’s **parallelization**, **~400ms finality**, and **EVM compatibility** supporting fast, familiar developer workflows.
+
+## Related Documentation
+
+- [Getting Started](/learn)
+- [Token Standards](/learn/dev-token-standards)
+- [Staking](/learn/general-staking)
+- [Oracles](/learn/oracles)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._

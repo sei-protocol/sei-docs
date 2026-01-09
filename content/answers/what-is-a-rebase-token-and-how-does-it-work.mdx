@@ -1,0 +1,202 @@
+---
+title: 'What is a Rebase Token and How Does It Work?'
+description: 'Learn about what is rebase token and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'glossary', 'what', 'rebase', 'token', 'and', 'how', 'does', 'work']
+---
+
+import { Callout } from 'nextra/components';
+
+# What is a Rebase Token and How Does It Work?
+
+## Overview
+
+A **rebase token** is a cryptocurrency whose **total supply automatically adjusts up or down** at predefined times or in response to certain conditions, while each holder’s wallet balance changes **proportionally**. In other words, instead of the token price moving to reflect demand, the protocol changes the number of tokens in circulation to influence the price (or track an external target).
+
+If you’re searching for **what is rebase token**, the key idea is: **your number of tokens can change without you transferring anything**, because the protocol “rebases” (resizes) balances.
+
+## How It Works
+
+### Supply adjustment (“rebase”) mechanics
+
+Rebase tokens implement a periodic supply update, typically called a **rebase event**. During a rebase:
+
+- The protocol computes a **rebase factor** (e.g., +2% or −1% supply change).
+- **All holders’ balances are scaled by the same factor**.
+- The token’s **total supply changes**, but each holder’s **ownership percentage** of the network remains roughly the same (excluding rounding and special accounts).
+
+Example:
+
+- You hold 100 tokens.
+- A +10% rebase occurs.
+- Your balance becomes 110 tokens.
+- Everyone else’s balance also increases by 10%, so your share of the total stays similar.
+
+### Positive vs. negative rebase
+
+- **Positive rebase**: total supply increases; balances increase proportionally.
+- **Negative rebase**: total supply decreases; balances decrease proportionally.
+
+### Why rebase tokens exist
+
+Rebase designs are commonly used to:
+
+- Attempt to **stabilize** around a target (e.g., $1, CPI index, or another reference).
+- Express “elastic supply” monetary policies.
+- Implement certain algorithmic or index-like token behaviors.
+
+### Key implications for users and apps
+
+- **Wallet balances are not constant**: a user’s “amount of tokens” changes after each rebase.
+- **Price and market cap interpretation**: price may adjust after rebase; market cap can remain similar even as supply changes.
+- **Integrations can be tricky**:
+  - DEX pools, lending protocols, vaults, and accounting systems must handle **changing balances**.
+  - Some rebasing tokens use “shares” internally and show “balance” as a derived value.
+- **Not the same as staking rewards**: staking increases balances for stakers only; rebasing usually affects all holders proportionally (or all holders in a defined set).
+
+## Common Implementation Patterns
+
+### 1) Global scaling factor (“gons” / “shares” model)
+
+Many rebasing ERC-20 tokens avoid updating every address on rebase (which would be too expensive) by:
+
+- Tracking balances in **internal units** (shares).
+- Maintaining a global **scaling factor** that converts shares to user-facing balances.
+
+This allows O(1) rebase updates (update one global variable), rather than iterating through all holders.
+
+### 2) Explicit balance updates (rare on-chain)
+
+Directly updating every holder’s balance during a rebase is typically impractical on-chain due to gas and state access costs.
+
+## Solidity Example (Simplified “Shares + Index” Rebase Token)
+
+Below is a conceptual, simplified pattern showing how rebasing can be implemented via a global index. (This is not production-ready—real implementations must address rounding, permissions, integrations, and security concerns.)
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
+contract SimpleRebaseToken {
+    string public name = "Simple Rebase Token";
+    string public symbol = "SRT";
+    uint8  public decimals = 18;
+
+    // "Shares" are internal units that don't change during rebase
+    mapping(address => uint256) private _shares;
+    uint256 private _totalShares;
+
+    // Index scales shares -> token balance: balance = shares * index / 1e18
+    uint256 public index = 1e18; // starts at 1.0
+
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Rebase(uint256 oldIndex, uint256 newIndex);
+
+    function totalSupply() public view returns (uint256) {
+        // supply changes as index changes
+        return (_totalShares * index) / 1e18;
+    }
+
+    function balanceOf(address account) public view returns (uint256) {
+        return (_shares[account] * index) / 1e18;
+    }
+
+    function sharesOf(address account) external view returns (uint256) {
+        return _shares[account];
+    }
+
+    function transfer(address to, uint256 amount) external returns (bool) {
+        // Convert amount -> shares at current index
+        uint256 shareAmount = (amount * 1e18) / index;
+
+        _shares[msg.sender] -= shareAmount;
+        _shares[to] += shareAmount;
+
+        emit Transfer(msg.sender, to, amount);
+        return true;
+    }
+
+    function mint(address to, uint256 amount) external {
+        uint256 shareAmount = (amount * 1e18) / index;
+        _shares[to] += shareAmount;
+        _totalShares += shareAmount;
+        emit Transfer(address(0), to, amount);
+    }
+
+    // Rebase by updating the global index (e.g., +5% => index *= 1.05)
+    function rebase(int256 bps) external {
+        // bps in basis points, e.g., +500 = +5%, -200 = -2%
+        uint256 old = index;
+
+        if (bps >= 0) {
+            index = (index * (10_000 + uint256(bps))) / 10_000;
+        } else {
+            index = (index * (10_000 - uint256(-bps))) / 10_000;
+        }
+
+        emit Rebase(old, index);
+    }
+}
+```
+
+### Notes for integrators
+
+- If a protocol records a user’s “token amount” over time, it must handle that balances can change after a rebase.
+- Some systems prefer to account in **shares** (fixed) rather than rebasing balances (variable).
+
+## On Sei Network
+
+On **Sei Network**, a rebase token typically uses the **same ERC-20 patterns** as on other EVM chains, because Sei is **EVM compatible**. That means you can deploy rebasing token contracts using Solidity and standard tooling, while benefiting from Sei’s performance characteristics.
+
+Key considerations specific to Sei:
+
+- **Fast finality (~400ms)**: Rebase events (index updates) can be confirmed quickly, which can improve UX for apps that synchronize after a rebase (e.g., dashboards, vaults, or DEX adapters).
+- **High throughput and parallelization**: Sei’s architecture is designed for **parallel execution**, which helps high-activity ecosystems (DEXs, perps, aggregators) remain responsive even when many users interact with rebasing assets around rebase boundaries.
+- **Ecosystem integrations**: When integrating a rebasing token into Sei-based DeFi:
+  - Ensure AMMs, lending markets, and vault strategies correctly handle rebasing balance semantics.
+  - Prefer internal accounting in **shares** or use wrapper tokens (non-rebasing representations) if a protocol expects static balances.
+
+### Deploying a Rebase Token to Sei (Example)
+
+Using standard EVM workflows (e.g., Foundry), deployment looks like any other EVM chain—just target Sei’s RPC.
+
+```bash
+# Example (replace RPC URL, private key, and contract path as needed)
+export SEI_EVM_RPC="https://YOUR_SEI_RPC_ENDPOINT"
+export PRIVATE_KEY="0xYOUR_PRIVATE_KEY"
+
+forge create \
+  --rpc-url "$SEI_EVM_RPC" \
+  --private-key "$PRIVATE_KEY" \
+  src/SimpleRebaseToken.sol:SimpleRebaseToken
+```
+
+## Benefits and Risks
+
+### Potential benefits
+
+- Can implement **elastic-supply** tokenomics or algorithmic stabilization.
+- Efficient rebases using a global index (low per-rebase gas).
+
+### Key risks / gotchas
+
+- **User confusion**: “I didn’t transact, why did my balance change?”
+- **Protocol compatibility**: Some DeFi systems break if they assume fixed balances.
+- **Rounding effects**: Small holders may see tiny rounding discrepancies over time.
+- **Market dynamics**: Rebasing does not guarantee price stability; it changes supply mechanics and can introduce volatility.
+
+## Summary
+
+A rebase token is an elastic-supply asset where wallet balances are periodically adjusted via a protocol-driven rebase, changing total supply without requiring transfers. In general blockchain terms, rebases are typically implemented using a global scaling factor over internal “shares” to avoid per-holder updates. On **Sei Network**, rebasing tokens are implemented like standard ERC-20 contracts thanks to **EVM compatibility**, and can benefit from Sei’s **~400ms finality** and **parallelized, high-throughput** execution for smoother integration in high-activity DeFi environments.
+
+## Related Documentation
+
+- [Getting Started](/learn)
+- [Token Standards](/learn/dev-token-standards)
+- [Staking](/learn/general-staking)
+- [Oracles](/learn/oracles)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._

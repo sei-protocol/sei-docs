@@ -1,0 +1,197 @@
+---
+title: 'What is a DAOs and How Does It Work?'
+description: 'Learn about what is DAOs and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'glossary', 'what', 'DAOs', 'daos', 'and', 'how', 'does', 'work']
+---
+
+import { Callout } from 'nextra/components';
+
+# What is a DAOs and How Does It Work?
+
+## Overview
+
+A **DAO (Decentralized Autonomous Organization)** is an internet-native organization governed by code (smart contracts) and community voting rather than a centralized leadership team. In practice, a DAO coordinates people, treasury funds, and decision-making using transparent rules enforced on-chain. If you’re searching **what is DAOs**, it refers to DAOs as a category: multiple decentralized organizations that operate through blockchain-based governance.
+
+## How It Works
+
+### 1) Smart contracts define the rules
+
+Most DAOs are built on smart contracts that encode:
+
+- **Membership logic** (who can participate)
+- **Voting mechanisms** (how proposals pass)
+- **Treasury controls** (how funds can be spent)
+- **Execution** (what happens when a proposal passes)
+
+Once deployed, these contracts can automatically enforce outcomes (e.g., transferring funds) when governance conditions are met.
+
+### 2) Membership and voting power
+
+DAOs typically grant governance rights via:
+
+- **Fungible governance tokens** (1 token = 1 vote, or weighted variants)
+- **NFT-based membership** (membership represented by NFTs)
+- **Reputation / points systems** (off-chain or on-chain attestations)
+
+Voting power can be subject to rules like quorum, supermajority thresholds, proposal deposits, or delegation.
+
+### 3) Proposals: create → discuss → vote → execute
+
+A common DAO flow looks like this:
+
+1. **Proposal creation**: A member proposes an action (e.g., fund a project, change parameters).
+2. **Discussion period**: Forum/Discord debate and refinement.
+3. **Voting**: Token holders/members vote during a fixed window.
+4. **Execution**:
+   - **On-chain execution**: Passing a proposal triggers a smart contract action automatically.
+   - **Off-chain execution**: The DAO decides, but a team/multisig carries out actions manually (often used early-stage).
+
+### 4) Treasury management (multisig vs. fully autonomous)
+
+Many DAOs start with **multisig wallets** for safety and later move to more autonomous systems (e.g., timelocks + governance execution). A typical setup includes:
+
+- **Treasury wallet** holding assets (native tokens, ERC-20s, NFTs)
+- **Timelock** to delay execution, giving members time to react to malicious proposals
+- **Guardrails** such as spending limits, whitelists, or emergency pause mechanisms
+
+### 5) Security and governance risks
+
+DAOs are powerful but introduce risks:
+
+- **Smart contract bugs**: can lead to treasury loss or governance takeover
+- **Governance attacks**: buying/borrowing tokens to pass harmful proposals
+- **Low participation**: small groups can dominate decisions
+- **Operational risk**: off-chain execution relies on trusted parties
+
+Best practices include audits, timelocks, proposal thresholds, and transparent governance processes.
+
+## On Sei Network
+
+Sei Network is a high-performance Layer 1 blockchain with **EVM compatibility**, designed for fast finality and scalable execution—properties that benefit DAOs that require frequent proposals, voting, and treasury actions.
+
+### Why DAOs fit well on Sei
+
+- **Fast finality (~400ms)**: Governance actions (like casting votes or executing a passed proposal) can confirm quickly, improving user experience for time-sensitive decisions.
+- **Parallelization**: Sei’s parallel execution architecture helps the network handle high throughput, which can be useful when a DAO has many members voting or when multiple DAO-related contracts are active simultaneously.
+- **EVM compatibility**: Solidity-based governance and treasury contracts (common in Ethereum ecosystems) can be deployed on Sei, enabling familiar tooling and patterns for DAO development.
+
+### Typical DAO patterns on Sei
+
+A Sei-based DAO often combines:
+
+- **EVM governance contracts** (proposals + voting)
+- **Treasury contracts** (assets management, spending execution)
+- **Timelock mechanisms** (delayed execution for safety)
+- **Delegation** (members delegate votes to trusted representatives)
+
+## Example: Minimal governance-style contract (Solidity)
+
+Below is a simplified example showing core DAO concepts: proposals, voting, and execution. This is **not production-ready** (no quorum, no delegation, no timelock), but it illustrates how DAO logic is commonly expressed on EVM chains like Sei.
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+contract SimpleDAO {
+    struct Proposal {
+        address target;
+        uint256 value;
+        bytes data;
+        string description;
+        uint256 votesFor;
+        uint256 votesAgainst;
+        uint64  endTime;
+        bool executed;
+    }
+
+    mapping(address => uint256) public votingPower; // simplified: set by admin in real systems
+    Proposal[] public proposals;
+    mapping(uint256 => mapping(address => bool)) public hasVoted;
+
+    constructor(address[] memory members, uint256[] memory power) {
+        require(members.length == power.length, "len mismatch");
+        for (uint256 i = 0; i < members.length; i++) {
+            votingPower[members[i]] = power[i];
+        }
+    }
+
+    function propose(
+        address target,
+        uint256 value,
+        bytes calldata data,
+        string calldata description,
+        uint64 votingPeriodSeconds
+    ) external returns (uint256 id) {
+        require(votingPower[msg.sender] > 0, "not a member");
+        proposals.push(Proposal({
+            target: target,
+            value: value,
+            data: data,
+            description: description,
+            votesFor: 0,
+            votesAgainst: 0,
+            endTime: uint64(block.timestamp) + votingPeriodSeconds,
+            executed: false
+        }));
+        return proposals.length - 1;
+    }
+
+    function vote(uint256 id, bool support) external {
+        Proposal storage p = proposals[id];
+        require(block.timestamp < p.endTime, "voting ended");
+        require(!hasVoted[id][msg.sender], "already voted");
+        uint256 power = votingPower[msg.sender];
+        require(power > 0, "no voting power");
+
+        hasVoted[id][msg.sender] = true;
+        if (support) p.votesFor += power;
+        else p.votesAgainst += power;
+    }
+
+    function execute(uint256 id) external {
+        Proposal storage p = proposals[id];
+        require(block.timestamp >= p.endTime, "voting active");
+        require(!p.executed, "already executed");
+        require(p.votesFor > p.votesAgainst, "did not pass");
+
+        p.executed = true;
+        (bool ok,) = p.target.call{value: p.value}(p.data);
+        require(ok, "call failed");
+    }
+
+    receive() external payable {}
+}
+```
+
+## Example: Deploying to Sei (EVM) with Foundry
+
+Use the Sei EVM RPC endpoint for your environment (testnet/mainnet) and a funded private key.
+
+```bash
+# Set environment variables
+export RPC_URL="https://<sei-evm-rpc-endpoint>"
+export PRIVATE_KEY="<your_private_key>"
+
+# Deploy (example)
+forge create --rpc-url "$RPC_URL" \
+  --private-key "$PRIVATE_KEY" \
+  src/SimpleDAO.sol:SimpleDAO \
+  --constructor-args "[]" "[]"
+```
+
+## Key Takeaways
+
+- **What is DAOs**: DAOs are decentralized organizations that use smart contracts and community voting to manage decisions and assets transparently.
+- DAOs work through **proposals, voting, and execution**, often backed by a treasury and safety mechanisms like timelocks.
+- On **Sei Network**, DAOs can leverage **EVM compatibility**, **parallelized execution**, and **~400ms finality** to deliver fast, scalable governance experiences.
+
+## Related Documentation
+
+- [Getting Started](/learn)
+- [Token Standards](/learn/dev-token-standards)
+- [Staking](/learn/general-staking)
+- [Oracles](/learn/oracles)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._

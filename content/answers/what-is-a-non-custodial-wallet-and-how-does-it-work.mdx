@@ -1,0 +1,154 @@
+---
+title: 'What is a Non-custodial Wallet and How Does It Work?'
+description: 'Learn about what is non-custodial wallet and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'glossary', 'what', 'non-custodial', 'wallet', 'non', 'custodial', 'and', 'how', 'does', 'work']
+---
+
+import { Callout } from 'nextra/components';
+
+# What is a Non-custodial Wallet and How Does It Work?
+
+## Overview
+
+A **non-custodial wallet** is a crypto wallet where **you control the private keys (or seed phrase)** that authorize transactions and access funds. In other words, **you—not an exchange or third party—are the custodian** of your assets. When people ask **“what is non-custodial wallet”**, the core idea is self-sovereign ownership: you hold the credentials needed to sign transactions on-chain.
+
+## How It Works
+
+### Keys, seed phrases, and ownership
+
+Non-custodial wallets are built around public-key cryptography:
+
+- **Seed phrase (mnemonic):** A human-readable backup (typically 12–24 words) that can deterministically generate many private keys.
+- **Private key:** A secret used to **sign transactions**. Whoever has it can move funds.
+- **Public key / address:** Derived from the private key; used to **receive funds** and identify accounts on-chain.
+
+If you lose the seed phrase/private key, there is usually **no account recovery**—that’s the tradeoff for full control.
+
+### Signing vs. broadcasting
+
+A non-custodial wallet typically does two things:
+
+1. **Creates and signs a transaction locally** (often on your device).
+2. **Broadcasts the signed transaction** to the blockchain network via an RPC provider or node.
+
+Because the signature is created with your private key, the network can verify you authorized the action **without ever seeing your private key**.
+
+### Interaction with dApps
+
+When connecting to decentralized applications (dApps), the wallet acts like a permissions layer:
+
+- The dApp requests an action (e.g., “sign this message” or “send this transaction”).
+- The wallet prompts you to approve.
+- If approved, the wallet signs and returns the signature/transaction for broadcast.
+
+### Token approvals (important for EVM chains)
+
+On EVM-compatible networks, interacting with ERC-20 tokens often requires **an approval** before a contract can spend your tokens:
+
+- `approve(spender, amount)` grants allowance.
+- Then the contract can call `transferFrom(...)` up to the allowed amount.
+
+This is a common source of risk if users approve unlimited amounts to untrusted contracts.
+
+```solidity
+// Example: ERC-20 allowance pattern (conceptual)
+IERC20 token = IERC20(0xToken);
+token.approve(0xSpender, 1_000e18); // allow spender to move up to 1000 tokens
+```
+
+## On Sei Network
+
+Sei is a high-performance Layer 1 with **EVM compatibility** and fast finality (often cited around **~400ms**). A non-custodial wallet on Sei works the same foundational way—**you hold the keys and sign transactions**—but the user experience benefits from Sei’s performance and parallelization.
+
+### EVM compatibility
+
+Because Sei supports EVM, non-custodial wallets that work across EVM ecosystems can also support Sei’s EVM environment. Practically, this means:
+
+- You can use familiar Ethereum-style accounts (0x addresses).
+- You sign EVM transactions and interact with smart contracts (DEXs, NFT markets, lending protocols) similarly to other EVM networks.
+
+### Fast confirmations and parallel execution
+
+With Sei’s design goals around throughput and fast finality:
+
+- Transactions you sign in a non-custodial wallet can reach finality quickly (often around **~400ms**).
+- Sei’s **parallelization** can help networks remain responsive under load, improving dApp interactions like swaps, mints, and contract calls.
+
+### Example: Sending an EVM transaction on Sei (ethers.js)
+
+Below is a minimal TypeScript example of a non-custodial flow: you load a private key locally, sign, and send a transaction to Sei’s EVM via an RPC endpoint.
+
+```typescript
+import { ethers } from 'ethers';
+
+// 1) Connect to a Sei EVM RPC endpoint
+const rpcUrl = 'https://YOUR_SEI_EVM_RPC';
+const provider = new ethers.JsonRpcProvider(rpcUrl);
+
+// 2) Load your non-custodial wallet (private key stored locally/securely)
+const privateKey = process.env.PRIVATE_KEY as string;
+const wallet = new ethers.Wallet(privateKey, provider);
+
+async function main() {
+  // 3) Create + sign + broadcast a transaction
+  const tx = await wallet.sendTransaction({
+    to: '0xRecipientAddress...',
+    value: ethers.parseEther('0.01')
+  });
+
+  console.log('Tx hash:', tx.hash);
+
+  // 4) Wait for confirmation/finality
+  const receipt = await tx.wait();
+  console.log('Confirmed in block:', receipt?.blockNumber);
+}
+
+main().catch(console.error);
+```
+
+## Benefits of a Non-Custodial Wallet
+
+- **Full control of funds:** No intermediary can freeze or restrict withdrawals.
+- **Permissionless access:** Use dApps directly from your wallet.
+- **Portability:** Restore the wallet on another device using the seed phrase.
+- **Transparency:** Actions are verified by on-chain signatures rather than platform promises.
+
+## Risks and Best Practices
+
+### Key risks
+
+- **Key/seed loss:** Funds may be unrecoverable.
+- **Phishing and malicious approvals:** Signing the wrong message or approving a malicious contract can lead to loss.
+- **Device compromise:** Malware can exfiltrate keys if not properly secured.
+
+### Best practices
+
+- Back up your **seed phrase offline** (never in cloud notes/screenshots).
+- Use a **hardware wallet** for significant funds.
+- Review transaction details and **limit token approvals** when possible.
+- Verify dApp URLs and contract addresses before connecting.
+
+## Non-Custodial vs. Custodial Wallet (Quick Comparison)
+
+| Feature                    | Non-custodial wallet | Custodial wallet                |
+| -------------------------- | -------------------- | ------------------------------- |
+| Who controls private keys? | You                  | Third party (exchange/provider) |
+| Account recovery           | Usually none         | Often available (email/KYC)     |
+| Censorship resistance      | Higher               | Lower (platform rules)          |
+| Ease of use                | More responsibility  | More convenience                |
+| dApp access                | Direct               | Sometimes limited               |
+
+## Summary
+
+A non-custodial wallet is a wallet where **you control the private keys**, meaning you directly authorize and sign blockchain transactions without relying on a custodian. In general, it works by generating keys from a seed phrase, signing transactions locally, and broadcasting them to the network. On Sei Network, non-custodial wallets benefit from **EVM compatibility**, **parallelization**, and fast finality (around **~400ms**), making on-chain interactions feel notably faster while preserving self-custody.
+
+## Related Documentation
+
+- [Getting Started](/learn)
+- [Token Standards](/learn/dev-token-standards)
+- [Staking](/learn/general-staking)
+- [Oracles](/learn/oracles)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._

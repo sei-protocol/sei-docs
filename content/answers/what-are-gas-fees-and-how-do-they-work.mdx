@@ -1,0 +1,146 @@
+---
+title: 'What Are Gas Fees and How Do They Work?'
+description: 'Learn about what is gas fees and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'glossary', 'what', 'gas', 'fees', 'are', 'and', 'how', 'they', 'work']
+---
+
+import { Callout } from 'nextra/components';
+
+# What Are Gas Fees and How Do They Work?
+
+## Overview
+
+Gas fees are transaction costs paid to validators to process and finalize activity on a blockchain, such as sending tokens or calling a smart contract. In practice, “gas” measures the computational work needed, and the “gas fee” is the amount you pay (in the network’s native token) to cover that work.
+
+If you’re searching **what is gas fees**, the simplest answer is: gas fees are the payments that keep a blockchain secure and functional by compensating those who execute transactions and preventing spam.
+
+## How It Works
+
+### Gas vs. Gas Fee (Key Terms)
+
+- **Gas**: A unit that represents how much computation or resource usage a transaction requires (CPU, storage access, contract execution).
+- **Gas limit**: The maximum gas units you’re willing to spend for a transaction.
+- **Gas price**: The price per unit of gas (typically denominated in the chain’s native token).
+- **Gas fee**: The total cost you pay, usually computed as:  
+  **gas fee = gas used × gas price**
+
+Some networks also include:
+
+- **Base fee**: A minimum fee level that can adjust based on demand (popularized by EIP-1559-style mechanics on Ethereum-like chains).
+- **Priority fee / tip**: An additional amount paid to incentivize validators to include your transaction sooner.
+
+### Why Gas Fees Exist
+
+Gas fees serve two main purposes:
+
+1. **Compensate validators**  
+   Validators spend resources to execute transactions, maintain the network, and provide security. Fees reward them for this work.
+
+2. **Prevent network spam and congestion**  
+   Without a cost to transact, attackers could flood the network with meaningless transactions. Fees create an economic disincentive and help allocate block space.
+
+### What Affects Gas Fees?
+
+- **Network demand**: More users competing for limited block space typically raises the effective price of inclusion.
+- **Transaction complexity**: Interacting with smart contracts (DEX swaps, NFT mints, multi-call transactions) generally consumes more gas than a simple token transfer.
+- **State/storage usage**: Writing to storage costs more than reading, because it increases long-term state size.
+- **Your settings**: Choosing a higher gas price (or higher priority fee) can increase confirmation speed during congestion.
+
+### What Happens If You Set Gas Too Low?
+
+- **Gas limit too low**: The transaction may run out of gas and revert. You’ll usually still pay for the computation that happened before it reverted.
+- **Gas price too low**: Your transaction may sit pending longer or fail to be included promptly, depending on network conditions and mempool policies.
+
+## On Sei Network
+
+Sei is a high-performance Layer 1 with **EVM compatibility**, designed for fast and efficient transaction execution. Gas fees on Sei follow the same general principles—users pay fees to execute transactions and smart contracts—but Sei’s architecture is optimized to reduce congestion and improve user experience.
+
+Key Sei-specific benefits:
+
+- **Parallelization**: Sei can execute many transactions in parallel when they don’t conflict, improving throughput and helping keep fees more predictable under load.
+- **~400ms finality**: Fast finality means transactions settle quickly once included, reducing uncertainty and the need to overpay for speed.
+- **EVM compatibility**: If you’re building Solidity contracts or using Ethereum tooling (wallets, libraries, dev frameworks), you’ll interact with gas concepts in familiar ways, while benefiting from Sei’s performance.
+
+### Estimating Gas on Sei (EVM)
+
+From a developer perspective, you typically:
+
+1. Estimate gas usage for the call.
+2. Fetch current fee data (gas price and/or EIP-1559 style fields if supported by your provider).
+3. Submit the transaction with appropriate limits.
+
+#### TypeScript (ethers.js) example
+
+```typescript
+import { ethers } from 'ethers';
+
+const RPC_URL = process.env.SEI_EVM_RPC!;
+const PRIVATE_KEY = process.env.PRIVATE_KEY!;
+
+async function main() {
+  const provider = new ethers.JsonRpcProvider(RPC_URL);
+  const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
+
+  // Example: send a simple value transfer
+  const to = '0x000000000000000000000000000000000000dEaD';
+  const value = ethers.parseEther('0.01');
+
+  // Estimate gas
+  const gasLimit = await provider.estimateGas({
+    from: wallet.address,
+    to,
+    value
+  });
+
+  // Get fee data (gasPrice or EIP-1559 style fields depending on provider/network)
+  const feeData = await provider.getFeeData();
+
+  const tx = await wallet.sendTransaction({
+    to,
+    value,
+    gasLimit,
+    // Use either gasPrice or EIP-1559 fields based on what's available
+    gasPrice: feeData.gasPrice ?? undefined,
+    maxFeePerGas: feeData.maxFeePerGas ?? undefined,
+    maxPriorityFeePerGas: feeData.maxPriorityFeePerGas ?? undefined
+  });
+
+  console.log('tx hash:', tx.hash);
+  console.log('waiting for confirmation...');
+  const receipt = await tx.wait();
+  console.log('confirmed in block:', receipt?.blockNumber);
+}
+
+main().catch(console.error);
+```
+
+### Checking Gas / Fees via CLI (JSON-RPC)
+
+```bash
+# Get current gas price (legacy style)
+curl -s -X POST "$SEI_EVM_RPC" \
+  -H "Content-Type: application/json" \
+  --data '{"jsonrpc":"2.0","id":1,"method":"eth_gasPrice","params":[]}' | jq
+```
+
+## Practical Tips
+
+- **Estimate first**: Use `estimateGas` to avoid setting gas limits too low.
+- **Avoid overpaying**: During low activity, moderate gas settings are usually sufficient—especially on high-throughput networks like Sei.
+- **Optimize contracts**: Reducing storage writes and unnecessary loops can lower gas usage for users.
+- **Monitor congestion**: If an app is time-sensitive, raise the fee parameters modestly rather than drastically.
+
+## Summary
+
+Gas fees are the mechanism blockchains use to price computation and allocate limited block space: you pay for the resources your transaction consumes. On Sei Network, the same gas model applies in an EVM-compatible way, while Sei’s **parallel execution** and **~400ms finality** help deliver fast confirmations and a smoother fee experience at scale.
+
+## Related Documentation
+
+- [Getting Started](/learn)
+- [Token Standards](/learn/dev-token-standards)
+- [Staking](/learn/general-staking)
+- [Oracles](/learn/oracles)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._

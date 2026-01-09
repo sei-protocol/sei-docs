@@ -1,0 +1,180 @@
+---
+title: 'What is a Cross-chain Bridge and How Does It Work?'
+description: 'Learn about what is cross-chain bridge and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'glossary', 'what', 'cross-chain', 'bridge', 'cross', 'chain', 'and', 'how', 'does', 'work']
+---
+
+import { Callout } from 'nextra/components';
+
+# What is a Cross-chain Bridge and How Does It Work?
+
+## Overview
+
+A cross-chain bridge is a protocol that lets users move tokens and data between separate blockchain networks that don’t natively interoperate. In practical terms, it “translates” value from one chain to another by locking, escrowing, or verifying assets on the source chain and issuing a corresponding representation on the destination chain. If you’re asking **what is cross-chain bridge**, it’s best understood as the infrastructure that enables asset portability and cross-ecosystem apps.
+
+## How It Works
+
+Most bridges follow one of a few common models. The key idea is that because chains have independent consensus, the destination chain needs a trustworthy way to know that something happened on the source chain.
+
+### 1) Lock-and-Mint (Wrapped Assets)
+
+This is the classic “wrapped token” pattern:
+
+1. **Deposit on source chain:** You send tokens to a bridge contract on Chain A.
+2. **Lock/escrow:** The bridge contract locks the tokens so they can’t be spent on Chain A.
+3. **Message/verification:** Relayers/validators (or a light client) prove to Chain B that the deposit happened.
+4. **Mint on destination chain:** A wrapped representation (e.g., `wTOKEN`) is minted to you on Chain B.
+5. **Redeem/burn to return:** To go back, you **burn** wrapped tokens on Chain B, and the bridge **unlocks** the original tokens on Chain A.
+
+**Pros:** Simple mental model; widely used.  
+**Cons:** Wrapped assets add trust and risk: if bridge custody or verification fails, the wrapped token can lose backing.
+
+### 2) Burn-and-Mint (Canonical Bridged Supply)
+
+Some ecosystems treat the bridged version as canonical on multiple chains:
+
+1. Tokens are **burned** (or locked) on Chain A.
+2. Tokens are **minted** on Chain B, often by the same issuer/bridge.
+
+This is common for tokens that are explicitly designed to exist across multiple chains under a single supply control system.
+
+### 3) Liquidity Network (Swap-Based Bridges)
+
+Instead of wrapping, some bridges use liquidity pools or market makers:
+
+1. You deposit on Chain A.
+2. A liquidity provider pays you out on Chain B.
+3. Providers later rebalance inventory across chains.
+
+**Pros:** Often fast; can avoid wrapped assets in some designs.  
+**Cons:** Depends on available liquidity and pricing; can introduce slippage/fees.
+
+### 4) Verification Models (Who “Proves” the Source Chain?)
+
+Bridge security largely depends on how the destination chain verifies source-chain events:
+
+- **Trusted multisig/committee:** A set of signers attests to events. Simple, but trust-heavy.
+- **External validator set:** A dedicated bridge validator network signs messages. Stronger than a small multisig, but still not the full security of the source chain.
+- **Light-client / consensus verification:** The destination chain verifies the source chain’s consensus proofs (most trust-minimized, usually more complex and costly).
+- **Optimistic verification:** Messages are accepted unless challenged within a window; security depends on watchers and dispute mechanisms.
+
+### 5) Fees, Finality, and Reorg Safety
+
+Bridging typically includes:
+
+- **Source chain confirmations/finality wait** to avoid reorgs.
+- **Relayer fees** (paying entities that deliver proofs/messages).
+- **Destination chain gas fees** to execute mint/unlock actions.
+
+The stronger the finality and the faster the block confirmation, the faster and safer bridging can be.
+
+## Security Considerations (Why Bridges Are Hard)
+
+Cross-chain bridges are a frequent target because they often custody large amounts of value and sit between different security domains.
+
+Key risks include:
+
+- **Custody compromise:** If locked funds are controlled by a contract or committee that can be exploited, funds can be stolen.
+- **Verification bugs:** Incorrect proof verification can allow attackers to mint assets without valid deposits.
+- **Replay/message ordering issues:** Messages must be uniquely identified and consumed once.
+- **Admin key risk:** Upgradable contracts and privileged roles can introduce centralization and key compromise risk.
+- **Liquidity risk:** Swap-based bridges can fail if liquidity dries up or markets move sharply.
+
+Best practices:
+
+- Prefer **audited, battle-tested** bridges.
+- Verify **bridge TVL, architecture, and trust assumptions** (multisig vs light-client).
+- Use **rate limits**, **circuit breakers**, and **monitoring** for large transfers.
+- Start with small transfers when using a bridge for the first time.
+
+## On Sei Network
+
+Sei is a high-performance Layer 1 designed for low-latency execution and high throughput, with **EVM compatibility** and a fast user experience enabled by parallelization and ~**400ms finality**. In a bridging context, that means:
+
+- **Faster destination settlement:** Once a bridge message is verified and executed on Sei, the resulting state (mint/unlock) can finalize quickly, improving end-user UX.
+- **High-throughput execution:** Sei’s parallelized execution can help handle high volumes of bridge-related transactions (mints, burns, message processing) efficiently, especially during peak demand.
+- **EVM tooling compatibility:** If a bridge deploys EVM contracts on Sei, developers can use standard Solidity patterns and Ethereum tooling for integration.
+
+### Typical Flow Bridging Into Sei (Conceptual)
+
+1. User deposits tokens on an origin chain bridge contract.
+2. Bridge relayers/verification mechanism generates a message/proof.
+3. The destination bridge contract on **Sei** receives the message.
+4. The contract mints wrapped assets (or releases liquidity) to the user’s Sei address.
+5. With **fast finality**, the user can typically start using bridged assets on Sei shortly after execution.
+
+### Example: ERC-20 Bridge Receiver Pattern (Solidity)
+
+Below is a simplified example of a destination-side bridge contract pattern you may see in EVM environments (including Sei’s EVM). Real bridges add robust proof verification, replay protection, access controls, and often separate messaging layers.
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+interface IMintableERC20 {
+    function mint(address to, uint256 amount) external;
+}
+
+contract SimpleBridgeReceiver {
+    IMintableERC20 public immutable wrappedToken;
+
+    // Tracks processed messages to prevent replay
+    mapping(bytes32 => bool) public processed;
+
+    // In practice, this would be a verified messaging endpoint or bridge verifier.
+    address public immutable verifier;
+
+    constructor(address _wrappedToken, address _verifier) {
+        wrappedToken = IMintableERC20(_wrappedToken);
+        verifier = _verifier;
+    }
+
+    modifier onlyVerifier() {
+        require(msg.sender == verifier, "not verifier");
+        _;
+    }
+
+    // Called after a source-chain deposit is proven/attested.
+    function receiveBridgedTokens(
+        bytes32 messageId,
+        address recipient,
+        uint256 amount
+    ) external onlyVerifier {
+        require(!processed[messageId], "message already processed");
+        processed[messageId] = true;
+
+        wrappedToken.mint(recipient, amount);
+    }
+}
+```
+
+### Example: Reading a Transaction Receipt (TypeScript)
+
+If you’re integrating a bridge UX, you’ll typically wait for the destination-chain transaction to be confirmed/finalized before updating UI state.
+
+```typescript
+import { ethers } from 'ethers';
+
+async function waitForDestinationExecution(provider: ethers.Provider, txHash: string) {
+  const receipt = await provider.waitForTransaction(txHash, 1);
+  if (!receipt || receipt.status !== 1) {
+    throw new Error('Bridge execution failed on destination chain');
+  }
+  return receipt;
+}
+```
+
+## Summary
+
+A cross-chain bridge is the infrastructure that enables assets and messages to move between blockchains by locking/burning on one chain and minting/releasing on another, backed by some verification mechanism. Bridge designs vary (wrapped assets, liquidity-based transfers, light-client verification), and security depends on trust assumptions and correct message validation. On Sei Network, bridging benefits from **fast (~400ms) finality**, **parallelized execution**, and **EVM compatibility**, which together can improve settlement speed and developer integration for cross-chain applications.
+
+## Related Documentation
+
+- [Getting Started](/learn)
+- [Token Standards](/learn/dev-token-standards)
+- [Staking](/learn/general-staking)
+- [Oracles](/learn/oracles)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._

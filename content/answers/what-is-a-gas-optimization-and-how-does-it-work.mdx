@@ -1,0 +1,198 @@
+---
+title: 'What is a Gas Optimization and How Does It Work?'
+description: 'Learn about what is gas optimization and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'glossary', 'what', 'gas', 'optimization', 'and', 'how', 'does', 'work']
+---
+
+import { Callout } from 'nextra/components';
+
+# What is a Gas Optimization and How Does It Work?
+
+## Overview
+
+Gas optimization is the practice of reducing the amount of **gas** (transaction execution cost) required to run operations on a blockchain, typically by making smart contracts and transactions more efficient. In practical terms, it lowers fees for users, increases throughput, and can reduce the likelihood of transactions failing due to running out of gas. If you’re asking **what is gas optimization**, it’s essentially “writing and executing blockchain code in a way that does the same work with fewer computational steps and less storage usage.”
+
+## How It Works
+
+### Gas basics (why costs exist)
+
+Most smart contract platforms meter computation to prevent spam and allocate scarce resources fairly. Each operation (e.g., arithmetic, memory expansion, storage reads/writes, logs) consumes gas. The sender sets a gas limit and (depending on the network) pays fees based on gas used and prevailing pricing rules.
+
+Key drivers of gas cost on EVM-style chains:
+
+- **Storage writes are expensive**: Writing to contract storage (`SSTORE`) costs far more than memory ops because it changes the persistent state that every full node must keep.
+- **Storage reads are also significant**: `SLOAD` has a notable cost, especially compared to stack/memory operations.
+- **Calldata and logs cost gas**: Larger inputs and many events increase gas usage.
+- **Complex control flow and loops**: More executed opcodes means more gas.
+
+### Common gas optimization techniques
+
+Below are widely used approaches in Solidity/EVM development:
+
+#### 1) Minimize storage writes and reads
+
+- Cache storage values in memory for repeated use within a function.
+- Batch updates instead of writing repeatedly.
+- Prefer emitting events for “history” over storing large arrays when feasible.
+
+```solidity
+// Before: repeated SLOADs
+function incrementMany(uint256 n) external {
+    for (uint256 i = 0; i < n; i++) {
+        counter += 1;
+    }
+}
+
+// After: cache in memory, write once
+function incrementMany(uint256 n) external {
+    uint256 c = counter;
+    for (uint256 i = 0; i < n; i++) {
+        unchecked { c += 1; }
+    }
+    counter = c; // single SSTORE
+}
+```
+
+#### 2) Use appropriate data types and packing
+
+- Pack multiple smaller variables into a single 32-byte storage slot when possible (e.g., `uint128`, `uint64`, `bool`), and order them to pack efficiently.
+
+```solidity
+// Efficient packing (fits in one slot if ordered correctly)
+struct Position {
+    uint128 size;
+    uint64  entryPrice;
+    bool    isLong;
+    // 7 bytes padding (still within a single 32-byte slot overall)
+}
+```
+
+#### 3) Prefer `calldata` for external read-only inputs
+
+For external functions, `calldata` avoids copying into memory.
+
+```solidity
+function setList(address[] calldata addrs) external {
+    // iterate over calldata without copying to memory
+}
+```
+
+#### 4) Avoid unnecessary work in loops
+
+- Reduce loop iterations.
+- Use mappings instead of arrays for membership tests.
+- Precompute constants and reuse computed values.
+
+#### 5) Use `unchecked` for safe arithmetic in controlled cases
+
+Solidity 0.8+ adds overflow checks. If you can prove safety (e.g., loop counters), `unchecked` saves gas.
+
+```solidity
+for (uint256 i = 0; i < n; ) {
+    // ...
+    unchecked { ++i; }
+}
+```
+
+#### 6) Custom errors instead of revert strings
+
+Custom errors reduce deployment and revert costs.
+
+```solidity
+error NotAuthorized();
+
+function adminOnly() external {
+    if (msg.sender != owner) revert NotAuthorized();
+}
+```
+
+#### 7) Be mindful of events and revert data
+
+Events are cheaper than storage for logging, but still cost gas. Large revert strings and excessive event data increase costs.
+
+### Measuring gas usage
+
+Gas optimization should be evidence-based. Typical workflows:
+
+- Use a local test runner to compare gas before/after changes.
+- Benchmark hot paths (functions called frequently).
+- Ensure changes do not sacrifice correctness or security.
+
+Example with Foundry:
+
+```bash
+forge test --gas-report
+```
+
+## On Sei Network
+
+Sei is a high-performance Layer 1 with **EVM compatibility**, enabling Solidity developers to apply the same gas optimization principles used on Ethereum-like environments. Gas optimization on Sei matters because:
+
+- **Lower gas usage reduces fees** for users and improves UX for high-frequency applications (e.g., trading, games, consumer apps).
+- Sei’s **parallelization** can execute many transactions concurrently when they don’t contend for the same state, improving throughput; optimized contracts that reduce unnecessary state contention can benefit more from parallel execution.
+- Sei’s fast time-to-finality (often cited around **~400ms finality**) means well-optimized transactions can contribute to smoother real-time interactions—especially for apps that submit transactions frequently.
+
+### Practical considerations for Sei EVM developers
+
+1. **Reduce shared-state contention**
+   Parallel execution is most effective when transactions touch different parts of state. Design patterns that help:
+
+- Favor per-user storage (e.g., `mapping(address => ...)`) over globally updated counters or arrays.
+- Batch operations in ways that avoid repeatedly writing to the same global variables.
+- Use events for analytics rather than updating global aggregates on-chain.
+
+2. **Optimize the “hot path”**
+   On high-throughput chains, small savings per call can compound. Focus on:
+
+- Core trading/order functions
+- Token transfers/settlements
+- Repeated actions in games and social apps
+
+3. **Keep deployment size in check**
+   Contract size impacts deployment cost and sometimes call overhead. Use libraries carefully, remove unused code, and prefer simpler patterns where possible.
+
+### Example: Cache storage and reduce contention
+
+Instead of incrementing a single global value (high contention), consider per-user stats:
+
+```solidity
+mapping(address => uint256) public userPoints;
+
+function addPoints(uint256 points) external {
+    // Mostly isolated per user, improving parallelizability
+    userPoints[msg.sender] += points;
+}
+```
+
+### Tooling example: estimating gas with ethers.js
+
+You can estimate gas for a transaction on Sei EVM similarly to other EVM chains:
+
+```typescript
+import { ethers } from 'ethers';
+
+const provider = new ethers.JsonRpcProvider(process.env.SEI_EVM_RPC_URL);
+const wallet = new ethers.Wallet(process.env.PRIVATE_KEY!, provider);
+
+const contract = new ethers.Contract('0xYourContract', ['function addPoints(uint256 points)'], wallet);
+
+const gas = await contract.addPoints.estimateGas(123n);
+console.log('Estimated gas:', gas.toString());
+```
+
+## Key Takeaways
+
+- **What is gas optimization?** It’s reducing the computational and storage cost of transactions and smart contract execution while preserving correct behavior.
+- The biggest wins usually come from **minimizing storage writes**, **reducing redundant reads**, **efficient data packing**, and **simplifying hot paths**.
+- On **Sei Network**, gas optimization complements Sei’s **EVM compatibility** and can pair well with Sei’s **parallel execution** and fast finality to deliver lower fees and more responsive applications.
+
+## Related Documentation
+
+- [Getting Started](/learn)
+- [Token Standards](/learn/dev-token-standards)
+- [Staking](/learn/general-staking)
+- [Oracles](/learn/oracles)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._

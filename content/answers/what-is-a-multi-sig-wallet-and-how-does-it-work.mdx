@@ -1,0 +1,188 @@
+---
+title: 'What is a Multi-sig Wallet and How Does It Work?'
+description: 'Learn about what is multi-sig wallet and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'glossary', 'what', 'multi-sig', 'wallet', 'multi', 'sig', 'and', 'how', 'does', 'work']
+---
+
+import { Callout } from 'nextra/components';
+
+# What is a Multi-sig Wallet and How Does It Work?
+
+## Overview
+
+A multi-sig wallet (multi-signature wallet) is a cryptocurrency wallet that requires **two or more approvals (signatures)** to authorize a transaction instead of a single private key. In other words, control of funds is shared across multiple keys, reducing the risk that one compromised device or person can move assets unilaterally.
+
+If you’re searching **what is multi-sig wallet**, it’s best understood as a wallet governed by an **M-of-N rule** (e.g., 2-of-3), commonly used by teams, treasuries, and security-conscious individuals.
+
+## How It Works
+
+### Multi-sig basics (M-of-N)
+
+Multi-sig policies are usually expressed as:
+
+- **N** = total number of authorized signers (keys)
+- **M** = minimum number of signatures required to execute a transaction
+
+Examples:
+
+- **2-of-3**: any 2 of the 3 signers can approve a transaction (common for small teams)
+- **3-of-5**: 3 out of 5 signers must approve (common for DAOs/treasuries)
+- **1-of-2**: either signer can approve (less common; more for redundancy than security)
+
+### What happens during a transaction
+
+1. **Transaction is proposed** (recipient, amount, calldata, etc.).
+2. **Signers review** the transaction details.
+3. **Each signer signs** the transaction (or signs an approval message).
+4. Once **M signatures are collected**, the wallet **executes** the transaction on-chain.
+
+### Key benefits
+
+- **Reduced single point of failure**: one compromised key doesn’t automatically mean stolen funds.
+- **Shared custody / governance**: decisions can require multiple stakeholders.
+- **Operational controls**: can implement approvals, spending limits, and role-based access (depending on the wallet design).
+
+### Common implementations in blockchain systems
+
+Multi-sig can be implemented in two main ways:
+
+- **Protocol-level (UTXO-style scripts)**: Some blockchains support multi-sig directly in transaction scripts.
+- **Smart contract-based (account model)**: On EVM chains, multi-sig is typically a **smart contract wallet** that validates multiple signatures and then performs calls/transfers.
+
+## On Sei Network
+
+Sei is a high-performance Layer 1 with **EVM compatibility**, enabling standard smart contract multi-sig patterns used across Ethereum tooling—while benefiting from Sei’s **parallelized execution** and **~400ms finality** for fast confirmation of approvals and executions.
+
+### What multi-sig looks like on Sei
+
+Because Sei supports the EVM, a multi-sig wallet is usually:
+
+- A **smart contract** deployed on Sei EVM
+- Controlled by a set of signer addresses
+- Enforcing an **M-of-N** threshold for approvals
+- Executing transactions as contract calls once enough signatures are collected
+
+Parallelization can help high-throughput applications (like exchanges, games, and on-chain treasuries with many operations) by allowing independent transactions to be processed efficiently, while fast finality makes the “collect signatures → execute” loop feel responsive.
+
+### Developer workflow (EVM multi-sig pattern)
+
+A typical pattern is:
+
+- Off-chain: collect signatures from owners over a transaction hash (EIP-712 typed data is common)
+- On-chain: the multi-sig contract verifies signatures and executes the requested call
+
+Below is an illustrative (simplified) Solidity example showing the core idea. Production wallets add nonce management, replay protection, module systems, and richer access control.
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+
+contract SimpleMultisig {
+    using ECDSA for bytes32;
+
+    mapping(address => bool) public isOwner;
+    uint256 public threshold;
+    uint256 public nonce;
+
+    event Executed(address indexed to, uint256 value, bytes data);
+
+    constructor(address[] memory owners, uint256 _threshold) {
+        require(owners.length > 0, "no owners");
+        require(_threshold > 0 && _threshold <= owners.length, "bad threshold");
+
+        for (uint256 i = 0; i < owners.length; i++) {
+            require(owners[i] != address(0), "zero owner");
+            require(!isOwner[owners[i]], "duplicate owner");
+            isOwner[owners[i]] = true;
+        }
+        threshold = _threshold;
+    }
+
+    function getTxHash(address to, uint256 value, bytes calldata data, uint256 _nonce)
+        public
+        view
+        returns (bytes32)
+    {
+        return keccak256(abi.encode(block.chainid, address(this), to, value, keccak256(data), _nonce));
+    }
+
+    function execute(
+        address to,
+        uint256 value,
+        bytes calldata data,
+        bytes[] calldata signatures
+    ) external returns (bytes memory result) {
+        bytes32 txHash = getTxHash(to, value, data, nonce).toEthSignedMessageHash();
+
+        require(signatures.length >= threshold, "not enough sigs");
+
+        // Verify signatures are from distinct owners (naive O(n^2) approach for demo)
+        address[] memory seen = new address[](signatures.length);
+        for (uint256 i = 0; i < signatures.length; i++) {
+            address signer = txHash.recover(signatures[i]);
+            require(isOwner[signer], "not owner");
+
+            for (uint256 j = 0; j < i; j++) require(seen[j] != signer, "duplicate sig");
+            seen[i] = signer;
+        }
+
+        nonce++;
+
+        (bool ok, bytes memory res) = to.call{value: value}(data);
+        require(ok, "call failed");
+
+        emit Executed(to, value, data);
+        return res;
+    }
+
+    receive() external payable {}
+}
+```
+
+### Deploying and interacting on Sei (example)
+
+Using Foundry against Sei EVM (replace RPC with your target network endpoint):
+
+```bash
+# Set your Sei EVM RPC endpoint
+export SEI_EVM_RPC="https://<sei-evm-rpc>"
+
+# Deploy (example)
+forge create \
+  --rpc-url "$SEI_EVM_RPC" \
+  --private-key "$DEPLOYER_PRIVATE_KEY" \
+  src/SimpleMultisig.sol:SimpleMultisig \
+  --constructor-args '["0xOwner1...","0xOwner2...","0xOwner3..."]' 2
+```
+
+## Common Use Cases
+
+- **DAO or protocol treasury management**: require multiple core contributors to approve spending.
+- **Team funds and operations**: avoid reliance on one person/device.
+- **Custody hardening**: distribute keys across hardware wallets, locations, or trusted parties.
+- **Cross-functional approvals**: finance + security + engineering all sign off for critical actions.
+
+## Security Considerations & Best Practices
+
+- Use a **reputable, audited multi-sig implementation** (especially for large treasuries).
+- Ensure **nonce/replay protection** and **chainId/domain separation** for signatures.
+- Choose an appropriate threshold (e.g., **2-of-3** balances resilience and availability).
+- Plan for **key loss and signer rotation** (add/remove owners securely).
+- Keep signers on **hardware wallets** and use operational procedures (transaction reviews, allowlists, spending limits).
+
+## Summary
+
+A multi-sig wallet is a wallet that requires **multiple signatures** to move funds, typically defined by an **M-of-N** approval threshold. In EVM systems, it is most often implemented as a **smart contract wallet** that verifies multiple signatures before executing transactions. On **Sei Network**, multi-sig wallets work like other EVM chains but benefit from Sei’s **parallelization** and **~400ms finality**, making multi-party approvals and execution fast and practical for high-throughput applications.
+
+## Related Documentation
+
+- [Getting Started](/learn)
+- [Token Standards](/learn/dev-token-standards)
+- [Staking](/learn/general-staking)
+- [Oracles](/learn/oracles)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._
