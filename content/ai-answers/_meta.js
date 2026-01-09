@@ -2,7 +2,7 @@ export default {
 	'*': {
 		display: 'hidden',
 		theme: {
-			sidebar: false,
+			sidebar: true,
 			toc: true,
 			breadcrumb: false,
 			pagination: false

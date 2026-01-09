@@ -25,9 +25,9 @@
  *     OPENAI_API_KEY   - OpenAI/ChatGPT (paid)
  *     ANTHROPIC_API_KEY - Claude (paid)
  *
- * The script reads questions from content/answers/pseocontent.csv by default
+ * The script reads questions from scripts/pseocontent.csv by default
  * (falls back to src/data/seed-questions.json) and generates MDX files in
- * content/answers/ that are:
+ * content/ai-answers/ that are:
  *   - Hidden from navigation (via _meta.js)
  *   - Accessible via direct URL
  *   - Included in sitemap for SEO
@@ -39,7 +39,7 @@ const path = require('path');
 const OpenAI = require('openai');
 
 const SEED_QUESTIONS_PATH = path.join(__dirname, '../src/data/seed-questions.json');
-const ANSWERS_DIR = path.join(__dirname, '../content/answers');
+const ANSWERS_DIR = path.join(__dirname, '../content/ai-answers');
 const DEFAULT_CSV_PATH = path.join(__dirname, './pseocontent.csv');
 const DEFAULT_CONCURRENCY = 5;
 
@@ -59,10 +59,6 @@ const CATEGORY_DOCS = {
 	node: [
 		{ title: 'Node Operations', href: '/node' },
 		{ title: 'Validators', href: '/node/validators' }
-	],
-	'cosmos-sdk': [
-		{ title: 'Cosmos SDK', href: '/cosmos-sdk' },
-		{ title: 'Transactions', href: '/cosmos-sdk/transactions' }
 	],
 	glossary: [
 		{ title: 'Getting Started', href: '/learn' },
@@ -86,10 +82,6 @@ const KEYWORD_CATEGORIES = {
 	node: 'node',
 	'validator set': 'node',
 	'validator commission': 'node',
-	// Cosmos
-	ibc: 'cosmos-sdk',
-	cosmos: 'cosmos-sdk',
-	'interchain security': 'cosmos-sdk',
 	// Default to glossary for general blockchain terms
 	default: 'glossary'
 };
@@ -481,7 +473,7 @@ async function main() {
 	console.log(`   Concurrency: ${concurrency}`);
 	console.log(`   Dry run: ${dryRun}`);
 	console.log(`   Force regenerate: ${force}`);
-	console.log(`   Source: ${csvPath || 'content/answers/pseocontent.csv (default)'}`);
+	console.log(`   Source: ${csvPath || 'scripts/pseocontent.csv (default)'}`);
 	if (specificId) console.log(`   Specific ID: ${specificId}`);
 	if (priorityFilter) console.log(`   Priority filter: ${priorityFilter}`);
 	if (categoryFilter) console.log(`   Category filter: ${categoryFilter}`);
@@ -513,7 +505,7 @@ async function main() {
 		questions = seedData.questions;
 		console.log(`📄 Loaded ${questions.length} questions from JSON\n`);
 	} else {
-		console.error('❌ No question source found. Create content/answers/pseocontent.csv or src/data/seed-questions.json');
+		console.error('❌ No question source found. Create scripts/pseocontent.csv or src/data/seed-questions.json');
 		process.exit(1);
 	}
 
