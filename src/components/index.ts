@@ -1,5 +1,3 @@
-export * from './APIModule';
-export * from './APIModulePaths';
 export * from './AppCard';
 export * from './ChainInformation';
 export * from './CopyButton';
