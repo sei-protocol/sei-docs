@@ -1,0 +1,205 @@
+---
+title: 'What is a Composability and How Does It Work?'
+description: 'Learn about what is composability and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'glossary', 'what', 'composability']
+---
+
+import { Callout } from 'nextra/components';
+
+export const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'FAQPage',
+      mainEntity: [
+        {
+          '@type': 'Question',
+          name: 'What is a Composability and How Does It Work?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'Composability is a blockchain design property that lets independent applications, smart contracts, and protocols seamlessly interact and be combined like “building blocks” to create more complex workflows. It enables developers to reuse existing onchain components (DEXs, lending markets, NFT marketplaces, oracle feeds, etc.) instead of rebuilding them from scratch. In practice, composability is what makes it possible for a single user action to trigger coordinated behavior across multiple protoc'
+          }
+        }
+      ]
+    },
+    {
+      '@type': 'TechArticle',
+      headline: 'What is a Composability and How Does It Work?',
+      description: 'Learn about what is composability and how it works in blockchain and on Sei Network.',
+      author: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      publisher: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      about: {
+        '@type': 'Thing',
+        name: 'what is composability'
+      },
+      articleSection: 'glossary',
+      inLanguage: 'en'
+    }
+  ]
+};
+
+<head>
+  <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+</head>
+
+# What is a Composability and How Does It Work?
+
+<Callout type="info" emoji="🤖">
+  This content was generated with the assistance of AI and is intended for informational purposes only. Please verify all information independently before making decisions based on this content.
+</Callout>
+
+## Overview
+
+Composability is a blockchain design property that lets independent applications, smart contracts, and protocols seamlessly interact and be combined like “building blocks” to create more complex workflows. It enables developers to reuse existing onchain components (DEXs, lending markets, NFT marketplaces, oracle feeds, etc.) instead of rebuilding them from scratch. In practice, composability is what makes it possible for a single user action to trigger coordinated behavior across multiple protocols.
+
+## How It Works
+
+### Smart contracts as interoperable modules
+
+On smart contract platforms, composability arises because contracts are:
+
+- **Publicly accessible** (any contract can call another contract, subject to permissions)
+- **Stateful** (each contract maintains onchain state that others can read)
+- **Programmatically invocable** (contracts expose functions via ABIs/interfaces)
+
+A “composed” application typically acts as an **orchestrator**:
+
+1. It receives a user call.
+2. It calls one or more external contracts (e.g., swap, deposit, borrow).
+3. It validates outputs and enforces invariants (slippage limits, collateral ratios, access control).
+4. It completes the workflow and updates state.
+
+### Atomic composability (single-transaction)
+
+The strongest form is **atomic composability**, where multiple protocol interactions happen in a single transaction and either:
+
+- **All succeed**, or
+- **All revert** (no partial state changes)
+
+This atomicity is crucial for safety and UX: users can execute multi-step strategies (swap → add liquidity → stake) without risking getting stuck halfway if one step fails.
+
+### Synchronous vs. asynchronous composability
+
+- **Synchronous composability**: contract-to-contract calls occur within the same transaction (common on EVM chains).
+- **Asynchronous composability**: workflows span multiple transactions or messages (common in cross-chain scenarios), often requiring callbacks, message proofs, and additional failure handling.
+
+### Common composability patterns
+
+- **Router/Aggregator**: chooses best execution across multiple venues (DEX aggregators).
+- **Adapters**: unify different protocol interfaces behind a common API.
+- **Hooks/Callbacks**: allow protocols to run custom logic before/after a core action.
+- **Flash liquidity**: borrow and repay within one transaction to perform arbitrage, refinancing, or collateral swaps.
+
+### Key risks and design considerations
+
+- **Reentrancy & callback hazards**: external calls can re-enter your contract unless guarded.
+- **Slippage/MEV**: composing swaps and price-sensitive actions can be exploited without protections.
+- **Dependency risk**: upstream protocol bugs or upgrades can affect your application.
+- **Gas and complexity**: more composed calls generally mean higher cost and more failure modes.
+
+## On Sei Network
+
+Sei supports composability through **EVM compatibility** (Sei EVM), enabling Solidity smart contracts to interact using standard Ethereum tooling, interfaces, and patterns. This means common composable primitives—DEX routers, lending integrations, vault strategies, NFT marketplaces—can be built and combined with familiar EVM semantics such as atomic transactions and contract-to-contract calls.
+
+Sei is designed for performance with **parallelization** and **~400ms finality**, which can improve the user experience of composed workflows:
+
+- **Faster confirmation** reduces latency for multi-step onchain actions (e.g., swap + stake) and time-sensitive strategies.
+- **Parallel execution** can increase throughput for independent transactions, helping high-demand ecosystems where many users are composing protocols simultaneously.
+
+> Note: While a single transaction remains atomic, overall ecosystem scalability benefits when the chain can process many independent composed transactions efficiently.
+
+## Example: Composing a Swap + Deposit (Solidity)
+
+Below is a simplified example of a contract that composes two protocols:
+
+1. swaps tokens via a DEX router
+2. deposits the output into a vault
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+interface IERC20 {
+    function approve(address spender, uint256 amount) external returns (bool);
+    function transferFrom(address from, address to, uint256 amount) external returns (bool);
+    function balanceOf(address a) external view returns (uint256);
+}
+
+interface IRouter {
+    function swapExactTokensForTokens(
+        uint256 amountIn,
+        uint256 amountOutMin,
+        address[] calldata path,
+        address to
+    ) external returns (uint256 amountOut);
+}
+
+interface IVault {
+    function deposit(uint256 amount, address recipient) external returns (uint256 shares);
+}
+
+contract SwapAndDeposit {
+    IRouter public immutable router;
+    IVault public immutable vault;
+
+    constructor(address _router, address _vault) {
+        router = IRouter(_router);
+        vault = IVault(_vault);
+    }
+
+    /// @notice Atomically swap tokenIn -> tokenOut, then deposit tokenOut into a vault.
+    function swapThenDeposit(
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn,
+        uint256 minOut,
+        address[] calldata path
+    ) external returns (uint256 shares) {
+        // Pull tokenIn from user
+        require(IERC20(tokenIn).transferFrom(msg.sender, address(this), amountIn), "transferFrom failed");
+
+        // Approve router to spend tokenIn
+        require(IERC20(tokenIn).approve(address(router), amountIn), "approve router failed");
+
+        // Swap; receive tokenOut in this contract
+        uint256 amountOut = router.swapExactTokensForTokens(amountIn, minOut, path, address(this));
+
+        // Approve vault to spend tokenOut
+        require(IERC20(tokenOut).approve(address(vault), amountOut), "approve vault failed");
+
+        // Deposit to vault for the user
+        shares = vault.deposit(amountOut, msg.sender);
+    }
+}
+```
+
+### Why this demonstrates composability
+
+- The contract **reuses existing protocols** (router + vault) without implementing swap logic or vault accounting itself.
+- The entire sequence is **atomic**: if the swap fails or the deposit fails, the transaction reverts.
+
+## Practical Tips for Building Composable Apps on Sei
+
+- Prefer **audited interfaces and well-known patterns** (routers, adapters, ERC-20 safety checks).
+- Use **slippage limits** (`amountOutMin`) and consider MEV-aware designs for price-sensitive steps.
+- Add **reentrancy protection** when interacting with external contracts.
+- Keep integrations modular so you can swap components (multiple DEXs/vaults) without rewriting core logic.
+
+## Related Documentation
+
+- [Getting Started](/learn)
+- [Token Standards](/learn/dev-token-standards)
+- [Staking](/learn/general-staking)
+- [Oracles](/learn/oracles)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._
