@@ -27,6 +27,7 @@ export default {
 		title: 'Sei Global Wallet'
 	},
 	'building-a-frontend': 'Building a Frontend',
+	'in-app-swaps': 'In-App Swaps',
 
 	'-- Smart Contracts': {
 		type: 'separator',
