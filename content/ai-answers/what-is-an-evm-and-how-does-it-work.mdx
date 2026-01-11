@@ -1,152 +1,168 @@
 ---
 title: 'What is an EVM and How Does It Work?'
 description: 'Learn about what is EVM and how it works in blockchain and on Sei Network.'
-keywords: ['sei', 'blockchain', 'evm', 'what', 'EVM', 'evm', 'and', 'how', 'does', 'work']
+keywords: ['sei', 'blockchain', 'evm', 'what']
 ---
 
 import { Callout } from 'nextra/components';
 
+export const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'FAQPage',
+      mainEntity: [
+        {
+          '@type': 'Question',
+          name: 'What is an EVM and How Does It Work?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'The Ethereum Virtual Machine (EVM) is the execution environment that runs smart contract code and processes transactions on EVM-compatible blockchains. It defines a standardized set of rules—bytecode format, opcodes, gas accounting, and state transitions—so the same contract can execute deterministically across all nodes. In practice, the EVM is what makes Ethereum-style smart contracts portable across many networks.'
+          }
+        }
+      ]
+    },
+    {
+      '@type': 'TechArticle',
+      headline: 'What is an EVM and How Does It Work?',
+      description: 'Learn about what is EVM and how it works in blockchain and on Sei Network.',
+      author: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      publisher: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      about: {
+        '@type': 'Thing',
+        name: 'what is EVM'
+      },
+      articleSection: 'evm',
+      inLanguage: 'en'
+    }
+  ]
+};
+
+<head>
+  <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+</head>
+
 # What is an EVM and How Does It Work?
+
+<Callout type="info" emoji="🤖">
+  This content was generated with the assistance of AI and is intended for informational purposes only. Please verify all information independently before making decisions based on this content.
+</Callout>
 
 ## Overview
 
-An **EVM (Ethereum Virtual Machine)** is the runtime environment that executes smart contracts and processes state changes on Ethereum and other EVM-compatible blockchains. When people ask **“what is EVM”**, they’re referring to the standardized virtual machine that interprets contract bytecode, enforces deterministic execution, and charges **gas** for computation to prevent abuse.
+The Ethereum Virtual Machine (EVM) is the execution environment that runs smart contract code and processes transactions on EVM-compatible blockchains. It defines a standardized set of rules—bytecode format, opcodes, gas accounting, and state transitions—so the same contract can execute deterministically across all nodes. In practice, the EVM is what makes Ethereum-style smart contracts portable across many networks.
 
 ## How It Works
 
-### 1) Smart contracts compile to bytecode
+### Deterministic execution and state
 
-Developers write contracts in high-level languages (most commonly Solidity). The code is compiled into **EVM bytecode**, a low-level instruction set that the EVM can execute.
+Blockchains must produce the same result on every node. The EVM enforces deterministic computation: given the same inputs (transaction data, current state), every node computes the same outputs (state updates, logs, return values). The EVM reads and writes to a global state that includes:
+
+- **Account state**: balances, nonces, and contract code for contract accounts
+- **Contract storage**: persistent key–value storage (32-byte slots)
+- **Memory**: temporary, per-execution, byte-addressed memory
+- **Stack**: a last-in-first-out stack used by EVM opcodes (up to 1024 items)
+
+### Smart contracts: from Solidity to bytecode
+
+Most contracts are written in a high-level language like Solidity, then compiled into **EVM bytecode**. Nodes execute this bytecode using the EVM instruction set (opcodes like `SSTORE`, `CALL`, `LOGn`, etc.).
+
+**Example: a simple Solidity contract**
 
 ```solidity
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
 contract Counter {
-    uint256 public value;
+    uint256 public number;
 
-    function inc() external {
-        value += 1;
+    function increment() external {
+        number += 1;
     }
 }
 ```
 
-When deployed, the contract’s bytecode is stored on-chain, and every node can execute the same code to verify results.
+- `number` is stored in contract **storage**
+- `increment()` translates into EVM opcodes that load the value, add 1, and persist it back to storage
 
-### 2) The EVM is deterministic
+### Transactions, message calls, and contract creation
 
-The EVM is designed so that every validator/node, given the same:
+EVM execution happens through:
 
-- starting state,
-- transaction input (calldata),
-- and block context (e.g., block number, timestamp),
+- **External transactions** (signed by users/EOAs): can transfer value and/or call a contract
+- **Internal calls** (message calls): contract-to-contract interactions using `CALL`, `DELEGATECALL`, etc.
+- **Contract creation**: deploying a contract runs _creation bytecode_ and stores the resulting runtime bytecode on-chain
 
-will compute the **same output state**. This determinism is essential for consensus.
+### Gas: metering computation and preventing abuse
 
-### 3) Transactions trigger execution
+The EVM uses **gas** to price computation and storage:
 
-Users don’t “run” contracts directly; they submit a **transaction** that calls a contract function. The EVM executes the function by:
+- Every opcode has a gas cost (e.g., storage writes are expensive)
+- A transaction includes a **gas limit**
+- If execution runs out of gas, state changes revert, but gas is still consumed
+- This prevents infinite loops and allocates scarce block resources
 
-- loading calldata,
-- reading/writing state (storage),
-- emitting logs/events,
-- returning data or reverting on failure.
+### Logs and events
 
-### 4) Gas metering prevents resource abuse
+Contracts can emit **events** (logs) that are cheap to index and query off-chain. Logs are not part of contract storage, but they’re included in transaction receipts and are essential for building dApps (indexers, analytics, UIs).
 
-Each EVM opcode has a defined **gas cost**. The sender specifies:
+### Reverts and error handling
 
-- `gasLimit` (maximum units of gas they’re willing to spend),
-- `maxFeePerGas` / `maxPriorityFeePerGas` (fee pricing, on EIP-1559 style networks).
-
-If execution consumes more gas than the limit, the transaction **reverts**, but gas spent up to that point is still paid (except for certain refunds).
-
-### 5) EVM state model: stack, memory, storage
-
-The EVM uses three main data areas:
-
-- **Stack**: a simple LIFO structure used by opcodes (fast, temporary).
-- **Memory**: temporary byte-addressable data for the duration of a call.
-- **Storage**: persistent key-value storage associated with each contract (expensive to write).
-
-This model is why storage writes cost more gas than computation or memory use.
-
-### 6) Calls, contract creation, and reverts
-
-The EVM supports:
-
-- **CALL/DELEGATECALL/STATICCALL**: invoking other contracts (with different context rules).
-- **CREATE/CREATE2**: deploying new contracts.
-- **REVERT**: aborting changes while returning an error payload (commonly used by Solidity).
-
-### 7) Receipts, logs, and indexing
-
-Contracts can emit **events** (logs). Logs aren’t part of contract storage, but they are included in transaction receipts and are efficiently searchable by off-chain indexers and apps.
+EVM supports reverting execution with `REVERT` (and `require`/`revert` in Solidity). A revert rolls back state changes from the current call frame and returns error data.
 
 ## On Sei Network
 
-Sei is an **EVM-compatible Layer 1**, meaning it can execute EVM bytecode and support common Ethereum tooling while benefiting from Sei’s performance characteristics.
+Sei is a high-performance Layer 1 that supports **EVM compatibility**, allowing Solidity contracts and Ethereum tooling to run with minimal changes. That means developers can deploy familiar contracts and use standard libraries and workflows while benefiting from Sei’s performance characteristics.
 
-### EVM compatibility on Sei
+Key implications on Sei:
 
-On Sei, “what is EVM” effectively means the same execution environment developers already know:
+- **EVM compatibility**: You can use Solidity, EVM bytecode, and common tools (e.g., Foundry/Hardhat-style workflows) to build and deploy contracts to Sei’s EVM environment.
+- **High throughput via parallelization**: Sei is designed to parallelize transaction processing where possible, which can increase throughput for workloads with non-overlapping state access.
+- **Fast finality (~400ms)**: Transactions reach finality quickly, improving UX for trading, gaming, and other latency-sensitive apps.
 
-- Write Solidity contracts
-- Compile to EVM bytecode
-- Deploy and interact using standard tools (e.g., Foundry/Hardhat, ethers.js)
+### Deploying and interacting (example workflow)
 
-This allows many Ethereum-native contracts and libraries to be reused with minimal changes.
-
-### High-performance execution characteristics
-
-Sei’s architecture is designed for high throughput and fast confirmation, which impacts the developer and user experience:
-
-- **Parallelization**: Sei is built to process many independent transactions concurrently, increasing throughput when transactions don’t contend for the same state.
-- **~400ms finality**: Transactions reach finality quickly, enabling responsive on-chain apps and better UX for trading, gaming, and real-time applications.
-
-### Tooling example (ethers.js)
-
-Below is a simple example of calling a deployed contract on an EVM-compatible chain like Sei.
-
-```typescript
-import { ethers } from 'ethers';
-
-const RPC_URL = 'https://YOUR_SEI_EVM_RPC';
-const provider = new ethers.JsonRpcProvider(RPC_URL);
-
-const CONTRACT_ADDRESS = '0xYourContractAddress';
-const ABI = ['function value() view returns (uint256)', 'function inc()'];
-
-async function main() {
-  const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
-
-  const v = await contract.value();
-  console.log('value =', v.toString());
-}
-
-main().catch(console.error);
-```
-
-### Developer workflow (deploy with Foundry)
-
-A typical workflow to deploy an EVM contract to Sei is the same pattern used on Ethereum—compile, broadcast a transaction, and verify behavior.
+**Compile and deploy using Foundry (illustrative)**
 
 ```bash
-# Build
+# Compile
 forge build
 
-# Deploy (example; configure RPC and private key securely)
+# Deploy (replace RPC URL and private key)
 forge create \
-  --rpc-url https://YOUR_SEI_EVM_RPC \
+  --rpc-url https://<sei-evm-rpc-endpoint> \
   --private-key $PRIVATE_KEY \
   src/Counter.sol:Counter
 ```
 
-## Key Takeaways
+**Interact with the contract**
 
-- **What is EVM?** A deterministic virtual machine that executes smart contract bytecode with gas metering and a standardized state model.
-- The EVM enables **portable smart contracts** across many networks that implement EVM semantics.
-- **On Sei Network**, EVM compatibility plus **parallelization** and **~400ms finality** can deliver faster confirmations and higher throughput while preserving familiar Ethereum development patterns.
+```bash
+# Call a view function
+cast call <CONTRACT_ADDRESS> "number()(uint256)" --rpc-url https://<sei-evm-rpc-endpoint>
+
+# Send a transaction
+cast send <CONTRACT_ADDRESS> "increment()" \
+  --private-key $PRIVATE_KEY \
+  --rpc-url https://<sei-evm-rpc-endpoint>
+```
+
+### What stays the same vs. what changes
+
+- **Same**: Solidity contracts, ABI encoding, EVM opcodes, gas-based execution model, event/log semantics, and most Ethereum developer patterns.
+- **Different**: Network-level performance characteristics (parallelization and fast finality) can change how quickly state updates are confirmed and how applications design around latency and throughput.
+
+## Summary
+
+The EVM is a deterministic, gas-metered virtual machine that executes smart contract bytecode and updates blockchain state in a verifiable way. It standardizes how contracts are deployed, called, and charged for computation. On Sei Network, EVM compatibility lets developers reuse Ethereum contracts and tooling while taking advantage of Sei’s parallelized execution and ~400ms finality for high-performance applications.
 
 ## Related Documentation
 

@@ -1,8 +1,7 @@
 export default {
 	'*': {
-		display: 'hidden',
 		theme: {
-			sidebar: true,
+			sidebar: false,
 			toc: true,
 			breadcrumb: false,
 			pagination: false

@@ -1,158 +1,166 @@
 ---
 title: 'What is a Chain Reorg and How Does It Work?'
 description: 'Learn about what is chain reorg and how it works in blockchain and on Sei Network.'
-keywords: ['sei', 'blockchain', 'glossary', 'what', 'chain', 'reorg', 'and', 'how', 'does', 'work']
+keywords: ['sei', 'blockchain', 'glossary', 'what', 'chain', 'reorg']
 ---
 
 import { Callout } from 'nextra/components';
 
+export const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'FAQPage',
+      mainEntity: [
+        {
+          '@type': 'Question',
+          name: 'What is a Chain Reorg and How Does It Work?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'A chain reorg (chain reorganization) occurs when a blockchain replaces one set of recent blocks with an alternative set, typically because the network learns about a longer or more “heaviest” valid chain. This can temporarily “undo” transactions that were included in the replaced blocks until they are included again on the new canonical chain.'
+          }
+        }
+      ]
+    },
+    {
+      '@type': 'TechArticle',
+      headline: 'What is a Chain Reorg and How Does It Work?',
+      description: 'Learn about what is chain reorg and how it works in blockchain and on Sei Network.',
+      author: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      publisher: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      about: {
+        '@type': 'Thing',
+        name: 'what is chain reorg'
+      },
+      articleSection: 'glossary',
+      inLanguage: 'en'
+    }
+  ]
+};
+
+<head>
+  <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+</head>
+
 # What is a Chain Reorg and How Does It Work?
+
+<Callout type="info" emoji="🤖">
+  This content was generated with the assistance of AI and is intended for informational purposes only. Please verify all information independently before making decisions based on this content.
+</Callout>
 
 ## Overview
 
-A **chain reorg** (chain reorganization) is a change in a blockchain’s canonical (accepted) history where one set of recent blocks is replaced by a different set. This happens when the network temporarily disagrees about the “best” chain, and later converges on a single version, causing some transactions to be **reordered** or **dropped** until they are re-included.
+A chain reorg (chain reorganization) occurs when a blockchain replaces one set of recent blocks with an alternative set, typically because the network learns about a longer or more “heaviest” valid chain. This can temporarily “undo” transactions that were included in the replaced blocks until they are included again on the new canonical chain.
 
-In other words, if you’re asking **what is chain reorg**, it’s the network’s mechanism for resolving competing block histories so that all nodes end up with the same ledger.
+Reorgs are a normal outcome of distributed consensus in many blockchains, but they can affect transaction finality, confirmations, and application logic that assumes a transaction is permanently settled after appearing in a block.
 
 ## How It Works
 
 ### Why reorgs happen
 
-Reorgs typically occur due to **network latency** and **simultaneous block production**:
+In distributed networks, different validators/miners can produce blocks at nearly the same time, or network latency can cause nodes to see blocks in different orders. This creates a temporary fork:
 
-- Two validators/miners produce different valid blocks at roughly the same time.
-- Different parts of the network see different blocks first, creating a **temporary fork**.
-- As more blocks are built, one fork becomes “heavier”/more preferred by the consensus rules.
-- Nodes switch to that fork, and blocks on the losing fork become **orphaned** (removed from the canonical chain).
+- Some nodes see **Block A** as the next block.
+- Others see **Block B** as the next block.
+- Both forks are valid locally, but the network must converge on one canonical history.
 
-### Canonical chain selection (generalized)
+Most consensus protocols have a fork-choice rule to decide which chain “wins,” such as:
 
-Most blockchains have rules that determine which chain is considered canonical:
+- **Longest chain** (common in Proof of Work, though in practice “most cumulative work”)
+- **Heaviest chain / most stake-weighted** or protocol-specific fork-choice rules in Proof of Stake variants
 
-- **Nakamoto-style (PoW / longest/heaviest chain)**: the chain with the most cumulative work (often the “longest”) wins.
-- **BFT-style finality (many PoS chains)**: once a block is finalized by consensus, it cannot be reverted except under extreme conditions (e.g., catastrophic faults).
+When one branch becomes preferred by the fork-choice rule (e.g., gets additional blocks and becomes heavier), nodes switch to it. The blocks on the losing branch become **orphaned** (PoW terminology) or simply **non-canonical**.
 
-### What happens to transactions
+### What happens to transactions during a reorg
 
-When a reorg replaces blocks:
+- Transactions in the **winning chain** remain confirmed.
+- Transactions only present in the **losing blocks** are reverted from the canonical state.
+- Those reverted transactions may:
+  - Return to the mempool (if still valid), and later be re-included
+  - Be dropped if they become invalid (e.g., nonce conflicts, insufficient funds after other transactions)
 
-- Transactions in the removed blocks may:
-  - Return to the **mempool** (pending pool) and be re-mined later, or
-  - Become invalid (e.g., due to nonce changes or conflicts), or
-  - Be replaced by different transactions included on the winning fork.
-- Applications may observe:
-  - A transaction that was “confirmed” becoming **unconfirmed**
-  - Temporary balance/state changes that later revert
-
-This is why many systems wait for multiple confirmations or explicit finality before considering a transaction irreversible.
+This is why many systems wait for multiple confirmations before considering a transaction “final” on probabilistic-finality chains.
 
 ### Reorg depth
 
-Reorgs are often described by **depth** (how many blocks are replaced):
+Reorgs are described by how many blocks are replaced:
 
-- **1-block reorg**: only the latest block changes; common on some networks.
-- **Deep reorg**: multiple blocks replaced; rarer and more disruptive.
+- **1-block reorg**: only the tip changes
+- **N-block reorg**: the last N blocks are swapped out
+
+Deeper reorgs are typically rarer on healthy networks but have larger impact on applications (exchanges, bridges, DEXs, liquidation logic, etc.).
+
+### Implications for applications
+
+Reorg-aware applications often:
+
+- Wait for a confirmation threshold before crediting deposits
+- Track transactions by both hash and block number, and re-check canonical inclusion
+- Handle event logs that may disappear if their block becomes non-canonical
 
 ## On Sei Network
 
-Sei is a high-performance Layer 1 with fast time-to-finality (often cited around **~400ms finality** under normal conditions) and EVM compatibility. Practically, this means:
+Sei is designed for fast, reliable settlement, with **~400ms time-to-finality**, which greatly reduces the window in which reorg-like behavior can affect user experience. In practice, when a chain offers strong/fast finality, applications can treat confirmed transactions as settled much sooner than on probabilistic-finality networks.
 
-- **Shorter “uncertainty window”**: Because blocks reach finality quickly, the time during which a chain reorg could affect your transaction is typically much smaller than on chains where probabilistic confirmation is used.
-- **Improved UX for apps**: Fast finality reduces the need to wait for many blocks before treating results as stable, benefiting exchanges, trading apps, and other latency-sensitive experiences.
-- **Parallelization + throughput**: Sei’s execution and throughput optimizations (including parallelization techniques) help process high transaction volumes efficiently, while finality properties help reduce reorg-related edge cases for downstream systems.
+Key implications on Sei:
 
-Even with fast finality, developers should still build with the assumption that **pre-finalized** blocks can be reorganized in rare situations (e.g., network partitions or competing proposals), and only treat **finalized** state as irreversible.
+- **Fast finality reduces reorg risk window:** Because blocks finalize quickly, applications typically need fewer (or no) additional confirmations compared to chains where “finality” is probabilistic and reorgs are more common.
+- **High performance under load:** Sei’s architecture and **parallelization** help the network maintain throughput and responsiveness, which can reduce congestion-related edge cases that sometimes exacerbate fork conditions on slower networks.
+- **EVM compatibility:** EVM-based apps on Sei should still implement reorg-safe indexing patterns (common best practice across EVM chains), such as confirming canonical block hashes and handling log removals, even if reorgs are rare.
 
-## Developer Implications & Best Practices
+### Practical EVM indexing pattern (reorg-safe)
 
-### 1) Distinguish “included” vs “finalized”
-
-For user-facing flows, label states clearly:
-
-- **Pending**: transaction broadcast but not in a block
-- **Included/Confirmed**: transaction in a block but not finalized
-- **Finalized**: irreversible under normal assumptions
-
-### 2) Wait for finality for critical actions
-
-Use finality (or an equivalent strong confirmation signal) for:
-
-- Deposits/withdrawals
-- Large trades/settlements
-- Cross-chain bridging steps
-
-### 3) Design idempotent backends
-
-If a transaction is reorged out and later re-included, your system should not double-count actions. Common techniques:
-
-- Use a unique business key (order ID, payment ID)
-- Track processed transaction hashes **and** the block height/finality status
-- Reconcile on block updates
-
-### 4) Monitor reorg signals
-
-Indexers and apps should detect reorgs by tracking:
-
-- Block hashes per height
-- Parent hash continuity
-- Finalization events (where available)
-
-## Example: Handling Reorgs in an Indexer (TypeScript)
-
-Below is a simplified pattern for detecting a reorg by verifying parent-child continuity while ingesting blocks:
+Below is an example of checking canonical block hashes while processing logs using an EVM JSON-RPC provider.
 
 ```typescript
-type BlockHeader = {
-  number: number; // block height
-  hash: string;
-  parentHash: string;
-};
+import { JsonRpcProvider } from 'ethers';
 
-const seenByHeight = new Map<number, BlockHeader>();
+const provider = new JsonRpcProvider(process.env.SEI_EVM_RPC_URL);
 
-async function ingestBlock(header: BlockHeader) {
-  const prev = seenByHeight.get(header.number - 1);
+async function isCanonical(blockNumber: number, expectedHash: string) {
+  const block = await provider.getBlock(blockNumber);
+  return block?.hash?.toLowerCase() === expectedHash.toLowerCase();
+}
 
-  // If we have the previous height and it doesn't match parentHash, a reorg happened.
-  if (prev && header.parentHash !== prev.hash) {
-    // Reorg detected: rollback recent blocks and reprocess.
-    // Depth depends on how far back hashes diverge.
-    await handleReorg(header.number - 1);
+async function handleEvent(log: any) {
+  // Store these fields so you can verify later
+  const blockNumber = log.blockNumber;
+  const blockHash = log.blockHash;
+  const txHash = log.transactionHash;
+
+  // Later (or immediately), verify the block is still canonical
+  const canonical = await isCanonical(blockNumber, blockHash);
+  if (!canonical) {
+    // The log may have been part of a non-canonical block after a reorg.
+    // Roll back any derived state and re-sync from a safe checkpoint.
+    console.log('Non-canonical log detected; resync needed', { txHash, blockNumber });
+    return;
   }
 
-  seenByHeight.set(header.number, header);
-}
-
-async function handleReorg(fromHeight: number) {
-  // In practice:
-  // 1) walk backward until you find a common ancestor
-  // 2) delete derived data for orphaned blocks
-  // 3) re-ingest blocks from the ancestor forward
-  console.log(`Reorg detected starting at height ${fromHeight}`);
+  // Proceed with business logic
+  console.log('Canonical event', { txHash, blockNumber });
 }
 ```
 
-## Example: User-Facing Confirmation Strategy (EVM / Solidity)
+### Operational guidance
 
-Smart contracts generally can’t “detect” reorgs directly (they only see the chain they’re executing on), but app logic can reduce risk by delaying critical operations until a transaction is finalized. For example, a backend might only mark an on-chain payment as complete after a finality/confirmation policy is met.
-
-Solidity-side, you can still implement patterns that help off-chain systems remain robust:
-
-```solidity
-// A simple payment event; off-chain systems should consider finality before acting.
-event Payment(address indexed from, uint256 amount, bytes32 indexed paymentId);
-
-function pay(bytes32 paymentId) external payable {
-    require(msg.value > 0, "no value");
-    emit Payment(msg.sender, msg.value, paymentId);
-}
-```
-
-Off-chain, you would index `Payment` events and only treat them as irreversible once the transaction is finalized per Sei’s finality guarantees and your risk model.
+- For user-facing actions (swaps, transfers, deposits), Sei’s **fast finality** means “confirmed” typically becomes reliable quickly.
+- For infrastructure (indexers, bridges, exchanges), continue to implement reorg-safe logic:
+  - Persist block hash + number for processed data
+  - Support rollback/resync on non-canonical detection
+  - Use confirmation/finality signals appropriate to Sei’s fast-settlement environment
 
 ## Summary
 
-A chain reorg is the process where a blockchain replaces part of its recent history with a different set of blocks to resolve temporary forks and converge on a single canonical chain. Reorgs can cause transactions to be reordered or temporarily disappear until re-included, so applications should distinguish between “included” and “finalized” states. On Sei Network, fast finality (often ~400ms) and performance-oriented design reduce the practical impact window for reorg-related uncertainty, improving reliability for EVM-compatible applications and high-throughput use cases.
+A chain reorg is the process by which a blockchain replaces recently accepted blocks with an alternative valid chain based on its fork-choice rule. Reorgs can temporarily reverse transactions and event logs, so robust applications track canonical blocks and handle rollbacks. On Sei Network, **~400ms finality**, **parallelization**, and **EVM compatibility** enable high-performance execution and quick settlement, significantly reducing the practical impact of reorg scenarios while still benefiting from standard reorg-safe engineering patterns.
 
 ## Related Documentation
 

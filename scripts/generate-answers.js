@@ -41,7 +41,7 @@ const OpenAI = require('openai');
 const SEED_QUESTIONS_PATH = path.join(__dirname, '../src/data/seed-questions.json');
 const ANSWERS_DIR = path.join(__dirname, '../content/ai-answers');
 const DEFAULT_CSV_PATH = path.join(__dirname, './pseocontent.csv');
-const DEFAULT_CONCURRENCY = 5;
+const DEFAULT_CONCURRENCY = 10;
 
 // Category to related docs mapping for "Learn more" links
 const CATEGORY_DOCS = {
@@ -201,13 +201,12 @@ function csvToQuestions(rows) {
  * Generate answer using Gemini API (free tier)
  */
 async function generateWithGemini(question, apiKey) {
-	const { question: q, category, keyword } = question;
+	const { question: q, category } = question;
 
 	const prompt = `You are a technical documentation assistant for Sei Network, a high-performance Layer 1 blockchain with EVM compatibility.
 
-Generate a comprehensive, SEO-friendly answer for this question: "${q}"
+Generate a comprehensive answer for this question: "${q}"
 
-Target keyword: ${keyword || 'N/A'}
 Category: ${category}
 
 Guidelines:
@@ -219,6 +218,8 @@ Guidelines:
 - Keep the answer focused and scannable
 - Do NOT include the question as a heading (it will be added separately)
 - Format the response as markdown content (not full MDX)
+- Do NOT include SEO keyword phrases like "if you're searching for X" or "what is X" in the body - write naturally
+- Do NOT repeat the question or keyword phrases unnecessarily - the content should read naturally without keyword stuffing
 
 Respond with ONLY the markdown content for the answer body.
 
@@ -264,7 +265,7 @@ IMPORTANT: DO NOT OMIT CONTENTS TO BE ADDED LATER. ADD EVERYTHING TO THE ANSWER.
  * Generate answer using OpenAI API with flex service tier
  */
 async function generateWithOpenAI(question, apiKey) {
-	const { question: q, category, keyword } = question;
+	const { question: q, category } = question;
 
 	const instructions = `You are a technical documentation assistant for Sei Network, a high-performance Layer 1 blockchain with EVM compatibility.
 
@@ -277,12 +278,12 @@ Guidelines:
 - Keep the answer focused and scannable
 - Do NOT include the question as a heading (it will be added separately)
 - Format the response as markdown content (not full MDX)
+- Do NOT include SEO keyword phrases like "if you're searching for X" or "what is X" in the body - write naturally
 
 Respond with ONLY the markdown content for the answer body.`;
 
 	const input = `Generate a comprehensive, SEO-friendly answer for this question: "${q}"
 
-Target keyword: ${keyword || 'N/A'}
 Category: ${category}`;
 
 	const client = new OpenAI({
@@ -307,13 +308,12 @@ Category: ${category}`;
  * Generate answer using Claude API (Anthropic)
  */
 async function generateWithClaude(question, apiKey) {
-	const { question: q, category, keyword } = question;
+	const { question: q, category } = question;
 
 	const prompt = `You are a technical documentation assistant for Sei Network, a high-performance Layer 1 blockchain with EVM compatibility.
 
-Generate a comprehensive, SEO-friendly answer for this question: "${q}"
+Generate a comprehensive answer for this question: "${q}"
 
-Target keyword: ${keyword || 'N/A'}
 Category: ${category}
 
 Guidelines:
@@ -325,6 +325,7 @@ Guidelines:
 - Keep the answer focused and scannable
 - Do NOT include the question as a heading (it will be added separately)
 - Format the response as markdown content (not full MDX)
+- Do NOT include SEO keyword phrases like "if you're searching for X" or "what is X" in the body - write naturally
 
 Respond with ONLY the markdown content for the answer body.`;
 
@@ -352,6 +353,62 @@ Respond with ONLY the markdown content for the answer body.`;
 }
 
 /**
+ * Generate JSON-LD schema for SEO/GEO optimization
+ */
+function generateJsonLdSchema(question, content) {
+	const { question: q, category, keyword } = question;
+
+	// Extract first paragraph as the answer summary for FAQ schema
+	const firstParagraph = content.split('\n\n').find((p) => p.trim() && !p.startsWith('#') && !p.startsWith('```')) || '';
+	const answerSummary = firstParagraph
+		.replace(/[*_`#]/g, '')
+		.trim()
+		.slice(0, 500);
+
+	const schema = {
+		'@context': 'https://schema.org',
+		'@graph': [
+			{
+				'@type': 'FAQPage',
+				mainEntity: [
+					{
+						'@type': 'Question',
+						name: q,
+						acceptedAnswer: {
+							'@type': 'Answer',
+							text: answerSummary
+						}
+					}
+				]
+			},
+			{
+				'@type': 'TechArticle',
+				headline: q,
+				description: `Learn about ${keyword || q} and how it works in blockchain and on Sei Network.`,
+				author: {
+					'@type': 'Organization',
+					name: 'Sei Network',
+					url: 'https://sei.io'
+				},
+				publisher: {
+					'@type': 'Organization',
+					name: 'Sei Network',
+					url: 'https://sei.io'
+				},
+				about: {
+					'@type': 'Thing',
+					name: keyword || q
+				},
+				articleSection: category,
+				inLanguage: 'en'
+			}
+		]
+	};
+
+	return JSON.stringify(schema, null, '\t');
+}
+
+/**
  * Wrap AI-generated content in MDX template
  */
 function wrapInMDX(question, content) {
@@ -359,12 +416,15 @@ function wrapInMDX(question, content) {
 	const relatedDocs = CATEGORY_DOCS[category] || CATEGORY_DOCS.glossary;
 	const slug = id || slugify(q);
 
-	// Build keywords array
-	const keywordParts = keyword ? keyword.split(' ').filter((k) => k.length > 2) : [];
-	const slugParts = slug.split('-').filter((k) => k.length > 2);
+	// Build keywords array - filter more aggressively
+	const keywordParts = keyword ? keyword.split(' ').filter((k) => k.length > 3) : [];
+	const slugParts = slug.split('-').filter((k) => k.length > 3 && !['what', 'how', 'does', 'work', 'they', 'and', 'the', 'are'].includes(k));
 	const allKeywords = ['sei', 'blockchain', category, ...new Set([...keywordParts, ...slugParts])];
 
 	const relatedLinks = relatedDocs.map((doc) => `- [${doc.title}](${doc.href})`).join('\n');
+
+	// Generate JSON-LD schema
+	const jsonLdSchema = generateJsonLdSchema(question, content);
 
 	return `---
 title: '${q.replace(/'/g, "\\'")}'
@@ -374,7 +434,17 @@ keywords: [${allKeywords.map((k) => `'${k}'`).join(', ')}]
 
 import { Callout } from 'nextra/components';
 
+export const jsonLd = ${jsonLdSchema};
+
+<head>
+  <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+</head>
+
 # ${q}
+
+<Callout type="info" emoji="🤖">
+This content was generated with the assistance of AI and is intended for informational purposes only. Please verify all information independently before making decisions based on this content.
+</Callout>
 
 ${content}
 
@@ -593,28 +663,39 @@ async function main() {
 	}
 
 	/**
-	 * Process questions in parallel batches with concurrency limit
+	 * Process questions with a worker pool - each worker immediately picks up the next task when done
 	 */
-	async function processInBatches(items, batchSize) {
+	async function processWithPool(items, poolSize) {
 		const results = [];
-		for (let i = 0; i < items.length; i += batchSize) {
-			const batch = items.slice(i, i + batchSize);
-			const batchNum = Math.floor(i / batchSize) + 1;
-			const totalBatches = Math.ceil(items.length / batchSize);
-			console.log(`\n🔄 Processing batch ${batchNum}/${totalBatches} (${batch.length} items)...`);
+		let nextIndex = 0;
+		let completed = 0;
+		const total = items.length;
 
-			const batchResults = await Promise.all(batch.map(processQuestion));
-			results.push(...batchResults);
+		async function worker(workerId) {
+			while (true) {
+				const index = nextIndex++;
+				if (index >= items.length) break;
 
-			// Small delay between batches to avoid rate limiting
-			if (i + batchSize < items.length) {
-				await new Promise((r) => setTimeout(r, 500));
+				const result = await processQuestion(items[index]);
+				results[index] = result;
+				completed++;
+
+				// Progress indicator
+				const pct = Math.round((completed / total) * 100);
+				console.log(`   📊 Progress: ${completed}/${total} (${pct}%) - Worker ${workerId} finished`);
 			}
 		}
+
+		console.log(`\n🚀 Starting ${poolSize} parallel workers for ${total} items...\n`);
+
+		// Start all workers and wait for them to complete
+		const workers = Array.from({ length: Math.min(poolSize, items.length) }, (_, i) => worker(i + 1));
+		await Promise.all(workers);
+
 		return results;
 	}
 
-	const results = await processInBatches(questions, concurrency);
+	const results = await processWithPool(questions, concurrency);
 
 	// Tally results
 	for (const result of results) {

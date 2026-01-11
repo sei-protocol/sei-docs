@@ -1,161 +1,202 @@
 ---
 title: 'What Are Event Logs and How Do They Work?'
 description: 'Learn about what is event logs and how it works in blockchain and on Sei Network.'
-keywords: ['sei', 'blockchain', 'glossary', 'what', 'event', 'logs', 'are', 'and', 'how', 'they', 'work']
+keywords: ['sei', 'blockchain', 'glossary', 'what', 'event', 'logs']
 ---
 
 import { Callout } from 'nextra/components';
 
+export const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'FAQPage',
+      mainEntity: [
+        {
+          '@type': 'Question',
+          name: 'What Are Event Logs and How Do They Work?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'Event logs are append-only records emitted by smart contracts during transaction execution to announce that something happened (e.g., a transfer, a trade, or a configuration change). They are stored in transaction receipts and are designed for efficient off-chain consumption by indexers, analytics, wallets, and dApps. Unlike contract state, logs are not directly readable by other smart contracts, but they are cheap to emit and easy to query.'
+          }
+        }
+      ]
+    },
+    {
+      '@type': 'TechArticle',
+      headline: 'What Are Event Logs and How Do They Work?',
+      description: 'Learn about what is event logs and how it works in blockchain and on Sei Network.',
+      author: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      publisher: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      about: {
+        '@type': 'Thing',
+        name: 'what is event logs'
+      },
+      articleSection: 'glossary',
+      inLanguage: 'en'
+    }
+  ]
+};
+
+<head>
+  <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+</head>
+
 # What Are Event Logs and How Do They Work?
+
+<Callout type="info" emoji="🤖">
+  This content was generated with the assistance of AI and is intended for informational purposes only. Please verify all information independently before making decisions based on this content.
+</Callout>
 
 ## Overview
 
-Event logs (often called _logs_ or _events_) are append-only records emitted by smart contracts during transaction execution to describe something that happened (e.g., a transfer, swap, or state change). If you’re asking **“what is event logs”**, the simplest answer is: event logs are structured transaction metadata designed for efficient indexing, querying, and off-chain consumption—without requiring expensive on-chain storage reads.
-
-Unlike contract storage, logs are primarily intended for off-chain systems (indexers, analytics, UIs) and are not directly accessible to other contracts during execution.
+Event logs are append-only records emitted by smart contracts during transaction execution to announce that something happened (e.g., a transfer, a trade, or a configuration change). They are stored in transaction receipts and are designed for efficient off-chain consumption by indexers, analytics, wallets, and dApps. Unlike contract state, logs are not directly readable by other smart contracts, but they are cheap to emit and easy to query.
 
 ## How It Works
 
-### 1) Events are emitted during a transaction
+### Events vs. Logs (EVM model)
 
-In EVM-based chains, a contract uses `emit EventName(...)` to write log entries to the transaction receipt. Each log includes:
+In EVM-based chains, a Solidity `event` declaration defines a structured message that a contract can emit. When emitted, the EVM creates a **log entry** that contains:
 
 - **Address**: the contract that emitted the log
-- **Topics**: up to 4 indexed fields (including the event signature hash as topic0)
-- **Data**: ABI-encoded non-indexed fields
-- **Block/tx metadata**: block number, tx hash, log index, etc.
+- **Topics**: up to 4 indexed 32-byte values
+  - `topic0` is the event signature hash (`keccak256("EventName(type1,type2,...)")`)
+  - `topic1..topic3` store `indexed` parameters (or their hashes for dynamic types)
+- **Data**: ABI-encoded non-indexed parameters
+- **Block/tx metadata**: block number, transaction hash, log index (in the receipt)
 
-### 2) Indexed vs non-indexed parameters
+### Indexed vs. non-indexed parameters
 
-Event parameters can be marked as `indexed`:
+- **Indexed parameters** go into topics and are fast to filter on (e.g., `from`, `to`, `id`).
+- **Non-indexed parameters** go into the data field and require decoding after retrieval.
 
-- **Indexed** parameters go into **topics**, enabling efficient filtering (e.g., all transfers involving an address).
-- **Non-indexed** parameters are stored in the **data** section and are not directly filterable by node-level topic filters.
+This split allows nodes and RPC providers to support efficient filtering via APIs like `eth_getLogs`, without scanning every transaction payload.
 
-Example: ERC-20 `Transfer(address indexed from, address indexed to, uint256 value)` is designed so apps can efficiently query transfers for `from` or `to`.
+### Querying logs
 
-### 3) Logs are not contract-readable state
+Apps typically query logs by:
 
-Logs are part of execution output, but **contracts cannot read past logs on-chain**. This is a key design choice:
+- **Block range** (`fromBlock`, `toBlock`)
+- **Contract address(es)**
+- **Topics filter** (event signature and indexed values)
 
-- Logs are cheaper than writing equivalent data into contract storage.
-- They are ideal for off-chain consumption (frontends, bridges, data pipelines).
-- They are not suitable as the only source of truth for on-chain logic.
-
-### 4) Clients query logs via RPC
-
-Applications typically retrieve logs using JSON-RPC methods such as:
-
-- `eth_getLogs` (filter by block range, address, topics)
-- `eth_getTransactionReceipt` (logs for a specific transaction)
-
-Logs can be reorged if finality isn’t reached; therefore production systems often wait for finality/confirmations before acting.
+This is the foundation for most blockchain indexing pipelines (The Graph, custom indexers, explorers), since logs provide a canonical “activity stream” without requiring full state diffs.
 
 ## On Sei Network
 
-Sei Network supports **EVM compatibility**, so event logs follow the same semantics and tooling as Ethereum-style logs (topics, data, receipts, `eth_getLogs`, etc.). This means existing EVM indexers, analytics tools, and dApp frontends can listen to Sei contract events with minimal changes.
+Sei is EVM-compatible, so event logs follow the same Ethereum log semantics (topics + data, emitted during transaction execution, retrieved via standard EVM JSON-RPC methods). This makes it straightforward to run existing tooling—wallets, indexers, and analytics stacks—against Sei’s EVM.
 
-Sei’s architecture also makes event-driven systems more responsive:
+Sei’s architecture is optimized for high throughput via parallelization, and it offers fast finality (around ~400ms). In practice, this means:
 
-- **~400ms finality** (typical) helps event consumers (UIs, bots, indexers) react quickly with lower “waiting time” and reduced reorg concern compared to slower-finality networks.
-- **Parallelization** improves throughput, meaning more transactions (and therefore more logs) can be produced efficiently—important for high-frequency apps that rely heavily on events (DEXs, games, order-book style apps).
+- **Faster confirmation of emitted logs**: applications can react to events quickly once transactions finalize.
+- **Higher event volume support**: parallel execution helps sustain more contract activity and corresponding logs.
+- **Drop-in compatibility**: existing EVM contracts and off-chain consumers that rely on events (DEX trade feeds, NFT mints, bridge activity) can operate with minimal changes.
 
-### Practical implications on Sei
-
-- You can use standard EVM event patterns (e.g., ERC-20 `Transfer`, custom app events) and rely on common tooling.
-- Indexers can keep up with higher transaction volumes; event logs remain the preferred method for emitting application activity for off-chain consumption.
-- Faster finality enables near-real-time UX based on emitted events.
-
-## Example: Emitting Event Logs (Solidity)
+## Solidity Example: Defining and Emitting Events
 
 ```solidity
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-contract OrderBook {
-    event OrderPlaced(
-        bytes32 indexed orderId,
-        address indexed trader,
-        uint256 price,
-        uint256 amount
-    );
+contract ExampleToken {
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event MetadataUpdated(string name, string symbol); // non-indexed (data)
 
-    function placeOrder(bytes32 orderId, uint256 price, uint256 amount) external {
-        // ... update state, validate inputs, etc.
-        emit OrderPlaced(orderId, msg.sender, price, amount);
+    mapping(address => uint256) public balanceOf;
+
+    constructor() {
+        balanceOf[msg.sender] = 1_000_000;
+    }
+
+    function transfer(address to, uint256 value) external {
+        require(balanceOf[msg.sender] >= value, "insufficient");
+        balanceOf[msg.sender] -= value;
+        balanceOf[to] += value;
+
+        // Emits a log with signature topic + indexed (from,to) in topics, value in data
+        emit Transfer(msg.sender, to, value);
+    }
+
+    function updateMetadata(string calldata name, string calldata symbol) external {
+        // Emits a log where both fields are in the data section
+        emit MetadataUpdated(name, symbol);
     }
 }
 ```
 
-**Notes:**
-
-- `orderId` and `trader` are `indexed`, so consumers can filter quickly by those fields.
-- `price` and `amount` are in the data section—still available, but not topic-filterable.
-
-## Example: Reading Logs with ethers (TypeScript)
+## TypeScript Example: Reading Logs (Ethers v6)
 
 ```typescript
 import { ethers } from 'ethers';
 
-const rpcUrl = 'https://YOUR_SEI_EVM_RPC'; // Sei EVM RPC endpoint
-const provider = new ethers.JsonRpcProvider(rpcUrl);
+const RPC_URL = process.env.SEI_EVM_RPC!; // Sei EVM JSON-RPC endpoint
+const provider = new ethers.JsonRpcProvider(RPC_URL);
 
-const contractAddress = '0xYourContractAddress';
-const abi = ['event OrderPlaced(bytes32 indexed orderId, address indexed trader, uint256 price, uint256 amount)'];
+const tokenAddress = '0xYourContractAddress';
+const abi = ['event Transfer(address indexed from, address indexed to, uint256 value)'];
 
 const iface = new ethers.Interface(abi);
+const transferTopic = iface.getEvent('Transfer').topicHash;
 
-// Build a filter by contract + event topic
-const eventTopic = iface.getEvent('OrderPlaced').topicHash;
+async function readTransfers(fromBlock: number, toBlock: number) {
+  const logs = await provider.getLogs({
+    address: tokenAddress,
+    fromBlock,
+    toBlock,
+    topics: [transferTopic] // filter by event signature
+  });
 
-const logs = await provider.getLogs({
-  address: contractAddress,
-  topics: [eventTopic], // you can add additional topic filters for indexed params
-  fromBlock: 'latest'
-});
-
-for (const log of logs) {
-  const parsed = iface.parseLog(log);
-  console.log({
-    orderId: parsed.args.orderId,
-    trader: parsed.args.trader,
-    price: parsed.args.price.toString(),
-    amount: parsed.args.amount.toString()
+  return logs.map((log) => {
+    const parsed = iface.parseLog(log);
+    return {
+      blockNumber: log.blockNumber,
+      txHash: log.transactionHash,
+      from: parsed.args.from as string,
+      to: parsed.args.to as string,
+      value: parsed.args.value.toString()
+    };
   });
 }
+
+(async () => {
+  const transfers = await readTransfers(1_000_000, 1_000_100);
+  console.log(transfers);
+})();
 ```
 
-## Example: Querying Logs via JSON-RPC (bash)
+## JSON-RPC Example: Filtering with `eth_getLogs`
 
 ```bash
-curl -s https://YOUR_SEI_EVM_RPC \
+curl -s $SEI_EVM_RPC \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc":"2.0",
     "id":1,
     "method":"eth_getLogs",
     "params":[{
+      "fromBlock":"0xF4240",
+      "toBlock":"0xF42A4",
       "address":"0xYourContractAddress",
-      "fromBlock":"0x0",
-      "toBlock":"latest",
-      "topics":["0xYourEventSignatureTopic0"]
+      "topics":["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"]
     }]
   }'
 ```
 
-## Common Use Cases
+## Key Properties and Best Practices
 
-- **Indexing and analytics:** build dashboards, leaderboards, and historical views.
-- **UI updates:** show “transaction succeeded” and render resulting actions based on logs.
-- **Automation:** trading bots, liquidation bots, keepers, and alerting systems triggered by events.
-- **Auditing and monitoring:** detect anomalous behavior and track contract activity.
-
-## Key Takeaways
-
-- Event logs are **append-only, structured records** emitted during transactions for efficient off-chain querying.
-- **Topics (indexed fields)** enable fast filtering; **data** holds the remaining parameters.
-- Logs are **not on-chain readable state**, so don’t rely on them for contract-critical logic.
-- On **Sei Network**, EVM event logs work the same as Ethereum’s, while Sei’s **parallelization** and **~400ms finality** help event-driven apps feel faster and scale better.
+- **Logs are not contract state**: contracts cannot read past logs on-chain; use storage for on-chain logic.
+- **Prefer indexed fields for query patterns**: index addresses, IDs, and other filter keys (up to 3 indexed parameters, plus the signature topic).
+- **Minimize log size**: emitting large dynamic data (strings/bytes) increases gas and slows indexing.
+- **Use events as your public API**: well-designed events make explorers, dashboards, and off-chain automation reliable and performant.
+- **Handle reorgs defensively**: while Sei has fast finality, robust indexers should still be reorg-aware (e.g., confirm by finalized blocks if your stack supports it).
 
 ## Related Documentation
 
