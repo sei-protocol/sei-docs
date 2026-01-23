@@ -148,9 +148,9 @@ function rewards(address delegatorAddress) external view returns (Rewards reward
 
 ```solidity
 struct Coin {
-    uint256 amount;    // Token amount (raw units)
-    uint256 decimals;  // Decimal places for display
-    string denom;      // Token denomination
+    uint256 amount;    // Token amount in 18 decimal precision (DecCoins)
+    uint256 decimals;  // Always 18 - decimal precision for the amount
+    string denom;      // Token denomination (e.g., "usei")
 }
 
 struct Reward {
@@ -164,14 +164,36 @@ struct Rewards {
 }
 ```
 
+<Callout type="warning">
+**Critical: Decimal Precision for Rewards**
+
+The `rewards()` query returns amounts with **18 decimal precision** (`DecCoins` from Cosmos SDK).
+
+This is different from the actual withdrawn reward amounts, which use **6 decimal precision** (`sdk.Coins`).
+
+**To convert pending rewards to SEI for display:**
+
+```javascript
+const pendingRewardsSei = amount / 1e18; // rewards() query uses 18 decimals
+```
+
+**Withdrawn rewards are in usei (6 decimals):**
+
+```javascript
+const withdrawnSei = withdrawnAmount / 1e6; // actual withdrawals use 6 decimals
+```
+
+</Callout>
+
 **Example:**
 
 ```solidity
 Rewards memory userRewards = DISTR_CONTRACT.rewards(msg.sender);
 
-// Check total rewards
+// Check total rewards - uses 18 decimal precision
 for (uint i = 0; i < userRewards.total.length; i++) {
     Coin memory coin = userRewards.total[i];
+    // coin.decimals is always 18 for rewards
     uint256 displayAmount = coin.amount / (10 ** coin.decimals);
     // Process reward amount for coin.denom
 }
@@ -182,6 +204,92 @@ for (uint i = 0; i < userRewards.rewards.length; i++) {
     // Process rewards from reward.validator_address
 }
 ```
+
+## Understanding Decimal Precision
+
+The distribution precompile has **different decimal precision for queries vs actual withdrawals** due to how rewards are tracked in the Cosmos SDK:
+
+<div className="overflow-x-auto max-w-full">
+  <table className="w-full divide-y divide-neutral-200 dark:divide-neutral-800">
+    <thead>
+      <tr>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Function</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Type</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Decimal Precision</th>
+        <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Conversion to SEI</th>
+      </tr>
+    </thead>
+    <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
+      <tr>
+        <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">
+          <strong>rewards()</strong>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">Query (pending rewards)</td>
+        <td className="px-4 py-3 text-sm text-green-600 dark:text-green-400 whitespace-nowrap">18 decimals (DecCoins)</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">
+          <code>amount / 1e18</code>
+        </td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">
+          <strong>withdrawDelegationRewards()</strong>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">Withdrawn amount (event)</td>
+        <td className="px-4 py-3 text-sm text-blue-600 dark:text-blue-400 whitespace-nowrap">6 decimals (usei)</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">
+          <code>amount / 1e6</code>
+        </td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">
+          <strong>withdrawMultipleDelegationRewards()</strong>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">Withdrawn amount (event)</td>
+        <td className="px-4 py-3 text-sm text-blue-600 dark:text-blue-400 whitespace-nowrap">6 decimals (usei)</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">
+          <code>amount / 1e6</code>
+        </td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 text-sm text-neutral-900 dark:text-neutral-100 whitespace-nowrap font-medium">
+          <strong>withdrawValidatorCommission()</strong>
+        </td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">Withdrawn amount (event)</td>
+        <td className="px-4 py-3 text-sm text-blue-600 dark:text-blue-400 whitespace-nowrap">6 decimals (usei)</td>
+        <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">
+          <code>amount / 1e6</code>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+### Why Different Precisions?
+
+1. **Pending Rewards (18 decimals)**: The Cosmos SDK tracks pending rewards using `DecCoins` (decimal coins) with 18 decimal precision for higher accuracy during reward accumulation.
+
+2. **Withdrawn Rewards (6 decimals)**: When rewards are actually withdrawn, they are converted to `sdk.Coins` (usei) with 6 decimal precision to match Sei's native token units.
+
+### Conversion Helper Functions
+
+```typescript copy
+// Convert pending rewards (18 decimals) to SEI
+function pendingRewardsToSei(amount: bigint): number {
+  return Number(amount) / 1e18;
+}
+
+// Convert withdrawn rewards (6 decimals) to SEI
+function withdrawnRewardsToSei(amount: bigint): number {
+  return Number(amount) / 1e6;
+}
+
+// Example usage
+const pendingRewards = await distrContract.rewards(delegatorAddress);
+const pendingSei = pendingRewardsToSei(pendingRewards.total[0].amount);
+console.log(`Pending rewards: ${pendingSei} SEI`);
+```
+
+<Callout type="info">**Note**: When reconciling pending rewards with actual withdrawals, be aware of the 12-decimal difference (10^12 factor) between query results and withdrawal amounts.</Callout>
 
 ## Practical Examples
 

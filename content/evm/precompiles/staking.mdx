@@ -87,14 +87,14 @@ struct Delegation {
 }
 
 struct Balance {
-    uint256 amount;
-    string denom;
+    uint256 amount;  // Staked balance in usei (6 decimals)
+    string denom;    // Token denomination (e.g., "usei")
 }
 
 struct DelegationDetails {
     string delegator_address;
-    uint256 shares;
-    uint256 decimals;
+    uint256 shares;    // Delegation shares (18 decimal precision)
+    uint256 decimals;  // Precision for shares field (always 18)
     string validator_address;
 }
 
@@ -102,12 +102,28 @@ struct DelegationDetails {
 /// @param delegator The address of the delegator.
 /// @param valAddress The Sei address of the validator.
 /// @return The delegation information.
-/// To calculate the actual amount, divide the shares by decimals.
+/// @dev balance.amount is in usei (6 decimals). To calculate SEI: amount / 1e6
+/// @dev shares uses 18 decimal precision. To calculate actual shares: shares / 1e18
 function delegation(
     address delegator,
     string memory valAddress
 ) external view returns (Delegation delegation);
 ```
+
+<Callout type="warning">
+**Important Precision Note for `delegation()` Response:**
+
+The response contains two different precision scales:
+
+- `balance.amount`: **6 decimals** (usei) - the actual staked token amount
+- `delegation.shares`: **18 decimals** - the validator pool share amount
+- `delegation.decimals`: Always returns **18** (refers to shares precision, NOT balance)
+
+To convert to SEI for display:
+
+- Balance: `balance.amount / 1e6`
+- Shares: `delegation.shares / 1e18`
+  </Callout>
 
 ## Using the Precompile
 
@@ -213,9 +229,9 @@ The staking precompile operates with **different decimal precision for different
           <strong>delegation()</strong>
         </td>
         <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400 whitespace-nowrap">return values (output)</td>
-        <td className="px-4 py-3 text-sm text-blue-600 dark:text-blue-400 whitespace-nowrap">6 decimals (uSEI)</td>
+        <td className="px-4 py-3 text-sm text-blue-600 dark:text-blue-400 whitespace-nowrap">Mixed (balance 6, shares 18)</td>
         <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">
-          <code>1000000</code> (represents 1 SEI)
+          <code>balance.amount=1000000</code>, <code>shares=1000000000000000000</code>
         </td>
       </tr>
     </tbody>
@@ -252,14 +268,14 @@ Examples:
 
 **Reading/Query Operations (Return 6 decimals):**
 
-- `delegation()` - returns amounts in 6 decimal precision
-- Rewards/claim withdrawals also use 6 decimal precision (uSEI)
+- `delegation()` - returns `balance.amount` in 6-decimal `uSEI` and `delegation.shares` in 18-decimal precision
+- Rewards are handled by the **Distribution precompile**: `rewards()` query returns 18-decimal `DecCoins`, while withdrawn amounts (events) are 6-decimal `uSEI`
 
 ### Why This Mixed System Exists
 
 1. **delegate() EVM Compatibility:** Uses standard 18-decimal wei format for EVM `msg.value` consistency
 2. **Other Operations Cosmos Integration:** `undelegate()` and `redelegate()` use 6-decimal uSEI precision to match native Cosmos operations
-3. **Query Consistency:** All query results use 6-decimal precision for consistent reading
+3. **Staking Query Consistency:** Staking precompile query balances use 6-decimal `uSEI` (while `shares` is 18-decimal) for consistent reading
 
 ### Best Practice: Different Conversion for Different Functions
 
@@ -891,7 +907,7 @@ const delegateTx = await staking.delegate(validatorAddress, {
 - **What are the base units and precision standards defined for SEI across operations?**
   - `delegate()`: accepts `msg.value` in wei (18 decimals), but is internally truncated to 6-decimal `uSEI`. Effective granularity is 1 uSEI = `1e12` wei.
   - `undelegate()` / `redelegate()`: amounts use 6-decimal `uSEI`.
-  - Queries and rewards/claim withdrawals: amounts are in 6-decimal `uSEI`.
+  - Staking queries: balances are 6-decimal `uSEI` (and shares are 18-decimal). Distribution `rewards()` query returns 18-decimal `DecCoins`, but withdrawn amounts are 6-decimal `uSEI`.
 - **Should applications normalize between 18 and 6 decimals?**
   - Yes. For reconciliation, convert delegate `wei` to `uSEI` via integer division by `1e12` (floor). For display, convert to SEI (`wei → /1e18`, `uSEI → /1e6`).
 - **Is this behavior consistent and intentional?**
@@ -909,7 +925,7 @@ const delegateTx = await staking.delegate(validatorAddress, {
 - **undelegate() and redelegate()** use 6 decimals (uSEI) for amount parameters
 - **Query results** return amounts in 6 decimal precision
 - **Best practice:** Use appropriate conversion functions for each operation
-- **Rewards/claims:** rewards withdrawals and distribution amounts use 6 decimals (uSEI)
+- **Rewards/claims (Distribution precompile):** `rewards()` query returns 18-decimal `DecCoins`; withdrawn amounts (events) are 6-decimal `uSEI`
 - **Granularity:** `delegate()` `msg.value` must be a multiple of `1e12` wei (last 12 digits zero) because the precompile truncates to 6 decimals internally
 
 ### Validator Addresses
