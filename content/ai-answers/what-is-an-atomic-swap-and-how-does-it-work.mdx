@@ -1,0 +1,200 @@
+---
+title: 'What is an Atomic Swap and How Does It Work?'
+description: 'Learn about what is atomic swap and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'glossary', 'what', 'atomic', 'swap']
+---
+
+import { Callout } from 'nextra/components';
+
+export const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'FAQPage',
+      mainEntity: [
+        {
+          '@type': 'Question',
+          name: 'What is an Atomic Swap and How Does It Work?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'An atomic swap is a cryptographic protocol that lets two parties exchange assets across different blockchains directly, without a centralized exchange or a trusted intermediary. “Atomic” means the trade either completes fully on both sides or fails and refunds—there is no partial completion.'
+          }
+        }
+      ]
+    },
+    {
+      '@type': 'TechArticle',
+      headline: 'What is an Atomic Swap and How Does It Work?',
+      description: 'Learn about what is atomic swap and how it works in blockchain and on Sei Network.',
+      author: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      publisher: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      about: {
+        '@type': 'Thing',
+        name: 'what is atomic swap'
+      },
+      articleSection: 'glossary',
+      inLanguage: 'en'
+    }
+  ]
+};
+
+<head>
+  <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+</head>
+
+# What is an Atomic Swap and How Does It Work?
+
+<Callout type="info" emoji="🤖">
+  This content was generated with the assistance of AI and is intended for informational purposes only. Please verify all information independently before making decisions based on this content.
+</Callout>
+
+## Overview
+
+An **atomic swap** is a cryptographic protocol that lets two parties exchange assets across different blockchains **directly**, without a centralized exchange or a trusted intermediary. “Atomic” means the trade either completes fully on both sides or **fails and refunds**—there is no partial completion.
+
+## How It Works
+
+Atomic swaps are typically implemented using **Hash Time-Locked Contracts (HTLCs)**, which combine:
+
+- **Hashlock**: Funds can only be claimed by revealing a secret (a preimage) that matches a known hash.
+- **Timelock**: If the swap is not completed by a deadline, each party can refund their locked funds.
+
+### Step-by-step (HTLC flow)
+
+Assume Alice wants to swap asset A on Chain A for Bob’s asset B on Chain B:
+
+1. **Alice creates a secret**
+
+   - Alice generates a random secret `s` and computes `h = hash(s)`.
+
+2. **Alice locks funds on Chain A**
+
+   - Alice locks asset A into an HTLC that Bob can claim **only** if he reveals `s` (i.e., provides a preimage that hashes to `h`) before time `T1`.
+   - After `T1`, Alice can refund.
+
+3. **Bob locks funds on Chain B**
+
+   - Bob sees `h` on Chain A and locks asset B into an HTLC that Alice can claim with `s` before time `T2`, where `T2 < T1`.
+   - After `T2`, Bob can refund.
+
+4. **Alice redeems on Chain B**
+
+   - Alice uses `s` to claim Bob’s locked asset B on Chain B.
+   - This redemption reveals `s` on-chain.
+
+5. **Bob redeems on Chain A**
+
+   - Bob observes `s` from Chain B and uses it to claim Alice’s locked asset A on Chain A.
+
+6. **Refund safety**
+   - If Alice never redeems on Chain B, Bob refunds after `T2`.
+   - Alice can still refund after `T1`, ensuring both parties are protected.
+
+### Key requirements
+
+- Both chains must support compatible primitives:
+  - A shared hash function (e.g., SHA-256 / Keccak depending on implementation)
+  - Timelocks (block height or timestamp)
+  - Scripting or smart contracts to enforce the HTLC logic
+- Adequate liquidity and careful parameter selection for timelocks and fees
+
+## On Sei Network
+
+Sei is a high-performance Layer 1 with **EVM compatibility**, **parallelized execution**, and ~**400ms finality**. These characteristics make atomic-swap-style flows (including HTLC-based swaps or more advanced cross-chain swap designs) more responsive and less prone to UX issues caused by long confirmation times.
+
+### Why Sei’s architecture helps
+
+- **Fast finality (~400ms)**: Reduces the time users wait between “lock” and “redeem” steps and helps minimize swap abandonment.
+- **Parallelization**: Many swaps and contract interactions can be processed concurrently, improving throughput during high demand.
+- **EVM compatibility**: Enables developers to implement swap contracts using familiar Solidity patterns and EVM tooling.
+
+### Typical patterns involving Sei
+
+- **Sei ↔ EVM chain swaps**: HTLC-like contracts can be deployed on Sei’s EVM and on another EVM chain (or a chain with compatible scripting), using a shared hash function and timelocks.
+- **Sei-native or ecosystem cross-chain swaps**: Many production cross-chain swaps incorporate relayers, intents, or messaging protocols for better UX; the “atomic” property can be achieved through cryptographic conditions and timeouts even when the design is not a pure two-HTLC swap.
+
+## Example: Simplified HTLC in Solidity (Sei EVM)
+
+Below is a simplified HTLC-style contract for a single chain. In a real cross-chain atomic swap, a matching contract exists on the counterparty chain with coordinated `hashlock` and timelocks.
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+contract SimpleHTLC {
+    address public depositor;     // who locked funds
+    address public beneficiary;   // who can claim with the secret
+    bytes32 public hashlock;      // keccak256(secret)
+    uint256 public timelock;      // unix timestamp
+    bool public claimed;
+    bool public refunded;
+
+    event Claimed(bytes secret);
+    event Refunded();
+
+    constructor(address _beneficiary, bytes32 _hashlock, uint256 _timelock) payable {
+        require(msg.value > 0, "No funds");
+        require(_timelock > block.timestamp, "Timelock must be in future");
+
+        depositor = msg.sender;
+        beneficiary = _beneficiary;
+        hashlock = _hashlock;
+        timelock = _timelock;
+    }
+
+    function claim(bytes calldata secret) external {
+        require(msg.sender == beneficiary, "Not beneficiary");
+        require(!claimed && !refunded, "Closed");
+        require(keccak256(secret) == hashlock, "Bad secret");
+        require(block.timestamp < timelock, "Expired");
+
+        claimed = true;
+        emit Claimed(secret);
+
+        (bool ok, ) = beneficiary.call{value: address(this).balance}("");
+        require(ok, "Transfer failed");
+    }
+
+    function refund() external {
+        require(msg.sender == depositor, "Not depositor");
+        require(!claimed && !refunded, "Closed");
+        require(block.timestamp >= timelock, "Not expired");
+
+        refunded = true;
+        emit Refunded();
+
+        (bool ok, ) = depositor.call{value: address(this).balance}("");
+        require(ok, "Transfer failed");
+    }
+}
+```
+
+## Practical Considerations
+
+- **Timelock sizing**: Set `T1` and `T2` with enough buffer for network delays and confirmations; ensure `T1 > T2`.
+- **Fee volatility**: If fees spike, a party may be unable to redeem in time; conservative timelocks reduce risk.
+- **Front-running and privacy**: Secrets are revealed on-chain during redemption; design accordingly.
+- **Asset type**: HTLCs can be built for native tokens or ERC-20s (with additional transfer logic).
+
+## Summary
+
+Atomic swaps enable trust-minimized, peer-to-peer exchanges across blockchains using cryptographic conditions and timeouts to ensure the swap either completes or safely reverts. On Sei Network, fast finality, parallel execution, and EVM compatibility can make atomic-swap-like workflows faster, more scalable, and simpler to integrate with standard Ethereum tooling.
+
+## Related Documentation
+
+- [Getting Started](/learn)
+- [Token Standards](/learn/dev-token-standards)
+- [Staking](/learn/general-staking)
+- [Oracles](/learn/oracles)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._

@@ -1,0 +1,204 @@
+---
+title: 'What is an Impermanent Loss and How Does It Work?'
+description: 'Learn about what is impermanent loss and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'glossary', 'what', 'impermanent', 'loss']
+---
+
+import { Callout } from 'nextra/components';
+
+export const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'FAQPage',
+      mainEntity: [
+        {
+          '@type': 'Question',
+          name: 'What is an Impermanent Loss and How Does It Work?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'Impermanent loss (IL) is the difference in value between holding tokens in an automated market maker (AMM) liquidity pool versus holding the same tokens in your wallet. It happens when the relative price of the pooled assets changes, causing the pool to rebalance your position into a different mix of tokens. The loss is “impermanent” because it can shrink (or disappear) if prices return to their original ratio, but it becomes permanent once you withdraw liquidity.'
+          }
+        }
+      ]
+    },
+    {
+      '@type': 'TechArticle',
+      headline: 'What is an Impermanent Loss and How Does It Work?',
+      description: 'Learn about what is impermanent loss and how it works in blockchain and on Sei Network.',
+      author: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      publisher: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      about: {
+        '@type': 'Thing',
+        name: 'what is impermanent loss'
+      },
+      articleSection: 'glossary',
+      inLanguage: 'en'
+    }
+  ]
+};
+
+<head>
+  <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+</head>
+
+# What is an Impermanent Loss and How Does It Work?
+
+<Callout type="info" emoji="🤖">
+  This content was generated with the assistance of AI and is intended for informational purposes only. Please verify all information independently before making decisions based on this content.
+</Callout>
+
+## Overview
+
+Impermanent loss (IL) is the difference in value between holding tokens in an automated market maker (AMM) liquidity pool versus holding the same tokens in your wallet. It happens when the relative price of the pooled assets changes, causing the pool to rebalance your position into a different mix of tokens. The loss is “impermanent” because it can shrink (or disappear) if prices return to their original ratio, but it becomes permanent once you withdraw liquidity.
+
+## How It Works
+
+### Why impermanent loss occurs
+
+Most AMMs (e.g., constant-product pools) maintain a pricing curve that forces the pool’s token reserves to adjust as traders swap. When one token’s external market price rises relative to the other, arbitrageurs trade against the pool until the pool’s internal price matches the external price. This process changes the ratio of tokens you effectively own as a liquidity provider (LP):
+
+- If token A increases relative to token B, the pool ends up holding **more B and less A**
+- If token A decreases relative to token B, the pool ends up holding **more A and less B**
+
+Because your LP share represents a slice of the pool, your position is rebalanced automatically—often leaving you with less of the asset that appreciated.
+
+### Impermanent loss vs. trading fees
+
+LPs earn swap fees (and sometimes incentives). These revenues can offset impermanent loss, and in some market conditions can exceed it. Your net outcome is typically:
+
+**Net PnL ≈ Fees + Incentives − Impermanent Loss (± other factors like MEV, rebalances, gas)**
+
+### Simple example (conceptual)
+
+Assume you deposit equal values of ETH and USDC into a pool. If ETH price doubles while USDC stays the same:
+
+- Your LP position will end up with **less ETH** and **more USDC** than if you had simply held your initial ETH + USDC.
+- Even though the total value of your LP position usually increases, it may increase **less** than holding (hence the “loss” relative to holding).
+
+### Common formula (constant-product, 50/50 pool)
+
+For a classic 50/50 constant-product AMM (e.g., Uniswap v2-style), impermanent loss as a percentage relative to holding can be approximated by:
+
+Let **r** = new price / old price (e.g., r = 2 if price doubles)
+
+```
+IL(r) = 1 - (2 * √r) / (1 + r)
+```
+
+Example:
+
+- If **r = 2**, then `IL ≈ 1 - (2 * √2) / 3 ≈ 5.72%`
+
+This is **before** accounting for fees and incentives.
+
+### Factors that increase or reduce IL
+
+**Increases IL:**
+
+- Larger relative price moves (higher volatility)
+- Longer time exposed during volatile periods
+- Pools with assets that diverge significantly in price
+
+**Reduces IL (or makes it easier to offset):**
+
+- Higher swap volume → more fees
+- Incentive programs (liquidity mining)
+- Pairs with correlated prices (e.g., stable/stable, LSD/ETH often more correlated than random pairs)
+- Alternative pool designs (e.g., stableswap curves) that reduce slippage and IL for tightly pegged assets
+
+## On Sei Network
+
+Impermanent loss is a property of the AMM design and price movements, so it can occur on Sei just like on any other chain when you provide liquidity to AMM pools. What changes on Sei is the **user experience and execution environment** around AMMs:
+
+- **Fast finality (~400ms):** Liquidity additions/removals and swaps finalize quickly, which can improve responsiveness for active LP management (e.g., adjusting positions more frequently).
+- **Parallelization:** Sei’s parallelized execution can enable high throughput for DeFi activity, potentially supporting deeper, more active markets. Higher volume can translate to more fee generation—one of the primary ways LPs offset impermanent loss.
+- **EVM compatibility:** You can interact with AMMs using standard Ethereum tooling (Solidity contracts, wallets, indexers). This makes it straightforward to integrate IL monitoring, position management, and analytics with existing EVM-based systems.
+
+### Practical mitigation tips for LPs on Sei
+
+- Prefer **correlated pairs** if your goal is yield with lower IL.
+- Evaluate **fee tiers and incentives**: higher fees can better compensate for volatility-driven IL.
+- Consider **active management** if the AMM design supports it (e.g., rebalancing or adjusting exposure) and your strategy can keep up with market conditions.
+
+## Code Example: Estimating Impermanent Loss
+
+### TypeScript (IL for a 50/50 constant-product pool)
+
+```typescript
+/**
+ * Impermanent Loss for a 50/50 constant-product AMM (relative to holding).
+ * r = newPrice / oldPrice
+ * returns IL as a fraction (e.g., 0.0572 = 5.72%)
+ */
+export function impermanentLoss(r: number): number {
+  if (r <= 0) throw new Error('r must be > 0');
+  return 1 - (2 * Math.sqrt(r)) / (1 + r);
+}
+
+// Example: price doubles
+const r = 2;
+console.log(`IL: ${(impermanentLoss(r) * 100).toFixed(2)}%`);
+```
+
+### Solidity (utility function for on-chain estimation)
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+library ImpermanentLoss {
+    /// @notice Approximate IL for 50/50 constant-product AMM given r = newPrice/oldPrice in 1e18 fixed-point.
+    /// @dev Uses Babylonian sqrt. Returns IL in 1e18 (e.g., 0.0572e18).
+    function il50_50(uint256 r1e18) internal pure returns (uint256) {
+        require(r1e18 > 0, "r must be > 0");
+
+        // IL = 1 - (2*sqrt(r)) / (1+r)
+        // all in 1e18 fixed point
+        uint256 sqrtR = sqrt(r1e18 * 1e18); // sqrt(r)*1e18
+
+        uint256 numerator = 2 * sqrtR;      // 2*sqrt(r)*1e18
+        uint256 denominator = 1e18 + r1e18; // (1+r)*1e18
+
+        uint256 fraction = (numerator * 1e18) / denominator; // (2*sqrt(r)/(1+r))*1e18
+        return 1e18 - fraction;
+    }
+
+    /// @dev Babylonian method sqrt for uint256.
+    function sqrt(uint256 x) internal pure returns (uint256 y) {
+        if (x == 0) return 0;
+        uint256 z = (x + 1) / 2;
+        y = x;
+        while (z < y) {
+            y = z;
+            z = (x / z + z) / 2;
+        }
+    }
+}
+```
+
+## Key Takeaways
+
+- Impermanent loss is the opportunity cost of providing AMM liquidity compared to holding the same assets.
+- It is driven by **relative price changes** and the AMM’s automatic rebalancing.
+- Fees and incentives can offset IL, but they are not guaranteed to.
+- On Sei, fast finality, parallelized execution, and EVM compatibility can improve DeFi UX and potentially fee opportunities, but the core IL mechanics remain the same.
+
+## Related Documentation
+
+- [Getting Started](/learn)
+- [Token Standards](/learn/dev-token-standards)
+- [Staking](/learn/general-staking)
+- [Oracles](/learn/oracles)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._

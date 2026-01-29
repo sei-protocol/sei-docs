@@ -1,0 +1,178 @@
+---
+title: 'What is a Crypto Oracle and How Does It Work?'
+description: 'Learn about what is crypto oracle and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'glossary', 'what', 'crypto', 'oracle']
+---
+
+import { Callout } from 'nextra/components';
+
+export const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'FAQPage',
+      mainEntity: [
+        {
+          '@type': 'Question',
+          name: 'What is a Crypto Oracle and How Does It Work?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'A crypto oracle is a service or protocol that supplies blockchains and smart contracts with data from outside the chain (off-chain), such as asset prices, random numbers, API responses, or event outcomes. Because blockchains cannot directly fetch or verify most real-world information, oracles act as a trusted (or trust-minimized) bridge that enables smart contracts to react to external conditions.'
+          }
+        }
+      ]
+    },
+    {
+      '@type': 'TechArticle',
+      headline: 'What is a Crypto Oracle and How Does It Work?',
+      description: 'Learn about what is crypto oracle and how it works in blockchain and on Sei Network.',
+      author: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      publisher: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      about: {
+        '@type': 'Thing',
+        name: 'what is crypto oracle'
+      },
+      articleSection: 'glossary',
+      inLanguage: 'en'
+    }
+  ]
+};
+
+<head>
+  <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+</head>
+
+# What is a Crypto Oracle and How Does It Work?
+
+<Callout type="info" emoji="🤖">
+  This content was generated with the assistance of AI and is intended for informational purposes only. Please verify all information independently before making decisions based on this content.
+</Callout>
+
+## Overview
+
+A crypto oracle is a service or protocol that supplies blockchains and smart contracts with data from outside the chain (off-chain), such as asset prices, random numbers, API responses, or event outcomes. Because blockchains cannot directly fetch or verify most real-world information, oracles act as a trusted (or trust-minimized) bridge that enables smart contracts to react to external conditions.
+
+## How It Works
+
+### Why Oracles Exist
+
+Blockchains are deterministic: every node must be able to independently verify the same inputs to reach the same outputs. If a smart contract could freely call an external API, different nodes might see different responses (or see the response at different times), breaking consensus. Oracles solve this by delivering data on-chain in a verifiable and consistent way.
+
+### Common Oracle Patterns
+
+- **Push-based feeds (publisher → chain):** An oracle network periodically publishes data (e.g., ETH/USD price) to an on-chain contract. Smart contracts read the latest value.
+- **Pull-based requests (contract → oracle → chain):** A smart contract requests specific data; off-chain oracle nodes fetch it and then post the result back on-chain.
+- **Cross-chain messaging:** Oracles can relay messages and proofs between chains (e.g., bridging, IBC-like relays, light-client verification).
+
+### Oracle Components
+
+- **Off-chain data sources:** Exchanges, APIs, sensor networks, or other systems.
+- **Oracle nodes / reporters:** Fetch, aggregate, and sign the data.
+- **Aggregation & validation:** Median/mean of multiple reporters, outlier filtering, staking/slashing, reputation, or cryptographic proofs.
+- **On-chain contracts:** Store the resulting value and expose read methods to consumer smart contracts.
+
+### Trust and Security Considerations
+
+Oracles introduce an external trust surface. Key risks and mitigations include:
+
+- **Data manipulation / source risk:** Use multiple independent sources and robust aggregation.
+- **Sybil or collusion:** Permissioned reporter sets, staking, and slashing.
+- **Staleness:** Enforce heartbeats and maximum age checks.
+- **Front-running / MEV:** Use commit-reveal, time-weighted averages, or read-only views that check update timestamps.
+- **Chain reorg risk:** Prefer chains with strong finality and fast confirmation, and wait for finality before acting on updates.
+
+### Minimal Consumer Example (Solidity)
+
+Below is a simple pattern for consuming a price feed oracle contract.
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+interface IPriceFeed {
+    function latestAnswer() external view returns (int256);
+    function latestTimestamp() external view returns (uint256);
+}
+
+contract UsesOraclePrice {
+    IPriceFeed public immutable feed;
+    uint256 public constant MAX_STALENESS = 60; // seconds
+
+    constructor(address _feed) {
+        feed = IPriceFeed(_feed);
+    }
+
+    function getFreshPrice() external view returns (int256 price) {
+        uint256 ts = feed.latestTimestamp();
+        require(block.timestamp - ts <= MAX_STALENESS, "stale price");
+        price = feed.latestAnswer();
+        require(price > 0, "invalid price");
+    }
+}
+```
+
+## On Sei Network
+
+Sei Network is a high-performance Layer 1 with EVM compatibility, designed for fast, parallel execution and rapid transaction finality (around ~400ms). These properties make oracle consumption practical for high-frequency DeFi and trading applications where price freshness and quick settlement matter.
+
+### What Changes on Sei
+
+- **Lower latency to finality:** Oracle updates posted on-chain can become usable by applications quickly, reducing the window where stale data could be exploited.
+- **Parallelization benefits:** Many contracts can read oracle feeds and execute in parallel (when state access doesn’t conflict), supporting higher throughput for applications like DEXs, perps, and liquidations.
+- **EVM compatibility:** Solidity-based oracle consumer contracts and familiar tooling (Hardhat/Foundry, ethers.js) can be used with Sei’s EVM environment.
+
+### Consuming an Oracle on Sei (EVM) with ethers.js
+
+A typical flow is the same as any EVM chain: point your app/contract at the oracle feed contract address deployed on Sei and read its latest value.
+
+```typescript
+import { ethers } from 'ethers';
+
+const provider = new ethers.JsonRpcProvider(process.env.SEI_EVM_RPC_URL);
+
+const feedAbi = ['function latestAnswer() view returns (int256)', 'function latestTimestamp() view returns (uint256)'];
+
+const feedAddress = '0xYourOracleFeedOnSei';
+const feed = new ethers.Contract(feedAddress, feedAbi, provider);
+
+async function readPrice() {
+  const [price, ts] = await Promise.all([feed.latestAnswer(), feed.latestTimestamp()]);
+
+  const ageSec = Math.floor(Date.now() / 1000) - Number(ts);
+  if (ageSec > 60) throw new Error('stale price');
+
+  return { price: price.toString(), timestamp: Number(ts) };
+}
+
+readPrice().then(console.log);
+```
+
+### Best Practices for Oracles on Sei
+
+- **Check freshness:** Always validate timestamps/round IDs (if available) to prevent using stale values.
+- **Handle decimals and normalization:** Different feeds may use different decimals; normalize before calculations.
+- **Fail safely:** If the oracle is stale or invalid, revert or use conservative defaults to avoid unintended liquidations or trades.
+- **Design for update cadence:** Sei’s fast finality can support tighter update intervals, but choose a cadence that balances cost, volatility, and security.
+
+## Summary
+
+Crypto oracles enable smart contracts to use off-chain information by delivering verified, consistent data onto the blockchain. They typically rely on multiple reporters, aggregation, and on-chain storage contracts to reduce manipulation and ensure freshness. On Sei Network, parallel execution, EVM compatibility, and ~400ms finality make oracle-driven applications—especially trading and DeFi—more responsive and scalable.
+
+## Related Documentation
+
+- [Getting Started](/learn)
+- [Token Standards](/learn/dev-token-standards)
+- [Staking](/learn/general-staking)
+- [Oracles](/learn/oracles)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._
