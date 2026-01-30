@@ -1,0 +1,235 @@
+---
+title: 'What is a Cross-chain Bridge and How Does It Work?'
+description: 'Learn about what is cross-chain bridge and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'glossary', 'what', 'cross-chain', 'bridge', 'cross', 'chain']
+---
+
+import { Callout } from 'nextra/components';
+
+export const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'FAQPage',
+      mainEntity: [
+        {
+          '@type': 'Question',
+          name: 'What is a Cross-chain Bridge and How Does It Work?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'A cross-chain bridge is an interoperability protocol that lets users move assets and data between two different blockchains that don’t natively communicate. It typically “locks” or “burns” tokens on a source chain and “mints” or “releases” equivalent tokens on a destination chain, enabling liquidity and applications to span multiple ecosystems.'
+          }
+        }
+      ]
+    },
+    {
+      '@type': 'TechArticle',
+      headline: 'What is a Cross-chain Bridge and How Does It Work?',
+      description: 'Learn about what is cross-chain bridge and how it works in blockchain and on Sei Network.',
+      author: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      publisher: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      about: {
+        '@type': 'Thing',
+        name: 'what is cross-chain bridge'
+      },
+      articleSection: 'glossary',
+      inLanguage: 'en'
+    }
+  ]
+};
+
+<head>
+  <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+</head>
+
+# What is a Cross-chain Bridge and How Does It Work?
+
+<Callout type="info" emoji="🤖">
+  This content was generated with the assistance of AI and is intended for informational purposes only. Please verify all information independently before making decisions based on this content.
+</Callout>
+
+## Overview
+
+A cross-chain bridge is an interoperability protocol that lets users move assets and data between two different blockchains that don’t natively communicate. It typically “locks” or “burns” tokens on a source chain and “mints” or “releases” equivalent tokens on a destination chain, enabling liquidity and applications to span multiple ecosystems.
+
+## How It Works
+
+Most bridges follow a similar lifecycle, even though designs vary:
+
+### 1) Asset escrow or burn on the source chain
+
+When bridging from Chain A to Chain B, a user sends tokens to a bridge contract on Chain A. Depending on the model:
+
+- **Lock-and-mint:** Tokens are **locked** in a vault/escrow contract on Chain A; a wrapped representation is minted on Chain B.
+- **Burn-and-mint:** Tokens are **burned** on Chain A; new tokens are minted on Chain B (common for canonical cross-chain tokens).
+- **Lock-and-release:** Tokens were previously escrowed, so the bridge **releases** liquidity on the destination chain instead of minting.
+
+### 2) Message verification (proving the event happened)
+
+The bridge must verify that the deposit/burn occurred on Chain A before acting on Chain B. Common verification models:
+
+- **Light client / on-chain verification:** Chain B verifies Chain A’s consensus proofs (strong trust minimization, higher complexity).
+- **Validator / relayer committee (M-of-N multisig):** A set of signers attests to events (simpler, adds trust assumptions).
+- **Optimistic bridges:** Messages are accepted after a delay unless challenged (trade-off between speed and security).
+
+### 3) Mint or release on the destination chain
+
+After verification, the bridge contract on Chain B either:
+
+- **mints wrapped tokens** (e.g., `wTOKEN`), or
+- **releases canonical liquidity** from a pool/vault, or
+- **executes a message** (e.g., call a contract function with parameters), enabling cross-chain app workflows.
+
+### 4) (Optional) Return trip / redemption
+
+To bridge back, the process reverses: wrapped tokens are burned or locked on Chain B, and the original tokens are released/unlocked on Chain A.
+
+### Security considerations
+
+Bridges are high-value targets because they custody or control large amounts of assets. Key risks include:
+
+- **Compromised signers / validator sets** (committee bridges)
+- **Smart contract bugs** (vault logic, replay protection, signature verification)
+- **Message replay or double-mint** if nonces and finality checks are incorrect
+- **Liquidity risk** for pool-based bridges (insufficient exit liquidity)
+
+Best practices include audited contracts, strong replay protection, explicit finality confirmations, rate limits, monitoring, and minimizing trust assumptions where possible.
+
+## On Sei Network
+
+Sei is a high-performance Layer 1 with **EVM compatibility**, designed for throughput via **parallelization** and fast confirmation with **~400ms finality**. In practice, cross-chain bridges to Sei enable users and apps to move assets and trigger contract interactions on Sei with low latency and strong UX:
+
+- **Fast settlement experience:** Sei’s ~400ms finality can reduce the “destination-side” waiting time once the bridge considers the source-chain event final.
+- **EVM compatibility:** Many bridge endpoints can integrate with Sei using familiar Solidity contracts and tooling, allowing bridged assets to be used directly in EVM dApps.
+- **Parallelization benefits:** High concurrency on Sei helps handle many bridge mint/release operations and downstream DeFi activity without becoming a bottleneck.
+
+### Typical bridging flow into Sei (high-level)
+
+1. User deposits tokens on the source chain into the bridge contract.
+2. Bridge verifies the deposit (via its verification model).
+3. Bridge mints/releases the corresponding token on **Sei**, often as an ERC-20–compatible asset on Sei’s EVM.
+4. User uses the bridged asset in Sei dApps (DEXs, lending, perps, etc.) with fast finality.
+
+## Example: Basic lock-and-mint bridge pattern (illustrative)
+
+Below is a simplified conceptual example (not production-ready) showing the core ideas: lock on source, mint on destination, and prevent replay via nonces.
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+interface IERC20 {
+  function transferFrom(address from, address to, uint256 amount) external returns (bool);
+  function transfer(address to, uint256 amount) external returns (bool);
+  function mint(address to, uint256 amount) external;
+  function burnFrom(address from, uint256 amount) external;
+}
+
+/// @notice Source chain bridge: locks canonical tokens and emits an event to be proven on the destination chain.
+contract SourceBridge {
+  IERC20 public immutable token;
+  uint256 public nonce;
+
+  event Locked(address indexed sender, address indexed recipientOnDest, uint256 amount, uint256 nonce);
+
+  constructor(IERC20 _token) {
+    token = _token;
+  }
+
+  function lock(address recipientOnDest, uint256 amount) external {
+    require(amount > 0, "amount=0");
+    token.transferFrom(msg.sender, address(this), amount);
+    emit Locked(msg.sender, recipientOnDest, amount, nonce++);
+  }
+}
+
+/// @notice Destination chain bridge: mints wrapped tokens after verifying a valid proof/attestation.
+contract DestBridge {
+  IERC20 public immutable wrappedToken;
+
+  // Tracks consumed messages to prevent replay/double-mint
+  mapping(bytes32 => bool) public consumed;
+
+  // In real bridges, this would verify a light-client proof or validator signatures.
+  function _verifyAttestation(bytes calldata /*attestation*/) internal pure returns (bool) {
+    return true;
+  }
+
+  constructor(IERC20 _wrappedToken) {
+    wrappedToken = _wrappedToken;
+  }
+
+  function mintFromSource(
+    address recipient,
+    uint256 amount,
+    uint256 sourceNonce,
+    bytes calldata attestation
+  ) external {
+    require(_verifyAttestation(attestation), "invalid attestation");
+
+    bytes32 msgId = keccak256(abi.encode(recipient, amount, sourceNonce));
+    require(!consumed[msgId], "already processed");
+    consumed[msgId] = true;
+
+    wrappedToken.mint(recipient, amount);
+  }
+}
+```
+
+## Example: Bridging UX (client-side outline)
+
+A typical client sequence is:
+
+1. Send a deposit transaction on the source chain
+2. Wait for confirmations/finality required by the bridge
+3. Submit proof/attestation to the destination chain (e.g., Sei EVM) to mint/release
+
+```typescript
+import { ethers } from 'ethers';
+
+async function bridgeToSei({ sourceProvider, destProvider, sourceBridgeAddress, destBridgeAddress, amount, recipientOnSei }: any) {
+  // 1) Lock on source
+  const sourceSigner = new ethers.BrowserProvider(sourceProvider).getSigner();
+  const sourceBridge = new ethers.Contract(sourceBridgeAddress, ['function lock(address recipientOnDest, uint256 amount) external', 'event Locked(address indexed sender, address indexed recipientOnDest, uint256 amount, uint256 nonce)'], await sourceSigner);
+
+  const tx = await sourceBridge.lock(recipientOnSei, amount);
+  const receipt = await tx.wait();
+
+  // 2) Extract event data (nonce) and obtain attestation from bridge infra
+  // (Real implementations query an API/relayer or generate proofs)
+  const nonce = receipt.logs[0]?.args?.nonce;
+  const attestation = '0x'; // placeholder
+
+  // 3) Mint on destination (Sei EVM)
+  const destSigner = new ethers.BrowserProvider(destProvider).getSigner();
+  const destBridge = new ethers.Contract(destBridgeAddress, ['function mintFromSource(address recipient,uint256 amount,uint256 sourceNonce,bytes attestation) external'], await destSigner);
+
+  const mintTx = await destBridge.mintFromSource(recipientOnSei, amount, nonce, attestation);
+  await mintTx.wait();
+}
+```
+
+## Key Takeaways
+
+- Cross-chain bridges enable assets and messages to move between otherwise isolated blockchains.
+- They work by pairing **source-chain escrow/burn** with **destination-chain mint/release**, gated by a **verification mechanism**.
+- On Sei Network, bridges can deliver a fast, smooth destination-side experience thanks to **parallelization**, **EVM compatibility**, and **~400ms finality** once the bridge’s validation requirements are satisfied.
+
+## Related Documentation
+
+- [Getting Started](/learn)
+- [Token Standards](/learn/dev-token-standards)
+- [Staking](/learn/general-staking)
+- [Oracles](/learn/oracles)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._

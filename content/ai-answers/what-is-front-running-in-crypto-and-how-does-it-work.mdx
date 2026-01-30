@@ -1,0 +1,210 @@
+---
+title: 'What is Front-running in Crypto and How Does It Work?'
+description: 'Learn about what is front-running and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'glossary', 'what', 'front-running', 'front', 'running', 'crypto']
+---
+
+import { Callout } from 'nextra/components';
+
+export const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'FAQPage',
+      mainEntity: [
+        {
+          '@type': 'Question',
+          name: 'What is Front-running in Crypto and How Does It Work?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'Front-running in crypto is when someone gains an unfair advantage by submitting a transaction that will execute before a known pending transaction, typically by paying higher fees or using privileged order-flow access. The goal is to profit from the price impact or state change caused by the victim’s transaction. It is closely associated with MEV (Maximal Extractable Value) and can harm users through worse prices, failed transactions, or unexpected outcomes.'
+          }
+        }
+      ]
+    },
+    {
+      '@type': 'TechArticle',
+      headline: 'What is Front-running in Crypto and How Does It Work?',
+      description: 'Learn about what is front-running and how it works in blockchain and on Sei Network.',
+      author: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      publisher: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      about: {
+        '@type': 'Thing',
+        name: 'what is front-running'
+      },
+      articleSection: 'glossary',
+      inLanguage: 'en'
+    }
+  ]
+};
+
+<head>
+  <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+</head>
+
+# What is Front-running in Crypto and How Does It Work?
+
+<Callout type="info" emoji="🤖">
+  This content was generated with the assistance of AI and is intended for informational purposes only. Please verify all information independently before making decisions based on this content.
+</Callout>
+
+## Overview
+
+Front-running in crypto is when someone gains an unfair advantage by submitting a transaction that will execute before a known pending transaction, typically by paying higher fees or using privileged order-flow access. The goal is to profit from the price impact or state change caused by the victim’s transaction. It is closely associated with MEV (Maximal Extractable Value) and can harm users through worse prices, failed transactions, or unexpected outcomes.
+
+## How It Works
+
+### Where front-running happens
+
+Most blockchain transactions enter a public “mempool” (a pool of unconfirmed transactions) before they’re included in a block. Because pending transactions are visible, an attacker (or a searcher/bot) can:
+
+- Detect a profitable pending transaction (e.g., a large DEX swap that will move price).
+- Submit their own transaction targeting the same asset/state change.
+- Increase their transaction fee (or otherwise signal priority) so validators include it first.
+
+### Common front-running patterns
+
+#### 1) DEX swap front-running (single-transaction)
+
+A user submits a swap that will move the price of a token pair. A bot detects this and places a buy just before it (to buy cheaper), then sells after (to sell higher). This is often called a **sandwich attack** when combined with the “after” trade.
+
+#### 2) Sandwich attacks (buy → victim → sell)
+
+A typical sandwich:
+
+1. **Attacker buy**: pushes price up slightly.
+2. **Victim swap**: executes at a worse price due to the attacker’s buy.
+3. **Attacker sell**: captures profit after the victim moves the price further.
+
+This is enabled when the victim’s transaction includes high **slippage tolerance**, allowing execution even after the price shifts.
+
+#### 3) NFT mint / marketplace front-running
+
+If minting is first-come-first-served, a bot can copy a user’s mint transaction (or detect it) and submit a higher-fee transaction to mint first. Similarly, bots may front-run marketplace purchases.
+
+#### 4) Liquidation front-running (lending protocols)
+
+When a position becomes liquidatable, liquidators compete to execute first. Bots may front-run liquidation calls by paying higher fees to capture the liquidation bonus.
+
+### Why it’s possible
+
+Front-running is primarily enabled by:
+
+- **Public transaction visibility** before inclusion (public mempools).
+- **Priority mechanisms** (fees/tips) that influence transaction ordering.
+- **Composable DeFi** where a pending transaction’s effect is predictable (e.g., AMM pricing).
+
+### User impact
+
+Front-running can lead to:
+
+- **Worse execution price** (higher slippage)
+- **Higher fees** due to competition
+- **Failed transactions** (state changes invalidate assumptions)
+- **Unfair advantage** for bots/searchers
+
+## On Sei Network
+
+Sei is a high-performance Layer 1 with **EVM compatibility**, designed for throughput and fast confirmation while supporting modern DeFi patterns. Front-running is a general mempool/ordering problem that can exist on any chain with public pending transactions, but Sei’s architecture changes the practical dynamics:
+
+- **Fast finality (~400ms)**: Faster confirmation narrows the time window in which bots can observe a pending transaction and react. While it doesn’t eliminate adversarial ordering by itself, it reduces latency-based advantages and can make certain reactive strategies harder.
+- **Parallelization**: Sei executes transactions in parallel where possible, increasing throughput and reducing congestion-driven fee spikes that often amplify front-running races. For contracts competing over the same state (e.g., the same pool), ordering still matters, but overall performance can reduce prolonged mempool backlogs.
+- **EVM compatibility**: Solidity DEXs, lending protocols, and NFT marketplaces deployed on Sei can face the same MEV/front-running considerations as on other EVM chains (e.g., sandwich risk around AMM swaps). Developers should design with MEV-aware patterns, and users should apply standard protections.
+
+### Practical tips for users on Sei (and any chain)
+
+- Use **reasonable slippage** on swaps (keep it tight when possible).
+- Prefer DEX/UIs that support **MEV protection** or private routing where available.
+- Avoid broadcasting large, obvious trades when liquidity is thin; consider splitting orders.
+
+### Practical tips for developers deploying on Sei (EVM)
+
+- Use **commit-reveal** for sensitive actions (mints, auctions) to prevent copy-and-prioritize attacks.
+- Add **anti-sandwich** mechanics (e.g., tighter bounds, TWAP-based checks, per-block limits) where appropriate.
+- Design liquidation/auction flows to be robust to reordering competition.
+
+## Example: How a sandwich attack works on an AMM (conceptual)
+
+Below is a simplified Solidity-style example showing how AMM swaps can be sensitive to ordering. The key issue is that `amountOutMin` (slippage tolerance) can allow execution after price moves.
+
+```solidity
+// Pseudocode only: illustrates the slippage/ordering sensitivity.
+interface IUniswapV2RouterLike {
+    function swapExactTokensForTokens(
+        uint amountIn,
+        uint amountOutMin,
+        address[] calldata path,
+        address to,
+        uint deadline
+    ) external returns (uint[] memory amounts);
+}
+
+contract SwapExample {
+    IUniswapV2RouterLike public router;
+
+    constructor(address _router) {
+        router = IUniswapV2RouterLike(_router);
+    }
+
+    function swap(
+        uint amountIn,
+        uint amountOutMin,
+        address[] calldata path
+    ) external {
+        // If amountOutMin is set too low, the trade can be executed
+        // even after an attacker moves the price against the user.
+        router.swapExactTokensForTokens(
+            amountIn,
+            amountOutMin,
+            path,
+            msg.sender,
+            block.timestamp + 60
+        );
+    }
+}
+```
+
+## Example: Basic commit-reveal to reduce front-running (pattern)
+
+Commit-reveal hides the user’s intent until reveal, reducing the ability to copy a transaction from the mempool.
+
+```solidity
+// Minimal illustrative commit-reveal sketch (not production-ready).
+contract CommitReveal {
+    mapping(address => bytes32) public commits;
+
+    function commit(bytes32 commitment) external {
+        commits[msg.sender] = commitment;
+    }
+
+    function reveal(bytes32 secret, uint256 value) external {
+        bytes32 expected = keccak256(abi.encodePacked(msg.sender, value, secret));
+        require(commits[msg.sender] == expected, "Invalid reveal");
+        // Execute the action using `value` now that it was hidden during commit.
+        delete commits[msg.sender];
+    }
+}
+```
+
+## Summary
+
+Front-running is the practice of executing a transaction before a known pending transaction to profit from its market or state impact. It commonly appears in DeFi swaps (including sandwich attacks), NFT mints, and liquidations due to public mempools and fee-based ordering. On Sei Network, **~400ms finality**, **parallelized execution**, and **EVM compatibility** shape how these dynamics play out, and standard MEV-aware user and developer protections remain important.
+
+## Related Documentation
+
+- [Getting Started](/learn)
+- [Token Standards](/learn/dev-token-standards)
+- [Staking](/learn/general-staking)
+- [Oracles](/learn/oracles)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._

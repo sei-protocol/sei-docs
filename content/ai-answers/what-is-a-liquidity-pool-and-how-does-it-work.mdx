@@ -1,0 +1,202 @@
+---
+title: 'What is a Liquidity Pool and How Does It Work?'
+description: 'Learn about what is liquidity pool and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'glossary', 'what', 'liquidity', 'pool']
+---
+
+import { Callout } from 'nextra/components';
+
+export const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'FAQPage',
+      mainEntity: [
+        {
+          '@type': 'Question',
+          name: 'What is a Liquidity Pool and How Does It Work?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'A liquidity pool is a smart contract that holds reserves of two or more tokens so users can trade, lend, or provide liquidity without needing a traditional order book. Instead of matching buyers and sellers directly, trades are executed against the pool’s reserves according to predefined pricing rules. Liquidity providers (LPs) deposit tokens into the pool and earn fees (and sometimes additional incentives) in return.'
+          }
+        }
+      ]
+    },
+    {
+      '@type': 'TechArticle',
+      headline: 'What is a Liquidity Pool and How Does It Work?',
+      description: 'Learn about what is liquidity pool and how it works in blockchain and on Sei Network.',
+      author: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      publisher: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      about: {
+        '@type': 'Thing',
+        name: 'what is liquidity pool'
+      },
+      articleSection: 'glossary',
+      inLanguage: 'en'
+    }
+  ]
+};
+
+<head>
+  <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+</head>
+
+# What is a Liquidity Pool and How Does It Work?
+
+<Callout type="info" emoji="🤖">
+  This content was generated with the assistance of AI and is intended for informational purposes only. Please verify all information independently before making decisions based on this content.
+</Callout>
+
+## Overview
+
+A liquidity pool is a smart contract that holds reserves of two or more tokens so users can trade, lend, or provide liquidity without needing a traditional order book. Instead of matching buyers and sellers directly, trades are executed against the pool’s reserves according to predefined pricing rules. Liquidity providers (LPs) deposit tokens into the pool and earn fees (and sometimes additional incentives) in return.
+
+## How It Works
+
+### 1) Pool creation and token reserves
+
+A liquidity pool typically consists of a token pair (e.g., TOKENA/TOKENB). LPs deposit both tokens into the contract, increasing the pool’s reserves. The relative sizes of these reserves determine the pool price.
+
+### 2) Automated Market Makers (AMMs) and pricing
+
+Most DEX liquidity pools use an AMM model. A common approach is the constant product formula:
+
+- **x \* y = k**
+  - `x` = reserve of token A
+  - `y` = reserve of token B
+  - `k` = constant
+
+When a trader swaps token A for token B, they add token A to the pool and remove token B. The contract adjusts the output amount so that `x * y` remains (approximately) constant, which updates the price.
+
+Other designs exist (stable swap curves for correlated assets, concentrated liquidity, dynamic fees), but the principle is the same: on-chain rules set prices based on pool state.
+
+### 3) Liquidity provider (LP) shares
+
+When you add liquidity, you receive **LP tokens** (or an accounting position) representing your proportional ownership of the pool. If you own 5% of the pool, you can typically withdraw 5% of the reserves (including accrued fees), subject to the pool’s mechanics.
+
+### 4) Trading fees and incentives
+
+Trades usually include a fee (e.g., 0.3%). Fees are often distributed to LPs proportionally, increasing the value of their LP position over time. Some protocols also distribute additional rewards (liquidity mining).
+
+### 5) Key risks: impermanent loss and pool dynamics
+
+- **Impermanent loss (IL):** If the relative price of the tokens changes compared to when you deposited, your withdrawn value may be lower than simply holding the tokens. IL can be offset by trading fees and incentives but is not guaranteed.
+- **Smart contract risk:** Bugs or exploits can lead to loss of funds.
+- **MEV / sandwich risk:** Traders may be impacted by adversarial ordering; protocols and chains may mitigate this differently.
+
+## On Sei Network
+
+Sei Network supports liquidity pools for both Cosmos-native assets and EVM assets through Sei’s **EVM compatibility**, making it straightforward to deploy AMM-style DEXs and integrate with familiar tooling. Sei’s high-performance design (including **parallelization**) helps DEX activity scale under load by executing many independent transactions concurrently when possible, and its fast block processing with **~400ms finality** improves the trading experience by reducing the time users wait for swaps and liquidity actions to be finalized.
+
+In practice, liquidity pools on Sei power:
+
+- **Fast token swaps** with quick confirmation times
+- **Efficient on-chain price discovery** for DeFi markets
+- **Composability** with other EVM smart contracts (vaults, aggregators, lending markets)
+
+## Example: Minimal AMM-style swap (Solidity, EVM)
+
+Below is a simplified illustration of a constant-product style swap. Production AMMs include more safety checks, precise math, and robust accounting.
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+interface IERC20 {
+    function transferFrom(address from, address to, uint256 amount) external returns (bool);
+    function transfer(address to, uint256 amount) external returns (bool);
+    function balanceOf(address a) external view returns (uint256);
+}
+
+contract SimplePool {
+    IERC20 public token0;
+    IERC20 public token1;
+
+    // Example fee: 30 bps (0.30%)
+    uint256 public constant FEE_BPS = 30;
+    uint256 public constant BPS_DENOM = 10_000;
+
+    constructor(address _token0, address _token1) {
+        token0 = IERC20(_token0);
+        token1 = IERC20(_token1);
+    }
+
+    function getReserves() public view returns (uint256 r0, uint256 r1) {
+        r0 = token0.balanceOf(address(this));
+        r1 = token1.balanceOf(address(this));
+    }
+
+    // Swap exact token0 in for token1 out
+    function swapToken0ForToken1(uint256 amountIn) external returns (uint256 amountOut) {
+        (uint256 r0, uint256 r1) = getReserves();
+        require(r0 > 0 && r1 > 0, "No liquidity");
+
+        // Transfer token0 in
+        require(token0.transferFrom(msg.sender, address(this), amountIn), "transferFrom failed");
+
+        // Apply fee
+        uint256 amountInAfterFee = amountIn * (BPS_DENOM - FEE_BPS) / BPS_DENOM;
+
+        // Constant product: (r0 + amountInAfterFee) * (r1 - amountOut) = r0 * r1
+        // Solve for amountOut:
+        // amountOut = r1 - (r0 * r1) / (r0 + amountInAfterFee)
+        uint256 newR0 = r0 + amountInAfterFee;
+        uint256 k = r0 * r1;
+        uint256 newR1 = k / newR0;
+        amountOut = r1 - newR1;
+
+        require(amountOut > 0 && amountOut < r1, "Bad output");
+        require(token1.transfer(msg.sender, amountOut), "transfer failed");
+    }
+}
+```
+
+## Example: Adding liquidity (TypeScript / ethers)
+
+This snippet shows a typical EVM flow: approve token spending, then call a pool’s add-liquidity method (method name varies by DEX).
+
+```typescript
+import { ethers } from 'ethers';
+
+const rpcUrl = process.env.SEI_EVM_RPC!;
+const provider = new ethers.JsonRpcProvider(rpcUrl);
+const wallet = new ethers.Wallet(process.env.PRIVATE_KEY!, provider);
+
+const tokenA = new ethers.Contract(tokenAAddress, erc20Abi, wallet);
+const tokenB = new ethers.Contract(tokenBAddress, erc20Abi, wallet);
+const pool = new ethers.Contract(poolAddress, poolAbi, wallet);
+
+const amountA = ethers.parseUnits('100.0', 18);
+const amountB = ethers.parseUnits('200.0', 18);
+
+// Approve the pool (or router) to transfer your tokens
+await (await tokenA.approve(poolAddress, amountA)).wait();
+await (await tokenB.approve(poolAddress, amountB)).wait();
+
+// Add liquidity (function signature depends on the DEX)
+await (await pool.addLiquidity(amountA, amountB)).wait();
+```
+
+## Summary
+
+Liquidity pools are on-chain token reserves used to enable permissionless trading and other DeFi actions via algorithmic pricing instead of order matching. LPs supply the assets, receive a share of the pool, and earn fees—while taking on risks like impermanent loss and smart contract risk. On Sei Network, liquidity pools benefit from **EVM compatibility**, **parallelized execution**, and **~400ms finality**, helping DEXs deliver a faster and smoother on-chain trading experience.
+
+## Related Documentation
+
+- [Getting Started](/learn)
+- [Token Standards](/learn/dev-token-standards)
+- [Staking](/learn/general-staking)
+- [Oracles](/learn/oracles)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._
