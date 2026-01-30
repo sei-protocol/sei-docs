@@ -1076,6 +1076,11 @@ export default withNextra({
 				permanent: true
 			},
 			{
+				source: '/learn/oracle-security',
+				destination: '/learn/oracles',
+				permanent: true
+			},
+			{
 				source: '/evm/precompiles/p256',
 				destination: '/evm/precompiles/p256-precompile',
 				permanent: true

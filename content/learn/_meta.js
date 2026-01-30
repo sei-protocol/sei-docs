@@ -37,13 +37,7 @@ export default {
 	explorers: 'Block Explorers',
 	faucet: 'Faucet',
 	indexers: 'Indexers',
-
-	'-- Oracles': {
-		type: 'separator',
-		title: 'Oracles'
-	},
-	oracles: 'Oracle System',
-	'oracle-security': 'Oracle Security',
+	oracles: 'Oracles',
 
 	'-- Governance': {
 		type: 'separator',
