@@ -8,37 +8,30 @@
  *   node scripts/generate-answers.js --force             # Regenerate all answers
  *   node scripts/generate-answers.js --id=deploy-smart-contract-sei  # Generate specific answer
  *   node scripts/generate-answers.js --csv=path/to/file.csv          # Generate from custom CSV
- *   node scripts/generate-answers.js --import-csv=path/to/file.csv   # Import CSV to seed-questions.json
- *   node scripts/generate-answers.js --priority=high                 # Only high priority (MSV >= 1000)
- *   node scripts/generate-answers.js --priority=medium               # Medium+ priority (MSV >= 100)
- *   node scripts/generate-answers.js --category=evm                  # Only specific category
  *   node scripts/generate-answers.js --min-msv=500                   # Custom MSV threshold
  *   node scripts/generate-answers.js --limit=10                      # Limit number of questions
  *   node scripts/generate-answers.js --concurrency=5                 # Parallel requests (default: 5)
  *
  * Configuration:
- *   Set AI_PROVIDER env var to 'gemini', 'openai', or 'claude'
- *   Auto-detects provider based on available API keys (prefers gemini as it's free)
+ *   Set AI_PROVIDER env var to 'openai' or 'claude'
+ *   Auto-detects provider based on available API keys
  *
  *   API Keys (set whichever you have):
- *     GEMINI_API_KEY   - Google Gemini (FREE tier available - recommended)
  *     OPENAI_API_KEY   - OpenAI/ChatGPT (paid)
  *     ANTHROPIC_API_KEY - Claude (paid)
  *
- * The script reads questions from scripts/pseocontent.csv by default
- * (falls back to src/data/seed-questions.json) and generates MDX files in
+ * The script reads questions from scripts/pseocontent.csv by default and generates MDX files in
  * content/ai-answers/ that are:
  *   - Hidden from navigation (via _meta.js)
  *   - Accessible via direct URL
  *   - Included in sitemap for SEO
- *   - Sorted by MSV (Monthly Search Volume) for priority ordering
+ *   - Sorted by MSV (Monthly Search Volume)
  */
 
 const fs = require('fs');
 const path = require('path');
 const OpenAI = require('openai');
 
-const SEED_QUESTIONS_PATH = path.join(__dirname, '../src/data/seed-questions.json');
 const ANSWERS_DIR = path.join(__dirname, '../content/ai-answers');
 const DEFAULT_CSV_PATH = path.join(__dirname, './pseocontent.csv');
 const DEFAULT_CONCURRENCY = 10;
@@ -67,6 +60,31 @@ const CATEGORY_DOCS = {
 		{ title: 'Oracles', href: '/learn/oracles' }
 	]
 };
+
+// Shared AI instructions for all providers
+const AI_INSTRUCTIONS = `You are a technical documentation assistant for Sei Network, a high-performance Layer 1 blockchain with EVM compatibility.
+
+Guidelines:
+- Start with a clear, concise definition (2-3 sentences)
+- Explain how this concept works in general blockchain context
+- Then explain how it specifically applies to Sei Network (mention Sei's parallelization, ~400ms finality, or EVM compatibility where relevant)
+- Include code examples where relevant (use \`\`\`solidity, \`\`\`typescript, or \`\`\`bash)
+- Use clear headings like "## Overview", "## How It Works", "## On Sei Network"
+- Keep the answer focused and scannable
+- Do NOT include the question as a heading (it will be added separately)
+- Format the response as markdown content (not full MDX)
+- Do NOT include SEO keyword phrases like "if you're searching for X" or "what is X" in the body - write naturally
+
+Respond with ONLY the markdown content for the answer body.`;
+
+/**
+ * Build the input prompt for AI generation
+ */
+function buildAIInput(question, category) {
+	return `Generate a comprehensive, SEO-friendly answer for this question: "${question}"
+
+Category: ${category}`;
+}
 
 // Keyword to category mapping for auto-categorization
 const KEYWORD_CATEGORIES = {
@@ -160,17 +178,6 @@ function detectCategory(question, keyword) {
 }
 
 /**
- * Calculate priority from MSV (Monthly Search Volume)
- */
-function calculatePriority(msv) {
-	const num = parseInt(msv, 10);
-	if (isNaN(num) || msv === 'n/a') return 'low';
-	if (num >= 1000) return 'high';
-	if (num >= 100) return 'medium';
-	return 'low';
-}
-
-/**
  * Convert CSV rows to question format
  */
 function csvToQuestions(rows) {
@@ -184,13 +191,11 @@ function csvToQuestions(rows) {
 
 		const id = slugify(question);
 		const category = detectCategory(question, keyword);
-		const priority = calculatePriority(msv);
 
 		return {
 			id,
 			question,
 			category,
-			priority,
 			keyword: keyword || undefined,
 			msv: msv !== 'n/a' ? parseInt(msv, 10) || undefined : undefined
 		};
@@ -198,93 +203,11 @@ function csvToQuestions(rows) {
 }
 
 /**
- * Generate answer using Gemini API (free tier)
- */
-async function generateWithGemini(question, apiKey) {
-	const { question: q, category } = question;
-
-	const prompt = `You are a technical documentation assistant for Sei Network, a high-performance Layer 1 blockchain with EVM compatibility.
-
-Generate a comprehensive answer for this question: "${q}"
-
-Category: ${category}
-
-Guidelines:
-- Start with a clear, concise definition (2-3 sentences)
-- Explain how this concept works in general blockchain context
-- Then explain how it specifically applies to Sei Network (mention Sei's parallelization, ~400ms finality, or EVM compatibility where relevant)
-- Include code examples where relevant (use \`\`\`solidity, \`\`\`typescript, or \`\`\`bash)
-- Use clear headings like "## Overview", "## How It Works", "## On Sei Network"
-- Keep the answer focused and scannable
-- Do NOT include the question as a heading (it will be added separately)
-- Format the response as markdown content (not full MDX)
-- Do NOT include SEO keyword phrases like "if you're searching for X" or "what is X" in the body - write naturally
-- Do NOT repeat the question or keyword phrases unnecessarily - the content should read naturally without keyword stuffing
-
-Respond with ONLY the markdown content for the answer body.
-
-IMPORTANT: DO NOT OMIT CONTENTS TO BE ADDED LATER. ADD EVERYTHING TO THE ANSWER.`;
-
-	// Try models in order of preference (newest first)
-	const models = ['gemini-2.0-flash', 'gemini-1.5-flash-latest', 'gemini-1.5-flash'];
-	let lastError = null;
-
-	for (const model of models) {
-		const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				contents: [{ parts: [{ text: prompt }] }],
-				generationConfig: {
-					temperature: 0.7,
-					maxOutputTokens: 2048
-				}
-			})
-		});
-
-		if (response.ok) {
-			const data = await response.json();
-			return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-		}
-
-		// If 404, try next model
-		if (response.status === 404) {
-			lastError = `Model ${model} not found`;
-			continue;
-		}
-
-		// For other errors, throw immediately
-		const errorText = await response.text();
-		throw new Error(`Gemini API error: ${response.status} ${response.statusText} - ${errorText}`);
-	}
-
-	throw new Error(`Gemini API error: No available models. Last error: ${lastError}`);
-}
-
-/**
  * Generate answer using OpenAI API with flex service tier
  */
 async function generateWithOpenAI(question, apiKey) {
 	const { question: q, category } = question;
-
-	const instructions = `You are a technical documentation assistant for Sei Network, a high-performance Layer 1 blockchain with EVM compatibility.
-
-Guidelines:
-- Start with a clear, concise definition (2-3 sentences)
-- Explain how this concept works in general blockchain context
-- Then explain how it specifically applies to Sei Network (mention Sei's parallelization, ~400ms finality, or EVM compatibility where relevant)
-- Include code examples where relevant (use \`\`\`solidity, \`\`\`typescript, or \`\`\`bash)
-- Use clear headings like "## Overview", "## How It Works", "## On Sei Network"
-- Keep the answer focused and scannable
-- Do NOT include the question as a heading (it will be added separately)
-- Format the response as markdown content (not full MDX)
-- Do NOT include SEO keyword phrases like "if you're searching for X" or "what is X" in the body - write naturally
-
-Respond with ONLY the markdown content for the answer body.`;
-
-	const input = `Generate a comprehensive, SEO-friendly answer for this question: "${q}"
-
-Category: ${category}`;
+	const input = buildAIInput(q, category);
 
 	const client = new OpenAI({
 		apiKey,
@@ -294,7 +217,7 @@ Category: ${category}`;
 	const response = await client.responses.create(
 		{
 			model: 'gpt-5.2',
-			instructions,
+			instructions: AI_INSTRUCTIONS,
 			input,
 			service_tier: 'flex'
 		},
@@ -309,25 +232,7 @@ Category: ${category}`;
  */
 async function generateWithClaude(question, apiKey) {
 	const { question: q, category } = question;
-
-	const prompt = `You are a technical documentation assistant for Sei Network, a high-performance Layer 1 blockchain with EVM compatibility.
-
-Generate a comprehensive answer for this question: "${q}"
-
-Category: ${category}
-
-Guidelines:
-- Start with a clear, concise definition (2-3 sentences)
-- Explain how this concept works in general blockchain context
-- Then explain how it specifically applies to Sei Network (mention Sei's parallelization, ~400ms finality, or EVM compatibility where relevant)
-- Include code examples where relevant (use \`\`\`solidity, \`\`\`typescript, or \`\`\`bash)
-- Use clear headings like "## Overview", "## How It Works", "## On Sei Network"
-- Keep the answer focused and scannable
-- Do NOT include the question as a heading (it will be added separately)
-- Format the response as markdown content (not full MDX)
-- Do NOT include SEO keyword phrases like "if you're searching for X" or "what is X" in the body - write naturally
-
-Respond with ONLY the markdown content for the answer body.`;
+	const input = buildAIInput(q, category);
 
 	const response = await fetch('https://api.anthropic.com/v1/messages', {
 		method: 'POST',
@@ -339,7 +244,8 @@ Respond with ONLY the markdown content for the answer body.`;
 		body: JSON.stringify({
 			model: 'claude-sonnet-4-20250514',
 			max_tokens: 2048,
-			messages: [{ role: 'user', content: prompt }]
+			system: AI_INSTRUCTIONS,
+			messages: [{ role: 'user', content: input }]
 		})
 	});
 
@@ -459,47 +365,6 @@ _Have a question that's not answered here? Join our [Discord](https://discord.gg
 }
 
 /**
- * Import CSV to seed-questions.json
- */
-function importCSVToJSON(csvPath, dryRun) {
-	const content = fs.readFileSync(csvPath, 'utf8');
-	const rows = parseCSV(content);
-	const newQuestions = csvToQuestions(rows);
-
-	// Load existing questions
-	let existingQuestions = [];
-	if (fs.existsSync(SEED_QUESTIONS_PATH)) {
-		const seedData = JSON.parse(fs.readFileSync(SEED_QUESTIONS_PATH, 'utf8'));
-		existingQuestions = seedData.questions || [];
-	}
-
-	// Merge (avoid duplicates by id)
-	const existingIds = new Set(existingQuestions.map((q) => q.id));
-	const toAdd = newQuestions.filter((q) => !existingIds.has(q.id));
-
-	const merged = [...existingQuestions, ...toAdd];
-
-	console.log(`\n📥 CSV Import`);
-	console.log(`   CSV rows: ${rows.length}`);
-	console.log(`   New questions: ${toAdd.length}`);
-	console.log(`   Duplicates skipped: ${rows.length - toAdd.length}`);
-	console.log(`   Total after merge: ${merged.length}`);
-
-	if (dryRun) {
-		console.log(`\n💡 Dry run - no changes made.`);
-		console.log(`\nSample of new questions:`);
-		toAdd.slice(0, 5).forEach((q) => {
-			console.log(`   - [${q.category}] ${q.question}`);
-		});
-	} else {
-		fs.writeFileSync(SEED_QUESTIONS_PATH, JSON.stringify({ questions: merged }, null, '\t'));
-		console.log(`\n✅ Saved to ${SEED_QUESTIONS_PATH}`);
-	}
-
-	return toAdd;
-}
-
-/**
  * Main generation logic
  */
 async function main() {
@@ -508,34 +373,23 @@ async function main() {
 	const force = args.includes('--force');
 	const specificId = args.find((a) => a.startsWith('--id='))?.split('=')[1];
 	const csvPath = args.find((a) => a.startsWith('--csv='))?.split('=')[1];
-	const importCsvPath = args.find((a) => a.startsWith('--import-csv='))?.split('=')[1];
-	const priorityFilter = args.find((a) => a.startsWith('--priority='))?.split('=')[1];
-	const categoryFilter = args.find((a) => a.startsWith('--category='))?.split('=')[1];
 	const minMsv = parseInt(args.find((a) => a.startsWith('--min-msv='))?.split('=')[1] || '0', 10);
 	const limit = parseInt(args.find((a) => a.startsWith('--limit='))?.split('=')[1] || '0', 10);
 	const concurrency = parseInt(args.find((a) => a.startsWith('--concurrency='))?.split('=')[1] || String(DEFAULT_CONCURRENCY), 10);
 
 	const claudeKey = process.env.ANTHROPIC_API_KEY;
-	const geminiKey = process.env.GEMINI_API_KEY;
 	const openaiKey = process.env.OPENAI_API_KEY;
 
-	// Auto-detect provider: prefer gemini (free), then check others
+	// Auto-detect provider based on available API keys
 	let provider = process.env.AI_PROVIDER;
 	if (!provider) {
-		if (geminiKey) provider = 'gemini';
-		else if (openaiKey) provider = 'openai';
+		if (openaiKey) provider = 'openai';
 		else if (claudeKey) provider = 'claude';
 	}
 
 	if (!provider) {
-		console.error('❌ No AI provider configured. Set one of: GEMINI_API_KEY, OPENAI_API_KEY, or ANTHROPIC_API_KEY');
+		console.error('❌ No AI provider configured. Set one of: OPENAI_API_KEY or ANTHROPIC_API_KEY');
 		process.exit(1);
-	}
-
-	// Handle import-only mode
-	if (importCsvPath) {
-		importCSVToJSON(importCsvPath, dryRun);
-		return;
 	}
 
 	console.log(`\n📝 Answer Generator for Sei Docs`);
@@ -545,8 +399,6 @@ async function main() {
 	console.log(`   Force regenerate: ${force}`);
 	console.log(`   Source: ${csvPath || 'scripts/pseocontent.csv (default)'}`);
 	if (specificId) console.log(`   Specific ID: ${specificId}`);
-	if (priorityFilter) console.log(`   Priority filter: ${priorityFilter}`);
-	if (categoryFilter) console.log(`   Category filter: ${categoryFilter}`);
 	if (minMsv) console.log(`   Min MSV: ${minMsv}`);
 	if (limit) console.log(`   Limit: ${limit}`);
 	console.log('');
@@ -561,7 +413,7 @@ async function main() {
 		}
 	}
 
-	// Load questions from CSV (default) or JSON fallback
+	// Load questions from CSV
 	let questions;
 	const effectiveCsvPath = csvPath || DEFAULT_CSV_PATH;
 
@@ -570,12 +422,8 @@ async function main() {
 		const rows = parseCSV(content);
 		questions = csvToQuestions(rows);
 		console.log(`📄 Loaded ${questions.length} questions from CSV: ${effectiveCsvPath}\n`);
-	} else if (fs.existsSync(SEED_QUESTIONS_PATH)) {
-		const seedData = JSON.parse(fs.readFileSync(SEED_QUESTIONS_PATH, 'utf8'));
-		questions = seedData.questions;
-		console.log(`📄 Loaded ${questions.length} questions from JSON\n`);
 	} else {
-		console.error('❌ No question source found. Create scripts/pseocontent.csv or src/data/seed-questions.json');
+		console.error(`❌ No question source found. Create ${effectiveCsvPath}`);
 		process.exit(1);
 	}
 
@@ -588,18 +436,6 @@ async function main() {
 			console.error(`❌ No question found with id: ${specificId}`);
 			process.exit(1);
 		}
-	}
-
-	if (priorityFilter) {
-		if (priorityFilter === 'high') {
-			questions = questions.filter((q) => q.priority === 'high' || (q.msv && q.msv >= 1000));
-		} else if (priorityFilter === 'medium') {
-			questions = questions.filter((q) => q.priority === 'high' || q.priority === 'medium' || (q.msv && q.msv >= 100));
-		}
-	}
-
-	if (categoryFilter) {
-		questions = questions.filter((q) => q.category === categoryFilter);
 	}
 
 	if (minMsv > 0) {
@@ -638,9 +474,7 @@ async function main() {
 
 		try {
 			let aiContent;
-			if (provider === 'gemini') {
-				aiContent = await generateWithGemini(question, geminiKey);
-			} else if (provider === 'openai') {
+			if (provider === 'openai') {
 				aiContent = await generateWithOpenAI(question, openaiKey);
 			} else if (provider === 'claude') {
 				aiContent = await generateWithClaude(question, claudeKey);
