@@ -24,16 +24,123 @@ The distribution precompile provides EVM access to Cosmos SDK's distribution mod
 
 ```solidity
 interface IDistr {
+    // Events
+    event WithdrawAddressSet(address indexed delegator, address withdrawAddr);
+    event DelegationRewardsWithdrawn(address indexed delegator, string validator, uint256 amount);
+    event MultipleDelegationRewardsWithdrawn(address indexed delegator, string[] validators, uint256[] amounts);
+    event ValidatorCommissionWithdrawn(string indexed validator, uint256 amount);
+
     // Transaction Methods
     function setWithdrawAddress(address withdrawAddr) external returns (bool);
     function withdrawDelegationRewards(string memory validator) external returns (bool);
     function withdrawMultipleDelegationRewards(string[] memory validators) external returns (bool);
-    function withdrawValidatorCommission(string memory validator) external returns (bool);
+    function withdrawValidatorCommission() external returns (bool);
 
     // Query Methods
     function rewards(address delegatorAddress) external view returns (Rewards);
 }
 ```
+
+## Events
+
+The distribution precompile emits events for all state-changing operations, allowing off-chain services to track reward distributions and configuration changes.
+
+### WithdrawAddressSet
+
+Emitted when a delegator changes their reward withdrawal address.
+
+```solidity
+event WithdrawAddressSet(address indexed delegator, address withdrawAddr);
+```
+
+**Parameters:**
+
+- `delegator` (indexed): The EVM address of the delegator changing their settings
+- `withdrawAddr`: The new address where rewards will be sent
+
+**Example usage:**
+
+```typescript
+// Listen for withdrawal address changes
+distrContract.on('WithdrawAddressSet', (delegator, withdrawAddr) => {
+  console.log(`${delegator} set withdrawal address to ${withdrawAddr}`);
+});
+```
+
+### DelegationRewardsWithdrawn
+
+Emitted when a delegator withdraws rewards from a single validator.
+
+```solidity
+event DelegationRewardsWithdrawn(address indexed delegator, string validator, uint256 amount);
+```
+
+**Parameters:**
+
+- `delegator` (indexed): The EVM address of the delegator withdrawing rewards
+- `validator`: The Sei validator address (e.g., "seivaloper1...")
+- `amount`: The amount of rewards withdrawn (in usei, 6 decimal precision)
+
+**Example usage:**
+
+```typescript
+// Track individual reward withdrawals
+distrContract.on('DelegationRewardsWithdrawn', (delegator, validator, amount) => {
+  const seiAmount = Number(amount) / 1e6;
+  console.log(`${delegator} withdrew ${seiAmount} SEI from ${validator}`);
+});
+```
+
+### MultipleDelegationRewardsWithdrawn
+
+Emitted when a delegator withdraws rewards from multiple validators in a single transaction.
+
+```solidity
+event MultipleDelegationRewardsWithdrawn(address indexed delegator, string[] validators, uint256[] amounts);
+```
+
+**Parameters:**
+
+- `delegator` (indexed): The EVM address of the delegator withdrawing rewards
+- `validators`: Array of Sei validator addresses
+- `amounts`: Array of reward amounts corresponding to each validator (in usei, 6 decimal precision)
+
+**Example usage:**
+
+```typescript
+// Track batch reward withdrawals
+distrContract.on('MultipleDelegationRewardsWithdrawn', (delegator, validators, amounts) => {
+  for (let i = 0; i < validators.length; i++) {
+    const seiAmount = Number(amounts[i]) / 1e6;
+    console.log(`${delegator} withdrew ${seiAmount} SEI from ${validators[i]}`);
+  }
+});
+```
+
+### ValidatorCommissionWithdrawn
+
+Emitted when a validator operator withdraws their earned commission.
+
+```solidity
+event ValidatorCommissionWithdrawn(string indexed validator, uint256 amount);
+```
+
+**Parameters:**
+
+- `validator` (indexed): The Sei validator address
+- `amount`: The commission amount withdrawn (in usei, 6 decimal precision)
+
+**Example usage:**
+
+```typescript
+// Track validator commission withdrawals
+distrContract.on('ValidatorCommissionWithdrawn', (validator, amount) => {
+  const seiAmount = Number(amount) / 1e6;
+  console.log(`Validator ${validator} withdrew ${seiAmount} SEI commission`);
+});
+```
+
+<Callout type="info">**Event Amounts**: All event amounts use 6 decimal precision (usei), matching the actual withdrawn token amounts. This differs from the `rewards()` query which returns 18 decimal precision.</Callout>
 
 ## Transaction Methods
 
@@ -111,15 +218,13 @@ require(success, "Failed to withdraw multiple rewards");
 
 ### withdrawValidatorCommission
 
-Allows validators to withdraw their earned commission. Only callable by the validator operator.
+Allows validators to withdraw their earned commission. Only callable by the validator operator address.
 
 ```solidity
-function withdrawValidatorCommission(string memory validator) external returns (bool success);
+function withdrawValidatorCommission() external returns (bool success);
 ```
 
-**Parameters:**
-
-- `validator`: Sei validator address (must match caller's validator)
+**Parameters:** None - the validator is automatically determined from the caller's associated Sei address.
 
 **Gas Cost**: ~60,000-90,000 gas
 
@@ -127,12 +232,11 @@ function withdrawValidatorCommission(string memory validator) external returns (
 
 ```solidity
 // Only works if caller is the validator operator
-string memory myValidator = "seivaloper1myvalidator...";
-bool success = DISTR_CONTRACT.withdrawValidatorCommission(myValidator);
+bool success = DISTR_CONTRACT.withdrawValidatorCommission();
 require(success, "Failed to withdraw commission");
 ```
 
-<Callout type="warning">**Validator Only**: This method can only be called by the validator's operator address. Attempting to withdraw commission for a validator you don't operate will fail.</Callout>
+<Callout type="warning">**Validator Only**: This method can only be called by the validator's operator address. The precompile automatically identifies the validator based on the caller's associated Sei address. If the caller is not a validator operator, the call will fail.</Callout>
 
 ## Query Methods
 
@@ -331,19 +435,18 @@ contract YieldAggregator {
 contract ValidatorManager {
     IDistr constant DISTR = IDistr(0x0000000000000000000000000000000000001007);
 
-    string public validatorAddress;
     address public treasury;
 
-    constructor(string memory _validator, address _treasury) {
-        validatorAddress = _validator;
+    constructor(address _treasury) {
         treasury = _treasury;
 
         // Set commission withdrawals to go to treasury
         DISTR.setWithdrawAddress(treasury);
     }
 
+    // Only callable by the validator operator
     function withdrawCommission() external {
-        bool success = DISTR.withdrawValidatorCommission(validatorAddress);
+        bool success = DISTR.withdrawValidatorCommission();
         require(success, "Commission withdrawal failed");
     }
 }
