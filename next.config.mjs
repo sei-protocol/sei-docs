@@ -1249,6 +1249,36 @@ export default withNextra({
 				source: '/cosmos-sdk/execute-multiple',
 				destination: '/cosmos-sdk',
 				permanent: true
+			},
+			{
+				source: '/Jay',
+				destination: '/',
+				permanent: true
+			},
+			{
+				source: '/evm/vrf',
+				destination: '/evm/vrf/pyth-network-vrf',
+				permanent: true
+			},
+			{
+				source: '/evm/lib/providers',
+				destination: '/learn/rpc-providers',
+				permanent: true
+			},
+			{
+				source: '/learn/wrapped-sei',
+				destination: '/evm/tokens',
+				permanent: true
+			},
+			{
+				source: '/evm/debug-tracing',
+				destination: '/evm/tracing',
+				permanent: true
+			},
+			{
+				source: '/evm/cosmwasm-precompiles/bank',
+				destination: '/evm/precompiles/cosmwasm-precompiles/bank',
+				permanent: true
 			}
 		];
 	}
