@@ -1279,6 +1279,11 @@ export default withNextra({
 				source: '/evm/cosmwasm-precompiles/bank',
 				destination: '/evm/precompiles/cosmwasm-precompiles/bank',
 				permanent: true
+			},
+			{
+				source: '/evm/dappradar-guide',
+				destination: '/evm/analytics-setup',
+				permanent: true
 			}
 		];
 	}
