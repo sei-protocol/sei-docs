@@ -97,7 +97,7 @@ export default {
 	reference: 'RPC Reference',
 	tokens: 'View Tokens',
 	changelog: 'Changelog',
-	'dappradar-guide': 'DappRadar Guide',
+	'analytics-setup': 'Analytics Setup',
 	'ecosystem-contracts': 'Ecosystem Contracts',
 
 	'-- Hardware Wallets': {
