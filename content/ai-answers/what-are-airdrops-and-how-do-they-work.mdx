@@ -1,0 +1,193 @@
+---
+title: 'What Are Airdrops and How Do They Work?'
+description: 'Learn about what is airdrops and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'glossary', 'what', 'airdrops']
+---
+
+import { Callout } from 'nextra/components';
+
+export const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'FAQPage',
+      mainEntity: [
+        {
+          '@type': 'Question',
+          name: 'What Are Airdrops and How Do They Work?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'Airdrops are a method of distributing crypto tokens directly to users’ wallet addresses, typically for free or in exchange for completing simple actions. Projects use airdrops to bootstrap adoption, reward early supporters, decentralize token ownership, or incentivize onchain activity.'
+          }
+        }
+      ]
+    },
+    {
+      '@type': 'TechArticle',
+      headline: 'What Are Airdrops and How Do They Work?',
+      description: 'Learn about what is airdrops and how it works in blockchain and on Sei Network.',
+      author: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      publisher: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      about: {
+        '@type': 'Thing',
+        name: 'what is airdrops'
+      },
+      articleSection: 'glossary',
+      inLanguage: 'en'
+    }
+  ]
+};
+
+<head>
+  <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+</head>
+
+# What Are Airdrops and How Do They Work?
+
+<Callout type="info" emoji="🤖">
+  This content was generated with the assistance of AI and is intended for informational purposes only. Please verify all information independently before making decisions based on this content.
+</Callout>
+
+## Overview
+
+Airdrops are a method of distributing crypto tokens directly to users’ wallet addresses, typically for free or in exchange for completing simple actions. Projects use airdrops to bootstrap adoption, reward early supporters, decentralize token ownership, or incentivize onchain activity.
+
+## How It Works
+
+Airdrops generally follow a predictable flow: define eligibility, take a snapshot (or measure activity over time), allocate tokens, and distribute them—either automatically or via a claim process.
+
+### Common Types of Airdrops
+
+- **Snapshot airdrops:** Eligibility is determined by holding an asset or meeting criteria at a specific block height/time (the “snapshot”).
+- **Activity-based (points) airdrops:** Tokens are distributed based on historical usage—e.g., trading volume, liquidity provision, governance participation, or app interactions.
+- **Quest/task airdrops:** Users complete actions (follow, bridge, swap, stake, vote) to become eligible.
+- **Holder airdrops:** Token holders of a related project receive a proportional distribution.
+- **Retroactive airdrops:** Reward past users after a protocol is already running, often based on real usage signals.
+
+### Key Mechanics
+
+- **Eligibility rules:** Defined via onchain data (balances, transactions, contract interactions) and sometimes offchain signals (social verification, attestations).
+- **Sybil resistance:** Projects try to reduce abuse by filtering likely “multi-wallet farming,” using heuristics like minimum balances, unique interactions, time-weighting, or identity/attestation systems.
+- **Distribution method:**
+  - **Automatic transfer:** Tokens are sent directly to eligible addresses.
+  - **Claim-based distribution:** Users must submit a claim transaction, often to reduce costs and ensure recipients are active.
+- **Vesting and cliffs:** Some airdrops release tokens over time to limit immediate sell pressure and align incentives.
+
+### Security Considerations
+
+- **Phishing and fake claim sites:** Always verify domains and announcements from official channels.
+- **Approvals and malicious contracts:** Never sign transactions that grant unlimited token approvals to unknown contracts.
+- **Private keys and seed phrases:** Legitimate airdrops never ask for them.
+- **Gas costs:** Claiming may require paying network fees; check that the expected value exceeds the cost.
+
+## On Sei Network
+
+On Sei Network, airdrops can be distributed to both **EVM-compatible wallets** (e.g., MetaMask) and Sei-native accounts, depending on the project’s token and distribution tooling. Sei’s architecture—built for **high throughput** with **parallelized execution** and around **~400ms finality**—can make large-scale claim events and high-demand launches smoother by confirming transactions quickly and enabling apps to handle many users at once.
+
+### Why Sei Is a Good Fit for Airdrops
+
+- **Fast user experience:** Quick confirmations reduce friction during claim windows.
+- **Parallelization:** Helps scale contract interactions during high-traffic events (many users claiming simultaneously).
+- **EVM compatibility:** Projects can implement standard Ethereum-style airdrop contracts and tooling while deploying on Sei.
+
+### Typical Airdrop Patterns on Sei (EVM)
+
+Most Sei EVM airdrops use one of these approaches:
+
+1. **Merkle claim contract (most common):**  
+   A list of eligible addresses and amounts is compressed into a Merkle tree. Users claim by submitting a Merkle proof to the contract.
+2. **Streaming/vesting claim:**  
+   Claims may create a vesting schedule to distribute tokens over time.
+3. **Direct transfers / batched sends:**  
+   The team sends tokens directly, sometimes using batching to reduce operational overhead.
+
+## Example: Merkle Claim Airdrop (Solidity)
+
+Below is a simplified claim contract pattern used across EVM chains. It verifies eligibility with a Merkle proof and prevents double-claims.
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+
+contract MerkleAirdrop {
+    IERC20 public immutable token;
+    bytes32 public immutable merkleRoot;
+
+    mapping(address => bool) public hasClaimed;
+
+    event Claimed(address indexed account, uint256 amount);
+
+    constructor(IERC20 _token, bytes32 _merkleRoot) {
+        token = _token;
+        merkleRoot = _merkleRoot;
+    }
+
+    function claim(uint256 amount, bytes32[] calldata proof) external {
+        require(!hasClaimed[msg.sender], "Already claimed");
+
+        // Leaf is typically keccak256(abi.encodePacked(account, amount))
+        bytes32 leaf = keccak256(abi.encodePacked(msg.sender, amount));
+        require(MerkleProof.verify(proof, merkleRoot, leaf), "Invalid proof");
+
+        hasClaimed[msg.sender] = true;
+        require(token.transfer(msg.sender, amount), "Transfer failed");
+
+        emit Claimed(msg.sender, amount);
+    }
+}
+```
+
+## Example: Claiming From a Frontend (TypeScript)
+
+A basic claim call using `ethers` against a deployed Sei EVM contract:
+
+```typescript
+import { ethers } from 'ethers';
+
+const ABI = ['function claim(uint256 amount, bytes32[] proof) external'];
+
+async function claimAirdrop(rpcUrl: string, contractAddress: string, amount: bigint, proof: string[]) {
+  const provider = new ethers.JsonRpcProvider(rpcUrl);
+
+  // e.g., injected wallet in browser, or a private key signer in backend scripts
+  const signer = await provider.getSigner();
+
+  const contract = new ethers.Contract(contractAddress, ABI, signer);
+  const tx = await contract.claim(amount, proof);
+  await tx.wait();
+}
+```
+
+## Practical Checklist for Users
+
+- Confirm the airdrop announcement via official project channels.
+- Verify the correct network (Sei) and the correct contract address.
+- Inspect the transaction before signing (recipient, function, approvals).
+- Prefer claim contracts with transparent eligibility logic (e.g., Merkle root published, allocation rules documented).
+- Be mindful of token unlock schedules and any vesting terms.
+
+## Summary
+
+Airdrops distribute tokens to users to drive adoption, reward participation, or decentralize ownership. They typically rely on snapshots or activity metrics and are delivered either automatically or through a claim contract. On Sei Network, fast finality, parallelized execution, and EVM compatibility make it straightforward for teams to run scalable, user-friendly airdrops and for users to claim them with familiar Ethereum tooling.
+
+## Related Documentation
+
+- [Getting Started](/learn)
+- [Token Standards](/learn/dev-token-standards)
+- [Staking](/learn/general-staking)
+- [Oracles](/learn/oracles)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._

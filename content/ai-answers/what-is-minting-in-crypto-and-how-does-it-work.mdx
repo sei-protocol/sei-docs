@@ -1,0 +1,216 @@
+---
+title: 'What is Minting in Crypto and How Does It Work?'
+description: 'Learn about what is minting and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'glossary', 'what', 'minting', 'crypto']
+---
+
+import { Callout } from 'nextra/components';
+
+export const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'FAQPage',
+      mainEntity: [
+        {
+          '@type': 'Question',
+          name: 'What is Minting in Crypto and How Does It Work?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'Minting in crypto is the process of creating new tokens or NFTs on a blockchain by writing new on-chain state that recognizes those assets as valid and owned. Depending on the protocol, minting can happen through mining, staking/validation rewards, or smart contract logic that issues new assets.'
+          }
+        }
+      ]
+    },
+    {
+      '@type': 'TechArticle',
+      headline: 'What is Minting in Crypto and How Does It Work?',
+      description: 'Learn about what is minting and how it works in blockchain and on Sei Network.',
+      author: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      publisher: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      about: {
+        '@type': 'Thing',
+        name: 'what is minting'
+      },
+      articleSection: 'glossary',
+      inLanguage: 'en'
+    }
+  ]
+};
+
+<head>
+  <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+</head>
+
+# What is Minting in Crypto and How Does It Work?
+
+<Callout type="info" emoji="🤖">
+  This content was generated with the assistance of AI and is intended for informational purposes only. Please verify all information independently before making decisions based on this content.
+</Callout>
+
+## Overview
+
+Minting in crypto is the process of creating new tokens or NFTs on a blockchain by writing new on-chain state that recognizes those assets as valid and owned. Depending on the protocol, minting can happen through mining, staking/validation rewards, or smart contract logic that issues new assets.
+
+## How It Works
+
+Minting is ultimately a **state transition**: the blockchain updates its ledger so that new units of an asset exist and are assigned to an address.
+
+### 1) Minting in native token economics
+
+Different consensus models “mint” native tokens in different ways:
+
+- **Proof of Work (PoW):** New coins are minted as block rewards when miners successfully produce blocks (e.g., Bitcoin-style issuance).
+- **Proof of Stake (PoS) / BFT-style consensus:** New coins may be minted as staking rewards for validators and delegators for securing the network, often alongside transaction fees.
+- **Fixed supply chains:** Some networks start with a fixed supply and do not mint new native tokens after genesis.
+
+Key controls typically include:
+
+- **Supply schedule:** Inflation rate, halving/decay rules, or fixed issuance.
+- **Distribution rules:** Who receives newly minted tokens (validators, treasury, community pools).
+- **Governance:** Parameters may be adjustable via on-chain governance.
+
+### 2) Minting tokens via smart contracts (fungible tokens)
+
+For fungible tokens (ERC-20–style), minting is usually a **function call** to a token contract that increases total supply and assigns balances.
+
+Common patterns:
+
+- **Owner/role-based minting:** Only accounts with a “minter” role can mint.
+- **Capped supply:** The contract enforces a maximum.
+- **Permissionless minting:** Anyone can mint under certain conditions (e.g., paying a fee, bonding curve, or meeting allowlist requirements).
+
+### 3) Minting NFTs (non-fungible tokens)
+
+NFT minting creates a unique token ID and assigns it to an owner, often with metadata referenced via a URI.
+
+Common patterns:
+
+- **Public mint:** Anyone can mint (possibly with payment).
+- **Allowlist mint:** Only approved addresses can mint.
+- **Lazy minting:** Metadata/signatures are prepared off-chain; the NFT is minted on-chain later (often at purchase time).
+
+### 4) Fees and finality
+
+Minting requires a transaction, so it involves:
+
+- **Gas/fees:** Paid to execute the minting logic and store state.
+- **Confirmation/finality:** The mint is considered “done” when the transaction is included and finalized according to the chain’s consensus rules.
+
+## On Sei Network
+
+Sei is a high-performance Layer 1 with **EVM compatibility**, enabling Solidity smart contracts to mint fungible tokens and NFTs similarly to other EVM chains—while benefiting from Sei’s performance characteristics such as **parallelization** and **~400ms finality**. In practice, that means mint transactions can reach finality quickly and can be processed efficiently even under heavy load, which is useful for high-throughput mints (drops, in-game assets, reward programs).
+
+### Minting fungible tokens (ERC-20 style) on Sei EVM
+
+Below is a minimal ERC-20 token with role-based minting using OpenZeppelin. Deploy it to Sei’s EVM, then call `mint` from an authorized account.
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+contract MyToken is ERC20, Ownable {
+    constructor() ERC20("MyToken", "MTK") {}
+
+    function mint(address to, uint256 amount) external onlyOwner {
+        _mint(to, amount);
+    }
+}
+```
+
+### Minting NFTs (ERC-721 style) on Sei EVM
+
+This example mints sequential token IDs and stores a base URI for metadata.
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+contract MyNFT is ERC721URIStorage, Ownable {
+    uint256 public nextId = 1;
+
+    constructor() ERC721("MyNFT", "MNFT") {}
+
+    function mint(address to, string calldata tokenUri) external onlyOwner returns (uint256) {
+        uint256 tokenId = nextId++;
+        _safeMint(to, tokenId);
+        _setTokenURI(tokenId, tokenUri);
+        return tokenId;
+    }
+}
+```
+
+### Sending a mint transaction to Sei (TypeScript)
+
+Use ethers to call a deployed contract on Sei’s EVM endpoint.
+
+```typescript
+import { ethers } from 'ethers';
+
+const RPC_URL = process.env.SEI_EVM_RPC!;
+const PRIVATE_KEY = process.env.PRIVATE_KEY!;
+const CONTRACT_ADDRESS = '0xYourTokenContract';
+const ABI = ['function mint(address to, uint256 amount) external'];
+
+async function main() {
+  const provider = new ethers.JsonRpcProvider(RPC_URL);
+  const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
+
+  const token = new ethers.Contract(CONTRACT_ADDRESS, ABI, wallet);
+
+  const to = '0xRecipientAddress';
+  const amount = ethers.parseUnits('1000', 18);
+
+  const tx = await token.mint(to, amount);
+  console.log('Submitted:', tx.hash);
+
+  const receipt = await tx.wait();
+  console.log('Finalized in block:', receipt?.blockNumber);
+}
+
+main().catch(console.error);
+```
+
+## Common Minting Models and Terms
+
+- **Capped vs uncapped:** Whether there is a maximum supply.
+- **Emission/inflation:** Rate at which new tokens enter circulation (native assets).
+- **Mint authority:** The account/role allowed to mint (or rules that allow anyone).
+- **Fair launch / allowlist / public mint:** Distribution approaches for NFTs or token drops.
+- **Burning vs minting:** Burning destroys tokens (reducing supply); minting creates them (increasing supply).
+
+## Security and Best Practices
+
+- **Restrict mint permissions:** Use `Ownable` or role-based access control (e.g., `AccessControl`) to prevent unauthorized minting.
+- **Consider caps and timelocks:** Enforce max supply and/or add timelocks for changing mint parameters.
+- **Validate inputs:** Guard against minting to the zero address and unintended overflows (Solidity 0.8+ helps).
+- **Audit mint logic:** Mint functions are high-impact; a bug can permanently inflate supply or break NFT uniqueness.
+
+## Summary
+
+Minting is how new crypto assets are created on-chain—either as native issuance from the protocol or via smart contracts for tokens and NFTs. On Sei Network, minting works with standard EVM tooling and contract patterns, while Sei’s parallelization and fast finality help mint-heavy applications run smoothly at scale.
+
+## Related Documentation
+
+- [Getting Started](/learn)
+- [Token Standards](/learn/dev-token-standards)
+- [Staking](/learn/general-staking)
+- [Oracles](/learn/oracles)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._

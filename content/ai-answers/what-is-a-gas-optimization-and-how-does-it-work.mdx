@@ -1,0 +1,201 @@
+---
+title: 'What is a Gas Optimization and How Does It Work?'
+description: 'Learn about what is gas optimization and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'glossary', 'what', 'optimization']
+---
+
+import { Callout } from 'nextra/components';
+
+export const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'FAQPage',
+      mainEntity: [
+        {
+          '@type': 'Question',
+          name: 'What is a Gas Optimization and How Does It Work?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'Gas optimization is the practice of reducing the amount of gas (execution fees) required to run blockchain transactions and smart contract functions. It focuses on writing and structuring code so it consumes fewer computational resources and less on-chain storage, lowering costs and improving throughput.'
+          }
+        }
+      ]
+    },
+    {
+      '@type': 'TechArticle',
+      headline: 'What is a Gas Optimization and How Does It Work?',
+      description: 'Learn about what is gas optimization and how it works in blockchain and on Sei Network.',
+      author: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      publisher: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      about: {
+        '@type': 'Thing',
+        name: 'what is gas optimization'
+      },
+      articleSection: 'glossary',
+      inLanguage: 'en'
+    }
+  ]
+};
+
+<head>
+  <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+</head>
+
+# What is a Gas Optimization and How Does It Work?
+
+<Callout type="info" emoji="🤖">
+  This content was generated with the assistance of AI and is intended for informational purposes only. Please verify all information independently before making decisions based on this content.
+</Callout>
+
+## Overview
+
+Gas optimization is the practice of reducing the amount of gas (execution fees) required to run blockchain transactions and smart contract functions. It focuses on writing and structuring code so it consumes fewer computational resources and less on-chain storage, lowering costs and improving throughput.
+
+## How It Works
+
+In most smart contract platforms, every operation has a predefined gas cost that reflects the resources validators must spend to execute it. Gas optimization works by minimizing expensive operations and avoiding unnecessary state changes while preserving correct behavior.
+
+Key levers for optimization include:
+
+- **Reduce storage writes (SSTORE):** Writing to on-chain storage is typically one of the most expensive actions. Prefer fewer writes, batch updates, and only write when values actually change.
+- **Minimize storage reads (SLOAD):** Reads are cheaper than writes but still costly; cache values in memory/local variables when reused.
+- **Use efficient data types and packing:** Smaller types can be packed into a single storage slot when laid out carefully (e.g., `uint128` + `uint128`), reducing storage footprint and costs.
+- **Prefer `calldata` over `memory` for external inputs:** `calldata` avoids copying input data.
+- **Avoid unbounded loops:** Loops scale gas linearly with iterations; design bounded loops or move heavy iteration off-chain.
+- **Batch operations:** Combine multiple actions into one transaction when possible to amortize overhead.
+- **Use events strategically:** Events are cheaper than persistent storage for logging, but they are not accessible to contracts on-chain—only to off-chain indexers.
+- **Custom errors instead of revert strings:** Custom errors reduce deployed bytecode size and revert cost.
+- **Short-circuit and reorder checks:** Fail fast with the cheapest checks first.
+- **Be mindful of external calls:** External calls can be expensive and introduce security risks; reduce and validate them carefully.
+
+### Common Solidity Patterns
+
+#### Use `calldata` and custom errors
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+contract GasOptimized {
+    error Unauthorized();
+    error InvalidAmount();
+
+    address public immutable owner;
+
+    constructor() {
+        owner = msg.sender;
+    }
+
+    function deposit(uint256 amount, bytes calldata memo) external {
+        if (amount == 0) revert InvalidAmount();
+        // memo stays in calldata (no copy to memory)
+        // ... logic
+    }
+
+    function onlyOwnerAction() external {
+        if (msg.sender != owner) revert Unauthorized(); // cheaper than revert("...")
+        // ... logic
+    }
+}
+```
+
+#### Avoid unnecessary storage writes
+
+```solidity
+pragma solidity ^0.8.20;
+
+contract AvoidExtraSstore {
+    uint256 public value;
+
+    function setValue(uint256 v) external {
+        if (value == v) return; // skip expensive SSTORE if no change
+        value = v;
+    }
+}
+```
+
+#### Pack storage to reduce slots
+
+```solidity
+pragma solidity ^0.8.20;
+
+contract PackedStorage {
+    // Fits in 1 slot when packed (careful with ordering)
+    uint128 public a;
+    uint64  public b;
+    uint64  public c;
+
+    function set(uint128 _a, uint64 _b, uint64 _c) external {
+        a = _a;
+        b = _b;
+        c = _c;
+    }
+}
+```
+
+## On Sei Network
+
+Sei is a high-performance Layer 1 with **EVM compatibility**, meaning Solidity smart contracts pay gas and can be optimized using the same general techniques used across EVM chains. Gas optimization on Sei is especially impactful because Sei’s execution model emphasizes **high throughput via parallelization** and delivers **~400ms finality**, so efficient contracts can translate into smoother user experiences and higher sustained transaction capacity.
+
+Practical implications on Sei:
+
+- **Parallel-friendly state access:** Sei can execute non-conflicting transactions in parallel. Designing contracts to **minimize shared hot state** (e.g., a single global counter or single “mega” mapping entry everyone touches) can reduce contention and help the network realize more parallel execution benefits.
+- **Shorter blocks and fast finality:** With ~400ms finality, user-facing applications often feel “instant.” Gas-optimized code reduces execution time per transaction and can improve responsiveness under load, especially in high-frequency apps (trading, gaming, consumer payments).
+- **EVM tooling compatibility:** Standard EVM profiling and optimization tools work on Sei, including compiler optimization flags and gas reporting.
+
+### Tooling and workflow (EVM)
+
+#### Enable Solidity compiler optimizations
+
+```bash
+# Example: Foundry (foundry.toml) or Hardhat config typically sets this.
+# The goal is to compile with optimization enabled for production.
+```
+
+#### Measure gas with Foundry
+
+```bash
+forge test --gas-report
+```
+
+#### Measure gas with Hardhat (example)
+
+```bash
+npm i -D hardhat-gas-reporter
+# Then enable it in hardhat.config.ts and run:
+npx hardhat test
+```
+
+## Best Practices Checklist
+
+- Avoid repeated `SSTORE` and `SLOAD`; cache values and write only when needed.
+- Use `calldata` for external function parameters (especially arrays/bytes/strings).
+- Use **custom errors** instead of revert strings.
+- Pack storage carefully and order fields to maximize packing.
+- Keep loops bounded and avoid per-user iteration over large arrays on-chain.
+- Reduce shared “hot” state to improve parallel execution potential on Sei.
+- Profile gas early and often using standard EVM tools.
+
+## Summary
+
+Gas optimization reduces transaction and smart contract execution costs by minimizing expensive operations like storage writes, redundant reads, and unnecessary data copying. In EVM environments—including Sei’s EVM compatibility—these optimizations directly lower fees and can improve performance. On Sei, efficient, low-contention contract design can also better align with Sei’s parallelization and ~400ms finality for high-throughput applications.
+
+## Related Documentation
+
+- [Getting Started](/learn)
+- [Token Standards](/learn/dev-token-standards)
+- [Staking](/learn/general-staking)
+- [Oracles](/learn/oracles)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._
