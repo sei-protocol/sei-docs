@@ -1,0 +1,207 @@
+---
+title: 'What is a Burn Mechanism and How Does It Work?'
+description: 'Learn about what is burn mechanism and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'glossary', 'what', 'burn', 'mechanism']
+---
+
+import { Callout } from 'nextra/components';
+
+export const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'FAQPage',
+      mainEntity: [
+        {
+          '@type': 'Question',
+          name: 'What is a Burn Mechanism and How Does It Work?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'A burn mechanism is a protocol-defined way to permanently remove tokens from circulation, typically by sending them to an unrecoverable (“burn”) address or destroying them via a smart contract. By reducing the circulating supply, burning can change a token’s scarcity dynamics and influence incentives, fees, and long-term token economics.'
+          }
+        }
+      ]
+    },
+    {
+      '@type': 'TechArticle',
+      headline: 'What is a Burn Mechanism and How Does It Work?',
+      description: 'Learn about what is burn mechanism and how it works in blockchain and on Sei Network.',
+      author: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      publisher: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      about: {
+        '@type': 'Thing',
+        name: 'what is burn mechanism'
+      },
+      articleSection: 'glossary',
+      inLanguage: 'en'
+    }
+  ]
+};
+
+<head>
+  <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+</head>
+
+# What is a Burn Mechanism and How Does It Work?
+
+<Callout type="info" emoji="🤖">
+  This content was generated with the assistance of AI and is intended for informational purposes only. Please verify all information independently before making decisions based on this content.
+</Callout>
+
+## Overview
+
+A **burn mechanism** is a protocol-defined way to permanently remove tokens from circulation, typically by sending them to an unrecoverable (“burn”) address or destroying them via a smart contract. By reducing the circulating supply, burning can change a token’s scarcity dynamics and influence incentives, fees, and long-term token economics.
+
+Burning is **verifiable on-chain**: anyone can audit the transaction or contract event that proves tokens were removed from spendable supply.
+
+## How It Works
+
+### Common burn designs
+
+- **Direct burn transactions:** A user (or protocol) sends tokens to an address with no known private key (e.g., `0x000...dead` on EVM chains). The tokens still exist in state but are effectively unspendable.
+- **Contract-based burn (“destroy”):** A token contract reduces an account’s balance and decreases `totalSupply`, usually via ERC-20 `_burn`.
+- **Fee burning:** A portion of transaction fees or swap fees is automatically burned, often to counteract inflation or align validator/user incentives.
+- **Buyback-and-burn:** Protocol revenue is used to buy tokens from the market and burn them, linking usage to supply reduction.
+
+### Why protocols burn tokens
+
+- **Supply reduction:** Decreases circulating supply over time.
+- **Incentive alignment:** Fee burns can reward long-term holders indirectly by reducing supply rather than distributing fees.
+- **Anti-spam / resource pricing:** Burning fees makes it expensive to flood the network with low-value transactions.
+- **Monetary policy:** Some networks burn a “base fee” while separately paying validators via tips or other mechanisms.
+
+### What burning does (and doesn’t) guarantee
+
+- Burning **does not inherently increase price**; market price depends on demand, utility, and broader conditions.
+- Burning can be **transparent and auditable**, but only if the burn rules are enforced at the protocol/contract level and publicly observable.
+- Burning can be **fixed**, **dynamic**, or **governance-controlled** depending on the protocol.
+
+## On Sei Network
+
+On Sei, burn mechanisms can be implemented at the **application layer** (EVM smart contracts) and can also leverage Sei’s performance characteristics:
+
+- **EVM compatibility:** Sei supports Solidity-based contracts, so common burn patterns (ERC-20 `_burn`, burn addresses, fee-on-transfer designs) work similarly to other EVM chains.
+- **High throughput + parallelization:** Sei’s parallelized execution can handle high transaction volumes efficiently, which is useful for protocols that burn per transaction (e.g., DEXes, games, or high-frequency apps).
+- **~400ms finality:** Burn events become final quickly, improving UX for apps that rely on immediate supply updates (e.g., dashboards, on-chain accounting, or real-time incentives).
+
+### Example: ERC-20 burn function (Solidity)
+
+If you control the token contract, the most explicit burn is to reduce `totalSupply` via `_burn`:
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+
+contract BurnableToken is ERC20 {
+    constructor() ERC20("BurnableToken", "BURN") {
+        _mint(msg.sender, 1_000_000e18);
+    }
+
+    function burn(uint256 amount) external {
+        _burn(msg.sender, amount);
+    }
+}
+```
+
+**How to verify:** indexers and explorers can track `Transfer(from, to, amount)` events where `to` is `address(0)` (OpenZeppelin’s default burn pattern), and confirm `totalSupply()` decreases.
+
+### Example: Burn-to-dead-address (Solidity)
+
+Some projects opt to “burn” by sending to a known unrecoverable address:
+
+```solidity
+pragma solidity ^0.8.20;
+
+interface IERC20 {
+    function transfer(address to, uint256 amount) external returns (bool);
+}
+
+contract BurnToDead {
+    address public constant DEAD = 0x000000000000000000000000000000000000dEaD;
+
+    function burnToken(IERC20 token, uint256 amount) external {
+        // Caller must have the tokens and approve/transfer logic as needed.
+        require(token.transfer(DEAD, amount), "transfer failed");
+    }
+}
+```
+
+This approach is easy to audit (tokens accumulate at `DEAD`), but **does not reduce `totalSupply`** unless the token contract itself implements burning via `_burn`.
+
+### Example: Fee burn in a contract (Solidity)
+
+Protocols can burn a portion of fees collected during an action:
+
+```solidity
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
+contract FeeBurnExample {
+    IERC20 public immutable token;
+    address public constant DEAD = 0x000000000000000000000000000000000000dEaD;
+
+    uint256 public constant BPS = 10_000;
+    uint256 public burnBps = 200; // 2%
+
+    constructor(IERC20 _token) {
+        token = _token;
+    }
+
+    function chargeAndBurn(uint256 amount) external {
+        // Example assumes tokens are already transferred in or approved via transferFrom in real usage.
+        uint256 burnAmount = (amount * burnBps) / BPS;
+        uint256 remaining = amount - burnAmount;
+
+        require(token.transfer(DEAD, burnAmount), "burn transfer failed");
+        // Use remaining for treasury/rewards/etc.
+        require(token.transfer(msg.sender, remaining), "remaining transfer failed");
+    }
+}
+```
+
+### Quick verification tips (Sei EVM)
+
+You can generally validate burns by checking:
+
+- The **transaction receipt logs** for `Transfer` events to `address(0)` or a burn address.
+- Token contract state:
+  - `totalSupply()` (true supply reduction only if contract burns)
+  - balances of burn addresses (if using burn-to-dead)
+
+Example using `cast` (Foundry):
+
+```bash
+# Read total supply
+cast call <TOKEN_ADDRESS> "totalSupply()(uint256)" --rpc-url $SEI_EVM_RPC
+
+# Read burn address balance
+cast call <TOKEN_ADDRESS> "balanceOf(address)(uint256)" 0x000000000000000000000000000000000000dEaD --rpc-url $SEI_EVM_RPC
+```
+
+## Key Takeaways
+
+- A burn mechanism permanently removes tokens from effective circulation, either by **reducing `totalSupply`** (contract burn) or by sending tokens to an **unspendable address** (burn address).
+- Burns are **auditable on-chain** and are often used for supply control, incentive alignment, or fee policy.
+- On Sei, burn mechanisms are straightforward to implement via **Solidity** and benefit from **parallelized execution** and **~400ms finality**, enabling responsive, high-throughput burn-based tokenomics.
+
+## Related Documentation
+
+- [Getting Started](/learn)
+- [Token Standards](/learn/dev-token-standards)
+- [Staking](/learn/general-staking)
+- [Oracles](/learn/oracles)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._

@@ -1,0 +1,218 @@
+---
+title: 'What is a Rebase Token and How Does It Work?'
+description: 'Learn about what is rebase token and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'glossary', 'what', 'rebase', 'token']
+---
+
+import { Callout } from 'nextra/components';
+
+export const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'FAQPage',
+      mainEntity: [
+        {
+          '@type': 'Question',
+          name: 'What is a Rebase Token and How Does It Work?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'A rebase token is a cryptocurrency whose total supply automatically adjusts at set intervals or when certain conditions are met, while each holder’s wallet balance changes proportionally. The goal is typically to target a price, maintain a peg (e.g., to USD), or implement a monetary policy without requiring users to trade.'
+          }
+        }
+      ]
+    },
+    {
+      '@type': 'TechArticle',
+      headline: 'What is a Rebase Token and How Does It Work?',
+      description: 'Learn about what is rebase token and how it works in blockchain and on Sei Network.',
+      author: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      publisher: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      about: {
+        '@type': 'Thing',
+        name: 'what is rebase token'
+      },
+      articleSection: 'glossary',
+      inLanguage: 'en'
+    }
+  ]
+};
+
+<head>
+  <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+</head>
+
+# What is a Rebase Token and How Does It Work?
+
+<Callout type="info" emoji="🤖">
+  This content was generated with the assistance of AI and is intended for informational purposes only. Please verify all information independently before making decisions based on this content.
+</Callout>
+
+## Overview
+
+A **rebase token** is a cryptocurrency whose **total supply automatically adjusts** at set intervals or when certain conditions are met, while each holder’s wallet balance changes proportionally. The goal is typically to **target a price**, maintain a **peg** (e.g., to USD), or implement a monetary policy without requiring users to trade.
+
+Unlike standard ERC-20 tokens where balances only change through transfers, a rebase token can **increase (positive rebase)** or **decrease (negative rebase)** balances for all holders to reflect supply expansion or contraction.
+
+## How It Works
+
+### Supply adjustments (rebases)
+
+A rebase mechanism updates token accounting so that:
+
+- **Total supply changes**
+- **Each account’s balance changes proportionally**
+- **Ownership percentage stays roughly the same** (ignoring transfers and fees)
+
+Example: If you own 1% of the supply, a rebase generally keeps you near 1% afterward—your raw balance changes, but your relative share remains similar.
+
+### Why projects use rebasing
+
+Common use cases include:
+
+- **Algorithmic stablecoins / pegs:** Expand supply when price is above target; contract when below.
+- **Elastic-supply monetary policy:** Adjust supply based on an index, CPI-style target, or other signals.
+- **Staking-like distribution:** Some tokens “rebase” to distribute emissions to holders (often marketed as “auto-compounding,” though it’s a supply adjustment mechanism).
+
+### Two common implementation models
+
+#### 1) “Scaling factor” / internal shares (gons) model
+
+Most modern rebase tokens avoid iterating over all holders (which would be impossible on-chain). Instead they:
+
+- Track balances in an internal unit (often called **shares** or **gons**).
+- Maintain a global **scaling factor** (or conversion rate).
+- Compute user-facing balances as:  
+  `balance = shares * scalingFactor`
+
+On rebase, the contract updates only the scaling factor and total supply—**no per-account updates**.
+
+#### 2) “Tokenized shares” / vault-style model
+
+Some systems represent ownership with shares, and the token balance is a claim on underlying assets. Rebases change the conversion rate between shares and assets.
+
+### Key implications for users and integrators
+
+- **Transfers still work normally**, but the displayed balance may change at rebase boundaries.
+- **Allowances and integrations can be tricky**: some designs store allowances in raw tokens, others in shares—rebases can affect effective spendability.
+- **DEX pools and AMMs** must handle rebasing carefully; liquidity positions may not behave like standard ERC-20s.
+- **Indexers and analytics** should read the correct “view” balances and total supply after rebases.
+
+## On Sei Network
+
+Rebase tokens can be deployed on **Sei’s EVM**, leveraging familiar Solidity patterns and tooling while benefiting from Sei’s high-performance execution. In practice, this means:
+
+- **EVM compatibility:** You can implement common rebase designs (scaling-factor/share-based) using standard ERC-20 interfaces and deploy with typical Ethereum tooling.
+- **High throughput + parallelization:** Sei’s parallelized execution model can improve performance for high-activity tokens and DeFi protocols interacting with a rebase asset (e.g., frequent transfers, DEX interactions, and vault operations).
+- **Fast finality (~400ms):** Rebase-triggering transactions (manual or automated) and subsequent market responses can settle quickly, reducing latency between a rebase event and downstream updates across protocols.
+
+When building rebasing assets on Sei, the main design decision remains the same as on other EVM chains: use a **shares + scaling factor** approach to avoid iterating over holders, and clearly document how rebases interact with allowances, liquidity pools, and integrations.
+
+## Example: Minimal EVM Rebase Token Pattern (Scaling Factor)
+
+Below is a simplified illustration of the “shares + scaling factor” model. It is **not production-ready** (missing access control patterns, safe math considerations for edge cases, full ERC-20 compliance details, and oracle/peg logic), but it shows the core concept.
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+contract SimpleRebaseToken {
+    string public name = "Simple Rebase Token";
+    string public symbol = "SRT";
+    uint8 public decimals = 18;
+
+    // Internal "shares" accounting
+    mapping(address => uint256) private _shares;
+    uint256 private _totalShares;
+
+    // scalingFactor scaled by 1e18
+    uint256 public scalingFactor = 1e18;
+
+    // ERC-20-ish events
+    event Transfer(address indexed from, address indexed to, uint256 amount);
+    event Rebase(uint256 newScalingFactor);
+
+    constructor(uint256 initialSupply, address to) {
+        // At start: 1 share == 1 token (scalingFactor = 1e18)
+        _mint(to, initialSupply);
+    }
+
+    function totalSupply() public view returns (uint256) {
+        // totalSupply = totalShares * scalingFactor
+        return (_totalShares * scalingFactor) / 1e18;
+    }
+
+    function balanceOf(address account) public view returns (uint256) {
+        return (_shares[account] * scalingFactor) / 1e18;
+    }
+
+    function sharesOf(address account) public view returns (uint256) {
+        return _shares[account];
+    }
+
+    function transfer(address to, uint256 amount) external returns (bool) {
+        // Convert token amount to shares at current scalingFactor
+        uint256 shareAmount = (amount * 1e18) / scalingFactor;
+
+        _shares[msg.sender] -= shareAmount;
+        _shares[to] += shareAmount;
+
+        emit Transfer(msg.sender, to, amount);
+        return true;
+    }
+
+    // Example rebase: update scalingFactor to expand/contract balances proportionally
+    // In a real token, this would be restricted (e.g., onlyOwner) and driven by a policy/oracle.
+    function rebase(int256 bps) external {
+        // bps: +100 = +1%, -100 = -1%
+        if (bps == 0) return;
+
+        uint256 sf = scalingFactor;
+        if (bps > 0) {
+            uint256 increase = (sf * uint256(bps)) / 10_000;
+            scalingFactor = sf + increase;
+        } else {
+            uint256 decrease = (sf * uint256(-bps)) / 10_000;
+            scalingFactor = sf - decrease;
+        }
+
+        emit Rebase(scalingFactor);
+    }
+
+    function _mint(address to, uint256 amount) internal {
+        uint256 shareAmount = (amount * 1e18) / scalingFactor;
+        _totalShares += shareAmount;
+        _shares[to] += shareAmount;
+        emit Transfer(address(0), to, amount);
+    }
+}
+```
+
+### Notes on integrating with DeFi on Sei
+
+- Prefer using **shares** internally and expose **ERC-20-style balances** via `balanceOf`.
+- Document whether **allowances** are rebasing-safe (the example omits allowances entirely).
+- When pairing with AMMs, confirm whether the pool or router correctly handles rebasing tokens, or consider wrappers (non-rebasing representations) when needed.
+
+## Summary
+
+Rebase tokens adjust supply by changing balances proportionally across holders, typically to pursue a price target or monetary policy. On Sei, rebasing assets can be built with standard Solidity patterns on Sei’s EVM, while benefiting from Sei’s parallelized execution and fast (~400ms) finality for responsive DeFi interactions and rapid settlement of rebase events.
+
+## Related Documentation
+
+- [Getting Started](/learn)
+- [Token Standards](/learn/dev-token-standards)
+- [Staking](/learn/general-staking)
+- [Oracles](/learn/oracles)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._

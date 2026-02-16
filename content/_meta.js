@@ -22,5 +22,13 @@ export default {
 	node: {
 		title: 'Operate',
 		type: 'page'
+	},
+	'ai-answers': {
+		display: 'hidden',
+		type: 'page',
+		theme: {
+			sidebar: true,
+			toc: true
+		}
 	}
 };

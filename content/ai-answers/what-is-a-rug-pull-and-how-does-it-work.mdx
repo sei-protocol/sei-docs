@@ -1,0 +1,206 @@
+---
+title: 'What is a Rug Pull and How Does It Work?'
+description: 'Learn about what is rug pull and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'glossary', 'what', 'pull']
+---
+
+import { Callout } from 'nextra/components';
+
+export const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'FAQPage',
+      mainEntity: [
+        {
+          '@type': 'Question',
+          name: 'What is a Rug Pull and How Does It Work?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'A rug pull is a type of scam where project insiders abruptly extract value from a crypto token or protocol, leaving holders with assets that rapidly lose value or become impossible to sell. It typically involves deceptive marketing, hidden control mechanisms, or liquidity manipulation that lets the team “pull the rug out” from under users.'
+          }
+        }
+      ]
+    },
+    {
+      '@type': 'TechArticle',
+      headline: 'What is a Rug Pull and How Does It Work?',
+      description: 'Learn about what is rug pull and how it works in blockchain and on Sei Network.',
+      author: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      publisher: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      about: {
+        '@type': 'Thing',
+        name: 'what is rug pull'
+      },
+      articleSection: 'glossary',
+      inLanguage: 'en'
+    }
+  ]
+};
+
+<head>
+  <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+</head>
+
+# What is a Rug Pull and How Does It Work?
+
+<Callout type="info" emoji="🤖">
+  This content was generated with the assistance of AI and is intended for informational purposes only. Please verify all information independently before making decisions based on this content.
+</Callout>
+
+## Overview
+
+A **rug pull** is a type of scam where project insiders abruptly extract value from a crypto token or protocol, leaving holders with assets that rapidly lose value or become impossible to sell. It typically involves deceptive marketing, hidden control mechanisms, or liquidity manipulation that lets the team “pull the rug out” from under users.
+
+## How It Works
+
+Rug pulls generally fall into a few common patterns, often used alone or in combination:
+
+### Liquidity Removal (DEX Rug)
+
+1. A team launches a token and creates a liquidity pool (e.g., on an AMM DEX).
+2. They attract buyers with hype, incentives, or inflated claims.
+3. Once enough liquidity and demand build up, the team **removes liquidity** (if they control the LP tokens), causing massive slippage and a price collapse.
+4. Buyers can’t exit without taking near-total losses.
+
+**Key mechanic:** whoever controls the **LP tokens** can usually withdraw the pool’s underlying assets.
+
+### Malicious Token Controls (“Honeypot” / Transfer Restrictions)
+
+A token contract can be designed so that:
+
+- buys are allowed, but **sells revert** (classic honeypot),
+- only whitelisted addresses can transfer,
+- transfer taxes are set extremely high after launch,
+- a privileged role can freeze trading or block accounts.
+
+These are often implemented via owner-controlled functions that can be toggled post-launch.
+
+### Mint/Owner Abuse (Supply Manipulation)
+
+Project owners may retain the ability to:
+
+- **mint unlimited tokens**, diluting holders,
+- change fees, max wallet limits, or trading rules,
+- move treasury/locked funds, despite claiming they are locked.
+
+### Governance/Upgrade Rug
+
+In protocols with proxies, upgradeable contracts, or admin keys:
+
+- a malicious upgrade can redirect funds or change core logic,
+- admin keys can drain treasuries or user deposits,
+- multisigs may be fake or controlled by one party.
+
+## Common Warning Signs
+
+- **Unverified or unaudited contracts**, or audits from unknown sources
+- **Concentrated token ownership** (team/insiders hold a large %)
+- **LP not locked**, or lock can be removed early
+- **Owner has sweeping privileges** (pause trading, blacklist, set fees, mint)
+- **High/variable taxes** on transfers or sells
+- **No clear team, roadmap, or documentation**, or copied/templated sites
+- **Aggressive marketing** and unrealistic yield promises
+
+## On Sei Network
+
+Rug pulls can happen on any chain, including Sei. Sei’s **EVM compatibility** means many Ethereum-style token patterns—both safe and malicious—can be deployed similarly, so the same diligence applies (checking ownership, privileges, upgradeability, and liquidity conditions).
+
+Sei’s architecture emphasizes **parallelization** and fast block processing with **~400ms finality**, which improves user experience and market responsiveness—but it also means that once a malicious transaction (like liquidity removal or an admin drain) is executed, it can become final very quickly. In practice, this makes **prevention and verification** (before interacting) especially important.
+
+## Practical Checks (Before You Buy/Interact)
+
+### 1) Inspect Ownership and Privileged Functions (Solidity Patterns)
+
+Look for risky controls like these:
+
+```solidity
+// Examples of red flags
+function setTax(uint256 newTax) external onlyOwner { tax = newTax; } // can spike sell tax
+function blacklist(address user, bool value) external onlyOwner { blacklisted[user] = value; }
+function pause() external onlyOwner { _pause(); } // can halt transfers/swaps
+function mint(address to, uint256 amount) external onlyOwner { _mint(to, amount); } // infinite supply
+```
+
+If a contract is upgradeable, check for proxy/admin patterns:
+
+```solidity
+// Upgradeable/proxy admin risk: whoever controls the admin can change logic
+function upgradeTo(address newImplementation) external onlyProxyAdmin {
+    _upgradeTo(newImplementation);
+}
+```
+
+### 2) Verify Liquidity Lock Status (Conceptual)
+
+For AMM pools, confirm:
+
+- who owns the LP tokens,
+- whether LP tokens are locked,
+- lock duration and unlock conditions.
+
+If LP tokens are held by the deployer wallet with no lock, liquidity can typically be removed at any time.
+
+### 3) Use Basic On-Chain Due Diligence (TypeScript Example)
+
+Below is a minimal example of checking `owner()` and `totalSupply()` for an ERC-20-like token using `ethers` (works on EVM networks like Sei EVM when pointed at the correct RPC):
+
+```typescript
+import { ethers } from 'ethers';
+
+const RPC_URL = process.env.RPC_URL!;
+const TOKEN = '0xYourTokenAddress';
+
+const abi = ['function owner() view returns (address)', 'function totalSupply() view returns (uint256)', 'function decimals() view returns (uint8)', 'function name() view returns (string)', 'function symbol() view returns (string)'];
+
+async function main() {
+  const provider = new ethers.JsonRpcProvider(RPC_URL);
+  const token = new ethers.Contract(TOKEN, abi, provider);
+
+  // owner() may not exist on all tokens; handle errors in production
+  const [name, symbol, decimals, totalSupply, owner] = await Promise.all([token.name(), token.symbol(), token.decimals(), token.totalSupply(), token.owner()]);
+
+  console.log({ name, symbol, decimals, totalSupply: totalSupply.toString(), owner });
+}
+
+main().catch(console.error);
+```
+
+If `owner()` exists and is an externally owned account (EOA), ask:
+
+- Is ownership renounced (e.g., zero address)?
+- Is it a multisig?
+- What powers does the owner have (fees, blacklist, mint, pause, upgrade)?
+
+### 4) Confirm Sellability (Avoid Honeypots)
+
+A common defense is to run a small “test trade”:
+
+- buy a tiny amount,
+- attempt to sell it back,
+- confirm taxes, slippage, and whether the sell reverts.
+
+Be cautious: scammers sometimes allow early sells and later toggle restrictions.
+
+## Summary
+
+A rug pull is a deliberate exit scam where insiders use liquidity control, privileged contract functions, or upgrades to drain value and trap holders. The core defense is verifying liquidity conditions and contract permissions before interacting—especially on fast-finality networks like Sei, where malicious actions can finalize quickly and be difficult to react to.
+
+## Related Documentation
+
+- [Getting Started](/learn)
+- [Token Standards](/learn/dev-token-standards)
+- [Staking](/learn/general-staking)
+- [Oracles](/learn/oracles)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._

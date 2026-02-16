@@ -1,0 +1,212 @@
+---
+title: 'What is a Block Explorer and How Does It Work?'
+description: 'Learn about what is block explorer and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'glossary', 'what', 'block', 'explorer']
+---
+
+import { Callout } from 'nextra/components';
+
+export const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'FAQPage',
+      mainEntity: [
+        {
+          '@type': 'Question',
+          name: 'What is a Block Explorer and How Does It Work?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'A block explorer is a web-based tool that lets anyone view and search onchain data—blocks, transactions, addresses, smart contracts, and events—on a blockchain network. It provides transparency by turning raw blockchain records into human-readable pages and searchable indexes.'
+          }
+        }
+      ]
+    },
+    {
+      '@type': 'TechArticle',
+      headline: 'What is a Block Explorer and How Does It Work?',
+      description: 'Learn about what is block explorer and how it works in blockchain and on Sei Network.',
+      author: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      publisher: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      about: {
+        '@type': 'Thing',
+        name: 'what is block explorer'
+      },
+      articleSection: 'glossary',
+      inLanguage: 'en'
+    }
+  ]
+};
+
+<head>
+  <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+</head>
+
+# What is a Block Explorer and How Does It Work?
+
+<Callout type="info" emoji="🤖">
+  This content was generated with the assistance of AI and is intended for informational purposes only. Please verify all information independently before making decisions based on this content.
+</Callout>
+
+## Overview
+
+A block explorer is a web-based tool that lets anyone view and search onchain data—blocks, transactions, addresses, smart contracts, and events—on a blockchain network. It provides transparency by turning raw blockchain records into human-readable pages and searchable indexes.
+
+## How It Works
+
+At a high level, a block explorer is a combination of (1) a node or RPC connection to a blockchain, (2) an indexing service that parses and stores chain data, and (3) a user interface and API for querying that indexed data.
+
+### Core components
+
+- **Blockchain node / RPC endpoint**  
+  The explorer reads chain data by running its own node or connecting to one via RPC. Nodes provide access to blocks, transactions, receipts, logs, and state queries.
+
+- **Indexer**  
+  The indexer continuously:
+
+  1. Fetches newly produced blocks
+  2. Extracts transactions and execution results
+  3. Decodes receipts and event logs (if supported)
+  4. Stores normalized data in a database for fast lookup (e.g., by tx hash, address, block height)
+
+- **Database + search layer**  
+  Because blockchains are append-only and large, explorers maintain their own databases (often SQL + specialized indexing) to enable quick searches and filters.
+
+- **API and UI**  
+  Explorers typically expose REST/GraphQL-style endpoints for programmatic access and provide pages for common entities:
+  - Block details (height, timestamp, proposer/validator, tx count, gas usage)
+  - Transaction details (hash, status, gas used, fees, logs/events, internal calls)
+  - Address details (balances, token holdings, transaction history)
+  - Contract details (bytecode, verified source code, ABI, read/write methods)
+
+### What you can verify with a block explorer
+
+- **Transaction confirmation and finality**: whether a transaction is included in a block and considered final.
+- **Fees and gas usage**: the actual cost paid and gas consumed.
+- **Token transfers and contract events**: ERC-20/721/1155 (or equivalent) transfers and emitted logs.
+- **Contract interactions**: input data, function calls, and execution outcomes.
+- **Network activity**: block times, throughput, and validator/proposer information.
+
+### Typical transaction lifecycle in an explorer
+
+1. A transaction is broadcast to the network (mempool/pending state may be shown if the explorer tracks it).
+2. A validator includes it in a block.
+3. The block is committed; the explorer indexer ingests it.
+4. The explorer displays the transaction as **successful** or **failed** (based on execution result), along with logs/events and state changes where available.
+
+## On Sei Network
+
+Sei Network is a high-performance Layer 1 with EVM compatibility and fast finality (around ~400ms). On Sei, a block explorer serves the same fundamental role—making blocks, transactions, and smart contract activity transparent—but it’s especially useful for observing high-throughput activity enabled by Sei’s parallelization.
+
+### What you’ll commonly inspect on Sei explorers
+
+- **EVM transactions and receipts**: transaction status, gas used, fee paid, and emitted logs (events), similar to Ethereum explorers.
+- **Contract deployments and verification**: view contract bytecode and verified Solidity source, then interact using the ABI.
+- **Token activity**: transfers, approvals, and contract events for EVM tokens.
+- **Fast finality confirmation**: because Sei finalizes quickly, explorers can reflect confirmed state changes rapidly once indexed.
+
+### Parallelization and explorer indexing
+
+Sei’s parallel execution model can process many transactions concurrently. Explorers and their indexers still present results in a deterministic, chain-ordered view (by block and transaction ordering), but you may notice:
+
+- High transaction volume per unit time
+- Rapid status transitions from pending to confirmed/final
+- Frequent contract events in active applications (e.g., trading, gaming)
+
+## Examples
+
+### Query a transaction by hash (RPC)
+
+Use `eth_getTransactionReceipt` to confirm status and fetch logs:
+
+```bash
+curl -s -X POST https://<SEI_EVM_RPC_ENDPOINT> \
+  -H "Content-Type: application/json" \
+  --data '{
+    "jsonrpc":"2.0",
+    "id":1,
+    "method":"eth_getTransactionReceipt",
+    "params":["0xYOUR_TRANSACTION_HASH"]
+  }'
+```
+
+Key fields to look for:
+
+- `status`: `0x1` success, `0x0` failure
+- `blockNumber`, `transactionIndex`: inclusion details
+- `gasUsed`: actual execution cost
+- `logs`: emitted events (topic/data)
+
+### Find the latest block (RPC)
+
+```bash
+curl -s -X POST https://<SEI_EVM_RPC_ENDPOINT> \
+  -H "Content-Type: application/json" \
+  --data '{
+    "jsonrpc":"2.0",
+    "id":1,
+    "method":"eth_blockNumber",
+    "params":[]
+  }'
+```
+
+### Programmatic lookup with ethers.js (TypeScript)
+
+```typescript
+import { JsonRpcProvider } from 'ethers';
+
+const provider = new JsonRpcProvider('https://<SEI_EVM_RPC_ENDPOINT>');
+
+async function inspectTx(txHash: string) {
+  const receipt = await provider.getTransactionReceipt(txHash);
+  if (!receipt) {
+    console.log('Not yet indexed / not found');
+    return;
+  }
+
+  console.log({
+    status: receipt.status, // 1 = success, 0 = failure
+    blockNumber: receipt.blockNumber,
+    gasUsed: receipt.gasUsed.toString(),
+    logs: receipt.logs.length
+  });
+}
+
+inspectTx('0xYOUR_TRANSACTION_HASH');
+```
+
+## Common Explorer Terms
+
+- **Block height / number**: the sequential identifier of a block.
+- **Tx hash**: unique identifier of a transaction.
+- **From/To**: sender and recipient (or contract) addresses.
+- **Gas / gas used**: execution units consumed and the amount actually spent.
+- **Fee**: gas used × effective gas price (plus any relevant components).
+- **Logs / events**: records emitted by smart contracts during execution.
+- **Internal transactions / traces**: contract-to-contract calls (when trace support is enabled by the explorer).
+
+## Why Block Explorers Matter
+
+- **Transparency and auditability**: independently verify activity without trusting an application UI.
+- **Debugging and development**: inspect reverted transactions, event logs, and contract calls.
+- **Security and monitoring**: track token movements, approvals, and suspicious behavior.
+- **User support**: share transaction links to prove payment, swaps, mints, or contract interactions.
+
+## Related Documentation
+
+- [Getting Started](/learn)
+- [Token Standards](/learn/dev-token-standards)
+- [Staking](/learn/general-staking)
+- [Oracles](/learn/oracles)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._

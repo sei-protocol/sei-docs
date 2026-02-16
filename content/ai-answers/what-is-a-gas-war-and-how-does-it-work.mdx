@@ -1,0 +1,202 @@
+---
+title: 'What is a Gas War and How Does It Work?'
+description: 'Learn about what is gas war and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'glossary', 'what']
+---
+
+import { Callout } from 'nextra/components';
+
+export const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'FAQPage',
+      mainEntity: [
+        {
+          '@type': 'Question',
+          name: 'What is a Gas War and How Does It Work?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'A gas war is a bidding competition where multiple users (or bots) submit similar transactions and repeatedly increase their gas price to get included in a block before others. It typically happens when a time-sensitive opportunity appears—such as an NFT mint, an airdrop claim, a liquidation, or an arbitrage trade—and the first transactions to execute capture most of the value.'
+          }
+        }
+      ]
+    },
+    {
+      '@type': 'TechArticle',
+      headline: 'What is a Gas War and How Does It Work?',
+      description: 'Learn about what is gas war and how it works in blockchain and on Sei Network.',
+      author: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      publisher: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      about: {
+        '@type': 'Thing',
+        name: 'what is gas war'
+      },
+      articleSection: 'glossary',
+      inLanguage: 'en'
+    }
+  ]
+};
+
+<head>
+  <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+</head>
+
+# What is a Gas War and How Does It Work?
+
+<Callout type="info" emoji="🤖">
+  This content was generated with the assistance of AI and is intended for informational purposes only. Please verify all information independently before making decisions based on this content.
+</Callout>
+
+## Overview
+
+A **gas war** is a bidding competition where multiple users (or bots) submit similar transactions and repeatedly increase their **gas price** to get included in a block before others. It typically happens when a time-sensitive opportunity appears—such as an NFT mint, an airdrop claim, a liquidation, or an arbitrage trade—and the first transactions to execute capture most of the value.
+
+In practice, gas wars drive fees up quickly, cause failed or reverted transactions, and can degrade user experience due to congestion and unpredictability.
+
+## How It Works
+
+### Why gas wars happen
+
+Most blockchains have limited blockspace (only so many transactions fit per block). When many people want the same outcome at the same time, they compete for priority by paying higher fees. Common triggers include:
+
+- **Public mempool opportunities** (arbitrage, sandwichable swaps, liquidations)
+- **First-come-first-served events** (NFT drops, token launches, whitelists)
+- **Tight deadlines** (time-based rewards, expiring orders)
+
+### Transaction ordering and fee bidding
+
+In many networks, validators (or block builders) decide transaction ordering. When the mempool is public, participants can see pending transactions and react by:
+
+1. **Submitting the same transaction** (or one that captures the same opportunity).
+2. **Setting a higher fee** (e.g., higher `maxFeePerGas` / `priorityFee` on EVM chains).
+3. **Replacing their own pending transaction** with a higher-fee version (often called _speeding up_).
+4. **Iterating** until the transaction is included—or the opportunity is gone.
+
+If the opportunity is captured by another transaction first, later transactions often:
+
+- **Revert** (state changed; mint sold out; price moved; liquidation already executed), yet the sender may still pay fees for execution attempts (depending on chain semantics).
+- **Fail to be included**, leaving users stuck with pending transactions unless they replace/cancel.
+
+### Negative effects
+
+Gas wars can lead to:
+
+- **Fee spikes**: users overpay relative to normal conditions.
+- **Network congestion**: mempool and blockspace fill with competing transactions.
+- **Higher revert rates**: many transactions attempt actions that are no longer valid.
+- **Centralization pressure**: sophisticated searchers/bots can outcompete regular users.
+
+## On Sei Network
+
+Sei is a high-performance Layer 1 with **EVM compatibility**, designed to reduce latency and improve throughput via **parallelization**, and it provides **~400ms finality**. These properties change the dynamics of gas wars:
+
+- **Faster finality shrinks the reaction window**: With ~400ms finality, opportunities resolve quickly, giving less time for repeated rebidding and mempool “chasing.”
+- **Parallel execution improves throughput**: Sei’s parallelization can process more independent transactions concurrently, helping reduce the congestion conditions that fuel gas wars.
+- **EVM compatibility preserves familiar fee mechanics**: EVM users can still set fees and manage transaction replacement using standard tooling (wallets, RPC methods, Solidity contracts), but the chain’s performance characteristics can make fee spikes shorter-lived and competition less prolonged.
+
+### Practical tips for users on Sei (EVM)
+
+- Prefer **private transaction submission** (when available through your RPC/provider) for MEV-sensitive actions.
+- Use a **tight slippage strategy** and **revert-safe contract design** to reduce losses from failed competition.
+- Avoid “gas panic” bidding—on fast-finality chains, overbidding often provides diminishing returns because inclusion happens quickly.
+
+## Examples
+
+### EVM-style transaction replacement (speed up) with ethers.js
+
+You can replace a pending transaction by sending a new one with the **same nonce** and a higher fee.
+
+```typescript
+import { ethers } from 'ethers';
+
+const rpcUrl = process.env.RPC_URL!;
+const pk = process.env.PRIVATE_KEY!;
+const provider = new ethers.JsonRpcProvider(rpcUrl);
+const wallet = new ethers.Wallet(pk, provider);
+
+async function replacePendingTx() {
+  // Example: send an initial tx
+  const to = '0x0000000000000000000000000000000000000000';
+  const value = ethers.parseEther('0.001');
+
+  const feeData = await provider.getFeeData();
+
+  const tx1 = await wallet.sendTransaction({
+    to,
+    value,
+    // If the network supports EIP-1559:
+    maxFeePerGas: feeData.maxFeePerGas ?? undefined,
+    maxPriorityFeePerGas: feeData.maxPriorityFeePerGas ?? undefined,
+    // Fallback for legacy-style:
+    gasPrice: feeData.gasPrice ?? undefined
+  });
+
+  console.log('Sent tx1:', tx1.hash);
+
+  // Replace with same nonce + higher fee
+  const nonce = tx1.nonce;
+
+  const bump = (x: bigint) => (x * 120n) / 100n; // +20%
+  const tx2 = await wallet.sendTransaction({
+    to,
+    value,
+    nonce,
+    maxFeePerGas: feeData.maxFeePerGas ? bump(feeData.maxFeePerGas) : undefined,
+    maxPriorityFeePerGas: feeData.maxPriorityFeePerGas ? bump(feeData.maxPriorityFeePerGas) : undefined,
+    gasPrice: feeData.gasPrice ? bump(feeData.gasPrice) : undefined
+  });
+
+  console.log('Sent replacement tx2:', tx2.hash);
+}
+
+replacePendingTx().catch(console.error);
+```
+
+### Solidity: protecting against “first-come” competition
+
+Gas wars often target contracts with a single global “first” action. A common mitigation is to avoid brittle `first come, first served` logic and add fairer mechanisms (commit-reveal, allowlists, per-address limits, randomized selection). For example, a per-address cap reduces the incentive to outbid everyone for a huge allocation:
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+contract CappedMint {
+    uint256 public constant MAX_PER_ADDRESS = 2;
+    mapping(address => uint256) public minted;
+
+    function mint(uint256 amount) external payable {
+        require(amount > 0, "amount=0");
+        require(minted[msg.sender] + amount <= MAX_PER_ADDRESS, "cap exceeded");
+
+        minted[msg.sender] += amount;
+
+        // mint logic...
+    }
+}
+```
+
+## Key Takeaways
+
+- A gas war is a **fee-bidding race** for transaction priority during scarce blockspace and time-sensitive opportunities.
+- It is amplified by **public mempools**, MEV opportunities, and first-come contract designs.
+- On Sei, **parallelization** and **~400ms finality** help reduce the duration and severity of these races, while **EVM compatibility** keeps standard transaction-fee behaviors and tooling familiar.
+
+## Related Documentation
+
+- [Getting Started](/learn)
+- [Token Standards](/learn/dev-token-standards)
+- [Staking](/learn/general-staking)
+- [Oracles](/learn/oracles)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._

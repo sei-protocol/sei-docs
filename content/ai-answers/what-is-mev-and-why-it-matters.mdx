@@ -1,0 +1,176 @@
+---
+title: 'What is MEV and Why It Matters'
+description: 'Learn about what is MEV and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'glossary', 'what', 'matters']
+---
+
+import { Callout } from 'nextra/components';
+
+export const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'FAQPage',
+      mainEntity: [
+        {
+          '@type': 'Question',
+          name: 'What is MEV and Why It Matters',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'Maximal Extractable Value (MEV) is the additional profit that can be captured by controlling or influencing transaction ordering, inclusion, or exclusion within a block. It matters because it can raise execution costs for users, create unfair outcomes (like being sandwiched), and introduce security and centralization risks if not mitigated.'
+          }
+        }
+      ]
+    },
+    {
+      '@type': 'TechArticle',
+      headline: 'What is MEV and Why It Matters',
+      description: 'Learn about what is MEV and how it works in blockchain and on Sei Network.',
+      author: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      publisher: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      about: {
+        '@type': 'Thing',
+        name: 'what is MEV'
+      },
+      articleSection: 'glossary',
+      inLanguage: 'en'
+    }
+  ]
+};
+
+<head>
+  <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+</head>
+
+# What is MEV and Why It Matters
+
+<Callout type="info" emoji="🤖">
+  This content was generated with the assistance of AI and is intended for informational purposes only. Please verify all information independently before making decisions based on this content.
+</Callout>
+
+## Overview
+
+Maximal Extractable Value (MEV) is the additional profit that can be captured by controlling or influencing transaction ordering, inclusion, or exclusion within a block. It matters because it can raise execution costs for users, create unfair outcomes (like being sandwiched), and introduce security and centralization risks if not mitigated.
+
+## How It Works
+
+In most blockchains, many transactions compete for limited block space. Because transaction outcomes can depend on ordering (especially in DeFi), the party that decides ordering—typically the block producer (validator/miner) or a specialized “searcher” working with them—can extract value by reordering transactions to their advantage.
+
+Common MEV patterns:
+
+- **Arbitrage**: Reordering or inserting trades to capture price differences across pools/venues.
+- **Sandwich attacks**: Placing a buy before and a sell after a user’s swap to profit from slippage.
+- **Liquidations**: Competing to liquidate undercollateralized positions, often via priority ordering.
+- **Backrunning**: Placing a transaction immediately after another to profit from its state changes (e.g., after a large swap moves price).
+- **Time-bandit attacks (reorg MEV)**: Attempting to reorganize recent blocks if the MEV opportunity is larger than the cost of reorging.
+
+Why MEV matters:
+
+- **User harm and worse execution**: Higher slippage, worse fills, and increased failed transactions.
+- **Higher fees and congestion**: Searchers bid up fees to win ordering, affecting all users.
+- **Centralization pressure**: If MEV is large, sophisticated actors can dominate block production or preferentially integrate with validators.
+- **Protocol risk**: Incentives to reorg, censor, or manipulate ordering can undermine chain stability.
+
+## On Sei Network
+
+Sei is a high-performance Layer 1 designed for trading-focused workloads and includes **EVM compatibility**, enabling Solidity smart contracts and Ethereum tooling. MEV dynamics still exist on Sei anywhere transaction ordering impacts outcomes—especially around swaps, liquidations, and arbitrage in EVM DeFi.
+
+Key considerations on Sei:
+
+- **Fast finality (~400ms)**: Rapid block finality reduces the time window for certain adversarial behaviors and improves user experience, but it doesn’t eliminate MEV; ordering-based opportunities can still exist within and across blocks.
+- **Parallelization**: Sei’s parallel execution model increases throughput and reduces congestion, which can lower some fee-driven competition. However, parallelism also makes it important for applications to design carefully around state contention and ordering-sensitive paths.
+- **EVM execution environment**: MEV bots and searchers built for Ethereum can often be adapted to Sei’s EVM, so application-level protections (slippage controls, TWAP/oracle usage, anti-sandwich measures, private execution paths) remain relevant.
+
+Practical impacts for Sei builders and users:
+
+- **DEX users** should set appropriate slippage, consider limit orders (if supported), and prefer routing mechanisms that minimize sandwich risk.
+- **Protocol developers** should design to reduce ordering sensitivity (e.g., batch auctions, commit-reveal for intent-based trading, robust oracle integration, liquidation mechanisms that reduce winner-take-all races).
+
+## Examples
+
+### Solidity: basic slippage protection on swaps
+
+Slippage bounds don’t prevent all MEV, but they limit how much a sandwich or adverse ordering can worsen execution.
+
+```solidity
+// Example interface for a UniswapV2-like router
+interface IRouter {
+    function swapExactTokensForTokens(
+        uint amountIn,
+        uint amountOutMin,
+        address[] calldata path,
+        address to,
+        uint deadline
+    ) external returns (uint[] memory amounts);
+}
+
+contract SlippageBoundSwap {
+    IRouter public immutable router;
+
+    constructor(address _router) {
+        router = IRouter(_router);
+    }
+
+    function swap(
+        uint amountIn,
+        uint amountOutMin,
+        address[] calldata path
+    ) external {
+        // amountOutMin is the key anti-MEV parameter:
+        // it reverts if execution price moves too far against the user.
+        router.swapExactTokensForTokens(
+            amountIn,
+            amountOutMin,
+            path,
+            msg.sender,
+            block.timestamp + 60
+        );
+    }
+}
+```
+
+### TypeScript: simulate expected output and set `amountOutMin`
+
+Off-chain quoting plus a conservative tolerance is a common baseline defense.
+
+```typescript
+import { ethers } from 'ethers';
+
+const SLIPPAGE_BPS = 50n; // 0.50%
+const BPS = 10_000n;
+
+function withSlippage(amountOut: bigint, slippageBps: bigint) {
+  return (amountOut * (BPS - slippageBps)) / BPS;
+}
+
+// amountOutQuoted obtained from a quoter/DEX SDK call
+const amountOutQuoted: bigint = 1_000_000n;
+
+const amountOutMin = withSlippage(amountOutQuoted, SLIPPAGE_BPS);
+console.log({ amountOutMin });
+```
+
+## Key Takeaways
+
+- MEV is value extracted from transaction ordering, inclusion, or censorship.
+- It affects users (worse prices), networks (fee spikes), and security (reorg/censorship incentives).
+- On Sei, **fast finality (~400ms)**, **parallelization**, and **EVM compatibility** shape MEV behavior, but MEV remains relevant—especially in DeFi—so applications should adopt protective design patterns.
+
+## Related Documentation
+
+- [Getting Started](/learn)
+- [Token Standards](/learn/dev-token-standards)
+- [Staking](/learn/general-staking)
+- [Oracles](/learn/oracles)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._

@@ -1,0 +1,196 @@
+---
+title: 'What is an NFT and How Does It Work?'
+description: 'Learn about what is NFT and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'glossary', 'what']
+---
+
+import { Callout } from 'nextra/components';
+
+export const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'FAQPage',
+      mainEntity: [
+        {
+          '@type': 'Question',
+          name: 'What is an NFT and How Does It Work?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'An NFT (Non-Fungible Token) is a unique digital token recorded on a blockchain that represents ownership or rights to a specific item—such as digital art, collectibles, game items, tickets, or membership access. Unlike cryptocurrencies (which are fungible and interchangeable), each NFT has distinct identity and metadata, making it non-interchangeable on a 1:1 basis.'
+          }
+        }
+      ]
+    },
+    {
+      '@type': 'TechArticle',
+      headline: 'What is an NFT and How Does It Work?',
+      description: 'Learn about what is NFT and how it works in blockchain and on Sei Network.',
+      author: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      publisher: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      about: {
+        '@type': 'Thing',
+        name: 'what is NFT'
+      },
+      articleSection: 'glossary',
+      inLanguage: 'en'
+    }
+  ]
+};
+
+<head>
+  <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+</head>
+
+# What is an NFT and How Does It Work?
+
+<Callout type="info" emoji="🤖">
+  This content was generated with the assistance of AI and is intended for informational purposes only. Please verify all information independently before making decisions based on this content.
+</Callout>
+
+## Overview
+
+An NFT (Non-Fungible Token) is a unique digital token recorded on a blockchain that represents ownership or rights to a specific item—such as digital art, collectibles, game items, tickets, or membership access. Unlike cryptocurrencies (which are fungible and interchangeable), each NFT has distinct identity and metadata, making it non-interchangeable on a 1:1 basis.
+
+## How It Works
+
+### Fungible vs. Non-Fungible
+
+- **Fungible tokens** (e.g., ETH, SEI, USDC) are interchangeable: 1 token equals any other token of the same type.
+- **Non-fungible tokens** are unique: each token has a distinct identifier and often distinct metadata.
+
+### Core Components of an NFT
+
+- **Smart contract**: The on-chain program that defines the NFT collection and rules (minting, transfers, approvals).
+- **Token ID**: A unique identifier within the collection contract (e.g., `#1`, `#2`, etc.).
+- **Ownership**: The blockchain address that currently owns the token.
+- **Metadata**: Data describing the NFT (name, description, traits, image). Often stored off-chain (e.g., IPFS/Arweave) with an on-chain URI pointer.
+- **Provenance**: The blockchain provides an auditable history of transfers and (often) mint events.
+
+### Typical NFT Lifecycle
+
+1. **Deploy a contract** (or use an existing collection contract).
+2. **Mint** an NFT: create a new token ID and assign an initial owner.
+3. **Store/point to metadata**: the contract exposes a `tokenURI(tokenId)` that returns where metadata can be retrieved.
+4. **Transfer or sell**: owners transfer NFTs directly or via marketplaces using approvals.
+5. **Verify authenticity**: users and apps check the contract address + token ID (and sometimes creator signatures) to confirm authenticity.
+
+### NFT Standards (EVM)
+
+On EVM chains, NFTs commonly use:
+
+- **ERC-721**: one-of-one tokens (each token ID is unique).
+- **ERC-1155**: semi-fungible / multi-token standard (supports both unique and “edition” style tokens efficiently).
+
+## On Sei Network
+
+Sei is a high-performance Layer 1 with **EVM compatibility**, enabling NFT contracts and tooling similar to Ethereum while benefiting from Sei’s performance characteristics, including **parallelized execution** and **~400ms finality**. For NFT apps, this typically translates to:
+
+- **Faster user experience**: mints, transfers, and marketplace interactions confirm quickly.
+- **Higher throughput under load**: parallelization helps the network process many independent NFT actions efficiently (e.g., many users minting or trading across different collections).
+- **EVM-native development**: you can deploy Solidity-based ERC-721/1155 contracts and integrate with standard wallets and libraries.
+
+## Example: Minimal ERC-721 NFT (Solidity)
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+contract SimpleNFT is ERC721, Ownable {
+    uint256 public nextTokenId;
+
+    constructor() ERC721("SimpleNFT", "SNFT") Ownable(msg.sender) {}
+
+    function mint(address to) external onlyOwner returns (uint256 tokenId) {
+        tokenId = nextTokenId++;
+        _safeMint(to, tokenId);
+    }
+}
+```
+
+### Adding Metadata via tokenURI (Common Pattern)
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+contract MetadataNFT is ERC721URIStorage, Ownable {
+    uint256 public nextTokenId;
+
+    constructor() ERC721("MetadataNFT", "MNFT") Ownable(msg.sender) {}
+
+    function mint(address to, string calldata uri) external onlyOwner returns (uint256 tokenId) {
+        tokenId = nextTokenId++;
+        _safeMint(to, tokenId);
+        _setTokenURI(tokenId, uri); // e.g., ipfs://<CID>/metadata.json
+    }
+}
+```
+
+## Example: Minting with ethers.js (TypeScript)
+
+```typescript
+import { ethers } from 'ethers';
+
+const RPC_URL = process.env.RPC_URL!;
+const PRIVATE_KEY = process.env.PRIVATE_KEY!;
+const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS!;
+
+const abi = ['function mint(address to) external returns (uint256)'];
+
+async function main() {
+  const provider = new ethers.JsonRpcProvider(RPC_URL);
+  const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
+
+  const nft = new ethers.Contract(CONTRACT_ADDRESS, abi, wallet);
+
+  const to = '0xYourRecipientAddressHere';
+  const tx = await nft.mint(to);
+  console.log('tx hash:', tx.hash);
+
+  const receipt = await tx.wait();
+  console.log('confirmed in block:', receipt?.blockNumber);
+}
+
+main().catch(console.error);
+```
+
+## Key Concepts to Know
+
+- **Ownership vs. content storage**: NFTs typically store ownership and metadata pointers on-chain, while large media files (images/videos) are stored off-chain.
+- **Royalties**: Often implemented via marketplace conventions or optional standards; not universally enforced by default at the protocol level.
+- **Authenticity**: A legitimate NFT is defined by the **contract address + token ID**; copies can exist elsewhere, so verifying the correct collection matters.
+- **Security**: Use audited libraries (e.g., OpenZeppelin), restrict mint permissions, and test approvals/transfer logic carefully.
+
+## Common Use Cases
+
+- Digital art and collectibles
+- Gaming assets (skins, items, characters)
+- Membership passes and loyalty programs
+- Tickets and event access
+- On-chain identity, achievements, and credentials
+
+## Related Documentation
+
+- [Getting Started](/learn)
+- [Token Standards](/learn/dev-token-standards)
+- [Staking](/learn/general-staking)
+- [Oracles](/learn/oracles)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._

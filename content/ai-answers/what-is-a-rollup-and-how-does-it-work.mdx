@@ -1,0 +1,204 @@
+---
+title: 'What is a Rollup and How Does It Work?'
+description: 'Learn about what is rollup and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'glossary', 'what', 'rollup']
+---
+
+import { Callout } from 'nextra/components';
+
+export const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'FAQPage',
+      mainEntity: [
+        {
+          '@type': 'Question',
+          name: 'What is a Rollup and How Does It Work?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'A rollup is a Layer 2 (L2) scaling system that executes transactions off-chain (or in a separate execution environment) and publishes compressed data and/or proofs back to a Layer 1 (L1) blockchain for security. The L1 acts as the source of truth, while the rollup increases throughput and reduces fees by batching many transactions into fewer L1 updates.'
+          }
+        }
+      ]
+    },
+    {
+      '@type': 'TechArticle',
+      headline: 'What is a Rollup and How Does It Work?',
+      description: 'Learn about what is rollup and how it works in blockchain and on Sei Network.',
+      author: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      publisher: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      about: {
+        '@type': 'Thing',
+        name: 'what is rollup'
+      },
+      articleSection: 'glossary',
+      inLanguage: 'en'
+    }
+  ]
+};
+
+<head>
+  <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+</head>
+
+# What is a Rollup and How Does It Work?
+
+<Callout type="info" emoji="🤖">
+  This content was generated with the assistance of AI and is intended for informational purposes only. Please verify all information independently before making decisions based on this content.
+</Callout>
+
+## Overview
+
+A **rollup** is a Layer 2 (L2) scaling system that executes transactions off-chain (or in a separate execution environment) and publishes compressed data and/or proofs back to a Layer 1 (L1) blockchain for security. The L1 acts as the source of truth, while the rollup increases throughput and reduces fees by batching many transactions into fewer L1 updates.
+
+## How It Works
+
+### 1) Off-chain execution and batching
+
+Rollups process user transactions in an L2 environment. A **sequencer** (or a decentralized set of proposers) orders transactions, executes them, and produces an updated L2 state. Instead of sending every transaction to L1 individually, the rollup **batches** many L2 transactions together.
+
+### 2) Posting rollup data to L1 (data availability)
+
+To allow others to verify the L2 state and to enable withdrawals, a rollup posts some form of **transaction data** (often calldata) or **state diffs** to L1. This is called **data availability (DA)**. DA ensures that anyone can reconstruct the L2 chain state from L1-published data.
+
+### 3) Proving correctness or enabling challenges
+
+Rollups rely on L1 for security using one of two main models:
+
+- **Optimistic Rollups**
+
+  - Assume batches are valid by default (“optimistically”).
+  - Allow a **challenge window** (e.g., days) where anyone can submit a fraud proof to dispute an invalid batch.
+  - Withdrawals to L1 are typically delayed until the challenge window ends (unless fast liquidity providers are used).
+
+- **ZK Rollups (Validity Rollups)**
+  - Generate a **zero-knowledge validity proof** (e.g., SNARK/STARK) that attests the batch was executed correctly.
+  - L1 verifies the proof, usually enabling faster finality for withdrawals (subject to bridge design).
+  - Prover computation can be complex but results in strong, immediate correctness guarantees once verified.
+
+### 4) Bridging assets and messages
+
+Rollups include L1 smart contracts (or modules) that:
+
+- Hold escrowed assets (for L2 deposits),
+- Track L2 state roots,
+- Verify proofs (ZK) or manage disputes (Optimistic),
+- Process withdrawals and cross-chain messages.
+
+## On Sei Network
+
+Sei is a high-performance Layer 1 with **EVM compatibility**, **parallelized execution**, and **~400ms finality**. While rollups are commonly used to scale slower base layers, on Sei they are typically used for **specialized execution environments**, **application-specific scaling**, or **interoperability patterns** rather than as a strict necessity for throughput.
+
+Key implications for rollups that settle to Sei:
+
+- **Faster settlement and confirmations:** A rollup that posts batches/proofs to Sei benefits from Sei’s fast finality, reducing the time to consider an L1 update final (e.g., state root posting, deposit confirmation, proof acceptance).
+- **High-throughput verification paths:** Sei’s parallelization can help when multiple rollup-related transactions are posted concurrently (e.g., many batches, multiple bridge operations, frequent proof submissions).
+- **EVM-friendly integration:** Rollup settlement and bridging contracts can be written and deployed using Solidity on Sei’s EVM, making it straightforward to reuse Ethereum-style rollup contract patterns.
+
+### Example: Skeleton of a rollup settlement contract (Solidity)
+
+Below is a simplified pattern showing how a rollup might post new state roots to Sei and optionally verify a proof. Production designs need robust access control, replay protection, sequencing rules, and a full bridge/withdrawal mechanism.
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+contract SimpleRollupSettlement {
+    bytes32 public latestStateRoot;
+    uint256 public latestBatchId;
+
+    address public operator; // sequencer/proposer
+
+    event BatchPosted(uint256 indexed batchId, bytes32 stateRoot);
+    event OperatorUpdated(address indexed oldOperator, address indexed newOperator);
+
+    modifier onlyOperator() {
+        require(msg.sender == operator, "not operator");
+        _;
+    }
+
+    constructor(address _operator) {
+        operator = _operator;
+    }
+
+    function setOperator(address newOperator) external onlyOperator {
+        emit OperatorUpdated(operator, newOperator);
+        operator = newOperator;
+    }
+
+    /// @notice Post a new L2 state root for a batch.
+    /// @dev In a ZK rollup, you'd also verify a proof here.
+    function postBatch(bytes32 stateRoot) external onlyOperator {
+        latestBatchId += 1;
+        latestStateRoot = stateRoot;
+
+        emit BatchPosted(latestBatchId, stateRoot);
+    }
+
+    /// @notice Placeholder for proof verification (ZK rollup).
+    /// @dev Real implementations integrate a verifier contract.
+    function verifyProof(bytes calldata /* proof */) external pure returns (bool) {
+        // e.g., return Verifier.verify(proof, publicInputs);
+        return true;
+    }
+}
+```
+
+### Example: Posting a batch transaction to Sei (CLI)
+
+Exact commands depend on your tooling and deployment environment, but a typical flow is:
+
+1. Deploy settlement/bridge contracts on Sei’s EVM
+2. Call `postBatch(stateRoot)` whenever a new batch is produced
+
+```bash
+# Example using cast (Foundry) to call a deployed contract on Sei EVM
+cast send \
+  --rpc-url $SEI_EVM_RPC \
+  --private-key $OPERATOR_PK \
+  $SETTLEMENT_CONTRACT \
+  "postBatch(bytes32)" \
+  0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+```
+
+## Benefits and Tradeoffs
+
+### Benefits
+
+- **Higher throughput:** Many L2 transactions amortize a smaller number of L1 writes.
+- **Lower fees:** Users pay less L1 data/verification cost per transaction.
+- **L1 security anchoring:** L2 state is ultimately enforced or verified by L1.
+
+### Tradeoffs
+
+- **Complexity:** Sequencing, proving/challenging, and bridging add significant engineering overhead.
+- **Withdrawal UX constraints:** Optimistic rollups have challenge delays; ZK rollups require prover infrastructure.
+- **Data availability costs:** Posting sufficient data to L1 is crucial for trust-minimized operation.
+
+## Related Terms
+
+- **Sequencer:** Entity ordering L2 transactions.
+- **State Root:** Commitment to the L2 state after a batch.
+- **Fraud Proof / Validity Proof:** Mechanisms to ensure correctness.
+- **Bridge:** Contracts/modules for deposits, withdrawals, and cross-chain messaging.
+- **Data Availability (DA):** Ensuring transaction/state data is accessible for verification and exits.
+
+## Related Documentation
+
+- [Getting Started](/learn)
+- [Token Standards](/learn/dev-token-standards)
+- [Staking](/learn/general-staking)
+- [Oracles](/learn/oracles)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._

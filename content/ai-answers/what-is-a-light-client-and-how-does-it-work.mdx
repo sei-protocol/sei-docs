@@ -1,0 +1,196 @@
+---
+title: 'What is a Light Client and How Does It Work?'
+description: 'Learn about what is light client and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'glossary', 'what', 'light', 'client']
+---
+
+import { Callout } from 'nextra/components';
+
+export const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'FAQPage',
+      mainEntity: [
+        {
+          '@type': 'Question',
+          name: 'What is a Light Client and How Does It Work?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'A light client is a blockchain client that verifies key chain data (like block headers and consensus proofs) without downloading and executing every transaction. It offers strong security guarantees with minimal bandwidth, storage, and compute, making it ideal for mobile devices, browsers, wallets, and cross-chain verification.'
+          }
+        }
+      ]
+    },
+    {
+      '@type': 'TechArticle',
+      headline: 'What is a Light Client and How Does It Work?',
+      description: 'Learn about what is light client and how it works in blockchain and on Sei Network.',
+      author: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      publisher: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      about: {
+        '@type': 'Thing',
+        name: 'what is light client'
+      },
+      articleSection: 'glossary',
+      inLanguage: 'en'
+    }
+  ]
+};
+
+<head>
+  <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+</head>
+
+# What is a Light Client and How Does It Work?
+
+<Callout type="info" emoji="🤖">
+  This content was generated with the assistance of AI and is intended for informational purposes only. Please verify all information independently before making decisions based on this content.
+</Callout>
+
+## Overview
+
+A **light client** is a blockchain client that verifies key chain data (like block headers and consensus proofs) without downloading and executing every transaction. It offers strong security guarantees with minimal bandwidth, storage, and compute, making it ideal for mobile devices, browsers, wallets, and cross-chain verification.
+
+## How It Works
+
+Light clients trade full state execution for **cryptographic verification**. Instead of maintaining the entire blockchain state, they verify that the chain is valid and then request small proofs for specific data they need.
+
+### 1) Verify block headers and consensus
+
+A light client typically downloads:
+
+- **Block headers** (small metadata per block: hashes, height, timestamps, etc.)
+- **Consensus proofs / signatures** (e.g., validator signatures or commits)
+
+Using these, it checks:
+
+- The header links correctly to the previous header (hash chain)
+- The block was finalized/accepted by the required quorum of validators per the consensus rules
+
+This gives the light client a trustworthy view of the chain’s canonical history without executing all transactions.
+
+### 2) Request proofs for specific state
+
+When a light client needs a particular piece of information (account balance, contract storage slot, transaction receipt, etc.), it asks a full node (or RPC provider) for:
+
+- The value, plus
+- A **Merkle proof** (or similar commitment proof) showing that the value is included under the state root referenced by a verified header
+
+The light client verifies the proof against the header’s state commitment. If the proof checks out, the data is authentic even if the RPC provider is untrusted.
+
+### 3) Security model and limitations
+
+**Security properties**
+
+- Detects invalid or forged data as long as the consensus assumptions hold (honest validator majority / finality guarantees)
+- Doesn’t need to trust RPC providers for correctness of proven data
+
+**Common limitations**
+
+- Cannot independently compute arbitrary state changes (no full execution)
+- Needs occasional connectivity to stay synced to recent headers
+- May rely on “weak subjectivity” checkpoints depending on the consensus mechanism (common in PoS systems)
+
+## On Sei Network
+
+Sei is a high-performance Layer 1 with **EVM compatibility** and fast finality (approximately **~400ms**), which changes the practical experience of light clients in a few important ways:
+
+### Fast finality improves light client UX
+
+With ~400ms finality, a light client can reach a high-confidence view of the chain quickly:
+
+- Shorter “waiting time” for confirmed headers
+- Faster cross-chain verification and messaging patterns
+- Better user experience for wallets and mobile dApps that want prompt confirmations
+
+### Parallelization supports high throughput without increasing client burden
+
+Sei’s execution design emphasizes **parallelization** to scale throughput. Light clients benefit because:
+
+- They continue to process **compact headers** and verify consensus proofs
+- Increased on-chain activity doesn’t require light clients to store or execute more transactions—only to track headers and request proofs for what they need
+
+### EVM compatibility and proof-based reads
+
+For EVM applications, light clients commonly need to verify:
+
+- Contract storage values
+- Account state
+- Transaction receipts/logs (often via proofs tied to block/receipt roots)
+
+On Sei, the principle is the same: light clients verify finalized headers and then validate inclusion/state proofs against the header’s commitments. This enables secure “read” verification for wallets, explorers, and cross-chain applications interacting with EVM contracts.
+
+## Example: Fetching a Block Header (TypeScript)
+
+Below is a minimal example of fetching block data via JSON-RPC. A true light client would additionally verify the consensus proof and any inclusion proofs it requests.
+
+```typescript
+import fetch from 'node-fetch';
+
+const RPC_URL = process.env.SEI_RPC_URL ?? 'https://your-sei-rpc.example';
+
+async function rpc(method: string, params: any[] = []) {
+  const res = await fetch(RPC_URL, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params })
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+async function getLatestBlock() {
+  // Many nodes support standard methods like eth_getBlockByNumber on EVM-enabled chains.
+  const result = await rpc('eth_getBlockByNumber', ['latest', false]);
+  return result.result;
+}
+
+getLatestBlock()
+  .then((b) => console.log({ number: b.number, hash: b.hash, parentHash: b.parentHash }))
+  .catch(console.error);
+```
+
+## Example: Reading Contract State (Solidity Perspective)
+
+Light clients do not execute contracts, but they often verify returned state using proofs. For example, an off-chain light client might request a storage slot value for a contract and verify the proof against a finalized header’s state root.
+
+A typical Solidity contract doesn’t verify L1 state proofs by itself unless it’s implementing a bridge/light-client verifier. Still, here’s a simple storage layout example to illustrate what a light client might query:
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+contract ExampleStorage {
+    mapping(address => uint256) public balances;
+
+    function setBalance(address user, uint256 amount) external {
+        balances[user] = amount;
+    }
+}
+```
+
+An off-chain light client could request the `balances[user]` storage value plus a proof, then verify that proof against the state commitment of a finalized Sei block header.
+
+## Summary
+
+Light clients securely follow a blockchain by verifying **headers and consensus proofs**, then validating **Merkle/inclusion proofs** for specific data instead of downloading and executing everything. On Sei Network, **~400ms finality**, **parallelized execution**, and **EVM compatibility** make light-client-based wallets and cross-chain verification faster and more practical while keeping resource usage low.
+
+## Related Documentation
+
+- [Getting Started](/learn)
+- [Token Standards](/learn/dev-token-standards)
+- [Staking](/learn/general-staking)
+- [Oracles](/learn/oracles)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._

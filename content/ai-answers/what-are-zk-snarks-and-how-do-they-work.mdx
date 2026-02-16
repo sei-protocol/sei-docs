@@ -1,0 +1,189 @@
+---
+title: 'What Are zk-SNARKs and How Do They Work?'
+description: 'Learn about what is zk-SNARKs and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'glossary', 'what', 'zk-SNARKs', 'snarks']
+---
+
+import { Callout } from 'nextra/components';
+
+export const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'FAQPage',
+      mainEntity: [
+        {
+          '@type': 'Question',
+          name: 'What Are zk-SNARKs and How Do They Work?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'zk-SNARKs (Zero-Knowledge Succinct Non-Interactive Arguments of Knowledge) are cryptographic proofs that let someone prove a statement is true—such as “I know a valid secret” or “this transaction is valid”—without revealing the underlying data. They are succinct (small proofs, fast verification) and non-interactive (one proof message, no back-and-forth), making them practical for blockchains.'
+          }
+        }
+      ]
+    },
+    {
+      '@type': 'TechArticle',
+      headline: 'What Are zk-SNARKs and How Do They Work?',
+      description: 'Learn about what is zk-SNARKs and how it works in blockchain and on Sei Network.',
+      author: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      publisher: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      about: {
+        '@type': 'Thing',
+        name: 'what is zk-SNARKs'
+      },
+      articleSection: 'glossary',
+      inLanguage: 'en'
+    }
+  ]
+};
+
+<head>
+  <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+</head>
+
+# What Are zk-SNARKs and How Do They Work?
+
+<Callout type="info" emoji="🤖">
+  This content was generated with the assistance of AI and is intended for informational purposes only. Please verify all information independently before making decisions based on this content.
+</Callout>
+
+## Overview
+
+zk-SNARKs (Zero-Knowledge Succinct Non-Interactive Arguments of Knowledge) are cryptographic proofs that let someone prove a statement is true—such as “I know a valid secret” or “this transaction is valid”—without revealing the underlying data. They are _succinct_ (small proofs, fast verification) and _non-interactive_ (one proof message, no back-and-forth), making them practical for blockchains.
+
+In blockchain systems, zk-SNARKs are commonly used for privacy-preserving transactions, scalable rollups, and verifying offchain computation onchain while keeping inputs private.
+
+## How It Works
+
+At a high level, zk-SNARKs allow a **prover** to convince a **verifier** that a computation was done correctly, without showing the private inputs.
+
+### Core properties
+
+- **Zero-knowledge:** The proof reveals nothing beyond the truth of the statement.
+- **Succinct:** Proofs are small and can be verified quickly.
+- **Non-interactive:** The verifier only needs a single proof and some public data.
+- **Soundness/Knowledge:** A valid proof implies the prover actually knows a witness (the secret inputs) that satisfies the statement.
+
+### The typical zk-SNARK workflow
+
+1. **Define a statement as a circuit**
+
+   - The “statement” is encoded as a set of arithmetic constraints (a circuit).
+   - Example statement: “I know `x` such that `hash(x) = H`.”
+
+2. **(Often) Setup phase**
+
+   - Many zk-SNARK systems require a one-time setup to generate:
+     - a **proving key** (for proof generation)
+     - a **verifying key** (for proof verification)
+   - Depending on the scheme, setup can be per-circuit (“trusted setup”) or use universal setups. Some modern proving systems avoid trusted setup, but those are generally referred to as other proof systems rather than classic zk-SNARKs.
+
+3. **Prove (generate the proof)**
+
+   - The prover uses:
+     - the proving key
+     - **public inputs** (data the verifier can see)
+     - a **witness** (private inputs/secret data)
+   - Output: a proof `π` (pi), usually a small blob of bytes.
+
+4. **Verify**
+   - The verifier checks `Verify(vk, publicInputs, π) == true`.
+   - Verification is efficient, which is crucial for onchain use.
+
+### Common blockchain use cases
+
+- **Private transfers:** Prove balances and transfers are valid without revealing amounts or addresses.
+- **Rollups / validity proofs:** Prove that a batch of transactions was executed correctly offchain, then verify the proof onchain for scalability.
+- **Selective disclosure / identity:** Prove membership or attributes (e.g., over 18, allowlisted) without revealing identity.
+
+## On Sei Network
+
+Sei is a high-performance Layer 1 with **EVM compatibility**, enabling developers to deploy Solidity smart contracts that can integrate zk-SNARK verification logic similarly to other EVM chains. In a zk-SNARK-enabled application, the expensive proving work is usually done **offchain**, while Sei smart contracts handle the **onchain verification**—benefiting from Sei’s fast block times and **~400ms finality** to confirm proof-based state transitions quickly.
+
+Sei’s architecture and parallelization are particularly valuable for workloads where many users submit proof verifications or proof-backed transactions concurrently. While proving remains computationally heavy offchain, efficient onchain verification plus fast finality improves user experience for:
+
+- proof-gated access control (allowlists, credentials),
+- onchain verification of rollup outputs,
+- privacy or compliance workflows that rely on selective disclosure.
+
+### EVM-style verification pattern on Sei
+
+Most zk applications on EVM chains follow this pattern:
+
+1. Users generate proofs offchain using a circuit and a prover.
+2. A Sei EVM contract verifies the proof and then updates state if valid.
+
+Below is a simplified Solidity interface pattern you’ll commonly see (the actual verifier contract is usually autogenerated by tooling like circom/snarkjs or other zk frameworks):
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+
+interface IVerifier {
+    function verifyProof(
+        uint256[2] calldata a,
+        uint256[2][2] calldata b,
+        uint256[2] calldata c,
+        uint256[] calldata publicSignals
+    ) external view returns (bool);
+}
+
+contract ProofGatedAction {
+    IVerifier public immutable verifier;
+
+    constructor(address verifierAddress) {
+        verifier = IVerifier(verifierAddress);
+    }
+
+    function doActionWithProof(
+        uint256[2] calldata a,
+        uint256[2][2] calldata b,
+        uint256[2] calldata c,
+        uint256[] calldata publicSignals
+    ) external {
+        require(verifier.verifyProof(a, b, c, publicSignals), "Invalid proof");
+        // Proceed with state changes after proof verification
+    }
+}
+```
+
+### Submitting proof transactions to Sei (EVM)
+
+From a developer standpoint, submitting a proof verification transaction on Sei looks like a normal EVM transaction flow—your calldata just includes proof elements and public inputs.
+
+```bash
+# Example shape (tooling/commands depend on your stack):
+# - Deploy verifier + app contracts
+# - Call app contract with proof parameters as calldata via your preferred tool
+```
+
+## Key Tradeoffs and Considerations
+
+- **Trusted setup (in many zk-SNARKs):** If applicable, secure setup procedures are critical; compromised setup can undermine soundness.
+- **Proof generation cost:** Proving is typically much heavier than verifying and is done offchain.
+- **Calldata size and gas:** Proof verification is efficient but still has onchain cost; batching and careful public input design help.
+- **Circuit design:** The security and performance of your zk application depend heavily on how the circuit is constructed and audited.
+
+## Summary
+
+zk-SNARKs enable efficient, privacy-preserving verification of computations by allowing small proofs that are fast to verify and require no interaction. In blockchain systems, they power privacy features and validity proofs for scalability. On Sei Network, zk-SNARK-based applications can leverage EVM compatibility for familiar smart contract patterns and benefit from Sei’s parallelization and ~400ms finality to confirm proof-backed actions quickly.
+
+## Related Documentation
+
+- [Getting Started](/learn)
+- [Token Standards](/learn/dev-token-standards)
+- [Staking](/learn/general-staking)
+- [Oracles](/learn/oracles)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._

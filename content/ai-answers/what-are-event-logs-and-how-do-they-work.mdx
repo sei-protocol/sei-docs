@@ -1,0 +1,210 @@
+---
+title: 'What Are Event Logs and How Do They Work?'
+description: 'Learn about what is event logs and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'glossary', 'what', 'event', 'logs']
+---
+
+import { Callout } from 'nextra/components';
+
+export const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'FAQPage',
+      mainEntity: [
+        {
+          '@type': 'Question',
+          name: 'What Are Event Logs and How Do They Work?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'Event logs are append-only records emitted by smart contracts during transaction execution to announce that something happened (e.g., a transfer, a trade, or a configuration change). They are stored in transaction receipts and are designed for efficient off-chain consumption by indexers, analytics, wallets, and dApps. Unlike contract state, logs are not directly readable by other smart contracts, but they are cheap to emit and easy to query.'
+          }
+        }
+      ]
+    },
+    {
+      '@type': 'TechArticle',
+      headline: 'What Are Event Logs and How Do They Work?',
+      description: 'Learn about what is event logs and how it works in blockchain and on Sei Network.',
+      author: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      publisher: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      about: {
+        '@type': 'Thing',
+        name: 'what is event logs'
+      },
+      articleSection: 'glossary',
+      inLanguage: 'en'
+    }
+  ]
+};
+
+<head>
+  <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+</head>
+
+# What Are Event Logs and How Do They Work?
+
+<Callout type="info" emoji="🤖">
+  This content was generated with the assistance of AI and is intended for informational purposes only. Please verify all information independently before making decisions based on this content.
+</Callout>
+
+## Overview
+
+Event logs are append-only records emitted by smart contracts during transaction execution to announce that something happened (e.g., a transfer, a trade, or a configuration change). They are stored in transaction receipts and are designed for efficient off-chain consumption by indexers, analytics, wallets, and dApps. Unlike contract state, logs are not directly readable by other smart contracts, but they are cheap to emit and easy to query.
+
+## How It Works
+
+### Events vs. Logs (EVM model)
+
+In EVM-based chains, a Solidity `event` declaration defines a structured message that a contract can emit. When emitted, the EVM creates a **log entry** that contains:
+
+- **Address**: the contract that emitted the log
+- **Topics**: up to 4 indexed 32-byte values
+  - `topic0` is the event signature hash (`keccak256("EventName(type1,type2,...)")`)
+  - `topic1..topic3` store `indexed` parameters (or their hashes for dynamic types)
+- **Data**: ABI-encoded non-indexed parameters
+- **Block/tx metadata**: block number, transaction hash, log index (in the receipt)
+
+### Indexed vs. non-indexed parameters
+
+- **Indexed parameters** go into topics and are fast to filter on (e.g., `from`, `to`, `id`).
+- **Non-indexed parameters** go into the data field and require decoding after retrieval.
+
+This split allows nodes and RPC providers to support efficient filtering via APIs like `eth_getLogs`, without scanning every transaction payload.
+
+### Querying logs
+
+Apps typically query logs by:
+
+- **Block range** (`fromBlock`, `toBlock`)
+- **Contract address(es)**
+- **Topics filter** (event signature and indexed values)
+
+This is the foundation for most blockchain indexing pipelines (The Graph, custom indexers, explorers), since logs provide a canonical “activity stream” without requiring full state diffs.
+
+## On Sei Network
+
+Sei is EVM-compatible, so event logs follow the same Ethereum log semantics (topics + data, emitted during transaction execution, retrieved via standard EVM JSON-RPC methods). This makes it straightforward to run existing tooling—wallets, indexers, and analytics stacks—against Sei’s EVM.
+
+Sei’s architecture is optimized for high throughput via parallelization, and it offers fast finality (around ~400ms). In practice, this means:
+
+- **Faster confirmation of emitted logs**: applications can react to events quickly once transactions finalize.
+- **Higher event volume support**: parallel execution helps sustain more contract activity and corresponding logs.
+- **Drop-in compatibility**: existing EVM contracts and off-chain consumers that rely on events (DEX trade feeds, NFT mints, bridge activity) can operate with minimal changes.
+
+## Solidity Example: Defining and Emitting Events
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+contract ExampleToken {
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event MetadataUpdated(string name, string symbol); // non-indexed (data)
+
+    mapping(address => uint256) public balanceOf;
+
+    constructor() {
+        balanceOf[msg.sender] = 1_000_000;
+    }
+
+    function transfer(address to, uint256 value) external {
+        require(balanceOf[msg.sender] >= value, "insufficient");
+        balanceOf[msg.sender] -= value;
+        balanceOf[to] += value;
+
+        // Emits a log with signature topic + indexed (from,to) in topics, value in data
+        emit Transfer(msg.sender, to, value);
+    }
+
+    function updateMetadata(string calldata name, string calldata symbol) external {
+        // Emits a log where both fields are in the data section
+        emit MetadataUpdated(name, symbol);
+    }
+}
+```
+
+## TypeScript Example: Reading Logs (Ethers v6)
+
+```typescript
+import { ethers } from 'ethers';
+
+const RPC_URL = process.env.SEI_EVM_RPC!; // Sei EVM JSON-RPC endpoint
+const provider = new ethers.JsonRpcProvider(RPC_URL);
+
+const tokenAddress = '0xYourContractAddress';
+const abi = ['event Transfer(address indexed from, address indexed to, uint256 value)'];
+
+const iface = new ethers.Interface(abi);
+const transferTopic = iface.getEvent('Transfer').topicHash;
+
+async function readTransfers(fromBlock: number, toBlock: number) {
+  const logs = await provider.getLogs({
+    address: tokenAddress,
+    fromBlock,
+    toBlock,
+    topics: [transferTopic] // filter by event signature
+  });
+
+  return logs.map((log) => {
+    const parsed = iface.parseLog(log);
+    return {
+      blockNumber: log.blockNumber,
+      txHash: log.transactionHash,
+      from: parsed.args.from as string,
+      to: parsed.args.to as string,
+      value: parsed.args.value.toString()
+    };
+  });
+}
+
+(async () => {
+  const transfers = await readTransfers(1_000_000, 1_000_100);
+  console.log(transfers);
+})();
+```
+
+## JSON-RPC Example: Filtering with `eth_getLogs`
+
+```bash
+curl -s $SEI_EVM_RPC \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc":"2.0",
+    "id":1,
+    "method":"eth_getLogs",
+    "params":[{
+      "fromBlock":"0xF4240",
+      "toBlock":"0xF42A4",
+      "address":"0xYourContractAddress",
+      "topics":["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"]
+    }]
+  }'
+```
+
+## Key Properties and Best Practices
+
+- **Logs are not contract state**: contracts cannot read past logs on-chain; use storage for on-chain logic.
+- **Prefer indexed fields for query patterns**: index addresses, IDs, and other filter keys (up to 3 indexed parameters, plus the signature topic).
+- **Minimize log size**: emitting large dynamic data (strings/bytes) increases gas and slows indexing.
+- **Use events as your public API**: well-designed events make explorers, dashboards, and off-chain automation reliable and performant.
+- **Handle reorgs defensively**: while Sei has fast finality, robust indexers should still be reorg-aware (e.g., confirm by finalized blocks if your stack supports it).
+
+## Related Documentation
+
+- [Getting Started](/learn)
+- [Token Standards](/learn/dev-token-standards)
+- [Staking](/learn/general-staking)
+- [Oracles](/learn/oracles)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._

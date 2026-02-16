@@ -1,0 +1,179 @@
+---
+title: 'What is the IBC Protocol and How Does It Work?'
+description: 'Learn about what is IBC protocol and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'glossary', 'what', 'protocol']
+---
+
+import { Callout } from 'nextra/components';
+
+export const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'FAQPage',
+      mainEntity: [
+        {
+          '@type': 'Question',
+          name: 'What is the IBC Protocol and How Does It Work?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'The Inter-Blockchain Communication (IBC) Protocol is an open standard for sending data and value between independent blockchains in a trust-minimized way. Instead of relying on centralized bridges, IBC uses on-chain verification of each chain’s state to enable secure cross-chain messaging and token transfers. It is most commonly used across Cosmos SDK–based networks, but the core idea applies broadly to interoperable blockchains.'
+          }
+        }
+      ]
+    },
+    {
+      '@type': 'TechArticle',
+      headline: 'What is the IBC Protocol and How Does It Work?',
+      description: 'Learn about what is IBC protocol and how it works in blockchain and on Sei Network.',
+      author: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      publisher: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      about: {
+        '@type': 'Thing',
+        name: 'what is IBC protocol'
+      },
+      articleSection: 'glossary',
+      inLanguage: 'en'
+    }
+  ]
+};
+
+<head>
+  <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+</head>
+
+# What is the IBC Protocol and How Does It Work?
+
+<Callout type="info" emoji="🤖">
+  This content was generated with the assistance of AI and is intended for informational purposes only. Please verify all information independently before making decisions based on this content.
+</Callout>
+
+## Overview
+
+The Inter-Blockchain Communication (IBC) Protocol is an open standard for sending data and value between independent blockchains in a trust-minimized way. Instead of relying on centralized bridges, IBC uses on-chain verification of each chain’s state to enable secure cross-chain messaging and token transfers. It is most commonly used across Cosmos SDK–based networks, but the core idea applies broadly to interoperable blockchains.
+
+## How It Works
+
+IBC is best understood as a **message-passing protocol** between two chains that can **verify each other’s state transitions**. It does this using light client verification and a standardized handshake process.
+
+### Core building blocks
+
+- **Light Clients**: Each chain stores a light client of the counterparty chain. This light client is updated with new block headers and is used to verify proofs about the other chain’s state.
+- **Connections**: A connection is a logical link between two chains’ IBC modules, established via a handshake that proves both sides can verify the other’s consensus.
+- **Channels**: Channels are application-specific pathways established over a connection (e.g., token transfers, interchain accounts, custom messaging). Multiple channels can share a single connection.
+- **Packets**: Application messages sent over a channel. Packets include a sequence number, timeout conditions, and the payload.
+- **Relayers**: Off-chain processes that watch both chains and **relay** (submit) packets and proofs. Relayers do not need to be trusted; they only transport data that is verified on-chain.
+- **Proofs & Commitment**: When a packet is sent, the sending chain commits to it in state (a packet commitment). The receiving chain verifies a cryptographic proof of that commitment via the light client, then processes the packet.
+
+### Lifecycle: from handshake to delivery
+
+1. **Client creation & updates**
+
+   - Chain A creates a light client of Chain B (and vice versa).
+   - Clients are updated periodically with new headers so proofs remain verifiable.
+
+2. **Connection handshake**
+
+   - Chains perform a multi-step handshake to establish a connection, ensuring both sides agree on identifiers and can verify each other’s proofs.
+
+3. **Channel handshake**
+
+   - For a specific app (e.g., token transfers), a channel is opened over the connection with agreed parameters (ordering, version, port ID, channel ID).
+
+4. **Send packet**
+
+   - An application writes a packet to IBC, and the sending chain stores a commitment.
+   - A timeout is set (by height and/or timestamp) to prevent indefinite pending packets.
+
+5. **Relay & verify**
+
+   - A relayer submits the packet and a proof to the receiving chain.
+   - The receiving chain verifies the proof against its light client of the sending chain.
+
+6. **Receive packet & acknowledgement**
+
+   - If valid, the receiving chain executes application logic (e.g., mint voucher tokens).
+   - It writes an acknowledgement (ACK) back, which can be relayed to the sender to finalize state (e.g., unlock funds, mark complete).
+
+7. **Timeout handling**
+   - If the packet isn’t received before its timeout, the sender can prove timeout and revert/cleanup safely.
+
+### Common IBC applications
+
+- **ICS-20 token transfers**: Move tokens between chains (often using “voucher” representations).
+- **Interchain Accounts (ICA)**: Control accounts on a remote chain via IBC messages.
+- **Custom cross-chain messaging**: App-specific packets for cross-chain execution patterns.
+
+## On Sei Network
+
+Sei is a high-performance Layer 1 with **EVM compatibility** and fast block finality (≈ **400ms**), making it well-suited for cross-chain apps that need quick confirmation and high throughput.
+
+Key implications for IBC on Sei:
+
+- **Faster cross-chain UX**: Sei’s rapid finality can reduce perceived latency for IBC workflows (packets can be committed and verified quickly once included in blocks).
+- **Higher throughput for packet processing**: Sei’s execution architecture is designed for performance and parallelization, helping IBC-enabled applications handle many concurrent transfers/messages more efficiently under load.
+- **EVM apps + interoperability**: With EVM compatibility, developers can build Solidity-based applications on Sei while still participating in Cosmos-native interoperability patterns (including IBC-based token movement and messaging via supported modules and tooling in the Sei ecosystem).
+
+> Note: IBC packet relay speed also depends on relayer availability and network conditions on both chains, not only Sei’s finality.
+
+## Example: Sending an IBC Token Transfer (CLI)
+
+Below is a typical Cosmos SDK-style command to initiate an ICS-20 transfer (exact flags/denoms/channel IDs vary by network and tooling):
+
+```bash
+seid tx ibc-transfer transfer transfer <src-port> <src-channel> <receiver> <amount><denom> \
+  --from <sender> \
+  --chain-id <sei-chain-id> \
+  --gas auto \
+  --gas-adjustment 1.3 \
+  --fees 2000usei \
+  --timeout-height 0-0
+```
+
+Common parameters to confirm before sending:
+
+- `src-channel`: The IBC channel from Sei to the destination chain (e.g., `channel-0`)
+- `denom`: The token denomination on Sei (native or an IBC voucher)
+- `timeout-*`: Always set sensible timeouts for safety
+
+## Example: Relaying Packets (Hermes)
+
+Relayers move packets and acknowledgements between chains. A Hermes relayer setup typically involves creating a config with both chains and then starting the relayer:
+
+```bash
+hermes start
+```
+
+Hermes will monitor IBC events and submit the required proofs and messages to complete transfers and acknowledgements.
+
+## Security Model (Why IBC Is Considered Trust-Minimized)
+
+IBC does not depend on multisig custodians or centralized bridge operators. Security comes from:
+
+- **On-chain light client verification** of the counterparty chain
+- **Cryptographic proofs** of packet commitments and acknowledgements
+- **Timeouts and ordered/unordered channels** to constrain behavior and recover from failures
+- **Untrusted relayers**: relayers can censor or delay, but cannot forge valid packets without valid proofs
+
+## Summary
+
+IBC is a standardized, trust-minimized protocol for cross-chain communication that relies on light clients, proofs, and relayers to deliver packets safely between sovereign chains. By combining IBC interoperability with Sei’s parallelized performance and ~400ms finality, applications can deliver faster cross-chain transfers and messaging while maintaining strong security guarantees.
+
+## Related Documentation
+
+- [Getting Started](/learn)
+- [Token Standards](/learn/dev-token-standards)
+- [Staking](/learn/general-staking)
+- [Oracles](/learn/oracles)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._

@@ -1,0 +1,172 @@
+---
+title: 'What is a Wrapped Token and How Does It Work?'
+description: 'Learn about what is wrapped token and how it works in blockchain and on Sei Network.'
+keywords: ['sei', 'blockchain', 'glossary', 'what', 'wrapped', 'token']
+---
+
+import { Callout } from 'nextra/components';
+
+export const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'FAQPage',
+      mainEntity: [
+        {
+          '@type': 'Question',
+          name: 'What is a Wrapped Token and How Does It Work?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'A wrapped token is a blockchain token that represents another asset—usually from a different chain—at a fixed exchange rate (typically 1:1). Wrapping lets an asset be used in ecosystems where the original asset is not natively supported, enabling trading, lending, liquidity provision, and smart contract interactions on the destination network.'
+          }
+        }
+      ]
+    },
+    {
+      '@type': 'TechArticle',
+      headline: 'What is a Wrapped Token and How Does It Work?',
+      description: 'Learn about what is wrapped token and how it works in blockchain and on Sei Network.',
+      author: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      publisher: {
+        '@type': 'Organization',
+        name: 'Sei Network',
+        url: 'https://sei.io'
+      },
+      about: {
+        '@type': 'Thing',
+        name: 'what is wrapped token'
+      },
+      articleSection: 'glossary',
+      inLanguage: 'en'
+    }
+  ]
+};
+
+<head>
+  <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+</head>
+
+# What is a Wrapped Token and How Does It Work?
+
+<Callout type="info" emoji="🤖">
+  This content was generated with the assistance of AI and is intended for informational purposes only. Please verify all information independently before making decisions based on this content.
+</Callout>
+
+## Overview
+
+A wrapped token is a blockchain token that represents another asset—usually from a different chain—at a fixed exchange rate (typically 1:1). Wrapping lets an asset be used in ecosystems where the original asset is not natively supported, enabling trading, lending, liquidity provision, and smart contract interactions on the destination network.
+
+## How It Works
+
+Wrapped tokens are designed to mirror the value of an underlying asset while remaining fully compatible with the destination chain’s token standard (e.g., ERC-20). The general flow looks like this:
+
+1. **Lock (or Custody) the Original Asset**
+
+   - The original asset is deposited into a smart contract (trust-minimized) or held by a custodian (trusted).
+   - This deposit acts as backing for the wrapped token supply.
+
+2. **Mint the Wrapped Token**
+
+   - Once the deposit is verified, an equivalent amount of wrapped tokens is minted on the destination chain.
+   - The wrapped token follows the destination chain’s standard (commonly ERC-20), so it can plug into DEXs, lending protocols, and other dApps.
+
+3. **Use the Wrapped Token in DeFi / dApps**
+
+   - Users can transfer it, add liquidity, borrow against it, or use it as collateral—just like any other native token on that chain.
+
+4. **Redeem (Unwrap)**
+   - The user burns (destroys) the wrapped tokens on the destination chain.
+   - The original asset is released from the lock/custody back to the user on the origin chain.
+
+### Key Properties and Considerations
+
+- **Peg (Usually 1:1):** The wrapped token’s supply should always be backed by the underlying asset in equal quantity.
+- **Security Model:** Wrapping can be:
+  - **Trust-minimized:** smart contracts + decentralized validation/bridging mechanisms.
+  - **Custodial:** a centralized entity holds reserves and mints/burns.
+- **Bridge Risk:** Most wrapped tokens rely on bridges, which can introduce smart contract risk, validator risk, or operational risk.
+- **Liquidity and Pricing:** Even if the peg is intended to be 1:1, market conditions and liquidity can cause short-term deviations on exchanges.
+
+## On Sei Network
+
+On Sei, wrapped tokens commonly appear when assets from other chains (like Ethereum or other ecosystems) are bridged into Sei so they can be used in Sei-native applications. Because Sei is EVM-compatible, wrapped assets often come as ERC-20 tokens that work seamlessly with Solidity smart contracts, wallets, and tooling.
+
+Sei’s architecture (including parallelization) helps dApps handle high throughput use cases such as active trading and liquidity provisioning, while Sei’s fast finality (around **~400ms**) improves the user experience for bridging-related interactions once assets are on Sei—like swaps, collateral updates, and transfers.
+
+### Example: Using a Wrapped ERC-20 on Sei (Solidity)
+
+Wrapped tokens on Sei typically behave like standard ERC-20 tokens. Here’s a minimal example that transfers a wrapped token (e.g., `wTOKEN`) from the caller to a recipient:
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+interface IERC20 {
+    function transfer(address to, uint256 amount) external returns (bool);
+    function balanceOf(address owner) external view returns (uint256);
+}
+
+contract WrappedTokenExample {
+    IERC20 public wrappedToken;
+
+    constructor(address wrappedTokenAddress) {
+        wrappedToken = IERC20(wrappedTokenAddress);
+    }
+
+    function sendWrappedToken(address to, uint256 amount) external {
+        // Caller must have enough balance and have acquired the token via a bridge or DEX.
+        require(wrappedToken.balanceOf(msg.sender) >= amount, "Insufficient balance");
+        require(wrappedToken.transfer(to, amount), "Transfer failed");
+    }
+}
+```
+
+### Example: Checking a Wrapped Token Balance (TypeScript + ethers)
+
+```typescript
+import { ethers } from 'ethers';
+
+const RPC_URL = 'https://your-sei-evm-rpc.example';
+const provider = new ethers.JsonRpcProvider(RPC_URL);
+
+const erc20Abi = ['function balanceOf(address owner) view returns (uint256)', 'function decimals() view returns (uint8)'];
+
+async function main() {
+  const wrappedTokenAddress = '0xYourWrappedTokenOnSei';
+  const user = '0xUserAddress';
+
+  const token = new ethers.Contract(wrappedTokenAddress, erc20Abi, provider);
+  const [rawBal, decimals] = await Promise.all([token.balanceOf(user), token.decimals()]);
+
+  const formatted = ethers.formatUnits(rawBal, decimals);
+  console.log('Wrapped token balance:', formatted);
+}
+
+main().catch(console.error);
+```
+
+## Common Use Cases
+
+- **Trading on DEXs:** Access liquidity and markets on the destination chain.
+- **Lending/Borrowing:** Use wrapped assets as collateral or borrow against them.
+- **Liquidity Provision:** Provide liquidity in pools that require the destination chain’s token standard.
+- **Cross-ecosystem Access:** Participate in Sei-based dApps using value from other networks.
+
+## Summary
+
+Wrapped tokens let an asset from one chain be represented on another chain in a standard, app-compatible format—usually backed 1:1 by locked or custodied reserves. On Sei, wrapped tokens are often bridged-in ERC-20s that can be used across EVM smart contracts and DeFi apps, benefiting from Sei’s parallelized execution and fast finality for a smoother on-chain experience once assets arrive.
+
+## Related Documentation
+
+- [Getting Started](/learn)
+- [Token Standards](/learn/dev-token-standards)
+- [Staking](/learn/general-staking)
+- [Oracles](/learn/oracles)
+
+---
+
+_Have a question that's not answered here? Join our [Discord](https://discord.gg/sei) community._
