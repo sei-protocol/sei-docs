@@ -73,11 +73,11 @@ export function EcosystemContractsTabs({ groupedData, nameKey, addressKey }: Eco
 					placeholder='Search by contract name or address'
 					aria-label='Search by contract name or address'
 					autoComplete='off'
-					className='w-full px-3 py-2 rounded border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:!bg-neutral-900 text-sm text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-red-500/25 dark:focus:ring-red-500/20 focus:border-red-500 dark:focus:border-red-500 transition-colors'
+					className='w-full px-3 py-2 rounded border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:!bg-neutral-900 text-sm text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-[#600014]/25 dark:focus:ring-[#600014]/20 focus:border-[#600014] dark:focus:border-[#600014] transition-colors'
 				/>
 				<button
 					type='submit'
-					className='px-3 py-2 rounded bg-red-600 text-white text-sm hover:bg-red-700 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500/30 dark:focus:ring-red-500/20'>
+					className='px-3 py-2 rounded-sm bg-[#600014] text-white text-sm hover:bg-[#34050d] transition-colors focus:outline-none focus:ring-2 focus:ring-[#600014]/30 dark:focus:ring-[#600014]/20'>
 					Search
 				</button>
 			</form>
@@ -87,7 +87,7 @@ export function EcosystemContractsTabs({ groupedData, nameKey, addressKey }: Eco
 					const isOpen = !!openSections[group.projectName];
 					const sectionId = `section-${slugify(group.projectName)}`;
 					return (
-						<div key={group.projectName} className='border border-neutral-200 dark:border-neutral-800 rounded-lg overflow-hidden'>
+						<div key={group.projectName} className='border border-neutral-200 dark:border-neutral-800 rounded-sm overflow-hidden'>
 							<button
 								type='button'
 								onClick={() => toggleSection(group.projectName)}
@@ -111,7 +111,7 @@ export function EcosystemContractsTabs({ groupedData, nameKey, addressKey }: Eco
 								<div className='p-4 space-y-4'>
 									{/* Desktop table view */}
 									<div className='hidden sm:block overflow-x-auto'>
-										<table className='w-full border-collapse border border-gray-200 dark:border-gray-700 rounded-lg'>
+										<table className='w-full border-collapse border border-gray-200 dark:border-gray-700 rounded-sm'>
 											<thead>
 												<tr className='bg-gray-50 dark:bg-gray-800'>
 													<th className='border border-gray-200 dark:border-gray-700 px-4 py-3 text-left text-sm font-semibold text-gray-900 dark:text-white'>
@@ -138,7 +138,7 @@ export function EcosystemContractsTabs({ groupedData, nameKey, addressKey }: Eco
 																		href={`https://seiscan.io/address/${contract[addressKey]}`}
 																		target='_blank'
 																		rel='noopener noreferrer'
-																		className='text-red-600 hover:text-red-800 dark:text-red-300 dark:hover:text-red-200 text-xs bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30 px-2 py-1 rounded transition-colors no-underline'>
+																		className='text-[#600014] hover:text-[#34050d] dark:text-[#b99ba1] dark:hover:text-[#e6d4c3] text-xs bg-[#f5f5f7] hover:bg-[#ececee] dark:bg-[#600014]/20 dark:hover:bg-[#600014]/30 px-2 py-1 rounded-sm transition-colors no-underline'>
 																		SeiScan ↗
 																	</a>
 																</div>
@@ -156,7 +156,7 @@ export function EcosystemContractsTabs({ groupedData, nameKey, addressKey }: Eco
 											const addr = String(contract[addressKey] || '').toLowerCase();
 											const id = `contract-${slugify(group.projectName)}-${addr}`;
 											return (
-												<div key={contractIndex} id={id} className='border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800'>
+												<div key={contractIndex} id={id} className='border border-gray-200 dark:border-gray-700 rounded-sm p-4 bg-white dark:bg-gray-800'>
 													<div className='space-y-2'>
 														<div>
 															<span className='text-xs text-gray-500 dark:text-gray-400 block mb-1'>Contract Name</span>
@@ -170,7 +170,7 @@ export function EcosystemContractsTabs({ groupedData, nameKey, addressKey }: Eco
 																	href={`https://seiscan.io/address/${contract[addressKey]}`}
 																	target='_blank'
 																	rel='noopener noreferrer'
-																	className='text-red-600 hover:text-red-800 dark:text-red-300 dark:hover:text-red-200 text-xs bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30 px-2 py-1 rounded transition-colors no-underline'>
+																	className='text-[#600014] hover:text-[#34050d] dark:text-[#b99ba1] dark:hover:text-[#e6d4c3] text-xs bg-[#f5f5f7] hover:bg-[#ececee] dark:bg-[#600014]/20 dark:hover:bg-[#600014]/30 px-2 py-1 rounded-sm transition-colors no-underline'>
 																	SeiScan ↗
 																</a>
 															</div>

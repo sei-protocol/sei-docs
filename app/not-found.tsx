@@ -17,7 +17,7 @@ export default function Custom404() {
 
 				<Link
 					href='/'
-					className='px-6 py-3 mt-6 rounded-md font-medium transition-colors bg-black text-white hover:bg-gray-800 dark:bg-white dark:text-black dark:hover:bg-gray-200'>
+					className='px-6 py-3 mt-6 rounded-sm font-medium transition-colors bg-black text-white hover:bg-gray-800 dark:bg-white dark:text-black dark:hover:bg-gray-200'>
 					Go to Home
 				</Link>
 			</div>

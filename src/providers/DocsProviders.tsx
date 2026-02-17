@@ -11,7 +11,6 @@ import { ThemeSwitch } from 'nextra-theme-docs';
 import { usePathname } from 'next/navigation';
 import { Snowflakes, Confetti } from '../components/SeasonalEffects';
 
-// Defer Nextra Search until user clicks the trigger (client-only wrapper)
 const SearchDynamic = dynamic(() => import('../components/NextraSearch/NextraSearch'), { ssr: false, loading: () => <div /> });
 
 export default function DocsProviders({ children, pageMap }) {
@@ -25,45 +24,40 @@ export default function DocsProviders({ children, pageMap }) {
 		const onChange = (e) => {
 			setIsMobile((prev) => (prev !== e.matches ? e.matches : prev));
 		};
-		// Sync once on mount without forcing extra renders if unchanged
 		setIsMobile((prev) => (prev !== mql.matches ? mql.matches : prev));
 		mql.addEventListener('change', onChange);
 		return () => mql.removeEventListener('change', onChange);
 	}, []);
 
-	if (!pageMap) return <div className='bg-neutral-950 h-full w-full' />;
+	if (!pageMap) return <div className='bg-black h-full w-full' />;
 
 	const ConditionalNavbar = () => {
 		const pathname = usePathname();
 		const isHomepage = pathname === '/' || pathname === '/index';
 
 		return isMobile ? (
-			<>
-				<Navbar
-					logo={<LogoMobile />}
-					logoLink='/'
-					className='flex items-center w-full dark:bg-neutral-900 bg-neutral-100'
-					children={
-						<>
-							<div className='flex items-center gap-2'>
-								<AskAIAssistant />
-								<SearchDynamic placeholder='Search docs...' />
-							</div>
-						</>
-					}
-				/>
-			</>
+			<Navbar
+				logo={<LogoMobile />}
+				logoLink='/'
+				className='sei-nav flex items-center w-full'
+				children={
+					<div className='flex items-center gap-2'>
+						<AskAIAssistant />
+						<SearchDynamic placeholder='Search...' />
+					</div>
+				}
+			/>
 		) : (
 			<Navbar
 				logo={<Logo />}
 				logoLink='/'
-				className='flex items-center justify-between w-full dark:bg-neutral-900 bg-neutral-100 px-2 lg:px-4'
+				className='sei-nav flex items-center justify-between w-full px-4 lg:px-8'
 				children={
-					<div className='flex items-center justify-between gap-4'>
+					<div className='sei-nav flex items-center justify-between gap-6'>
 						<div className='flex-grow flex justify-start'>
 							<AskAIAssistant />
 						</div>
-						<SearchDynamic placeholder='Search docs...' />
+						<SearchDynamic placeholder='Search...' />
 						{isHomepage && <ThemeSwitch />}
 					</div>
 				}
@@ -81,7 +75,7 @@ export default function DocsProviders({ children, pageMap }) {
 				footer={<Footer />}
 				darkMode={true}
 				search={null}
-				nextThemes={{ attribute: 'class', defaultTheme: 'system' }}
+				nextThemes={{ attribute: 'class', defaultTheme: 'dark' }}
 				pageMap={pageMap}>
 				{isMobile && <ConditionalNavbar />}
 				<Theme accentColor='red' grayColor='gray' scaling='100%'>

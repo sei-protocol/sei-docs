@@ -107,7 +107,7 @@ const RequestFaucetCard = () => {
 				</div>
 			</Flex>
 
-			<div className='w-full flex items-center border border-neutral-300 dark:border-neutral-600 rounded-md p-2 focus-within:ring-2 focus-within:ring-neutral-400 dark:focus-within:ring-neutral-500'>
+			<div className='w-full flex items-center border border-neutral-300 dark:border-neutral-600 rounded-sm p-2 focus-within:ring-2 focus-within:ring-neutral-400 dark:focus-within:ring-neutral-500'>
 				<input
 					className='w-full text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-500 dark:placeholder:text-neutral-400 px-4 py-3 text-lg outline-none'
 					placeholder='Sei EVM address...'
@@ -115,17 +115,17 @@ const RequestFaucetCard = () => {
 					onChange={handleAddressChange}
 				/>
 				<Select.Root value={selectedChain} onValueChange={setSelectedChain}>
-					<Select.Trigger className='bg-neutral-200 dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 px-4 py-2 text-lg rounded-md cursor-pointer focus:ring-2 focus:ring-neutral-400 dark:focus-within:ring-neutral-500'>
+					<Select.Trigger className='bg-neutral-200 dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 px-4 py-2 text-lg rounded-sm cursor-pointer focus:ring-2 focus:ring-neutral-400 dark:focus-within:ring-neutral-500'>
 						{selectedChain === 'atlantic-2' ? 'Testnet' : 'Devnet'}
 					</Select.Trigger>
-					<Select.Content className='bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 text-lg rounded-md shadow-lg'>
+					<Select.Content className='bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 text-lg rounded-sm shadow-lg'>
 						<Select.Item value='atlantic-2'>Testnet (atlantic-2)</Select.Item>
 					</Select.Content>
 				</Select.Root>
 			</div>
 
 			{nextUseTime && (
-				<div className='flex items-center gap-3 p-4 border-l-4 border-red-500 bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-200 rounded w-full'>
+				<div className='flex items-center gap-3 p-4 border-l-4 border-[#600014] bg-[#ececee] dark:bg-[#600014]/20 text-[#34050d] dark:text-[#e6d4c3] rounded w-full'>
 					<IconHourglass className='w-6 h-6' />
 					<p className='text-lg font-medium'>You can request SEI testnet tokens again after {nextUseTime}.</p>
 				</div>
@@ -133,7 +133,7 @@ const RequestFaucetCard = () => {
 
 			<Flex direction='column' className='w-full gap-5'>
 				<Button
-					className={`w-full flex items-center gap-3 justify-center !p-6 !rounded-2xl ${
+					className={`w-full flex items-center gap-3 justify-center !p-6 !rounded-sm ${
 						captchaToken
 							? 'bg-neutral-700 hover:bg-neutral-800 dark:bg-neutral-300 dark:hover:bg-neutral-400 text-white dark:text-black'
 							: 'bg-neutral-400 cursor-not-allowed'
@@ -144,7 +144,7 @@ const RequestFaucetCard = () => {
 				</Button>
 
 				<Button
-					className={`w-full flex items-center gap-3 justify-center !p-6 !rounded-2xl ${
+					className={`w-full flex items-center gap-3 justify-center !p-6 !rounded-sm ${
 						isSubmitDisabled
 							? 'bg-neutral-500 cursor-not-allowed'
 							: 'bg-neutral-800 hover:bg-neutral-900 dark:bg-neutral-300 dark:hover:bg-neutral-400 text-white dark:text-black'

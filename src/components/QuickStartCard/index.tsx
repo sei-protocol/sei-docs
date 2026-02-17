@@ -17,30 +17,30 @@ export function QuickStartCard({ title, href, icon, description }: QuickStartCar
 	const CardContent = () => (
 		<div className='p-4 h-full relative overflow-hidden'>
 			<div className='absolute inset-0 bg-white/60 dark:bg-neutral-900/60 opacity-80'></div>
-			<div className='absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-red-7/30 via-red-7/10 to-transparent'></div>
+			<div className='absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-[#600014]/30 via-[#600014]/10 to-transparent'></div>
 			<div className='relative flex items-start'>
 				{icon && (
 					<div className='flex-shrink-0 mr-3'>
-						<div className='w-9 h-9 rounded-full bg-neutral-100/80 dark:bg-neutral-800/80 flex items-center justify-center transform group-hover:bg-red-7/10 dark:group-hover:bg-red-7/20 transition-colors duration-300'>
+						<div className='w-9 h-9 rounded-full bg-neutral-100/80 dark:bg-neutral-800/80 flex items-center justify-center transform group-hover:bg-[#600014]/10 dark:group-hover:bg-[#600014]/20 transition-colors duration-300'>
 							{icon}
 						</div>
 					</div>
 				)}
 				<div className='flex-grow'>
-					<h3 className='text-sm font-medium mb-1 text-neutral-800 dark:text-neutral-200 group-hover:text-red-9 dark:group-hover:text-red-7 transition-colors duration-300'>
+					<h3 className='text-sm font-medium mb-1 text-neutral-800 dark:text-neutral-200 group-hover:text-[#600014] dark:group-hover:text-[#b99ba1] transition-colors duration-300'>
 						{title}
 					</h3>
 					{description && <p className='text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2'>{description}</p>}
 				</div>
 			</div>
 			<div className='absolute bottom-3 right-3 opacity-50 group-hover:opacity-100 transition-opacity duration-300'>
-				<IconArrowRight className='w-3 h-3 text-red-9 dark:text-red-7 group-hover:text-red-9 dark:group-hover:text-red-7' />
+				<IconArrowRight className='w-3 h-3 text-[#600014] dark:text-[#b99ba1] group-hover:text-[#600014] dark:group-hover:text-[#b99ba1]' />
 			</div>
 		</div>
 	);
 
 	const cardClasses =
-		'block w-full h-full backdrop-blur-sm bg-white/70 dark:bg-neutral-900/60 border border-neutral-200/40 dark:border-neutral-800/40 rounded-lg shadow-sm hover:shadow transition-all duration-300 group hover:border-red-9/20 dark:hover:border-red-7/20 relative overflow-hidden hover:-translate-y-[1px] animate-fadeIn odd:animate-fadeIn-400 even:animate-fadeIn-500 [&:nth-child(3n)]:animate-fadeIn-600';
+		'block w-full h-full backdrop-blur-sm bg-white/70 dark:bg-neutral-900/60 border border-neutral-200/40 dark:border-neutral-800/40 rounded-sm shadow-sm hover:shadow transition-all duration-300 group hover:border-[#600014]/20 dark:hover:border-[#600014]/20 relative overflow-hidden hover:-translate-y-[1px] animate-fadeIn odd:animate-fadeIn-400 even:animate-fadeIn-500 [&:nth-child(3n)]:animate-fadeIn-600';
 
 	if (isExternalLink) {
 		return (

@@ -40,7 +40,7 @@ const VersionTable: React.FC<VersionTableProps> = ({ showGenesis = true }) => {
 								<div className='inline-flex items-center space-x-2'>
 									<a
 										href='https://raw.githubusercontent.com/sei-protocol/testnet/refs/heads/main/pacific-1/genesis.json'
-										className='text-red-600 hover:text-red-800 dark:text-red-300 dark:hover:text-red-200 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30 px-2 py-0.5 rounded'>
+										className='text-[#600014] hover:text-[#34050d] dark:text-[#b99ba1] dark:hover:text-[#e6d4c3] bg-[#f5f5f7] hover:bg-[#ececee] dark:bg-[#600014]/20 dark:hover:bg-[#600014]/30 px-2 py-0.5 rounded-sm'>
 										Genesis
 									</a>
 									<CopyButton textToCopy='https://raw.githubusercontent.com/sei-protocol/testnet/refs/heads/main/pacific-1/genesis.json' />
@@ -58,7 +58,7 @@ const VersionTable: React.FC<VersionTableProps> = ({ showGenesis = true }) => {
 								<div className='inline-flex items-center space-x-2'>
 									<a
 										href='https://raw.githubusercontent.com/sei-protocol/testnet/refs/heads/main/atlantic-2/genesis.json'
-										className='text-red-600 hover:text-red-800 dark:text-red-300 dark:hover:text-red-200 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30 px-2 py-0.5 rounded'>
+										className='text-[#600014] hover:text-[#34050d] dark:text-[#b99ba1] dark:hover:text-[#e6d4c3] bg-[#f5f5f7] hover:bg-[#ececee] dark:bg-[#600014]/20 dark:hover:bg-[#600014]/30 px-2 py-0.5 rounded-sm'>
 										Genesis
 									</a>
 									<CopyButton textToCopy='https://raw.githubusercontent.com/sei-protocol/testnet/refs/heads/main/atlantic-2/genesis.json' />

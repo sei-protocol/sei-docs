@@ -38,7 +38,7 @@ Tabs.displayName = 'Tabs';
 export const TabsList = React.forwardRef<HTMLDivElement, TabsListProps>(({ className, children }, ref) => (
 	<TabsPrimitive.List
 		ref={ref}
-		className={className || 'flex w-full border border-neutral-200 dark:border-neutral-800 rounded-lg overflow-x-auto overflow-y-hidden flex-nowrap mb-4'}>
+		className={className || 'flex w-full border border-neutral-200 dark:border-neutral-800 rounded-sm overflow-x-auto overflow-y-hidden flex-nowrap mb-4'}>
 		{children}
 	</TabsPrimitive.List>
 ));
@@ -55,7 +55,7 @@ export const TabsTrigger = React.forwardRef<HTMLButtonElement, TabsTriggerProps>
 				data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-800
 				border-r border-neutral-200 dark:border-neutral-800 last:border-r-0
 				transition-colors duration-200
-				focus:outline-none focus:ring-2 focus:ring-red-500/20 dark:focus:ring-red-500/10
+				focus:outline-none focus:ring-2 focus:ring-[#600014]/20 dark:focus:ring-[#600014]/10
 				font-medium text-neutral-700 dark:text-neutral-300
 				data-[state=active]:text-neutral-900 dark:data-[state=active]:text-white`
 		}>
@@ -75,7 +75,7 @@ export const TabsContent = React.forwardRef<HTMLDivElement, TabsContentProps>(({
 				className={
 					className ||
 					`mt-0 p-6 
-						border border-neutral-200 dark:border-neutral-800 rounded-lg 
+						border border-neutral-200 dark:border-neutral-800 rounded-sm 
 						bg-neutral-50 dark:bg-neutral-900/30
 						animate-in fade-in-0 zoom-in-95 duration-200`
 				}>
