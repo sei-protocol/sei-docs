@@ -301,11 +301,6 @@ export default withNextra({
 				permanent: true
 			},
 			{
-				source: '/_next/static/css/:file*',
-				destination: '/',
-				permanent: true
-			},
-			{
 				source: '/metrics',
 				destination: '/',
 				permanent: true

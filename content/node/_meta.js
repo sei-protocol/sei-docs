@@ -22,6 +22,5 @@ export default {
 	},
 	'advanced-config-monitoring': 'Advanced Configuration & Monitoring',
 	'rocksdb-backend': 'RocksDB Backend',
-	'technical-reference': 'Technical Reference',
-	'ibc-relayer': 'IBC Relayers'
+	'technical-reference': 'Technical Reference'
 };
