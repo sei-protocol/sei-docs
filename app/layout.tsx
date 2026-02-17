@@ -12,6 +12,8 @@ import 'nextra-theme-docs/style.css';
 import './globals.css';
 import 'katex/dist/katex.min.css';
 
+const GTM_ID = 'GTM-KKN784SR';
+
 export const metadata: Metadata = {
 	metadataBase: new URL('https://docs.sei.io'),
 	title: {
@@ -108,7 +110,7 @@ export default async function RootLayout({ children }) {
 				{/* Google Tag Manager (noscript) fallback */}
 				<noscript>
 					<iframe
-						src='https://www.googletagmanager.com/ns.html?id=GTM-KKN784SR'
+						src={`https://www.googletagmanager.com/ns.html?id=${GTM_ID}`}
 						height='0'
 						width='0'
 						style={{ display: 'none', visibility: 'hidden' }}
@@ -118,7 +120,7 @@ export default async function RootLayout({ children }) {
 				<Toaster position='bottom-left' />
 				<DocsProviders pageMap={await getPageMap()}>{children}</DocsProviders>
 			</body>
-			<GoogleTagManager gtmId='GTM-KKN784SR' />
+			<GoogleTagManager gtmId={GTM_ID} />
 		</html>
 	);
 }
