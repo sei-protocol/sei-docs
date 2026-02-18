@@ -3,6 +3,7 @@
 import React, { useRef, useState, useCallback } from 'react';
 import { Button, Flex, Select } from '@radix-ui/themes';
 import { toast } from 'sonner';
+import { sendGTMEvent } from '@next/third-parties/google';
 import { IconDroplet, IconShieldCheck, IconHourglass, IconCheck, IconLoader2, IconExternalLink } from '@tabler/icons-react';
 import { isAddress } from 'viem/utils';
 import HCaptcha from '@hcaptcha/react-hcaptcha';
@@ -71,10 +72,7 @@ const RequestFaucetCard = () => {
 				const messageId = responseJson.data.messageId;
 				toast.success('Tokens requested successfully!');
 				startPolling(messageId, setTxHash);
-				if (typeof window !== 'undefined') {
-					const g = (window as any).gtag as undefined | ((...args: any[]) => void);
-					if (typeof g === 'function') g('event', 'faucetUsed', { address: destAddress });
-				}
+				sendGTMEvent({ event: 'faucet_used', address: destAddress });
 			} else if (responseJson.data?.nextAllowedUseDate) {
 				setNextUseTime(responseJson.data.nextAllowedUseDate);
 				toast.error(`Rate limited. Try again after ${responseJson.data.nextAllowedUseDate}`);

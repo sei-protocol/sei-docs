@@ -3,7 +3,7 @@ import React from 'react';
 import { getPageMap } from 'nextra/page-map';
 import { Toaster } from 'sonner';
 import { Metadata } from 'next';
-import Script from 'next/script';
+import { GoogleTagManager } from '@next/third-parties/google';
 
 import DocsProviders from '../src/providers/DocsProviders';
 
@@ -11,6 +11,8 @@ import '@radix-ui/themes/styles.css';
 import 'nextra-theme-docs/style.css';
 import './globals.css';
 import 'katex/dist/katex.min.css';
+
+const GTM_ID = 'GTM-KKN784SR';
 
 export const metadata: Metadata = {
 	metadataBase: new URL('https://docs.sei.io'),
@@ -109,19 +111,20 @@ export default async function RootLayout({ children }) {
 				/>
 			</head>
 			<body style={{ width: '100%', height: '100%', fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
+				{/* Google Tag Manager (noscript) fallback */}
+				<noscript>
+					<iframe
+						src={`https://www.googletagmanager.com/ns.html?id=${GTM_ID}`}
+						height='0'
+						width='0'
+						style={{ display: 'none', visibility: 'hidden' }}
+						title='Google Tag Manager'
+					/>
+				</noscript>
 				<Toaster position='bottom-left' />
 				<DocsProviders pageMap={await getPageMap()}>{children}</DocsProviders>
 			</body>
-			{/* Google Analytics: lazy-load after window load */}
-			<Script src='https://www.googletagmanager.com/gtag/js?id=G-G33FDB53X5' strategy='lazyOnload' />
-			<Script id='ga-init' strategy='lazyOnload'>
-				{`
-					window.dataLayer = window.dataLayer || [];
-					function gtag(){dataLayer.push(arguments);}
-					gtag('js', new Date());
-					gtag('config', 'G-G33FDB53X5', { anonymize_ip: true });
-				`}
-			</Script>
+			<GoogleTagManager gtmId={GTM_ID} />
 		</html>
 	);
 }
