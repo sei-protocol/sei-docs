@@ -55,7 +55,3 @@ To propose changes directly, you can open a Pull Request against this repository
 Alternatively, if you have more general suggestions on how we can improve or correct these docs, you can [open an issue](https://github.com/sei-protocol/sei-docs/issues).
 
 ### Local Development
-
-#### Generating Cosmos API Reference Docs
-
-Run the script in the data directory to generate the Cosmos API reference docs. If you need to get an updated openapi json file, that can be generated from the `sei-chain` repo using IgniteCLI.
