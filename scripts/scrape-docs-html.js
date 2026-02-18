@@ -29,8 +29,10 @@ async function scrapeBuiltHtml() {
 
 		console.log(`✅ Successfully processed ${scrapedPages.length} pages out of ${htmlFiles.length} total files`);
 		await saveScrapedContent(scrapedPages, outputPath);
-		// Generate llms.txt and llms-full.txt following the llms.txt specification
-		await createLlmsFiles(scrapedPages, outputPath);
+		// Generate llms.txt and llms-full.txt at the public root (served as docs.sei.io/llms.txt)
+		await createLlmsFiles(scrapedPages, './public');
+		// Generate per-page .md files mirroring URL paths (e.g. /evm/evm-general.md)
+		await createPerPageMarkdownFiles(scrapedPages, './public');
 	} catch (err) {
 		console.error('❌ Fatal error:', err);
 		process.exit(1);
@@ -795,6 +797,50 @@ function generateFileName(url) {
 		return pathname || 'index';
 	} catch {
 		return 'page-' + Date.now();
+	}
+}
+
+/**
+ * Create per-page .md files that mirror the URL structure.
+ * E.g. a page at https://docs.sei.io/evm/evm-general gets a file at public/evm/evm-general.md
+ * so that docs.sei.io/evm/evm-general.md returns the LLM-friendly markdown.
+ */
+async function createPerPageMarkdownFiles(scrapedPages, publicDir) {
+	try {
+		console.log('📝 Generating per-page .md files...');
+		let created = 0;
+
+		for (const page of scrapedPages) {
+			const urlObj = new URL(page.url);
+			let pathname = urlObj.pathname;
+
+			// Skip the root page (index)
+			if (pathname === '/' || pathname === '') continue;
+
+			// Remove leading slash
+			pathname = pathname.replace(/^\//, '');
+
+			const mdFilePath = path.join(publicDir, `${pathname}.md`);
+
+			// Ensure the directory exists
+			await fs.mkdir(path.dirname(mdFilePath), { recursive: true });
+
+			// Build the markdown content with frontmatter
+			let md = `---\ntitle: ${page.title}\n`;
+			if (page.description) {
+				md += `description: ${page.description}\n`;
+			}
+			md += `url: ${page.url}\n---\n\n`;
+			md += `# ${page.title}\n\n`;
+			md += page.content;
+
+			await fs.writeFile(mdFilePath, md, 'utf8');
+			created++;
+		}
+
+		console.log(`📄 Created ${created} per-page .md files (append .md to any docs URL)`);
+	} catch (error) {
+		console.error('❌ Error generating per-page .md files:', error.message);
 	}
 }
 

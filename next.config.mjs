@@ -79,6 +79,15 @@ export default withNextra({
 				]
 			},
 			{
+				source: '/(.*)\\.(md|txt)',
+				headers: [
+					{ key: 'Content-Type', value: 'text/markdown; charset=utf-8' },
+					{ key: 'Cache-Control', value: 'public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800' },
+					{ key: 'Vercel-CDN-Cache-Control', value: 'public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800' },
+					{ key: 'X-Robots-Tag', value: 'noindex' }
+				]
+			},
+			{
 				source: '/(.*)',
 				headers: [
 					{ key: 'Cache-Control', value: 'public, max-age=300, s-maxage=3600, stale-while-revalidate=604800' },
