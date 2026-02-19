@@ -5,6 +5,235 @@ const { JSDOM } = require('jsdom');
 // Configuration for parallel processing
 const CONCURRENCY_LIMIT = 20; // Number of files to process simultaneously
 
+const SEI_LLMS_CONFIG = {
+	projectName: 'Sei Documentation',
+	blockquote:
+		'Technical documentation for Sei, the fastest EVM blockchain. Covers smart contract development (Hardhat, Foundry), frontend integration (wagmi, ethers.js), AI tooling (MCP Server, Cambrian Agent Kit), x402 micropayments, node operations, and the Sei Giga upgrade roadmap.',
+	intro:
+		'Sei is a parallelized EVM Layer 1 blockchain with 400ms finality, 100 MGas/s throughput, and full Ethereum tooling compatibility. Deploy standard Solidity contracts with no modifications. Chain ID: mainnet 1329, testnet 1328.',
+	quickReference: [
+		'Chain ID: mainnet 1329, testnet 1328',
+		'RPC (mainnet): https://evm-rpc.sei-apis.com',
+		'RPC (testnet): https://evm-rpc-testnet.sei-apis.com',
+		'Native token: SEI (gas, staking, governance)',
+		'USDC (mainnet): 0xe15fC38F6D8c56aF07bbCBe3BAf5708A2Bf42392 (6 decimals)',
+		'USDC (testnet): 0x4fCF1784B31630811181f670Aea7A7bEF803eaED (6 decimals)',
+		'Block time: 400ms finality',
+		'Throughput: 100 MGas/s (~12,500 TPS)',
+		'EVM compatibility: Full — standard Solidity, Hardhat, Foundry, wagmi, ethers.js work unmodified'
+	].join('\n'),
+	keyResources: [
+		{
+			title: 'GitHub',
+			url: 'https://github.com/sei-protocol',
+			description: 'Open source repositories including sei-chain, sei-js, and MCP server'
+		},
+		{
+			title: 'Sei-JS Documentation',
+			url: 'https://sei-js.docs.sei.io',
+			description: 'JavaScript/TypeScript SDK documentation for Sei-js blockchain integration'
+		},
+		{
+			title: 'Ecosystem',
+			url: 'https://www.sei.io/ecosystem',
+			description: 'Directory of projects building on Sei'
+		},
+		{
+			title: 'Blog',
+			url: 'https://blog.sei.io',
+			description: 'Latest news, announcements, and technical deep dives'
+		}
+	]
+};
+
+/** URL prefixes to exclude entirely from llms.txt and llms-full.txt output. */
+const EXCLUDED_PREFIXES = ['/cosmos-sdk'];
+
+/**
+ * Section definitions ordered by match priority.
+ * More specific prefixes (e.g. /evm/ai-tooling) must come before broader ones (/evm).
+ */
+const LLMS_SECTION_ORDER = [
+	{
+		name: 'Learn',
+		match: (urlPath) => urlPath.startsWith('/learn'),
+		overview: [
+			'Sei is a parallelized EVM Layer 1 blockchain. Its performance comes from Twin Turbo Consensus (optimistic block processing), parallel EVM execution (concurrent transaction processing for independent state), and SeiDB (high-throughput storage layer). Full Ethereum tooling compatibility — deploy standard Solidity contracts with no modifications.',
+			"Sei Giga is the next major upgrade targeting 200K TPS and 5 gigagas/s throughput via Autobahn multi-proposer BFT consensus and a custom EVM execution engine. For developers: Sei Giga's parallel execution engine rewards contracts with user-scoped state (mapping per address) over shared global state.",
+			'Mainnet (pacific-1): Chain ID 1329. Testnet (atlantic-2): Chain ID 1328.'
+		].join('\n\n')
+	},
+	{
+		name: 'AI Tooling',
+		match: (urlPath) => urlPath.startsWith('/evm/ai-tooling') || urlPath.startsWith('/evm/x402'),
+		overview: [
+			'The Sei MCP Server (@sei-js/mcp-server) connects AI assistants to Sei with 29+ tools. Install: `npx -y @sei-js/mcp-server`. Read-only tools: get_chain_info, get_balance, get_erc20_balance, get_token_info, get_nft_info, and more. Wallet tools (require PRIVATE_KEY): transfer_sei, transfer_erc20, deploy_contract, write_contract, and more. Documentation search: search_docs, search_sei_js_docs.',
+			'The Cambrian Agent Kit enables autonomous AI agents on Sei with DeFi protocol integrations (Takara lending, Silo lending, Citrex perpetuals, Symphony aggregation, DragonSwap liquidity).',
+			'The x402 protocol enables HTTP 402-based micropayments for machine-to-machine payments — agents pay per-request for APIs, content, and services with instant settlement on Sei (~400ms finality). The sei-js library provides both server-side (payment verification) and client-side (payment signing) x402 packages.'
+		].join('\n\n')
+	},
+	{
+		name: 'EVM Development',
+		match: (urlPath) => urlPath.startsWith('/evm'),
+		overview: [
+			"Sei's EVM is fully compatible with Ethereum. Standard Solidity contracts deploy without modification. All Ethereum tooling (Hardhat, Foundry, wagmi, ethers.js, viem, RainbowKit) works as-is. Transactions touching independent state execute concurrently.",
+			'Precompiled contracts at fixed addresses expose native Sei functionality (staking, governance, IBC transfers, pointer contracts) to EVM.',
+			'Native USDC: mainnet 0xe15fC38F6D8c56aF07bbCBe3BAf5708A2Bf42392, testnet 0x4fCF1784B31630811181f670Aea7A7bEF803eaED (6 decimals).'
+		].join('\n\n')
+	},
+	{
+		name: 'Node Operations',
+		match: (urlPath) => urlPath.startsWith('/node'),
+		overview:
+			'Sei supports full nodes (recent state, consensus relay), archive nodes (complete historical state), and validator nodes (block production and consensus). StateSync enables fast bootstrap — new nodes fetch a recent state snapshot instead of replaying all historical blocks.'
+	}
+];
+
+/**
+ * Assign each scraped page to a section based on its URL path.
+ * Returns { sections, assigned } where assigned is the Set of URLs that matched.
+ */
+function categorizePages(scrapedPages) {
+	const sections = LLMS_SECTION_ORDER.map((sec) => ({
+		name: sec.name,
+		overview: sec.overview || null,
+		pages: []
+	}));
+
+	const assigned = new Set();
+
+	for (const page of scrapedPages) {
+		try {
+			const urlPath = new URL(page.url).pathname;
+			for (let i = 0; i < LLMS_SECTION_ORDER.length; i++) {
+				if (LLMS_SECTION_ORDER[i].match(urlPath)) {
+					sections[i].pages.push(page);
+					assigned.add(page.url);
+					break;
+				}
+			}
+		} catch {
+			// malformed URL — skip categorization
+		}
+	}
+
+	return { sections: sections.filter((s) => s.pages.length > 0), assigned };
+}
+
+function formatLink(page) {
+	const desc = page.description ? `: ${page.description}` : '';
+	return `- [${page.title}](${page.url})${desc}`;
+}
+
+/**
+ * Generate llms.txt and llms-full.txt following https://llmstxt.org.
+ *
+ * llms.txt     – project header, intro, categorized links with descriptions
+ * llms-full.txt – header, quick reference, section overviews, categorized links,
+ *                 key resources, then full scraped page content
+ */
+async function createLlmsFiles(scrapedPages, outputPath) {
+	try {
+		console.log('📝 Generating llms.txt and llms-full.txt...');
+
+		const { projectName, blockquote, intro, quickReference, keyResources } = SEI_LLMS_CONFIG;
+
+		const isExcluded = (url) => {
+			try {
+				const urlPath = new URL(url).pathname;
+				return EXCLUDED_PREFIXES.some((prefix) => urlPath.startsWith(prefix));
+			} catch {
+				return false;
+			}
+		};
+		const filteredPages = scrapedPages.filter((p) => !isExcluded(p.url));
+
+		const { sections, assigned } = categorizePages(filteredPages);
+		const uncategorized = filteredPages.filter((p) => !assigned.has(p.url));
+
+		// ---- llms.txt ----
+		let llmsTxt = `# ${projectName}\n\n`;
+		llmsTxt += `> ${blockquote}\n\n`;
+		llmsTxt += `${intro}\n`;
+		llmsTxt += `\n## Quick Reference\n\n${quickReference}\n`;
+
+		for (const section of sections) {
+			llmsTxt += `\n## ${section.name}\n\n`;
+			if (section.overview) {
+				llmsTxt += `${section.overview}\n\n`;
+			}
+			for (const page of section.pages) {
+				llmsTxt += formatLink(page) + '\n';
+			}
+		}
+
+		if (uncategorized.length > 0) {
+			llmsTxt += `\n## Optional\n\n`;
+			for (const page of uncategorized) {
+				llmsTxt += formatLink(page) + '\n';
+			}
+		}
+
+		if (keyResources.length > 0) {
+			llmsTxt += `\n## Key Resources\n\n`;
+			for (const res of keyResources) {
+				llmsTxt += `- [${res.title}](${res.url}): ${res.description}\n`;
+			}
+		}
+
+		// ---- llms-full.txt ----
+		let llmsFull = `# ${projectName}\n\n`;
+		llmsFull += `> ${blockquote}\n\n`;
+		llmsFull += `## Quick Reference\n\n${quickReference}\n`;
+
+		for (const section of sections) {
+			llmsFull += `\n## ${section.name}\n\n`;
+			if (section.overview) {
+				llmsFull += `${section.overview}\n\n`;
+			}
+			for (const page of section.pages) {
+				llmsFull += formatLink(page) + '\n';
+			}
+		}
+
+		if (uncategorized.length > 0) {
+			llmsFull += `\n## Optional\n\n`;
+			for (const page of uncategorized) {
+				llmsFull += formatLink(page) + '\n';
+			}
+		}
+
+		if (keyResources.length > 0) {
+			llmsFull += `\n## Key Resources\n\n`;
+			for (const res of keyResources) {
+				llmsFull += `- [${res.title}](${res.url}): ${res.description}\n`;
+			}
+		}
+
+		// Append full page content after a separator
+		llmsFull += '\n---\n\n';
+		for (const page of filteredPages) {
+			llmsFull += `# ${page.title}\n\n`;
+			llmsFull += `URL: ${page.url}\n`;
+			if (page.description) {
+				llmsFull += `Description: ${page.description}\n`;
+			}
+			if (page.keywords && page.keywords.length > 0) {
+				llmsFull += `Keywords: ${page.keywords.join(', ')}\n`;
+			}
+			llmsFull += `\n${page.content}\n\n---\n\n`;
+		}
+
+		await Promise.all([fs.writeFile(path.join(outputPath, 'llms.txt'), llmsTxt, 'utf8'), fs.writeFile(path.join(outputPath, 'llms-full.txt'), llmsFull, 'utf8')]);
+
+		console.log('📄 Created llms.txt and llms-full.txt');
+	} catch (error) {
+		console.error('❌ Error generating llms.txt files:', error.message);
+	}
+}
+
+module.exports = { SEI_LLMS_CONFIG, LLMS_SECTION_ORDER, categorizePages, createLlmsFiles };
+
 /**
  * Scrape documentation from the built HTML files in .next/server/app
  */
@@ -29,8 +258,10 @@ async function scrapeBuiltHtml() {
 
 		console.log(`✅ Successfully processed ${scrapedPages.length} pages out of ${htmlFiles.length} total files`);
 		await saveScrapedContent(scrapedPages, outputPath);
-		// Generate llms.txt and llms-full.txt following the llms.txt specification
-		await createLlmsFiles(scrapedPages, outputPath);
+		// Generate llms.txt and llms-full.txt at the public root (served as docs.sei.io/llms.txt)
+		await createLlmsFiles(scrapedPages, './public');
+		// Generate per-page .md files mirroring URL paths (e.g. /evm/evm-general.md)
+		await createPerPageMarkdownFiles(scrapedPages, './public');
 	} catch (err) {
 		console.error('❌ Fatal error:', err);
 		process.exit(1);
@@ -737,49 +968,6 @@ ${page.content}
 }
 
 /**
- * Create llms.txt (summary) and llms-full.txt (summary + full context) files
- * following the https://llmstxt.org specification.
- */
-async function createLlmsFiles(scrapedPages, outputPath) {
-	try {
-		console.log('📝 Generating llms.txt and llms-full.txt...');
-
-		const projectName = 'Sei Docs';
-		const projectSummary = 'Comprehensive documentation for the Sei Network, including guides, tutorials, reference material, and API docs.';
-
-		// Build llms.txt content (high-level summary plus a list of pages)
-		let llmsTxt = `# ${projectName}\n\n`;
-		llmsTxt += `> ${projectSummary}\n\n`;
-
-		llmsTxt += '## Docs\n\n';
-		scrapedPages.forEach((page) => {
-			llmsTxt += `- [${page.title}](${page.url})\n`;
-		});
-
-		// Build llms-full.txt content (llms.txt + complete page text)
-		let llmsFull = llmsTxt + '\n---\n\n';
-		scrapedPages.forEach((page) => {
-			llmsFull += `# ${page.title}\n\n`;
-			llmsFull += `URL: ${page.url}\n`;
-			if (page.description) {
-				llmsFull += `Description: ${page.description}\n`;
-			}
-			if (page.keywords && page.keywords.length > 0) {
-				llmsFull += `Keywords: ${page.keywords.join(', ')}\n`;
-			}
-			llmsFull += `\n${page.content}\n\n---\n\n`;
-		});
-
-		// Write files in parallel
-		await Promise.all([fs.writeFile(path.join(outputPath, 'llms.txt'), llmsTxt, 'utf8'), fs.writeFile(path.join(outputPath, 'llms-full.txt'), llmsFull, 'utf8')]);
-
-		console.log('📄 Created llms.txt and llms-full.txt');
-	} catch (error) {
-		console.error('❌ Error generating llms.txt files:', error.message);
-	}
-}
-
-/**
  * Generate filename from URL
  */
 function generateFileName(url) {
@@ -795,6 +983,50 @@ function generateFileName(url) {
 		return pathname || 'index';
 	} catch {
 		return 'page-' + Date.now();
+	}
+}
+
+/**
+ * Create per-page .md files that mirror the URL structure.
+ * E.g. a page at https://docs.sei.io/evm/evm-general gets a file at public/evm/evm-general.md
+ * so that docs.sei.io/evm/evm-general.md returns the LLM-friendly markdown.
+ */
+async function createPerPageMarkdownFiles(scrapedPages, publicDir) {
+	try {
+		console.log('📝 Generating per-page .md files...');
+		let created = 0;
+
+		for (const page of scrapedPages) {
+			const urlObj = new URL(page.url);
+			let pathname = urlObj.pathname;
+
+			// Skip the root page (index)
+			if (pathname === '/' || pathname === '') continue;
+
+			// Remove leading slash
+			pathname = pathname.replace(/^\//, '');
+
+			const mdFilePath = path.join(publicDir, `${pathname}.md`);
+
+			// Ensure the directory exists
+			await fs.mkdir(path.dirname(mdFilePath), { recursive: true });
+
+			// Build the markdown content with frontmatter
+			let md = `---\ntitle: ${page.title}\n`;
+			if (page.description) {
+				md += `description: ${page.description}\n`;
+			}
+			md += `url: ${page.url}\n---\n\n`;
+			md += `# ${page.title}\n\n`;
+			md += page.content;
+
+			await fs.writeFile(mdFilePath, md, 'utf8');
+			created++;
+		}
+
+		console.log(`📄 Created ${created} per-page .md files (append .md to any docs URL)`);
+	} catch (error) {
+		console.error('❌ Error generating per-page .md files:', error.message);
 	}
 }
 
