@@ -56,24 +56,41 @@ npm install --save-dev hardhat @nomicfoundation/hardhat-toolbox @openzeppelin/co
 After installation, initialize a new Hardhat project:
 
 ```bash copy
-npx hardhat init
+npx hardhat --init
 ```
 
-When prompted, select "Create a JavaScript project" and follow the setup instructions.
+When prompted, select :
+
+- Hardhat3
+- A TypeScript Hardhat project using Mocha and Ethers.js
+
+and then follow the instructions to set up your project.
+
+If you encounter an error because of mismatch of versioning, you can try the following command with `--legacy-peer-deps` flag:
+
+```bash copy
+npm install --save-dev "@nomicfoundation/hardhat-toolbox-mocha-ethers@^3.0.2" "@nomicfoundation/hardhat-ethers@^4.0.4" "@nomicfoundation/hardhat-ignition@^3.0.7" "@types/chai@^4.2.0" "@types/chai-as-promised@^8.0.1" "@types/mocha@>=10.0.10" "@types/node@^22.8.5" "chai@^5.1.2" "ethers@^6.14.0" "forge-std@foundry-rs/forge-std#v1.9.4" "mocha@^11.0.0" "typescript@~5.8.0" --legacy-peer-deps
+```
+
+Post that, it is recommended to install some hardhat based dependencies as well for supporting Hardhat3:
+
+```bash copy
+npm i @nomicfoundation/hardhat-ethers-chai-matchers  @nomicfoundation/hardhat-ignition-ethers  @nomicfoundation/hardhat-keystore  @nomicfoundation/hardhat-mocha  @nomicfoundation/hardhat-network-helpers  @nomicfoundation/hardhat-typechain  @nomicfoundation/hardhat-verify
+```
 
 ## Configuring Hardhat for Sei EVM
 
-Next, we'll need to configure Hardhat to work with the Sei EVM. Update your `hardhat.config.js` file:
+Next, we'll need to configure Hardhat to work with the Sei EVM. Update your `hardhat.config.ts` file:
 
-```javascript copy filename="hardhat.config.js"
-require('@nomicfoundation/hardhat-toolbox');
-require('dotenv').config();
+```typescript copy filename="hardhat.config.ts"
+import { HardhatUserConfig } from 'hardhat/config';
+import '@nomicfoundation/hardhat-toolbox';
+import 'dotenv/config';
 
 // Load environment variables
 const PRIVATE_KEY = process.env.PRIVATE_KEY || '0x0000000000000000000000000000000000000000000000000000000000000000';
 
-/** @type import('hardhat/config').HardhatUserConfig */
-module.exports = {
+const config: HardhatUserConfig = {
   solidity: {
     version: '0.8.28',
     settings: {
@@ -88,15 +105,13 @@ module.exports = {
     seitestnet: {
       url: 'https://evm-rpc-testnet.sei-apis.com',
       accounts: [PRIVATE_KEY],
-      chainId: 1328, // Sei testnet chain ID
-      gasPrice: 2000000000 // 2 gwei = 2 nsei
+      chainId: 1328 // Sei testnet chain ID
     },
     // Sei mainnet configuration
     seimainnet: {
       url: 'https://evm-rpc.sei-apis.com',
       accounts: [PRIVATE_KEY],
-      chainId: 1329, // Sei mainnet chain ID
-      gasPrice: 2000000000 // 2 gwei = 2 nsei
+      chainId: 1329 // Sei mainnet chain ID
     },
     // Local development with Hardhat Network
     hardhat: {
@@ -165,9 +180,9 @@ contract SeiToken is ERC20, Ownable {
 }
 ```
 
-Now, create a deployment script in the `ignition/modules` directory called `deploy-sei-token.js`:
+Now, create a deployment script in the `ignition/modules` directory called `deploy-sei-token.ts`:
 
-```javascript copy filename="scripts/deploy-sei-token.js"
+```typescript copy filename="scripts/deploy-sei-token.ts"
 import { buildModule } from '@nomicfoundation/hardhat-ignition/modules';
 
 export default buildModule('SeiTokenModule', (m) => {
@@ -182,7 +197,7 @@ export default buildModule('SeiTokenModule', (m) => {
 To deploy the token to the Sei testnet:
 
 ```bash copy
-npx hardhat ignition deploy ignition/modules/deploy-sei-token.js --network seitestnet
+npx hardhat ignition deploy ignition/modules/deploy-sei-token.ts --network seitestnet
 ```
 
 </Tabs.Tab>
@@ -281,10 +296,10 @@ contract SeiNFT is ERC721, ERC721Enumerable, ERC721URIStorage, ERC721Pausable, O
 }
 ```
 
-Create a deployment script `deploy-sei-nft.js`:
+Create a deployment script `deploy-sei-nft.ts`:
 
-```javascript copy filename="scripts/deploy-sei-nft.js"
-const { ethers } = require('hardhat');
+```typescript copy filename="scripts/deploy-sei-nft.ts"
+import { ethers } from 'hardhat';
 
 async function main() {
   const [deployer] = await ethers.getSigners();
@@ -320,7 +335,7 @@ main()
 Deploy the NFT contract to the Sei testnet:
 
 ```bash copy
-npx hardhat run scripts/deploy-sei-nft.js --network seitestnet
+npx hardhat run scripts/deploy-sei-nft.ts --network seitestnet
 ```
 
 </Tabs.Tab>
@@ -333,12 +348,13 @@ First, ensure you have installed the necessary upgrade plugins as mentioned in t
 npm install @openzeppelin/contracts-upgradeable @openzeppelin/hardhat-upgrades
 ```
 
-And make sure your `hardhat.config.js` includes the upgrades plugin:
+And make sure your `hardhat.config.ts` includes the upgrades plugin:
 
-```javascript copy filename="hardhat.config.js"
-require('@nomicfoundation/hardhat-toolbox');
-require('@openzeppelin/hardhat-upgrades');
-require('dotenv').config();
+```typescript copy filename="hardhat.config.ts"
+import { HardhatUserConfig } from 'hardhat/config';
+import '@nomicfoundation/hardhat-toolbox';
+import '@openzeppelin/hardhat-upgrades';
+import 'dotenv/config';
 
 // ... rest of your config
 ```
@@ -390,10 +406,10 @@ contract UpgradeableSeiToken is Initializable, ERC20Upgradeable, OwnableUpgradea
 
 Note the use of `Initializable`, `initializer` modifier, `__ERC20_init`, `__Ownable_init`, `__UUPSUpgradeable_init`, and the `_authorizeUpgrade` function override. These are crucial for upgradeable contracts.
 
-Create a deployment script `scripts/deploy-upgradeable-token.js`:
+Create a deployment script `scripts/deploy-upgradeable-token.ts`:
 
-```javascript copy filename="scripts/deploy-upgradeable-token.js"
-const { ethers, upgrades } = require('hardhat');
+```typescript copy filename="scripts/deploy-upgradeable-token.ts"
+import { ethers, upgrades } from 'hardhat';
 
 async function main() {
   const [deployer] = await ethers.getSigners();
@@ -423,7 +439,7 @@ main()
 Deploy this to the testnet:
 
 ```bash copy
-npx hardhat run scripts/deploy-upgradeable-token.js --network seitestnet
+npx hardhat run scripts/deploy-upgradeable-token.ts --network seitestnet
 ```
 
 **Upgrading the Contract**
@@ -456,10 +472,10 @@ contract UpgradeableSeiTokenV2 is UpgradeableSeiToken {
 }
 ```
 
-Now, create an upgrade script `scripts/upgrade-token.js`. **Replace `PROXY_ADDRESS` with the address printed when you deployed the proxy.**
+Now, create an upgrade script `scripts/upgrade-token.ts`. **Replace `PROXY_ADDRESS` with the address printed when you deployed the proxy.**
 
-```javascript copy filename="scripts/upgrade-token.js"
-const { ethers, upgrades } = require('hardhat');
+```typescript copy filename="scripts/upgrade-token.ts"
+import { ethers, upgrades } from 'hardhat';
 
 // !! REPLACE WITH YOUR PROXY ADDRESS !!
 const PROXY_ADDRESS = '0xYOUR_PROXY_CONTRACT_ADDRESS_HERE';
@@ -494,7 +510,7 @@ main()
 Run the upgrade script:
 
 ```bash copy
-npx hardhat run scripts/upgrade-token.js --network seitestnet
+npx hardhat run scripts/upgrade-token.ts --network seitestnet
 ```
 
 You have now successfully deployed and upgraded a UUPS contract on the Sei network using Hardhat and OpenZeppelin!
@@ -504,11 +520,11 @@ You have now successfully deployed and upgraded a UUPS contract on the Sei netwo
 
 ## Testing Your Smart Contracts
 
-Hardhat makes it easy to test your contracts before deploying them. Create a test file `test/sei-token-test.js`:
+Hardhat makes it easy to test your contracts before deploying them. Create a test file `test/sei-token-test.ts`:
 
-```javascript copy filename="test/sei-token-test.js"
-const { expect } = require('chai');
-const { ethers } = require('hardhat');
+```typescript copy filename="test/sei-token-test.ts"
+import { expect } from 'chai';
+import { ethers } from 'hardhat';
 
 describe('SeiToken', function () {
   let SeiToken;
@@ -594,11 +610,11 @@ Once you've tested your contracts, you can deploy them to the Sei testnet or mai
 Deploy to the testnet:
 
 ```bash copy
-npx hardhat ignition deploy ignition/modules/deploy-sei-token.js --network seitestnet
+npx hardhat ignition deploy ignition/modules/deploy-sei-token.ts --network seitestnet
 ```
 
 Deploy to the mainnet (only when you're ready for production):
 
 ```bash copy
-npx hardhat ignition deploy ignition/modules/deploy-sei-token.js --network seimainnet
+npx hardhat ignition deploy ignition/modules/deploy-sei-token.ts --network seimainnet
 ```
