@@ -15,7 +15,6 @@ Sei precompiles are special smart contracts deployed at fixed addresses that exp
 
 - **Staking** (`0x1005`) - Delegation and staking operations
 - **Governance** (`0x1006`) - Proposal submission and voting
-- **Oracle** (`0x1008`) - Price feed data access
 - **JSON** (`0x1003`) - JSON data parsing
 - **P256** (`0x1011`) - Verifying `P-256` elliptic curve signatures
 - **Distribution** (`0x1007`) - Staking rewards and validator commissions
@@ -86,26 +85,6 @@ await tx.wait();
 console.log('Vote cast successfully');
 ```
 
-### Oracle Precompile
-
-Access real-time price feed data:
-
-```typescript copy
-import { ORACLE_PRECOMPILE_ABI, ORACLE_PRECOMPILE_ADDRESS } from '@sei-js/evm';
-
-const oracle = new ethers.Contract(ORACLE_PRECOMPILE_ADDRESS, ORACLE_PRECOMPILE_ABI, signer);
-
-// Get exchange rates
-const rates = await oracle.getExchangeRates();
-rates.forEach((rate) => {
-  console.log(`${rate.denom}: $${rate.oracleExchangeRateVal.exchangeRate}`);
-});
-
-// Get 1-hour TWAP
-const twaps = await oracle.getOracleTwaps(3600);
-console.log('TWAP data:', twaps);
-```
-
 ### JSON Precompile
 
 Parse and query JSON data on-chain:
@@ -171,7 +150,7 @@ Execute multiple precompile calls efficiently:
 
 ```typescript copy
 // Batch read operations
-const [rates, twaps, delegation] = await Promise.all([oracle.getExchangeRates(), oracle.getOracleTwaps(3600), staking.delegation(address, validator)]);
+const [delegation1, delegation2] = await Promise.all([staking.delegation(address, validator1), staking.delegation(address, validator2)]);
 
 // Sequential write operations with error handling
 const operations = [() => staking.delegate(validator1, { value: amount1 }), () => staking.delegate(validator2, { value: amount2 }), () => governance.vote(proposalId, voteOption)];
@@ -193,7 +172,7 @@ Here's a minimal example that demonstrates using multiple precompiles:
 ```javascript copy
 // multi-precompile-demo.js
 const { ethers } = require('ethers');
-const { STAKING_PRECOMPILE_ABI, STAKING_PRECOMPILE_ADDRESS, ORACLE_PRECOMPILE_ABI, ORACLE_PRECOMPILE_ADDRESS } = require('@sei-js/evm');
+const { STAKING_PRECOMPILE_ABI, STAKING_PRECOMPILE_ADDRESS, GOVERNANCE_PRECOMPILE_ABI, GOVERNANCE_PRECOMPILE_ADDRESS } = require('@sei-js/evm');
 
 async function main() {
   // Setup
@@ -202,16 +181,16 @@ async function main() {
 
   // Initialize precompiles
   const staking = new ethers.Contract(STAKING_PRECOMPILE_ADDRESS, STAKING_PRECOMPILE_ABI, wallet);
-  const oracle = new ethers.Contract(ORACLE_PRECOMPILE_ADDRESS, ORACLE_PRECOMPILE_ABI, wallet);
-
-  // Get current SEI price
-  const rates = await oracle.getExchangeRates();
-  const seiRate = rates.find((r) => r.denom === 'usei');
-  console.log('SEI Price:', seiRate?.oracleExchangeRateVal.exchangeRate);
+  const governance = new ethers.Contract(GOVERNANCE_PRECOMPILE_ADDRESS, GOVERNANCE_PRECOMPILE_ABI, wallet);
 
   // Check delegation
   const delegation = await staking.delegation(wallet.address, 'seivaloper1...');
   console.log('Current delegation:', delegation.balance.amount.toString());
+
+  // Vote on a proposal
+  const tx = await governance.vote(1, 1);
+  await tx.wait();
+  console.log('Vote cast successfully');
 }
 
 main().catch(console.error);
@@ -242,7 +221,6 @@ For detailed documentation on each precompile:
 
 - [Staking Precompile Usage →](staking)
 - [Governance Precompile Usage →](governance)
-- [Oracle Precompile Usage →](oracle)
 - [Distribution Precompile Usage →](distribution)
 - [P256 Precompile Usage →](p256-precompile)
 - [JSON Precompile Usage →](json)

@@ -1210,6 +1210,11 @@ export default withNextra({
 				permanent: true
 			},
 			{
+				source: '/node/oracle-pricefeeder',
+				destination: '/learn/oracles',
+				permanent: true
+			},
+			{
 				source: '/governance',
 				destination: '/learn/general-governance',
 				permanent: true
