@@ -14,7 +14,6 @@ export default {
 	troubleshooting: 'Troubleshooting',
 	swagger: 'API configuration',
 	validators: 'Validator Operations Guide',
-	'oracle-pricefeeder': 'Sei Oracle Price Feeder',
 
 	'-- Advanced Operations': {
 		type: 'separator',
