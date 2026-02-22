@@ -123,7 +123,7 @@ const RequestFaucetCard = () => {
 			</div>
 
 			{nextUseTime && (
-				<div className='flex items-center gap-3 p-4 border-l-4 border-[#600014] bg-[#ececee] dark:bg-[#600014]/20 text-[#34050d] dark:text-[#e6d4c3] rounded w-full'>
+				<div className='flex items-center gap-3 p-4 border-l-4 border-sei-maroon-100 bg-sei-grey-30 dark:bg-sei-maroon-100/20 text-sei-maroon-200 dark:text-sei-cream rounded w-full'>
 					<IconHourglass className='w-6 h-6' />
 					<p className='text-lg font-medium'>You can request SEI testnet tokens again after {nextUseTime}.</p>
 				</div>

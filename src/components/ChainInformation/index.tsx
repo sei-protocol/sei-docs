@@ -66,13 +66,13 @@ export const ChainInformation = ({ networkType }: { networkType: NetworkType }) 
 				<Table.RowHeaderCell />
 				<Table.Cell>
 					<Flex direction='column' className='gap-2'>
-						<Link href='/learn/rpc-providers' className='text-[#600014] dark:text-[#b99ba1]'>
+						<Link href='/learn/rpc-providers' className='text-sei-maroon-100 dark:text-sei-maroon-25'>
 							View more RPC providers
 						</Link>
 					</Flex>
 				</Table.Cell>
 				<Table.Cell>
-					<Link href='/learn/explorers' className='text-[#600014] dark:text-[#b99ba1]'>
+					<Link href='/learn/explorers' className='text-sei-maroon-100 dark:text-sei-maroon-25'>
 						See more explorers
 					</Link>
 				</Table.Cell>
@@ -97,7 +97,7 @@ export const AddSeiInlineButton = (chainParams: any) => {
 			href='#'
 			onClick={onClick}
 			className='flex items-center text-sm text-neutral-700 dark:text-neutral-300
-				   hover:text-[#600014] dark:hover:text-[#b99ba1] transition-colors'>
+				   hover:text-sei-maroon-100 dark:hover:text-sei-maroon-25 transition-colors'>
 			<IconChevronRight className='h-3 w-3 mr-1' />
 			<span>{'Add Sei to Metamask'}</span>
 		</a>
@@ -118,7 +118,7 @@ export function AddSeiButton({ chainParams, label }: { chainParams: any; label: 
 	return (
 		<button
 			onClick={onClick}
-			className='inline-flex items-center gap-1 rounded-sm bg-[#600014] hover:bg-[#34050d] px-3 py-1.5 text-xs text-white transition-colors min-w-[160px]'
+			className='inline-flex items-center gap-1 rounded-sm bg-sei-maroon-100 hover:bg-sei-maroon-200 px-3 py-1.5 text-xs text-white transition-colors min-w-[160px]'
 			style={{ fontFamily: "'JetBrains Mono', monospace", textTransform: 'uppercase', letterSpacing: '-0.01em', fontSize: '10px' }}>
 			{label}
 		</button>

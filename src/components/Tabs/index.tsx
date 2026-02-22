@@ -55,7 +55,7 @@ export const TabsTrigger = React.forwardRef<HTMLButtonElement, TabsTriggerProps>
 				data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-800
 				border-r border-neutral-200 dark:border-neutral-800 last:border-r-0
 				transition-colors duration-200
-				focus:outline-none focus:ring-2 focus:ring-[#600014]/20 dark:focus:ring-[#600014]/10
+				focus:outline-none focus:ring-2 focus:ring-sei-maroon-100/20 dark:focus:ring-sei-maroon-100/10
 				font-medium text-neutral-700 dark:text-neutral-300
 				data-[state=active]:text-neutral-900 dark:data-[state=active]:text-white`
 		}>

@@ -229,7 +229,9 @@ export function RpcSelector() {
 	return (
 		<div className='flex flex-col'>
 			<div className='flex justify-end mb-6'>
-				<a href='/evm/reference' className='text-sm text-[#600014] hover:text-[#600014] dark:hover:text-[#b99ba1] flex items-center transition-colors'>
+				<a
+					href='/evm/reference'
+					className='text-sm text-sei-maroon-100 hover:text-sei-maroon-100 dark:hover:text-sei-maroon-25 flex items-center transition-colors'>
 					View full RPC reference
 					<IconArrowRight className='h-4 w-4 ml-1' />
 				</a>
@@ -383,7 +385,7 @@ export function RpcSelector() {
 								<div className='px-4 py-3 flex justify-center'>
 									<button
 										onClick={() => setShowAllEndpoints(true)}
-										className='flex items-center text-sm text-neutral-700 dark:text-neutral-300 hover:text-[#600014] dark:hover:text-[#b99ba1] transition-colors font-medium'>
+										className='flex items-center text-sm text-neutral-700 dark:text-neutral-300 hover:text-sei-maroon-100 dark:hover:text-sei-maroon-25 transition-colors font-medium'>
 										<span>Show more</span>
 										<IconChevronDown className='h-4 w-4 ml-1' />
 									</button>
@@ -393,7 +395,7 @@ export function RpcSelector() {
 								<div className='px-4 py-3 flex justify-center'>
 									<button
 										onClick={() => setShowAllEndpoints(false)}
-										className='flex items-center text-sm text-neutral-700 dark:text-neutral-300 hover:text-[#600014] dark:hover:text-[#b99ba1] transition-colors font-medium'>
+										className='flex items-center text-sm text-neutral-700 dark:text-neutral-300 hover:text-sei-maroon-100 dark:hover:text-sei-maroon-25 transition-colors font-medium'>
 										<span>Show fewer RPC endpoints</span>
 										<IconChevronUp className='h-4 w-4 ml-1' />
 									</button>

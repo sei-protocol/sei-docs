@@ -14,6 +14,7 @@ const config: Config = {
 					error: '#fa0c00',
 					grey: {
 						25: '#f5f5f7',
+						30: '#ececee',
 						50: '#cccccc',
 						75: '#999999',
 						100: '#999999',

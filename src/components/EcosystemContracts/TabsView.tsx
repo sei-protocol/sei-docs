@@ -73,11 +73,11 @@ export function EcosystemContractsTabs({ groupedData, nameKey, addressKey }: Eco
 					placeholder='Search by contract name or address'
 					aria-label='Search by contract name or address'
 					autoComplete='off'
-					className='w-full px-3 py-2 rounded border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:!bg-neutral-900 text-sm text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-[#600014]/25 dark:focus:ring-[#600014]/20 focus:border-[#600014] dark:focus:border-[#600014] transition-colors'
+					className='w-full px-3 py-2 rounded border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:!bg-neutral-900 text-sm text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-sei-maroon-100/25 dark:focus:ring-sei-maroon-100/20 focus:border-sei-maroon-100 dark:focus:border-sei-maroon-100 transition-colors'
 				/>
 				<button
 					type='submit'
-					className='px-3 py-2 rounded-sm bg-[#600014] text-white text-sm hover:bg-[#34050d] transition-colors focus:outline-none focus:ring-2 focus:ring-[#600014]/30 dark:focus:ring-[#600014]/20'>
+					className='px-3 py-2 rounded-sm bg-sei-maroon-100 text-white text-sm hover:bg-sei-maroon-200 transition-colors focus:outline-none focus:ring-2 focus:ring-sei-maroon-100/30 dark:focus:ring-sei-maroon-100/20'>
 					Search
 				</button>
 			</form>
@@ -138,7 +138,7 @@ export function EcosystemContractsTabs({ groupedData, nameKey, addressKey }: Eco
 																		href={`https://seiscan.io/address/${contract[addressKey]}`}
 																		target='_blank'
 																		rel='noopener noreferrer'
-																		className='text-[#600014] hover:text-[#34050d] dark:text-[#b99ba1] dark:hover:text-[#e6d4c3] text-xs bg-[#f5f5f7] hover:bg-[#ececee] dark:bg-[#600014]/20 dark:hover:bg-[#600014]/30 px-2 py-1 rounded-sm transition-colors no-underline'>
+																		className='text-sei-maroon-100 hover:text-sei-maroon-200 dark:text-sei-maroon-25 dark:hover:text-sei-cream text-xs bg-sei-grey-25 hover:bg-sei-grey-30 dark:bg-sei-maroon-100/20 dark:hover:bg-sei-maroon-100/30 px-2 py-1 rounded-sm transition-colors no-underline'>
 																		SeiScan ↗
 																	</a>
 																</div>
@@ -170,7 +170,7 @@ export function EcosystemContractsTabs({ groupedData, nameKey, addressKey }: Eco
 																	href={`https://seiscan.io/address/${contract[addressKey]}`}
 																	target='_blank'
 																	rel='noopener noreferrer'
-																	className='text-[#600014] hover:text-[#34050d] dark:text-[#b99ba1] dark:hover:text-[#e6d4c3] text-xs bg-[#f5f5f7] hover:bg-[#ececee] dark:bg-[#600014]/20 dark:hover:bg-[#600014]/30 px-2 py-1 rounded-sm transition-colors no-underline'>
+																	className='text-sei-maroon-100 hover:text-sei-maroon-200 dark:text-sei-maroon-25 dark:hover:text-sei-cream text-xs bg-sei-grey-25 hover:bg-sei-grey-30 dark:bg-sei-maroon-100/20 dark:hover:bg-sei-maroon-100/30 px-2 py-1 rounded-sm transition-colors no-underline'>
 																	SeiScan ↗
 																</a>
 															</div>
