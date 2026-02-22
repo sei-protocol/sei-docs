@@ -8,7 +8,7 @@ keywords: ['USDC', 'Sei', 'Circle', 'stablecoin', 'ERC-20', 'Viem', 'payments', 
 
 ## Addresses and Decimals
 
-- Testnet (atlantic-2) USDC: [`0x4fCF1784B31630811181f670Aea7A7bEF803eaED`](https://seitrace.com/address/0x4fCF1784B31630811181f670Aea7A7bEF803eaED?chain=atlantic-2)
+- Testnet (atlantic-2) USDC: [`0x4fCF1784B31630811181f670Aea7A7bEF803eaED`](https://testnet.seiscan.io/address/0x4fCF1784B31630811181f670Aea7A7bEF803eaED)
 - Mainnet (pacific-1) USDC: [`0xe15fC38F6D8c56aF07bbCBe3BAf5708A2Bf42392`](https://seiscan.io/address/0xe15fC38F6D8c56aF07bbCBe3BAf5708A2Bf42392)
 - Decimals: `6`
 
@@ -202,7 +202,7 @@ We also log key info and handle errors:
 		console.log('Transfer successful!');
 		console.log('Tx hash:', hash);
 		const explorerBase =
-			chain.blockExplorers && chain.blockExplorers.default && chain.blockExplorers.default.url ? chain.blockExplorers.default.url : 'https://seitrace.com';
+			chain.blockExplorers && chain.blockExplorers.default && chain.blockExplorers.default.url ? chain.blockExplorers.default.url : 'https://seiscan.io';
 		console.log('Explorer:', `${explorerBase}&tx=${hash}`);
 	} catch (err) {
 		console.error('Transfer failed:', err.message || err);
