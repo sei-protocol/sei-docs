@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from 'react';
 import { IconChevronDown } from '@tabler/icons-react';
-import styles from '../../styles/LinkCard.module.css';
+import styles from './LinkCard.module.css';
 
 interface LinkCardProps {
 	title: string;
