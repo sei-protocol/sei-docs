@@ -1,7 +1,6 @@
 export * from './AppCard';
 export * from './ChainInformation';
 export * from './CopyButton';
-export { CopyText } from './CopyText';
 export * from './FaucetRequest';
 export * from './LinkCard';
 export * from './BrandKitGallery';
@@ -10,7 +9,6 @@ export { Logo, LogoMobile } from './Logo';
 export * from './VersionFetcher';
 export { PropertyInfo } from './PropertyInfo';
 export * from './AskAIAssistant';
-export * from './QuickStartCard';
 export { NetworkTabs } from './NetworkTabs';
 export * from './OfficeHoursCard';
 export { RpcSelector } from './RpcSelector';

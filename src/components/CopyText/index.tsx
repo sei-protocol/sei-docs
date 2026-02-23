@@ -34,19 +34,3 @@ export const CopyButton = ({ value, copyDisabled = false }: { value: string; cop
 		</>
 	);
 };
-
-type CopyTextProps = {
-	label: string;
-	value: string;
-	copyDisabled?: boolean;
-	column?: boolean;
-};
-
-export const CopyText = ({ label, value, copyDisabled = false, column = false }: CopyTextProps) => {
-	return (
-		<div className={`flex flex-row gap-2 items-center ${column && '!flex-col !items-start'}`}>
-			<p className='text-neutral-400'>{label}</p>
-			<CopyButton value={value} copyDisabled={copyDisabled} />
-		</div>
-	);
-};
