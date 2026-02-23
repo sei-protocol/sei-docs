@@ -24,7 +24,6 @@ export const metadata: Metadata = {
 		'Documentation for Sei. Providing comprehensive guides, tutorials, and resources for developers building on Sei. Learn about the EVM, smart contracts, tokenization standards (ERC20, ERC721, ERC1155), and advanced features of the Sei ecosystem to accelerate your blockchain development journey.',
 	category: 'technology',
 	openGraph: {
-		// Make sure not to specify `title` or description` as they are automatically generated from the main description and title template
 		url: 'https://docs.sei.io',
 		siteName: 'Sei Docs',
 		locale: 'en_US',
@@ -37,7 +36,6 @@ export const metadata: Metadata = {
 		type: 'article'
 	},
 	twitter: {
-		// Make sure not to specify `title` or description` as they are automatically generated from the main description and title template
 		card: 'summary_large_image',
 		creator: '@SeiNetwork',
 		images: ['https://docs.sei.io/assets/docs-banner.png']
@@ -72,10 +70,16 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }) {
 	return (
-		<html lang='en' dir='ltr' suppressHydrationWarning style={{ width: '100%', height: '100%' }}>
+		<html lang='en' dir='ltr' suppressHydrationWarning className='dark' style={{ width: '100%', height: '100%' }}>
 			<head>
 				<meta name='color-scheme' content='dark light' />
-				{/* Performance: avoid early preconnects to heavy third-parties */}
+				{/* Google Fonts: Inter + JetBrains Mono to match Sei design system */}
+				<link rel='preconnect' href='https://fonts.googleapis.com' />
+				<link rel='preconnect' href='https://fonts.gstatic.com' crossOrigin='anonymous' />
+				<link
+					href='https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@300;400;500;600;700&display=swap'
+					rel='stylesheet'
+				/>
 				<script
 					type='application/ld+json'
 					dangerouslySetInnerHTML={{
@@ -106,7 +110,7 @@ export default async function RootLayout({ children }) {
 					}}
 				/>
 			</head>
-			<body style={{ width: '100%', height: '100%' }}>
+			<body style={{ width: '100%', height: '100%', fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
 				{/* Google Tag Manager (noscript) fallback */}
 				<noscript>
 					<iframe

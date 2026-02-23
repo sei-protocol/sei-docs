@@ -24,15 +24,15 @@ export const OfficeHoursCard = () => {
 			href='https://discord.gg/sei'
 			target='_blank'
 			rel='noopener noreferrer'
-			className='my-6 block border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 rounded-xl shadow-sm transition-all duration-200 hover:border-neutral-300 dark:hover:border-neutral-700 hover:shadow-md group'>
+			className='my-6 block border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 rounded-sm shadow-sm transition-all duration-200 hover:border-neutral-300 dark:hover:border-neutral-700 hover:shadow-md group'>
 			<div className='flex items-center gap-4 p-4'>
-				<div className='bg-red-3 dark:bg-neutral-800 p-3 rounded-full flex-shrink-0 transition-all duration-200 group-hover:bg-red-4 dark:group-hover:bg-neutral-700'>
-					<IconClock className='w-5 h-5 text-red-9 dark:text-red-7' />
+				<div className='bg-sei-grey-25 dark:bg-neutral-800 p-3 rounded-full flex-shrink-0 transition-all duration-200 group-hover:bg-sei-grey-30 dark:group-hover:bg-neutral-700'>
+					<IconClock className='w-5 h-5 text-sei-maroon-100 dark:text-sei-maroon-25' />
 				</div>
 				<div>
 					<h3 className='text-base font-medium text-neutral-900 dark:text-neutral-100 flex items-center'>
 						<span>Developer Office Hours</span>
-						<span className='ml-2 px-2 py-0.5 text-xs bg-red-3 dark:bg-neutral-800 rounded-full text-red-9 dark:text-red-7 border border-red-4 dark:border-neutral-700'>
+						<span className='ml-2 px-2 py-0.5 text-xs bg-sei-grey-25 dark:bg-neutral-800 rounded-full text-sei-maroon-100 dark:text-sei-maroon-25 border border-sei-grey-30 dark:border-neutral-700'>
 							Weekly
 						</span>
 					</h3>
