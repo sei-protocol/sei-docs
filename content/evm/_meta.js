@@ -45,7 +45,7 @@ export default {
 		}
 	},
 	'solidity-resources': 'Solidity Resources',
-	'optimizing-for-parallelization': 'Optimizing for Parallelization',
+	'best-practices': 'Best Practices',
 	'debugging-contracts': 'Debugging for EVM',
 	tracing: 'Debug Tracing',
 	'evm-verify-contracts': 'Verify Contracts',

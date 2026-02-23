@@ -376,17 +376,17 @@ export default withNextra({
 			},
 			{
 				source: '/learn/mev',
-				destination: '/evm/optimizing-for-parallelization',
+				destination: '/evm/best-practices/optimizing-for-parallelization',
 				permanent: true
 			},
 			{
 				source: '/learn/mev-plugins',
-				destination: '/evm/optimizing-for-parallelization',
+				destination: '/evm/best-practices/optimizing-for-parallelization',
 				permanent: true
 			},
 			{
 				source: '/mev/:path*',
-				destination: '/evm/optimizing-for-parallelization',
+				destination: '/evm/best-practices/optimizing-for-parallelization',
 				permanent: true
 			},
 			{
@@ -1011,7 +1011,7 @@ export default withNextra({
 			},
 			{
 				source: '/evm/best-practices',
-				destination: '/evm/optimizing-for-parallelization',
+				destination: '/evm/best-practices/optimizing-for-parallelization',
 				permanent: true
 			},
 			{
@@ -1292,6 +1292,11 @@ export default withNextra({
 			{
 				source: '/evm/dappradar-guide',
 				destination: '/evm/analytics-setup',
+				permanent: true
+			},
+			{
+				source: '/evm/optimizing-for-parallelization',
+				destination: '/evm/best-practices/optimizing-for-parallelization',
 				permanent: true
 			}
 		];
