@@ -6,8 +6,7 @@ const footerLinkGroups = [
 		links: [
 			{ label: 'Create Wallet', href: 'https://app.sei.io/' },
 			{ label: 'Bridge', href: 'https://app.sei.io/bridge' },
-			{ label: 'Ecosystem', href: 'https://www.sei.io/ecosystem' },
-			{ label: 'Token', href: 'https://www.sei.io/token' }
+			{ label: 'Ecosystem', href: 'https://www.sei.io/ecosystem' }
 		]
 	},
 	{
@@ -25,8 +24,7 @@ const footerLinkGroups = [
 		links: [
 			{ label: 'Insights', href: 'https://blog.sei.io/' },
 			{ label: 'Media Kit', href: '/learn/general-brand-kit' },
-			{ label: 'Block Explorer', href: 'https://seitrace.com/' },
-			{ label: 'Network Data', href: 'https://seiscan.io/' },
+			{ label: 'Block Explorer', href: 'https://seiscan.io/' },
 			{ label: 'Stake', href: 'https://app.sei.io/stake' }
 		]
 	}
@@ -39,15 +37,9 @@ const socialLinks = [
 	{ label: 'LinkedIn', href: 'https://www.linkedin.com/company/sei-network/' }
 ];
 
-const bottomLinks = [
-	{ label: 'Terms and Conditions', href: 'https://www.sei.io/terms' },
-	{ label: 'Privacy Policy', href: 'https://www.sei.io/privacy' },
-	{ label: 'Security', href: 'https://www.sei.io/security' }
-];
-
 export function Footer() {
 	return (
-		<footer style={{ backgroundColor: 'var(--sei-black)', color: 'var(--sei-white)', fontFamily: "'Inter', system-ui, sans-serif" }}>
+		<footer className='bg-white dark:bg-black text-black dark:text-white' style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
 			{/* Main links section */}
 			<div style={{ maxWidth: '1440px', margin: '0 auto', padding: '40px 40px 0' }}>
 				<div style={{ display: 'flex', gap: '60px', alignItems: 'flex-start' }}>
@@ -65,7 +57,7 @@ export function Footer() {
 
 					{/* Link groups */}
 					<div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '36px', fontSize: '12px', lineHeight: '1.2' }}>
-						<div style={{ display: 'flex', gap: '80px', borderTop: '1px solid var(--sei-grey-300)', paddingTop: '20px' }}>
+						<div className='border-t border-neutral-200 dark:border-[var(--sei-grey-300)]' style={{ display: 'flex', gap: '80px', paddingTop: '20px' }}>
 							{footerLinkGroups.map((group) => (
 								<div key={group.heading} style={{ flex: 1, display: 'flex', gap: '20px' }}>
 									<span style={{ flex: 1, fontFamily: "'Inter', sans-serif", fontWeight: 400 }}>{group.heading}</span>
@@ -98,13 +90,7 @@ export function Footer() {
 
 			{/* Decorative divider */}
 			<div style={{ maxWidth: '1440px', margin: '0 auto', padding: '60px 0 0' }}>
-				<div
-					style={{
-						width: '100%',
-						height: '1px',
-						background: 'linear-gradient(90deg, transparent 0%, var(--sei-grey-300) 20%, var(--sei-grey-300) 80%, transparent 100%)'
-					}}
-				/>
+				<div className='bg-gradient-to-r from-transparent via-neutral-200 dark:via-[var(--sei-grey-300)] to-transparent' style={{ width: '100%', height: '1px' }} />
 			</div>
 
 			{/* Social row */}
@@ -136,8 +122,8 @@ export function Footer() {
 			{/* Bottom bar */}
 			<div style={{ maxWidth: '1440px', margin: '0 auto', padding: '24px 40px 40px' }}>
 				<div
+					className='border-t border-neutral-200 dark:border-[var(--sei-grey-300)]'
 					style={{
-						borderTop: '1px solid var(--sei-grey-300)',
 						paddingTop: '24px',
 						display: 'flex',
 						justifyContent: 'space-between',
@@ -149,26 +135,6 @@ export function Footer() {
 						textTransform: 'uppercase'
 					}}>
 					<span style={{ fontFeatureSettings: "'calt' 0" }}>Copyright {new Date().getFullYear()}. All rights reserved.</span>
-					<div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-						{bottomLinks.map((link) => (
-							<a
-								key={link.label}
-								href={link.href}
-								target='_blank'
-								rel='noopener noreferrer'
-								style={{
-									color: 'inherit',
-									textDecoration: 'none',
-									opacity: 0.7,
-									fontFeatureSettings: "'calt' 0",
-									transition: 'opacity 0.15s'
-								}}
-								onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
-								onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.7')}>
-								{link.label}
-							</a>
-						))}
-					</div>
 				</div>
 			</div>
 		</footer>
