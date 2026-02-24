@@ -73,13 +73,10 @@ export default async function RootLayout({ children }) {
 		<html lang='en' dir='ltr' suppressHydrationWarning className='dark' style={{ width: '100%', height: '100%' }}>
 			<head>
 				<meta name='color-scheme' content='dark light' />
-				{/* Google Fonts: Inter + JetBrains Mono to match Sei design system */}
+				{/* JetBrains Mono for code blocks */}
 				<link rel='preconnect' href='https://fonts.googleapis.com' />
 				<link rel='preconnect' href='https://fonts.gstatic.com' crossOrigin='anonymous' />
-				<link
-					href='https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@300;400;500;600;700&display=swap'
-					rel='stylesheet'
-				/>
+				<link href='https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap' rel='stylesheet' />
 				<script
 					type='application/ld+json'
 					dangerouslySetInnerHTML={{
@@ -110,7 +107,7 @@ export default async function RootLayout({ children }) {
 					}}
 				/>
 			</head>
-			<body style={{ width: '100%', height: '100%', fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
+			<body style={{ width: '100%', height: '100%', fontFamily: "'Items Text', sans-serif" }}>
 				{/* Google Tag Manager (noscript) fallback */}
 				<noscript>
 					<iframe

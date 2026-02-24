@@ -119,7 +119,7 @@ export function AddSeiButton({ chainParams, label }: { chainParams: any; label: 
 		<button
 			onClick={onClick}
 			className='inline-flex items-center gap-1 rounded-sm bg-sei-maroon-100 hover:bg-sei-maroon-200 px-3 py-1.5 text-xs text-white transition-colors min-w-[160px]'
-			style={{ fontFamily: "'JetBrains Mono', monospace", textTransform: 'uppercase', letterSpacing: '-0.01em', fontSize: '10px' }}>
+			style={{ fontFamily: "'JetBrains Mono', monospace", textTransform: 'uppercase', fontSize: '10px' }}>
 			{label}
 		</button>
 	);

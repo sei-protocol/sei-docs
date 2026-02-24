@@ -39,7 +39,7 @@ const socialLinks = [
 
 export function Footer() {
 	return (
-		<footer className='bg-white dark:bg-black text-black dark:text-white' style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
+		<footer className='bg-white dark:bg-black text-black dark:text-white font-inter'>
 			{/* Main links section */}
 			<div style={{ maxWidth: '1440px', margin: '0 auto', padding: '40px 40px 0' }}>
 				<div style={{ display: 'flex', gap: '60px', alignItems: 'flex-start' }}>
@@ -60,7 +60,9 @@ export function Footer() {
 						<div className='border-t border-neutral-200 dark:border-[var(--sei-grey-300)]' style={{ display: 'flex', gap: '80px', paddingTop: '20px' }}>
 							{footerLinkGroups.map((group) => (
 								<div key={group.heading} style={{ flex: 1, display: 'flex', gap: '20px' }}>
-									<span style={{ flex: 1, fontFamily: "'Inter', sans-serif", fontWeight: 400 }}>{group.heading}</span>
+									<span className='font-inter' style={{ flex: 1, fontWeight: 400 }}>
+										{group.heading}
+									</span>
 									<div
 										style={{
 											flex: 1,
@@ -96,7 +98,7 @@ export function Footer() {
 			{/* Social row */}
 			<div style={{ maxWidth: '1440px', margin: '0 auto', padding: '24px 40px 0' }}>
 				<div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '20px', fontSize: '12px', lineHeight: '1.2' }}>
-					<span style={{ fontFamily: "'Inter', sans-serif" }}>Social</span>
+					<span className='font-inter'>Social</span>
 					{socialLinks.map((link) => (
 						<a
 							key={link.label}
