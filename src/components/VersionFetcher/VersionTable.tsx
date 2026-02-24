@@ -24,14 +24,18 @@ const VersionTable: React.FC = () => {
 				<tbody className='divide-y divide-neutral-200 dark:divide-neutral-800 bg-neutral-50 dark:bg-neutral-900/30'>
 					<tr>
 						<td className='px-4 py-3 text-sm font-medium text-neutral-900 dark:text-neutral-100'>Mainnet</td>
-						<td className='px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400'>{mainnetVersion || 'Fetching...'}</td>
+						<td className='px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400'>
+							<code>{mainnetVersion || 'Fetching...'}</code>
+						</td>
 						<td className='px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400'>pacific-1</td>
 						<td className='px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400'>1329</td>
 					</tr>
 
 					<tr>
 						<td className='px-4 py-3 text-sm font-medium text-neutral-900 dark:text-neutral-100'>Testnet</td>
-						<td className='px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400'>{testnetVersion || 'Fetching...'}</td>
+						<td className='px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400'>
+							<code>{testnetVersion || 'Fetching...'}</code>
+						</td>
 						<td className='px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400'>atlantic-2</td>
 						<td className='px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400'>1328</td>
 					</tr>
