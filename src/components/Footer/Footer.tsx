@@ -41,10 +41,10 @@ export function Footer() {
 	return (
 		<footer className='bg-white dark:bg-black text-black dark:text-white' style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
 			{/* Main links section */}
-			<div style={{ maxWidth: '1440px', margin: '0 auto', padding: '40px 40px 0' }}>
-				<div style={{ display: 'flex', gap: '60px', alignItems: 'flex-start' }}>
+			<div className='max-w-[1440px] mx-auto px-5 pt-8 md:px-10 md:pt-10'>
+				<div className='flex flex-col gap-8 lg:flex-row lg:gap-[60px] lg:items-start'>
 					{/* Logo column */}
-					<div style={{ flexShrink: 0, paddingTop: '4px' }}>
+					<div className='shrink-0 pt-1'>
 						<svg width='30' height='30' viewBox='0 0 73 73' fill='none' xmlns='http://www.w3.org/2000/svg'>
 							<path
 								fillRule='evenodd'
@@ -56,27 +56,21 @@ export function Footer() {
 					</div>
 
 					{/* Link groups */}
-					<div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '36px', fontSize: '12px', lineHeight: '1.2' }}>
-						<div className='border-t border-neutral-200 dark:border-[var(--sei-grey-300)]' style={{ display: 'flex', gap: '80px', paddingTop: '20px' }}>
+					<div className='flex-1 flex flex-col gap-9 text-xs leading-[1.2]'>
+						<div className='border-t border-neutral-200 dark:border-[var(--sei-grey-300)] flex flex-col gap-8 pt-5 lg:flex-row lg:gap-20'>
 							{footerLinkGroups.map((group) => (
-								<div key={group.heading} style={{ flex: 1, display: 'flex', gap: '20px' }}>
-									<span style={{ flex: 1, fontFamily: "'Inter', sans-serif", fontWeight: 400 }}>{group.heading}</span>
+								<div key={group.heading} className='flex-1 flex flex-col gap-3 lg:flex-row lg:gap-5'>
+									<span className='font-normal lg:flex-1' style={{ fontFamily: "'Inter', sans-serif" }}>
+										{group.heading}
+									</span>
 									<div
+										className='flex flex-col gap-4 lg:flex-1'
 										style={{
-											flex: 1,
-											display: 'flex',
-											flexDirection: 'column',
-											gap: '16px',
 											fontFamily: "'JetBrains Mono', monospace",
 											textTransform: 'uppercase'
 										}}>
 										{group.links.map((link) => (
-											<a
-												key={link.label}
-												href={link.href}
-												style={{ color: 'inherit', textDecoration: 'none', opacity: 0.5, transition: 'opacity 0.15s' }}
-												onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
-												onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.5')}>
+											<a key={link.label} href={link.href} className='text-current no-underline opacity-50 transition-opacity duration-150 hover:opacity-100'>
 												{link.label}
 											</a>
 										))}
@@ -89,13 +83,13 @@ export function Footer() {
 			</div>
 
 			{/* Decorative divider */}
-			<div style={{ maxWidth: '1440px', margin: '0 auto', padding: '60px 0 0' }}>
-				<div className='bg-gradient-to-r from-transparent via-neutral-200 dark:via-[var(--sei-grey-300)] to-transparent' style={{ width: '100%', height: '1px' }} />
+			<div className='max-w-[1440px] mx-auto pt-10 md:pt-[60px]'>
+				<div className='bg-gradient-to-r from-transparent via-neutral-200 dark:via-[var(--sei-grey-300)] to-transparent w-full h-px' />
 			</div>
 
 			{/* Social row */}
-			<div style={{ maxWidth: '1440px', margin: '0 auto', padding: '24px 40px 0' }}>
-				<div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '20px', fontSize: '12px', lineHeight: '1.2' }}>
+			<div className='max-w-[1440px] mx-auto px-5 pt-6 md:px-10'>
+				<div className='flex flex-wrap justify-end items-center gap-4 md:gap-5 text-xs leading-[1.2]'>
 					<span style={{ fontFamily: "'Inter', sans-serif" }}>Social</span>
 					{socialLinks.map((link) => (
 						<a
@@ -103,16 +97,11 @@ export function Footer() {
 							href={link.href}
 							target='_blank'
 							rel='noopener noreferrer'
+							className='text-current no-underline opacity-50 transition-opacity duration-150 hover:opacity-100'
 							style={{
-								color: 'inherit',
-								textDecoration: 'none',
-								opacity: 0.5,
 								fontFamily: "'JetBrains Mono', monospace",
-								textTransform: 'uppercase',
-								transition: 'opacity 0.15s'
-							}}
-							onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
-							onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.5')}>
+								textTransform: 'uppercase'
+							}}>
 							{link.label}
 						</a>
 					))}
@@ -120,14 +109,10 @@ export function Footer() {
 			</div>
 
 			{/* Bottom bar */}
-			<div style={{ maxWidth: '1440px', margin: '0 auto', padding: '24px 40px 40px' }}>
+			<div className='max-w-[1440px] mx-auto px-5 pt-6 pb-8 md:px-10 md:pb-10'>
 				<div
-					className='border-t border-neutral-200 dark:border-[var(--sei-grey-300)]'
+					className='border-t border-neutral-200 dark:border-[var(--sei-grey-300)] pt-6 flex justify-between items-center'
 					style={{
-						paddingTop: '24px',
-						display: 'flex',
-						justifyContent: 'space-between',
-						alignItems: 'center',
 						fontSize: '9px',
 						fontFamily: "'JetBrains Mono', monospace",
 						letterSpacing: '0.18px',

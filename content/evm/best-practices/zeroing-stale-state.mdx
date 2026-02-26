@@ -1,0 +1,186 @@
+---
+title: 'Zeroing Out Stale State'
+description: 'Strategies for clearing unused EVM storage on Sei to reduce state growth and improve node performance.'
+keywords: ['sei evm', 'state management', 'gas refund', 'storage clearing', 'contract optimization', 'stale state']
+---
+
+import { Callout } from 'nextra/components';
+
+# Zeroing Out Stale State
+
+Zeroing out state means setting stored contract values back to their defaults (e.g., `0`, `false`, `address(0)`) by writing `non-zero → zero` into EVM storage slots.
+
+## Why Zero Out State
+
+Non-zero storage contributes to global state size. Clearing stale state reduces state growth pressure and can improve node operations, sync, and restart behavior. This matters especially on high-throughput chains like Sei where state growth can be aggressive.
+
+<Callout type="info">Clearing a non-zero storage slot to zero earns a **4,800 gas refund** per slot.</Callout>
+
+## Clearing State Variables, Arrays, and Maps
+
+### Simple Fixed-Size State
+
+For value types and fixed-size arrays, use `delete` (or assign the default) to reset values to their defaults (`0`, `address(0)`, `false`).
+
+```solidity
+uint256 public value;
+bool public flag;
+address public addr;
+uint256[10] public fixedArr;
+
+function clearSimple() external {
+    delete value;    // → 0
+    delete flag;     // → false
+    delete addr;     // → address(0)
+    delete fixedArr; // zeroes every element
+}
+```
+
+### Dynamic Arrays
+
+Using `delete` on a dynamic array resets its length to 0 and clears all elements, but this can be too expensive for large arrays and risks hitting the block gas limit.
+
+The safer approach is **batched clearing** by repeatedly calling `pop()` in chunks.
+
+<Callout type="warning">If a dynamic array might exceed **~500 elements**, use batched clearing to avoid running out of gas.</Callout>
+
+```solidity
+uint256[] public dynamicArr;
+
+function batchClear(uint256 batchSize) external {
+    uint256 len = dynamicArr.length;
+    uint256 toClear = batchSize < len ? batchSize : len;
+    for (uint256 i = 0; i < toClear; i++) {
+        dynamicArr.pop();
+    }
+}
+```
+
+### Mappings
+
+You can't iterate a mapping, so you can't clear it unless you can enumerate keys. The main strategy is to **maintain an index of keys** (e.g., a `holders[]` array plus an `_isHolder` flag) whenever you write, then later delete mapping entries in batches by iterating that key list.
+
+<Callout type="info">Maintaining an index costs approximately **~20k gas per write** (extra SSTOREs), but makes future clearing possible.</Callout>
+
+```solidity
+mapping(address => uint256) public balances;
+address[] public holders;
+mapping(address => bool) private _isHolder;
+
+function setBalance(address user, uint256 amount) external {
+    if (!_isHolder[user]) {
+        _isHolder[user] = true;
+        holders.push(user);
+    }
+    balances[user] = amount;
+}
+
+function batchClearBalances(uint256 start, uint256 end) external {
+    if (end > holders.length) end = holders.length;
+    for (uint256 i = start; i < end; i++) {
+        address user = holders[i];
+        delete balances[user];
+        delete _isHolder[user];
+    }
+}
+```
+
+## Strategies for Existing Contracts
+
+### External Cleaner Contract
+
+If you control permissions and the original contract has callable setters/entrypoints, deploy a separate "cleaner" contract that loops through user/key batches and calls the original contract to set values to zero.
+
+<Callout type="warning">This only clears state reachable through the **public/external interface**. Truly internal or private state with no setters can't be touched.</Callout>
+
+See [Appendix A](#appendix-a---external-cleaner-contract) for example code.
+
+### Proxy / Upgradeable Contract
+
+If you have a proxy or upgradeable contract, this is the best-case scenario. Upgrade the implementation to add reset functions while **preserving storage layout**, run batched resets, then optionally upgrade again to remove the reset logic.
+
+See [Appendix B](#appendix-b---proxyupgradeable-contract) for example code.
+
+### Reconstruct Keys from Event Logs
+
+If contract writes emit events (which is common), scan historical logs to recover mapping keys (e.g., recipients from `Transfer` events), deduplicate them, and pass that list into a batch-clear call.
+
+### Use a Subgraph or Custom Indexer
+
+For complex or nested state, use [The Graph](https://thegraph.com/) or your own indexer to build a full set of non-zero keys/entities off-chain, then feed the resulting address/key list into on-chain batch clearing. This moves enumeration complexity off-chain while the on-chain work is just applying clears.
+
+### Brute-Force via Direct Storage Reads
+
+If you have a candidate universe of keys (e.g., all addresses that ever interacted), compute each mapping slot (`keccak256(key, slot)` — tools like `cast index` do this), read storage via RPC, and keep only the non-zero keys to clear.
+
+<Callout type="info">This approach is tedious and RPC-heavy but works when events are missing or unreliable.</Callout>
+
+## Appendix A - External Cleaner Contract
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+interface IResettableTarget {
+    function setBalance(address user, uint256 amount) external;
+}
+
+contract StateCleaner {
+    IResettableTarget public immutable target;
+
+    constructor(address _target) {
+        target = IResettableTarget(_target);
+    }
+
+    function clearBalances(address[] calldata users) external {
+        for (uint256 i = 0; i < users.length; i++) {
+            target.setBalance(users[i], 0);
+        }
+    }
+}
+```
+
+## Appendix B - Proxy/Upgradeable Contract
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+
+/// @notice UUPS upgradeable implementation that supports batched state clearing.
+/// @dev Storage lives in the proxy; this implementation provides logic.
+contract V2Resettable is UUPSUpgradeable, OwnableUpgradeable {
+    uint256 public totalSupply;
+    mapping(address => uint256) public balances;
+
+    address[] public holders;
+    mapping(address => bool) private isHolder;
+
+    function initialize() external initializer {
+        __Ownable_init();
+        __UUPSUpgradeable_init();
+    }
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
+
+    function setBalance(address user, uint256 amount) external onlyOwner {
+        if (!isHolder[user]) {
+            isHolder[user] = true;
+            holders.push(user);
+        }
+        balances[user] = amount;
+    }
+
+    /// @notice Batch-clear balances for a caller-supplied list of users.
+    /// @dev Enumerate keys off-chain (events/indexer) and pass them in.
+    function resetBalances(address[] calldata users) external onlyOwner {
+        for (uint256 i = 0; i < users.length; i++) {
+            address u = users[i];
+            delete balances[u];
+            delete isHolder[u];
+        }
+    }
+}
+```
