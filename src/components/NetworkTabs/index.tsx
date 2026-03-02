@@ -29,7 +29,7 @@ export function NetworkTabs({}: NetworkTabsProps) {
 	}, []);
 
 	const tabButtonClass = (tab: TabType): string =>
-		`px-3 py-1.5 text-sm rounded-sm transition-colors ${
+		`px-3 py-1.5 text-sm  transition-colors ${
 			activeTab === tab
 				? 'bg-neutral-200 dark:bg-neutral-800/80 text-neutral-900 dark:text-white border border-neutral-300 dark:border-neutral-700'
 				: 'bg-neutral-100 dark:bg-neutral-800/50 text-neutral-600 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-700/50 hover:bg-neutral-200 dark:hover:bg-neutral-700/70 hover:text-neutral-900 dark:hover:text-white'

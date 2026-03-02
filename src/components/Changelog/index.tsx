@@ -97,7 +97,7 @@ export async function RemoteChangelog() {
 								href={part}
 								target='_blank'
 								rel='noopener noreferrer'
-								className='text-sei-maroon-100 hover:text-sei-maroon-200 bg-sei-grey-25 hover:bg-sei-grey-30 dark:text-sei-maroon-25 dark:hover:text-sei-cream dark:bg-sei-maroon-100/20 dark:hover:bg-sei-maroon-100/30 px-2 py-0.5 rounded-sm font-mono text-sm font-medium transition-colors no-underline ml-1'>
+								className='text-sei-maroon-100 hover:text-sei-maroon-200 bg-sei-grey-25 hover:bg-sei-grey-30 dark:text-sei-maroon-25 dark:hover:text-sei-cream dark:bg-sei-maroon-100/20 dark:hover:bg-sei-maroon-100/30 px-2 py-0.5  font-mono text-sm font-medium transition-colors no-underline ml-1'>
 								{linkText}
 							</a>
 						);
@@ -124,7 +124,7 @@ export async function RemoteChangelog() {
 									href={compareUrl}
 									target='_blank'
 									rel='noopener noreferrer'
-									className='text-sei-maroon-100 hover:text-sei-maroon-200 bg-sei-grey-25 hover:bg-sei-grey-30 dark:text-sei-maroon-25 dark:hover:text-sei-cream dark:bg-sei-maroon-100/20 dark:hover:bg-sei-maroon-100/30 px-2 py-0.5 rounded-sm font-mono text-sm font-medium transition-colors no-underline ml-1'>
+									className='text-sei-maroon-100 hover:text-sei-maroon-200 bg-sei-grey-25 hover:bg-sei-grey-30 dark:text-sei-maroon-25 dark:hover:text-sei-cream dark:bg-sei-maroon-100/20 dark:hover:bg-sei-maroon-100/30 px-2 py-0.5  font-mono text-sm font-medium transition-colors no-underline ml-1'>
 									{displayText}
 								</a>
 							</span>
@@ -155,7 +155,7 @@ export async function RemoteChangelog() {
 											href={`https://github.com/${repoPath}/pull/${num}`}
 											target='_blank'
 											rel='noopener noreferrer'
-											className='text-sei-maroon-100 hover:text-sei-maroon-200 bg-sei-grey-25 hover:bg-sei-grey-30 dark:text-sei-maroon-25 dark:hover:text-sei-cream dark:bg-sei-maroon-100/20 dark:hover:bg-sei-maroon-100/30 px-2 py-0.5 rounded-sm font-mono text-sm font-medium transition-colors no-underline ml-1'>
+											className='text-sei-maroon-100 hover:text-sei-maroon-200 bg-sei-grey-25 hover:bg-sei-grey-30 dark:text-sei-maroon-25 dark:hover:text-sei-cream dark:bg-sei-maroon-100/20 dark:hover:bg-sei-maroon-100/30 px-2 py-0.5  font-mono text-sm font-medium transition-colors no-underline ml-1'>
 											#{num}
 										</a>
 									);
@@ -189,7 +189,7 @@ export async function RemoteChangelog() {
 												href={`https://github.com/${repoPath}/pull/${num}`}
 												target='_blank'
 												rel='noopener noreferrer'
-												className='text-sei-maroon-100 hover:text-sei-maroon-200 bg-sei-grey-25 hover:bg-sei-grey-30 dark:text-sei-maroon-25 dark:hover:text-sei-cream dark:bg-sei-maroon-100/20 dark:hover:bg-sei-maroon-100/30 px-2 py-0.5 rounded-sm font-mono text-sm font-medium transition-colors no-underline mr-1'>
+												className='text-sei-maroon-100 hover:text-sei-maroon-200 bg-sei-grey-25 hover:bg-sei-grey-30 dark:text-sei-maroon-25 dark:hover:text-sei-cream dark:bg-sei-maroon-100/20 dark:hover:bg-sei-maroon-100/30 px-2 py-0.5  font-mono text-sm font-medium transition-colors no-underline mr-1'>
 												#{num}
 											</a>
 										);
@@ -255,7 +255,7 @@ export async function RemoteChangelog() {
 					{sectionComponents.map((comp, i) => (
 						<div key={i}>
 							<div className='flex items-center gap-2 mb-3'>
-								<div className='flex items-center gap-2 bg-gray-100 px-3 py-1.5 rounded-sm'>
+								<div className='flex items-center gap-2 bg-gray-100 px-3 py-1.5 '>
 									<div className='w-2 h-2 bg-sei-maroon-100 rounded-full'></div>
 									<span className='font-medium text-gray-700 dark:text-white text-sm'>{comp.name}</span>
 								</div>
@@ -332,7 +332,7 @@ export async function RemoteChangelog() {
 					{components.map((comp, i) => (
 						<div key={i}>
 							<div className='flex items-center gap-2 mb-3'>
-								<div className='flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-sm'>
+								<div className='flex items-center gap-2 bg-slate-100 px-3 py-1.5 '>
 									<div className='w-2 h-2 bg-sei-maroon-100 rounded-full'></div>
 									<span className='font-medium text-slate-700 text-sm'>{comp.name}</span>
 								</div>
@@ -394,7 +394,7 @@ export async function RemoteChangelog() {
 					href='https://github.com/sei-protocol/sei-chain/blob/main/CHANGELOG.md'
 					target='_blank'
 					rel='noopener noreferrer'
-					className='inline-flex items-center gap-2 text-sm text-sei-maroon-100 hover:text-sei-maroon-200 bg-sei-grey-25 hover:bg-sei-grey-30 px-3 py-1.5 rounded-sm transition-colors font-medium no-underline'>
+					className='inline-flex items-center gap-2 text-sm text-sei-maroon-100 hover:text-sei-maroon-200 bg-sei-grey-25 hover:bg-sei-grey-30 px-3 py-1.5  transition-colors font-medium no-underline'>
 					<svg className='w-4 h-4' fill='currentColor' viewBox='0 0 20 20'>
 						<path
 							fillRule='evenodd'

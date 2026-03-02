@@ -77,7 +77,7 @@ export function EcosystemContractsTabs({ groupedData, nameKey, addressKey }: Eco
 				/>
 				<button
 					type='submit'
-					className='px-3 py-2 rounded-sm bg-sei-maroon-100 text-white text-sm hover:bg-sei-maroon-200 transition-colors focus:outline-none focus:ring-2 focus:ring-sei-maroon-100/30 dark:focus:ring-sei-maroon-100/20'>
+					className='px-3 py-2  bg-sei-maroon-100 text-white text-sm hover:bg-sei-maroon-200 transition-colors focus:outline-none focus:ring-2 focus:ring-sei-maroon-100/30 dark:focus:ring-sei-maroon-100/20'>
 					Search
 				</button>
 			</form>
@@ -87,7 +87,7 @@ export function EcosystemContractsTabs({ groupedData, nameKey, addressKey }: Eco
 					const isOpen = !!openSections[group.projectName];
 					const sectionId = `section-${slugify(group.projectName)}`;
 					return (
-						<div key={group.projectName} className='border border-neutral-200 dark:border-neutral-800 rounded-sm overflow-hidden'>
+						<div key={group.projectName} className='border border-neutral-200 dark:border-neutral-800  overflow-hidden'>
 							<button
 								type='button'
 								onClick={() => toggleSection(group.projectName)}
@@ -111,7 +111,7 @@ export function EcosystemContractsTabs({ groupedData, nameKey, addressKey }: Eco
 								<div className='p-4 space-y-4'>
 									{/* Desktop table view */}
 									<div className='hidden sm:block overflow-x-auto'>
-										<table className='w-full border-collapse border border-gray-200 dark:border-gray-700 rounded-sm'>
+										<table className='w-full border-collapse border border-gray-200 dark:border-gray-700 '>
 											<thead>
 												<tr className='bg-gray-50 dark:bg-gray-800'>
 													<th className='border border-gray-200 dark:border-gray-700 px-4 py-3 text-left text-sm font-semibold text-gray-900 dark:text-white'>
@@ -138,7 +138,7 @@ export function EcosystemContractsTabs({ groupedData, nameKey, addressKey }: Eco
 																		href={`https://seiscan.io/address/${contract[addressKey]}`}
 																		target='_blank'
 																		rel='noopener noreferrer'
-																		className='text-sei-maroon-100 hover:text-sei-maroon-200 dark:text-sei-maroon-25 dark:hover:text-sei-cream text-xs bg-sei-grey-25 hover:bg-sei-grey-30 dark:bg-sei-maroon-100/20 dark:hover:bg-sei-maroon-100/30 px-2 py-1 rounded-sm transition-colors no-underline'>
+																		className='text-sei-maroon-100 hover:text-sei-maroon-200 dark:text-sei-maroon-25 dark:hover:text-sei-cream text-xs bg-sei-grey-25 hover:bg-sei-grey-30 dark:bg-sei-maroon-100/20 dark:hover:bg-sei-maroon-100/30 px-2 py-1  transition-colors no-underline'>
 																		SeiScan ↗
 																	</a>
 																</div>
@@ -156,7 +156,7 @@ export function EcosystemContractsTabs({ groupedData, nameKey, addressKey }: Eco
 											const addr = String(contract[addressKey] || '').toLowerCase();
 											const id = `contract-${slugify(group.projectName)}-${addr}`;
 											return (
-												<div key={contractIndex} id={id} className='border border-gray-200 dark:border-gray-700 rounded-sm p-4 bg-white dark:bg-gray-800'>
+												<div key={contractIndex} id={id} className='border border-gray-200 dark:border-gray-700  p-4 bg-white dark:bg-gray-800'>
 													<div className='space-y-2'>
 														<div>
 															<span className='text-xs text-gray-500 dark:text-gray-400 block mb-1'>Contract Name</span>
@@ -170,7 +170,7 @@ export function EcosystemContractsTabs({ groupedData, nameKey, addressKey }: Eco
 																	href={`https://seiscan.io/address/${contract[addressKey]}`}
 																	target='_blank'
 																	rel='noopener noreferrer'
-																	className='text-sei-maroon-100 hover:text-sei-maroon-200 dark:text-sei-maroon-25 dark:hover:text-sei-cream text-xs bg-sei-grey-25 hover:bg-sei-grey-30 dark:bg-sei-maroon-100/20 dark:hover:bg-sei-maroon-100/30 px-2 py-1 rounded-sm transition-colors no-underline'>
+																	className='text-sei-maroon-100 hover:text-sei-maroon-200 dark:text-sei-maroon-25 dark:hover:text-sei-cream text-xs bg-sei-grey-25 hover:bg-sei-grey-30 dark:bg-sei-maroon-100/20 dark:hover:bg-sei-maroon-100/30 px-2 py-1  transition-colors no-underline'>
 																	SeiScan ↗
 																</a>
 															</div>

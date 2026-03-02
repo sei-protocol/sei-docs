@@ -75,11 +75,11 @@ export function MCPDemo() {
 
 	return (
 		<div className='w-full max-w-5xl mx-auto my-12'>
-			<div className='rounded-sm overflow-hidden border border-neutral-200/50 dark:border-neutral-800/50 bg-gradient-to-br from-purple-500/5 via-blue-500/5 to-red-500/5 dark:from-purple-900/20 dark:via-blue-900/10 dark:to-red-900/20 shadow-xl'>
+			<div className=' overflow-hidden border border-neutral-200/50 dark:border-neutral-800/50 bg-gradient-to-br from-purple-500/5 via-blue-500/5 to-red-500/5 dark:from-purple-900/20 dark:via-blue-900/10 dark:to-red-900/20 shadow-xl'>
 				{/* Header */}
 				<div className='bg-gradient-to-r from-purple-600 via-purple-600 to-blue-600 p-6'>
 					<div className='flex items-center gap-4'>
-						<div className='w-12 h-12 rounded-sm bg-white/20 backdrop-blur-sm flex items-center justify-center'>
+						<div className='w-12 h-12  bg-white/20 backdrop-blur-sm flex items-center justify-center'>
 							<IconTerminal2 className='h-6 w-6 text-white' />
 						</div>
 						<div>
@@ -109,14 +109,14 @@ export function MCPDemo() {
 							key={index}
 							className={`flex gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
 							{message.role === 'assistant' && (
-								<div className='w-10 h-10 rounded-sm bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shrink-0 shadow-lg'>
+								<div className='w-10 h-10  bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shrink-0 shadow-lg'>
 									<IconRobot className='h-5 w-5 text-white' />
 								</div>
 							)}
 
 							<div className={`max-w-[75%] ${message.role === 'user' ? 'order-1' : ''}`}>
 								<div
-									className={`rounded-sm px-5 py-3 ${
+									className={` px-5 py-3 ${
 										message.role === 'user'
 											? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg'
 											: 'bg-white dark:bg-neutral-800/80 backdrop-blur-sm border border-neutral-200 dark:border-neutral-700 shadow-md'
@@ -150,7 +150,7 @@ export function MCPDemo() {
 							</div>
 
 							{message.role === 'user' && (
-								<div className='w-10 h-10 rounded-sm bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center shrink-0 shadow-lg order-2'>
+								<div className='w-10 h-10  bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center shrink-0 shadow-lg order-2'>
 									<IconUser className='h-5 w-5 text-white' />
 								</div>
 							)}
@@ -159,10 +159,10 @@ export function MCPDemo() {
 
 					{isTyping && (
 						<div className='flex gap-4 justify-start animate-in fade-in slide-in-from-bottom-2 duration-300'>
-							<div className='w-10 h-10 rounded-sm bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shrink-0 shadow-lg'>
+							<div className='w-10 h-10  bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shrink-0 shadow-lg'>
 								<IconRobot className='h-5 w-5 text-white' />
 							</div>
-							<div className='bg-white dark:bg-neutral-800/80 backdrop-blur-sm border border-neutral-200 dark:border-neutral-700 rounded-sm px-5 py-3 shadow-md'>
+							<div className='bg-white dark:bg-neutral-800/80 backdrop-blur-sm border border-neutral-200 dark:border-neutral-700  px-5 py-3 shadow-md'>
 								<div className='flex items-center gap-2'>
 									<IconLoader2 className='h-4 w-4 animate-spin text-purple-600' />
 									<span className='text-sm text-neutral-600 dark:text-neutral-400'>AI is thinking...</span>
@@ -181,12 +181,12 @@ export function MCPDemo() {
 							onChange={(e) => setInput(e.target.value)}
 							onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
 							placeholder="Try: 'Check my balance' or 'Is 0x3894085ef7ff0f0aedf52e2a2704928d1ec074f1 a contract?'"
-							className='flex-1 px-4 py-3 bg-white/80 dark:bg-neutral-800/50 backdrop-blur-sm border border-neutral-300/50 dark:border-neutral-600/50 rounded-sm text-sm placeholder:text-neutral-500 dark:placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 dark:focus:ring-purple-400/50 focus:border-transparent transition-all'
+							className='flex-1 px-4 py-3 bg-white/80 dark:bg-neutral-800/50 backdrop-blur-sm border border-neutral-300/50 dark:border-neutral-600/50  text-sm placeholder:text-neutral-500 dark:placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 dark:focus:ring-purple-400/50 focus:border-transparent transition-all'
 						/>
 						<button
 							onClick={handleSend}
 							disabled={!input.trim() || isTyping}
-							className='px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:from-neutral-400 disabled:to-neutral-500 text-white rounded-sm transition-all flex items-center gap-2 font-medium shadow-lg hover:shadow-xl disabled:shadow-none'>
+							className='px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:from-neutral-400 disabled:to-neutral-500 text-white  transition-all flex items-center gap-2 font-medium shadow-lg hover:shadow-xl disabled:shadow-none'>
 							<IconSend className='h-4 w-4' />
 							Send
 						</button>

@@ -105,7 +105,7 @@ const RequestFaucetCard = () => {
 				</div>
 			</Flex>
 
-			<div className='w-full flex items-center border border-neutral-300 dark:border-neutral-600 rounded-sm p-2 focus-within:ring-2 focus-within:ring-neutral-400 dark:focus-within:ring-neutral-500'>
+			<div className='w-full flex items-center border border-neutral-300 dark:border-neutral-600  p-2 focus-within:ring-2 focus-within:ring-neutral-400 dark:focus-within:ring-neutral-500'>
 				<input
 					className='w-full text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-500 dark:placeholder:text-neutral-400 px-4 py-3 text-lg outline-none'
 					placeholder='Sei EVM address...'
@@ -113,10 +113,10 @@ const RequestFaucetCard = () => {
 					onChange={handleAddressChange}
 				/>
 				<Select.Root value={selectedChain} onValueChange={setSelectedChain}>
-					<Select.Trigger className='bg-neutral-200 dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 px-4 py-2 text-lg rounded-sm cursor-pointer focus:ring-2 focus:ring-neutral-400 dark:focus-within:ring-neutral-500'>
+					<Select.Trigger className='bg-neutral-200 dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 px-4 py-2 text-lg  cursor-pointer focus:ring-2 focus:ring-neutral-400 dark:focus-within:ring-neutral-500'>
 						{selectedChain === 'atlantic-2' ? 'Testnet' : 'Devnet'}
 					</Select.Trigger>
-					<Select.Content className='bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 text-lg rounded-sm shadow-lg'>
+					<Select.Content className='bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 text-lg  shadow-lg'>
 						<Select.Item value='atlantic-2'>Testnet (atlantic-2)</Select.Item>
 					</Select.Content>
 				</Select.Root>
@@ -131,7 +131,7 @@ const RequestFaucetCard = () => {
 
 			<Flex direction='column' className='w-full gap-5'>
 				<Button
-					className={`w-full flex items-center gap-3 justify-center !p-6 !rounded-sm ${
+					className={`w-full flex items-center gap-3 justify-center !p-6 ! ${
 						captchaToken
 							? 'bg-neutral-700 hover:bg-neutral-800 dark:bg-neutral-300 dark:hover:bg-neutral-400 text-white dark:text-black'
 							: 'bg-neutral-400 cursor-not-allowed'
@@ -142,7 +142,7 @@ const RequestFaucetCard = () => {
 				</Button>
 
 				<Button
-					className={`w-full flex items-center gap-3 justify-center !p-6 !rounded-sm ${
+					className={`w-full flex items-center gap-3 justify-center !p-6 ! ${
 						isSubmitDisabled
 							? 'bg-neutral-500 cursor-not-allowed'
 							: 'bg-neutral-800 hover:bg-neutral-900 dark:bg-neutral-300 dark:hover:bg-neutral-400 text-white dark:text-black'
