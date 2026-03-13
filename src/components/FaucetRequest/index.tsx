@@ -10,6 +10,22 @@ import HCaptcha from '@hcaptcha/react-hcaptcha';
 import { VITE_FAUCET_API_URL } from './constants';
 import usePollMessageStatus from './usePollMessageStatus';
 
+function formatNextUseTime(iso: string): string {
+	const date = new Date(iso);
+	const now = new Date();
+	const diffMs = date.getTime() - now.getTime();
+
+	if (diffMs <= 0) return 'now';
+
+	const hours = Math.floor(diffMs / (1000 * 60 * 60));
+	const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+	if (hours > 0 && mins > 0) return `${hours}h ${mins}m`;
+	if (hours > 0) return `${hours}h`;
+	if (mins > 0) return `${mins}m`;
+	return 'less than a minute';
+}
+
 const RequestFaucetCard = () => {
 	const [sendingRequest, setSendingRequest] = useState(false);
 	const [destAddress, setDestAddress] = useState('');
@@ -74,7 +90,7 @@ const RequestFaucetCard = () => {
 				sendGTMEvent({ event: 'faucet_used', address: destAddress });
 			} else if (responseJson.data?.nextAllowedUseDate) {
 				setNextUseTime(responseJson.data.nextAllowedUseDate);
-				toast.error(`Rate limited. Try again after ${responseJson.data.nextAllowedUseDate}`);
+				toast.error(`Rate limited. Try again in ${formatNextUseTime(responseJson.data.nextAllowedUseDate)}`);
 			}
 			resetCaptcha();
 		} catch (error) {
@@ -150,7 +166,7 @@ const RequestFaucetCard = () => {
 				<div className='flex items-center gap-3 px-4 py-3 border-l-3 border-sei-maroon-100 bg-sei-maroon-100/5 dark:bg-sei-maroon-100/10 text-sm'>
 					<IconHourglass className='w-4 h-4 text-sei-maroon-100 dark:text-sei-maroon-25 shrink-0' />
 					<p className='text-neutral-700 dark:text-neutral-300'>
-						You can request tokens again after <span className='font-medium text-sei-maroon-100 dark:text-sei-maroon-25'>{nextUseTime}</span>
+						You can request tokens again in <span className='font-medium text-sei-maroon-100 dark:text-sei-maroon-25'>{formatNextUseTime(nextUseTime)}</span>
 					</p>
 				</div>
 			)}
