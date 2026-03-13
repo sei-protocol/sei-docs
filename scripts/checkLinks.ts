@@ -11,7 +11,9 @@ const EXCLUDED_URLS = [
 	'http://127.0.0.1:8545/',
 	'https://github.com/sei-protocol/sei-cosmos/compare/v0.2.84...v0.2.84',
 	'https://github.com/sei-protocol/sei-chain/compare/2.0.44beta...2.0.45beta-release',
-	'https://seiscan.io/tokens'
+	'https://seiscan.io/tokens',
+	'https://dune.com',
+	'https://sim.dune.com'
 ];
 
 // Function to check if a URL should be excluded

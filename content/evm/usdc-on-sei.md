@@ -81,7 +81,7 @@ const seiMainnet = {
 	network: 'sei-pacific-1',
 	nativeCurrency: { name: 'Sei', symbol: 'SEI', decimals: 18 },
 	rpcUrls: { default: { http: ['https://evm-rpc.sei-apis.com'] } },
-	blockExplorers: { default: { url: 'https://seiscan.io } },
+	blockExplorers: { default: { url: 'https://seiscan.io' } },
 	testnet: false
 };
 
