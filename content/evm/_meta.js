@@ -85,5 +85,5 @@ export default {
 		type: 'separator',
 		title: 'Hardware Wallets'
 	},
-	'ledger-ethers': 'Ledger Hardware Wallet'
+	'ledger-ethers': 'Ledger Setup (EVM)'
 };
