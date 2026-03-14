@@ -14,7 +14,7 @@ const SEI_LLMS_CONFIG = {
 	constraints: [
 		'Prerequisites: Node.js ≥ 18, a wallet (MetaMask or any EVM-compatible wallet), and SEI tokens for gas fees.',
 		'Authentication: No API key is required for public RPC endpoints. Rate limits apply to free RPC endpoints — use a dedicated provider (Ankr, DRPC, Nirvana) for production workloads.',
-		'Version compatibility: Solidity ≥ 0.8.x recommended. Sei EVM is compatible with the Shanghai EVM version (no Cancun/Dencun opcodes like MCOPY or TSTORE yet).',
+		'Version compatibility: Solidity ≥ 0.8.x recommended. Sei EVM uses the Pectra EVM version (without blob transactions).',
 		'Network requirements: Mainnet chain ID 1329, testnet chain ID 1328. Gas is paid in SEI (18 decimals).',
 		'Important notes: Sei has 400ms block times — set lower polling intervals than on Ethereum. Transactions that touch independent state are parallelized automatically; shared-state writes are serialized.'
 	].join('\n'),
