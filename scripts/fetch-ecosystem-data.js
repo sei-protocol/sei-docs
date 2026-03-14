@@ -1,14 +1,14 @@
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const OUTPUT_FILE = path.join(__dirname, '../src/data/ecosystem-cache.json');
 
-const https = require('https');
+const https = require('node:https');
 
 async function fetchEcosystemData() {
 	console.log('Fetching ecosystem data...');
 	try {
-		const agent = new https.Agent({});
+		const _agent = new https.Agent({});
 
 		const response = await fetch('https://app-api.seinetwork.io/sanity/ecosystem');
 		if (!response.ok) {

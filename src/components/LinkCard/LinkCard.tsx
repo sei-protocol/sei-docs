@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
 import { IconChevronDown } from '@tabler/icons-react';
+import { type ReactNode, useState } from 'react';
 import styles from './LinkCard.module.css';
 
 interface LinkCardProps {
@@ -33,6 +33,7 @@ const LinkCard = ({ title, description, link, icon, preview }: LinkCardProps) =>
 						{icon && <div className={styles.icon}>{icon}</div>}
 						{preview && (
 							<button
+								type='button'
 								onClick={(e) => {
 									e.preventDefault();
 									e.stopPropagation();
@@ -54,7 +55,7 @@ const LinkCard = ({ title, description, link, icon, preview }: LinkCardProps) =>
 				<div className={styles.previewOverlay} onClick={(e) => e.stopPropagation()}>
 					<div className='h-full flex flex-col'>
 						<div className={styles.closeButtonContainer}>
-							<button onClick={() => setShowPreview(false)} className={styles.closeButton}>
+							<button type='button' onClick={() => setShowPreview(false)} className={styles.closeButton}>
 								<IconChevronDown className='rotate-180' size={14} />
 								Close
 							</button>

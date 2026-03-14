@@ -1,7 +1,7 @@
 'use client';
 
-import { EcosystemDocsCategory, EcosystemItem } from '../../data/ecosystemData';
 import ecosystemData from '../../data/ecosystem-cache.json';
+import type { EcosystemDocsCategory, EcosystemItem } from '../../data/ecosystemData';
 import AppCardV2 from './AppCard.v2';
 
 // Ensure the data is typed correctly

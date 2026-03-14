@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { IconSend, IconRobot, IconUser, IconLoader2, IconSparkles, IconTerminal2 } from '@tabler/icons-react';
+import { IconLoader2, IconRobot, IconSend, IconSparkles, IconTerminal2, IconUser } from '@tabler/icons-react';
+import { useState } from 'react';
 
 interface Message {
 	role: 'user' | 'assistant';
@@ -184,6 +184,7 @@ export function MCPDemo() {
 							className='flex-1 px-4 py-3 bg-white/80 dark:bg-neutral-800/50 backdrop-blur-sm border border-neutral-300/50 dark:border-neutral-600/50  text-sm placeholder:text-neutral-500 dark:placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 dark:focus:ring-purple-400/50 focus:border-transparent transition-all'
 						/>
 						<button
+							type='button'
 							onClick={handleSend}
 							disabled={!input.trim() || isTyping}
 							className='px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:from-neutral-400 disabled:to-neutral-500 text-white  transition-all flex items-center gap-2 font-medium shadow-lg hover:shadow-xl disabled:shadow-none'>

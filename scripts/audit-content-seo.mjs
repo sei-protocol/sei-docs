@@ -1,5 +1,5 @@
-import fs from 'fs/promises';
-import path from 'path';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 
 const CONTENT_DIR = path.resolve('./content');
 const OUTPUT_JSON = path.resolve('./public/_seo-audit.json');

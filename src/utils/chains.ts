@@ -32,14 +32,3 @@ export const getChainIdHexForNetwork = (networkType: NetworkType) => {
 			return 0x531;
 	}
 };
-
-const getNetworkTypeForChainId = (evmChainId: number) => {
-	switch (evmChainId) {
-		case 1329:
-			return 'mainnet';
-		case 1328:
-			return 'testnet';
-		default:
-			return 'mainnet';
-	}
-};

@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useRef, useState, useCallback } from 'react';
-import { Button, Flex } from '@radix-ui/themes';
-import { toast } from 'sonner';
-import { sendGTMEvent } from '@next/third-parties/google';
-import { IconDroplet, IconShieldCheck, IconHourglass, IconCheck, IconLoader2, IconExternalLink, IconSend } from '@tabler/icons-react';
-import { isAddress } from 'viem/utils';
 import HCaptcha from '@hcaptcha/react-hcaptcha';
+import { sendGTMEvent } from '@next/third-parties/google';
+import { IconCheck, IconDroplet, IconExternalLink, IconHourglass, IconLoader2, IconSend, IconShieldCheck } from '@tabler/icons-react';
+import type React from 'react';
+import { useCallback, useRef, useState } from 'react';
+import { toast } from 'sonner';
+import { isAddress } from 'viem/utils';
 import { VITE_FAUCET_API_URL } from './constants';
 import usePollMessageStatus from './usePollMessageStatus';
 
@@ -135,6 +135,7 @@ const RequestFaucetCard = () => {
 				{/* Action row */}
 				<div className='flex items-stretch'>
 					<button
+						type='button'
 						onClick={handleCaptchaVerification}
 						className={`flex-1 flex items-center justify-center gap-3 px-5 py-5 text-sm font-medium transition-colors border-r border-neutral-200 dark:border-neutral-800 ${
 							captchaToken
@@ -147,6 +148,7 @@ const RequestFaucetCard = () => {
 					</button>
 
 					<button
+						type='button'
 						onClick={handleSubmit}
 						disabled={isSubmitDisabled}
 						className={`flex-1 flex items-center justify-center gap-3 px-5 py-5 text-sm font-medium transition-all ${

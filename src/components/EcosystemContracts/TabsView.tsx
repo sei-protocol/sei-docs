@@ -107,7 +107,7 @@ export function EcosystemContractsTabs({ groupedData, nameKey, addressKey }: Eco
 									</svg>
 								</span>
 							</button>
-							<div id={sectionId} role='region' className={`${isOpen ? 'block' : 'hidden'}`}>
+							<section id={sectionId} className={`${isOpen ? 'block' : 'hidden'}`}>
 								<div className='p-4 space-y-4'>
 									{/* Desktop table view */}
 									<div className='hidden sm:block overflow-x-auto'>
@@ -181,7 +181,7 @@ export function EcosystemContractsTabs({ groupedData, nameKey, addressKey }: Eco
 										})}
 									</div>
 								</div>
-							</div>
+							</section>
 						</div>
 					);
 				})}

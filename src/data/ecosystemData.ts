@@ -51,7 +51,7 @@ export async function getSeiEcosystemAppsData(): Promise<EcosystemResponse> {
 
 		const data = await response.json();
 		return data;
-	} catch (error) {
+	} catch (_error) {
 		return { data: [] };
 	}
 }
@@ -74,7 +74,7 @@ export async function getSeiEcosystemAppByCategory(category: EcosystemDocsCatego
 
 		const data = await response.json();
 		return data;
-	} catch (error) {
+	} catch (_error) {
 		return { data: [] };
 	}
 }

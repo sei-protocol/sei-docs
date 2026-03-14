@@ -1,6 +1,6 @@
 'use client';
 
-import { BundledLanguage } from './types';
+import type { BundledLanguage } from './types';
 
 type SyntaxHighlighterProps = {
 	code: string;

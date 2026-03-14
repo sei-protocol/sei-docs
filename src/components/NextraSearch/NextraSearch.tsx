@@ -1,7 +1,7 @@
 'use client';
 
-import React from 'react';
 import { Search } from 'nextra/components';
+import type React from 'react';
 
 export type NextraSearchProps = {
 	emptyResult?: React.ReactElement | string;

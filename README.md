@@ -4,13 +4,13 @@
 
 ## Quick Start
 
-Ensure you have `yarn` installed (macOS users can Run `brew install yarn`)
+Ensure you have `bun` installed (see [bun.sh](https://bun.sh) for installation instructions)
 
-1. Use `yarn` to install dependencies
-2. Use `yarn dev` to run the docs locally.
-3. Use `yarn build` to build the docs.
+1. Use `bun install` to install dependencies
+2. Use `bun dev` to run the docs locally.
+3. Use `bun run build` to build the docs.
 
-You should always run `yarn build` before pushing any changes to validate that there are no syntax errors.
+You should always run `bun run build` before pushing any changes to validate that there are no syntax errors.
 
 ## Contributing
 

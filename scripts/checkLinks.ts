@@ -1,6 +1,7 @@
 //@ts-nocheck
-import { Browser, chromium, Page, Response } from '@playwright/test';
+
 import * as fs from 'node:fs';
+import { type Browser, chromium, type Page, type Response } from '@playwright/test';
 
 // Custom exclusion list for URLs that should be skipped (blocked for robots, etc.)
 const EXCLUDED_URLS = [
@@ -125,7 +126,7 @@ async function isLinkBroken(page: Page, url: string, path: string) {
 		let pageResponse: Response | undefined;
 		try {
 			pageResponse = await page.goto(url, { waitUntil: 'load', timeout: 45000 });
-		} catch (error: any) {
+		} catch (_error: any) {
 			// Treat navigation errors as failed attempts.
 		}
 
@@ -149,11 +150,11 @@ async function isLinkBroken(page: Page, url: string, path: string) {
 	return true;
 }
 
-async function retryPageLoadIfTimeout(page: Page, url: string, path: string) {
+async function _retryPageLoadIfTimeout(page: Page, url: string, path: string) {
 	try {
 		console.warn(`Retrying page load for ${path}`);
 		return await page.goto(url, { waitUntil: 'load', timeout: 45000 });
-	} catch (e: any) {
+	} catch (_e: any) {
 		return undefined;
 	}
 }
