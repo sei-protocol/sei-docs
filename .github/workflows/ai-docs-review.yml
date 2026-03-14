@@ -1,0 +1,88 @@
+name: AI Docs Review
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  ai-review:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Fetch llms-full.txt
+        run: |
+          curl -sS -f -o llms-full.txt https://docs.sei.io/llms-full.txt
+          echo "Fetched $(wc -c < llms-full.txt) bytes"
+
+      - name: Analyze with Claude
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          CONTENT=$(jq -Rs '.' < llms-full.txt)
+
+          jq -n \
+            --arg model "claude-opus-4-6" \
+            --argjson max_tokens 16384 \
+            --argjson content "$CONTENT" \
+            '{
+              model: $model,
+              max_tokens: $max_tokens,
+              messages: [
+                {
+                  role: "user",
+                  content: ("You are a senior technical writer reviewing the full documentation for Sei, an EVM-compatible L1 blockchain.\n\nReview the docs below and suggest up to 15 small, concrete improvements. Focus on:\n- Factual accuracy or outdated information\n- Unclear or ambiguous phrasing\n- Missing context that would help developers\n- Broken or inconsistent formatting\n- Opportunities to improve developer experience\n\nFor each suggestion, output:\n1. **Section**: The page title or heading it applies to\n2. **Quote**: A short quote of the problematic text\n3. **Suggestion**: Your concrete fix or improvement\n4. **Why**: Why this matters\n\nFormat your response as a numbered markdown list.\n\n---\n\n" + $content)
+                }
+              ]
+            }' > /tmp/payload.json
+
+          HTTP_CODE=$(curl -sS -o /tmp/response.json -w "%{http_code}" \
+            https://api.anthropic.com/v1/messages \
+            -H "content-type: application/json" \
+            -H "x-api-key: $ANTHROPIC_API_KEY" \
+            -H "anthropic-version: 2023-06-01" \
+            -d @/tmp/payload.json)
+
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::error::Claude API returned HTTP $HTTP_CODE"
+            cat /tmp/response.json
+            exit 1
+          fi
+
+          SUGGESTIONS=$(jq -r '.content[0].text // empty' < /tmp/response.json)
+
+          if [ -z "$SUGGESTIONS" ]; then
+            echo "::error::No response text from Claude"
+            exit 1
+          fi
+
+          {
+            echo "# AI Documentation Review — $(date -u +%Y-%m-%d)"
+            echo ""
+            echo "Automated review of [llms-full.txt](https://docs.sei.io/llms-full.txt) by Claude Opus 4.6."
+            echo ""
+            echo "$SUGGESTIONS"
+          } > suggestions.md
+
+          echo "has_suggestions=true" >> "$GITHUB_ENV"
+
+      - name: Create GitHub Issue
+        if: env.has_suggestions == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh issue create --title "AI Docs Review — $(date -u +%Y-%m-%d)" --body-file suggestions.md --label "documentation,ai-review"
+
+      - name: Upload suggestions artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-docs-suggestions
+          path: suggestions.md
+          retention-days: 30
