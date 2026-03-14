@@ -1,15 +1,14 @@
 'use client';
 
-import { Layout, Navbar } from 'nextra-theme-docs';
-import dynamic from 'next/dynamic';
-import { AskAIAssistant } from '../components/AskAIAssistant/AskAIAssistant';
-import { Logo, LogoMobile } from '../components/Logo';
-import { useState, useEffect } from 'react';
-import { Footer } from '../components/Footer/Footer';
 import { Theme } from '@radix-ui/themes';
-import { ThemeSwitch } from 'nextra-theme-docs';
+import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
-import { Snowflakes, Confetti } from '../components/SeasonalEffects';
+import { Layout, Navbar, ThemeSwitch } from 'nextra-theme-docs';
+import { useEffect, useState } from 'react';
+import { AskAIAssistant } from '../components/AskAIAssistant/AskAIAssistant';
+import { Footer } from '../components/Footer/Footer';
+import { Logo, LogoMobile } from '../components/Logo';
+import { Confetti, Snowflakes } from '../components/SeasonalEffects';
 
 const SearchDynamic = dynamic(() => import('../components/NextraSearch/NextraSearch'), { ssr: false, loading: () => <div /> });
 
@@ -66,25 +65,23 @@ export default function DocsProviders({ children, pageMap }) {
 	};
 
 	return (
-		<>
-			<Layout
-				docsRepositoryBase='https://github.com/sei-protocol/sei-docs/tree/main'
-				sidebar={{ defaultMenuCollapseLevel: 1, toggleButton: true }}
-				editLink='Edit this page'
-				feedback={{ content: 'Question? Give us feedback →', labels: 'https://github.com/sei-protocol/sei-docs/issues/new' }}
-				footer={<Footer />}
-				darkMode={true}
-				search={null}
-				nextThemes={{ attribute: 'class', defaultTheme: 'dark' }}
-				pageMap={pageMap}>
-				{isMobile && <ConditionalNavbar />}
-				<Theme accentColor='red' grayColor='gray' scaling='100%'>
-					<Snowflakes />
-					<Confetti />
-					{!isMobile && <ConditionalNavbar />}
-					<div className='relative z-10'>{children}</div>
-				</Theme>
-			</Layout>
-		</>
+		<Layout
+			docsRepositoryBase='https://github.com/sei-protocol/sei-docs/tree/main'
+			sidebar={{ defaultMenuCollapseLevel: 1, toggleButton: true }}
+			editLink='Edit this page'
+			feedback={{ content: 'Question? Give us feedback →', labels: 'https://github.com/sei-protocol/sei-docs/issues/new' }}
+			footer={<Footer />}
+			darkMode={true}
+			search={null}
+			nextThemes={{ attribute: 'class', defaultTheme: 'dark' }}
+			pageMap={pageMap}>
+			{isMobile && <ConditionalNavbar />}
+			<Theme accentColor='red' grayColor='gray' scaling='100%'>
+				<Snowflakes />
+				<Confetti />
+				{!isMobile && <ConditionalNavbar />}
+				<div className='relative z-10'>{children}</div>
+			</Theme>
+		</Layout>
 	);
 }

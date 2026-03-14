@@ -1,8 +1,6 @@
-'use strict';
-
-const fs = require('fs');
-const path = require('path');
-const https = require('https');
+const fs = require('node:fs');
+const path = require('node:path');
+const https = require('node:https');
 const terser = require('terser');
 
 const BYTEBELLAI_JS_URL = 'https://bb-chat-widget.s3.us-east-1.amazonaws.com/assets/index.js';

@@ -1,81 +1,78 @@
-const fs = require('fs').promises;
-const path = require('path');
-const { uploadToTrieve } = require('../upload-to-trieve');
+import { afterEach, beforeEach, describe, expect, mock, spyOn, test } from 'bun:test';
+import path from 'node:path';
 
-// Mock fetch globally
-global.fetch = jest.fn();
+const mockReadFile = mock();
 
-// Mock fs.readFile
-jest.mock('fs', () => ({
+mock.module('fs', () => ({
 	promises: {
-		readFile: jest.fn()
+		readFile: mockReadFile
 	}
 }));
 
+const { uploadToTrieve } = await import('../upload-to-trieve.js');
+
+globalThis.fetch = mock();
+
+const mockApiKey = 'test-api-key';
+const mockDatasetId = 'test-dataset-id';
+const mockScrapedData = [
+	{
+		title: 'Test Page 1',
+		url: 'https://docs.sei.io/test-page-1',
+		filePath: '/test/page1.html',
+		content: '<p>Test content 1</p>',
+		description: 'Test description 1',
+		keywords: ['test', 'page1']
+	},
+	{
+		title: 'Test Page 2',
+		url: 'https://docs.sei.io/learn/test-page-2',
+		filePath: '/test/page2.html',
+		content: '<p>Test content 2</p>',
+		description: 'Test description 2',
+		keywords: ['learn', 'page2']
+	}
+];
+
+const mockExistingFiles = [
+	{
+		id: 'file-1',
+		file_name: 'test-page-1.md',
+		size: 1000,
+		tag_set: ['sei-docs'],
+		metadata: {
+			content_hash: 'old-hash-1',
+			source: 'sei-docs'
+		}
+	},
+	{
+		id: 'file-2',
+		file_name: 'obsolete-page.md',
+		size: 500,
+		tag_set: ['sei-docs'],
+		metadata: {
+			content_hash: 'old-hash-2',
+			source: 'sei-docs'
+		}
+	}
+];
+
 describe('upload-to-trieve', () => {
-	const mockApiKey = 'test-api-key';
-	const mockDatasetId = 'test-dataset-id';
-	const mockScrapedData = [
-		{
-			title: 'Test Page 1',
-			url: 'https://docs.sei.io/test-page-1',
-			filePath: '/test/page1.html',
-			content: '<p>Test content 1</p>',
-			description: 'Test description 1',
-			keywords: ['test', 'page1']
-		},
-		{
-			title: 'Test Page 2',
-			url: 'https://docs.sei.io/learn/test-page-2',
-			filePath: '/test/page2.html',
-			content: '<p>Test content 2</p>',
-			description: 'Test description 2',
-			keywords: ['learn', 'page2']
-		}
-	];
-
-	const mockExistingFiles = [
-		{
-			id: 'file-1',
-			file_name: 'test-page-1.md',
-			size: 1000,
-			tag_set: ['sei-docs'],
-			metadata: {
-				content_hash: 'old-hash-1',
-				source: 'sei-docs'
-			}
-		},
-		{
-			id: 'file-2',
-			file_name: 'obsolete-page.md',
-			size: 500,
-			tag_set: ['sei-docs'],
-			metadata: {
-				content_hash: 'old-hash-2',
-				source: 'sei-docs'
-			}
-		}
-	];
-
 	beforeEach(() => {
-		// Set up environment variables
 		process.env.TRIEVE_API_KEY = mockApiKey;
 		process.env.TRIEVE_DATASET_ID = mockDatasetId;
 
-		// Reset mocks
-		jest.clearAllMocks();
+		fetch.mockReset();
+		mockReadFile.mockReset();
 
-		// Mock console methods
-		jest.spyOn(console, 'log').mockImplementation(() => {});
-		jest.spyOn(console, 'error').mockImplementation(() => {});
+		spyOn(console, 'log').mockImplementation(() => {});
+		spyOn(console, 'error').mockImplementation(() => {});
 	});
 
 	afterEach(() => {
-		// Clean up environment variables
 		delete process.env.TRIEVE_API_KEY;
 		delete process.env.TRIEVE_DATASET_ID;
 
-		// Restore console methods
 		console.log.mockRestore();
 		console.error.mockRestore();
 	});
@@ -83,7 +80,7 @@ describe('upload-to-trieve', () => {
 	describe('Environment Variables', () => {
 		test('should exit with error if TRIEVE_API_KEY is missing', async () => {
 			delete process.env.TRIEVE_API_KEY;
-			const mockExit = jest.spyOn(process, 'exit').mockImplementation(() => {});
+			const mockExit = spyOn(process, 'exit').mockImplementation(() => {});
 
 			await uploadToTrieve();
 
@@ -95,7 +92,7 @@ describe('upload-to-trieve', () => {
 
 		test('should exit with error if TRIEVE_DATASET_ID is missing', async () => {
 			delete process.env.TRIEVE_DATASET_ID;
-			const mockExit = jest.spyOn(process, 'exit').mockImplementation(() => {});
+			const mockExit = spyOn(process, 'exit').mockImplementation(() => {});
 
 			await uploadToTrieve();
 
@@ -108,7 +105,6 @@ describe('upload-to-trieve', () => {
 
 	describe('File Fetching', () => {
 		test('should successfully fetch existing files', async () => {
-			// Mock successful responses
 			fetch
 				.mockResolvedValueOnce({
 					ok: true,
@@ -117,19 +113,17 @@ describe('upload-to-trieve', () => {
 							file_with_chunk_groups: mockExistingFiles,
 							next_cursor: null
 						})
-				}) // Fetch existing files
-				.mockResolvedValue({ ok: true }); // Other operations
+				})
+				.mockResolvedValue({ ok: true });
 
-			// Mock file reading
-			fs.readFile.mockResolvedValue(JSON.stringify(mockScrapedData));
+			mockReadFile.mockResolvedValue(JSON.stringify(mockScrapedData));
 
 			await uploadToTrieve();
 
-			// Verify scroll files API call
 			const scrollCall = fetch.mock.calls.find((call) => call[0].includes('/dataset/scroll_files'));
 			expect(scrollCall).toBeDefined();
 			expect(scrollCall[1].method).toBe('GET');
-			expect(scrollCall[1].headers['Authorization']).toBe(mockApiKey);
+			expect(scrollCall[1].headers.Authorization).toBe(mockApiKey);
 			expect(scrollCall[1].headers['TR-Dataset']).toBe(mockDatasetId);
 		});
 
@@ -140,7 +134,7 @@ describe('upload-to-trieve', () => {
 				statusText: 'Forbidden'
 			});
 
-			const mockExit = jest.spyOn(process, 'exit').mockImplementation(() => {});
+			const mockExit = spyOn(process, 'exit').mockImplementation(() => {});
 
 			await uploadToTrieve();
 
@@ -153,22 +147,20 @@ describe('upload-to-trieve', () => {
 
 	describe('Data Loading', () => {
 		test('should successfully load scraped data', async () => {
-			fetch
-				.mockResolvedValueOnce({ ok: true }) // Clear dataset
-				.mockResolvedValueOnce({ ok: true }); // Upload chunks
+			fetch.mockResolvedValueOnce({ ok: true }).mockResolvedValueOnce({ ok: true });
 
-			fs.readFile.mockResolvedValue(JSON.stringify(mockScrapedData));
+			mockReadFile.mockResolvedValue(JSON.stringify(mockScrapedData));
 
 			await uploadToTrieve();
 
-			expect(fs.readFile).toHaveBeenCalledWith(path.join('./public/_scraped-docs', 'sei-docs-structured.json'), 'utf8');
+			expect(mockReadFile).toHaveBeenCalledWith(path.join('./public/_scraped-docs', 'sei-docs-structured.json'), 'utf8');
 		});
 
 		test('should handle file reading error', async () => {
-			fetch.mockResolvedValueOnce({ ok: true }); // Clear dataset
-			fs.readFile.mockRejectedValue(new Error('File not found'));
+			fetch.mockResolvedValueOnce({ ok: true });
+			mockReadFile.mockRejectedValue(new Error('File not found'));
 
-			const mockExit = jest.spyOn(process, 'exit').mockImplementation(() => {});
+			const mockExit = spyOn(process, 'exit').mockImplementation(() => {});
 
 			await uploadToTrieve();
 
@@ -188,20 +180,16 @@ describe('upload-to-trieve', () => {
 							file_with_chunk_groups: mockExistingFiles,
 							next_cursor: null
 						})
-				}) // Fetch existing files
-				.mockResolvedValue({ ok: true }); // Other operations
+				})
+				.mockResolvedValue({ ok: true });
 
-			fs.readFile.mockResolvedValue(JSON.stringify(mockScrapedData));
+			mockReadFile.mockResolvedValue(JSON.stringify(mockScrapedData));
 
 			await uploadToTrieve();
 
-			// Should identify files to upload (new + updated)
 			const uploadCalls = fetch.mock.calls.filter((call) => call[0].includes('/file') && call[1].method === 'POST');
-
-			// Should identify files to delete
 			const deleteCalls = fetch.mock.calls.filter((call) => call[0].includes('/file/') && call[1].method === 'DELETE');
 
-			// Expect at least some operations (exact count depends on content hashing)
 			expect(uploadCalls.length + deleteCalls.length).toBeGreaterThan(0);
 		});
 
@@ -223,10 +211,10 @@ describe('upload-to-trieve', () => {
 							file_with_chunk_groups: [],
 							next_cursor: null
 						})
-				}) // Fetch existing files
-				.mockResolvedValue({ ok: true }); // Upload file
+				})
+				.mockResolvedValue({ ok: true });
 
-			fs.readFile.mockResolvedValue(JSON.stringify(minimalData));
+			mockReadFile.mockResolvedValue(JSON.stringify(minimalData));
 
 			await uploadToTrieve();
 
@@ -251,22 +239,20 @@ describe('upload-to-trieve', () => {
 							file_with_chunk_groups: [],
 							next_cursor: null
 						})
-				}) // Fetch existing files (empty)
+				})
 				.mockResolvedValue({
 					ok: true,
 					json: () => Promise.resolve({ file_metadata: { id: 'new-file-id' } })
-				}); // Upload files
+				});
 
-			fs.readFile.mockResolvedValue(JSON.stringify(mockScrapedData));
+			mockReadFile.mockResolvedValue(JSON.stringify(mockScrapedData));
 
 			await uploadToTrieve();
 
-			// Should have 1 fetch call + 2 upload calls (one for each scraped page)
 			const uploadCalls = fetch.mock.calls.filter((call) => call[0].includes('/file') && call[1].method === 'POST');
 
 			expect(uploadCalls).toHaveLength(2);
 
-			// Verify file upload structure
 			const firstUpload = JSON.parse(uploadCalls[0][1].body);
 			expect(firstUpload).toMatchObject({
 				file_name: expect.stringMatching(/\.md$/),
@@ -289,7 +275,7 @@ describe('upload-to-trieve', () => {
 							file_with_chunk_groups: [],
 							next_cursor: null
 						})
-				}) // Fetch existing files
+				})
 				.mockResolvedValueOnce({
 					ok: false,
 					status: 400,
@@ -297,9 +283,9 @@ describe('upload-to-trieve', () => {
 					text: () => Promise.resolve('Invalid file data')
 				});
 
-			fs.readFile.mockResolvedValue(JSON.stringify(mockScrapedData));
+			mockReadFile.mockResolvedValue(JSON.stringify(mockScrapedData));
 
-			const mockExit = jest.spyOn(process, 'exit').mockImplementation(() => {});
+			const mockExit = spyOn(process, 'exit').mockImplementation(() => {});
 
 			await uploadToTrieve();
 
@@ -320,13 +306,13 @@ describe('upload-to-trieve', () => {
 							file_with_chunk_groups: [],
 							next_cursor: null
 						})
-				}) // Fetch existing files
+				})
 				.mockResolvedValue({
 					ok: true,
 					json: () => Promise.resolve({ file_metadata: { id: 'file-id' } })
-				}); // Upload files
+				});
 
-			fs.readFile.mockResolvedValue(JSON.stringify(mockScrapedData));
+			mockReadFile.mockResolvedValue(JSON.stringify(mockScrapedData));
 
 			await uploadToTrieve();
 
@@ -338,14 +324,13 @@ describe('upload-to-trieve', () => {
 		});
 
 		test('should handle no changes scenario', async () => {
-			// Mock existing files that match current content
 			const matchingFiles = [
 				{
 					id: 'file-1',
 					file_name: 'test-page-1.md',
 					tag_set: ['sei-docs'],
 					metadata: {
-						content_hash: 'matching-hash', // This would match if content is identical
+						content_hash: 'matching-hash',
 						source: 'sei-docs'
 					}
 				}
@@ -360,12 +345,10 @@ describe('upload-to-trieve', () => {
 					})
 			});
 
-			// Use minimal data to increase chance of no changes
-			fs.readFile.mockResolvedValue(JSON.stringify([mockScrapedData[0]]));
+			mockReadFile.mockResolvedValue(JSON.stringify([mockScrapedData[0]]));
 
 			await uploadToTrieve();
 
-			// Should indicate analysis was performed
 			expect(console.log).toHaveBeenCalledWith('🔄 Analyzing file changes...');
 			expect(console.log).toHaveBeenCalledWith('📊 Analysis complete:');
 		});

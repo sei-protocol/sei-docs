@@ -46,7 +46,7 @@ export async function RemoteChangelog() {
 
 			if (merged.has(version)) {
 				const existing = merged.get(version)!;
-				existing.body += '\n\n' + body;
+				existing.body += `\n\n${body}`;
 			} else {
 				merged.set(version, { version, body });
 				order.push(version);
@@ -77,7 +77,7 @@ export async function RemoteChangelog() {
 		};
 
 		// Clean up any existing markdown URLs and brackets first
-		let cleanedContent = content
+		const cleanedContent = content
 			.replace(/\]\(https:\/\/[^)]+\)/g, '') // Remove ](https://...)
 			.replace(/\[/g, '') // Remove opening brackets
 			.replace(/\]/g, ''); // Remove closing brackets
@@ -95,12 +95,12 @@ export async function RemoteChangelog() {
 						// Extract meaningful link text from the URL
 						let linkText = part;
 						if (part.includes('/compare/')) {
-							const compareMatch = part.match(/\/compare\/([^\/\s]+)/);
+							const compareMatch = part.match(/\/compare\/([^/\s]+)/);
 							if (compareMatch) {
 								linkText = `Compare ${compareMatch[1].replace('...', ' → ')}`;
 							}
 						} else if (part.includes('/releases/tag/')) {
-							const tagMatch = part.match(/\/releases\/tag\/([^\/\s]+)/);
+							const tagMatch = part.match(/\/releases\/tag\/([^/\s]+)/);
 							if (tagMatch) {
 								linkText = `Release ${tagMatch[1]}`;
 							}
@@ -126,7 +126,7 @@ export async function RemoteChangelog() {
 					// For non-URL parts, process PR numbers and other text
 					// Check for "Compare" links (like "Compare v3.9.0...v5.0.0" or "Compare sei-cosmos-2.0.42beta → v2.0.43beta-release")
 					const compareMatch = part.match(
-						/Compare\s+((?:sei-[a-z]+-)?(v?\d+\.\d+\.\d+(?:\.\d+)?(?:beta|alpha|rc\d*)?(?:-release)?))(?:\s*[→\-]\s*|\.\.\.)+(v?\d+\.\d+\.\d+(?:\.\d+)?(?:beta|alpha|rc\d*)?(?:-release)?)/i
+						/Compare\s+((?:sei-[a-z]+-)?(v?\d+\.\d+\.\d+(?:\.\d+)?(?:beta|alpha|rc\d*)?(?:-release)?))(?:\s*[→-]\s*|\.\.\.)+(v?\d+\.\d+\.\d+(?:\.\d+)?(?:beta|alpha|rc\d*)?(?:-release)?)/i
 					);
 					if (compareMatch) {
 						const [fullMatch, fromVersion, toVersion] = compareMatch;
@@ -181,7 +181,7 @@ export async function RemoteChangelog() {
 									);
 								}
 								// Match standalone numbers, but only if they look like PR numbers
-								else if (trimmedPart.match(/^\d{1,4}$/) && parseInt(trimmedPart) > 0) {
+								else if (trimmedPart.match(/^\d{1,4}$/) && parseInt(trimmedPart, 10) > 0) {
 									const prevPart = prParts[j - 1] || '';
 									const nextPart = prParts[j + 1] || '';
 
@@ -192,7 +192,7 @@ export async function RemoteChangelog() {
 										(j < 3 || prevPart.includes('•') || prevPart.includes('\n') || prevPart.includes('#')) &&
 										!followedByNonPR &&
 										!precededByNonPR &&
-										parseInt(trimmedPart) >= 10;
+										parseInt(trimmedPart, 10) >= 10;
 
 									if (isLikelyPRNumber) {
 										const num = trimmedPart;

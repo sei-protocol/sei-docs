@@ -1,5 +1,5 @@
-import { generateStaticParamsFor, importPage } from 'nextra/pages';
 import { notFound } from 'next/navigation';
+import { generateStaticParamsFor, importPage } from 'nextra/pages';
 import { useMDXComponents as getMDXComponents } from '../../mdx-components';
 
 export const generateStaticParams = generateStaticParamsFor('mdxPath');
@@ -80,7 +80,7 @@ export default async function Page(props) {
 			'@type': 'ListItem',
 			position: 1,
 			name: 'Home',
-			item: siteUrl + '/'
+			item: `${siteUrl}/`
 		},
 		...segments.map((seg, idx) => {
 			const href = `${siteUrl}/${segments.slice(0, idx + 1).join('/')}`;

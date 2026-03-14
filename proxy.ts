@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 
 const CONTENT_PATHS = /^\/(learn|evm|node|cosmos-sdk)(\/|$)/;
 const SKIP_PATHS = /\.(css|js|json|png|jpg|jpeg|gif|svg|ico|woff2?|ttf|eot|map|txt|md|xml)$|^\/(api|_next|assets|_pagefind)\//;

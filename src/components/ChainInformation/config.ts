@@ -1,4 +1,4 @@
-import { NetworkEntry } from './types';
+import type { NetworkEntry } from './types';
 
 // For Adding Sei to MetaMask
 export const SEI_MAINNET_CHAIN_PARAMS = {
