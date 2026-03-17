@@ -1,5 +1,5 @@
 import { streamText, tool, jsonSchema, stepCountIs } from 'ai';
-import type { CoreMessage } from 'ai';
+import type { ModelMessage } from 'ai';
 import { anthropic } from '@ai-sdk/anthropic';
 import { NextRequest } from 'next/server';
 import { searchDocs } from '@/lib/search-docs';
@@ -59,8 +59,8 @@ function getToolInvocations(msg: any): any[] {
 	return [];
 }
 
-function uiToCoreMessages(uiMessages: any[]): CoreMessage[] {
-	const result: CoreMessage[] = [];
+function uiToCoreMessages(uiMessages: any[]): ModelMessage[] {
+	const result: ModelMessage[] = [];
 	for (const msg of uiMessages) {
 		if (msg.role === 'user') {
 			const text = getTextContent(msg);
@@ -87,9 +87,10 @@ function uiToCoreMessages(uiMessages: any[]): CoreMessage[] {
 					result.push({
 						role: 'tool',
 						content: toolResults.map((ti: any) => ({
-							type: 'tool-result',
+							type: 'tool-result' as const,
 							toolCallId: ti.toolCallId,
-							result: ti.result
+							toolName: ti.toolName,
+							output: { type: 'text' as const, value: typeof ti.result === 'string' ? ti.result : JSON.stringify(ti.result) }
 						}))
 					});
 				}
@@ -146,7 +147,7 @@ export async function POST(req: NextRequest) {
 					required: ['query']
 				}),
 				execute: async ({ query }) => {
-					const results = await searchDocs(query);
+					const results = await searchDocs(query, 20);
 					if (results.length === 0) {
 						return 'No results found in the documentation for this query.';
 					}

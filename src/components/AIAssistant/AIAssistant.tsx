@@ -1,6 +1,7 @@
 'use client';
 
 import { useChat } from '@ai-sdk/react';
+import { DefaultChatTransport } from 'ai';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { usePathname } from 'next/navigation';
@@ -16,8 +17,10 @@ export function AIAssistant() {
 	const inputRef = useRef<HTMLTextAreaElement>(null);
 
 	const { messages, sendMessage, status, setMessages, error } = useChat({
-		api: '/api/chat',
-		body: { currentPageUrl: pathname }
+		transport: new DefaultChatTransport({
+			api: '/api/chat',
+			body: { currentPageUrl: pathname }
+		})
 	});
 
 	const isLoading = status === 'submitted' || status === 'streaming';
