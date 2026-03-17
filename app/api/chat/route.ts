@@ -1,8 +1,10 @@
-import { streamText, tool, jsonSchema, stepCountIs } from 'ai';
-import type { ModelMessage } from 'ai';
-import { anthropic } from '@ai-sdk/anthropic';
+import { streamText, tool, jsonSchema, stepCountIs, gateway } from 'ai';
+import type { ModelMessage, GatewayModelId } from 'ai';
 import { NextRequest } from 'next/server';
 import { searchDocs } from '@/lib/search-docs';
+
+const PRIMARY_MODEL: GatewayModelId = 'anthropic/claude-haiku-4-5-20251001';
+const FALLBACK_MODELS: GatewayModelId[] = ['google/gemini-2.0-flash-lite', 'openai/gpt-4.1-nano'];
 
 const SYSTEM_PROMPT = `You are the Sei Documentation AI Assistant. You help developers building on Sei, the fastest EVM blockchain with 400ms finality and parallel execution.
 
@@ -103,14 +105,6 @@ function uiToCoreMessages(uiMessages: any[]): ModelMessage[] {
 }
 
 export async function POST(req: NextRequest) {
-	const apiKey = process.env.ANTHROPIC_API_KEY;
-	if (!apiKey) {
-		return new Response(JSON.stringify({ error: 'ANTHROPIC_API_KEY not configured' }), {
-			status: 503,
-			headers: { 'Content-Type': 'application/json' }
-		});
-	}
-
 	const body = await req.json();
 	const { messages, currentPageUrl } = body;
 
@@ -132,7 +126,7 @@ export async function POST(req: NextRequest) {
 	const coreMessages = uiToCoreMessages(messages);
 
 	const result = streamText({
-		model: anthropic('claude-haiku-4-5-20251001'),
+		model: gateway(PRIMARY_MODEL),
 		system: systemPrompt,
 		messages: coreMessages,
 		tools: {
@@ -151,9 +145,16 @@ export async function POST(req: NextRequest) {
 					if (results.length === 0) {
 						return 'No results found in the documentation for this query.';
 					}
+					console.log(results.map((r) => `**${r.title}** (${r.url})\nRelevance: ${(r.score * 100).toFixed(0)}%\n${r.content}`).join('\n\n---\n\n'));
 					return results.map((r) => `**${r.title}** (${r.url})\nRelevance: ${(r.score * 100).toFixed(0)}%\n${r.content}`).join('\n\n---\n\n');
 				}
 			})
+		},
+		providerOptions: {
+			gateway: {
+				models: FALLBACK_MODELS,
+				tags: ['sei-docs-assistant', 'chat']
+			}
 		},
 		stopWhen: stepCountIs(5)
 	});
