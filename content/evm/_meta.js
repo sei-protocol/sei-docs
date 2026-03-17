@@ -18,6 +18,7 @@ export default {
 	'installing-seid-cli': 'Installing seid CLI',
 	'querying-the-evm': 'Querying the EVM',
 	'transactions-with-seid': 'Transactions with seid',
+	changelog: 'Changelog',
 
 	'-- Frontend Development': {
 		type: 'separator',
@@ -77,7 +78,6 @@ export default {
 	transactions: 'Transaction Overview',
 	reference: 'RPC Reference',
 	tokens: 'View Tokens',
-	changelog: 'Changelog',
 	'analytics-setup': 'Analytics Setup',
 	'ecosystem-contracts': 'Ecosystem Contracts',
 

@@ -238,7 +238,7 @@ export function RpcSelector() {
 			</div>
 
 			<div className='flex flex-col sm:flex-row gap-4 mb-6'>
-				<div className='flex items-center bg-neutral-50 dark:bg-neutral-800/60 rounded-sm border border-neutral-200 dark:border-neutral-700 px-3 py-1.5 w-full sm:max-w-md'>
+				<div className='flex items-center bg-neutral-50 dark:bg-neutral-800/60  border border-neutral-200 dark:border-neutral-700 px-3 py-1.5 w-full sm:max-w-md'>
 					<IconSearch className='h-4 w-4 text-neutral-400 mr-2' />
 					<input
 						type='text'
@@ -255,7 +255,7 @@ export function RpcSelector() {
 							setSelectedNetwork('mainnet');
 							setShowAllEndpoints(false);
 						}}
-						className={`px-3 py-1.5 text-sm rounded-sm transition-colors ${
+						className={`px-3 py-1.5 text-sm  transition-colors ${
 							selectedNetwork === 'mainnet'
 								? 'bg-neutral-200 dark:bg-neutral-700 text-neutral-900 dark:text-white'
 								: 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-700'
@@ -267,7 +267,7 @@ export function RpcSelector() {
 							setSelectedNetwork('testnet');
 							setShowAllEndpoints(false);
 						}}
-						className={`px-3 py-1.5 text-sm rounded-sm transition-colors ${
+						className={`px-3 py-1.5 text-sm  transition-colors ${
 							selectedNetwork === 'testnet'
 								? 'bg-neutral-200 dark:bg-neutral-700 text-neutral-900 dark:text-white'
 								: 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-700'
@@ -277,7 +277,7 @@ export function RpcSelector() {
 				</div>
 			</div>
 
-			<div className='bg-neutral-50 dark:bg-neutral-900/40 rounded-sm border border-neutral-200 dark:border-neutral-800 overflow-hidden'>
+			<div className='bg-neutral-50 dark:bg-neutral-900/40  border border-neutral-200 dark:border-neutral-800 overflow-hidden'>
 				<div className='px-4 py-3 bg-neutral-50 dark:bg-neutral-800/50 border-b border-neutral-200 dark:border-neutral-800 grid grid-cols-12 text-sm font-medium text-neutral-500 dark:text-neutral-400'>
 					<div className='col-span-6 sm:col-span-5'>Endpoint URL</div>
 					<div className='col-span-4 sm:col-span-3'>Provider</div>
@@ -311,13 +311,13 @@ export function RpcSelector() {
 											<div className='flex space-x-2'>
 												<button
 													onClick={() => handleCopy(endpoint.url)}
-													className='p-1 rounded-sm text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200 hover:bg-neutral-200/50 dark:hover:bg-neutral-700/50 transition-colors'
+													className='p-1  text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200 hover:bg-neutral-200/50 dark:hover:bg-neutral-700/50 transition-colors'
 													title='Copy to clipboard'>
 													{copiedUrl === endpoint.url ? <IconCheck className='h-4 w-4 text-green-500' /> : <IconCopy className='h-4 w-4' />}
 												</button>
 												<button
 													onClick={() => toggleEndpointDetails(endpoint.url)}
-													className='p-1 rounded-sm text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200 hover:bg-neutral-200/50 dark:hover:bg-neutral-700/50 transition-colors'
+													className='p-1  text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200 hover:bg-neutral-200/50 dark:hover:bg-neutral-700/50 transition-colors'
 													title='Show details'>
 													<IconChevronDown className={`h-4 w-4 transform transition-transform ${expandedEndpoint === endpoint.url ? 'rotate-180' : ''}`} />
 												</button>
@@ -363,7 +363,7 @@ export function RpcSelector() {
 													)}
 												</div>
 												{baseHeights[endpoint.url]?.baseHeight && (
-													<div className='flex items-start bg-orange-50 dark:bg-orange-900/10 border border-orange-200 dark:border-orange-800 rounded-sm p-2'>
+													<div className='flex items-start bg-orange-50 dark:bg-orange-900/10 border border-orange-200 dark:border-orange-800  p-2'>
 														<IconAlertCircle className='h-4 w-4 text-orange-500 mr-2 mt-0.5 flex-shrink-0' />
 														<span className='text-xs text-orange-800 dark:text-orange-300'>
 															Historical blocks before {baseHeights[endpoint.url]?.baseHeight?.toLocaleString()} are not available on this endpoint.

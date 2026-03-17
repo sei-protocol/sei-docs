@@ -11,6 +11,13 @@ const SEI_LLMS_CONFIG = {
 		'Technical documentation for Sei, the fastest EVM blockchain. Covers smart contract development (Hardhat, Foundry), frontend integration (wagmi, ethers.js), AI tooling (MCP Server, Cambrian Agent Kit), x402 micropayments, node operations, and the Sei Giga upgrade roadmap.',
 	intro:
 		'Sei is a parallelized EVM Layer 1 blockchain with 400ms finality, 100 MGas/s throughput, and full Ethereum tooling compatibility. Deploy standard Solidity contracts with no modifications. Chain ID: mainnet 1329, testnet 1328.',
+	constraints: [
+		'Prerequisites: Node.js ≥ 18, a wallet (MetaMask or any EVM-compatible wallet), and SEI tokens for gas fees.',
+		'Authentication: No API key is required for public RPC endpoints. Rate limits apply to free RPC endpoints — use a dedicated provider (Ankr, DRPC, Nirvana) for production workloads.',
+		'Version compatibility: Solidity ≥ 0.8.x recommended. Sei EVM uses the Pectra EVM version (without blob transactions).',
+		'Network requirements: Mainnet chain ID 1329, testnet chain ID 1328. Gas is paid in SEI (18 decimals).',
+		'Important notes: Sei has 400ms block times — set lower polling intervals than on Ethereum. Transactions that touch independent state are parallelized automatically; shared-state writes are serialized.'
+	].join('\n'),
 	quickReference: [
 		'Chain ID: mainnet 1329, testnet 1328',
 		'RPC (mainnet): https://evm-rpc.sei-apis.com',
@@ -22,6 +29,54 @@ const SEI_LLMS_CONFIG = {
 		'Throughput: 100 MGas/s (~12,500 TPS)',
 		'EVM compatibility: Full — standard Solidity, Hardhat, Foundry, wagmi, ethers.js work unmodified'
 	].join('\n'),
+	examples: [
+		{
+			title: 'Deploy a contract with Hardhat',
+			language: 'javascript',
+			code: [
+				'// hardhat.config.js',
+				'module.exports = {',
+				'  solidity: "0.8.26",',
+				'  networks: {',
+				'    sei: {',
+				'      url: "https://evm-rpc.sei-apis.com",',
+				'      chainId: 1329,',
+				'      accounts: [process.env.PRIVATE_KEY],',
+				'    },',
+				'  },',
+				'};'
+			].join('\n')
+		},
+		{
+			title: 'Query a balance with viem',
+			language: 'typescript',
+			code: [
+				'import { createPublicClient, http } from "viem";',
+				'import { sei } from "viem/chains";',
+				'',
+				'const client = createPublicClient({ chain: sei, transport: http() });',
+				'const balance = await client.getBalance({',
+				'  address: "0xYourAddress",',
+				'});',
+				'console.log("Balance:", balance);'
+			].join('\n')
+		},
+		{
+			title: 'Connect a wallet with wagmi',
+			language: 'typescript',
+			code: [
+				'import { http, createConfig } from "wagmi";',
+				'import { sei } from "wagmi/chains";',
+				'import { injected } from "wagmi/connectors";',
+				'',
+				'export const config = createConfig({',
+				'  chains: [sei],',
+				'  connectors: [injected()],',
+				'  transports: { [sei.id]: http() },',
+				'});'
+			].join('\n')
+		}
+	],
 	keyResources: [
 		{
 			title: 'GitHub',
@@ -136,7 +191,7 @@ async function createLlmsFiles(scrapedPages, outputPath) {
 	try {
 		console.log('📝 Generating llms.txt and llms-full.txt...');
 
-		const { projectName, blockquote, intro, quickReference, keyResources } = SEI_LLMS_CONFIG;
+		const { projectName, blockquote, intro, constraints, quickReference, examples, keyResources } = SEI_LLMS_CONFIG;
 
 		const isExcluded = (url) => {
 			try {
@@ -151,10 +206,20 @@ async function createLlmsFiles(scrapedPages, outputPath) {
 		const { sections, assigned } = categorizePages(filteredPages);
 		const uncategorized = filteredPages.filter((p) => !assigned.has(p.url));
 
+		function formatExamples(examplesList) {
+			let out = '';
+			for (const ex of examplesList) {
+				out += `### ${ex.title}\n\n`;
+				out += `\`\`\`${ex.language}\n${ex.code}\n\`\`\`\n\n`;
+			}
+			return out;
+		}
+
 		// ---- llms.txt ----
 		let llmsTxt = `# ${projectName}\n\n`;
 		llmsTxt += `> ${blockquote}\n\n`;
-		llmsTxt += `${intro}\n`;
+		llmsTxt += `${intro}\n\n`;
+		llmsTxt += `${constraints}\n`;
 		llmsTxt += `\n## Quick Reference\n\n${quickReference}\n`;
 
 		for (const section of sections) {
@@ -167,6 +232,11 @@ async function createLlmsFiles(scrapedPages, outputPath) {
 			}
 		}
 
+		if (examples && examples.length > 0) {
+			llmsTxt += `\n## Examples\n\n`;
+			llmsTxt += formatExamples(examples);
+		}
+
 		if (uncategorized.length > 0) {
 			llmsTxt += `\n## Optional\n\n`;
 			for (const page of uncategorized) {
@@ -175,7 +245,7 @@ async function createLlmsFiles(scrapedPages, outputPath) {
 		}
 
 		if (keyResources.length > 0) {
-			llmsTxt += `\n## Key Resources\n\n`;
+			llmsTxt += `\n## Resources\n\n`;
 			for (const res of keyResources) {
 				llmsTxt += `- [${res.title}](${res.url}): ${res.description}\n`;
 			}
@@ -184,7 +254,8 @@ async function createLlmsFiles(scrapedPages, outputPath) {
 		// ---- llms-full.txt ----
 		let llmsFull = `# ${projectName}\n\n`;
 		llmsFull += `> ${blockquote}\n\n`;
-		llmsFull += `## Quick Reference\n\n${quickReference}\n`;
+		llmsFull += `${constraints}\n`;
+		llmsFull += `\n## Quick Reference\n\n${quickReference}\n`;
 
 		for (const section of sections) {
 			llmsFull += `\n## ${section.name}\n\n`;
@@ -196,6 +267,11 @@ async function createLlmsFiles(scrapedPages, outputPath) {
 			}
 		}
 
+		if (examples && examples.length > 0) {
+			llmsFull += `\n## Examples\n\n`;
+			llmsFull += formatExamples(examples);
+		}
+
 		if (uncategorized.length > 0) {
 			llmsFull += `\n## Optional\n\n`;
 			for (const page of uncategorized) {
@@ -204,7 +280,7 @@ async function createLlmsFiles(scrapedPages, outputPath) {
 		}
 
 		if (keyResources.length > 0) {
-			llmsFull += `\n## Key Resources\n\n`;
+			llmsFull += `\n## Resources\n\n`;
 			for (const res of keyResources) {
 				llmsFull += `- [${res.title}](${res.url}): ${res.description}\n`;
 			}

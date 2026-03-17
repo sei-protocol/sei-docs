@@ -1,40 +1,42 @@
 import React from 'react';
+import { AddSeiButton } from '../ChainInformation';
+import { networks } from '../ChainInformation/config';
 
 const footerLinkGroups = [
 	{
-		heading: 'Sei Network',
-		links: [
-			{ label: 'Create Wallet', href: 'https://app.sei.io/' },
-			{ label: 'Bridge', href: 'https://app.sei.io/bridge' },
-			{ label: 'Ecosystem', href: 'https://www.sei.io/ecosystem' }
-		]
-	},
-	{
 		heading: 'Developers',
 		links: [
-			{ label: 'Documentation', href: '/' },
 			{ label: 'Developer Hub', href: 'https://www.sei.io/developers' },
+			{
+				label: 'Developer Toolkit',
+				href: 'https://sei-foundation.notion.site/Sei-Ecosystem-Builders-Toolkit-836deaebca204452909d0bf9365d8116'
+			},
 			{ label: 'GitHub', href: 'https://github.com/sei-protocol' },
-			{ label: "Builder's Chat", href: 'https://t.me/+KZdhZ1eE-G01NmZk' },
-			{ label: 'Whitepaper', href: 'https://docs.sei.io/learn' }
+			{ label: "Sei Builder's Chat", href: 'https://t.me/+KZdhZ1eE-G01NmZk' }
 		]
 	},
 	{
-		heading: 'Resources',
+		heading: 'Ecosystem',
 		links: [
-			{ label: 'Insights', href: 'https://blog.sei.io/' },
-			{ label: 'Media Kit', href: '/learn/general-brand-kit' },
-			{ label: 'Block Explorer', href: 'https://seiscan.io/' },
+			{ label: 'Ecosystem Hub', href: 'https://www.sei.io/ecosystem' },
+			{ label: 'Join the Eco', href: 'https://sei-forms.typeform.com/join-ecosystem?typeform-source=p12rt1ecint.typeform.com' },
+			{ label: 'Bridge', href: 'https://app.sei.io/bridge' },
+			{ label: 'Explorer (Seiscan)', href: 'https://seiscan.io/' },
+			{ label: 'Explorer (SeiTrace)', href: 'https://seitrace.com/' },
 			{ label: 'Stake', href: 'https://app.sei.io/stake' }
 		]
+	},
+	{
+		heading: 'Community',
+		links: [
+			{ label: 'X', href: 'https://x.com/SeiNetwork' },
+			{ label: 'Discord', href: 'https://discord.com/invite/sei' },
+			{ label: 'Telegram', href: 'https://t.me/seinetwork' },
+			{ label: 'LinkedIn', href: 'https://www.linkedin.com/company/sei-network/' },
+			{ label: 'Blog', href: 'https://blog.sei.io/' },
+			{ label: 'Brand Kit', href: '/learn/general-brand-kit' }
+		]
 	}
-];
-
-const socialLinks = [
-	{ label: 'X', href: 'https://x.com/SeiNetwork' },
-	{ label: 'Telegram', href: 'https://t.me/seinetwork' },
-	{ label: 'Discord', href: 'https://discord.com/invite/sei' },
-	{ label: 'LinkedIn', href: 'https://www.linkedin.com/company/sei-network/' }
 ];
 
 export function Footer() {
@@ -74,37 +76,16 @@ export function Footer() {
 												{link.label}
 											</a>
 										))}
+										{group.heading === 'Developers' ? (
+											<div className='pt-1'>
+												<AddSeiButton chainParams={networks[0].chainParams} label='Add Sei Mainnet to your wallet' />
+											</div>
+										) : null}
 									</div>
 								</div>
 							))}
 						</div>
 					</div>
-				</div>
-			</div>
-
-			{/* Decorative divider */}
-			<div className='max-w-[1440px] mx-auto pt-10 md:pt-[60px]'>
-				<div className='bg-gradient-to-r from-transparent via-neutral-200 dark:via-[var(--sei-grey-300)] to-transparent w-full h-px' />
-			</div>
-
-			{/* Social row */}
-			<div className='max-w-[1440px] mx-auto px-5 pt-6 md:px-10'>
-				<div className='flex flex-wrap justify-end items-center gap-4 md:gap-5 text-xs leading-[1.2]'>
-					<span style={{ fontFamily: "'Inter', sans-serif" }}>Social</span>
-					{socialLinks.map((link) => (
-						<a
-							key={link.label}
-							href={link.href}
-							target='_blank'
-							rel='noopener noreferrer'
-							className='text-current no-underline opacity-50 transition-opacity duration-150 hover:opacity-100'
-							style={{
-								fontFamily: "'JetBrains Mono', monospace",
-								textTransform: 'uppercase'
-							}}>
-							{link.label}
-						</a>
-					))}
 				</div>
 			</div>
 
@@ -119,7 +100,7 @@ export function Footer() {
 						lineHeight: '1.3',
 						textTransform: 'uppercase'
 					}}>
-					<span style={{ fontFeatureSettings: "'calt' 0" }}>Copyright {new Date().getFullYear()}. All rights reserved.</span>
+					<span style={{ fontFeatureSettings: "'calt' 0" }}>Sei Docs © {new Date().getFullYear()}. All rights reserved.</span>
 				</div>
 			</div>
 		</footer>

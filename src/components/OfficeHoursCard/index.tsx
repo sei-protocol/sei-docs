@@ -24,7 +24,7 @@ export const OfficeHoursCard = () => {
 			href='https://discord.gg/sei'
 			target='_blank'
 			rel='noopener noreferrer'
-			className='my-6 block border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 rounded-sm shadow-sm transition-all duration-200 hover:border-neutral-300 dark:hover:border-neutral-700 hover:shadow-md group'>
+			className='my-6 block border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900  shadow-sm transition-all duration-200 hover:border-neutral-300 dark:hover:border-neutral-700 hover:shadow-md group'>
 			<div className='flex items-center gap-4 p-4'>
 				<div className='bg-sei-grey-25 dark:bg-neutral-800 p-3 rounded-full flex-shrink-0 transition-all duration-200 group-hover:bg-sei-grey-30 dark:group-hover:bg-neutral-700'>
 					<IconClock className='w-5 h-5 text-sei-maroon-100 dark:text-sei-maroon-25' />

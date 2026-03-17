@@ -1,9 +1,14 @@
 import { Callout } from 'nextra/components';
+import { STATIC_CHANGELOG, STATIC_VERSION_NAMES } from './static-changelog';
 
 // Remote changelog component rendered **at build time**. We fetch the markdown
 // from the sei-chain repository during the static generation phase and render
 // the parsed result directly in the HTML that gets shipped to the client. This
 // means no runtime network requests and no need for any React client hooks.
+//
+// Older, stable versions (v5.9.0 and below) are hardcoded in static-changelog.ts
+// to avoid parsing issues with inconsistent upstream formatting. Only recent
+// versions are fetched dynamically.
 export async function RemoteChangelog() {
 	let content: string | null = null;
 	let error: Error | null = null;
@@ -27,13 +32,28 @@ export async function RemoteChangelog() {
 
 		const sections = rawContent.split(/^## /gm).slice(1);
 
-		return sections.map((section, idx) => {
+		// Merge sections that share the same version heading (e.g. duplicate v6.2.0
+		// in the upstream CHANGELOG.md) and skip versions covered by static data.
+		const merged = new Map<string, { version: string; body: string }>();
+		const order: string[] = [];
+
+		for (const section of sections) {
 			const lines = section.split('\n');
-			const version = lines[0]?.trim() || `Version ${idx + 1}`;
+			const version = lines[0]?.trim() || '';
 			const body = lines.slice(1).join('\n').trim();
 
-			return { version, body, idx };
-		});
+			if (!version || STATIC_VERSION_NAMES.has(version)) continue;
+
+			if (merged.has(version)) {
+				const existing = merged.get(version)!;
+				existing.body += '\n\n' + body;
+			} else {
+				merged.set(version, { version, body });
+				order.push(version);
+			}
+		}
+
+		return order.map((v, idx) => ({ ...merged.get(v)!, idx }));
 	};
 
 	const TextWithLinks = ({ content, componentName }: { content: string; componentName: string }) => {
@@ -97,7 +117,7 @@ export async function RemoteChangelog() {
 								href={part}
 								target='_blank'
 								rel='noopener noreferrer'
-								className='text-sei-maroon-100 hover:text-sei-maroon-200 bg-sei-grey-25 hover:bg-sei-grey-30 dark:text-sei-maroon-25 dark:hover:text-sei-cream dark:bg-sei-maroon-100/20 dark:hover:bg-sei-maroon-100/30 px-2 py-0.5 rounded-sm font-mono text-sm font-medium transition-colors no-underline ml-1'>
+								className='text-sei-maroon-100 hover:text-sei-maroon-200 bg-sei-grey-25 hover:bg-sei-grey-30 dark:text-sei-maroon-25 dark:hover:text-sei-cream dark:bg-sei-maroon-100/20 dark:hover:bg-sei-maroon-100/30 px-2 py-0.5  font-mono text-sm font-medium transition-colors no-underline ml-1'>
 								{linkText}
 							</a>
 						);
@@ -124,7 +144,7 @@ export async function RemoteChangelog() {
 									href={compareUrl}
 									target='_blank'
 									rel='noopener noreferrer'
-									className='text-sei-maroon-100 hover:text-sei-maroon-200 bg-sei-grey-25 hover:bg-sei-grey-30 dark:text-sei-maroon-25 dark:hover:text-sei-cream dark:bg-sei-maroon-100/20 dark:hover:bg-sei-maroon-100/30 px-2 py-0.5 rounded-sm font-mono text-sm font-medium transition-colors no-underline ml-1'>
+									className='text-sei-maroon-100 hover:text-sei-maroon-200 bg-sei-grey-25 hover:bg-sei-grey-30 dark:text-sei-maroon-25 dark:hover:text-sei-cream dark:bg-sei-maroon-100/20 dark:hover:bg-sei-maroon-100/30 px-2 py-0.5  font-mono text-sm font-medium transition-colors no-underline ml-1'>
 									{displayText}
 								</a>
 							</span>
@@ -155,7 +175,7 @@ export async function RemoteChangelog() {
 											href={`https://github.com/${repoPath}/pull/${num}`}
 											target='_blank'
 											rel='noopener noreferrer'
-											className='text-sei-maroon-100 hover:text-sei-maroon-200 bg-sei-grey-25 hover:bg-sei-grey-30 dark:text-sei-maroon-25 dark:hover:text-sei-cream dark:bg-sei-maroon-100/20 dark:hover:bg-sei-maroon-100/30 px-2 py-0.5 rounded-sm font-mono text-sm font-medium transition-colors no-underline ml-1'>
+											className='text-sei-maroon-100 hover:text-sei-maroon-200 bg-sei-grey-25 hover:bg-sei-grey-30 dark:text-sei-maroon-25 dark:hover:text-sei-cream dark:bg-sei-maroon-100/20 dark:hover:bg-sei-maroon-100/30 px-2 py-0.5  font-mono text-sm font-medium transition-colors no-underline ml-1'>
 											#{num}
 										</a>
 									);
@@ -189,7 +209,7 @@ export async function RemoteChangelog() {
 												href={`https://github.com/${repoPath}/pull/${num}`}
 												target='_blank'
 												rel='noopener noreferrer'
-												className='text-sei-maroon-100 hover:text-sei-maroon-200 bg-sei-grey-25 hover:bg-sei-grey-30 dark:text-sei-maroon-25 dark:hover:text-sei-cream dark:bg-sei-maroon-100/20 dark:hover:bg-sei-maroon-100/30 px-2 py-0.5 rounded-sm font-mono text-sm font-medium transition-colors no-underline mr-1'>
+												className='text-sei-maroon-100 hover:text-sei-maroon-200 bg-sei-grey-25 hover:bg-sei-grey-30 dark:text-sei-maroon-25 dark:hover:text-sei-cream dark:bg-sei-maroon-100/20 dark:hover:bg-sei-maroon-100/30 px-2 py-0.5  font-mono text-sm font-medium transition-colors no-underline mr-1'>
 												#{num}
 											</a>
 										);
@@ -255,7 +275,7 @@ export async function RemoteChangelog() {
 					{sectionComponents.map((comp, i) => (
 						<div key={i}>
 							<div className='flex items-center gap-2 mb-3'>
-								<div className='flex items-center gap-2 bg-gray-100 px-3 py-1.5 rounded-sm'>
+								<div className='flex items-center gap-2 bg-gray-100 px-3 py-1.5 '>
 									<div className='w-2 h-2 bg-sei-maroon-100 rounded-full'></div>
 									<span className='font-medium text-gray-700 dark:text-white text-sm'>{comp.name}</span>
 								</div>
@@ -280,37 +300,32 @@ export async function RemoteChangelog() {
 		}
 
 		// Try original component pattern (for newer changelogs with sei-chain:, sei-cosmos: etc)
-		const componentPattern = /^([a-zA-Z][a-zA-Z0-9-]*):?\s*$/gm;
+		// Also handles lines like "sei-chain (Note: major repos have been merged into sei-chain)"
+		const componentPattern = /^([a-zA-Z][a-zA-Z0-9-]*):?\s*(?:\(.*\))?\s*$/gm;
 		const componentMatches = Array.from(body.matchAll(componentPattern));
 		const components: Array<{ name: string; changes: string }> = [];
 
 		if (componentMatches.length > 0) {
-			// Split content by component headers
-			const parts = body.split(/^([a-zA-Z][a-zA-Z0-9-]*):?\s*$/gm);
+			const parts = body.split(/^([a-zA-Z][a-zA-Z0-9-]*):?\s*(?:\(.*\))?\s*$/gm);
 
-			// Process the parts: [initial_content, component1_name, component1_content, component2_name, component2_content, ...]
 			for (let i = 1; i < parts.length; i += 2) {
 				const componentName = parts[i]?.trim().replace(':', '');
 				const componentContent = parts[i + 1]?.trim();
 
 				if (componentName && componentContent) {
-					// Extract bullet points and clean up content
 					const bulletPoints: string[] = [];
 					const lines = componentContent.split('\n');
 
 					for (const line of lines) {
 						const trimmedLine = line.trim();
 						if (trimmedLine.startsWith('*') || trimmedLine.startsWith('-') || trimmedLine.startsWith('•')) {
-							// Clean up the bullet point
 							let cleanLine = trimmedLine
 								.replace(/^\*\s*/, '')
 								.replace(/^-\s*/, '')
 								.replace(/^•\s*/, '');
-							// Remove markdown links but keep the text
 							cleanLine = cleanLine.replace(/\[([^\]]+)\]\([^)^]+\)/g, '$1');
 							bulletPoints.push(cleanLine);
-						} else if (trimmedLine && !trimmedLine.match(/^[a-zA-Z][a-zA-Z0-9-]*:?\s*$/)) {
-							// Include non-empty lines that aren't component headers
+						} else if (trimmedLine && !trimmedLine.match(/^[a-zA-Z][a-zA-Z0-9-]*:?\s*(?:\(.*\))?\s*$/)) {
 							bulletPoints.push(trimmedLine);
 						}
 					}
@@ -332,7 +347,7 @@ export async function RemoteChangelog() {
 					{components.map((comp, i) => (
 						<div key={i}>
 							<div className='flex items-center gap-2 mb-3'>
-								<div className='flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-sm'>
+								<div className='flex items-center gap-2 bg-slate-100 px-3 py-1.5 '>
 									<div className='w-2 h-2 bg-sei-maroon-100 rounded-full'></div>
 									<span className='font-medium text-slate-700 text-sm'>{comp.name}</span>
 								</div>
@@ -356,10 +371,16 @@ export async function RemoteChangelog() {
 			);
 		}
 
-		// Fallback: simple list
+		// Fallback: simple list – strip leading bullet markers to avoid double bullets
 		const fallbackLines = body
 			.split('\n')
-			.map((l) => l.trim())
+			.map((l) =>
+				l
+					.trim()
+					.replace(/^\*\s*/, '')
+					.replace(/^-\s*/, '')
+					.replace(/^•\s*/, '')
+			)
 			.filter((l) => l);
 		return (
 			<div className='space-y-2'>
@@ -385,7 +406,13 @@ export async function RemoteChangelog() {
 		return <Callout type='warning'>No changelog content available.</Callout>;
 	}
 
-	const versions = parseContent(content);
+	const dynamicVersions = parseContent(content);
+	const staticVersions = STATIC_CHANGELOG.map((entry, idx) => ({
+		version: entry.version,
+		body: entry.body,
+		idx: dynamicVersions.length + idx
+	}));
+	const versions = [...dynamicVersions, ...staticVersions];
 
 	return (
 		<div>
@@ -394,7 +421,7 @@ export async function RemoteChangelog() {
 					href='https://github.com/sei-protocol/sei-chain/blob/main/CHANGELOG.md'
 					target='_blank'
 					rel='noopener noreferrer'
-					className='inline-flex items-center gap-2 text-sm text-sei-maroon-100 hover:text-sei-maroon-200 bg-sei-grey-25 hover:bg-sei-grey-30 px-3 py-1.5 rounded-sm transition-colors font-medium no-underline'>
+					className='inline-flex items-center gap-2 text-sm text-sei-maroon-100 hover:text-sei-maroon-200 bg-sei-grey-25 hover:bg-sei-grey-30 px-3 py-1.5  transition-colors font-medium no-underline'>
 					<svg className='w-4 h-4' fill='currentColor' viewBox='0 0 20 20'>
 						<path
 							fillRule='evenodd'
