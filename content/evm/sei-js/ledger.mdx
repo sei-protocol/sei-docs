@@ -1,0 +1,144 @@
+---
+title: '@sei-js/ledger'
+description: 'TypeScript library for SEI Ledger app helper functions — address derivation, Amino signing, and CosmJS integration'
+keywords: ['sei-js', 'ledger', 'hardware wallet', 'cosmos', 'amino', 'cosmjs', 'offline signer']
+---
+
+import { Callout } from 'nextra/components';
+
+# @sei-js/ledger
+
+The `@sei-js/ledger` package provides TypeScript helper functions for the SEI Ledger hardware wallet app. It enables address derivation and offline Amino signing for Cosmos-side transactions on Sei.
+
+<Callout type="info">For EVM-side transaction signing with Ethers.js, see the [Ledger Setup (EVM)](/evm/ledger-ethers) guide instead.</Callout>
+
+## Installation
+
+```bash copy
+npm install @sei-js/ledger
+```
+
+## Hardware Requirements
+
+- Ledger Nano S Plus, Nano X, or compatible device
+- **SEI app** installed on the Ledger device (via Ledger Live Manager)
+- USB or Bluetooth connection to your computer
+
+## Core Functions
+
+### createTransportAndApp
+
+Creates a transport connection and app instance for communicating with the Ledger device.
+
+```typescript copy
+import { createTransportAndApp } from '@sei-js/ledger';
+
+const { transport, app } = await createTransportAndApp();
+```
+
+**Returns:** `Promise<{ transport: Transport, app: SeiApp }>`
+
+### getAddresses
+
+Retrieves both EVM and Cosmos addresses from the Ledger device for a given derivation path.
+
+```typescript copy
+import { createTransportAndApp, getAddresses } from '@sei-js/ledger';
+
+const { app } = await createTransportAndApp();
+const { evmAddress, nativeAddress } = await getAddresses(app, "m/44'/60'/0'/0/0");
+
+console.log('EVM address:', evmAddress);
+console.log('Sei address:', nativeAddress);
+```
+
+**Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `app` | `SeiApp` | Ledger Sei app instance |
+| `path` | `string` | HD derivation path (e.g. `"m/44'/60'/0'/0/0"`) |
+
+**Returns:** `Promise<{ evmAddress: string, nativeAddress: string }>`
+
+### SeiLedgerOfflineAminoSigner
+
+A signer class compatible with CosmJS that enables offline Amino signing via Ledger.
+
+```typescript copy
+import { SeiLedgerOfflineAminoSigner } from '@sei-js/ledger';
+
+const ledgerSigner = new SeiLedgerOfflineAminoSigner(app, "m/44'/60'/0'/0/0");
+```
+
+**Constructor Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `app` | `SeiApp` | Ledger Sei app instance |
+| `path` | `string` | HD derivation path |
+
+#### getAccounts
+
+Retrieves account information from the Ledger device.
+
+```typescript copy
+const accounts = await ledgerSigner.getAccounts();
+// [{ address: 'sei1...', pubkey: { type: 'tendermint/PubKeySecp256k1', value: '...' } }]
+```
+
+#### signAmino
+
+Signs a transaction document using the Ledger device. The device will prompt for physical confirmation.
+
+```typescript copy
+import { StdSignDoc } from '@cosmjs/amino';
+
+const signDoc: StdSignDoc = {
+  /* your transaction document */
+};
+const { signed, signature } = await ledgerSigner.signAmino('sei1...', signDoc);
+```
+
+## Complete Example: Delegating Tokens
+
+```typescript copy
+import { coins, SigningStargateClient, StdFee } from '@cosmjs/stargate';
+import { createTransportAndApp, getAddresses, SeiLedgerOfflineAminoSigner } from '@sei-js/ledger';
+
+async function delegateWithLedger() {
+  const rpcUrl = 'https://rpc-testnet.sei-apis.com/';
+  const path = "m/44'/60'/0'/0/0";
+
+  const { app } = await createTransportAndApp();
+  const { nativeAddress } = await getAddresses(app, path);
+  const ledgerSigner = new SeiLedgerOfflineAminoSigner(app, path);
+
+  const client = await SigningStargateClient.connectWithSigner(rpcUrl, ledgerSigner);
+
+  const msgDelegate = {
+    typeUrl: '/cosmos.staking.v1beta1.MsgDelegate',
+    value: {
+      delegatorAddress: nativeAddress.address,
+      validatorAddress: 'seivaloper1...',
+      amount: coins(500, 'usei')
+    }
+  };
+
+  const fee: StdFee = {
+    amount: [{ denom: 'usei', amount: '20000' }],
+    gas: '200000'
+  };
+
+  const result = await client.signAndBroadcast(nativeAddress.address, [msgDelegate], fee, 'Delegation via Ledger');
+
+  console.log('Broadcast result:', result);
+}
+
+delegateWithLedger();
+```
+
+## Security
+
+- Ensure your Ledger device is genuine and purchased from official sources
+- Always verify transaction details on the Ledger screen before confirming
+- Keep your Ledger firmware and the SEI app updated
+- Store your recovery phrase securely and never share it
