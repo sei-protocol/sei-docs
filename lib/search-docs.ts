@@ -170,13 +170,65 @@ function stem(word: string): string {
 	return word;
 }
 
+/** Spaces, hyphens, underscores — same rules as scripts/build-search-index.js */
 function tokenize(text: string): string[] {
 	return text
 		.toLowerCase()
 		.replace(/[^\w\s-]/g, ' ')
-		.split(/\s+/)
+		.split(/[\s_-]+/)
 		.filter((w) => w.length > 1 && !STOP_WORDS.has(w))
 		.map(stem);
+}
+
+function normalizeQueryText(raw: string): string {
+	let s = raw.trim();
+	s = s.replace(/([a-z0-9])([A-Z])/g, '$1 $2');
+	return s.replace(/_/g, ' ');
+}
+
+function foldForPhraseMatch(s: string): string {
+	return s.toLowerCase().replace(/[\s\-_:]+/g, '');
+}
+
+function termInIndex(term: string, idf: Record<string, number>): boolean {
+	return Object.prototype.hasOwnProperty.call(idf, term);
+}
+
+/**
+ * When the user (or model) concatenates words ("seigiga"), BM25 sees one unknown token.
+ * If the compound can be split into two known index terms, search both.
+ */
+function expandUnknownCompoundTokens(tokens: string[], idf: Record<string, number>): string[] {
+	const out = new Set(tokens);
+	let frontier = [...tokens];
+	let changed = true;
+
+	while (changed) {
+		changed = false;
+		const nextFrontier: string[] = [];
+		for (const t of frontier) {
+			if (termInIndex(t, idf) || t.length < 4) continue;
+			for (let i = 2; i <= t.length - 2; i++) {
+				const left = t.slice(0, i);
+				const right = t.slice(i);
+				if (termInIndex(left, idf) && termInIndex(right, idf)) {
+					if (!out.has(left)) {
+						out.add(left);
+						nextFrontier.push(left);
+						changed = true;
+					}
+					if (!out.has(right)) {
+						out.add(right);
+						nextFrontier.push(right);
+						changed = true;
+					}
+				}
+			}
+		}
+		frontier = nextFrontier;
+	}
+
+	return [...out];
 }
 
 let indexCache: SearchIndex | null = null;
@@ -247,19 +299,26 @@ function extractSnippet(content: string, queryTokens: string[], maxLen: number =
 
 export async function searchDocs(query: string, topK = 8): Promise<SearchResult[]> {
 	const { sections, idf, avgDl } = loadIndex();
-	const queryTokens = tokenize(query);
+	const normalized = normalizeQueryText(query);
+	const queryTokens = expandUnknownCompoundTokens(tokenize(normalized), idf);
 
 	if (queryTokens.length === 0) return [];
+
+	const phraseLower = normalized.toLowerCase();
+	const phraseFolded = foldForPhraseMatch(phraseLower);
+	const useFoldedPhrase = phraseFolded.length >= 4;
 
 	const scored = sections.map((section) => {
 		let score = bm25Score(queryTokens, section, idf, avgDl);
 
 		const titleLower = section.title.toLowerCase();
 		const headingLower = section.sectionHeading.toLowerCase();
-		const phraseLower = query.toLowerCase();
 
 		if (titleLower.includes(phraseLower)) score *= 2.5;
+		else if (useFoldedPhrase && foldForPhraseMatch(titleLower).includes(phraseFolded)) score *= 2.35;
+
 		if (headingLower.includes(phraseLower)) score *= 2.0;
+		else if (useFoldedPhrase && foldForPhraseMatch(headingLower).includes(phraseFolded)) score *= 1.85;
 
 		for (const qt of queryTokens) {
 			if (titleLower.includes(qt)) score *= 1.3;

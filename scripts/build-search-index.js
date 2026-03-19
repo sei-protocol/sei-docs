@@ -154,7 +154,7 @@ function tokenize(text) {
 	return text
 		.toLowerCase()
 		.replace(/[^\w\s-]/g, ' ')
-		.split(/\s+/)
+		.split(/[\s_-]+/)
 		.filter((w) => w.length > 1 && !STOP_WORDS.has(w))
 		.map(stem);
 }
