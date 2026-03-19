@@ -23,8 +23,8 @@ export default withNextra({
 		optimizePackageImports: ['@tabler/icons-react', '@radix-ui/themes', 'sonner', 'viem', 'nextra-theme-docs']
 	},
 	outputFileTracingIncludes: {
-		'/api/chat': ['./public/_scraped-docs/**/*'],
-		'/api/mcp': ['./public/_scraped-docs/**/*']
+		'/api/chat': ['./lib/search-index.json'],
+		'/api/mcp': ['./lib/search-index.json']
 	},
 	compiler: {
 		removeConsole: process.env.NODE_ENV === 'production',
