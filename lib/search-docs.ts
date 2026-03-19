@@ -1,4 +1,4 @@
-import { readdir, readFile } from 'fs/promises';
+import { readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 
 interface DocSection {
@@ -7,7 +7,6 @@ interface DocSection {
 	url: string;
 	sectionHeading: string;
 	content: string;
-	tokens: string[];
 	tokenFreq: Map<string, number>;
 	length: number;
 }
@@ -201,16 +200,7 @@ function splitIntoSections(body: string, docId: string, title: string, url: stri
 	if (headings.length === 0) {
 		const combined = `${title}. ${description}. ${body}`;
 		const tokens = tokenize(combined);
-		sections.push({
-			docId,
-			title,
-			url,
-			sectionHeading: title,
-			content: body,
-			tokens,
-			tokenFreq: countFreq(tokens),
-			length: tokens.length
-		});
+		sections.push({ docId, title, url, sectionHeading: title, content: body, tokenFreq: countFreq(tokens), length: tokens.length });
 		return sections;
 	}
 
@@ -218,55 +208,33 @@ function splitIntoSections(body: string, docId: string, title: string, url: stri
 		const start = headings[i].index;
 		const end = i + 1 < headings.length ? headings[i + 1].index : body.length;
 		const sectionContent = body.slice(start, end).trim();
-
 		if (sectionContent.length < 30) continue;
 
 		const combined = `${title} ${headings[i].heading} ${sectionContent}`;
 		const tokens = tokenize(combined);
-
-		sections.push({
-			docId,
-			title,
-			url,
-			sectionHeading: headings[i].heading,
-			content: sectionContent,
-			tokens,
-			tokenFreq: countFreq(tokens),
-			length: tokens.length
-		});
+		sections.push({ docId, title, url, sectionHeading: headings[i].heading, content: sectionContent, tokenFreq: countFreq(tokens), length: tokens.length });
 	}
 
 	if (sections.length === 0) {
 		const combined = `${title}. ${description}. ${body}`;
 		const tokens = tokenize(combined);
-		sections.push({
-			docId,
-			title,
-			url,
-			sectionHeading: title,
-			content: body,
-			tokens,
-			tokenFreq: countFreq(tokens),
-			length: tokens.length
-		});
+		sections.push({ docId, title, url, sectionHeading: title, content: body, tokenFreq: countFreq(tokens), length: tokens.length });
 	}
 
 	return sections;
 }
 
-async function loadSections(): Promise<{ sections: DocSection[]; idf: Map<string, number>; avgDl: number }> {
+function loadSections(): { sections: DocSection[]; idf: Map<string, number>; avgDl: number } {
 	if (sectionsCache && idfCache) {
 		return { sections: sectionsCache, idf: idfCache, avgDl: avgDlCache };
 	}
 
-	const files = await readdir(SCRAPED_DOCS_DIR);
+	const files = readdirSync(SCRAPED_DOCS_DIR);
 	const mdxFiles = files.filter((f) => f.endsWith('.mdx'));
-
 	const allSections: DocSection[] = [];
 
 	for (const fileName of mdxFiles) {
-		const raw = await readFile(join(SCRAPED_DOCS_DIR, fileName), 'utf8');
-
+		const raw = readFileSync(join(SCRAPED_DOCS_DIR, fileName), 'utf8');
 		const titleMatch = raw.match(/^title:\s*"(.+?)"/m);
 		const urlMatch = raw.match(/^url:\s*"(.+?)"/m);
 		const descMatch = raw.match(/^description:\s*"(.+?)"/m);
@@ -277,15 +245,14 @@ async function loadSections(): Promise<{ sections: DocSection[]; idf: Map<string
 		const description = descMatch?.[1] ?? '';
 		const body = raw.replace(/^---[\s\S]*?---\s*/, '').trim();
 
-		const sections = splitIntoSections(body, docId, title, url, description);
-		allSections.push(...sections);
+		allSections.push(...splitIntoSections(body, docId, title, url, description));
 	}
 
 	const N = allSections.length;
 	const df = new Map<string, number>();
 	for (const sec of allSections) {
-		const uniqueTokens = new Set(sec.tokens);
-		for (const t of uniqueTokens) {
+		const seen = new Set(sec.tokenFreq.keys());
+		for (const t of seen) {
 			df.set(t, (df.get(t) || 0) + 1);
 		}
 	}
@@ -300,7 +267,6 @@ async function loadSections(): Promise<{ sections: DocSection[]; idf: Map<string
 	sectionsCache = allSections;
 	idfCache = idf;
 	avgDlCache = avgDl;
-
 	return { sections: allSections, idf, avgDl };
 }
 
@@ -313,30 +279,26 @@ function bm25Score(queryTokens: string[], section: DocSection, idf: Map<string, 
 		const tf = section.tokenFreq.get(qt) || 0;
 		if (tf === 0) continue;
 		const termIdf = idf.get(qt) || 0;
-		const numerator = tf * (BM25_K1 + 1);
-		const denominator = tf + BM25_K1 * (1 - BM25_B + BM25_B * (section.length / avgDl));
-		score += termIdf * (numerator / denominator);
+		score += termIdf * ((tf * (BM25_K1 + 1)) / (tf + BM25_K1 * (1 - BM25_B + BM25_B * (section.length / avgDl))));
 	}
 	return score;
 }
 
 function extractSnippet(content: string, queryTokens: string[], maxLen: number = 1200): string {
-	const contentLower = content.toLowerCase();
 	const sentences = content.split(/(?<=[.!?\n])\s+/);
-
 	let bestStart = 0;
 	let bestScore = -1;
 
 	const windowSize = 3;
 	for (let i = 0; i < sentences.length; i++) {
-		const window = sentences.slice(i, i + windowSize).join(' ');
-		const windowLower = window.toLowerCase();
+		const windowLower = sentences
+			.slice(i, i + windowSize)
+			.join(' ')
+			.toLowerCase();
 		let score = 0;
 		for (const qt of queryTokens) {
-			const idx = windowLower.indexOf(qt);
-			if (idx !== -1) score += 2;
-			const parts = windowLower.split(qt);
-			score += Math.min(parts.length - 1, 5);
+			if (windowLower.indexOf(qt) !== -1) score += 2;
+			score += Math.min(windowLower.split(qt).length - 1, 5);
 		}
 		if (score > bestScore) {
 			bestScore = score;
@@ -345,14 +307,12 @@ function extractSnippet(content: string, queryTokens: string[], maxLen: number =
 	}
 
 	const snippet = sentences.slice(bestStart, bestStart + windowSize + 2).join(' ');
-	if (snippet.length <= maxLen) return snippet;
-	return snippet.slice(0, maxLen) + '...';
+	return snippet.length <= maxLen ? snippet : snippet.slice(0, maxLen) + '...';
 }
 
 export async function searchDocs(query: string, topK = 8): Promise<SearchResult[]> {
-	const { sections, idf, avgDl } = await loadSections();
+	const { sections, idf, avgDl } = loadSections();
 	const queryTokens = tokenize(query);
-
 	if (queryTokens.length === 0) return [];
 
 	const scored = sections.map((section) => {
@@ -364,7 +324,6 @@ export async function searchDocs(query: string, topK = 8): Promise<SearchResult[
 
 		if (titleLower.includes(phraseLower)) score *= 2.5;
 		if (headingLower.includes(phraseLower)) score *= 2.0;
-
 		for (const qt of queryTokens) {
 			if (titleLower.includes(qt)) score *= 1.3;
 			if (headingLower.includes(qt)) score *= 1.15;
@@ -379,22 +338,20 @@ export async function searchDocs(query: string, topK = 8): Promise<SearchResult[
 	const results: SearchResult[] = [];
 
 	for (const { section, score } of scored) {
-		if (results.length >= topK) break;
-		if (score <= 0) break;
+		if (results.length >= topK || score <= 0) break;
 
 		const docCount = seenDocs.get(section.docId) || 0;
 		if (docCount >= 2) continue;
 		seenDocs.set(section.docId, docCount + 1);
 
 		const heading = section.sectionHeading !== section.title ? ` > ${section.sectionHeading}` : '';
-		const snippet = extractSnippet(section.content, queryTokens);
-
 		const maxScore = scored[0]?.score || 1;
+
 		results.push({
 			title: `${section.title}${heading}`,
 			url: section.url,
 			description: '',
-			content: snippet,
+			content: extractSnippet(section.content, queryTokens),
 			score: Math.min(score / maxScore, 1)
 		});
 	}

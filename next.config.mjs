@@ -22,6 +22,10 @@ export default withNextra({
 	experimental: {
 		optimizePackageImports: ['@tabler/icons-react', '@radix-ui/themes', 'sonner', 'viem', 'nextra-theme-docs']
 	},
+	outputFileTracingIncludes: {
+		'/api/chat': ['./public/_scraped-docs/**/*'],
+		'/api/mcp': ['./public/_scraped-docs/**/*']
+	},
 	compiler: {
 		removeConsole: process.env.NODE_ENV === 'production',
 		reactRemoveProperties: process.env.NODE_ENV === 'production' ? { properties: ['^data-test$', '^data-testid$', '^data-cy$'] } : false
