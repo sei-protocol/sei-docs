@@ -181,13 +181,25 @@ function tokenize(text: string): string[] {
 
 let indexCache: SearchIndex | null = null;
 
+const EMPTY_INDEX: SearchIndex = { sections: [], idf: {}, avgDl: 1 };
+
 function loadIndex(): SearchIndex {
 	if (indexCache) return indexCache;
 
-	const indexPath = join(process.cwd(), 'lib', 'search-index.json');
-	const raw = readFileSync(indexPath, 'utf8');
-	indexCache = JSON.parse(raw) as SearchIndex;
-	return indexCache;
+	try {
+		const indexPath = join(process.cwd(), 'lib', 'search-index.json');
+		const raw = readFileSync(indexPath, 'utf8');
+		const parsed = JSON.parse(raw) as SearchIndex;
+		if (!parsed?.sections?.length || typeof parsed.avgDl !== 'number' || !Number.isFinite(parsed.avgDl)) {
+			indexCache = EMPTY_INDEX;
+			return indexCache;
+		}
+		indexCache = parsed;
+		return indexCache;
+	} catch {
+		indexCache = EMPTY_INDEX;
+		return indexCache;
+	}
 }
 
 const BM25_K1 = 1.2;

@@ -2,6 +2,7 @@ const fs = require('fs').promises;
 const path = require('path');
 
 const SCRAPED_DOCS_DIR = path.join(process.cwd(), 'public', '_scraped-docs');
+const CONTENT_DIR = path.join(process.cwd(), 'content');
 const OUTPUT_PATH = path.join(process.cwd(), 'lib', 'search-index.json');
 
 const STOP_WORDS = new Set([
@@ -229,37 +230,116 @@ function splitIntoSections(body, docId, title, url, description) {
 	return sections;
 }
 
+function stripMdxNoise(text) {
+	return text
+		.split('\n')
+		.filter((line) => !/^\s*import\s/.test(line) && !/^\s*export\s+default\s/.test(line))
+		.join('\n');
+}
+
+function parseYamlScalar(block, key) {
+	const re = new RegExp(`^${key}:\\s*(.*)$`, 'm');
+	const m = block.match(re);
+	if (!m) return '';
+	let v = m[1].trim();
+	if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+		return v.slice(1, -1);
+	}
+	return v;
+}
+
+function parseSourceMdx(raw) {
+	const fmMatch = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\s*/);
+	if (!fmMatch) {
+		return { title: '', description: '', body: stripMdxNoise(raw) };
+	}
+	const fm = fmMatch[1];
+	const body = stripMdxNoise(raw.slice(fmMatch[0].length));
+	const title = parseYamlScalar(fm, 'title');
+	const description = parseYamlScalar(fm, 'description');
+	return { title: title || 'Untitled', description, body };
+}
+
+function relPathToDocsUrl(rel) {
+	const noExt = rel.replace(/\.mdx$/i, '');
+	if (noExt === 'index') return 'https://docs.sei.io/';
+	if (noExt.endsWith('/index')) {
+		const p = noExt.slice(0, -6);
+		return p ? `https://docs.sei.io/${p}` : 'https://docs.sei.io/';
+	}
+	return `https://docs.sei.io/${noExt}`;
+}
+
+async function walkContentMdxFiles(dir, relBase = '') {
+	const out = [];
+	let entries;
+	try {
+		entries = await fs.readdir(dir, { withFileTypes: true });
+	} catch {
+		return out;
+	}
+	for (const e of entries) {
+		const rel = relBase ? `${relBase}/${e.name}` : e.name;
+		const full = path.join(dir, e.name);
+		if (e.isDirectory()) {
+			out.push(...(await walkContentMdxFiles(full, rel)));
+		} else if (e.name.endsWith('.mdx')) {
+			out.push({ full, rel: rel.replace(/\\/g, '/') });
+		}
+	}
+	return out;
+}
+
+async function buildSectionsFromScrapedDir() {
+	const allSections = [];
+	try {
+		const files = await fs.readdir(SCRAPED_DOCS_DIR);
+		const mdxFiles = files.filter((f) => f.endsWith('.mdx'));
+		console.log(`Scraped docs: ${mdxFiles.length} .mdx files`);
+		for (const fileName of mdxFiles) {
+			const raw = await fs.readFile(path.join(SCRAPED_DOCS_DIR, fileName), 'utf8');
+			const titleMatch = raw.match(/^title:\s*"(.+?)"/m);
+			const urlMatch = raw.match(/^url:\s*"(.+?)"/m);
+			const descMatch = raw.match(/^description:\s*"(.+?)"/m);
+			const docId = fileName.replace('.mdx', '');
+			const title = titleMatch?.[1] ?? docId;
+			const url = urlMatch?.[1] ?? `https://docs.sei.io/${docId}`;
+			const description = descMatch?.[1] ?? '';
+			const body = raw.replace(/^---[\s\S]*?---\s*/, '').trim();
+			allSections.push(...splitIntoSections(body, docId, title, url, description));
+		}
+	} catch {
+		console.warn('No readable scraped docs at', SCRAPED_DOCS_DIR);
+	}
+	return allSections;
+}
+
+async function buildSectionsFromContentDir() {
+	const allSections = [];
+	const files = await walkContentMdxFiles(CONTENT_DIR);
+	console.log(`content/: ${files.length} .mdx files`);
+	for (const { full, rel } of files) {
+		const raw = await fs.readFile(full, 'utf8');
+		const { title, description, body } = parseSourceMdx(raw);
+		const docId = rel.replace(/\.mdx$/i, '');
+		const url = relPathToDocsUrl(rel);
+		allSections.push(...splitIntoSections(body, docId, title, url, description));
+	}
+	return allSections;
+}
+
 async function buildIndex() {
 	console.log('Building search index...');
 
-	let files;
-	try {
-		files = await fs.readdir(SCRAPED_DOCS_DIR);
-	} catch {
-		console.warn('No scraped docs found at', SCRAPED_DOCS_DIR, '— skipping search index build.');
-		return;
+	let allSections = await buildSectionsFromScrapedDir();
+	if (allSections.length === 0) {
+		console.warn('Scraped index empty — falling back to content/**/*.mdx (ensures Vercel builds have search).');
+		allSections = await buildSectionsFromContentDir();
 	}
 
-	const mdxFiles = files.filter((f) => f.endsWith('.mdx'));
-	console.log(`Found ${mdxFiles.length} documents`);
-
-	const allSections = [];
-
-	for (const fileName of mdxFiles) {
-		const raw = await fs.readFile(path.join(SCRAPED_DOCS_DIR, fileName), 'utf8');
-
-		const titleMatch = raw.match(/^title:\s*"(.+?)"/m);
-		const urlMatch = raw.match(/^url:\s*"(.+?)"/m);
-		const descMatch = raw.match(/^description:\s*"(.+?)"/m);
-
-		const docId = fileName.replace('.mdx', '');
-		const title = titleMatch?.[1] ?? docId;
-		const url = urlMatch?.[1] ?? `https://docs.sei.io/${docId}`;
-		const description = descMatch?.[1] ?? '';
-		const body = raw.replace(/^---[\s\S]*?---\s*/, '').trim();
-
-		const sections = splitIntoSections(body, docId, title, url, description);
-		allSections.push(...sections);
+	if (allSections.length === 0) {
+		console.error('Search index: no sections from scraped docs or content/.');
+		process.exit(1);
 	}
 
 	const N = allSections.length;
