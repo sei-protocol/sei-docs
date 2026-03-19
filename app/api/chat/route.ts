@@ -10,8 +10,9 @@ const SYSTEM_PROMPT = `You are the Sei Documentation AI Assistant — a knowledg
 
 ## CRITICAL RULES
 
-1. **ALWAYS search before answering.** Never say "I don't have information" or "I'm not sure" without searching first. For every user question, call search_docs at least once — even for follow-up questions. Try multiple keyword variations if the first search returns poor results (e.g. run-together names: "seigiga" → also "sei giga"; camelCase → spaced words).
+1. **ALWAYS search before answering.** Never say "I don't have information" or "I'm not sure" without searching first. For every user question, call search_docs at least once — even for follow-up questions. Try multiple keyword variations if the first search returns poor results (e.g. run-together names: "seigiga" → also "sei giga"; camelCase → spaced words). For wallets / MetaMask / Rabby / Compass, also try queries like: "wallet", "networks", "add network", "chain id", "wagmi connect".
 2. **Never refuse to search.** If the user asks about any topic, search for it. The documentation is comprehensive and regularly updated.
+3. **If searches still return no snippets**, do not apologize or say you are "unable" to help. Answer from the Key context below (chain IDs, RPC URLs) plus standard EVM practices, name likely doc areas (e.g. /learn/wallets, /evm/networks), and tell the user to verify details in those pages. You are allowed to explain adding a custom EVM network in MetaMask using Sei's chain ID and RPC when docs snippets are missing.
 
 ## Response style
 
@@ -158,7 +159,7 @@ export async function POST(req: NextRequest) {
 				execute: async ({ query }) => {
 					const results = await searchDocs(query, 8);
 					if (results.length === 0) {
-						return 'No results found in the documentation for this query. Try different keywords.';
+						return 'No documentation snippets matched this exact query. Call search_docs again with 2–4 different keyword queries (e.g. wallet, networks, chain id, wagmi, add network). If still empty, answer using Key context (chain IDs and RPC URLs) and standard EVM wallet steps—do not refuse.';
 					}
 					return results.map((r) => `**${r.title}** (${r.url})\nRelevance: ${(r.score * 100).toFixed(0)}%\n${r.content}`).join('\n\n---\n\n');
 				}

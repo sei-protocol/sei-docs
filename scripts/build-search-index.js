@@ -328,14 +328,34 @@ async function buildSectionsFromContentDir() {
 	return allSections;
 }
 
+/** Prefer content/ over scraped for the same doc section (scraped HTML can lag or omit blocks). */
+function mergeSearchSections(fromContent, fromScraped) {
+	const byKey = new Map();
+	for (const sec of fromContent) {
+		byKey.set(`${sec.docId}::${sec.sectionHeading}`, sec);
+	}
+	let addedFromScraped = 0;
+	for (const sec of fromScraped) {
+		const key = `${sec.docId}::${sec.sectionHeading}`;
+		if (!byKey.has(key)) {
+			byKey.set(key, sec);
+			addedFromScraped++;
+		}
+	}
+	if (fromScraped.length > 0) {
+		console.log(
+			`Search index merge: ${fromContent.length} from content/, ${fromScraped.length} from scraped, ${addedFromScraped} scraped-only sections, ${byKey.size} total`
+		);
+	}
+	return [...byKey.values()];
+}
+
 async function buildIndex() {
 	console.log('Building search index...');
 
-	let allSections = await buildSectionsFromScrapedDir();
-	if (allSections.length === 0) {
-		console.warn('Scraped index empty — falling back to content/**/*.mdx (ensures Vercel builds have search).');
-		allSections = await buildSectionsFromContentDir();
-	}
+	const fromScraped = await buildSectionsFromScrapedDir();
+	const fromContent = await buildSectionsFromContentDir();
+	let allSections = mergeSearchSections(fromContent, fromScraped);
 
 	if (allSections.length === 0) {
 		console.error('Search index: no sections from scraped docs or content/.');

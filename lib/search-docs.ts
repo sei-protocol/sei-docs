@@ -270,6 +270,30 @@ function bm25Score(queryTokens: string[], section: IndexSection, idf: Record<str
 	return score;
 }
 
+/**
+ * When BM25 scores are all zero (e.g. stem/idf mismatch), match raw query words in text.
+ */
+function substringFallbackRank(queryLower: string, sections: IndexSection[]): Array<{ section: IndexSection; score: number }> {
+	const words = queryLower
+		.replace(/[^\w\s-]/g, ' ')
+		.split(/[\s_-]+/)
+		.map((w) => w.trim())
+		.filter((w) => w.length >= 3 && !STOP_WORDS.has(w));
+	if (words.length === 0) return [];
+
+	return sections
+		.map((section) => {
+			const hay = `${section.title}\n${section.sectionHeading}\n${section.content}`.toLowerCase();
+			let score = 0;
+			for (const w of words) {
+				if (hay.includes(w)) score += 1;
+			}
+			return { section, score };
+		})
+		.filter((x) => x.score > 0)
+		.sort((a, b) => b.score - a.score);
+}
+
 function extractSnippet(content: string, queryTokens: string[], maxLen: number = 1200): string {
 	const sentences = content.split(/(?<=[.!?\n])\s+/);
 
@@ -300,9 +324,9 @@ function extractSnippet(content: string, queryTokens: string[], maxLen: number =
 export async function searchDocs(query: string, topK = 8): Promise<SearchResult[]> {
 	const { sections, idf, avgDl } = loadIndex();
 	const normalized = normalizeQueryText(query);
-	const queryTokens = expandUnknownCompoundTokens(tokenize(normalized), idf);
+	if (!normalized.trim()) return [];
 
-	if (queryTokens.length === 0) return [];
+	const queryTokens = expandUnknownCompoundTokens(tokenize(normalized), idf);
 
 	const phraseLower = normalized.toLowerCase();
 	const phraseFolded = foldForPhraseMatch(phraseLower);
@@ -333,25 +357,42 @@ export async function searchDocs(query: string, topK = 8): Promise<SearchResult[
 	const seenDocs = new Map<string, number>();
 	const results: SearchResult[] = [];
 
-	for (const { section, score } of scored) {
-		if (results.length >= topK) break;
-		if (score <= 0) break;
+	const pushFromRanked = (ranked: Array<{ section: IndexSection; score: number }>, snippetTokens: string[], maxScore: number) => {
+		for (const { section, score } of ranked) {
+			if (results.length >= topK) break;
+			if (score <= 0) break;
 
-		const docCount = seenDocs.get(section.docId) || 0;
-		if (docCount >= 2) continue;
-		seenDocs.set(section.docId, docCount + 1);
+			const docCount = seenDocs.get(section.docId) || 0;
+			if (docCount >= 2) continue;
+			seenDocs.set(section.docId, docCount + 1);
 
-		const heading = section.sectionHeading !== section.title ? ` > ${section.sectionHeading}` : '';
-		const snippet = extractSnippet(section.content, queryTokens);
+			const heading = section.sectionHeading !== section.title ? ` > ${section.sectionHeading}` : '';
+			const snippet = extractSnippet(section.content, snippetTokens.length ? snippetTokens : queryTokens);
 
-		const maxScore = scored[0]?.score || 1;
-		results.push({
-			title: `${section.title}${heading}`,
-			url: section.url,
-			description: '',
-			content: snippet,
-			score: Math.min(score / maxScore, 1)
-		});
+			results.push({
+				title: `${section.title}${heading}`,
+				url: section.url,
+				description: '',
+				content: snippet,
+				score: Math.min(score / maxScore, 1)
+			});
+		}
+	};
+
+	const maxBm25 = scored[0]?.score || 1;
+	pushFromRanked(scored, queryTokens, maxBm25);
+
+	if (results.length === 0) {
+		const fb = substringFallbackRank(phraseLower, sections);
+		if (fb.length > 0) {
+			const maxFb = fb[0]?.score || 1;
+			const words = phraseLower
+				.replace(/[^\w\s-]/g, ' ')
+				.split(/[\s_-]+/)
+				.filter((w) => w.length >= 3 && !STOP_WORDS.has(w));
+			const snippetTokens = words.length ? words : queryTokens;
+			pushFromRanked(fb, snippetTokens, maxFb);
+		}
 	}
 
 	return results;
