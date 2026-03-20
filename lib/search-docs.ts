@@ -1,5 +1,6 @@
-import { readFileSync } from 'fs';
-import { join } from 'path';
+import { readFileSync, existsSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 
 export interface SearchResult {
 	title: string;
@@ -235,11 +236,33 @@ let indexCache: SearchIndex | null = null;
 
 const EMPTY_INDEX: SearchIndex = { sections: [], idf: {}, avgDl: 1 };
 
+function resolveIndexPath(): string | null {
+	const candidates = [
+		join(process.cwd(), 'lib', 'search-index.json'),
+		join(dirname(fileURLToPath(import.meta.url)), 'search-index.json'),
+		join(process.cwd(), '.next', 'server', 'lib', 'search-index.json')
+	];
+
+	for (const p of candidates) {
+		try {
+			if (existsSync(p)) return p;
+		} catch {
+			/* permission or sandbox error — skip */
+		}
+	}
+	return null;
+}
+
 function loadIndex(): SearchIndex {
 	if (indexCache) return indexCache;
 
+	const indexPath = resolveIndexPath();
+	if (!indexPath) {
+		indexCache = EMPTY_INDEX;
+		return indexCache;
+	}
+
 	try {
-		const indexPath = join(process.cwd(), 'lib', 'search-index.json');
 		const raw = readFileSync(indexPath, 'utf8');
 		const parsed = JSON.parse(raw) as SearchIndex;
 		if (!parsed?.sections?.length || typeof parsed.avgDl !== 'number' || !Number.isFinite(parsed.avgDl)) {
