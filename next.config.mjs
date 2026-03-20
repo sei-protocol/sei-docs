@@ -1302,6 +1302,16 @@ export default withNextra({
 				source: '/evm/optimizing-for-parallelization',
 				destination: '/evm/best-practices/optimizing-for-parallelization',
 				permanent: true
+			},
+			{
+				source: '/cosmos-sdk/multi-sig-accounts',
+				destination: '/cosmos-sdk',
+				permanent: true
+			},
+			{
+				source: '/cosmos-sdk/networks',
+				destination: '/cosmos-sdk',
+				permanent: true
 			}
 		];
 	}
