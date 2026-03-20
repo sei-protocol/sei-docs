@@ -1,6 +1,14 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
+export interface SearchResult {
+	title: string;
+	url: string;
+	description: string;
+	content: string;
+	score: number;
+}
+
 interface IndexSection {
 	docId: string;
 	title: string;
@@ -15,14 +23,6 @@ interface SearchIndex {
 	sections: IndexSection[];
 	idf: Record<string, number>;
 	avgDl: number;
-}
-
-export interface SearchResult {
-	title: string;
-	url: string;
-	description: string;
-	content: string;
-	score: number;
 }
 
 const STOP_WORDS = new Set([
