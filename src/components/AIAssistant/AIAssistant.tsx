@@ -361,6 +361,19 @@ export function AIAssistant() {
 		return () => window.removeEventListener('keydown', handleKeyDown);
 	}, [isOpen]);
 
+	useEffect(() => {
+		const handleAskAI = (e: Event) => {
+			const { pageTitle } = (e as CustomEvent).detail as { pagePath: string; pageTitle: string; markdownUrl: string };
+			setIsOpen(true);
+			const question = `Explain this page to me: "${pageTitle}". What are the key concepts and how do I use them?`;
+			requestAnimationFrame(() => {
+				sendMessage({ text: question });
+			});
+		};
+		window.addEventListener('sei-ask-ai', handleAskAI);
+		return () => window.removeEventListener('sei-ask-ai', handleAskAI);
+	}, [sendMessage]);
+
 	const handleFormSubmit = (e: React.FormEvent) => {
 		e.preventDefault();
 		if (!input.trim() || isLoading) return;

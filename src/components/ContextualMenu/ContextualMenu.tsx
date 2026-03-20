@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Fragment } from 'react';
 import { usePathname } from 'next/navigation';
 import { toast } from 'sonner';
 
@@ -65,6 +65,21 @@ export function ContextualMenu() {
 	};
 
 	const actions: MenuAction[] = [
+		{
+			id: 'ask-ai',
+			icon: <AskAIIcon />,
+			label: 'Ask AI about this page',
+			sublabel: 'Get instant answers from Sei AI',
+			onClick: () => {
+				const pageTitle = document.querySelector('h1')?.textContent?.trim() || pathname;
+				window.dispatchEvent(
+					new CustomEvent('sei-ask-ai', {
+						detail: { pagePath: pathname, pageTitle, markdownUrl }
+					})
+				);
+				setIsOpen(false);
+			}
+		},
 		{
 			id: 'claude',
 			icon: <ClaudeIcon />,
@@ -173,16 +188,19 @@ export function ContextualMenu() {
 			{isOpen && (
 				<div className='sei-ctx-dropdown'>
 					{actions.map((action) => (
-						<button key={action.id} className='sei-ctx-action' onClick={action.onClick}>
-							<span className='sei-ctx-action-icon'>{action.icon}</span>
-							<span className='sei-ctx-action-text'>
-								<span className='sei-ctx-action-label'>
-									{action.label}
-									{['claude', 'chatgpt', 'view-md'].includes(action.id) && <ExternalIcon />}
+						<Fragment key={action.id}>
+							<button className={`sei-ctx-action${action.id === 'ask-ai' ? ' sei-ctx-action-highlight' : ''}`} onClick={action.onClick}>
+								<span className='sei-ctx-action-icon'>{action.icon}</span>
+								<span className='sei-ctx-action-text'>
+									<span className='sei-ctx-action-label'>
+										{action.label}
+										{['claude', 'chatgpt', 'view-md'].includes(action.id) && <ExternalIcon />}
+									</span>
+									<span className='sei-ctx-action-sublabel'>{action.sublabel}</span>
 								</span>
-								<span className='sei-ctx-action-sublabel'>{action.sublabel}</span>
-							</span>
-						</button>
+							</button>
+							{action.id === 'ask-ai' && <div className='sei-ctx-separator' />}
+						</Fragment>
 					))}
 				</div>
 			)}
@@ -253,6 +271,15 @@ function MarkdownIcon() {
 		<svg width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' strokeLinecap='round' strokeLinejoin='round'>
 			<rect x='2' y='4' width='20' height='16' rx='2' />
 			<path d='M6 8v8l3-3 3 3V8M18 8l-2 4h4l-2 4' />
+		</svg>
+	);
+}
+
+function AskAIIcon() {
+	return (
+		<svg width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' strokeLinecap='round' strokeLinejoin='round'>
+			<path d='M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z' />
+			<path d='M12 7v2M12 13h.01' />
 		</svg>
 	);
 }
