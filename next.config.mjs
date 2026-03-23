@@ -1312,6 +1312,17 @@ export default withNextra({
 				source: '/cosmos-sdk/networks',
 				destination: '/cosmos-sdk',
 				permanent: true
+			},
+			// AI supported files
+			{
+				source: '/:path*/skill',
+				destination: '/:path*/skill.md',
+				permanent: true
+			},
+			{
+				source: '/:path*/agents',
+				destination: '/:path*/agents.md',
+				permanent: true
 			}
 		];
 	}
