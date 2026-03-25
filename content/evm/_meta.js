@@ -56,26 +56,15 @@ export default {
 		type: 'separator',
 		title: 'sei-js Library'
 	},
-	'seijs-introduction': {
-		title: 'Introduction to sei-js',
-		href: 'https://sei-js.docs.sei.io/introduction'
+	'sei-js': {
+		display: 'children'
 	},
-	'scaffold-sei': {
-		title: 'Scaffold Sei',
-		href: 'https://sei-js.docs.sei.io/create-sei/welcome'
+
+	'-- Videos': {
+		type: 'separator',
+		title: 'Videos'
 	},
-	'mcp-server-seijs': {
-		title: 'MCP Server',
-		href: 'https://sei-js.docs.sei.io/mcp-server/introduction'
-	},
-	'sei-x402': {
-		title: 'X402',
-		href: 'https://sei-js.docs.sei.io/x402/introduction'
-	},
-	'seijs-ledger': {
-		title: 'Ledger',
-		href: 'https://sei-js.docs.sei.io/ledger/introduction'
-	},
+	videos: 'Video Tutorials',
 
 	'-- Ecosystem Tutorials': {
 		type: 'separator',
@@ -90,6 +79,7 @@ export default {
 	dune: 'Dune Analytics',
 	oracles: 'Oracles',
 	vrf: 'VRF',
+
 	'-- Reference': {
 		type: 'separator',
 		title: 'Reference'
@@ -104,5 +94,5 @@ export default {
 		type: 'separator',
 		title: 'Hardware Wallets'
 	},
-	'ledger-ethers': 'Using Ledger with Ethers'
+	'ledger-ethers': 'Ledger Setup (EVM)'
 };

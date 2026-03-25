@@ -1,7 +1,8 @@
+export { AIAssistant } from './AIAssistant/AIAssistant';
 export * from './AppCard';
-export * from './AskAIAssistant';
 export * from './BrandKitGallery';
 export * from './ChainInformation';
+export { ContextualMenu } from './ContextualMenu/ContextualMenu';
 export * from './CopyButton';
 export * from './FaucetRequest';
 export { Footer } from './Footer/Footer';
