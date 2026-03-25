@@ -56,7 +56,15 @@ export default {
 		type: 'separator',
 		title: 'sei-js Library'
 	},
-	'sei-js': '@sei-js SDK',
+	'sei-js': {
+		display: 'children'
+	},
+
+	'-- Videos': {
+		type: 'separator',
+		title: 'Videos'
+	},
+	videos: 'Video Tutorials',
 
 	'-- Ecosystem Tutorials': {
 		type: 'separator',
@@ -71,6 +79,7 @@ export default {
 	dune: 'Dune Analytics',
 	oracles: 'Oracles',
 	vrf: 'VRF',
+
 	'-- Reference': {
 		type: 'separator',
 		title: 'Reference'
