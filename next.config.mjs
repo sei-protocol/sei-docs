@@ -22,6 +22,10 @@ export default withNextra({
 	experimental: {
 		optimizePackageImports: ['@tabler/icons-react', '@radix-ui/themes', 'sonner', 'viem', 'nextra-theme-docs']
 	},
+	outputFileTracingIncludes: {
+		'/api/chat': ['./lib/search-index.json'],
+		'/api/mcp': ['./lib/search-index.json']
+	},
 	compiler: {
 		removeConsole: process.env.NODE_ENV === 'production',
 		reactRemoveProperties: process.env.NODE_ENV === 'production' ? { properties: ['^data-test$', '^data-testid$', '^data-cy$'] } : false
@@ -1307,6 +1311,17 @@ export default withNextra({
 			{
 				source: '/cosmos-sdk/networks',
 				destination: '/cosmos-sdk',
+				permanent: true
+			},
+			// AI supported files
+			{
+				source: '/:path*/skill',
+				destination: '/:path*/skill.md',
+				permanent: true
+			},
+			{
+				source: '/:path*/agents',
+				destination: '/:path*/agents.md',
 				permanent: true
 			}
 		];

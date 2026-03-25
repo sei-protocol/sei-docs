@@ -2,7 +2,10 @@
 
 import { Layout, Navbar } from 'nextra-theme-docs';
 import dynamic from 'next/dynamic';
-import { AskAIAssistant } from '../components/AskAIAssistant/AskAIAssistant';
+import { AIAssistant } from '../components/AIAssistant/AIAssistant';
+import { ContextualMenu } from '../components/ContextualMenu/ContextualMenu';
+import '../components/AIAssistant/ai-assistant.css';
+import '../components/ContextualMenu/contextual-menu.css';
 import { Logo, LogoMobile } from '../components/Logo';
 import { useState, useEffect } from 'react';
 import { Footer } from '../components/Footer/Footer';
@@ -42,7 +45,7 @@ export default function DocsProviders({ children, pageMap }) {
 				className='sei-nav flex items-center w-full'
 				children={
 					<div className='flex items-center gap-2'>
-						<AskAIAssistant />
+						<AIAssistant />
 						<SearchDynamic placeholder='Search...' />
 					</div>
 				}
@@ -55,7 +58,7 @@ export default function DocsProviders({ children, pageMap }) {
 				children={
 					<div className='sei-nav flex items-center justify-between gap-6'>
 						<div className='flex-grow flex justify-start'>
-							<AskAIAssistant />
+							<AIAssistant />
 						</div>
 						<SearchDynamic placeholder='Search...' />
 						{isHomepage && <ThemeSwitch />}
@@ -83,6 +86,7 @@ export default function DocsProviders({ children, pageMap }) {
 					<Confetti />
 					{!isMobile && <ConditionalNavbar />}
 					<div className='relative z-10'>{children}</div>
+					<ContextualMenu />
 				</Theme>
 			</Layout>
 		</>
