@@ -1,6 +1,5 @@
 'use client';
 
-import { Theme } from '@radix-ui/themes';
 import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
 import { Layout, Navbar, ThemeSwitch } from 'nextra-theme-docs';
@@ -80,13 +79,13 @@ export default function DocsProviders({ children, pageMap }) {
 				nextThemes={{ attribute: 'class', defaultTheme: 'dark' }}
 				pageMap={pageMap}>
 				{isMobile && <ConditionalNavbar />}
-				<Theme accentColor='red' grayColor='gray' scaling='100%'>
+				<div>
 					<Snowflakes />
 					<Confetti />
 					{!isMobile && <ConditionalNavbar />}
 					<div className='relative z-10'>{children}</div>
 					<ContextualMenu />
-				</Theme>
+				</div>
 			</Layout>
 		</>
 	);

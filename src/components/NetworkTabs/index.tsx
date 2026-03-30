@@ -1,7 +1,23 @@
 'use client';
 
-import { IconChevronRight } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
+
+const ChevronRightIcon = ({ className }: { className?: string }) => (
+	<svg
+		xmlns='http://www.w3.org/2000/svg'
+		width='24'
+		height='24'
+		viewBox='0 0 24 24'
+		fill='none'
+		stroke='currentColor'
+		strokeWidth='2'
+		strokeLinecap='round'
+		strokeLinejoin='round'
+		className={className}>
+		<path d='M9 6l6 6l-6 6' />
+	</svg>
+);
+
 import { CopyButton } from '../CopyButton';
 
 type TabType = 'mainnet' | 'testnet' | 'localnet';
@@ -81,7 +97,7 @@ export function NetworkTabs() {
 											<span className={valueClass}>seiscan.io</span>
 											<a href='https://seiscan.io' target='_blank' rel='noopener noreferrer' className={visitLinkClass}>
 												Visit
-												<IconChevronRight className='w-4 h-4 ml-1' />
+												<ChevronRightIcon className='w-4 h-4 ml-1' />
 											</a>
 										</div>
 									</div>
@@ -125,7 +141,7 @@ export function NetworkTabs() {
 											<span className={valueClass}>testnet.seiscan.io</span>
 											<a href='https://testnet.seiscan.io' target='_blank' rel='noopener noreferrer' className={visitLinkClass}>
 												Visit
-												<IconChevronRight className='w-4 h-4 ml-1' />
+												<ChevronRightIcon className='w-4 h-4 ml-1' />
 											</a>
 										</div>
 									</div>
@@ -135,7 +151,7 @@ export function NetworkTabs() {
 											<span className={valueClass}>Testnet faucet</span>
 											<a href='/learn/faucet' rel='noopener noreferrer' className={visitLinkClass}>
 												Visit
-												<IconChevronRight className='w-4 h-4 ml-1' />
+												<ChevronRightIcon className='w-4 h-4 ml-1' />
 											</a>
 										</div>
 									</div>

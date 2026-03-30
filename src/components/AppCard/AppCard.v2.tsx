@@ -1,6 +1,6 @@
-import { IconExternalLink, IconWorld } from '@tabler/icons-react';
 import Image from 'next/image';
 import type { EcosystemFieldData } from '../../data/ecosystemData';
+import { Icon } from '../Icon';
 
 interface AppCardV2Props {
 	app?: { fieldData: EcosystemFieldData };
@@ -60,7 +60,7 @@ export default function AppCardV2({ app, title, description, href, icon, logoUrl
 								className='object-cover w-full h-full transform transition-all duration-300 group-hover:scale-110'
 							/>
 						) : (
-							icon || <IconWorld className='text-neutral-500 group-hover:text-sei-maroon-100 transition-colors duration-300' size={24} />
+							icon || <Icon icon='world' className='text-neutral-500 group-hover:text-sei-maroon-100 transition-colors duration-300' size={24} />
 						)}
 					</figure>
 				</div>
@@ -80,7 +80,7 @@ export default function AppCardV2({ app, title, description, href, icon, logoUrl
 							rel={isExternalLink ? 'noopener noreferrer' : undefined}
 							className='inline-flex items-center gap-1.5 text-sm font-medium text-sei-maroon-200 dark:text-sei-maroon-25 hover:text-sei-maroon-200 dark:hover:text-sei-cream transition-colors duration-200 group/link'>
 							<span>{linkText}</span>
-							<IconExternalLink size={14} className='transition-all duration-300 group-hover/link:ml-1 group-hover/link:scale-110' />
+							<Icon icon='external-link' size={14} className='transition-all duration-300 group-hover/link:ml-1 group-hover/link:scale-110' />
 						</a>
 					</div>
 				)}

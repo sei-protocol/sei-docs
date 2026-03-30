@@ -20,7 +20,7 @@ export default withNextra({
 	productionBrowserSourceMaps: false,
 	compress: true,
 	experimental: {
-		optimizePackageImports: ['@tabler/icons-react', '@radix-ui/themes', 'sonner', 'viem', 'nextra-theme-docs']
+		optimizePackageImports: ['sonner', 'viem', 'nextra-theme-docs']
 	},
 	outputFileTracingIncludes: {
 		'/api/chat': ['./lib/search-index.json'],

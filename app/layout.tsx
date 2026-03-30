@@ -5,7 +5,6 @@ import { Toaster } from 'sonner';
 
 import DocsProviders from '../src/providers/DocsProviders';
 
-import '@radix-ui/themes/styles.css';
 import 'nextra-theme-docs/style.css';
 import './globals.css';
 import 'katex/dist/katex.min.css';

@@ -2,11 +2,11 @@
 
 import HCaptcha from '@hcaptcha/react-hcaptcha';
 import { sendGTMEvent } from '@next/third-parties/google';
-import { IconCheck, IconDroplet, IconExternalLink, IconHourglass, IconLoader2, IconSend, IconShieldCheck } from '@tabler/icons-react';
 import type React from 'react';
 import { useCallback, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { isAddress } from 'viem/utils';
+import { Icon } from '../Icon';
 import { VITE_FAUCET_API_URL } from './constants';
 import usePollMessageStatus from './usePollMessageStatus';
 
@@ -114,7 +114,7 @@ const RequestFaucetCard = () => {
 				{/* Address input row */}
 				<div className='flex items-center border-b border-neutral-200 dark:border-neutral-800'>
 					<div className='flex items-center gap-3 px-5 border-r border-neutral-200 dark:border-neutral-800 self-stretch'>
-						<IconDroplet className='w-5 h-5 text-neutral-400 dark:text-neutral-500' />
+						<Icon icon='droplet' className='w-5 h-5 text-neutral-400 dark:text-neutral-500' />
 					</div>
 					<input
 						className='flex-1 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 px-5 py-5 outline-none bg-transparent font-mono'
@@ -143,7 +143,7 @@ const RequestFaucetCard = () => {
 								: 'bg-neutral-50 dark:bg-neutral-900/60 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800/60 cursor-pointer'
 						}`}
 						style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-						<IconShieldCheck className='w-4 h-4' />
+						<Icon icon='shield-check' className='w-4 h-4' />
 						{captchaToken ? 'Verified' : 'Verify Captcha'}
 					</button>
 
@@ -157,7 +157,7 @@ const RequestFaucetCard = () => {
 								: 'bg-sei-maroon-100 hover:bg-sei-maroon-200 text-white cursor-pointer'
 						}`}
 						style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-						{sendingRequest ? <IconLoader2 className='w-4 h-4 animate-spin' /> : <IconSend className='w-4 h-4' />}
+						{sendingRequest ? <Icon icon='loader-2' className='w-4 h-4 animate-spin' /> : <Icon icon='send' className='w-4 h-4' />}
 						{isPolling ? 'Processing...' : 'Request SEI'}
 					</button>
 				</div>
@@ -166,7 +166,7 @@ const RequestFaucetCard = () => {
 			{/* Rate limit warning */}
 			{nextUseTime && (
 				<div className='flex items-center gap-3 px-4 py-3 border-l-3 border-sei-maroon-100 bg-sei-maroon-100/5 dark:bg-sei-maroon-100/10 text-sm'>
-					<IconHourglass className='w-4 h-4 text-sei-maroon-100 dark:text-sei-maroon-25 shrink-0' />
+					<Icon icon='hourglass' className='w-4 h-4 text-sei-maroon-100 dark:text-sei-maroon-25 shrink-0' />
 					<p className='text-neutral-700 dark:text-neutral-300'>
 						You can request tokens again in <span className='font-medium text-sei-maroon-100 dark:text-sei-maroon-25'>{formatNextUseTime(nextUseTime)}</span>
 					</p>
@@ -179,7 +179,11 @@ const RequestFaucetCard = () => {
 					className={`flex items-center gap-3 px-4 py-3 border-l-3 text-sm ${
 						isPolling ? 'border-sei-gold-100 bg-sei-gold-100/5 dark:bg-sei-gold-100/10' : 'border-sei-live bg-sei-live/5 dark:bg-sei-live/10'
 					}`}>
-					{isPolling ? <IconLoader2 className='w-4 h-4 animate-spin text-sei-gold-100 shrink-0' /> : <IconCheck className='w-4 h-4 text-sei-live shrink-0' />}
+					{isPolling ? (
+						<Icon icon='loader-2' className='w-4 h-4 animate-spin text-sei-gold-100 shrink-0' />
+					) : (
+						<Icon icon='check' className='w-4 h-4 text-sei-live shrink-0' />
+					)}
 					<div className='flex-1'>
 						{isPolling ? (
 							<p className='text-neutral-700 dark:text-neutral-300'>{pollingMessage}</p>
@@ -193,7 +197,7 @@ const RequestFaucetCard = () => {
 									className='flex items-center gap-1.5 text-sei-maroon-100 dark:text-sei-maroon-25 hover:underline'
 									style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
 									View on Explorer
-									<IconExternalLink className='w-3 h-3' />
+									<Icon icon='external-link' className='w-3 h-3' />
 								</a>
 							</div>
 						)}

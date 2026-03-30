@@ -1,67 +1,67 @@
-import { Callout } from 'nextra/components';
+'use client';
+
+import { useEffect, useState } from 'react';
 import { STATIC_CHANGELOG, STATIC_VERSION_NAMES } from './static-changelog';
 
-// Remote changelog component rendered **at build time**. We fetch the markdown
-// from the sei-chain repository during the static generation phase and render
-// the parsed result directly in the HTML that gets shipped to the client. This
-// means no runtime network requests and no need for any React client hooks.
-//
-// Older, stable versions (v5.9.0 and below) are hardcoded in static-changelog.ts
-// to avoid parsing issues with inconsistent upstream formatting. Only recent
-// versions are fetched dynamically.
-export async function RemoteChangelog() {
-	let content: string | null = null;
-	let error: Error | null = null;
+interface VersionEntry {
+	version: string;
+	body: string;
+	idx: number;
+}
 
-	try {
-		const response = await fetch('https://raw.githubusercontent.com/sei-protocol/sei-chain/main/CHANGELOG.md');
+function parseContent(rawContent: string): VersionEntry[] {
+	if (!rawContent) return [];
 
-		if (!response.ok) {
-			throw new Error(`Failed to fetch: ${response.status}`);
+	const sections = rawContent.split(/^## /gm).slice(1);
+
+	const merged = new Map<string, { version: string; body: string }>();
+	const order: string[] = [];
+
+	for (const section of sections) {
+		const lines = section.split('\n');
+		const version = lines[0]?.trim() || '';
+		const body = lines.slice(1).join('\n').trim();
+
+		if (!version || STATIC_VERSION_NAMES.has(version)) continue;
+
+		if (merged.has(version)) {
+			const existing = merged.get(version)!;
+			existing.body += `\n\n${body}`;
+		} else {
+			merged.set(version, { version, body });
+			order.push(version);
 		}
-
-		content = await response.text();
-	} catch (err: any) {
-		error = err as Error;
 	}
 
-	// ---------------------------- helpers ----------------------------
+	return order.map((v, idx) => ({ ...merged.get(v)!, idx }));
+}
 
-	const parseContent = (rawContent: string) => {
-		if (!rawContent) return [] as Array<{ version: string; body: string; idx: number }>;
+export function RemoteChangelog() {
+	const [dynamicVersions, setDynamicVersions] = useState<VersionEntry[]>([]);
+	const [error, setError] = useState<string | null>(null);
+	const [loading, setLoading] = useState(true);
 
-		const sections = rawContent.split(/^## /gm).slice(1);
-
-		// Merge sections that share the same version heading (e.g. duplicate v6.2.0
-		// in the upstream CHANGELOG.md) and skip versions covered by static data.
-		const merged = new Map<string, { version: string; body: string }>();
-		const order: string[] = [];
-
-		for (const section of sections) {
-			const lines = section.split('\n');
-			const version = lines[0]?.trim() || '';
-			const body = lines.slice(1).join('\n').trim();
-
-			if (!version || STATIC_VERSION_NAMES.has(version)) continue;
-
-			if (merged.has(version)) {
-				const existing = merged.get(version)!;
-				existing.body += `\n\n${body}`;
-			} else {
-				merged.set(version, { version, body });
-				order.push(version);
-			}
-		}
-
-		return order.map((v, idx) => ({ ...merged.get(v)!, idx }));
-	};
+	useEffect(() => {
+		fetch('https://raw.githubusercontent.com/sei-protocol/sei-chain/main/CHANGELOG.md')
+			.then((res) => {
+				if (!res.ok) throw new Error(`Failed to fetch: ${res.status}`);
+				return res.text();
+			})
+			.then((content) => {
+				setDynamicVersions(parseContent(content));
+				setLoading(false);
+			})
+			.catch((err) => {
+				setError(err.message);
+				setLoading(false);
+			});
+	}, []);
 
 	const TextWithLinks = ({ content, componentName }: { content: string; componentName: string }) => {
 		if (!content) {
 			return <span className='text-base'>{content}</span>;
 		}
 
-		// Map component names to their respective repositories
 		const getRepoUrl = (compName: string) => {
 			const repoMap: Record<string, string> = {
 				'sei-chain': 'sei-protocol/sei-chain',
@@ -72,45 +72,32 @@ export async function RemoteChangelog() {
 				'sei-iavl': 'sei-protocol/sei-iavl',
 				'tm-db': 'sei-protocol/tm-db'
 			};
-
 			return repoMap[compName] || 'sei-protocol/sei-chain';
 		};
 
-		// Clean up any existing markdown URLs and brackets first
 		const cleanedContent = content
-			.replace(/\]\(https:\/\/[^)]+\)/g, '') // Remove ](https://...)
-			.replace(/\[/g, '') // Remove opening brackets
-			.replace(/\]/g, ''); // Remove closing brackets
+			.replace(/\]\(https:\/\/[^)]+\)/g, '')
+			.replace(/\[/g, '')
+			.replace(/\]/g, '');
 
-		// Handle mixed content with both PR numbers and URLs
-		// Split by GitHub URLs but keep them in the results
 		const urlPattern = /(https:\/\/github\.com\/[^\s)]+)/g;
 		const parts = cleanedContent.split(urlPattern);
 
 		return (
 			<span className='text-base'>
 				{parts.map((part, i) => {
-					// Check if this part is a GitHub URL
 					if (part.match(urlPattern)) {
-						// Extract meaningful link text from the URL
 						let linkText = part;
 						if (part.includes('/compare/')) {
 							const compareMatch = part.match(/\/compare\/([^/\s]+)/);
-							if (compareMatch) {
-								linkText = `Compare ${compareMatch[1].replace('...', ' → ')}`;
-							}
+							if (compareMatch) linkText = `Compare ${compareMatch[1].replace('...', ' → ')}`;
 						} else if (part.includes('/releases/tag/')) {
 							const tagMatch = part.match(/\/releases\/tag\/([^/\s]+)/);
-							if (tagMatch) {
-								linkText = `Release ${tagMatch[1]}`;
-							}
+							if (tagMatch) linkText = `Release ${tagMatch[1]}`;
 						} else if (part.includes('/pull/')) {
 							const prMatch = part.match(/\/pull\/(\d+)/);
-							if (prMatch) {
-								linkText = `#${prMatch[1]}`;
-							}
+							if (prMatch) linkText = `#${prMatch[1]}`;
 						}
-
 						return (
 							<a
 								key={i}
@@ -123,20 +110,15 @@ export async function RemoteChangelog() {
 						);
 					}
 
-					// For non-URL parts, process PR numbers and other text
-					// Check for "Compare" links (like "Compare v3.9.0...v5.0.0" or "Compare sei-cosmos-2.0.42beta → v2.0.43beta-release")
 					const compareMatch = part.match(
 						/Compare\s+((?:sei-[a-z]+-)?(v?\d+\.\d+\.\d+(?:\.\d+)?(?:beta|alpha|rc\d*)?(?:-release)?))(?:\s*[→-]\s*|\.\.\.)+(v?\d+\.\d+\.\d+(?:\.\d+)?(?:beta|alpha|rc\d*)?(?:-release)?)/i
 					);
 					if (compareMatch) {
-						const [fullMatch, fromVersion, toVersion] = compareMatch;
-						// Clean up the version strings - remove component prefixes like "sei-cosmos-"
+						const [fullMatch, fromVersion, , toVersion] = compareMatch;
 						const cleanFromVersion = fromVersion.replace(/^sei-[a-z]+-/, '');
 						const cleanToVersion = toVersion.replace(/^sei-[a-z]+-/, '');
 						const repoPath = getRepoUrl(componentName);
 						const compareUrl = `https://github.com/${repoPath}/compare/${cleanFromVersion}...${cleanToVersion}`;
-						const displayText = `Compare ${cleanFromVersion} → ${cleanToVersion}`;
-
 						return (
 							<span key={i}>
 								{part.replace(fullMatch, '')}
@@ -145,29 +127,22 @@ export async function RemoteChangelog() {
 									target='_blank'
 									rel='noopener noreferrer'
 									className='text-sei-maroon-100 hover:text-sei-maroon-200 bg-sei-grey-25 hover:bg-sei-grey-30 dark:text-sei-maroon-25 dark:hover:text-sei-cream dark:bg-sei-maroon-100/20 dark:hover:bg-sei-maroon-100/30 px-2 py-0.5  font-mono text-sm font-medium transition-colors no-underline ml-1'>
-									{displayText}
+									Compare {cleanFromVersion} → {cleanToVersion}
 								</a>
 							</span>
 						);
 					}
 
-					// Split by PR numbers and process each segment
 					const prParts = part.split(/(\b\d{1,4}\b|#\d+)/g);
-
 					return (
 						<span key={i}>
 							{prParts.map((subPart, j) => {
 								const trimmedPart = subPart.trim();
-
-								// Match #123 format (already has #)
 								if (trimmedPart.match(/^#\d+$/)) {
 									const num = trimmedPart.slice(1);
-
-									// Check if there's an inline component reference before this PR number
 									const prevParts = prParts.slice(0, j).join('');
 									const inlineComponentMatch = prevParts.match(/\b(sei-chain|sei-tendermint|sei-cosmos|sei-db|sei-wasmd|sei-iavl|tm-db)\s*$/i);
 									const effectiveComponent = inlineComponentMatch ? inlineComponentMatch[1] : componentName;
-
 									const repoPath = getRepoUrl(effectiveComponent);
 									return (
 										<a
@@ -179,13 +154,9 @@ export async function RemoteChangelog() {
 											#{num}
 										</a>
 									);
-								}
-								// Match standalone numbers, but only if they look like PR numbers
-								else if (trimmedPart.match(/^\d{1,4}$/) && parseInt(trimmedPart, 10) > 0) {
+								} else if (trimmedPart.match(/^\d{1,4}$/) && parseInt(trimmedPart, 10) > 0) {
 									const prevPart = prParts[j - 1] || '';
 									const nextPart = prParts[j + 1] || '';
-
-									// Only convert to PR link if it looks like a PR number
 									const followedByNonPR = nextPart.match(/^\s*(hop|limit|version|v\d|\.\d|px|ms|s\b|mb|gb|kb)/i);
 									const precededByNonPR = prevPart.match(/(v|version|\d\.)\s*$/i);
 									const isLikelyPRNumber =
@@ -195,27 +166,22 @@ export async function RemoteChangelog() {
 										parseInt(trimmedPart, 10) >= 10;
 
 									if (isLikelyPRNumber) {
-										const num = trimmedPart;
-
-										// Check if there's an inline component reference before this PR number
 										const prevParts = prParts.slice(0, j).join('');
 										const inlineComponentMatch = prevParts.match(/\b(sei-chain|sei-tendermint|sei-cosmos|sei-db|sei-wasmd|sei-iavl|tm-db)\s*$/i);
 										const effectiveComponent = inlineComponentMatch ? inlineComponentMatch[1] : componentName;
-
 										const repoPath = getRepoUrl(effectiveComponent);
 										return (
 											<a
 												key={j}
-												href={`https://github.com/${repoPath}/pull/${num}`}
+												href={`https://github.com/${repoPath}/pull/${trimmedPart}`}
 												target='_blank'
 												rel='noopener noreferrer'
 												className='text-sei-maroon-100 hover:text-sei-maroon-200 bg-sei-grey-25 hover:bg-sei-grey-30 dark:text-sei-maroon-25 dark:hover:text-sei-cream dark:bg-sei-maroon-100/20 dark:hover:bg-sei-maroon-100/30 px-2 py-0.5  font-mono text-sm font-medium transition-colors no-underline mr-1'>
-												#{num}
+												#{trimmedPart}
 											</a>
 										);
 									}
 								}
-
 								return <span key={j}>{subPart}</span>;
 							})}
 						</span>
@@ -230,41 +196,27 @@ export async function RemoteChangelog() {
 			return <div className='text-gray-500 dark:text-white italic py-4'>No changes listed</div>;
 		}
 
-		// NEW: Handle markdown section headers like ### Features, ### Bug Fixes
 		const sectionComponents: Array<{ name: string; changes: string }> = [];
-
-		// Split by markdown headers (### Section Name)
 		const sections = body.split(/^### /gm);
-
-		// Process each section (skip first empty part)
 		for (let i = 1; i < sections.length; i++) {
 			const section = sections[i];
 			const lines = section.split('\n');
 			const sectionName = lines[0]?.trim();
-
 			if (sectionName) {
-				// Get all bullet points for this section
 				const bulletPoints: string[] = [];
-
 				for (let j = 1; j < lines.length; j++) {
 					const line = lines[j].trim();
 					if (line.startsWith('*') || line.startsWith('-') || line.startsWith('•')) {
-						// Clean up the bullet point - remove the bullet and any markdown links
 						let cleanLine = line
 							.replace(/^\*\s*/, '')
 							.replace(/^-\s*/, '')
 							.replace(/^•\s*/, '');
-						// Remove markdown links but keep the text
 						cleanLine = cleanLine.replace(/\[([^\]]+)\]\([^)^]+\)/g, '$1');
 						bulletPoints.push(cleanLine);
 					}
 				}
-
 				if (bulletPoints.length > 0) {
-					sectionComponents.push({
-						name: sectionName,
-						changes: bulletPoints.join('\n* ').replace(/^\* /, '')
-					});
+					sectionComponents.push({ name: sectionName, changes: bulletPoints.join('\n* ').replace(/^\* /, '') });
 				}
 			}
 		}
@@ -299,24 +251,18 @@ export async function RemoteChangelog() {
 			);
 		}
 
-		// Try original component pattern (for newer changelogs with sei-chain:, sei-cosmos: etc)
-		// Also handles lines like "sei-chain (Note: major repos have been merged into sei-chain)"
 		const componentPattern = /^([a-zA-Z][a-zA-Z0-9-]*):?\s*(?:\(.*\))?\s*$/gm;
 		const componentMatches = Array.from(body.matchAll(componentPattern));
 		const components: Array<{ name: string; changes: string }> = [];
 
 		if (componentMatches.length > 0) {
 			const parts = body.split(/^([a-zA-Z][a-zA-Z0-9-]*):?\s*(?:\(.*\))?\s*$/gm);
-
 			for (let i = 1; i < parts.length; i += 2) {
-				const componentName = parts[i]?.trim().replace(':', '');
-				const componentContent = parts[i + 1]?.trim();
-
-				if (componentName && componentContent) {
+				const compName = parts[i]?.trim().replace(':', '');
+				const compContent = parts[i + 1]?.trim();
+				if (compName && compContent) {
 					const bulletPoints: string[] = [];
-					const lines = componentContent.split('\n');
-
-					for (const line of lines) {
+					for (const line of compContent.split('\n')) {
 						const trimmedLine = line.trim();
 						if (trimmedLine.startsWith('*') || trimmedLine.startsWith('-') || trimmedLine.startsWith('•')) {
 							let cleanLine = trimmedLine
@@ -329,18 +275,13 @@ export async function RemoteChangelog() {
 							bulletPoints.push(trimmedLine);
 						}
 					}
-
 					if (bulletPoints.length > 0) {
-						components.push({
-							name: componentName,
-							changes: bulletPoints.join('\n* ').replace(/^\* /, '')
-						});
+						components.push({ name: compName, changes: bulletPoints.join('\n* ').replace(/^\* /, '') });
 					}
 				}
 			}
 		}
 
-		// If we found components using the component pattern, use that
 		if (components.length > 0) {
 			return (
 				<div className='space-y-6'>
@@ -371,7 +312,6 @@ export async function RemoteChangelog() {
 			);
 		}
 
-		// Fallback: simple list – strip leading bullet markers to avoid double bullets
 		const fallbackLines = body
 			.split('\n')
 			.map((l) =>
@@ -396,23 +336,42 @@ export async function RemoteChangelog() {
 		);
 	};
 
-	// ---------------------------- rendering ----------------------------
-
-	if (error) {
-		return <Callout type='error'>Failed to load changelog: {error.message}</Callout>;
-	}
-
-	if (!content) {
-		return <Callout type='warning'>No changelog content available.</Callout>;
-	}
-
-	const dynamicVersions = parseContent(content);
-	const staticVersions = STATIC_CHANGELOG.map((entry, idx) => ({
+	const staticVersions: VersionEntry[] = STATIC_CHANGELOG.map((entry, idx) => ({
 		version: entry.version,
 		body: entry.body,
 		idx: dynamicVersions.length + idx
 	}));
 	const versions = [...dynamicVersions, ...staticVersions];
+
+	if (error) {
+		return (
+			<div>
+				<div className='my-4 p-4 border border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200 text-sm'>
+					Failed to load latest changelog: {error}. Showing cached versions below.
+				</div>
+				<div className='changelog-content'>
+					{staticVersions.map((version) => (
+						<div key={version.idx} className='mb-8'>
+							<div className='flex items-center gap-3 mb-4'>
+								<h2 className='text-xl font-bold text-gray-900 dark:text-white m-0'>{version.version}</h2>
+								<span className='text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full'>Release</span>
+							</div>
+							<div className='space-y-4'>{renderContent(version.body)}</div>
+						</div>
+					))}
+				</div>
+			</div>
+		);
+	}
+
+	if (loading) {
+		return (
+			<div className='py-12 text-center text-neutral-500 dark:text-neutral-400'>
+				<div className='inline-block h-5 w-5 animate-spin rounded-full border-2 border-current border-r-transparent mr-2 align-middle' />
+				Loading changelog...
+			</div>
+		);
+	}
 
 	return (
 		<div>
