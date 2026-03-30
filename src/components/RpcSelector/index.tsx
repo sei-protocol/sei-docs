@@ -1,7 +1,62 @@
 'use client';
 
-import { IconAlertCircle, IconArrowRight, IconCheck, IconChevronDown, IconChevronUp, IconCopy, IconInfoCircle, IconSearch } from '@tabler/icons-react';
 import { useState } from 'react';
+
+const AlertCircleIcon = ({ className }: { className?: string }) => (
+	<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2' strokeLinecap='round' strokeLinejoin='round' className={className}>
+		<path d='M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0' />
+		<path d='M12 8v4' />
+		<path d='M12 16h.01' />
+	</svg>
+);
+
+const ArrowRightIcon = ({ className }: { className?: string }) => (
+	<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2' strokeLinecap='round' strokeLinejoin='round' className={className}>
+		<path d='M5 12l14 0' />
+		<path d='M13 18l6 -6' />
+		<path d='M13 6l6 6' />
+	</svg>
+);
+
+const CheckIcon = ({ className }: { className?: string }) => (
+	<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2' strokeLinecap='round' strokeLinejoin='round' className={className}>
+		<path d='M5 12l5 5l10 -10' />
+	</svg>
+);
+
+const ChevronDownIcon = ({ className }: { className?: string }) => (
+	<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2' strokeLinecap='round' strokeLinejoin='round' className={className}>
+		<path d='M6 9l6 6l6 -6' />
+	</svg>
+);
+
+const ChevronUpIcon = ({ className }: { className?: string }) => (
+	<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2' strokeLinecap='round' strokeLinejoin='round' className={className}>
+		<path d='M6 15l6 -6l6 6' />
+	</svg>
+);
+
+const CopyIcon = ({ className }: { className?: string }) => (
+	<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2' strokeLinecap='round' strokeLinejoin='round' className={className}>
+		<path d='M7 7m0 2.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667z' />
+		<path d='M4.012 16.737a2.005 2.005 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1' />
+	</svg>
+);
+
+const InfoCircleIcon = ({ className }: { className?: string }) => (
+	<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2' strokeLinecap='round' strokeLinejoin='round' className={className}>
+		<path d='M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0' />
+		<path d='M12 9h.01' />
+		<path d='M11 12h1v4h1' />
+	</svg>
+);
+
+const SearchIcon = ({ className }: { className?: string }) => (
+	<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2' strokeLinecap='round' strokeLinejoin='round' className={className}>
+		<path d='M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0' />
+		<path d='M21 21l-6 -6' />
+	</svg>
+);
 
 type EndpointType = 'public' | 'premium' | 'community';
 type Network = 'mainnet' | 'testnet' | 'localnet';
@@ -222,13 +277,13 @@ export function RpcSelector() {
 					href='/evm/reference'
 					className='text-sm text-sei-maroon-100 hover:text-sei-maroon-100 dark:hover:text-sei-maroon-25 flex items-center transition-colors'>
 					View full RPC reference
-					<IconArrowRight className='h-4 w-4 ml-1' />
+					<ArrowRightIcon className='h-4 w-4 ml-1' />
 				</a>
 			</div>
 
 			<div className='flex flex-col sm:flex-row gap-4 mb-6'>
 				<div className='flex items-center bg-neutral-50 dark:bg-neutral-800/60  border border-neutral-200 dark:border-neutral-700 px-3 py-1.5 w-full sm:max-w-md'>
-					<IconSearch className='h-4 w-4 text-neutral-400 mr-2' />
+					<SearchIcon className='h-4 w-4 text-neutral-400 mr-2' />
 					<input
 						type='text'
 						placeholder='Search by URL or provider...'
@@ -305,14 +360,14 @@ export function RpcSelector() {
 													onClick={() => handleCopy(endpoint.url)}
 													className='p-1  text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200 hover:bg-neutral-200/50 dark:hover:bg-neutral-700/50 transition-colors'
 													title='Copy to clipboard'>
-													{copiedUrl === endpoint.url ? <IconCheck className='h-4 w-4 text-green-500' /> : <IconCopy className='h-4 w-4' />}
+													{copiedUrl === endpoint.url ? <CheckIcon className='h-4 w-4 text-green-500' /> : <CopyIcon className='h-4 w-4' />}
 												</button>
 												<button
 													type='button'
 													onClick={() => toggleEndpointDetails(endpoint.url)}
 													className='p-1  text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200 hover:bg-neutral-200/50 dark:hover:bg-neutral-700/50 transition-colors'
 													title='Show details'>
-													<IconChevronDown className={`h-4 w-4 transform transition-transform ${expandedEndpoint === endpoint.url ? 'rotate-180' : ''}`} />
+													<ChevronDownIcon className={`h-4 w-4 transform transition-transform ${expandedEndpoint === endpoint.url ? 'rotate-180' : ''}`} />
 												</button>
 											</div>
 										</div>
@@ -357,7 +412,7 @@ export function RpcSelector() {
 												</div>
 												{baseHeights[endpoint.url]?.baseHeight && (
 													<div className='flex items-start bg-orange-50 dark:bg-orange-900/10 border border-orange-200 dark:border-orange-800  p-2'>
-														<IconAlertCircle className='h-4 w-4 text-orange-500 mr-2 mt-0.5 flex-shrink-0' />
+														<AlertCircleIcon className='h-4 w-4 text-orange-500 mr-2 mt-0.5 flex-shrink-0' />
 														<span className='text-xs text-orange-800 dark:text-orange-300'>
 															Historical blocks before {baseHeights[endpoint.url]?.baseHeight?.toLocaleString()} are not available on this endpoint.
 														</span>
@@ -365,7 +420,7 @@ export function RpcSelector() {
 												)}
 												{endpoint.notes && (
 													<div className='flex items-start'>
-														<IconInfoCircle className='h-4 w-4 text-blue-500 mr-2 mt-0.5' />
+														<InfoCircleIcon className='h-4 w-4 text-blue-500 mr-2 mt-0.5' />
 														<span className='text-neutral-700 dark:text-neutral-300'>{endpoint.notes}</span>
 													</div>
 												)}
@@ -381,7 +436,7 @@ export function RpcSelector() {
 										onClick={() => setShowAllEndpoints(true)}
 										className='flex items-center text-sm text-neutral-700 dark:text-neutral-300 hover:text-sei-maroon-100 dark:hover:text-sei-maroon-25 transition-colors font-medium'>
 										<span>Show more</span>
-										<IconChevronDown className='h-4 w-4 ml-1' />
+										<ChevronDownIcon className='h-4 w-4 ml-1' />
 									</button>
 								</div>
 							)}
@@ -392,7 +447,7 @@ export function RpcSelector() {
 										onClick={() => setShowAllEndpoints(false)}
 										className='flex items-center text-sm text-neutral-700 dark:text-neutral-300 hover:text-sei-maroon-100 dark:hover:text-sei-maroon-25 transition-colors font-medium'>
 										<span>Show fewer RPC endpoints</span>
-										<IconChevronUp className='h-4 w-4 ml-1' />
+										<ChevronUpIcon className='h-4 w-4 ml-1' />
 									</button>
 								</div>
 							)}
