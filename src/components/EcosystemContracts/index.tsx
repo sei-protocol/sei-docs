@@ -66,8 +66,8 @@ export async function RemoteSheetData() {
 
 	try {
 		// Import fs/promises for Node.js file system access (build time)
-		const fs = await import('fs/promises');
-		const path = await import('path');
+		const fs = await import('node:fs/promises');
+		const path = await import('node:path');
 
 		let csvText = '';
 

@@ -1,18 +1,17 @@
 'use client';
 
-import { Layout, Navbar } from 'nextra-theme-docs';
-import dynamic from 'next/dynamic';
-import { AIAssistant } from '../components/AIAssistant/AIAssistant';
-import { ContextualMenu } from '../components/ContextualMenu/ContextualMenu';
-import '../components/AIAssistant/ai-assistant.css';
-import '../components/ContextualMenu/contextual-menu.css';
-import { Logo, LogoMobile } from '../components/Logo';
-import { useState, useEffect } from 'react';
-import { Footer } from '../components/Footer/Footer';
 import { Theme } from '@radix-ui/themes';
-import { ThemeSwitch } from 'nextra-theme-docs';
+import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
-import { Snowflakes, Confetti } from '../components/SeasonalEffects';
+import { Layout, Navbar, ThemeSwitch } from 'nextra-theme-docs';
+import { useEffect, useState } from 'react';
+import { AIAssistant } from '../components/AIAssistant/AIAssistant';
+import '../components/AIAssistant/ai-assistant.css';
+import { ContextualMenu } from '../components/ContextualMenu/ContextualMenu';
+import '../components/ContextualMenu/contextual-menu.css';
+import { Footer } from '../components/Footer/Footer';
+import { Logo, LogoMobile } from '../components/Logo';
+import { Confetti, Snowflakes } from '../components/SeasonalEffects';
 
 const SearchDynamic = dynamic(() => import('../components/NextraSearch/NextraSearch'), { ssr: false, loading: () => <div /> });
 

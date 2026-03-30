@@ -1,14 +1,12 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
 import { IconChevronRight } from '@tabler/icons-react';
+import { useEffect, useState } from 'react';
 import { CopyButton } from '../CopyButton';
 
 type TabType = 'mainnet' | 'testnet' | 'localnet';
 
-interface NetworkTabsProps {}
-
-export function NetworkTabs({}: NetworkTabsProps) {
+export function NetworkTabs() {
 	const [activeTab, setActiveTab] = useState<TabType>('mainnet');
 
 	useEffect(() => {
@@ -192,15 +190,15 @@ export function NetworkTabs({}: NetworkTabsProps) {
 	return (
 		<div className='network-tabs w-full'>
 			<div className='flex flex-wrap gap-2 mb-6'>
-				<a href='#mainnet' onClick={() => setActiveTab('mainnet')} className={tabButtonClass('mainnet')}>
+				<button type='button' onClick={() => setActiveTab('mainnet')} className={tabButtonClass('mainnet')}>
 					Mainnet (pacific-1)
-				</a>
-				<a href='#testnet' onClick={() => setActiveTab('testnet')} className={tabButtonClass('testnet')}>
+				</button>
+				<button type='button' onClick={() => setActiveTab('testnet')} className={tabButtonClass('testnet')}>
 					Testnet (atlantic-2)
-				</a>
-				<a href='#localnet' onClick={() => setActiveTab('localnet')} className={tabButtonClass('localnet')}>
+				</button>
+				<button type='button' onClick={() => setActiveTab('localnet')} className={tabButtonClass('localnet')}>
 					Local Environment
-				</a>
+				</button>
 			</div>
 
 			{/* Visible content for active tab */}

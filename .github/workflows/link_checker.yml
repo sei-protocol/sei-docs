@@ -16,16 +16,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: '.nvmrc'
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
 
       - name: Install dependencies
-        run: yarn install
+        run: bun install --frozen-lockfile
 
       - name: Install playwright browsers
-        run: yarn playwright install
+        run: bunx playwright install
 
       - name: Run crawler
         id: crawler
@@ -33,16 +31,16 @@ jobs:
         run: |
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             echo "Running PR workflow: Building and starting local server..."
-            yarn build
+            bun run build
             sleep 5
-            yarn start & 
-            sleep 15 
+            bun run start &
+            sleep 15
             export BASE_URL="http://localhost:3000"
           else
             export BASE_URL="https://www.docs.sei.io/"
           fi
           echo "Running link checker for ${BASE_URL}"
-          yarn tsx scripts/checkLinks.ts
+          bun scripts/checkLinks.ts
 
       - name: Upload broken links artifact
         if: steps.crawler.outcome == 'failure'

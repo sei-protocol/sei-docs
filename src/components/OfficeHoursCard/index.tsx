@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { IconClock } from '@tabler/icons-react';
+import { useEffect, useState } from 'react';
 
 export const OfficeHoursCard = () => {
 	const [localTime, setLocalTime] = useState('');

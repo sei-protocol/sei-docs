@@ -1,4 +1,3 @@
-import React from 'react';
 import { AddSeiButton } from '../ChainInformation';
 import { networks } from '../ChainInformation/config';
 

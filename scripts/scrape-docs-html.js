@@ -1,5 +1,5 @@
-const fs = require('fs').promises;
-const path = require('path');
+const fs = require('node:fs').promises;
+const path = require('node:path');
 const { JSDOM } = require('jsdom');
 
 // Configuration for parallel processing
@@ -228,7 +228,7 @@ async function createLlmsFiles(scrapedPages, outputPath) {
 				llmsTxt += `${section.overview}\n\n`;
 			}
 			for (const page of section.pages) {
-				llmsTxt += formatLink(page) + '\n';
+				llmsTxt += `${formatLink(page)}\n`;
 			}
 		}
 
@@ -240,7 +240,7 @@ async function createLlmsFiles(scrapedPages, outputPath) {
 		if (uncategorized.length > 0) {
 			llmsTxt += `\n## Optional\n\n`;
 			for (const page of uncategorized) {
-				llmsTxt += formatLink(page) + '\n';
+				llmsTxt += `${formatLink(page)}\n`;
 			}
 		}
 
@@ -263,7 +263,7 @@ async function createLlmsFiles(scrapedPages, outputPath) {
 				llmsFull += `${section.overview}\n\n`;
 			}
 			for (const page of section.pages) {
-				llmsFull += formatLink(page) + '\n';
+				llmsFull += `${formatLink(page)}\n`;
 			}
 		}
 
@@ -275,7 +275,7 @@ async function createLlmsFiles(scrapedPages, outputPath) {
 		if (uncategorized.length > 0) {
 			llmsFull += `\n## Optional\n\n`;
 			for (const page of uncategorized) {
-				llmsFull += formatLink(page) + '\n';
+				llmsFull += `${formatLink(page)}\n`;
 			}
 		}
 
@@ -497,7 +497,7 @@ function generateUrlFromPath(filePath, buildDir) {
 	}
 
 	// Ensure it starts with /
-	return '/' + url;
+	return `/${url}`;
 }
 
 /**
@@ -587,11 +587,13 @@ function extractAndCleanContent(document) {
 
 	elementsToRemove.forEach((selector) => {
 		const elements = document.querySelectorAll(selector);
-		elements.forEach((el) => el.remove());
+		elements.forEach((el) => {
+			el.remove();
+		});
 	});
 
 	// Try to find the main content area
-	let contentElement =
+	const contentElement =
 		document.querySelector('main') ||
 		document.querySelector('[role="main"]') ||
 		document.querySelector('.content') ||
@@ -610,7 +612,9 @@ function extractAndCleanContent(document) {
 
 	// Remove empty elements
 	const emptyElements = contentElement.querySelectorAll('*:empty:not(img):not(input):not(textarea):not(br):not(hr)');
-	emptyElements.forEach((el) => el.remove());
+	emptyElements.forEach((el) => {
+		el.remove();
+	});
 
 	// Convert HTML to markdown-like text
 	const content = htmlToMarkdown(contentElement);
@@ -687,7 +691,7 @@ function unrollTabContent(contentElement) {
 	const radixTabPanels = contentElement.querySelectorAll('[role="tabpanel"]');
 	console.log(`Found ${radixTabPanels.length} Radix tab panels`);
 
-	radixTabPanels.forEach((panel, index) => {
+	radixTabPanels.forEach((panel, _index) => {
 		// Remove hidden attribute and any hiding styles
 		panel.removeAttribute('hidden');
 		panel.style.display = '';
@@ -795,37 +799,38 @@ function htmlToMarkdown(element) {
 
 			switch (tagName) {
 				case 'h1':
-					result += ensureNewlines(result, 2) + '# ' + node.textContent.trim() + '\n\n';
+					result += `${ensureNewlines(result, 2)}# ${node.textContent.trim()}\n\n`;
 					break;
 				case 'h2':
-					result += ensureNewlines(result, 2) + '## ' + node.textContent.trim() + '\n\n';
+					result += `${ensureNewlines(result, 2)}## ${node.textContent.trim()}\n\n`;
 					break;
 				case 'h3':
-					result += ensureNewlines(result, 2) + '### ' + node.textContent.trim() + '\n\n';
+					result += `${ensureNewlines(result, 2)}### ${node.textContent.trim()}\n\n`;
 					break;
 				case 'h4':
-					result += ensureNewlines(result, 2) + '#### ' + node.textContent.trim() + '\n\n';
+					result += `${ensureNewlines(result, 2)}#### ${node.textContent.trim()}\n\n`;
 					break;
 				case 'h5':
-					result += ensureNewlines(result, 2) + '##### ' + node.textContent.trim() + '\n\n';
+					result += `${ensureNewlines(result, 2)}##### ${node.textContent.trim()}\n\n`;
 					break;
 				case 'h6':
-					result += ensureNewlines(result, 2) + '###### ' + node.textContent.trim() + '\n\n';
+					result += `${ensureNewlines(result, 2)}###### ${node.textContent.trim()}\n\n`;
 					break;
-				case 'p':
+				case 'p': {
 					const pText = node.textContent.trim();
 					if (pText) {
-						result += ensureNewlines(result, 1) + pText + '\n\n';
+						result += `${ensureNewlines(result, 1) + pText}\n\n`;
 					}
 					break;
+				}
 				case 'ul':
 				case 'ol':
-					result += ensureNewlines(result, 1) + processListElement(node) + '\n';
+					result += `${ensureNewlines(result, 1) + processListElement(node)}\n`;
 					break;
 				case 'li':
 					// Handled by processListElement
 					break;
-				case 'a':
+				case 'a': {
 					const href = node.getAttribute('href');
 					const text = node.textContent.trim();
 					if (href && text) {
@@ -834,72 +839,79 @@ function htmlToMarkdown(element) {
 						result += text;
 					}
 					break;
+				}
 				case 'strong':
-				case 'b':
+				case 'b': {
 					const strongText = node.textContent.trim();
 					if (strongText) {
-						result += '**' + strongText + '**';
+						result += `**${strongText}**`;
 					}
 					break;
+				}
 				case 'em':
-				case 'i':
+				case 'i': {
 					const emText = node.textContent.trim();
 					if (emText) {
-						result += '*' + emText + '*';
+						result += `*${emText}*`;
 					}
 					break;
-				case 'code':
+				}
+				case 'code': {
 					const codeText = node.textContent.trim();
 					if (codeText) {
-						result += '`' + codeText + '`';
+						result += `\`${codeText}\``;
 					}
 					break;
-				case 'pre':
+				}
+				case 'pre': {
 					const preText = node.textContent.trim();
 					if (preText) {
-						result += ensureNewlines(result, 1) + '```\n' + preText + '\n```\n\n';
+						result += `${ensureNewlines(result, 1)}\`\`\`\n${preText}\n\`\`\`\n\n`;
 					}
 					break;
-				case 'blockquote':
+				}
+				case 'blockquote': {
 					const quoteText = node.textContent.trim();
 					if (quoteText) {
 						const lines = quoteText.split('\n');
-						result += ensureNewlines(result, 1) + lines.map((line) => '> ' + line.trim()).join('\n') + '\n\n';
+						result += `${ensureNewlines(result, 1) + lines.map((line) => `> ${line.trim()}`).join('\n')}\n\n`;
 					}
 					break;
+				}
 				case 'table':
-					result += ensureNewlines(result, 1) + processTableElement(node) + '\n\n';
+					result += `${ensureNewlines(result, 1) + processTableElement(node)}\n\n`;
 					break;
 				case 'br':
 					result += '\n';
 					break;
 				case 'hr':
-					result += ensureNewlines(result, 2) + '---\n\n';
+					result += `${ensureNewlines(result, 2)}---\n\n`;
 					break;
 				case 'div':
 				case 'section':
-				case 'article':
+				case 'article': {
 					// Check if this is a block-level container that should add spacing
 					const hasBlockContent = node.querySelector('h1, h2, h3, h4, h5, h6, p, ul, ol, pre, blockquote, table');
 					if (hasBlockContent) {
-						result += ensureNewlines(result, 1) + htmlToMarkdown(node) + '\n';
+						result += `${ensureNewlines(result, 1) + htmlToMarkdown(node)}\n`;
 					} else {
 						// Inline container
 						result += htmlToMarkdown(node);
 					}
 					break;
+				}
 				case 'span':
 					// Always inline
 					result += htmlToMarkdown(node);
 					break;
 				case 'dt':
-					result += ensureNewlines(result, 1) + '**' + node.textContent.trim() + '**\n';
+					result += `${ensureNewlines(result, 1)}**${node.textContent.trim()}**\n`;
 					break;
 				case 'dd':
-					result += node.textContent.trim() + '\n\n';
+					result += `${node.textContent.trim()}\n\n`;
 					break;
 				case 'dl':
-					result += ensureNewlines(result, 1) + htmlToMarkdown(node) + '\n';
+					result += `${ensureNewlines(result, 1) + htmlToMarkdown(node)}\n`;
 					break;
 				default:
 					// For other elements, check if they might be important containers
@@ -945,7 +957,7 @@ function processListElement(listElement) {
 		const prefix = isOrdered ? `${index + 1}. ` : '- ';
 		const text = item.textContent.trim();
 		if (text) {
-			result += prefix + text + '\n';
+			result += `${prefix + text}\n`;
 		}
 	});
 
@@ -964,11 +976,11 @@ function processTableElement(tableElement) {
 		const cellTexts = Array.from(cells).map((cell) => cell.textContent.trim());
 
 		if (cellTexts.length > 0) {
-			result += '| ' + cellTexts.join(' | ') + ' |\n';
+			result += `| ${cellTexts.join(' | ')} |\n`;
 
 			// Add separator row after header
 			if (rowIndex === 0 && row.querySelector('th')) {
-				result += '| ' + cellTexts.map(() => '---').join(' | ') + ' |\n';
+				result += `| ${cellTexts.map(() => '---').join(' | ')} |\n`;
 			}
 		}
 	});
@@ -1058,7 +1070,7 @@ function generateFileName(url) {
 
 		return pathname || 'index';
 	} catch {
-		return 'page-' + Date.now();
+		return `page-${Date.now()}`;
 	}
 }
 

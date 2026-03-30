@@ -1,8 +1,8 @@
 'use client';
 
 import NextImage from 'next/image';
+import { useEffect, useState } from 'react';
 import styles from './BrandImage.module.css';
-import { useState, useEffect } from 'react';
 
 interface BrandImageProps {
 	url: string;

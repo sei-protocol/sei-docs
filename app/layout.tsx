@@ -1,9 +1,7 @@
-import React from 'react';
-
+import { GoogleTagManager } from '@next/third-parties/google';
+import type { Metadata } from 'next';
 import { getPageMap } from 'nextra/page-map';
 import { Toaster } from 'sonner';
-import { Metadata } from 'next';
-import { GoogleTagManager } from '@next/third-parties/google';
 
 import DocsProviders from '../src/providers/DocsProviders';
 

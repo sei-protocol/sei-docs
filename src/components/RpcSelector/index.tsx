@@ -1,18 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import {
-	IconExternalLink,
-	IconCopy,
-	IconCheck,
-	IconArrowRight,
-	IconSearch,
-	IconChevronDown,
-	IconServer,
-	IconInfoCircle,
-	IconChevronUp,
-	IconAlertCircle
-} from '@tabler/icons-react';
+import { IconAlertCircle, IconArrowRight, IconCheck, IconChevronDown, IconChevronUp, IconCopy, IconInfoCircle, IconSearch } from '@tabler/icons-react';
+import { useState } from 'react';
 
 type EndpointType = 'public' | 'premium' | 'community';
 type Network = 'mainnet' | 'testnet' | 'localnet';
@@ -166,7 +155,7 @@ export function RpcSelector() {
 			const data = await response.json();
 			console.log('Response data:', data);
 
-			if (data.error && data.error.message) {
+			if (data.error?.message) {
 				console.log('Error message found:', data.error.message);
 				// Extract base height from error message
 				// Example: "height is not available (requested height: 0, base height: 161939999)"
@@ -251,6 +240,7 @@ export function RpcSelector() {
 
 				<div className='flex space-x-2'>
 					<button
+						type='button'
 						onClick={() => {
 							setSelectedNetwork('mainnet');
 							setShowAllEndpoints(false);
@@ -263,6 +253,7 @@ export function RpcSelector() {
 						Mainnet
 					</button>
 					<button
+						type='button'
 						onClick={() => {
 							setSelectedNetwork('testnet');
 							setShowAllEndpoints(false);
@@ -310,12 +301,14 @@ export function RpcSelector() {
 										<div className='col-span-2 sm:col-span-1 flex justify-end'>
 											<div className='flex space-x-2'>
 												<button
+													type='button'
 													onClick={() => handleCopy(endpoint.url)}
 													className='p-1  text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200 hover:bg-neutral-200/50 dark:hover:bg-neutral-700/50 transition-colors'
 													title='Copy to clipboard'>
 													{copiedUrl === endpoint.url ? <IconCheck className='h-4 w-4 text-green-500' /> : <IconCopy className='h-4 w-4' />}
 												</button>
 												<button
+													type='button'
 													onClick={() => toggleEndpointDetails(endpoint.url)}
 													className='p-1  text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200 hover:bg-neutral-200/50 dark:hover:bg-neutral-700/50 transition-colors'
 													title='Show details'>
@@ -384,6 +377,7 @@ export function RpcSelector() {
 							{hasMoreEndpoints && (
 								<div className='px-4 py-3 flex justify-center'>
 									<button
+										type='button'
 										onClick={() => setShowAllEndpoints(true)}
 										className='flex items-center text-sm text-neutral-700 dark:text-neutral-300 hover:text-sei-maroon-100 dark:hover:text-sei-maroon-25 transition-colors font-medium'>
 										<span>Show more</span>
@@ -394,6 +388,7 @@ export function RpcSelector() {
 							{showAllEndpoints && (
 								<div className='px-4 py-3 flex justify-center'>
 									<button
+										type='button'
 										onClick={() => setShowAllEndpoints(false)}
 										className='flex items-center text-sm text-neutral-700 dark:text-neutral-300 hover:text-sei-maroon-100 dark:hover:text-sei-maroon-25 transition-colors font-medium'>
 										<span>Show fewer RPC endpoints</span>

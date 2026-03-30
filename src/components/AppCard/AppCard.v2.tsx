@@ -1,6 +1,6 @@
-import Image from 'next/image';
 import { IconExternalLink, IconWorld } from '@tabler/icons-react';
-import { EcosystemFieldData } from '../../data/ecosystemData';
+import Image from 'next/image';
+import type { EcosystemFieldData } from '../../data/ecosystemData';
 
 interface AppCardV2Props {
 	app?: { fieldData: EcosystemFieldData };

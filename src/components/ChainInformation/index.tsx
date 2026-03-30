@@ -1,12 +1,12 @@
 'use client';
 
 import { Flex, Table } from '@radix-ui/themes';
-import React from 'react';
+import { IconChevronRight } from '@tabler/icons-react';
+import { Link } from 'nextra-theme-docs';
+import type React from 'react';
 import { CopyButton } from '../CopyText';
 import { addOrSwitchSeiNetwork, networks } from './config';
-import { IconChevronRight } from '@tabler/icons-react';
-import { NetworkEntry } from './types';
-import { Link } from 'nextra-theme-docs';
+import type { NetworkEntry } from './types';
 
 type NetworkType = 'Cosmos' | 'EVM';
 
@@ -93,14 +93,14 @@ export const AddSeiInlineButton = (chainParams: any) => {
 	};
 
 	return (
-		<a
-			href='#'
+		<button
+			type='button'
 			onClick={onClick}
 			className='flex items-center text-sm text-neutral-700 dark:text-neutral-300
 				   hover:text-sei-maroon-100 dark:hover:text-sei-maroon-25 transition-colors'>
 			<IconChevronRight className='h-3 w-3 mr-1' />
 			<span>{'Add Sei to Metamask'}</span>
-		</a>
+		</button>
 	);
 };
 
@@ -117,6 +117,7 @@ export function AddSeiButton({ chainParams, label }: { chainParams: any; label: 
 
 	return (
 		<button
+			type='button'
 			onClick={onClick}
 			className='inline-flex items-center gap-1  bg-sei-maroon-100 hover:bg-sei-maroon-200 px-3 py-1.5 text-xs text-white transition-colors min-w-[160px]'
 			style={{ fontFamily: "'JetBrains Mono', monospace", textTransform: 'uppercase', letterSpacing: '-0.01em', fontSize: '10px' }}>

@@ -1,8 +1,8 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import { NextResponse } from 'next/server';
-import fs from 'fs/promises';
-import path from 'path';
 
-export async function GET(request, { params }) {
+export async function GET(_request, { params }) {
 	const { path: segments } = await params;
 	const docPath = segments.join('/');
 
@@ -19,9 +19,7 @@ export async function GET(request, { params }) {
 		try {
 			raw = await fs.readFile(filePath, 'utf8');
 			break;
-		} catch {
-			continue;
-		}
+		} catch {}
 	}
 
 	if (!raw) {
@@ -68,7 +66,7 @@ function mdxToMarkdown(source, url) {
 
 	// Rebuild with frontmatter including the URL
 	let md = '---\n';
-	if (frontmatter) md += frontmatter + '\n';
+	if (frontmatter) md += `${frontmatter}\n`;
 	md += `url: ${url}\n`;
 	md += '---\n\n';
 	md += result;
@@ -101,12 +99,12 @@ function convertHtmlTablesToMarkdown(text) {
 
 		rows.forEach((row, i) => {
 			const padded = Array.from({ length: colCount }, (_, j) => row[j] || '');
-			md += '| ' + padded.join(' | ') + ' |\n';
+			md += `| ${padded.join(' | ')} |\n`;
 			if (i === 0) {
-				md += '| ' + padded.map(() => '---').join(' | ') + ' |\n';
+				md += `| ${padded.map(() => '---').join(' | ')} |\n`;
 			}
 		});
 
-		return '\n' + md;
+		return `\n${md}`;
 	});
 }

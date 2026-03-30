@@ -3,7 +3,7 @@ module.exports = {
 	siteUrl: 'https://docs.sei.io',
 	generateRobotsTxt: true,
 	exclude: ['/api/*', '/server-sitemap.xml'],
-	transform: async (config, path) => {
+	transform: async (_config, path) => {
 		// Don't include routes with hash fragments (#)
 		if (path.includes('#')) {
 			return null;
