@@ -19,6 +19,8 @@ const PERSIST_DEBOUNCE_MS = 400;
 const DEFAULT_PANEL_WIDTH = 420;
 const MIN_PANEL_WIDTH = 280;
 const MAX_PANEL_WIDTH = 920;
+/** Match `DocsProviders` mobile breakpoint — full-width AI panel below this width */
+const MOBILE_PANEL_BREAKPOINT = 767;
 
 /** Shown in the empty state; rotated from the pool on mount and on “New chat”. */
 const STARTER_QUESTIONS_DISPLAY_COUNT = 3;
@@ -78,8 +80,9 @@ type SeiArchivedChat = {
 };
 
 function clampPanelWidth(width: number, viewportWidth: number): number {
-	const max = Math.min(viewportWidth - 16, MAX_PANEL_WIDTH);
-	return Math.min(max, Math.max(MIN_PANEL_WIDTH, width));
+	const maxUsable = Math.min(viewportWidth, MAX_PANEL_WIDTH);
+	const minUsable = Math.min(MIN_PANEL_WIDTH, maxUsable);
+	return Math.min(maxUsable, Math.max(minUsable, width));
 }
 
 function getMessageText(msg: any): string {
@@ -163,6 +166,9 @@ export function AIAssistant() {
 	const [historyOpen, setHistoryOpen] = useState(false);
 	const [starterPickKey, setStarterPickKey] = useState(0);
 	const [chatInstanceId, setChatInstanceId] = useState(newChatInstanceId);
+	const [narrowViewport, setNarrowViewport] = useState(
+		() => typeof window !== 'undefined' && window.matchMedia(`(max-width: ${MOBILE_PANEL_BREAKPOINT}px)`).matches
+	);
 	const pathname = usePathname();
 	const messagesEndRef = useRef<HTMLDivElement>(null);
 	const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -172,6 +178,7 @@ export function AIAssistant() {
 	const panelWidthDuringDrag = useRef(DEFAULT_PANEL_WIDTH);
 	const panelWidthRef = useRef(DEFAULT_PANEL_WIDTH);
 	panelWidthRef.current = panelWidth;
+	const pendingAskAIQuestionRef = useRef<string | null>(null);
 
 	const { messages, sendMessage, status, setMessages, error } = useChat({
 		id: chatInstanceId,
@@ -313,11 +320,18 @@ export function AIAssistant() {
 	}, []);
 
 	useEffect(() => {
-		const onResize = () => {
+		const mq = window.matchMedia(`(max-width: ${MOBILE_PANEL_BREAKPOINT}px)`);
+		const syncViewport = () => {
+			setNarrowViewport(mq.matches);
 			setPanelWidth((w) => clampPanelWidth(w, window.innerWidth));
 		};
-		window.addEventListener('resize', onResize);
-		return () => window.removeEventListener('resize', onResize);
+		syncViewport();
+		mq.addEventListener('change', syncViewport);
+		window.addEventListener('resize', syncViewport);
+		return () => {
+			mq.removeEventListener('change', syncViewport);
+			window.removeEventListener('resize', syncViewport);
+		};
 	}, []);
 
 	const handleResizePointerDown = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
@@ -347,40 +361,6 @@ export function AIAssistant() {
 		window.addEventListener('pointercancel', onUp);
 	}, []);
 
-	useEffect(() => {
-		const handleKeyDown = (e: KeyboardEvent) => {
-			if ((e.metaKey || e.ctrlKey) && e.key === 'i') {
-				e.preventDefault();
-				setIsOpen((prev) => !prev);
-			}
-			if (e.key === 'Escape' && isOpen) {
-				setIsOpen(false);
-			}
-		};
-		window.addEventListener('keydown', handleKeyDown);
-		return () => window.removeEventListener('keydown', handleKeyDown);
-	}, [isOpen]);
-
-	useEffect(() => {
-		const handleAskAI = (e: Event) => {
-			const { pageTitle } = (e as CustomEvent).detail as { pagePath: string; pageTitle: string; markdownUrl: string };
-			setIsOpen(true);
-			const question = `Explain this page to me: "${pageTitle}". What are the key concepts and how do I use them?`;
-			requestAnimationFrame(() => {
-				sendMessage({ text: question });
-			});
-		};
-		window.addEventListener('sei-ask-ai', handleAskAI);
-		return () => window.removeEventListener('sei-ask-ai', handleAskAI);
-	}, [sendMessage]);
-
-	const handleFormSubmit = (e: React.FormEvent) => {
-		e.preventDefault();
-		if (!input.trim() || isLoading) return;
-		sendMessage({ text: input });
-		setInput('');
-	};
-
 	const pushArchivedSession = useCallback((msgs: UIMessage[]) => {
 		if (msgs.length === 0) return;
 		const session: SeiArchivedChat = {
@@ -399,6 +379,56 @@ export function AIAssistant() {
 			return next;
 		});
 	}, []);
+
+	useEffect(() => {
+		const handleKeyDown = (e: KeyboardEvent) => {
+			if ((e.metaKey || e.ctrlKey) && e.key === 'i') {
+				e.preventDefault();
+				setIsOpen((prev) => !prev);
+			}
+			if (e.key === 'Escape' && isOpen) {
+				setIsOpen(false);
+			}
+		};
+		window.addEventListener('keydown', handleKeyDown);
+		return () => window.removeEventListener('keydown', handleKeyDown);
+	}, [isOpen]);
+
+	useEffect(() => {
+		if (pendingAskAIQuestionRef.current === null) return;
+		const question = pendingAskAIQuestionRef.current;
+		pendingAskAIQuestionRef.current = null;
+		requestAnimationFrame(() => {
+			sendMessage({ text: question });
+		});
+	}, [chatInstanceId, sendMessage]);
+
+	useEffect(() => {
+		const handleAskAI = (e: Event) => {
+			const { pageTitle } = (e as CustomEvent).detail as { pagePath: string; pageTitle: string; markdownUrl: string };
+			const question = `Explain this page to me: "${pageTitle}". What are the key concepts and how do I use them?`;
+			pendingAskAIQuestionRef.current = question;
+			messagesToRestoreAfterSwitchRef.current = null;
+			pushArchivedSession(messages as UIMessage[]);
+			setInput('');
+			setStarterPickKey((k) => k + 1);
+			lastRecordedUserRef.current = null;
+			setChatInstanceId(newChatInstanceId());
+			try {
+				localStorage.removeItem(ACTIVE_CHAT_STORAGE_KEY);
+			} catch { /* ignore */ }
+			setIsOpen(true);
+		};
+		window.addEventListener('sei-ask-ai', handleAskAI);
+		return () => window.removeEventListener('sei-ask-ai', handleAskAI);
+	}, [messages, pushArchivedSession]);
+
+	const handleFormSubmit = (e: React.FormEvent) => {
+		e.preventDefault();
+		if (!input.trim() || isLoading) return;
+		sendMessage({ text: input });
+		setInput('');
+	};
 
 	const handleNewChat = () => {
 		messagesToRestoreAfterSwitchRef.current = null;
@@ -438,16 +468,22 @@ export function AIAssistant() {
 					<div className='sei-ai-overlay' onClick={() => setIsOpen(false)}>
 						<div
 							className='sei-ai-panel'
-							style={{ width: clampPanelWidth(panelWidth, typeof window !== 'undefined' ? window.innerWidth : MAX_PANEL_WIDTH) }}
+							style={
+								narrowViewport
+									? { width: '100%' }
+									: { width: clampPanelWidth(panelWidth, typeof window !== 'undefined' ? window.innerWidth : MAX_PANEL_WIDTH) }
+							}
 							onClick={(e) => e.stopPropagation()}>
-							<div
-								className='sei-ai-resize-handle'
-								onPointerDown={handleResizePointerDown}
-								role='separator'
-								aria-orientation='vertical'
-								aria-label='Resize assistant panel'
-								title='Drag to resize'
-							/>
+							{!narrowViewport && (
+								<div
+									className='sei-ai-resize-handle'
+									onPointerDown={handleResizePointerDown}
+									role='separator'
+									aria-orientation='vertical'
+									aria-label='Resize assistant panel'
+									title='Drag to resize'
+								/>
+							)}
 							<div className='sei-ai-header'>
 								<div className='sei-ai-header-left'>
 									<AIAssistantIcon />
@@ -560,6 +596,7 @@ export function AIAssistant() {
 										if (msg.role === 'assistant' && hasToolInvocations(msg)) return null;
 										const text = getMessageText(msg);
 										if (msg.role === 'assistant' && !text) return null;
+										if (msg.role === 'user' && !text) return null;
 										return (
 											<div key={msg.id} className={`sei-ai-msg sei-ai-msg-${msg.role}`}>
 												{msg.role === 'assistant' && (
@@ -567,10 +604,14 @@ export function AIAssistant() {
 														<AIAssistantIcon size={16} />
 													</div>
 												)}
-												<div className='sei-ai-msg-content sei-ai-msg-content-assistant'>
-													<CopyReplyButton text={text} />
-													<MessageContent content={text} />
-												</div>
+												{msg.role === 'user' ? (
+													<div className='sei-ai-msg-content'>{text}</div>
+												) : (
+													<div className='sei-ai-msg-content sei-ai-msg-content-assistant'>
+														<CopyReplyButton text={text} />
+														<MessageContent content={text} />
+													</div>
+												)}
 											</div>
 										);
 									})

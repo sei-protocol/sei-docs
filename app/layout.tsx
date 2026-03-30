@@ -1,5 +1,5 @@
 import { GoogleTagManager } from '@next/third-parties/google';
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { getPageMap } from 'nextra/page-map';
 import { Toaster } from 'sonner';
 
@@ -64,6 +64,12 @@ export const metadata: Metadata = {
 		icon: '/icon.png',
 		apple: '/apple-icon.png'
 	}
+};
+
+export const viewport: Viewport = {
+	width: 'device-width',
+	initialScale: 1,
+	viewportFit: 'cover'
 };
 
 export default async function RootLayout({ children }) {
