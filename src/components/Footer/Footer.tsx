@@ -19,10 +19,10 @@ const footerLinkGroups = [
 		links: [
 			{ label: 'Ecosystem Hub', href: 'https://www.sei.io/ecosystem' },
 			{ label: 'Join the Eco', href: 'https://sei-forms.typeform.com/join-ecosystem?typeform-source=p12rt1ecint.typeform.com' },
-			{ label: 'Bridge', href: 'https://app.sei.io/bridge' },
+			{ label: 'Bridge', href: 'https://dashboard.sei.io/bridge' },
 			{ label: 'Explorer (Seiscan)', href: 'https://seiscan.io/' },
 			{ label: 'Explorer (SeiTrace)', href: 'https://seitrace.com/' },
-			{ label: 'Stake', href: 'https://app.sei.io/stake' }
+			{ label: 'Stake', href: 'https://dashboard.sei.io/stake' }
 		]
 	},
 	{
