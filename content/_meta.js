@@ -20,7 +20,7 @@ export default {
 		type: 'page'
 	},
 	node: {
-		title: 'Operate',
+		title: 'Nodes',
 		type: 'page'
 	},
 	skill: {
