@@ -22,5 +22,11 @@ export default {
 	node: {
 		title: 'Operate',
 		type: 'page'
+	},
+	skill: {
+		display: 'hidden'
+	},
+	agents: {
+		display: 'hidden'
 	}
 };

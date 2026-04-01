@@ -2,7 +2,7 @@
 
 ## Description
 
-Skills for interacting with the Sei blockchain (EVM + CosmWasm), including:
+Skills for interacting with the Sei blockchain (EVM), including:
 
 - Account queries
 - Token transfers
@@ -442,5 +442,4 @@ returns:
 
 - https://docs.sei.io/
 - Sei JSON-RPC (EVM)
-- CosmWasm API
 - `seid` CLI

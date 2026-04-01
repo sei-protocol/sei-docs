@@ -12,14 +12,6 @@ export default {
 
 	'sip-03-migration': 'SIP-03 Migration',
 
-	'-- Sei Giga Platform': {
-		type: 'separator',
-		title: 'Sei Giga Platform'
-	},
-	'sei-giga': 'Overview',
-	'sei-giga-specs': 'Technical Specs',
-	'sei-giga-developers': 'Developer Guide',
-
 	'-- Core Architecture': {
 		type: 'separator',
 		title: 'Core Architecture'
@@ -53,6 +45,14 @@ export default {
 	},
 	'dev-interoperability': 'EVM ↔ CosmWasm',
 	pointers: 'Pointer Contracts',
+
+	'-- Sei Giga Upgrade': {
+		type: 'separator',
+		title: 'Sei Giga Upgrade'
+	},
+	'sei-giga': 'Overview',
+	'sei-giga-specs': 'Technical Specs',
+	'sei-giga-developers': 'Developer Guide',
 
 	'-- Resources': {
 		type: 'separator',
