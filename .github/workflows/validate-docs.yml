@@ -1,0 +1,64 @@
+name: Validate docs
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate docs.json is valid JSON
+        run: jq empty docs.json
+
+      - name: Verify all referenced pages exist
+        run: |
+          set -euo pipefail
+          missing=0
+          # Extract every page reference from docs.json (strings within "pages": [...]).
+          # Pages are written as "evm/networks" → ./evm/networks.mdx must exist.
+          mapfile -t pages < <(jq -r '
+            .. | objects |
+            select(has("pages")) |
+            .pages[] |
+            if type == "string" then . else empty end
+          ' docs.json)
+          for p in "${pages[@]}"; do
+            if [[ ! -f "${p}.mdx" && ! -f "${p}.md" ]]; then
+              echo "::error::Missing page referenced in docs.json: ${p}"
+              missing=$((missing+1))
+            fi
+          done
+          if [[ "$missing" -gt 0 ]]; then
+            echo "$missing missing page(s)"
+            exit 1
+          fi
+          echo "All ${#pages[@]} referenced pages exist."
+
+      - name: Find orphaned MDX files (not in nav)
+        run: |
+          set -euo pipefail
+          mapfile -t referenced < <(jq -r '
+            .. | objects |
+            select(has("pages")) |
+            .pages[] |
+            if type == "string" then . else empty end
+          ' docs.json | sort -u)
+          # index.mdx is the homepage and not required to be in nav
+          orphans=0
+          while IFS= read -r f; do
+            slug="${f#./}"
+            slug="${slug%.mdx}"
+            if [[ "$slug" == "index" ]]; then continue; fi
+            if ! printf '%s\n' "${referenced[@]}" | grep -qx "$slug"; then
+              echo "::warning::Orphan MDX (not referenced in docs.json nav): $f"
+              orphans=$((orphans+1))
+            fi
+          done < <(find . -name '*.mdx' -not -path './node_modules/*' -not -path './.git/*')
+          echo "$orphans orphan MDX file(s) (warnings only)."

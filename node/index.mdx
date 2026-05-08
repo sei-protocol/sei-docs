@@ -153,6 +153,78 @@ sed -i -e "s/^occ-enabled *=.*/occ-enabled = true/" $HOME/.sei/config/app.toml
   sed -i 's/^ss-keep-recent = [0-9]*/ss-keep-recent = 0/' ~/.sei/config/app.toml
   ```
 </Info>
+
+<Accordion title="Advanced Configuration">
+
+#### Archive Node Setup
+
+An archive node maintains the complete historical record of the chain. This requires disabling state sync and starting with a pre-existing database using a "snapshot".
+
+**1. Disable State Sync** — In `$HOME/.sei/config/config.toml`, modify the `[statesync]` section:
+
+```toml
+# State sync configuration
+[statesync]
+enable = false
+```
+
+**2. Configure Archive Node Peers** — To sync from the height your snapshot was created at, you need peers retaining a large amount of historical blocks. The node will require specific peers during initial sync, which can be changed at a later time.
+
+#### Mempool Configuration
+
+For optimal transaction handling and resource management, it is recommended to update the mempool settings in your `config.toml` file.
+
+<Info>
+  Adjust these parameters if you encounter performance or resource issues on your specific hardware.
+</Info>
+
+```toml
+# Mempool configuration settings
+[mempool]
+
+# Broadcast transactions to other nodes
+broadcast = true
+
+# Maximum number of transactions in the mempool
+size = 5000
+
+# Limit the total size of all txs in the mempool.
+max-txs-bytes = 10737418240
+
+# Size of the cache (used to filter duplicate transactions)
+cache-size = 10000
+
+# Do not remove invalid transactions from the cache
+keep-invalid-txs-in-cache = true
+
+# Maximum size of a single transaction
+max-tx-bytes = 2048576
+
+# Maximum size of a batch of transactions to send to a peer
+max-batch-bytes = 0
+
+# Maximum length of time a transaction can remain in the mempool
+ttl-duration = "3s"
+
+# Maximum number of blocks a transaction can remain in the mempool
+ttl-num-blocks = 5
+
+tx-notify-threshold = 0
+
+check-tx-error-blacklist-enabled = true
+
+check-tx-error-threshold = 50
+
+pending-size = 5000
+
+max-pending-txs-bytes = 1073741824
+
+pending-ttl-duration = "3s"
+
+pending-ttl-num-blocks = 5
+```
+
+</Accordion>
 </Step>
 
 <Step title="Run Node">
@@ -188,9 +260,28 @@ Verify sync status and tail the logs. For troubleshooting sync issues, performan
 # Check sync status
 seid status | jq .SyncInfo
 
-# Monitor logs
+# Monitor logs in real-time
 journalctl -u seid -f -o cat
+
+# Check validator status (if running a validator)
+seid query staking validator $(seid keys show <your_key> --bech val -a)
 ```
+
+**Common Issues & Solutions**
+
+<CardGroup cols={2}>
+  <Card title="Sync Issues">
+    - Verify sufficient disk space
+    - Ensure stable network connectivity
+    - Confirm system time is synchronized
+    - Consider using state sync for initial setup
+  </Card>
+  <Card title="Performance Problems">
+    - Monitor system resources (CPU, RAM, I/O)
+    - Evaluate disk performance and network bandwidth
+    - Adjust mempool and peer settings if needed
+  </Card>
+</CardGroup>
 </Step>
 
 </Steps>
@@ -201,12 +292,15 @@ journalctl -u seid -f -o cat
 
 ### Node Setup
 
-<CardGroup cols={2}>
+<CardGroup cols={3}>
   <Card title="Node Operations Guide" icon="server" href="/node/node-operators">
     Complete guide to setting up and running a Sei node with hardware requirements and configuration steps.
   </Card>
   <Card title="Validator Operations Guide" icon="shield" href="/node/validators">
     Specialized instructions for validators, including staking, commission settings, and security best practices.
+  </Card>
+  <Card title="Default Configurations" icon="file-lines" href="/node/node-operators#default-configurations">
+    Full reference for `app.toml`, `config.toml`, and `client.toml` shipped by the latest `seid` release.
   </Card>
 </CardGroup>
 
