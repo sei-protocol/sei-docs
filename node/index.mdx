@@ -80,20 +80,79 @@ make install
 seid version
 ```
 
-Initialize and apply recommended config. For peer lists, Docker installation, advanced mempool tuning, and archive node configuration, see the [full Node Operations Guide](/node/node-operators):
+<Accordion title="Alternative: Docker Image">
+  Official Docker images are available at [GitHub Container Registry](https://github.com/sei-protocol/sei-chain/pkgs/container/sei).
+
+  ```bash
+  # Pull the latest version
+  docker pull ghcr.io/sei-protocol/sei:latest
+
+  # Or pull a specific version (recommended)
+  docker pull ghcr.io/sei-protocol/sei:v6.3.1
+  ```
+
+  Available architectures: `linux/amd64` and `linux/arm64`.
+</Accordion>
+
+<Info>
+  If you encounter an error like `command not found: seid`, you may need to set your GOPATH environment variable.
+
+  Add the following to your `~/.bashrc` or `~/.zshrc`:
+
+  ```bash
+  export GOPATH=$(go env GOPATH)
+  export PATH=$PATH:$GOPATH/bin
+  ```
+
+  Then reload your shell with `source ~/.bashrc` or `source ~/.zshrc`.
+
+  For more information see [here](https://pkg.go.dev/cmd/go#hdr-GOPATH_environment_variable).
+</Info>
+
+<Info>Default init mode is **full** (RPC/P2P bind to all interfaces). For **validator** or **seed** nodes, use `--mode validator` or `--mode seed` so RPC and P2P bind to localhost only. See the [Validator Operations Guide](/node/validators) for the full validator init example.</Info>
+
+Peer lists for the live networks:
+
+- Mainnet (pacific-1): [peers.txt](https://github.com/sei-protocol/testnet/blob/main/pacific-1/peers.txt)
+- Testnet (atlantic-2): [peers.txt](https://github.com/sei-protocol/testnet/blob/main/atlantic-2/peers.txt)
+
+Initialize and apply recommended config. For Docker installation, advanced mempool tuning, and archive node configuration, see the [full Node Operations Guide](/node/node-operators):
 
 ```bash
-# Initialize node
+# Initialize node (default mode is full: RPC/P2P bind to all interfaces)
+# For validator nodes, use: seid init <your-moniker> --chain-id <chain-id> --mode validator
 seid init <your-moniker> --chain-id <chain-id>
 
-# Set persistent peers (see full guide for peer lists)
+# Genesis is written automatically for known networks (mainnet and testnets); no download needed.
+
+# Configure peers in config.toml.
+PEERS="<comma-separated-peer-list>"
+
+# Set persistent peers in config.toml
 sed -i 's/persistent-peers = .*/persistent-peers = "'$PEERS'"/' ~/.sei/config/config.toml
 
 # Recommended config changes
 sed -i -e "s/^minimum-gas-prices *=.*/minimum-gas-prices = \"0usei\"/" $HOME/.sei/config/app.toml
-sed -i -e 's/^keep-invalid-txs-in-cache = .*/keep-invalid-txs-in-cache = true/' -e 's/^ttl-num-blocks = .*/ttl-num-blocks = 5/' $HOME/.sei/config/config.toml
-sed -i -e "s/^concurrency-workers *=.*/concurrency-workers = 500/" $HOME/.sei/config/app.toml
+
+# Tune mempool settings
+sed -i \
+  -e 's/^keep-invalid-txs-in-cache = .*/keep-invalid-txs-in-cache = true/' \
+  -e 's/^ttl-duration = .*/ttl-duration = "5s"/' \
+  -e 's/^ttl-num-blocks = .*/ttl-num-blocks = 5/' \
+  $HOME/.sei/config/config.toml
+
+# Set Concurrent Workers to 500 and enable OCC
+sed -i -e "s/^#concurrency-workers *=.*/concurrency-workers = 500/" $HOME/.sei/config/app.toml
+sed -i -e "s/^occ-enabled *=.*/occ-enabled = true/" $HOME/.sei/config/app.toml
 ```
+
+<Info>
+  In case of running an Archive Node, make sure to set your state-store settings to `ss-keep-recent = 0` with
+
+  ```bash
+  sed -i 's/^ss-keep-recent = [0-9]*/ss-keep-recent = 0/' ~/.sei/config/app.toml
+  ```
+</Info>
 </Step>
 
 <Step title="Run Node">
