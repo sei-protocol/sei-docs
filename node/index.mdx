@@ -10,10 +10,10 @@ keywords: ["sei node", "node operations", "validator", "RPC node", "sei blockcha
 Comprehensive guides for running, maintaining, and optimizing Sei network nodes. Whether you're setting up a validator, an RPC node, or a relayer, you'll find detailed instructions and best practices to ensure optimal performance and security.
 
 <CardGroup cols={4}>
-  <Card title="RPC / API nodes" icon="network-wired" />
-  <Card title="Validator nodes" icon="shield" />
-  <Card title="Statesync nodes" icon="shuffle" />
-  <Card title="Archive nodes" icon="database" />
+  <Card title="RPC/API Nodes" icon="network-wired" />
+  <Card title="Validator Nodes" icon="shield" />
+  <Card title="Statesync Nodes" icon="shuffle" />
+  <Card title="Archive Nodes" icon="database" />
 </CardGroup>
 
 ## Network Versions
@@ -31,58 +31,79 @@ _Live binary versions, genesis, and seed peers — see the [network versions wid
 
 | Component | Required                                               |
 | --------- | ------------------------------------------------------ |
-| CPU       | 16 cores (Intel Xeon / Core i7-i9 or AMD Epyc / Ryzen) |
+| CPU       | 16 cores (Intel Xeon/Core i7/i9 or AMD Epyc/Ryzen)     |
 | RAM       | 256 GB DDR5 or better                                  |
 | Storage   | 2 TB NVMe SSD (high IOPS required)                     |
 | Network   | 2 Gbps with low latency                                |
 
-<Info>
-  Use a bare-metal or high-performance cloud instance. Commodity VMs will struggle with state I/O under load.
-</Info>
-
-## Quick Start
+## Installation & Setup Steps
 
 <Steps>
 
 <Step title="Environment Setup">
-Update the system and install essential packages:
+##### System Preparation
+
+###### 1. Update and Upgrade System
 
 ```bash
-# Update system
 sudo apt update && sudo apt upgrade -y
-
-# Install essentials
-sudo apt install make gcc git jq chrony curl lz4 wget tar build-essential -y
-
-# Synchronize system time
-sudo timedatectl set-timezone UTC
-sudo systemctl enable --now chronyd
 ```
 
-Install Go 1.24.x (required for seid v6.3+):
+###### 2. Install Essential Packages
 
 ```bash
+sudo apt install make gcc git jq chrony curl lz4 wget tar build-essential -y
+```
+
+###### 3. Synchronize System Time
+
+```bash
+sudo timedatectl set-timezone UTC
+sudo systemctl enable --now chronyd
+timedatectl
+```
+
+##### Install Go
+
+Suggested Version: Go 1.24.x (required for seid v6.3+)
+
+###### Installation Steps
+
+```bash
+# Check for existing Go installation
+go version
+
+# Download and install Go 1.24.x
 wget https://go.dev/dl/go1.24.5.linux-amd64.tar.gz
 sudo tar -C /usr/local -xzf go1.24.5.linux-amd64.tar.gz
+
+# Add Go to your environment variables
 echo 'export PATH=$PATH:/usr/local/go/bin' >> $HOME/.bashrc
 source $HOME/.bashrc
+
+# Verify installation
 go version
 ```
 </Step>
 
-<Step title="Install & Initialize">
-Install the Sei binary. See the Network Versions table above for the current recommended version:
+<Step title="Install Sei">
+##### Install Sei Binary
 
 ```bash
+# Clone repository and install
 git clone https://github.com/sei-protocol/sei-chain.git
 cd sei-chain
-git checkout <version-tag>  # See Network Versions table above
+git checkout <version-tag>  # Replace with specific version
 make install
+
+# Verify installation
 seid version
 ```
 
+See Network Versions table above for current recommended version.
+
 <Accordion title="Alternative: Docker Image">
-  Official Docker images are available at [GitHub Container Registry](https://github.com/sei-protocol/sei-chain/pkgs/container/sei).
+  Official Docker images are available at GitHub Container Registry.
 
   ```bash
   # Pull the latest version
@@ -92,7 +113,7 @@ seid version
   docker pull ghcr.io/sei-protocol/sei:v6.3.1
   ```
 
-  Available architectures: `linux/amd64` and `linux/arm64`.
+  Available architectures: linux/amd64 and linux/arm64.
 </Accordion>
 
 <Info>
@@ -110,11 +131,13 @@ seid version
   For more information see [here](https://pkg.go.dev/cmd/go#hdr-GOPATH_environment_variable).
 </Info>
 
+##### Initialize Chain Files
+
 <Info>Default init mode is **full** (RPC/P2P bind to all interfaces). For **validator** or **seed** nodes, use `--mode validator` or `--mode seed` so RPC and P2P bind to localhost only. See the [Validator Operations Guide](/node/validators) for the full validator init example.</Info>
 
-Pick 5 peers from the live pool below (each visit shuffles a fresh set; the **Shuffle** and **Copy** buttons work inside the embed):
+Peers can be found here -
 
-**Mainnet (pacific-1):**
+- mainnet (pacific-1):
 
 <iframe
   src="https://sei-widgets.vercel.app/random-peers?network=mainnet&format=bash"
@@ -123,7 +146,7 @@ Pick 5 peers from the live pool below (each visit shuffles a fresh set; the **Sh
   style={{ width: "100%", height: "120px", border: "0", display: "block", margin: "0.75rem 0" }}
 />
 
-**Testnet (atlantic-2):**
+- testnet (atlantic-2):
 
 <iframe
   src="https://sei-widgets.vercel.app/random-peers?network=testnet&format=bash"
@@ -131,8 +154,6 @@ Pick 5 peers from the live pool below (each visit shuffles a fresh set; the **Sh
   loading="lazy"
   style={{ width: "100%", height: "120px", border: "0", display: "block", margin: "0.75rem 0" }}
 />
-
-Initialize and apply recommended config. For Docker installation, advanced mempool tuning, and archive node configuration, see the [full Node Operations Guide](/node/node-operators):
 
 ```bash
 # Initialize node (default mode is full: RPC/P2P bind to all interfaces)
@@ -144,10 +165,14 @@ seid init <your-moniker> --chain-id <chain-id>
 # Configure peers in config.toml.
 PEERS="<comma-separated-peer-list>"
 
-# Set persistent peers in config.toml
+#Set persistent peers in config.toml
 sed -i 's/persistent-peers = .*/persistent-peers = "'$PEERS'"/' ~/.sei/config/config.toml
+```
 
-# Recommended config changes
+##### Configure App Settings
+
+```bash
+# Set minimum gas price (recommended)
 sed -i -e "s/^minimum-gas-prices *=.*/minimum-gas-prices = \"0usei\"/" $HOME/.sei/config/app.toml
 
 # Tune mempool settings
@@ -157,7 +182,7 @@ sed -i \
   -e 's/^ttl-num-blocks = .*/ttl-num-blocks = 5/' \
   $HOME/.sei/config/config.toml
 
-# Set Concurrent Workers to 500 and enable OCC
+# Set Concurrent Workers to 500 and enable occ
 sed -i -e "s/^#concurrency-workers *=.*/concurrency-workers = 500/" $HOME/.sei/config/app.toml
 sed -i -e "s/^occ-enabled *=.*/occ-enabled = true/" $HOME/.sei/config/app.toml
 ```
@@ -176,7 +201,7 @@ sed -i -e "s/^occ-enabled *=.*/occ-enabled = true/" $HOME/.sei/config/app.toml
 
 An archive node maintains the complete historical record of the chain. This requires disabling state sync and starting with a pre-existing database using a "snapshot".
 
-**1. Disable State Sync** — In `$HOME/.sei/config/config.toml`, modify the `[statesync]` section:
+**1. Disable State Sync** — In $HOME/.sei/config/config.toml , modify the [statesync] section:
 
 ```toml
 # State sync configuration
@@ -244,11 +269,14 @@ pending-ttl-num-blocks = 5
 </Step>
 
 <Step title="Run Node">
-<Danger>If you see an error such as `panic: recovered: runtime error: integer divide by zero` it means you can't start nodes straight from the genesis file. Instead, sync to the block tip via [state sync](/node/statesync) or using a [snapshot](/node/snapshot).</Danger>
+##### Setting Up a systemd Service
 
-Create a systemd service so the node restarts automatically:
+<Danger>If you see an error such as `panic: recovered: runtime error: integer divide by zero` it means you can’t start nodes straight from the genesis file. Instead, sync to the block tip via [state sync](/node/statesync) or using a [snapshot](/node/snapshot).</Danger>
+
+For production deployments, configure a systemd service to ensure your node restarts automatically:
 
 ```bash
+# Create the systemd service file
 sudo tee /etc/systemd/system/seid.service > /dev/null << EOF
 [Unit]
 Description=Sei Node
@@ -265,12 +293,15 @@ LimitNOFILE=65535
 WantedBy=multi-user.target
 EOF
 
+# Reload systemd, enable and start the service
 sudo systemctl daemon-reload
 sudo systemctl enable seid
 sudo systemctl start seid
 ```
 
-Verify sync status and tail the logs. For troubleshooting sync issues, performance tuning, database maintenance, and update procedures, see the [full Node Operations Guide](/node/node-operators):
+##### Monitoring & Troubleshooting
+
+Check your node's status with these commands:
 
 ```bash
 # Check sync status
@@ -302,7 +333,7 @@ seid query staking validator $(seid keys show <your_key> --bech val -a)
 
 </Steps>
 
-[View Complete Node Setup Guide →](/node/node-operators)
+[View Complete Node Setup Guide](/node/node-operators)
 
 ## Node Resources
 
@@ -324,7 +355,7 @@ seid query staking validator $(seid keys show <your_key> --bech val -a)
 
 <CardGroup cols={3}>
   <Card title="Configuration & Monitoring" icon="gauge-simple-high" href="/node/advanced-config-monitoring">
-    Optimize your node's performance with advanced settings and monitoring tools (Prometheus, alerting, log aggregation, tuning knobs).
+    Optimize your node's performance with advanced settings and monitoring tools.
   </Card>
   <Card title="RocksDB Backend" icon="database" href="/node/rocksdb-backend">
     Run with RocksDB instead of the default backend.
@@ -334,6 +365,3 @@ seid query staking validator $(seid keys show <your_key> --bech val -a)
   </Card>
 </CardGroup>
 
-<Tip>
-  Need node binaries, genesis, or peers for a specific network? See the [technical reference](/node/technical-reference) for current mainnet and testnet values.
-</Tip>
