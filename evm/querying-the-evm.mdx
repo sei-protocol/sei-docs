@@ -1,33 +1,30 @@
 ---
 title: 'Querying the EVM'
-description: 'Accurate guide to querying EVM data and contracts using the seid CLI, including address lookups, ERC20 queries, payload generation, and pointer resolution.'
+description: 'Read EVM state from the seid CLI: address associations, ERC20 reads, ABI-encoded payloads, pointer lookups, and transaction details.'
 keywords: ['seid query', 'evm query', 'erc20 balance', 'payload generation', 'pointer contract']
 ---
-## What is EVM Querying?
 
-EVM querying allows you to interact with Ethereum-compatible smart contracts and state on Sei using read-only methods. These queries can extract data such as balances, token information, and contract configurations without initiating a transaction.
+The `seid q evm` subcommands let you read EVM state — token data, address associations, pointer mappings, and transactions — without sending a transaction or running your own node.
 
 ## Prerequisites
 
-If your machine is **not running a Sei node**, you'll need to append the following to all query commands:
+If your machine is **not running a Sei node**, append the `--node` flag to every `seid q evm` command, pointing at a Sei Cosmos RPC endpoint (the same kind used by `seid status`):
 
 ```bash
---node http://<sei-cosmos-rpc-url>
+--node https://<sei-cosmos-rpc-url>
 ```
+
+The one exception is `seid q evm tx`, which uses `--evm-rpc` to point at an EVM JSON-RPC endpoint (port 8545 by convention). See [Transaction Lookup](#transaction-lookup) below.
 
 <Info>Refer to the [RPC endpoints](/evm/networks) page for a list of available RPC endpoints.</Info>
 
-## Network Configuration
-
-You must specify the correct RPC node if you are not running a local node:
-
-```bash
---node http://<sei-cosmos-rpc-url>
-```
-
-Use this flag with all `seid q evm` commands.
+<Info>
+**Output format.** Most commands print YAML by default. Pass `-o json` for JSON. ERC20 read methods (`name`, `balanceOf`, …) return a bare value with no formatting — the result below is the raw stdout.
+</Info>
 
 ## Address Mapping
+
+Sei addresses (`sei1…`) and EVM addresses (`0x…`) are linked via an on-chain association set the first time an account signs an EVM transaction or calls the address-association precompile. Until then, the two address spaces are independent.
 
 ### Get Sei Address from EVM Address
 
@@ -38,16 +35,14 @@ seid q evm sei-addr [evm address]
 **Example:**
 
 ```bash
-seid q evm sei-addr 0x1234abcd5678ef...
+seid q evm sei-addr 0xDa52B9E673d1f48FcD9916b3F606A136a8eA5e55
 ```
 
 **Output:**
 
-```json
-{
-  "sei_address": "sei1xyz...",
-  "associated": true
-}
+```yaml
+associated: true
+sei_address: sei13ytysxs88z0fp9cssagg77ekpecrrlrwce9pwl
 ```
 
 ### Get EVM Address from Sei Address
@@ -59,53 +54,66 @@ seid q evm evm-addr [sei address]
 **Example:**
 
 ```bash
-seid q evm evm-addr sei1xyz...
+seid q evm evm-addr sei13ytysxs88z0fp9cssagg77ekpecrrlrwce9pwl
 ```
 
 **Output:**
 
-```json
-{
-  "evm_address": "0x1234abcd5678ef...",
-  "associated": true
-}
+```yaml
+associated: true
+evm_address: 0xDa52B9E673d1f48FcD9916b3F606A136a8eA5e55
 ```
+
+<Info>If the account hasn't been associated yet, `associated` is `false` and the other field is empty. This is normal for accounts that have only ever transacted on one side of the chain.</Info>
 
 ## ERC20 Contract Queries
 
-Query standard ERC20 contract methods using:
+Call standard view methods on any ERC20 contract:
 
 ```bash
 seid q evm erc20 [contract address] [method] [arguments...]
 ```
 
-**Example:**
+**Example — query Sei's IBC USDC (`USDC.n`):**
 
 ```bash
-seid q evm erc20 0xabc123... balanceOf 0xuser456...
+seid q evm erc20 0x3894085Ef7Ff0f0aeDf52E2A2704928d1Ec074F1 symbol
 ```
 
 **Output:**
 
 ```
-500000000000000000000
+USDC.n
+```
+
+**Example — balance:**
+
+```bash
+seid q evm erc20 0x3894085Ef7Ff0f0aeDf52E2A2704928d1Ec074F1 balanceOf 0xDa52B9E673d1f48FcD9916b3F606A136a8eA5e55
+```
+
+**Output (raw integer, in smallest unit):**
+
+```
+0
 ```
 
 <Info>
 **Supported methods:**
 
-- `name` - Get token name
-- `symbol` - Get token symbol
-- `decimals` - Get token decimals
-- `totalSupply` - Get total token supply
-- `balanceOf [address]` - Get balance of specific address
-- `allowance [owner] [spender]` - Get allowance amount
+- `name` — token name
+- `symbol` — token symbol
+- `decimals` — token decimals
+- `totalSupply` — total supply
+- `balanceOf [address]` — balance of an address
+- `allowance [owner] [spender]` — current allowance
 
+For arbitrary methods or non-standard contracts, use [`payload`](#custom-abi) with the contract ABI.
 </Info>
 
 ## Payload Generation
 
-Generate hex-encoded call data for contract methods. This is useful for crafting transactions manually.
+Generate ABI-encoded call data without sending a transaction. Useful for crafting `seid tx evm call-contract` calls or inspecting expected calldata.
 
 <Tabs>
   <Tab title="ERC20">
@@ -115,50 +123,47 @@ Generate hex-encoded call data for contract methods. This is useful for crafting
     seid q evm erc20-payload [method] [arguments...]
     ```
 
-    **Transfer tokens:**
+    **Transfer tokens (1 token, 18 decimals):**
     ```bash
-    seid q evm erc20-payload transfer 0xrecipient... 1000000000000000000
+    seid q evm erc20-payload transfer 0xDa52B9E673d1f48FcD9916b3F606A136a8eA5e55 1000000000000000000
     ```
 
     **Output:**
     ```
-    a9059cbb000000000000000000000000recipient...0000000000000000000000000de0b6b3a7640000
+    a9059cbb000000000000000000000000da52b9e673d1f48fcd9916b3f606a136a8ea5e550000000000000000000000000000000000000000000000000de0b6b3a7640000
     ```
 
     **Approve spender:**
     ```bash
-    seid q evm erc20-payload approve 0xspender... 2000000000000000000
+    seid q evm erc20-payload approve 0xDa52B9E673d1f48FcD9916b3F606A136a8eA5e55 2000000000000000000
     ```
 
     **Output:**
     ```
-    095ea7b3000000000000000000000000spender...0000000000000000000000001bc16d674ec80000
+    095ea7b3000000000000000000000000da52b9e673d1f48fcd9916b3f606a136a8ea5e550000000000000000000000000000000000000000000000001bc16d674ec80000
     ```
 
-    **Transfer from:**
+    **Transfer from (pulls tokens from `from` to `to`, using a prior `approve`):**
     ```bash
-    seid q evm erc20-payload transferFrom 0xfrom... 0xto... 1500000000000000000
+    seid q evm erc20-payload transferFrom 0xDa52B9E673d1f48FcD9916b3F606A136a8eA5e55 0xdEAD000000000000000042069420694206942069 1500000000000000000
     ```
 
     **Output:**
     ```
-    23b872dd000000000000000000000000from...000000000000000000000000to...00000000000000000000000014d1120d7b160000
+    23b872dd000000000000000000000000da52b9e673d1f48fcd9916b3f606a136a8ea5e55000000000000000000000000dead00000000000000004206942069420694206900000000000000000000000000000000000000000000000014d1120d7b160000
     ```
 
     <Info>
+    **Supported methods:**
+    - `transfer [to] [amount]`
+    - `approve [spender] [amount]`
+    - `transferFrom [from] [to] [amount]`
 
-**Supported methods:**
-
-- `transfer [to] [amount]` - Transfer tokens to address
-- `approve [spender] [amount]` - Approve spender for amount
-- `transferFrom [from] [to] [amount]` - Transfer tokens from one address to another
-
-Amounts should be specified in the token's smallest unit (e.g., wei for 18-decimal tokens).
-
-</Info>
+    Amounts are in the token's smallest unit (e.g., wei for an 18-decimal token; `1000000` for 1 USDC with 6 decimals).
+    </Info>
 
   </Tab>
-  
+
   <Tab title="ERC721">
     ### ERC721 Payload Generation
 
@@ -166,45 +171,45 @@ Amounts should be specified in the token's smallest unit (e.g., wei for 18-decim
     seid q evm erc721-payload [method] [arguments...]
     ```
 
-    **Approve token:**
+    **Approve a token ID:**
     ```bash
-    seid q evm erc721-payload approve 0xspender... 123
+    seid q evm erc721-payload approve 0xDa52B9E673d1f48FcD9916b3F606A136a8eA5e55 123
     ```
 
     **Output:**
     ```
-    095ea7b3000000000000000000000000spender...000000000000000000000000000000000000000000000000000000000000007b
+    095ea7b3000000000000000000000000da52b9e673d1f48fcd9916b3f606a136a8ea5e55000000000000000000000000000000000000000000000000000000000000007b
     ```
 
-    **Transfer token:**
+    **Transfer a token:**
     ```bash
-    seid q evm erc721-payload transferFrom 0xfrom... 0xto... 123
+    seid q evm erc721-payload transferFrom 0xDa52B9E673d1f48FcD9916b3F606A136a8eA5e55 0xdEAD000000000000000042069420694206942069 123
     ```
 
     **Output:**
     ```
-    23b872dd000000000000000000000000from...000000000000000000000000to...000000000000000000000000000000000000000000000000000000000000007b
+    23b872dd000000000000000000000000da52b9e673d1f48fcd9916b3f606a136a8ea5e55000000000000000000000000dead000000000000000042069420694206942069000000000000000000000000000000000000000000000000000000000000007b
     ```
 
-    **Set approval for all:**
+    **Set operator approval:**
     ```bash
-    seid q evm erc721-payload setApprovalForAll 0xoperator... true
+    seid q evm erc721-payload setApprovalForAll 0xdEAD000000000000000042069420694206942069 true
     ```
 
     **Output:**
     ```
-    a22cb465000000000000000000000000operator...0000000000000000000000000000000000000000000000000000000000000001
+    a22cb465000000000000000000000000dead0000000000000000420694206942069420690000000000000000000000000000000000000000000000000000000000000001
     ```
 
     <Info>
       **Supported methods:**
-      - `approve [spender] [tokenId]` - Approve specific token
-      - `transferFrom [from] [to] [tokenId]` - Transfer token
-      - `setApprovalForAll [operator] [true|false]` - Set approval for all tokens
+      - `approve [spender] [tokenId]`
+      - `transferFrom [from] [to] [tokenId]`
+      - `setApprovalForAll [operator] [true|false]`
     </Info>
 
   </Tab>
-  
+
   <Tab title="ERC1155">
     ### ERC1155 Payload Generation
 
@@ -214,49 +219,39 @@ Amounts should be specified in the token's smallest unit (e.g., wei for 18-decim
 
     **Safe transfer:**
     ```bash
-    seid q evm erc1155-payload safeTransferFrom 0xfrom... 0xto... 123 5 0x
+    seid q evm erc1155-payload safeTransferFrom 0xDa52B9E673d1f48FcD9916b3F606A136a8eA5e55 0xdEAD000000000000000042069420694206942069 123 5 0x
     ```
 
     **Output:**
     ```
-    f242432a000000000000000000000000from...000000000000000000000000to...000000000000000000000000000000000000000000000000000000000000007b0000000000000000000000000000000000000000000000000000000000000005
+    f242432a000000000000000000000000da52b9e673d1f48fcd9916b3f606a136a8ea5e55000000000000000000000000dead000000000000000042069420694206942069000000000000000000000000000000000000000000000000000000000000007b000000000000000000000000000000000000000000000000000000000000000500000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000023078000000000000000000000000000000000000000000000000000000000000
     ```
 
     **Safe batch transfer:**
     ```bash
-    seid q evm erc1155-payload safeBatchTransferFrom 0xfrom... 0xto... [123,456] [5,10] 0x
+    seid q evm erc1155-payload safeBatchTransferFrom 0xDa52B9E673d1f48FcD9916b3F606A136a8eA5e55 0xdEAD000000000000000042069420694206942069 "[123,456]" "[5,10]" 0x
     ```
 
-    **Output:**
-    ```
-    2eb2c2d6000000000000000000000000from...000000000000000000000000to...00000000000000000000000000000000000000000000000000000000000000a0...
-    ```
-
-    **Set approval for all:**
+    **Set operator approval:**
     ```bash
-    seid q evm erc1155-payload setApprovalForAll 0xoperator... true
-    ```
-
-    **Output:**
-    ```
-    a22cb465000000000000000000000000operator...0000000000000000000000000000000000000000000000000000000000000001
+    seid q evm erc1155-payload setApprovalForAll 0xdEAD000000000000000042069420694206942069 true
     ```
 
     <Info>
       **Supported methods:**
-      - `safeTransferFrom [from] [to] [tokenId] [amount] [data]` - Transfer single token
-      - `safeBatchTransferFrom [from] [to] [tokenIds] [amounts] [data]` - Transfer multiple tokens
-      - `setApprovalForAll [operator] [true|false]` - Set approval for all tokens
+      - `safeTransferFrom [from] [to] [tokenId] [amount] [data]`
+      - `safeBatchTransferFrom [from] [to] [tokenIds] [amounts] [data]`
+      - `setApprovalForAll [operator] [true|false]`
 
-      For batch operations, use square brackets for arrays: `[123,456]` for token IDs and `[5,10]` for amounts.
+      For batch operations, pass arrays as quoted bracketed strings: `"[123,456]"`. The trailing `data` field is a hex string (use `0x` for empty).
     </Info>
 
   </Tab>
-  
+
   <Tab title="Custom ABI">
     ### Custom ABI Payload Generation
 
-    Generate payloads from custom ABI files:
+    Encode a call against any contract by supplying its ABI:
 
     ```bash
     seid q evm payload [abi-filepath] [method] [arguments...]
@@ -267,13 +262,8 @@ Amounts should be specified in the token's smallest unit (e.g., wei for 18-decim
     seid q evm payload ./MyContract.json myMethod arg1 arg2
     ```
 
-    **Output:**
-    ```
-    a1b2c3d4000000000000000000000000...
-    ```
-
     <Info>
-      The ABI file should be in JSON format containing the contract's ABI definition.
+      The ABI file must be a JSON array of function definitions, in the same shape Hardhat/Foundry emit (the `abi` field of an artifact, not the whole artifact).
     </Info>
 
   </Tab>
@@ -281,37 +271,66 @@ Amounts should be specified in the token's smallest unit (e.g., wei for 18-decim
 
 ## Pointer System
 
-The pointer system enables interoperability between different token standards (EVM, CosmWasm, Native).
+Pointers bridge the EVM and CosmWasm/native sides of Sei: a CW20 can be exposed as an ERC20 (via an EVM pointer at a `0x` address) and an ERC20 can be exposed as a CW20 (via a CW pointer at a `sei1…` address). The same applies to NFTs (CW721/ERC721) and multi-token contracts (CW1155/ERC1155).
+
+<Info>
+**Reading the `[type]` argument.** In both `pointer` and `pointee`, `[type]` always describes the **underlying** asset — the thing being wrapped — not the pointer itself.
+
+- `pointer NATIVE <denom>` → "find the EVM ERC20 that wraps this native denom"
+- `pointer CW20 <sei1…>` → "find the EVM ERC20 that wraps this CW20"
+- `pointer ERC20 <0x…>` → "find the CW20 that wraps this EVM ERC20"
+- `pointee CW20 <0x…>` → "this EVM address is a pointer; find the CW20 it wraps"
+- `pointee NATIVE <0x…>` → "this EVM address is a pointer; find the native denom it wraps"
+</Info>
 
 ### Get Pointer Address
-
-Retrieve pointer contracts that bridge tokens between EVM and other environments:
 
 ```bash
 seid q evm pointer [type] [pointee]
 ```
 
-**Example:**
+**Example — find the EVM ERC20 that wraps Sei's IBC USDC denom:**
 
 ```bash
-seid q evm pointer NATIVE usei
+seid q evm pointer NATIVE ibc/CA6FBFAF399474A06263E10D0CE5AEBBE15189D6D4B2DD9ADE61007E68EB9DB0
 ```
 
 **Output:**
 
-```json
-{
-  "pointer": "0xabc123...",
-  "version": 1,
-  "exists": true
-}
+```yaml
+exists: true
+pointer: 0x3894085Ef7Ff0f0aeDf52E2A2704928d1Ec074F1
+version: 1000
 ```
 
-<Info>**Supported types:** `NATIVE`, `CW20`, `CW721`, `CW1155`, `ERC20`, `ERC721`, `ERC1155` **Pointee:** For tokens, use the contract address; for `NATIVE`, use the denom (e.g., `usei`)</Info>
+**Example — find the EVM ERC20 that wraps a CW20 (SEIYAN):**
+
+```bash
+seid q evm pointer CW20 sei1hrndqntlvtmx2kepr0zsfgr7nzjptcc72cr4ppk4yav58vvy7v3s4er8ed
+```
+
+**Output:**
+
+```yaml
+exists: true
+pointer: 0x5f0E07dFeE5832Faa00c63F2D33A0D79150E8598
+version: 2
+```
+
+<Info>
+**Supported types:** `NATIVE`, `CW20`, `CW721`, `CW1155`, `ERC20`, `ERC721`, `ERC1155`.
+
+**Pointee format:**
+- `NATIVE` — the bank denom (e.g., `ibc/...`, `factory/sei1.../...`, `usei`)
+- `CW20`/`CW721`/`CW1155` — the `sei1…` contract address
+- `ERC20`/`ERC721`/`ERC1155` — the `0x…` contract address
+
+Native SEI (`usei`) is the EVM gas token and has no pointer.
+</Info>
 
 ### Get Pointee Address
 
-Get the original contract address from a pointer:
+Reverse direction — given a pointer, find what it wraps:
 
 ```bash
 seid q evm pointee [type] [pointer]
@@ -320,22 +339,22 @@ seid q evm pointee [type] [pointer]
 **Example:**
 
 ```bash
-seid q evm pointee ERC20 0xpointer123...
+seid q evm pointee CW20 0x5f0E07dFeE5832Faa00c63F2D33A0D79150E8598
 ```
 
 **Output:**
 
-```json
-{
-  "pointee": "0xoriginal456...",
-  "version": 1,
-  "exists": true
-}
+```yaml
+exists: true
+pointee: sei1hrndqntlvtmx2kepr0zsfgr7nzjptcc72cr4ppk4yav58vvy7v3s4er8ed
+version: 2
 ```
+
+<Info>**Supported types:** `NATIVE`, `CW20`, `CW721`, `ERC20`, `ERC721`. Unlike `pointer`, this command does not support `CW1155`/`ERC1155`.</Info>
 
 ### Get Pointer Version
 
-Query the current pointer version and stored code ID:
+Inspect the current pointer logic version and (for EVM-side pointer contracts) the stored CosmWasm code ID used to deploy new pointers:
 
 ```bash
 seid q evm pointer-version [type]
@@ -349,20 +368,18 @@ seid q evm pointer-version ERC20
 
 **Output:**
 
-```json
-{
-  "version": 1,
-  "cw_code_id": "123"
-}
+```yaml
+cw_code_id: "5052"
+version: 2
 ```
 
-<Info>Pointer contracts allow cross-environment interoperability between CosmWasm and EVM.</Info>
+<Info>`cw_code_id` is only populated for `ERC20`/`ERC721`/`ERC1155` (the CW-side wrappers that get instantiated from a stored Wasm code). For `NATIVE`/`CW20`/`CW721`/`CW1155` it is `"0"`.</Info>
 
 ## Transaction Lookup
 
 ### Query Transaction by Hash
 
-Query for a transaction by its hash (equivalent to `eth_getTransactionByHash`):
+Equivalent to `eth_getTransactionByHash`:
 
 ```bash
 seid q evm tx [hash] --evm-rpc [EVM RPC endpoint]
@@ -371,33 +388,39 @@ seid q evm tx [hash] --evm-rpc [EVM RPC endpoint]
 **Example:**
 
 ```bash
-seid q evm tx 0x1234567890abcdef... --evm-rpc http://127.0.0.1:8545
+seid q evm tx 0x828c91592453fe7c5bf743204495a35bf02b67b579b8f59ee7eea8af031d7c14 \
+  --evm-rpc https://evm-rpc.sei-apis.com
 ```
 
 **Output:**
 
 ```json
 {
-  "blockHash": "0xblock123...",
-  "blockNumber": "0x123",
-  "from": "0xsender...",
-  "gas": "0x5208",
-  "gasPrice": "0x3b9aca00",
-  "hash": "0x1234567890abcdef...",
-  "input": "0x",
-  "nonce": "0x1",
-  "to": "0xrecipient...",
+  "blockHash": "0x5620c15afd9a1d0ab19d7560043df6e038d731c6205974dca7a55900071e3864",
+  "blockNumber": "0xc5e1386",
+  "from": "0xda52b9e673d1f48fcd9916b3f606a136a8ea5e55",
+  "gas": "0x493e0",
+  "gasPrice": "0xe1614bd00",
+  "maxFeePerGas": "0xe1614bd00",
+  "maxPriorityFeePerGas": "0xe1614bd00",
+  "hash": "0x828c91592453fe7c5bf743204495a35bf02b67b579b8f59ee7eea8af031d7c14",
+  "input": "0x9cab5684...",
+  "nonce": "0x0",
+  "to": "0x7507454444fa193d39f1392076bc784b77a7a8ff",
   "transactionIndex": "0x0",
-  "value": "0xde0b6b3a7640000",
-  "v": "0x1c",
-  "r": "0x...",
-  "s": "0x..."
+  "value": "0x0",
+  "type": "0x2",
+  "accessList": [],
+  "chainId": "0x531",
+  "v": "0x0",
+  "r": "0x468ac709b74e666834bcc740e5156e019fd0ba40cff7f8a59a46f08bff56eb2b",
+  "s": "0x3496458ec06b57315721cf5e6be810b9548744a5dafab1739b8fdcff23939939",
+  "yParity": "0x0"
 }
 ```
 
 <Info>
-Note: This command is unique - it uses `--evm-rpc` flag with an **EVM RPC endpoint** (port 8545), not `--node` with a Cosmos RPC endpoint like other commands. By default, it uses http://127.0.0.1:8545. Refer to the [RPC endpoints](/evm/networks) page for a list of available EVM RPC endpoints.
-
+This is the only `seid q evm` command that takes `--evm-rpc` (an **EVM JSON-RPC** endpoint, typically port 8545) instead of `--node` (a Cosmos RPC). The default if you omit the flag is `http://0.0.0.0:8545`, which only works if you're running a local node. See [RPC endpoints](/evm/networks) for hosted EVM RPCs.
 </Info>
 
 ## Common Use Cases
@@ -405,32 +428,33 @@ Note: This command is unique - it uses `--evm-rpc` flag with an **EVM RPC endpoi
 ### Check Token Balance and Info
 
 ```bash
-# Get token info
+# Token metadata
 seid q evm erc20 0xtoken... symbol
 seid q evm erc20 0xtoken... decimals
 
-# Check balance
+# Balance (raw integer, in smallest unit)
 seid q evm erc20 0xtoken... balanceOf 0xuser...
 ```
 
-### Prepare Transaction Data
+### Prepare and Send a Transaction
 
 ```bash
-# Generate transfer payload
-seid q evm erc20-payload transfer 0xrecipient... 1000000000000000000
+# 1. Encode the calldata
+PAYLOAD=$(seid q evm erc20-payload transfer 0xrecipient... 1000000000000000000)
 
-# Use the output in a transaction
-seid tx evm call-contract 0xtoken... [payload-from-above] --from mykey
+# 2. Send via seid
+seid tx evm call-contract 0xtoken... $PAYLOAD --from mykey
 ```
 
-### Bridge Token Information
+### Resolve Pointer Mappings
 
 ```bash
-# Find EVM pointer for a native token
-seid q evm pointer NATIVE usei
+# CW20 → EVM pointer
+seid q evm pointer CW20 sei1hrndqntlvtmx2kepr0zsfgr7nzjptcc72cr4ppk4yav58vvy7v3s4er8ed
 
-# Find original contract from pointer
-seid q evm pointee ERC20 0xpointer...
+# EVM pointer → underlying CW20
+seid q evm pointee CW20 0x5f0E07dFeE5832Faa00c63F2D33A0D79150E8598
+
+# IBC denom → EVM pointer
+seid q evm pointer NATIVE ibc/CA6FBFAF399474A06263E10D0CE5AEBBE15189D6D4B2DD9ADE61007E68EB9DB0
 ```
-
-<Info>All payload generation commands output hex-encoded data that can be used directly in `seid tx evm call-contract` transactions.</Info>
