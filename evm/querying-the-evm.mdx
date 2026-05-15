@@ -1,10 +1,10 @@
 ---
 title: 'Querying the EVM'
-description: 'Read EVM state from the seid CLI: address associations, ERC20 reads, ABI-encoded payloads, pointer lookups, and transaction details.'
-keywords: ['seid query', 'evm query', 'erc20 balance', 'payload generation', 'pointer contract']
+description: 'Read EVM state from the seid CLI: address associations, ERC20 reads, ABI-encoded payloads, and transaction details.'
+keywords: ['seid query', 'evm query', 'erc20 balance', 'payload generation']
 ---
 
-The `seid q evm` subcommands let you read EVM state — token data, address associations, pointer mappings, and transactions — without sending a transaction or running your own node.
+The `seid q evm` subcommands let you read EVM state — token data, address associations, and transactions — without sending a transaction or running your own node.
 
 ## Prerequisites
 
@@ -74,22 +74,22 @@ Call standard view methods on any ERC20 contract:
 seid q evm erc20 [contract address] [method] [arguments...]
 ```
 
-**Example — query Sei's IBC USDC (`USDC.n`):**
+**Example — query Wrapped Sei (`WSEI`):**
 
 ```bash
-seid q evm erc20 0x3894085Ef7Ff0f0aeDf52E2A2704928d1Ec074F1 symbol
+seid q evm erc20 0xE30feDd158A2e3b13e9badaeABaFc5516e95e8C7 symbol
 ```
 
 **Output:**
 
 ```
-USDC.n
+WSEI
 ```
 
 **Example — balance:**
 
 ```bash
-seid q evm erc20 0x3894085Ef7Ff0f0aeDf52E2A2704928d1Ec074F1 balanceOf 0xDa52B9E673d1f48FcD9916b3F606A136a8eA5e55
+seid q evm erc20 0xE30feDd158A2e3b13e9badaeABaFc5516e95e8C7 balanceOf 0xDa52B9E673d1f48FcD9916b3F606A136a8eA5e55
 ```
 
 **Output (raw integer, in smallest unit):**
@@ -271,109 +271,7 @@ Generate ABI-encoded call data without sending a transaction. Useful for craftin
 
 ## Pointer System
 
-Pointers bridge the EVM and CosmWasm/native sides of Sei: a CW20 can be exposed as an ERC20 (via an EVM pointer at a `0x` address) and an ERC20 can be exposed as a CW20 (via a CW pointer at a `sei1…` address). The same applies to NFTs (CW721/ERC721) and multi-token contracts (CW1155/ERC1155).
-
-<Info>
-**Reading the `[type]` argument.** In both `pointer` and `pointee`, `[type]` always describes the **underlying** asset — the thing being wrapped — not the pointer itself.
-
-- `pointer NATIVE <denom>` → "find the EVM ERC20 that wraps this native denom"
-- `pointer CW20 <sei1…>` → "find the EVM ERC20 that wraps this CW20"
-- `pointer ERC20 <0x…>` → "find the CW20 that wraps this EVM ERC20"
-- `pointee CW20 <0x…>` → "this EVM address is a pointer; find the CW20 it wraps"
-- `pointee NATIVE <0x…>` → "this EVM address is a pointer; find the native denom it wraps"
-</Info>
-
-### Get Pointer Address
-
-```bash
-seid q evm pointer [type] [pointee]
-```
-
-**Example — find the EVM ERC20 that wraps Sei's IBC USDC denom:**
-
-```bash
-seid q evm pointer NATIVE ibc/CA6FBFAF399474A06263E10D0CE5AEBBE15189D6D4B2DD9ADE61007E68EB9DB0
-```
-
-**Output:**
-
-```yaml
-exists: true
-pointer: 0x3894085Ef7Ff0f0aeDf52E2A2704928d1Ec074F1
-version: 1000
-```
-
-**Example — find the EVM ERC20 that wraps a CW20 (SEIYAN):**
-
-```bash
-seid q evm pointer CW20 sei1hrndqntlvtmx2kepr0zsfgr7nzjptcc72cr4ppk4yav58vvy7v3s4er8ed
-```
-
-**Output:**
-
-```yaml
-exists: true
-pointer: 0x5f0E07dFeE5832Faa00c63F2D33A0D79150E8598
-version: 2
-```
-
-<Info>
-**Supported types:** `NATIVE`, `CW20`, `CW721`, `CW1155`, `ERC20`, `ERC721`, `ERC1155`.
-
-**Pointee format:**
-- `NATIVE` — the bank denom (e.g., `ibc/...`, `factory/sei1.../...`, `usei`)
-- `CW20`/`CW721`/`CW1155` — the `sei1…` contract address
-- `ERC20`/`ERC721`/`ERC1155` — the `0x…` contract address
-
-Native SEI (`usei`) is the EVM gas token and has no pointer.
-</Info>
-
-### Get Pointee Address
-
-Reverse direction — given a pointer, find what it wraps:
-
-```bash
-seid q evm pointee [type] [pointer]
-```
-
-**Example:**
-
-```bash
-seid q evm pointee CW20 0x5f0E07dFeE5832Faa00c63F2D33A0D79150E8598
-```
-
-**Output:**
-
-```yaml
-exists: true
-pointee: sei1hrndqntlvtmx2kepr0zsfgr7nzjptcc72cr4ppk4yav58vvy7v3s4er8ed
-version: 2
-```
-
-<Info>**Supported types:** `NATIVE`, `CW20`, `CW721`, `ERC20`, `ERC721`. Unlike `pointer`, this command does not support `CW1155`/`ERC1155`.</Info>
-
-### Get Pointer Version
-
-Inspect the current pointer logic version and (for EVM-side pointer contracts) the stored CosmWasm code ID used to deploy new pointers:
-
-```bash
-seid q evm pointer-version [type]
-```
-
-**Example:**
-
-```bash
-seid q evm pointer-version ERC20
-```
-
-**Output:**
-
-```yaml
-cw_code_id: "5052"
-version: 2
-```
-
-<Info>`cw_code_id` is only populated for `ERC20`/`ERC721`/`ERC1155` (the CW-side wrappers that get instantiated from a stored Wasm code). For `NATIVE`/`CW20`/`CW721`/`CW1155` it is `"0"`.</Info>
+Pointers bridge the EVM and CosmWasm sides of Sei: a CW20 can be exposed as an ERC20 (via an EVM pointer at a `0x` address) and an ERC20 can be exposed as a CW20 (via a CW pointer at a `sei1…` address). The same applies to NFTs (CW721/ERC721) and multi-token contracts (CW1155/ERC1155).
 
 ## Transaction Lookup
 
@@ -444,17 +342,4 @@ PAYLOAD=$(seid q evm erc20-payload transfer 0xrecipient... 1000000000000000000)
 
 # 2. Send via seid
 seid tx evm call-contract 0xtoken... $PAYLOAD --from mykey
-```
-
-### Resolve Pointer Mappings
-
-```bash
-# CW20 → EVM pointer
-seid q evm pointer CW20 sei1hrndqntlvtmx2kepr0zsfgr7nzjptcc72cr4ppk4yav58vvy7v3s4er8ed
-
-# EVM pointer → underlying CW20
-seid q evm pointee CW20 0x5f0E07dFeE5832Faa00c63F2D33A0D79150E8598
-
-# IBC denom → EVM pointer
-seid q evm pointer NATIVE ibc/CA6FBFAF399474A06263E10D0CE5AEBBE15189D6D4B2DD9ADE61007E68EB9DB0
 ```

@@ -46,7 +46,7 @@ The Learn section contains general information about Sei and its ecosystem. This
 - **Core Architecture**: Consensus (Twin Turbo), parallel execution, and storage (SeiDB)
 - **Network Tools & Providers**: Wallets, RPC providers, block explorers, faucet, indexers
 - **Governance**: Overview, proposals, and staking
-- **Interoperability**: EVM ↔ CosmWasm interaction and pointer contracts
+- **Interoperability**: EVM ↔ CosmWasm interaction
 - **Resources**: Hardware wallets, Ledger setup, and brand kit
 
 ### EVM
