@@ -367,11 +367,7 @@ function buildIndex({ projectName, blockquote, intro, constraints, quickReferenc
 function buildFull(config, sections, uncategorized, allPages) {
 	const head = buildIndex(config, sections, uncategorized);
 	const body = allPages
-		.map((page) => {
-			const meta = [`URL: ${page.url}`];
-			if (page.description) meta.push(`Description: ${page.description}`);
-			return `# ${page.title}\n\n${meta.join('\n')}\n\n${page.content}`;
-		})
+		.map((page) => `URL: ${page.url}\n\n${page.content.trim()}`)
 		.join('\n\n---\n\n');
 	return `${head}\n---\n\n${body}\n`;
 }

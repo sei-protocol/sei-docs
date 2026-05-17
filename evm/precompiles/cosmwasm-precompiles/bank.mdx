@@ -18,6 +18,8 @@ The bank precompile at address `0x0000000000000000000000000000000000001001` expo
 - **Native Execution:** Operations are executed at the Cosmos SDK level for maximum efficiency and security.
 - **Cross-Chain Assets:** Manage both native SEI tokens and IBC assets seamlessly from EVM contracts.
 
+**When to use `send` vs `sendNative`:** `send` moves an arbitrary `denom` (any IBC or factory token) between two EVM addresses (`0x...`) by reading the balance directly from the bank module — no `msg.value` is attached. It is gated to the registered ERC20 native pointer for that denom, so it is typically invoked from the auto-deployed pointer contract rather than from arbitrary user code. `sendNative` is for sending native SEI (the attached `msg.value`) from the EVM caller to a Cosmos bech32 (`sei1...`) destination, which is useful for crossing the EVM→Cosmos boundary when the recipient has no associated EVM address (for example, paying a Cosmos-only contract or account).
+
 ## Use Cases
 
 - **DeFi Applications:** Build decentralized finance protocols that can handle native SEI and Cosmos assets.
@@ -31,7 +33,6 @@ By the end of this guide, you'll be able to:
 - **Execute Token Transfers** - Send both native SEI and custom tokens between addresses
 - **Query Account Balances** - Check single and multi-asset balances for any address
 - **Access Token Metadata** - Retrieve names, symbols, decimals, and supply information
-  `hh1h
 
 ## Functions
 
@@ -40,9 +41,10 @@ The bank precompile exposes the following functions:
 ### Transaction Functions
 
 ```solidity
-/// Sends non-native tokens from one address to another.
-/// @param fromAddress The Sei address to send funds from.
-/// @param toAddress The Sei address to send funds to.
+/// Sends non-native tokens from one address to another. Callable only by the
+/// registered ERC20 native pointer contract for the given denom.
+/// @param fromAddress The EVM address (0x...) to send funds from.
+/// @param toAddress The EVM address (0x...) to send funds to.
 /// @param denom The denomination of funds to send.
 /// @param amount The amount of the above denom to send.
 /// @return success Whether the send was successfully executed.
@@ -53,8 +55,9 @@ function send(
     uint256 amount
 ) external returns (bool success);
 
-/// Sends Sei to the specified user.
-/// @param toNativeAddress The Sei address of the recipient.
+/// Sends native SEI (the attached msg.value) from the EVM caller to a Cosmos
+/// bech32 recipient. Requires a non-zero msg.value.
+/// @param toNativeAddress The bech32 (sei1...) address of the recipient.
 /// @return success Whether the tokens were successfully sent.
 function sendNative(
     string memory toNativeAddress
@@ -65,7 +68,7 @@ function sendNative(
 
 ```solidity
 /// Queries the balance of the given account for the specified denom.
-/// @param acc The Sei address of the account to query.
+/// @param acc The EVM address (0x...) of the account to query.
 /// @param denom The denomination to query for.
 /// @return amount The amount of denom held by acc.
 function balance(
@@ -74,7 +77,7 @@ function balance(
 ) external view returns (uint256 amount);
 
 /// Queries the balance of the given account for all balances.
-/// @param acc The Sei address of the account to query.
+/// @param acc The EVM address (0x...) of the account to query.
 /// @return response Balances for all coins/denoms.
 function all_balances(
     address acc
