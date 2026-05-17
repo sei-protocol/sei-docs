@@ -46,6 +46,10 @@
 
 All legacy paths from the Nextra site are preserved in `docs.json` under `redirects`. When renaming or moving a page, always add a matching redirect entry so external links and search results continue to resolve.
 
+## llms.txt / llms-full.txt
+
+`llms.txt` and `llms-full.txt` at the repo root are hand-curated overrides for Mintlify's auto-generated versions. The script `scripts/generate-llms.mjs` reads `docs.json`, fetches each page's `.md` from the deployed site, and re-emits both files using the curated config block at the top of the script (project name, intro, constraints, quick reference, section overviews, examples, resources). A scheduled GitHub Action (`.github/workflows/regenerate-llms.yml`) runs this weekly and opens a PR when anything changed; trigger it manually via `workflow_dispatch` after large content updates if you don't want to wait. Edit the config block at the top of the script to update wording; do not hand-edit the generated `.txt` files.
+
 ## Brand assets
 
 - Logos and brand guidelines live in `assets/sei-brand-assets/`
