@@ -1,0 +1,177 @@
+---
+title: 'Deploy and Verify'
+description: 'Deploying and verifying smart contracts on Sei with viem, ethers, Foundry, and Hardhat'
+icon: 'rocket'
+---
+
+# Deploy and Verify
+
+Sei is EVM-compatible — standard deployment tooling works without modification. This page covers deploying a contract and verifying its source on the Sei block explorer.
+
+For a deeper look at verification options (Remix, Sourcify UI, batch verification), see the [Verify Contracts](/evm/evm-verify-contracts) page.
+
+## Deploying with viem or ethers
+
+<CodeGroup>
+
+```ts viem
+import { createPublicClient, createWalletClient, http } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { sei } from '@sei-js/precompiles/viem';
+
+const account = privateKeyToAccount('0xYourPrivateKey');
+const publicClient = createPublicClient({ chain: sei, transport: http() });
+const walletClient = createWalletClient({ account, chain: sei, transport: http() });
+
+const hash = await walletClient.deployContract({
+  abi: CONTRACT_ABI,
+  bytecode: '0x608060...',
+  args: [/* constructor args */],
+});
+
+const { contractAddress } = await publicClient.waitForTransactionReceipt({ hash });
+console.log('Deployed at:', contractAddress);
+```
+
+```ts ethers
+import { ethers } from 'ethers';
+
+const provider = new ethers.JsonRpcProvider('https://evm-rpc.sei-apis.com');
+const wallet = new ethers.Wallet('0xYourPrivateKey', provider);
+
+const factory = new ethers.ContractFactory(CONTRACT_ABI, '0x608060...', wallet);
+const contract = await factory.deploy(/* constructor args */);
+
+await contract.waitForDeployment();
+console.log('Deployed at:', await contract.getAddress());
+```
+
+</CodeGroup>
+
+## Deploying with Foundry
+
+Foundry works against Sei with the standard `--rpc-url` flag.
+
+```bash
+forge create src/MyContract.sol:MyContract \
+  --rpc-url https://evm-rpc.sei-apis.com \
+  --private-key $PRIVATE_KEY \
+  --constructor-args arg1 arg2
+```
+
+For testnet:
+
+```bash
+forge create src/MyContract.sol:MyContract \
+  --rpc-url https://evm-rpc-testnet.sei-apis.com \
+  --private-key $PRIVATE_KEY
+```
+
+## Deploying with Hardhat
+
+Add Sei networks to your `hardhat.config.ts`:
+
+```ts
+import { HardhatUserConfig } from 'hardhat/config';
+
+const config: HardhatUserConfig = {
+  networks: {
+    sei: {
+      url: 'https://evm-rpc.sei-apis.com',
+      chainId: 1329,
+      accounts: [process.env.PRIVATE_KEY!],
+    },
+    seiTestnet: {
+      url: 'https://evm-rpc-testnet.sei-apis.com',
+      chainId: 1328,
+      accounts: [process.env.PRIVATE_KEY!],
+    },
+  },
+};
+
+export default config;
+```
+
+Then deploy:
+
+```bash
+npx hardhat run scripts/deploy.ts --network sei
+```
+
+## Verifying Contracts
+
+Sei's block explorer is [Seiscan](https://seiscan.io). The recommended verification method is [Sourcify](https://sourcify.dev/) — no API key required.
+
+### Foundry
+
+Verify after deployment:
+
+```bash
+forge verify-contract \
+  --verifier sourcify \
+  --chain-id 1329 \
+  0xDeployedContractAddress \
+  src/MyContract.sol:MyContract
+```
+
+Or deploy and verify in one step:
+
+```bash
+forge create src/MyContract.sol:MyContract \
+  --rpc-url https://evm-rpc.sei-apis.com \
+  --private-key $PRIVATE_KEY \
+  --verify \
+  --verifier sourcify \
+  --chain-id 1329
+```
+
+For testnet, use `--chain-id 1328` and `--rpc-url https://evm-rpc-testnet.sei-apis.com`.
+
+### Hardhat
+
+Install the verify plugin:
+
+```bash
+npm install --save-dev @nomicfoundation/hardhat-verify
+```
+
+Add it to `hardhat.config.ts` — no additional Sourcify config block is needed:
+
+```ts
+import '@nomicfoundation/hardhat-verify';
+
+const config: HardhatUserConfig = {
+  networks: {
+    sei: {
+      url: 'https://evm-rpc.sei-apis.com',
+      chainId: 1329,
+      accounts: [process.env.PRIVATE_KEY!],
+    },
+    seiTestnet: {
+      url: 'https://evm-rpc-testnet.sei-apis.com',
+      chainId: 1328,
+      accounts: [process.env.PRIVATE_KEY!],
+    },
+  },
+};
+```
+
+Verify a deployed contract:
+
+```bash
+npx hardhat verify sourcify --network sei 0xDeployedContractAddress
+```
+
+If your contract has constructor arguments:
+
+```bash
+npx hardhat verify sourcify --network sei 0xDeployedContractAddress "arg1" "arg2"
+```
+
+## Network Reference
+
+| Network | Chain ID | RPC | Explorer |
+| --- | --- | --- | --- |
+| Mainnet | 1329 | `https://evm-rpc.sei-apis.com` | [seiscan.io](https://seiscan.io) |
+| Testnet | 1328 | `https://evm-rpc-testnet.sei-apis.com` | [testnet.seiscan.io](https://testnet.seiscan.io) |
+| Devnet | 713715 | `https://evm-rpc-arctic-1.sei-apis.com` | — |

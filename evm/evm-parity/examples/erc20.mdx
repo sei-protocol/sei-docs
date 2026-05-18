@@ -1,0 +1,231 @@
+---
+title: 'ERC-20 Interaction'
+description: 'Reading and writing ERC-20 tokens on Sei with viem and ethers'
+icon: 'coins'
+---
+
+# ERC-20 Interaction
+
+Standard ERC-20 contracts work on Sei without modification. This page covers the common read and write operations using viem and ethers.
+
+## Setup
+
+<CodeGroup>
+
+```ts viem
+import { createPublicClient, createWalletClient, http, parseAbi } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { sei } from '@sei-js/precompiles/viem';
+
+const client = createPublicClient({ chain: sei, transport: http() });
+const account = privateKeyToAccount('0xYourPrivateKey');
+const walletClient = createWalletClient({ account, chain: sei, transport: http() });
+
+const ERC20_ABI = parseAbi([
+  'function name() view returns (string)',
+  'function symbol() view returns (string)',
+  'function decimals() view returns (uint8)',
+  'function totalSupply() view returns (uint256)',
+  'function balanceOf(address owner) view returns (uint256)',
+  'function allowance(address owner, address spender) view returns (uint256)',
+  'function transfer(address to, uint256 amount) returns (bool)',
+  'function approve(address spender, uint256 amount) returns (bool)',
+  'function transferFrom(address from, address to, uint256 amount) returns (bool)',
+  'event Transfer(address indexed from, address indexed to, uint256 value)',
+  'event Approval(address indexed owner, address indexed spender, uint256 value)',
+]);
+
+const TOKEN = '0xTokenAddress';
+```
+
+```ts ethers
+import { ethers } from 'ethers';
+
+const provider = new ethers.JsonRpcProvider('https://evm-rpc.sei-apis.com');
+const wallet = new ethers.Wallet('0xYourPrivateKey', provider);
+
+const ERC20_ABI = [
+  'function name() view returns (string)',
+  'function symbol() view returns (string)',
+  'function decimals() view returns (uint8)',
+  'function totalSupply() view returns (uint256)',
+  'function balanceOf(address owner) view returns (uint256)',
+  'function allowance(address owner, address spender) view returns (uint256)',
+  'function transfer(address to, uint256 amount) returns (bool)',
+  'function approve(address spender, uint256 amount) returns (bool)',
+  'function transferFrom(address from, address to, uint256 amount) returns (bool)',
+  'event Transfer(address indexed from, address indexed to, uint256 value)',
+  'event Approval(address indexed owner, address indexed spender, uint256 value)',
+];
+
+const TOKEN = '0xTokenAddress';
+const readContract = new ethers.Contract(TOKEN, ERC20_ABI, provider);
+const writeContract = new ethers.Contract(TOKEN, ERC20_ABI, wallet);
+```
+
+</CodeGroup>
+
+## Reading Token Metadata
+
+<CodeGroup>
+
+```ts viem
+const [name, symbol, decimals, totalSupply] = await Promise.all([
+  client.readContract({ address: TOKEN, abi: ERC20_ABI, functionName: 'name' }),
+  client.readContract({ address: TOKEN, abi: ERC20_ABI, functionName: 'symbol' }),
+  client.readContract({ address: TOKEN, abi: ERC20_ABI, functionName: 'decimals' }),
+  client.readContract({ address: TOKEN, abi: ERC20_ABI, functionName: 'totalSupply' }),
+]);
+```
+
+```ts ethers
+const [name, symbol, decimals, totalSupply] = await Promise.all([
+  readContract.name(),
+  readContract.symbol(),
+  readContract.decimals(),
+  readContract.totalSupply(),
+]);
+```
+
+</CodeGroup>
+
+## Reading Balances and Allowances
+
+<CodeGroup>
+
+```ts viem
+const balance = await client.readContract({
+  address: TOKEN,
+  abi: ERC20_ABI,
+  functionName: 'balanceOf',
+  args: ['0xOwnerAddress'],
+});
+
+const allowance = await client.readContract({
+  address: TOKEN,
+  abi: ERC20_ABI,
+  functionName: 'allowance',
+  args: ['0xOwnerAddress', '0xSpenderAddress'],
+});
+```
+
+```ts ethers
+const balance = await readContract.balanceOf('0xOwnerAddress');
+const allowance = await readContract.allowance('0xOwnerAddress', '0xSpenderAddress');
+```
+
+</CodeGroup>
+
+## Transferring Tokens
+
+<CodeGroup>
+
+```ts viem
+import { parseUnits } from 'viem';
+
+const hash = await walletClient.writeContract({
+  address: TOKEN,
+  abi: ERC20_ABI,
+  functionName: 'transfer',
+  args: ['0xRecipient', parseUnits('10', 18)],
+});
+
+const receipt = await client.waitForTransactionReceipt({ hash });
+```
+
+```ts ethers
+const tx = await writeContract.transfer('0xRecipient', ethers.parseUnits('10', 18));
+const receipt = await tx.wait();
+```
+
+</CodeGroup>
+
+## Approving a Spender
+
+<CodeGroup>
+
+```ts viem
+import { parseUnits, maxUint256 } from 'viem';
+
+// Approve a specific amount
+const hash = await walletClient.writeContract({
+  address: TOKEN,
+  abi: ERC20_ABI,
+  functionName: 'approve',
+  args: ['0xSpenderAddress', parseUnits('100', 18)],
+});
+
+// Or approve max (unlimited)
+const hashMax = await walletClient.writeContract({
+  address: TOKEN,
+  abi: ERC20_ABI,
+  functionName: 'approve',
+  args: ['0xSpenderAddress', maxUint256],
+});
+```
+
+```ts ethers
+// Approve a specific amount
+const tx = await writeContract.approve('0xSpenderAddress', ethers.parseUnits('100', 18));
+
+// Or approve max (unlimited)
+const txMax = await writeContract.approve('0xSpenderAddress', ethers.MaxUint256);
+```
+
+</CodeGroup>
+
+## Watching Transfer Events
+
+<CodeGroup>
+
+```ts viem
+const unwatch = client.watchContractEvent({
+  address: TOKEN,
+  abi: ERC20_ABI,
+  eventName: 'Transfer',
+  onLogs: (logs) => {
+    logs.forEach(({ args }) => {
+      console.log(`${args.from} → ${args.to}: ${args.value}`);
+    });
+  },
+});
+
+// Stop watching
+unwatch();
+```
+
+```ts ethers
+readContract.on('Transfer', (from, to, value) => {
+  console.log(`${from} → ${to}: ${value}`);
+});
+
+// Stop watching
+readContract.off('Transfer');
+```
+
+</CodeGroup>
+
+## Fetching Historical Transfers
+
+<CodeGroup>
+
+```ts viem
+const logs = await client.getContractEvents({
+  address: TOKEN,
+  abi: ERC20_ABI,
+  eventName: 'Transfer',
+  fromBlock: 0n,
+  toBlock: 'latest',
+});
+```
+
+```ts ethers
+const filter = readContract.filters.Transfer();
+const logs = await readContract.queryFilter(filter, 0, 'latest');
+```
+
+</CodeGroup>
+
+## CosmWasm Token Compatibility
+
+CW20 tokens on Sei have ERC-20 pointer contracts that expose the standard ERC-20 interface. You can use all of the patterns above against a CW20 pointer address. See [Pointer Contracts](/evm/evm-parity/examples/pointer-contracts) for how to look up the pointer address.

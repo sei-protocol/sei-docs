@@ -1,0 +1,93 @@
+---
+title: 'Gas and Fees'
+description: 'Sei gas price floor, EIP-1559 fee model differences, and SSTORE cost'
+icon: 'gauge'
+---
+
+# Gas and Fees
+
+Sei supports both legacy and EIP-1559 transactions, but the fee model differs from Ethereum in three ways that affect how you estimate and set gas.
+
+## Legacy Gas Price Floor
+
+Legacy transactions (type 0) on Sei must meet a minimum gas price set by on-chain governance. This floor can change via governance proposals — do not hard-code a specific value.
+
+Use `eth_gasPrice` to read the current minimum:
+
+<CodeGroup>
+
+```ts viem
+import { createPublicClient, http } from 'viem';
+import { sei } from '@sei-js/precompiles/viem';
+
+const client = createPublicClient({ chain: sei, transport: http() });
+const gasPrice = await client.getGasPrice();
+```
+
+```ts ethers
+import { ethers } from 'ethers';
+
+const provider = new ethers.JsonRpcProvider('https://evm-rpc.sei-apis.com');
+const feeData = await provider.getFeeData();
+const gasPrice = feeData.gasPrice;
+```
+
+</CodeGroup>
+
+## EIP-1559 Fee Model
+
+Sei supports EIP-1559 transactions (type 2), but does not burn the base fee. Fees go entirely to validators rather than being partially burned as on Ethereum.
+
+This does not affect how you construct or send transactions — `maxFeePerGas` and `maxPriorityFeePerGas` work as expected. It is relevant only if your application models token supply or displays fee-burn information to users.
+
+<CodeGroup>
+
+```ts viem
+const fees = await client.estimateFeesPerGas();
+// fees.maxFeePerGas and fees.maxPriorityFeePerGas are usable as-is
+```
+
+```ts ethers
+const feeData = await provider.getFeeData();
+// feeData.maxFeePerGas and feeData.maxPriorityFeePerGas are usable as-is
+```
+
+</CodeGroup>
+
+## SSTORE Cost
+
+The gas cost of `SSTORE` (writing to contract storage) is governance-adjustable on Sei. Do not hard-code storage write estimates in your application.
+
+Always use `eth_estimateGas` for any transaction that writes to storage:
+
+<CodeGroup>
+
+```ts viem
+const gas = await client.estimateGas({
+  account,
+  to: contractAddress,
+  data: encodedCalldata,
+});
+
+// Add a buffer for governance changes during high-activity periods
+const gasWithBuffer = (gas * 120n) / 100n; // 20% buffer
+```
+
+```ts ethers
+const gas = await provider.estimateGas({
+  from: signer.address,
+  to: contractAddress,
+  data: encodedCalldata,
+});
+```
+
+</CodeGroup>
+
+## Summary
+
+| Behavior | Ethereum | Sei |
+| --- | --- | --- |
+| Legacy gas floor | Protocol minimum | Governance-set, can change |
+| Base fee | Burned | Paid to validators |
+| SSTORE cost | Fixed by EIP | Governance-adjustable |
+| `estimateGas` | Always correct to use | Required — do not hard-code storage costs |
