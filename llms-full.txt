@@ -537,7 +537,7 @@ within the ecosystem.
 
 **EVM**
 
-`1sei = 10**18 wei =  1000000000000000000 wei`
+`1 sei = 10**18 wei = 1_000_000_000_000_000_000 wei`
 
 `1sei = 10**9 gwei = 1000000000 gwei` (giga-wei)
 
@@ -2187,8 +2187,10 @@ different features and levels of security.
 | MetaMask 🦊 | ✅   | Mnemonic / Privkey      | 60        | Software | ✅      | [MetaMask](https://metamask.io/)                                                                       |
 | Backpack 🎒 | ✅   | Mnemonic / Privkey      | 60        | Software | ✅      | [Backpack](https://backpack.app/)                                                                      |
 | Dynamic     | ✅   | Any                     | All       | Embedded | ✅      | [Dynamic Wallet](https://dynamic.xyz)                                                                  |
-| Rabby       | ✅   | Mnemonic / Priv/Passkey | 118       | Software | ✅      | [Rabby Wallet](https://chromewebstore.google.com/detail/rabby-wallet/acmacodkjbdgmoleebolmdjonilkdbch) |
+| Rabby       | ✅   | Mnemonic / Priv/Passkey | 60        | Software | ✅      | [Rabby Wallet](https://chromewebstore.google.com/detail/rabby-wallet/acmacodkjbdgmoleebolmdjonilkdbch) |
 | OKX         | ✅   | Mnemonic / Privkey      | 118 / 60  | Software | ✅      | [OKX Wallet](https://www.okx.com/web3/wallet/sei)                                                      |
+
+Wallets with coin type 118 use the Cosmos HD derivation path; the same key still maps to a unique EVM `0x...` address via Sei's address-association system.
 
 For more information on coin types and hierarchical deterministic (HD) paths as
 well as deriving wallet addresses properly, please refer to the
@@ -3308,12 +3310,12 @@ The specifications are organized to clearly distinguish between what is currentl
 <Card horizontal title="Live Implementation" icon="circle-check">
   <Columns cols={2}>
     <Card horizontal title="Architecture">
-      | Property     | Value                |
-      | ------------ | -------------------- |
-      | Storage Type | Key-Value Store      |
-      | State Tree   | Merkle Patricia Trie |
-      | Caching      | Multi-level          |
-      | Concurrency  | Thread-safe          |
+      | Property      | Value                                  |
+      | ------------- | -------------------------------------- |
+      | Storage Type  | Key-Value Store                        |
+      | State Storage | MemIAVL (Cosmos) + FlatKV/LtHash (EVM) |
+      | Caching       | Multi-level                            |
+      | Concurrency   | Thread-safe                            |
     </Card>
 
     <Card horizontal title="Optimizations">
@@ -3342,12 +3344,12 @@ The specifications are organized to clearly distinguish between what is currentl
   </Card>
 
   <Card horizontal title="Block Parameters">
-    | Property       | Value               |
-    | -------------- | ------------------- |
-    | Max Block Size | 22 MB               |
-    | Max Gas Limit  | Dynamic             |
-    | Base Fee       | EIP-1559 compatible |
-    | Priority Fee   | Supported           |
+    | Property       | Value                                                      |
+    | -------------- | ---------------------------------------------------------- |
+    | Max Block Size | 21 MB                                                      |
+    | Max Gas Limit  | 12.5 M                                                     |
+    | Base Fee       | Dynamic, on-chain param; no burn (validators receive fees) |
+    | Priority Fee   | Supported                                                  |
   </Card>
 </Columns>
 
@@ -3381,7 +3383,7 @@ The specifications are organized to clearly distinguish between what is currentl
 
 <Columns cols={2}>
   <Card horizontal title="Standard Methods">
-    * `eth_sendTransaction`
+    * `eth_sendRawTransaction`
     * `eth_call`
     * `eth_getBalance`
     * `eth_getTransactionReceipt`
@@ -3391,7 +3393,6 @@ The specifications are organized to clearly distinguish between what is currentl
     * `debug_traceTransaction`
     * `eth_feeHistory`
     * `eth_maxPriorityFeePerGas`
-    * `net_version`
   </Card>
 </Columns>
 
@@ -4178,9 +4179,11 @@ Select your source chain to see specific migration considerations:
 
     // After (Sei - simplified)
     const tx = await contract.method({
-      gasPrice: ethers.parseUnits('0.1', 'gwei') // Sei has much lower fees
+      gasPrice: ethers.parseUnits('50', 'gwei') // Sei minimum gas price is 50 gwei (live on mainnet — query with eth_gasPrice)
     });
     ```
+
+    <Note>Sei enforces a 50 gwei minimum gas price; transactions below this are rejected by the mempool. Query the live value with `eth_gasPrice` (returns base fee + suggested tip).</Note>
 
     5. **PREVRANDAO/DIFFICULTY:** If you use these for any randomness, integrate a VRF oracle instead—Sei's values are derived from block time, not true randomness.
   </Tab>
@@ -4889,7 +4892,7 @@ const rentExempt = await connection.getMinimumBalanceForRentExemption(accountSiz
 
 // Sei EVM fee estimation
 const gasLimit = 200_000n;
-const gasPrice = await provider.getGasPrice(); // ~0.1 gwei on Sei
+const gasPrice = await provider.getGasPrice(); // ~50–55 gwei on Sei (mainnet floor is 50 gwei)
 const fee = gasLimit * gasPrice; // No rent to consider
 ```
 
@@ -5506,7 +5509,7 @@ Available Commands:
 
 Flags:
   -h, --help                help for seid
-      --home string         directory for config and data (default "/Users/shreyas/.sei")
+      --home string         directory for config and data (default "~/.sei")
       --log_format string   The logging format (json|plain)
       --log_level string    The logging level (trace|debug|info|warn|error|fatal|panic)
       --trace               print out full stack trace on errors
@@ -5598,6 +5601,8 @@ It is the only way to recover your account if you ever forget your password.
 [YOUR_24_WORD_MNEMONIC_PHRASE]
 
 ```
+
+<Info>`evm_address` is shown as empty here because it's only displayed after the key first broadcasts a transaction or is associated on-chain. The `0x` address is deterministically derived from the secp256k1 public key.</Info>
 
 ### Importing an Existing EVM Wallet
 
@@ -10381,7 +10386,7 @@ function batchClear(uint256 batchSize) external {
 
 You can't iterate a mapping, so you can't clear it unless you can enumerate keys. The main strategy is to **maintain an index of keys** (e.g., a `holders[]` array plus an `_isHolder` flag) whenever you write, then later delete mapping entries in batches by iterating that key list.
 
-<Info>Maintaining an index costs approximately **\~20k gas per write** (extra SSTOREs), but makes future clearing possible.</Info>
+<Info>Maintaining an index costs roughly one extra `SSTORE` per write (Sei: \~72,000 gas; see [EVM Differences](/evm/differences-with-ethereum#sstore-gas-cost)), but makes future clearing possible.</Info>
 
 ```solidity theme={"dark"}
 mapping(address => uint256) public balances;
@@ -17514,6 +17519,8 @@ The bank precompile at address `0x0000000000000000000000000000000000001001` expo
 * **Native Execution:** Operations are executed at the Cosmos SDK level for maximum efficiency and security.
 * **Cross-Chain Assets:** Manage both native SEI tokens and IBC assets seamlessly from EVM contracts.
 
+**When to use `send` vs `sendNative`:** `send` moves an arbitrary `denom` (any IBC or factory token) between two EVM addresses (`0x...`) by reading the balance directly from the bank module — no `msg.value` is attached. It is gated to the registered ERC20 native pointer for that denom, so it is typically invoked from the auto-deployed pointer contract rather than from arbitrary user code. `sendNative` is for sending native SEI (the attached `msg.value`) from the EVM caller to a Cosmos bech32 (`sei1...`) destination, which is useful for crossing the EVM→Cosmos boundary when the recipient has no associated EVM address (for example, paying a Cosmos-only contract or account).
+
 ## Use Cases
 
 * **DeFi Applications:** Build decentralized finance protocols that can handle native SEI and Cosmos assets.
@@ -17527,7 +17534,6 @@ By the end of this guide, you'll be able to:
 * **Execute Token Transfers** - Send both native SEI and custom tokens between addresses
 * **Query Account Balances** - Check single and multi-asset balances for any address
 * **Access Token Metadata** - Retrieve names, symbols, decimals, and supply information
-  \`hh1h
 
 ## Functions
 
@@ -17536,9 +17542,10 @@ The bank precompile exposes the following functions:
 ### Transaction Functions
 
 ```solidity theme={"dark"}
-/// Sends non-native tokens from one address to another.
-/// @param fromAddress The Sei address to send funds from.
-/// @param toAddress The Sei address to send funds to.
+/// Sends non-native tokens from one address to another. Callable only by the
+/// registered ERC20 native pointer contract for the given denom.
+/// @param fromAddress The EVM address (0x...) to send funds from.
+/// @param toAddress The EVM address (0x...) to send funds to.
 /// @param denom The denomination of funds to send.
 /// @param amount The amount of the above denom to send.
 /// @return success Whether the send was successfully executed.
@@ -17549,8 +17556,9 @@ function send(
     uint256 amount
 ) external returns (bool success);
 
-/// Sends Sei to the specified user.
-/// @param toNativeAddress The Sei address of the recipient.
+/// Sends native SEI (the attached msg.value) from the EVM caller to a Cosmos
+/// bech32 recipient. Requires a non-zero msg.value.
+/// @param toNativeAddress The bech32 (sei1...) address of the recipient.
 /// @return success Whether the tokens were successfully sent.
 function sendNative(
     string memory toNativeAddress
@@ -17561,7 +17569,7 @@ function sendNative(
 
 ```solidity theme={"dark"}
 /// Queries the balance of the given account for the specified denom.
-/// @param acc The Sei address of the account to query.
+/// @param acc The EVM address (0x...) of the account to query.
 /// @param denom The denomination to query for.
 /// @return amount The amount of denom held by acc.
 function balance(
@@ -17570,7 +17578,7 @@ function balance(
 ) external view returns (uint256 amount);
 
 /// Queries the balance of the given account for all balances.
-/// @param acc The Sei address of the account to query.
+/// @param acc The EVM address (0x...) of the account to query.
 /// @return response Balances for all coins/denoms.
 function all_balances(
     address acc
