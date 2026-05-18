@@ -1,0 +1,180 @@
+---
+title: 'Transaction Lifecycle'
+description: 'Send transactions, wait for receipts, and decode event logs on Sei'
+icon: 'arrow-progress'
+---
+
+# Transaction Lifecycle
+
+This page covers the full round-trip of a transaction: building and sending it, waiting for the receipt, and reading the event logs it emitted.
+
+## Sending a Transaction
+
+<CodeGroup>
+
+```ts viem
+import { createWalletClient, http, parseEther } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { sei } from '@sei-js/precompiles/viem';
+
+const account = privateKeyToAccount('0xYourPrivateKey');
+const walletClient = createWalletClient({ account, chain: sei, transport: http() });
+
+const hash = await walletClient.sendTransaction({
+  to: '0xRecipient',
+  value: parseEther('1'),
+});
+```
+
+```ts ethers
+import { ethers } from 'ethers';
+
+const provider = new ethers.JsonRpcProvider('https://evm-rpc.sei-apis.com');
+const wallet = new ethers.Wallet('0xYourPrivateKey', provider);
+
+const tx = await wallet.sendTransaction({
+  to: '0xRecipient',
+  value: ethers.parseEther('1'),
+});
+```
+
+</CodeGroup>
+
+## Waiting for the Receipt
+
+<CodeGroup>
+
+```ts viem
+import { createPublicClient, http } from 'viem';
+
+const client = createPublicClient({ chain: sei, transport: http() });
+
+const receipt = await client.waitForTransactionReceipt({ hash });
+
+console.log('Status:', receipt.status);           // 'success' | 'reverted'
+console.log('Block:', receipt.blockNumber);
+console.log('Gas used:', receipt.gasUsed);
+```
+
+```ts ethers
+const receipt = await tx.wait();
+// or wait for a specific number of confirmations:
+// const receipt = await tx.wait(1);
+
+console.log('Status:', receipt.status); // 1 = success, 0 = reverted
+console.log('Block:', receipt.blockNumber);
+console.log('Gas used:', receipt.gasUsed);
+```
+
+</CodeGroup>
+
+<Info>Sei has instant finality — the receipt is final as soon as it arrives. One confirmation is sufficient. See [Finality](/evm/evm-parity/finality).</Info>
+
+## Decoding Event Logs from a Receipt
+
+After a contract interaction, decode the events the transaction emitted:
+
+<CodeGroup>
+
+```ts viem
+import { parseAbi, decodeEventLog } from 'viem';
+
+const ERC20_ABI = parseAbi([
+  'function transfer(address to, uint256 amount) returns (bool)',
+  'event Transfer(address indexed from, address indexed to, uint256 value)',
+]);
+
+const hash = await walletClient.writeContract({
+  address: TOKEN,
+  abi: ERC20_ABI,
+  functionName: 'transfer',
+  args: ['0xRecipient', 1_000_000n],
+});
+
+const receipt = await client.waitForTransactionReceipt({ hash });
+
+// viem returns typed logs automatically when you pass the ABI to getTransactionReceipt
+const typedReceipt = await client.getTransactionReceipt({ hash });
+
+// Or decode manually from raw logs
+for (const log of receipt.logs) {
+  try {
+    const event = decodeEventLog({ abi: ERC20_ABI, ...log });
+    console.log('Event:', event.eventName, event.args);
+  } catch {
+    // Log from a different contract or unknown ABI
+  }
+}
+```
+
+```ts ethers
+import { ethers } from 'ethers';
+
+const ERC20_ABI = [
+  'function transfer(address to, uint256 amount) returns (bool)',
+  'event Transfer(address indexed from, address indexed to, uint256 value)',
+];
+
+const contract = new ethers.Contract(TOKEN, ERC20_ABI, wallet);
+const tx = await contract.transfer('0xRecipient', 1_000_000n);
+const receipt = await tx.wait();
+
+// ethers parses logs automatically when using a Contract instance
+for (const log of receipt.logs) {
+  try {
+    const parsed = contract.interface.parseLog(log);
+    if (parsed) {
+      console.log('Event:', parsed.name, parsed.args);
+      // e.g. Event: Transfer [ '0xFrom', '0xTo', 1000000n ]
+    }
+  } catch {
+    // Log from a different contract
+  }
+}
+```
+
+</CodeGroup>
+
+## Checking for Revert
+
+A receipt with `status: 'reverted'` (viem) or `status: 0` (ethers) means the transaction was included but the execution failed. The gas was still consumed.
+
+```ts viem
+const receipt = await client.waitForTransactionReceipt({ hash });
+
+if (receipt.status === 'reverted') {
+  // Transaction was mined but execution failed.
+  // Simulate the call to get the revert reason.
+  console.error('Transaction reverted at block', receipt.blockNumber);
+}
+```
+
+## Fetching a Past Transaction
+
+```ts viem
+const tx = await client.getTransaction({ hash: '0xTxHash' });
+console.log('From:', tx.from);
+console.log('To:', tx.to);
+console.log('Value:', tx.value);
+console.log('Input data:', tx.input);
+```
+
+```ts ethers
+const tx = await provider.getTransaction('0xTxHash');
+const receipt = await provider.getTransactionReceipt('0xTxHash');
+```
+
+## Getting Logs for a Specific Transaction
+
+To fetch only the events emitted by a specific transaction (rather than decoding from the receipt):
+
+```ts viem
+const logs = await client.getContractEvents({
+  address: TOKEN,
+  abi: ERC20_ABI,
+  eventName: 'Transfer',
+  blockHash: receipt.blockHash,
+});
+
+const txLogs = logs.filter((log) => log.transactionHash === hash);
+```

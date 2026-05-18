@@ -1,0 +1,159 @@
+---
+title: '@sei-js/registry'
+sidebarTitle: '@sei-js/registry'
+description: 'Chain constants, RPC endpoints, token metadata, and wallet info for Sei Network'
+keywords: ['sei-js', 'registry', 'chain constants', 'rpc endpoints', 'token list', 'sei network']
+---
+
+`@sei-js/registry` is a typed reference package for Sei chain metadata — RPC endpoints, token lists, gas parameters, wallet info, and more. It pulls from the official [sei-protocol/chain-registry](https://github.com/sei-protocol/chain-registry) and is kept in sync as a git submodule.
+
+## Install
+
+```bash
+npm install @sei-js/registry
+```
+
+## CHAIN_IDS
+
+Canonical chain IDs for each Sei network:
+
+```ts
+import { CHAIN_IDS } from '@sei-js/registry';
+
+CHAIN_IDS.mainnet  // 'pacific-1'
+CHAIN_IDS.testnet  // 'atlantic-2'
+CHAIN_IDS.devnet   // 'arctic-1'
+```
+
+Use these constants anywhere you reference a Sei network by chain ID to avoid hardcoding strings.
+
+## NETWORKS
+
+RPC, REST, gRPC, EVM RPC, WebSocket, and explorer endpoints for each network:
+
+```ts
+import { NETWORKS } from '@sei-js/registry';
+
+const mainnet = NETWORKS['pacific-1'];
+
+// Pick the first available EVM RPC endpoint
+const evmRpc = mainnet.evm_rpc?.[0].url;
+
+// Pick the first available WebSocket endpoint
+const evmWs = mainnet.evm_ws?.[0].url;
+
+// Pick a Cosmos REST endpoint
+const rest = mainnet.rest[0].url;
+```
+
+Each entry has `provider` (name) and `url` fields. Multiple providers are listed per category — iterate to implement fallback logic:
+
+```ts
+async function getWorkingRpc(network: 'pacific-1' | 'atlantic-2' | 'arctic-1') {
+  const endpoints = NETWORKS[network].evm_rpc ?? [];
+  for (const endpoint of endpoints) {
+    try {
+      const res = await fetch(endpoint.url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_blockNumber', params: [], id: 1 }),
+      });
+      if (res.ok) return endpoint.url;
+    } catch {}
+  }
+  throw new Error(`No working EVM RPC found for ${network}`);
+}
+```
+
+## TOKEN_LIST
+
+Token registry per network — name, symbol, base denom, decimal exponents, images, and CoinGecko IDs:
+
+```ts
+import { TOKEN_LIST } from '@sei-js/registry';
+
+// All tokens on mainnet
+const tokens = TOKEN_LIST['pacific-1'];
+
+// Find SEI
+const sei = tokens.find(t => t.symbol === 'SEI');
+// { base: 'usei', display: 'sei', denom_units: [{ denom: 'usei', exponent: 0 }, { denom: 'sei', exponent: 6 }] }
+
+// Convert a raw usei amount to display amount
+function toDisplayAmount(usei: bigint, token: typeof sei): string {
+  const exp = token.denom_units.find(u => u.denom === token.display)?.exponent ?? 6;
+  return (Number(usei) / 10 ** exp).toString();
+}
+
+// Look up a token by its on-chain denom
+function findByDenom(denom: string) {
+  return TOKEN_LIST['pacific-1'].find(t => t.base === denom);
+}
+```
+
+Each token includes an `images` object with `png` and `svg` URLs suitable for display in wallet UIs or token pickers.
+
+## GAS_INFO
+
+Minimum gas price and module-specific adjustments per network:
+
+```ts
+import { GAS_INFO } from '@sei-js/registry';
+
+const { denom, min_gas_price } = GAS_INFO['pacific-1'];
+// denom: 'usei', min_gas_price: 0.02
+
+// Calculate the minimum fee for a given gas limit
+function minFee(gasLimit: number): string {
+  const { min_gas_price, denom } = GAS_INFO['pacific-1'];
+  return `${Math.ceil(gasLimit * min_gas_price)}${denom}`;
+}
+```
+
+<Info>The `min_gas_price` here is the Cosmos-side gas floor. For EVM transactions, always use `eth_gasPrice` or `eth_estimateGas` — the on-chain EVM gas floor is governed separately and can change. See [Gas and Fees](/evm/evm-parity/gas-and-fees).</Info>
+
+## CHAIN_INFO
+
+Basic chain metadata: daemon name, Bech32 prefix, HD path coin type, and supported wallets:
+
+```ts
+import { CHAIN_INFO } from '@sei-js/registry';
+
+CHAIN_INFO.bech32_prefix     // 'sei'
+CHAIN_INFO.slip44            // 118  (HD wallet coin type)
+CHAIN_INFO.supported_wallets // ['fin', 'compass', 'leap', 'keplr']
+
+// Validate a Cosmos-side Sei address format
+function isSeiAddress(address: string): boolean {
+  return address.startsWith(CHAIN_INFO.bech32_prefix + '1');
+}
+
+// Derive the HD path for key generation
+const path = `m/44'/${CHAIN_INFO.slip44}'/0'/0/0`;
+```
+
+## WALLETS
+
+Wallet metadata including icons, URLs, and EVM/native capability flags:
+
+```ts
+import { WALLETS } from '@sei-js/registry';
+
+// All wallets that support EVM
+const evmWallets = WALLETS.filter(w => w.capabilities.includes('evm'));
+
+// Find a specific wallet for displaying its icon
+const compass = WALLETS.find(w => w.identifier === 'compass');
+// { name: 'Compass Wallet', icon: 'https://...jpeg', url: 'https://compasswallet.io/', capabilities: ['native', 'evm'] }
+```
+
+Useful for building wallet selector UIs that show icons and filter by capability.
+
+## Network Reference
+
+| Constant | `pacific-1` (mainnet) | `atlantic-2` (testnet) | `arctic-1` (devnet) |
+| --- | --- | --- | --- |
+| Chain ID | `pacific-1` | `atlantic-2` | `arctic-1` |
+| EVM Chain ID | 1329 | 1328 | 713715 |
+| EVM RPC | `NETWORKS['pacific-1'].evm_rpc` | `NETWORKS['atlantic-2'].evm_rpc` | `NETWORKS['arctic-1'].evm_rpc` |
+| EVM WS | `NETWORKS['pacific-1'].evm_ws` | `NETWORKS['atlantic-2'].evm_ws` | `NETWORKS['arctic-1'].evm_ws` |

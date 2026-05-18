@@ -1,0 +1,157 @@
+---
+title: 'Pointer Contracts'
+description: 'Looking up and interacting with pointer contracts that bridge CosmWasm and EVM tokens on Sei'
+icon: 'arrow-right-arrow-left'
+---
+
+# Pointer Contracts
+
+Sei runs two token execution environments side by side — EVM and CosmWasm. Pointer contracts are automatically deployed EVM contracts that proxy a CosmWasm token, and vice versa.
+
+| Token | Pointer type | EVM interface |
+| --- | --- | --- |
+| CW20 (CosmWasm fungible token) | ERC-20 pointer | Standard ERC-20 |
+| CW721 (CosmWasm NFT) | ERC-721 pointer | Standard ERC-721 |
+| Native Sei token (bank module) | ERC-20 pointer | Standard ERC-20 |
+
+Once you have the pointer address, you interact with it using the standard ERC-20 or ERC-721 interface — no Sei-specific code needed.
+
+For background on how pointer contracts work, see the [Pointers overview](/learn/pointers).
+
+## Looking Up a Pointer Address
+
+The pointerview precompile resolves pointer addresses by CosmWasm contract address or native denom. Its ABI and address are exported from `@sei-js/precompiles`.
+
+<CodeGroup>
+
+```ts viem
+import { createPublicClient, http } from 'viem';
+import { sei } from '@sei-js/precompiles/viem';
+import {
+  POINTERVIEW_PRECOMPILE_ABI,
+  POINTERVIEW_PRECOMPILE_ADDRESS,
+} from '@sei-js/precompiles';
+
+const client = createPublicClient({ chain: sei, transport: http() });
+
+// CW20 → ERC-20 pointer
+const erc20Pointer = await client.readContract({
+  address: POINTERVIEW_PRECOMPILE_ADDRESS,
+  abi: POINTERVIEW_PRECOMPILE_ABI,
+  functionName: 'getCW20Pointer',
+  args: ['sei1...cw20ContractAddress'],
+});
+
+// CW721 → ERC-721 pointer
+const erc721Pointer = await client.readContract({
+  address: POINTERVIEW_PRECOMPILE_ADDRESS,
+  abi: POINTERVIEW_PRECOMPILE_ABI,
+  functionName: 'getCW721Pointer',
+  args: ['sei1...cw721ContractAddress'],
+});
+
+// Native denom → ERC-20 pointer
+const nativePointer = await client.readContract({
+  address: POINTERVIEW_PRECOMPILE_ADDRESS,
+  abi: POINTERVIEW_PRECOMPILE_ABI,
+  functionName: 'getNativePointer',
+  args: ['usei'],
+});
+```
+
+```ts ethers
+import { ethers } from 'ethers';
+import {
+  POINTERVIEW_PRECOMPILE_ABI,
+  POINTERVIEW_PRECOMPILE_ADDRESS,
+} from '@sei-js/precompiles';
+
+const provider = new ethers.JsonRpcProvider('https://evm-rpc.sei-apis.com');
+
+const pointerview = new ethers.Contract(
+  POINTERVIEW_PRECOMPILE_ADDRESS,
+  POINTERVIEW_PRECOMPILE_ABI,
+  provider,
+);
+
+// CW20 → ERC-20 pointer
+const erc20Pointer = await pointerview.getCW20Pointer('sei1...cw20ContractAddress');
+
+// CW721 → ERC-721 pointer
+const erc721Pointer = await pointerview.getCW721Pointer('sei1...cw721ContractAddress');
+
+// Native denom → ERC-20 pointer
+const nativePointer = await pointerview.getNativePointer('usei');
+```
+
+</CodeGroup>
+
+The return value includes the pointer address and an `exists` boolean. Check `exists` before interacting with the pointer — not all CosmWasm tokens have a deployed pointer.
+
+## Interacting with a CW20 Pointer as ERC-20
+
+Once you have the pointer address, use it as a standard ERC-20 contract.
+
+<CodeGroup>
+
+```ts viem
+import { parseAbi } from 'viem';
+
+const ERC20_ABI = parseAbi([
+  'function balanceOf(address owner) view returns (uint256)',
+  'function transfer(address to, uint256 amount) returns (bool)',
+]);
+
+const balance = await client.readContract({
+  address: erc20Pointer.addr,
+  abi: ERC20_ABI,
+  functionName: 'balanceOf',
+  args: ['0xYourAddress'],
+});
+```
+
+```ts ethers
+const ERC20_ABI = [
+  'function balanceOf(address owner) view returns (uint256)',
+  'function transfer(address to, uint256 amount) returns (bool)',
+];
+
+const token = new ethers.Contract(erc20Pointer.addr, ERC20_ABI, provider);
+const balance = await token.balanceOf('0xYourAddress');
+```
+
+</CodeGroup>
+
+## Interacting with a CW721 Pointer as ERC-721
+
+<CodeGroup>
+
+```ts viem
+import { parseAbi } from 'viem';
+
+const ERC721_ABI = parseAbi([
+  'function ownerOf(uint256 tokenId) view returns (address)',
+  'function tokenURI(uint256 tokenId) view returns (string)',
+]);
+
+const owner = await client.readContract({
+  address: erc721Pointer.addr,
+  abi: ERC721_ABI,
+  functionName: 'ownerOf',
+  args: [1n],
+});
+```
+
+```ts ethers
+const ERC721_ABI = [
+  'function ownerOf(uint256 tokenId) view returns (address)',
+  'function tokenURI(uint256 tokenId) view returns (string)',
+];
+
+const nft = new ethers.Contract(erc721Pointer.addr, ERC721_ABI, provider);
+const owner = await nft.ownerOf(1n);
+```
+
+</CodeGroup>
+
+For full ERC-20 and ERC-721 examples including transfers, approvals, and events, see the [ERC-20](/evm/evm-parity/examples/erc20) and [ERC-721](/evm/evm-parity/examples/erc721) pages.

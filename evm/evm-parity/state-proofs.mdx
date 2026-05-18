@@ -1,0 +1,68 @@
+---
+title: 'State Proofs'
+description: 'How eth_getProof differs on Sei due to IAVL tree storage'
+icon: 'shield-halved'
+---
+
+# State Proofs
+
+Sei supports `eth_getProof` but returns a different proof format from Ethereum. If your application verifies proofs on-chain or off-chain, you need to account for this difference.
+
+## The Difference
+
+Ethereum stores state in a Merkle Patricia Trie (MPT) and `eth_getProof` returns MPT inclusion proofs. Sei stores state in an IAVL tree and returns IAVL proofs instead.
+
+The RPC method exists and responds correctly, but the proof data structure is not compatible with Ethereum MPT proof verifiers.
+
+## What This Affects
+
+Most applications do not call `eth_getProof` directly. It is primarily used by:
+
+- Light clients verifying state without trusting an RPC node
+- Cross-chain bridges proving inclusion of state on Sei
+- Applications verifying contract storage values trustlessly
+
+If you are doing standard contract reads, event queries, or transaction lookups, this difference does not affect you.
+
+## Calling eth_getProof
+
+The call works through standard libraries:
+
+<CodeGroup>
+
+```ts viem
+import { createPublicClient, http } from 'viem';
+import { sei } from '@sei-js/precompiles/viem';
+
+const client = createPublicClient({ chain: sei, transport: http() });
+
+const proof = await client.getProof({
+  address: '0xContractAddress',
+  storageKeys: ['0xStorageSlot'],
+});
+
+// proof.accountProof and proof.storageProof contain IAVL proof data,
+// not Ethereum MPT proofs — do not pass to an MPT verifier
+```
+
+```ts ethers
+import { ethers } from 'ethers';
+
+const provider = new ethers.JsonRpcProvider('https://evm-rpc.sei-apis.com');
+
+const proof = await provider.send('eth_getProof', [
+  '0xContractAddress',
+  ['0xStorageSlot'],
+  'latest',
+]);
+
+// Same caveat — proof data is IAVL format
+```
+
+</CodeGroup>
+
+## Verifying Proofs
+
+To verify Sei state proofs, use an IAVL-compatible verifier. Standard Ethereum MPT verifier libraries (e.g. those used in Solidity or in Ethereum bridge contracts) will reject Sei proofs.
+
+Refer to the [Sei RPC reference](/evm/reference) for the exact proof schema returned.

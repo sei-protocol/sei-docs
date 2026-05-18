@@ -1,0 +1,117 @@
+---
+title: 'WebSocket Connections'
+description: 'Connecting to Sei via WebSocket for real-time block and event subscriptions'
+icon: 'plug'
+---
+
+# WebSocket Connections
+
+Sei supports `eth_subscribe` over WebSocket. You can subscribe to new blocks, event logs, and pending transactions using standard library WebSocket transports.
+
+## Endpoints
+
+| Network | WebSocket endpoint |
+| --- | --- |
+| Mainnet | `wss://evm-ws.sei-apis.com` |
+| Testnet | `wss://evm-ws-testnet.sei-apis.com` |
+| Devnet | `wss://evm-ws-arctic-1.sei-apis.com` |
+
+## Connecting
+
+<CodeGroup>
+
+```ts viem
+import { createPublicClient, webSocket } from 'viem';
+import { sei } from '@sei-js/precompiles/viem';
+
+const client = createPublicClient({
+  chain: sei,
+  transport: webSocket('wss://evm-ws.sei-apis.com'),
+});
+```
+
+```ts ethers
+import { ethers } from 'ethers';
+
+const provider = new ethers.WebSocketProvider('wss://evm-ws.sei-apis.com');
+```
+
+</CodeGroup>
+
+## Watching New Blocks
+
+<CodeGroup>
+
+```ts viem
+const unwatch = client.watchBlocks({
+  onBlock: (block) => {
+    console.log('New block:', block.number);
+  },
+});
+
+// Stop watching
+unwatch();
+```
+
+```ts ethers
+provider.on('block', (blockNumber) => {
+  console.log('New block:', blockNumber);
+});
+
+// Stop watching
+provider.off('block');
+```
+
+</CodeGroup>
+
+## Watching Contract Events
+
+<CodeGroup>
+
+```ts viem
+import { parseAbiItem } from 'viem';
+
+const unwatch = client.watchEvent({
+  address: '0xContractAddress',
+  event: parseAbiItem('event Transfer(address indexed from, address indexed to, uint256 value)'),
+  onLogs: (logs) => {
+    console.log('Transfer events:', logs);
+  },
+});
+```
+
+```ts ethers
+import { ethers } from 'ethers';
+
+const ERC20_ABI = ['event Transfer(address indexed from, address indexed to, uint256 value)'];
+const contract = new ethers.Contract('0xContractAddress', ERC20_ABI, provider);
+
+contract.on('Transfer', (from, to, value, event) => {
+  console.log('Transfer:', { from, to, value });
+});
+
+// Stop watching
+contract.off('Transfer');
+```
+
+</CodeGroup>
+
+## Watching ERC-20 Transfers Across All Contracts
+
+```ts viem
+import { parseAbiItem } from 'viem';
+
+const unwatch = client.watchEvent({
+  event: parseAbiItem('event Transfer(address indexed from, address indexed to, uint256 value)'),
+  onLogs: (logs) => {
+    logs.forEach((log) => {
+      console.log(`Transfer on ${log.address}:`, log.args);
+    });
+  },
+});
+```
+
+## Notes
+
+- Sei's instant finality means every block emitted over WebSocket is already final — no need to wait for additional confirmations before acting on an event.
+- Pending transaction subscriptions (`newPendingTransactions`) are supported at the RPC level but Sei does not guarantee Ethereum-style pending state visibility.

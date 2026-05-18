@@ -1,0 +1,85 @@
+---
+title: 'Finality and Block Tags'
+description: 'How Sei instant finality affects block tag behavior and pending state'
+icon: 'circle-check'
+---
+
+# Finality and Block Tags
+
+Sei uses Twin Turbo Consensus, which provides instant finality. Every committed block is final immediately — there is no period where a block could be reorganized away.
+
+This changes how block tags behave compared to Ethereum.
+
+## Block Tags
+
+On Ethereum, `latest`, `safe`, and `finalized` refer to different points in the chain:
+
+- `latest` — the most recent block, possibly not yet safe
+- `safe` — a block unlikely to be reorganized
+- `finalized` — a block that is permanently committed
+
+On Sei, all three tags resolve to the same block. There is no reorg risk at any point after a block is committed, so the distinction does not exist.
+
+<CodeGroup>
+
+```ts viem
+import { createPublicClient, http } from 'viem';
+import { sei } from '@sei-js/precompiles/viem';
+
+const client = createPublicClient({ chain: sei, transport: http() });
+
+// All three return the same block on Sei
+const latest    = await client.getBlock({ blockTag: 'latest' });
+const safe      = await client.getBlock({ blockTag: 'safe' });
+const finalized = await client.getBlock({ blockTag: 'finalized' });
+```
+
+```ts ethers
+import { ethers } from 'ethers';
+
+const provider = new ethers.JsonRpcProvider('https://evm-rpc.sei-apis.com');
+
+// All three return the same block on Sei
+const latest    = await provider.getBlock('latest');
+const safe      = await provider.getBlock('safe');
+const finalized = await provider.getBlock('finalized');
+```
+
+</CodeGroup>
+
+## Waiting for Confirmation
+
+Because finality is instant, you do not need to wait for multiple confirmations. `waitForTransactionReceipt` resolves as soon as the transaction is included in a block.
+
+<CodeGroup>
+
+```ts viem
+const receipt = await client.waitForTransactionReceipt({ hash });
+// receipt is already final — no further confirmation needed
+```
+
+```ts ethers
+const tx = await signer.sendTransaction({ /* ... */ });
+const receipt = await tx.wait(1); // 1 confirmation is final on Sei
+```
+
+</CodeGroup>
+
+## Pending State
+
+Sei does not expose Ethereum-style pending state. Do not rely on:
+
+- Reading pending transactions from the mempool
+- `eth_getBlockByNumber` with `'pending'`
+- Pending nonce differing from the confirmed nonce
+
+If your application polls pending transactions or depends on pending state visibility, replace that pattern with confirmed-block polling or WebSocket subscriptions on committed blocks.
+
+## Practical Impact
+
+| Pattern | On Ethereum | On Sei |
+| --- | --- | --- |
+| Wait for `finalized` tag | Waits ~13 minutes | Returns immediately |
+| Check `safe` vs `latest` | Different blocks | Same block |
+| Read pending mempool | Supported | Not reliable |
+| Confirmation count | Meaningful | 1 is sufficient |
