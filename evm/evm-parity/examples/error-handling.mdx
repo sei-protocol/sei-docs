@@ -1,0 +1,191 @@
+---
+title: 'Error Handling'
+description: 'Decode contract reverts, handle wallet rejections, and recover from RPC errors in Sei apps'
+---
+
+# Error Handling
+
+Most transaction failures fall into three categories: contract reverts, wallet rejections, and RPC errors. This page shows how to decode each type and respond correctly.
+
+## Contract Reverts
+
+When a transaction reverts, the error contains the revert reason if the contract provides one.
+
+<CodeGroup>
+
+```ts viem
+import { ContractFunctionRevertedError, BaseError } from 'viem';
+
+try {
+  await client.simulateContract({
+    address: TOKEN,
+    abi: ERC20_ABI,
+    functionName: 'transfer',
+    args: ['0xRecipient', 1_000_000n],
+    account,
+  });
+} catch (err) {
+  if (err instanceof BaseError) {
+    const revert = err.walk((e) => e instanceof ContractFunctionRevertedError);
+    if (revert instanceof ContractFunctionRevertedError) {
+      console.error('Revert reason:', revert.data?.errorName);
+      // e.g. 'ERC20InsufficientBalance'
+    }
+  }
+}
+```
+
+```ts ethers
+import { ethers } from 'ethers';
+
+try {
+  await writeContract.transfer('0xRecipient', 1_000_000n);
+} catch (err: any) {
+  if (err.code === 'CALL_EXCEPTION') {
+    // Decode using the contract's ABI
+    const decoded = writeContract.interface.parseError(err.data);
+    if (decoded) {
+      console.error('Revert:', decoded.name, decoded.args);
+    } else {
+      console.error('Unknown revert data:', err.data);
+    }
+  }
+}
+```
+
+</CodeGroup>
+
+## Simulating Before Sending
+
+Always simulate write calls before submitting them. Simulation runs the call against current chain state and surfaces reverts before you spend gas:
+
+```ts viem
+import { ContractFunctionRevertedError, BaseError } from 'viem';
+
+async function safeWrite(params: Parameters<typeof walletClient.writeContract>[0]) {
+  // 1. Simulate — reverts here cost no gas
+  const { request } = await client.simulateContract(params);
+  // 2. Execute only if simulation passes
+  return walletClient.writeContract(request);
+}
+```
+
+## Wallet Rejections
+
+Users can reject signature and transaction requests. These rejections have a predictable error code:
+
+<CodeGroup>
+
+```ts viem
+import { UserRejectedRequestError } from 'viem';
+
+try {
+  await walletClient.sendTransaction({ to: '0xRecipient', value: 1n });
+} catch (err) {
+  if (err instanceof UserRejectedRequestError) {
+    // User cancelled — don't show an error, just reset UI state
+    console.log('User rejected the request');
+  }
+}
+```
+
+```ts ethers
+try {
+  await signer.sendTransaction({ to: '0xRecipient', value: 1n });
+} catch (err: any) {
+  if (err.code === 4001 || err.code === 'ACTION_REJECTED') {
+    console.log('User rejected the request');
+  }
+}
+```
+
+</CodeGroup>
+
+## Insufficient Funds
+
+<CodeGroup>
+
+```ts viem
+import { InsufficientFundsError } from 'viem';
+
+try {
+  await walletClient.sendTransaction({ to: '0xRecipient', value: parseEther('9999') });
+} catch (err) {
+  if (err instanceof InsufficientFundsError) {
+    console.error('Not enough SEI for this transaction');
+  }
+}
+```
+
+```ts ethers
+try {
+  await wallet.sendTransaction({ to: '0xRecipient', value: ethers.parseEther('9999') });
+} catch (err: any) {
+  if (err.code === 'INSUFFICIENT_FUNDS') {
+    console.error('Not enough SEI for this transaction');
+  }
+}
+```
+
+</CodeGroup>
+
+## Classifying Any Error
+
+A utility to handle the most common cases in one place:
+
+```ts
+import {
+  BaseError,
+  ContractFunctionRevertedError,
+  UserRejectedRequestError,
+  InsufficientFundsError,
+} from 'viem';
+
+function classifyError(err: unknown): string {
+  if (err instanceof UserRejectedRequestError) return 'rejected';
+  if (err instanceof InsufficientFundsError)  return 'insufficient_funds';
+
+  if (err instanceof BaseError) {
+    const revert = err.walk((e) => e instanceof ContractFunctionRevertedError);
+    if (revert instanceof ContractFunctionRevertedError) {
+      return `revert:${revert.data?.errorName ?? 'unknown'}`;
+    }
+  }
+
+  return 'unknown';
+}
+```
+
+## RPC Errors and Retries
+
+Transient RPC failures (network timeouts, rate limits) can be retried. Don't retry on contract reverts or user rejections — those are deterministic.
+
+```ts
+async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 3): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err: any) {
+      // Don't retry user rejections or contract reverts
+      if (
+        err instanceof UserRejectedRequestError ||
+        err?.code === 4001 ||
+        err?.code === 'CALL_EXCEPTION'
+      ) {
+        throw err;
+      }
+      lastError = err;
+      if (attempt < maxAttempts) {
+        await new Promise((r) => setTimeout(r, 500 * attempt)); // backoff
+      }
+    }
+  }
+  throw lastError;
+}
+
+// Usage
+const balance = await withRetry(() =>
+  client.readContract({ address: TOKEN, abi: ERC20_ABI, functionName: 'balanceOf', args: [owner] })
+);
+```

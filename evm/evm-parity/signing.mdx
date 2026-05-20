@@ -1,0 +1,150 @@
+---
+title: 'Signing'
+description: 'Wallet signing method support and EIP-712 typed data on Sei'
+---
+
+# Signing
+
+Signing on Sei works through standard EVM libraries and wallet standards. The methods available depend on which wallet the user has connected.
+
+## Wallet Signing Support
+
+| Method | Standard | Sei Global Wallet | MetaMask | WalletConnect wallets |
+| --- | --- | --- | --- | --- |
+| `personal_sign` | EIP-191 | Supported | Supported | Wallet-dependent |
+| `eth_signTypedData_v4` | EIP-712 | Supported | Supported | Wallet-dependent |
+| `eth_sign` | Legacy | Not recommended | Supported | Wallet-dependent |
+| Transaction signing | — | Supported | Supported | Supported |
+
+Do not assume all wallets support all methods. Always handle rejection gracefully.
+
+## Personal Sign
+
+<CodeGroup>
+
+```ts viem
+import { createWalletClient, custom } from 'viem';
+import { sei } from '@sei-js/precompiles/viem';
+
+const client = createWalletClient({
+  chain: sei,
+  transport: custom(window.ethereum),
+});
+
+const [account] = await client.getAddresses();
+
+const signature = await client.signMessage({
+  account,
+  message: 'Hello Sei',
+});
+```
+
+```ts ethers
+import { ethers } from 'ethers';
+
+const provider = new ethers.BrowserProvider(window.ethereum);
+const signer = await provider.getSigner();
+
+const signature = await signer.signMessage('Hello Sei');
+```
+
+</CodeGroup>
+
+## EIP-712 Typed Data
+
+<CodeGroup>
+
+```ts viem
+const [account] = await client.getAddresses();
+
+const signature = await client.signTypedData({
+  account,
+  domain: {
+    name: 'My App',
+    version: '1',
+    chainId: 1329, // Sei mainnet
+    verifyingContract: '0xContractAddress',
+  },
+  types: {
+    Order: [
+      { name: 'maker', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+      { name: 'expiry', type: 'uint256' },
+    ],
+  },
+  primaryType: 'Order',
+  message: {
+    maker: account,
+    amount: 1000000n,
+    expiry: BigInt(Math.floor(Date.now() / 1000) + 3600),
+  },
+});
+```
+
+```ts ethers
+import { ethers } from 'ethers';
+
+const provider = new ethers.BrowserProvider(window.ethereum);
+const signer = await provider.getSigner();
+
+const domain = {
+  name: 'My App',
+  version: '1',
+  chainId: 1329,
+  verifyingContract: '0xContractAddress',
+};
+
+const types = {
+  Order: [
+    { name: 'maker', type: 'address' },
+    { name: 'amount', type: 'uint256' },
+    { name: 'expiry', type: 'uint256' },
+  ],
+};
+
+const value = {
+  maker: await signer.getAddress(),
+  amount: 1000000n,
+  expiry: BigInt(Math.floor(Date.now() / 1000) + 3600),
+};
+
+const signature = await signer.signTypedData(domain, types, value);
+```
+
+</CodeGroup>
+
+## Verifying Signatures
+
+```ts viem
+import { verifyMessage, verifyTypedData } from 'viem';
+
+// Verify personal sign
+const valid = await verifyMessage({
+  address: '0xSignerAddress',
+  message: 'Hello Sei',
+  signature,
+});
+
+// Verify EIP-712
+const validTyped = await verifyTypedData({
+  address: '0xSignerAddress',
+  domain,
+  types,
+  primaryType: 'Order',
+  message: value,
+  signature,
+});
+```
+
+## EIP-1271 Contract Signatures
+
+Smart contract wallets on Sei can validate signatures via EIP-1271 (`isValidSignature`). Use viem's `verifyMessage` with a contract address — it automatically uses EIP-1271 when the address is a contract.
+
+```ts viem
+const valid = await verifyMessage({
+  address: '0xSmartContractWallet',
+  message: 'Hello Sei',
+  signature,
+});
+// viem calls isValidSignature if the address is a contract
+```

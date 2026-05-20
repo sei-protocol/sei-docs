@@ -1,0 +1,155 @@
+---
+title: 'Multicall'
+description: 'Batch multiple contract reads into a single RPC call using Multicall3 on Sei'
+---
+
+# Multicall
+
+Multicall3 lets you batch multiple read calls into a single RPC round-trip, dramatically reducing latency for dashboards, portfolio pages, and any view that needs data from multiple contracts at once.
+
+Multicall3 is deployed at `0xcA11bde05977b3631167028862bE2a173976CA11` on Sei mainnet and testnet — the same address as Ethereum.
+
+## Batching ERC-20 Reads with viem
+
+viem's `multicall` action wraps Multicall3 automatically:
+
+```ts
+import { createPublicClient, http, parseAbi } from 'viem';
+import { sei } from '@sei-js/precompiles/viem';
+
+const client = createPublicClient({ chain: sei, transport: http() });
+
+const ERC20_ABI = parseAbi([
+  'function balanceOf(address owner) view returns (uint256)',
+  'function symbol() view returns (string)',
+  'function decimals() view returns (uint8)',
+]);
+
+const tokens = [
+  '0xTokenA',
+  '0xTokenB',
+  '0xTokenC',
+] as const;
+
+const owner = '0xYourAddress';
+
+// Fetch symbol, decimals, and balance for every token in one call
+const results = await client.multicall({
+  contracts: tokens.flatMap((address) => [
+    { address, abi: ERC20_ABI, functionName: 'symbol' },
+    { address, abi: ERC20_ABI, functionName: 'decimals' },
+    { address, abi: ERC20_ABI, functionName: 'balanceOf', args: [owner] },
+  ]),
+});
+
+// Results are returned in the same order as the input contracts array
+// Each result has { status: 'success' | 'failure', result, error }
+tokens.forEach((address, i) => {
+  const symbol  = results[i * 3];
+  const decimals = results[i * 3 + 1];
+  const balance  = results[i * 3 + 2];
+
+  if (symbol.status === 'success' && balance.status === 'success') {
+    console.log(`${address}: ${balance.result} (${symbol.result})`);
+  }
+});
+```
+
+## Allowing Individual Call Failures
+
+By default, a single failed call causes the entire batch to revert. Use `allowFailure: true` (the default in viem) to get partial results instead:
+
+```ts
+const results = await client.multicall({
+  contracts: [
+    { address: '0xTokenA', abi: ERC20_ABI, functionName: 'balanceOf', args: [owner] },
+    { address: '0xMaybeInvalid', abi: ERC20_ABI, functionName: 'balanceOf', args: [owner] },
+  ],
+  allowFailure: true, // default — individual failures don't abort the batch
+});
+
+results.forEach((result) => {
+  if (result.status === 'success') {
+    console.log('Balance:', result.result);
+  } else {
+    console.warn('Call failed:', result.error);
+  }
+});
+```
+
+## Batching with ethers
+
+ethers doesn't have a built-in multicall action, but you can call the Multicall3 contract directly:
+
+```ts
+import { ethers } from 'ethers';
+
+const provider = new ethers.JsonRpcProvider('https://evm-rpc.sei-apis.com');
+
+const MULTICALL3_ADDRESS = '0xcA11bde05977b3631167028862bE2a173976CA11';
+const MULTICALL3_ABI = [
+  'function aggregate3(tuple(address target, bool allowFailure, bytes callData)[] calls) view returns (tuple(bool success, bytes returnData)[] returnData)',
+];
+
+const multicall = new ethers.Contract(MULTICALL3_ADDRESS, MULTICALL3_ABI, provider);
+
+const ERC20_INTERFACE = new ethers.Interface([
+  'function balanceOf(address owner) view returns (uint256)',
+]);
+
+const owner = '0xYourAddress';
+const tokens = ['0xTokenA', '0xTokenB', '0xTokenC'];
+
+const calls = tokens.map((target) => ({
+  target,
+  allowFailure: true,
+  callData: ERC20_INTERFACE.encodeFunctionData('balanceOf', [owner]),
+}));
+
+const results = await multicall.aggregate3(calls);
+
+results.forEach(({ success, returnData }: { success: boolean; returnData: string }, i: number) => {
+  if (success) {
+    const [balance] = ERC20_INTERFACE.decodeFunctionResult('balanceOf', returnData);
+    console.log(`${tokens[i]}: ${balance}`);
+  }
+});
+```
+
+## Wagmi
+
+In React apps, `useReadContracts` handles batching automatically:
+
+```tsx
+import { useReadContracts } from 'wagmi';
+import { parseAbi } from 'viem';
+
+const ERC20_ABI = parseAbi([
+  'function balanceOf(address owner) view returns (uint256)',
+  'function symbol() view returns (string)',
+]);
+
+const TOKEN_A = '0xTokenA' as const;
+const TOKEN_B = '0xTokenB' as const;
+const owner   = '0xYourAddress' as const;
+
+export function MultiTokenBalances() {
+  const { data } = useReadContracts({
+    contracts: [
+      { address: TOKEN_A, abi: ERC20_ABI, functionName: 'symbol' },
+      { address: TOKEN_A, abi: ERC20_ABI, functionName: 'balanceOf', args: [owner] },
+      { address: TOKEN_B, abi: ERC20_ABI, functionName: 'symbol' },
+      { address: TOKEN_B, abi: ERC20_ABI, functionName: 'balanceOf', args: [owner] },
+    ],
+  });
+
+  if (!data) return null;
+
+  return (
+    <ul>
+      <li>{data[0].result}: {data[1].result?.toString()}</li>
+      <li>{data[2].result}: {data[3].result?.toString()}</li>
+    </ul>
+  );
+}
+```

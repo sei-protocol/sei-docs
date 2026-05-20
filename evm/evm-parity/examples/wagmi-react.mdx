@@ -1,0 +1,203 @@
+---
+title: 'Wagmi + React'
+description: 'Connect wallets, read chain state, and write transactions in a React app on Sei using Wagmi'
+---
+
+# Wagmi + React
+
+[Wagmi](https://wagmi.sh) is the standard React library for EVM wallet connections and contract interactions. This page covers the essential patterns for a Sei frontend: configuration, wallet connect/disconnect, reading balances, and writing to contracts.
+
+For Node.js scripts and backend services, see the [viem Quickstart](/evm/evm-parity/examples/viem-quickstart) instead.
+
+## Install
+
+```bash
+npm install wagmi viem @sei-js/precompiles @tanstack/react-query
+```
+
+## Configuration
+
+Configure Wagmi with the Sei chain and your preferred wallet connectors:
+
+```ts
+// wagmi.config.ts
+import { createConfig, http } from 'wagmi';
+import { injected, walletConnect } from 'wagmi/connectors';
+import { sei, seiTestnet } from '@sei-js/precompiles/viem';
+
+export const config = createConfig({
+  chains: [sei, seiTestnet],
+  connectors: [
+    injected(),
+    walletConnect({ projectId: 'YOUR_WALLETCONNECT_PROJECT_ID' }),
+  ],
+  transports: {
+    [sei.id]: http(),
+    [seiTestnet.id]: http(),
+  },
+});
+```
+
+## Provider Setup
+
+Wrap your app with `WagmiProvider` and `QueryClientProvider`:
+
+```tsx
+// App.tsx
+import { WagmiProvider } from 'wagmi';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { config } from './wagmi.config';
+
+const queryClient = new QueryClient();
+
+export function App() {
+  return (
+    <WagmiProvider config={config}>
+      <QueryClientProvider client={queryClient}>
+        <YourApp />
+      </QueryClientProvider>
+    </WagmiProvider>
+  );
+}
+```
+
+## Connecting a Wallet
+
+```tsx
+import { useConnect, useDisconnect, useAccount } from 'wagmi';
+
+export function WalletButton() {
+  const { connectors, connect } = useConnect();
+  const { disconnect } = useDisconnect();
+  const { address, isConnected } = useAccount();
+
+  if (isConnected) {
+    return (
+      <div>
+        <span>{address}</span>
+        <button onClick={() => disconnect()}>Disconnect</button>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {connectors.map((connector) => (
+        <button key={connector.id} onClick={() => connect({ connector })}>
+          Connect {connector.name}
+        </button>
+      ))}
+    </div>
+  );
+}
+```
+
+## Reading the Native SEI Balance
+
+```tsx
+import { useBalance, useAccount } from 'wagmi';
+import { formatEther } from 'viem';
+
+export function SeiBalance() {
+  const { address } = useAccount();
+  const { data: balance } = useBalance({ address });
+
+  if (!balance) return null;
+
+  return (
+    <p>Balance: {formatEther(balance.value)} SEI</p>
+  );
+}
+```
+
+## Reading a Contract
+
+```tsx
+import { useReadContract } from 'wagmi';
+import { parseAbi } from 'viem';
+
+const ERC20_ABI = parseAbi([
+  'function balanceOf(address owner) view returns (uint256)',
+  'function symbol() view returns (string)',
+]);
+
+export function TokenBalance({ tokenAddress, owner }: { tokenAddress: `0x${string}`; owner: `0x${string}` }) {
+  const { data: balance } = useReadContract({
+    address: tokenAddress,
+    abi: ERC20_ABI,
+    functionName: 'balanceOf',
+    args: [owner],
+  });
+
+  const { data: symbol } = useReadContract({
+    address: tokenAddress,
+    abi: ERC20_ABI,
+    functionName: 'symbol',
+  });
+
+  if (balance === undefined) return null;
+
+  return <p>{balance.toString()} {symbol}</p>;
+}
+```
+
+## Writing to a Contract
+
+Use `useWriteContract` for transactions that mutate state, and `useWaitForTransactionReceipt` to track confirmation:
+
+```tsx
+import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { parseAbi, parseUnits } from 'viem';
+
+const ERC20_ABI = parseAbi([
+  'function transfer(address to, uint256 amount) returns (bool)',
+]);
+
+export function TransferButton({ tokenAddress }: { tokenAddress: `0x${string}` }) {
+  const { writeContract, data: hash, isPending } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+
+  function handleTransfer() {
+    writeContract({
+      address: tokenAddress,
+      abi: ERC20_ABI,
+      functionName: 'transfer',
+      args: ['0xRecipient', parseUnits('10', 18)],
+    });
+  }
+
+  return (
+    <div>
+      <button onClick={handleTransfer} disabled={isPending || isConfirming}>
+        {isPending ? 'Confirm in wallet...' : isConfirming ? 'Confirming...' : 'Transfer'}
+      </button>
+      {isSuccess && <p>Transfer confirmed.</p>}
+    </div>
+  );
+}
+```
+
+<Info>Sei has instant finality — `useWaitForTransactionReceipt` resolves as soon as the transaction is included in a block. A single confirmation is final. See [Finality](/evm/evm-parity/finality).</Info>
+
+## Watching the Connected Chain
+
+```tsx
+import { useChainId, useSwitchChain } from 'wagmi';
+import { sei, seiTestnet } from '@sei-js/precompiles/viem';
+
+export function NetworkSwitcher() {
+  const chainId = useChainId();
+  const { switchChain } = useSwitchChain();
+
+  return (
+    <div>
+      <p>Connected to chain {chainId}</p>
+      {chainId !== sei.id && (
+        <button onClick={() => switchChain({ chainId: sei.id })}>
+          Switch to Sei Mainnet
+        </button>
+      )}
+    </div>
+  );
+}
+```

@@ -1,0 +1,145 @@
+---
+title: 'viem Quickstart'
+description: 'Using viem with Sei in a Node.js script, CLI tool, or backend service'
+---
+
+# viem Quickstart
+
+This example shows how to use viem with Sei outside of a React context — in a Node.js script, CLI tool, or backend service. For React apps, see [wagmi](https://wagmi.sh) and the [frontend guide](/evm/building-a-frontend).
+
+## Install
+
+```bash
+npm install viem @sei-js/precompiles
+```
+
+## Public Client
+
+A public client handles all read-only operations.
+
+```ts
+import { createPublicClient, http } from 'viem';
+import { sei } from '@sei-js/precompiles/viem';
+
+const client = createPublicClient({
+  chain: sei,
+  transport: http(),
+});
+```
+
+To use a custom RPC endpoint, pass the URL to `http()`:
+
+```ts
+const client = createPublicClient({
+  chain: sei,
+  transport: http('https://evm-rpc.sei-apis.com'),
+});
+```
+
+## Reading Chain Data
+
+```ts
+const blockNumber = await client.getBlockNumber();
+
+const block = await client.getBlock({ blockTag: 'latest' });
+
+const balance = await client.getBalance({ address: '0xYourAddress' });
+
+const nonce = await client.getTransactionCount({ address: '0xYourAddress' });
+```
+
+## Wallet Client
+
+A wallet client handles signing and broadcasting transactions.
+
+```ts
+import { createWalletClient, http } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { sei } from '@sei-js/precompiles/viem';
+
+const account = privateKeyToAccount('0xYourPrivateKey');
+
+const walletClient = createWalletClient({
+  account,
+  chain: sei,
+  transport: http(),
+});
+```
+
+For browser use, replace `http()` with `custom(window.ethereum)` and call `walletClient.getAddresses()` to get the connected account.
+
+## Sending a Transaction
+
+```ts
+import { parseEther } from 'viem';
+
+const hash = await walletClient.sendTransaction({
+  to: '0xRecipient',
+  value: parseEther('1'),
+});
+
+const receipt = await client.waitForTransactionReceipt({ hash });
+// receipt is final immediately — Sei has instant finality
+```
+
+## Reading a Contract
+
+```ts
+import { parseAbi } from 'viem';
+
+const abi = parseAbi(['function balanceOf(address owner) view returns (uint256)']);
+
+const balance = await client.readContract({
+  address: '0xTokenAddress',
+  abi,
+  functionName: 'balanceOf',
+  args: ['0xYourAddress'],
+});
+```
+
+## Writing to a Contract
+
+```ts
+const hash = await walletClient.writeContract({
+  address: '0xTokenAddress',
+  abi,
+  functionName: 'transfer',
+  args: ['0xRecipient', 1_000_000n],
+});
+
+const receipt = await client.waitForTransactionReceipt({ hash });
+```
+
+## Simulating Before Writing
+
+```ts
+const { result } = await client.simulateContract({
+  address: '0xTokenAddress',
+  abi,
+  functionName: 'transfer',
+  args: ['0xRecipient', 1_000_000n],
+  account,
+});
+
+// If simulation succeeds, execute it
+const hash = await walletClient.writeContract(result);
+```
+
+## Estimating Gas
+
+Always use `estimateGas` rather than hard-coding values. SSTORE costs on Sei are governance-adjustable.
+
+```ts
+const gas = await client.estimateGas({
+  account,
+  to: '0xContractAddress',
+  data: '0xCalldata',
+});
+```
+
+## Next Steps
+
+- [ERC-20 interaction](/evm/evm-parity/examples/erc20) — full token read/write examples
+- [ERC-721 interaction](/evm/evm-parity/examples/erc721) — NFT ownership, transfers, and approvals
+- [Pointer contracts](/evm/evm-parity/examples/pointer-contracts) — interact with CosmWasm tokens via ERC interfaces
+- [WebSocket connections](/evm/evm-parity/websocket) — real-time block and event subscriptions

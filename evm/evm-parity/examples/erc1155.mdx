@@ -1,0 +1,248 @@
+---
+title: 'ERC-1155 Interaction'
+description: 'Reading and writing ERC-1155 multi-token contracts on Sei with viem and ethers'
+---
+
+# ERC-1155 Interaction
+
+ERC-1155 is the multi-token standard — a single contract can hold both fungible tokens (like gold coins in a game) and non-fungible tokens (like unique items), with efficient batch operations built in. Standard ERC-1155 contracts work on Sei without modification.
+
+## Setup
+
+<CodeGroup>
+
+```ts viem
+import { createPublicClient, createWalletClient, http, parseAbi } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { sei } from '@sei-js/precompiles/viem';
+
+const client = createPublicClient({ chain: sei, transport: http() });
+const account = privateKeyToAccount('0xYourPrivateKey');
+const walletClient = createWalletClient({ account, chain: sei, transport: http() });
+
+const ERC1155_ABI = parseAbi([
+  'function balanceOf(address account, uint256 id) view returns (uint256)',
+  'function balanceOfBatch(address[] accounts, uint256[] ids) view returns (uint256[])',
+  'function isApprovedForAll(address account, address operator) view returns (bool)',
+  'function setApprovalForAll(address operator, bool approved)',
+  'function safeTransferFrom(address from, address to, uint256 id, uint256 amount, bytes data)',
+  'function safeBatchTransferFrom(address from, address to, uint256[] ids, uint256[] amounts, bytes data)',
+  'function uri(uint256 id) view returns (string)',
+  'event TransferSingle(address indexed operator, address indexed from, address indexed to, uint256 id, uint256 value)',
+  'event TransferBatch(address indexed operator, address indexed from, address indexed to, uint256[] ids, uint256[] values)',
+]);
+
+const CONTRACT = '0xContractAddress';
+```
+
+```ts ethers
+import { ethers } from 'ethers';
+
+const provider = new ethers.JsonRpcProvider('https://evm-rpc.sei-apis.com');
+const wallet = new ethers.Wallet('0xYourPrivateKey', provider);
+
+const ERC1155_ABI = [
+  'function balanceOf(address account, uint256 id) view returns (uint256)',
+  'function balanceOfBatch(address[] accounts, uint256[] ids) view returns (uint256[])',
+  'function isApprovedForAll(address account, address operator) view returns (bool)',
+  'function setApprovalForAll(address operator, bool approved)',
+  'function safeTransferFrom(address from, address to, uint256 id, uint256 amount, bytes data)',
+  'function safeBatchTransferFrom(address from, address to, uint256[] ids, uint256[] amounts, bytes data)',
+  'function uri(uint256 id) view returns (string)',
+  'event TransferSingle(address indexed operator, address indexed from, address indexed to, uint256 id, uint256 value)',
+  'event TransferBatch(address indexed operator, address indexed from, address indexed to, uint256[] ids, uint256[] values)',
+];
+
+const CONTRACT = '0xContractAddress';
+const readContract = new ethers.Contract(CONTRACT, ERC1155_ABI, provider);
+const writeContract = new ethers.Contract(CONTRACT, ERC1155_ABI, wallet);
+```
+
+</CodeGroup>
+
+## Reading a Single Balance
+
+<CodeGroup>
+
+```ts viem
+const balance = await client.readContract({
+  address: CONTRACT,
+  abi: ERC1155_ABI,
+  functionName: 'balanceOf',
+  args: ['0xOwnerAddress', 1n], // token ID 1
+});
+```
+
+```ts ethers
+const balance = await readContract.balanceOf('0xOwnerAddress', 1n);
+```
+
+</CodeGroup>
+
+## Batch Balance Query
+
+`balanceOfBatch` retrieves multiple owner/ID pairs in one call — the most efficient way to load a user's inventory:
+
+<CodeGroup>
+
+```ts viem
+const owners = ['0xOwner', '0xOwner', '0xOwner'] as const;
+const ids = [1n, 2n, 3n];
+
+const balances = await client.readContract({
+  address: CONTRACT,
+  abi: ERC1155_ABI,
+  functionName: 'balanceOfBatch',
+  args: [owners, ids],
+});
+// balances[0] = balance of token 1, balances[1] = token 2, etc.
+```
+
+```ts ethers
+const owners = ['0xOwner', '0xOwner', '0xOwner'];
+const ids = [1n, 2n, 3n];
+
+const balances = await readContract.balanceOfBatch(owners, ids);
+```
+
+</CodeGroup>
+
+## Reading Token Metadata URI
+
+```ts viem
+const uri = await client.readContract({
+  address: CONTRACT,
+  abi: ERC1155_ABI,
+  functionName: 'uri',
+  args: [1n],
+});
+// URI often contains {id} — replace it with the hex token ID per ERC-1155 spec
+const resolvedUri = uri.replace('{id}', (1n).toString(16).padStart(64, '0'));
+```
+
+## Transferring a Single Token
+
+<CodeGroup>
+
+```ts viem
+const hash = await walletClient.writeContract({
+  address: CONTRACT,
+  abi: ERC1155_ABI,
+  functionName: 'safeTransferFrom',
+  args: [account.address, '0xRecipient', 1n, 5n, '0x'], // transfer 5 of token ID 1
+});
+
+const receipt = await client.waitForTransactionReceipt({ hash });
+```
+
+```ts ethers
+const tx = await writeContract.safeTransferFrom(wallet.address, '0xRecipient', 1n, 5n, '0x');
+const receipt = await tx.wait();
+```
+
+</CodeGroup>
+
+## Batch Transfer
+
+Send multiple token IDs in a single transaction:
+
+<CodeGroup>
+
+```ts viem
+const hash = await walletClient.writeContract({
+  address: CONTRACT,
+  abi: ERC1155_ABI,
+  functionName: 'safeBatchTransferFrom',
+  args: [
+    account.address,
+    '0xRecipient',
+    [1n, 2n, 3n],     // token IDs
+    [5n, 10n, 1n],    // amounts
+    '0x',
+  ],
+});
+```
+
+```ts ethers
+const tx = await writeContract.safeBatchTransferFrom(
+  wallet.address,
+  '0xRecipient',
+  [1n, 2n, 3n],
+  [5n, 10n, 1n],
+  '0x',
+);
+```
+
+</CodeGroup>
+
+## Operator Approval
+
+<CodeGroup>
+
+```ts viem
+// Grant an operator permission to transfer all tokens
+const hash = await walletClient.writeContract({
+  address: CONTRACT,
+  abi: ERC1155_ABI,
+  functionName: 'setApprovalForAll',
+  args: ['0xOperatorAddress', true],
+});
+
+// Check approval status
+const isApproved = await client.readContract({
+  address: CONTRACT,
+  abi: ERC1155_ABI,
+  functionName: 'isApprovedForAll',
+  args: ['0xOwnerAddress', '0xOperatorAddress'],
+});
+```
+
+```ts ethers
+const tx = await writeContract.setApprovalForAll('0xOperatorAddress', true);
+
+const isApproved = await readContract.isApprovedForAll('0xOwnerAddress', '0xOperatorAddress');
+```
+
+</CodeGroup>
+
+## Watching Transfer Events
+
+<CodeGroup>
+
+```ts viem
+// Watch single transfers
+const unwatch = client.watchContractEvent({
+  address: CONTRACT,
+  abi: ERC1155_ABI,
+  eventName: 'TransferSingle',
+  onLogs: (logs) => {
+    logs.forEach(({ args }) => {
+      console.log(`Token ${args.id}: ${args.from} → ${args.to}, amount: ${args.value}`);
+    });
+  },
+});
+
+// Watch batch transfers
+const unwatchBatch = client.watchContractEvent({
+  address: CONTRACT,
+  abi: ERC1155_ABI,
+  eventName: 'TransferBatch',
+  onLogs: (logs) => {
+    logs.forEach(({ args }) => {
+      console.log(`Batch from ${args.from} → ${args.to}:`, args.ids, args.values);
+    });
+  },
+});
+```
+
+```ts ethers
+readContract.on('TransferSingle', (operator, from, to, id, value) => {
+  console.log(`Token ${id}: ${from} → ${to}, amount: ${value}`);
+});
+
+readContract.on('TransferBatch', (operator, from, to, ids, values) => {
+  console.log(`Batch from ${from} → ${to}:`, ids, values);
+});
+```
+
+</CodeGroup>
