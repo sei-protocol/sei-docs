@@ -38,7 +38,7 @@ npx skills add sei-ecosystem    # apps / integrations only
 ## Critical facts — apply to every answer
 
 1. **400ms block time, instant finality** — use `tx.wait(1)`, never `tx.wait(12)`
-2. **SSTORE gas varies by network** — testnet (atlantic-2): 72,000 gas per cold write; mainnet (pacific-1): 20,000 gas (governance-adjustable)
+2. **SSTORE gas is 72,000 on Sei** — both mainnet (pacific-1) and testnet (atlantic-2): 72,000 gas per cold write (governance proposal #240; governance-adjustable)
 3. **Use legacy `gasPrice`** — Sei has no base fee burn; prefer `gasPrice` over EIP-1559 `maxFeePerGas` / `maxPriorityFeePerGas`
 4. **Minimum gas price: 50 gwei**
 5. **Block gas limit: 12.5M per block**
