@@ -240,24 +240,34 @@ The precompile reverts if the address has never been associated; surface this as
 
 ## Deriving Addresses from the Public Key
 
+Both address formats come from the same secp256k1 public key, but they use
+**different hashing schemes**: the bech32 (`sei1…`) side follows the standard
+Cosmos derivation (`SHA256` then `RIPEMD160` of the **compressed** pubkey), and
+the EVM (`0x…`) side follows the standard Ethereum derivation (`keccak256` of
+the **uncompressed** pubkey without its `0x04` prefix byte).
+
 ### Sei Address Derivation
 
 The Cosmos address is derived from the public key using the following steps:
 
-1. Hash the public key using the `keccak256` algorithm.
-2. Extract the first 20 bytes of the resulting hash.
-3. Encode the extracted bytes in **Bech32 format** with the `sei` prefix.
+1. Take the **compressed** secp256k1 public key (33 bytes; first byte `0x02` or `0x03`).
+2. Hash it with `SHA256`.
+3. Hash the result with `RIPEMD160` to get a 20-byte digest.
+4. Encode that digest in **Bech32 format** with the `sei` prefix.
 
 Example implementation:
 
 ```ts
 import { bech32 } from 'bech32';
-import { keccak256 } from 'ethereumjs-util';
+import { sha256 } from '@noble/hashes/sha256';
+import { ripemd160 } from '@noble/hashes/ripemd160';
 
-export function deriveSeiAddress(publicKey: Buffer): string {
-  const hash = keccak256(publicKey);
-  const words = bech32.toWords(hash.slice(0, 20));
-  return bech32.encode('sei', words);
+/**
+ * @param compressedPublicKey 33-byte secp256k1 pubkey in compressed form
+ */
+export function deriveSeiAddress(compressedPublicKey: Uint8Array): string {
+  const digest = ripemd160(sha256(compressedPublicKey));
+  return bech32.encode('sei', bech32.toWords(digest));
 }
 ```
 
@@ -265,35 +275,37 @@ export function deriveSeiAddress(publicKey: Buffer): string {
 
 The EVM-compatible address is derived as follows:
 
-1. Hash the public key using the `keccak256` algorithm.
-2. Extract the **last 20 bytes** of the resulting hash.
-3. Prefix the extracted bytes with `0x` to obtain the EVM address.
+1. Take the **uncompressed** secp256k1 public key (65 bytes; first byte `0x04`).
+2. Drop the leading `0x04` prefix byte so the input to the hash is the bare 64-byte `(x, y)` coordinate pair.
+3. Hash with `keccak256`.
+4. Take the **last 20 bytes** of the hash and format as `0x…` hex.
 
 Example implementation:
 
 ```ts
-import { keccak256 } from 'ethereumjs-util';
+import { keccak_256 } from '@noble/hashes/sha3';
 
-export function deriveEVMAddress(publicKey: Buffer): string {
-  const hash = keccak256(publicKey);
-  return `0x${hash.slice(-20).toString('hex')}`;
+/**
+ * @param uncompressedPublicKey 65-byte secp256k1 pubkey in uncompressed form (leading 0x04)
+ */
+export function deriveEVMAddress(uncompressedPublicKey: Uint8Array): string {
+  const hash = keccak_256(uncompressedPublicKey.slice(1));
+  return `0x${Buffer.from(hash.slice(-20)).toString('hex')}`;
 }
 ```
 
 ### Summary
 
-- **Public Key Hashing**: Both derivations rely on the `keccak256` hashing
-  algorithm.
-- **Sei Address**: Extract the **first 20 bytes** of the hash and encode it in
-  **Bech32 format**.
-- **EVM Address**: Extract the **last 20 bytes** of the hash and format it in
-  **Hex** with a `0x` prefix.
+- **Sei Address**: `bech32('sei', RIPEMD160(SHA256(compressedPubKey)))` — 20 bytes, Cosmos-standard derivation.
+- **EVM Address**: `'0x' + keccak256(uncompressedPubKey[1:])[-20:]` — last 20 bytes of the keccak256 hash, Ethereum-standard derivation.
+- The two formats share an account because the chain stores the **public key** itself on association; either format can be derived from it deterministically.
 
 ### Why It Works
 
-The `keccak256` hashing ensures a consistent and verifiable process for deriving
-both address formats from the same public key. This enables a single account to
-maintain compatibility across the Cosmos and EVM environments.
+Both formats are deterministic, public-key-derived address schemes. Once the
+public key is on-chain (via any of the four association methods above, or
+implicitly via a first signed transaction), the chain can derive both formats
+itself and route any incoming reference to the same account.
 
 ### Recap
 
