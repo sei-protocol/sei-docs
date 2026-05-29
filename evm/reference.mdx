@@ -19,7 +19,8 @@ Sei fully supports the standard Ethereum JSON-RPC API, so existing EVM tooling (
   - [Simulation & Debugging](#simulation--debugging)
 - [Sei Custom Endpoints (Deprecated)](#sei-custom-endpoints)
   - [Legacy API Configuration](#legacy-api-configuration)
-  - [Address & Cross-VM Helpers](#address--cross-vm-helpers)
+  - [Address Resolution](#address-resolution)
+  - [Cross-VM Transaction Lookup](#cross-vm-transaction-lookup)
 
 ## Overview
 
@@ -734,9 +735,6 @@ To enable additional legacy methods, add them to this array. All other `sei_*` a
 
 | Method | Description |
 | ------ | ----------- |
-| `sei_associate` | Associate Sei and EVM addresses |
-| `sei_getSeiAddress` | Get Sei address for an EVM address |
-| `sei_getEVMAddress` | Get EVM address for a Sei address |
 | `sei_getCosmosTx` | Get Cosmos transaction by EVM tx hash |
 | `sei_getEvmTx` | Get EVM transaction by Cosmos tx hash |
 | `sei_getTransactionErrorByHash` | Get error message for a failed transaction |
@@ -777,99 +775,59 @@ To enable additional legacy methods, add them to this array. All other `sei_*` a
 
 </Accordion>
 
-### Address & Cross-VM Helpers
+### Address Resolution
 
-These endpoints provide cross-VM address resolution and transaction lookup between the EVM and Cosmos environments. `sei_getSeiAddress`, `sei_getEVMAddress`, and `sei_getCosmosTx` are enabled by default.
+For resolving the EVM (`0x…`) ↔ Sei (`sei1…`) address pair, use the **`addr` precompile at `0x0000000000000000000000000000000000001004`** via a standard `eth_call`. The precompile is universally available on every Sei RPC, is not part of the deprecated `sei_*` namespace, and is the canonical resolution path going forward.
 
-<Accordion title="View Address & Cross-VM Helper Endpoints">
-#### sei_associate
-
-Sends a transaction to establish association between the signer's Sei address
-and EVM address on-chain.
-
-- **Parameters**:
-
-| Type     | Description                                                                        |
-| :------- | :--------------------------------------------------------------------------------- |
-| `object` | A custom object containing a string message and the v, r, s of the signed message. |
-
-Object Schema:
-
-```json
-{
-    custom_message: // Any string message
-    r: // The R-part of the signature over the Keccak256 hash of the custom message.
-    s: // The S-part of the signature over the Keccak256 hash of the custom message.
-    v: // The V-part of the signature over the Keccak256 hash of the custom message.
-}
-```
-
-- **Result**:
-
-| Type     | Description                           |
-| :------- | :------------------------------------ |
-| `string` | The transaction hash of the association transaction. |
-
----
-
-#### sei_getSeiAddress
-
-Returns the Sei (bech32) address associated with an EVM address.
-
-- **Parameters**:
-
-| Type     | Description                         |
-| :------- | :---------------------------------- |
-| `string` | The EVM address (0x-prefixed hex).  |
-
-- **Result**:
-
-| Type     | Description                            |
-| :------- | :------------------------------------- |
-| `string` | The associated Sei bech32 address.     |
-
-**Example Request**
-
-```json
-{
+```bash
+# EVM → Sei (getSeiAddr(address), selector 0x0c3c20ed)
+curl -X POST $SEIEVM -H "Content-Type: application/json" -d '{
   "jsonrpc": "2.0",
-  "method": "sei_getSeiAddress",
-  "params": ["0x1234567890abcdef1234567890abcdef12345678"],
+  "method": "eth_call",
+  "params": [{
+    "to": "0x0000000000000000000000000000000000001004",
+    "data": "0x0c3c20ed000000000000000000000000<evmAddressWithout0x>"
+  }, "latest"],
   "id": 1
-}
+}'
 ```
 
----
+In TypeScript with viem:
 
-#### sei_getEVMAddress
+```ts
+import { createPublicClient, http } from 'viem';
+import { sei } from 'viem/chains';
 
-Returns the EVM address associated with a Sei (bech32) address.
+const ADDR_PRECOMPILE = '0x0000000000000000000000000000000000001004';
+const ADDR_ABI = [
+  { name: 'getSeiAddr', type: 'function', stateMutability: 'view',
+    inputs: [{ name: 'addr', type: 'address' }],
+    outputs: [{ name: 'response', type: 'string' }] },
+  { name: 'getEvmAddr', type: 'function', stateMutability: 'view',
+    inputs: [{ name: 'addr', type: 'string' }],
+    outputs: [{ name: 'response', type: 'address' }] },
+] as const;
 
-- **Parameters**:
+const client = createPublicClient({ chain: sei, transport: http() });
 
-| Type     | Description                     |
-| :------- | :------------------------------ |
-| `string` | The Sei bech32 address.         |
+const seiAddr = await client.readContract({
+  address: ADDR_PRECOMPILE, abi: ADDR_ABI, functionName: 'getSeiAddr', args: ['0x…'],
+});
 
-- **Result**:
-
-| Type     | Description                      |
-| :------- | :------------------------------- |
-| `string` | The associated EVM address.      |
-
-**Example Request**
-
-```json
-{
-  "jsonrpc": "2.0",
-  "method": "sei_getEVMAddress",
-  "params": ["sei1..."],
-  "id": 1
-}
+const evmAddr = await client.readContract({
+  address: ADDR_PRECOMPILE, abi: ADDR_ABI, functionName: 'getEvmAddr', args: ['sei1…'],
+});
 ```
 
----
+The call reverts when the input address is not yet associated. See [Accounts](/learn/accounts) for the full association lifecycle and how the bidirectional mapping is established.
 
+<Note>The legacy JSON-RPC helpers `sei_getSeiAddress` and `sei_getEVMAddress` historically served this role and are still enabled by default on nodes today, but they belong to the deprecated `sei_*` namespace and may be removed in a future release. New integrations should call the precompile.</Note>
+
+### Cross-VM Transaction Lookup
+
+`sei_getCosmosTx` resolves the underlying Cosmos transaction hash for a given EVM transaction. It does not yet have a precompile equivalent and is enabled by default on Sei nodes.
+
+<Accordion title="View Cross-VM Lookup Endpoints">
 #### sei_getCosmosTx
 
 Returns the Cosmos transaction details for a given EVM transaction hash.

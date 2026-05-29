@@ -61,14 +61,15 @@ Certain actions are **not possible** before wallets are associated:
 | --- | --- | --- |
 | 1. Broadcast a Transaction | Low | Association happens automatically |
 | 2. Direct Private Key | High | Provide private key directly |
-| 3. Signed Message | Medium | Sign a predefined message to prove ownership |
+| 3. Signed Message | Medium | Sign a predefined message to prove ownership *(recommended for wallets)* |
 | 4. Public Key | Low | Provide a compressed public key for association |
-| 5. Gasless Signed Message | Low | Sign a message without requiring gas (if funded) |
 
-<Info>Using any of these methods will ensure the **public key** is known to the chain, enabling automatic association between the EVM-compatible and Bech32 addresses.</Info>
+<Info>Each method ensures the **public key** is known to the chain, enabling automatic association between the EVM-compatible and Bech32 addresses. All four go through the on-chain `addr` precompile (`0x0000000000000000000000000000000000001004`) or the EVM ante handler and are available on every Sei EVM RPC.</Info>
+
+<Note>A previous "gasless" association flow that used the `sei_associate` JSON-RPC method has been retired — the method is part of the deprecated `sei_*` namespace and is not in the default `enabled_legacy_sei_apis` allowlist, so it returns `legacy_sei_deprecated` on public RPCs. Method 3 covers the same wallet-signed-message UX without depending on a gated endpoint. Node operators who want to re-enable the legacy method on their own infrastructure can add `sei_associate` to `enabled_legacy_sei_apis` in `app.toml` — see [Node Operators](/node/node-operators) for the surrounding config.</Note>
 
 Constants for the `addr` precompile can also be found in the repo
-[Sei-Chain/precompiles](https://github.com/sei-protocol/sei-chain/tree/44fd60cec6a5ef301df1472431d6db40b382e486/precompiles/addr):
+[Sei-Chain/precompiles](https://github.com/sei-protocol/sei-chain/tree/main/precompiles/addr):
 
 ## Method 1: Broadcast a Transaction
 
@@ -178,132 +179,95 @@ const associateViaPubkey = async () => {
 associateViaPubkey();
 ```
 
-## Method 5: Gasless Association via Signed Message
-
-<Info>**Security Risk**: **Low** – Requires signing a message but does not expose the private key. No gas is consumed if the account already has funds.</Info>
-
-This method signs a message and uses the `sei_associate` RPC call to finalize
-the association.
-
-```ts
-import { parseSignature, numberToHex } from 'viem';
-
-interface AssociateRequest {
-	r: string;
-	s: string;
-	v: string;
-	custom_message: string;
-}
-
-interface AssociateRequestSchema {
-	Method: 'sei_associate';
-	Parameters: [request: AssociateRequest];
-	ReturnType: null;
-}
-
-const associateGasless = async (signature: `0x${string}`, message: string) => {
-	const parsedSignature = parseSignature(signature);
-	const messageLength = Buffer.from(message, 'utf8').length;
-	const messageToSign = `\x19Ethereum Signed Message:\n${messageLength}${message}`;
-
-	const request: AssociateRequest = {
-		r: parsedSignature.r,
-		s: parsedSignature.s,
-		v: numberToHex(Number(parsedSignature.v) - 27),
-		custom_message: messageToSign
-	};
-
-	const response = await client.request<AssociateRequestSchema>({
-		method: 'sei_associate',
-		params: [request]
-	});
-	console.log(response);
-};
-
-// Example Usage
-associateGasless('<replace_with_signature>', 'example_message');
-```
-
 ## Query Linked Addresses
 
-### Fetch EVM Address for a Sei Address
-
-```bash
-curl -X POST $SEIEVM -H "Content-Type: application/json" -d \
-'{"jsonrpc": "2.0", "method": "sei_getEVMAddress", "params": ["<seiAddress>"], "id": 1}'
-```
-
-**Example Response**:
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "result": "0x4e1ae6017997128D421074FbE31d90362F181C"
-}
-```
-
-**Failure Example**:
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "error": {
-    "code": -32000,
-    "message": "failed to find EVM address for sei1wev8ptz..."
-  }
-}
-```
+Resolve either side of an existing association by calling the `addr` precompile at `0x0000000000000000000000000000000000001004` over a standard `eth_call`. The precompile is universally available on every Sei RPC.
 
 ### Fetch Bech32 Address for an EVM Address
 
 ```bash
-curl -X POST $SEIEVM -H "Content-Type: application/json" -d \
-'{"jsonrpc": "2.0", "method": "sei_getSeiAddress", "params": ["<hexAddress>"], "id": 1}'
-```
-
-**Example Response**:
-
-```json
-{
+curl -X POST $SEIEVM -H "Content-Type: application/json" -d '{
   "jsonrpc": "2.0",
-  "id": 1,
-  "result": "sei1wev8ptzj27aueu04wg..."
-}
+  "method": "eth_call",
+  "params": [{
+    "to": "0x0000000000000000000000000000000000001004",
+    "data": "0x0c3c20ed000000000000000000000000<evmAddressWithout0x>"
+  }, "latest"],
+  "id": 1
+}'
 ```
 
-### Manual Association Using `sei_associate`
+The selector `0x0c3c20ed` is `getSeiAddr(address)`. The returned ABI-encoded string is the bech32 `sei1…` address, or the call reverts if the EVM address is not yet associated.
 
-If no transaction has been broadcasted, use this command to manually associate
-the addresses:
+In TypeScript with viem:
 
-```bash
-seid tx evm associate-address [optional priv key hex] --rpc=<url> --from=<sender> [flags]
+```ts
+import { createPublicClient, http } from 'viem';
+import { sei } from 'viem/chains';
+
+const ADDR_PRECOMPILE = '0x0000000000000000000000000000000000001004';
+const ADDR_ABI = [
+  { name: 'getSeiAddr', type: 'function', stateMutability: 'view',
+    inputs: [{ name: 'addr', type: 'address' }],
+    outputs: [{ name: 'response', type: 'string' }] },
+  { name: 'getEvmAddr', type: 'function', stateMutability: 'view',
+    inputs: [{ name: 'addr', type: 'string' }],
+    outputs: [{ name: 'response', type: 'address' }] },
+] as const;
+
+const client = createPublicClient({ chain: sei, transport: http() });
+
+const seiAddr = await client.readContract({
+  address: ADDR_PRECOMPILE,
+  abi: ADDR_ABI,
+  functionName: 'getSeiAddr',
+  args: ['0x…'],
+});
 ```
 
-<Info>**Note**: The account must have at least 1 wei to perform this operation.</Info>
+### Fetch EVM Address for a Sei Address
+
+```ts
+const evmAddr = await client.readContract({
+  address: ADDR_PRECOMPILE,
+  abi: ADDR_ABI,
+  functionName: 'getEvmAddr',
+  args: ['sei1…'],
+});
+```
+
+The precompile reverts if the address has never been associated; surface this as "not linked" rather than re-throwing.
 
 ## Deriving Addresses from the Public Key
+
+Both address formats come from the same secp256k1 public key, but they use
+**different hashing schemes**: the bech32 (`sei1…`) side follows the standard
+Cosmos derivation (`SHA256` then `RIPEMD160` of the **compressed** pubkey), and
+the EVM (`0x…`) side follows the standard Ethereum derivation (`keccak256` of
+the **uncompressed** pubkey without its `0x04` prefix byte).
 
 ### Sei Address Derivation
 
 The Cosmos address is derived from the public key using the following steps:
 
-1. Hash the public key using the `keccak256` algorithm.
-2. Extract the first 20 bytes of the resulting hash.
-3. Encode the extracted bytes in **Bech32 format** with the `sei` prefix.
+1. Take the **compressed** secp256k1 public key (33 bytes; first byte `0x02` or `0x03`).
+2. Hash it with `SHA256`.
+3. Hash the result with `RIPEMD160` to get a 20-byte digest.
+4. Encode that digest in **Bech32 format** with the `sei` prefix.
 
 Example implementation:
 
 ```ts
 import { bech32 } from 'bech32';
-import { keccak256 } from 'ethereumjs-util';
+import { sha256 } from '@noble/hashes/sha256';
+import { ripemd160 } from '@noble/hashes/ripemd160';
 
-export function deriveSeiAddress(publicKey: Buffer): string {
-  const hash = keccak256(publicKey);
-  const words = bech32.toWords(hash.slice(0, 20));
-  return bech32.encode('sei', words);
+/**
+ * @param compressedPublicKey 33-byte secp256k1 pubkey in compressed form
+ */
+export function deriveSeiAddress(compressedPublicKey: Uint8Array): string {
+  const digest = ripemd160(sha256(compressedPublicKey));
+  return bech32.encode('sei', bech32.toWords(digest));
 }
 ```
 
@@ -311,40 +275,42 @@ export function deriveSeiAddress(publicKey: Buffer): string {
 
 The EVM-compatible address is derived as follows:
 
-1. Hash the public key using the `keccak256` algorithm.
-2. Extract the **last 20 bytes** of the resulting hash.
-3. Prefix the extracted bytes with `0x` to obtain the EVM address.
+1. Take the **uncompressed** secp256k1 public key (65 bytes; first byte `0x04`).
+2. Drop the leading `0x04` prefix byte so the input to the hash is the bare 64-byte `(x, y)` coordinate pair.
+3. Hash with `keccak256`.
+4. Take the **last 20 bytes** of the hash and format as `0x…` hex.
 
 Example implementation:
 
 ```ts
-import { keccak256 } from 'ethereumjs-util';
+import { keccak_256 } from '@noble/hashes/sha3';
 
-export function deriveEVMAddress(publicKey: Buffer): string {
-  const hash = keccak256(publicKey);
-  return `0x${hash.slice(-20).toString('hex')}`;
+/**
+ * @param uncompressedPublicKey 65-byte secp256k1 pubkey in uncompressed form (leading 0x04)
+ */
+export function deriveEVMAddress(uncompressedPublicKey: Uint8Array): string {
+  const hash = keccak_256(uncompressedPublicKey.slice(1));
+  return `0x${Buffer.from(hash.slice(-20)).toString('hex')}`;
 }
 ```
 
 ### Summary
 
-- **Public Key Hashing**: Both derivations rely on the `keccak256` hashing
-  algorithm.
-- **Sei Address**: Extract the **first 20 bytes** of the hash and encode it in
-  **Bech32 format**.
-- **EVM Address**: Extract the **last 20 bytes** of the hash and format it in
-  **Hex** with a `0x` prefix.
+- **Sei Address**: `bech32('sei', RIPEMD160(SHA256(compressedPubKey)))` — 20 bytes, Cosmos-standard derivation.
+- **EVM Address**: `'0x' + keccak256(uncompressedPubKey[1:])[-20:]` — last 20 bytes of the keccak256 hash, Ethereum-standard derivation.
+- The two formats share an account because the chain stores the **public key** itself on association; either format can be derived from it deterministically.
 
 ### Why It Works
 
-The `keccak256` hashing ensures a consistent and verifiable process for deriving
-both address formats from the same public key. This enables a single account to
-maintain compatibility across the Cosmos and EVM environments.
+Both formats are deterministic, public-key-derived address schemes. Once the
+public key is on-chain (via any of the four association methods above, or
+implicitly via a first signed transaction), the chain can derive both formats
+itself and route any incoming reference to the same account.
 
 ### Recap
 
-- Accounts are automatically linked when a transaction is broad-casted or can be
-  manually associated using `sei_associate`.
+- Accounts are automatically linked when a transaction is broadcast, or can be
+  associated manually via the `addr` precompile (`associate` / `associatePubKey`).
 - Both address formats share the same **public key**.
 - Linking enables dApps and tools to access balances consistently across both
   address formats.
@@ -393,10 +359,12 @@ assets across various blockchains using the same underlying cryptographic key.
 
 ### Deriving bech32 and hex addresses from pubkey
 
-Sei uses a unique method of deriving both the Cosmos/Tendermint style bech32
-address and the Ethereum-style hex address from the same public key, using the
-`keccak` hashing method common in EVM networks. These extensively commented snippets demonstrate the 'proper' method of deriving
-both bech32 and hex addresses from a given ECDSA SECP256k1 key:
+Sei derives both the Cosmos/Tendermint style bech32 address and the
+Ethereum-style hex address from the same public key, but each format uses its
+own hashing scheme: the bech32 address uses the Cosmos-standard `SHA256` then
+`RIPEMD160`, while the hex address uses the `keccak256` method common in EVM
+networks. These extensively commented snippets demonstrate the 'proper' method
+of deriving both bech32 and hex addresses from a given ECDSA SECP256k1 key:
 
 <Accordion title="Python - from pubkey">
 
