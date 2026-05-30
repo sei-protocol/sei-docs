@@ -155,42 +155,42 @@ EVM transactions in Sei follow the Ethereum transaction format with standard pro
 
     ### JavaScript example with web3.js
 
+    <Info>
+      Public RPC endpoints such as `https://evm-rpc.sei-apis.com` do not manage or unlock accounts, so `eth_getAccounts` and `eth_sendTransaction` are not available. Sign transactions locally with a private key and broadcast the raw transaction instead.
+    </Info>
+
     ```javascript
-    // Example using web3.js to send a transaction
-    const Web3 = require('web3');
+    // Example using web3.js v4 to sign and broadcast a transaction.
+    // Public RPC endpoints do not manage accounts, so sign locally with a private key.
+    const { Web3 } = require('web3');
     const web3 = new Web3('https://evm-rpc.sei-apis.com');
 
+    // Load your account from a private key. Never hard-code keys — read from an env var.
+    const account = web3.eth.accounts.privateKeyToAccount(process.env.PRIVATE_KEY);
+
     async function sendTransaction() {
-      const accounts = await web3.eth.getAccounts();
-      const sender = accounts[0];
+      // Current nonce for the sender
+      const nonce = await web3.eth.getTransactionCount(account.address);
 
-      // Get the current nonce for the sender
-      const nonce = await web3.eth.getTransactionCount(sender);
-
-      // Get the current block to estimate gas fees
+      // Use the latest base fee to set EIP-1559 fees
       const block = await web3.eth.getBlock('latest');
-      const baseFeePerGas = block.baseFeePerGas;
-
-      // Set priority fee (tip)
       const maxPriorityFeePerGas = web3.utils.toWei('1', 'gwei');
-
-      // Calculate max fee per gas
-      const maxFeePerGas = web3.utils
-        .toBN(baseFeePerGas)
-        .add(web3.utils.toBN(maxPriorityFeePerGas));
+      const maxFeePerGas = (BigInt(block.baseFeePerGas) + BigInt(maxPriorityFeePerGas)).toString();
 
       const tx = {
-        from: sender,
+        from: account.address,
         to: '0x07a565b7ed7d7a678680a4c162885bedbb695fe0',
         value: web3.utils.toWei('0.1', 'ether'),
         gas: 21000, // Gas limit for a simple transfer
-        maxFeePerGas: maxFeePerGas.toString(),
-        maxPriorityFeePerGas: maxPriorityFeePerGas,
-        nonce: nonce,
-        data: '0x' // Empty data for a simple transfer
+        maxFeePerGas,
+        maxPriorityFeePerGas,
+        nonce,
+        chainId: 1329 // pacific-1 mainnet (use 1328 for atlantic-2 testnet)
       };
 
-      const receipt = await web3.eth.sendTransaction(tx);
+      // Sign locally, then broadcast the raw transaction
+      const signed = await web3.eth.accounts.signTransaction(tx, process.env.PRIVATE_KEY);
+      const receipt = await web3.eth.sendSignedTransaction(signed.rawTransaction);
       console.log('Transaction receipt:', receipt);
     }
 
