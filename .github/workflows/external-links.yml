@@ -1,0 +1,47 @@
+name: External link check
+
+# Scheduled check for external link rot (dead third-party URLs) with lychee —
+# the free, no-AI complement to the existing link-check workflow (which runs
+# `mint broken-links` for internal links). Config lives in lychee.toml. On
+# failure it opens/updates a tracking issue instead of blocking any PR.
+#
+# Triggers:
+#   - workflow_dispatch  (manual)
+#   - schedule           (weekly, Mondays 09:00 UTC)
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 9 * * 1'
+
+permissions:
+  contents: read
+  issues: write
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  lychee:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check external links
+        id: lychee
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: "--config lychee.toml --no-progress '**/*.md' '**/*.mdx'"
+          fail: false
+          format: markdown
+          output: ./lychee-report.md
+
+      - name: Open or update tracking issue on broken links
+        if: steps.lychee.outputs.exit_code != 0
+        uses: peter-evans/create-issue-from-file@v5
+        with:
+          title: 🔗 Broken external links detected
+          content-filepath: ./lychee-report.md
+          labels: broken-links, automated
