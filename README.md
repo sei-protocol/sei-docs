@@ -20,6 +20,20 @@ mint dev
 
 Open [http://localhost:3000](http://localhost:3000) to view.
 
+
+## Environment variables
+
+Several `/api/*` endpoints on the Sei website require API keys. Copy `.env.example` to `.env.local` and populate the following:
+
+| Variable | Required | Description |
+|---|---|---|
+| `DUNE_API_KEY` | Yes | Powers `/api/tx-count`, `/api/stats`, `/api/cumulative-wallets`, `/api/daily-active-addresses`, and `/api/dex-volume` |
+| `RWA_XYZ_API_KEY` | Yes | Powers `/api/tokenized-asset-value` |
+| `COINGECKO_API_KEY` | No | Raises rate limits on `/api/stats`; omitting it falls back to the keyless public tier |
+| `COINGECKO_API_TIER` | No | Set to `pro` or `demo` to match your CoinGecko plan (default: `pro`) |
+
+<!-- TODO: expand with link to .env.example and any additional setup steps -->
+
 ## Checking links
 
 ```bash
