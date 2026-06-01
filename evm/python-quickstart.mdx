@@ -1,0 +1,109 @@
+---
+title: 'Python Quickstart (web3.py)'
+sidebarTitle: 'Python (web3.py)'
+description: 'Connect to Sei from Python using web3.py — read chain data, then sign and broadcast transactions against the Sei EVM JSON-RPC.'
+keywords: ['sei evm', 'python', 'web3.py', 'json-rpc', 'quickstart']
+---
+
+# Python Quickstart (web3.py)
+
+Sei is fully EVM-compatible, so any standard Ethereum client works — including Python's [web3.py](https://web3py.readthedocs.io). This guide connects to Sei from a Python script, reads chain data with no credentials, then signs and broadcasts a transaction.
+
+## Install
+
+We recommend an isolated virtual environment:
+
+```bash
+python3 -m venv venv
+source venv/bin/activate          # Windows: venv\Scripts\activate
+pip install web3
+```
+
+## Reading Chain Data
+
+This is the first milestone — it needs no private key.
+
+```python
+from web3 import Web3
+
+w3 = Web3(Web3.HTTPProvider("https://evm-rpc.sei-apis.com"))
+
+# Any valid Sei EVM address — swap in your own
+address = "0x0000000000000000000000000000000000000000"
+
+print("Connected:", w3.is_connected())
+print("Chain ID:", w3.eth.chain_id)                                  # 1329 on mainnet
+print("Latest block:", w3.eth.block_number)
+print("Balance (SEI):", w3.from_wei(w3.eth.get_balance(address), "ether"))
+print("Nonce:", w3.eth.get_transaction_count(address))
+```
+
+**You're done when you see:**
+
+```text
+Connected: True
+Chain ID: 1329
+Latest block: 148203117
+Balance (SEI): 12.5
+Nonce: 7
+```
+
+Values are illustrative — your block number, and the queried address's balance and nonce, will differ. The chain ID is always `1329` on mainnet (`1328` on the atlantic-2 testnet).
+
+## Sending a Transaction
+
+Next step — this requires a funded account. Get testnet SEI from the [faucet](/learn/faucet), then build, **sign locally**, and broadcast with `eth_sendRawTransaction`. Public RPC endpoints don't manage accounts, so you sign the transaction yourself rather than relying on node-managed accounts.
+
+```python
+import os
+from web3 import Web3
+
+# atlantic-2 testnet
+w3 = Web3(Web3.HTTPProvider("https://evm-rpc-testnet.sei-apis.com"))
+
+account = w3.eth.account.from_key(os.environ["SEI_PRIVATE_KEY"])
+
+tx = {
+    "to": "0xRecipient",
+    "value": w3.to_wei(0.001, "ether"),
+    "nonce": w3.eth.get_transaction_count(account.address),
+    "chainId": w3.eth.chain_id,
+    "type": 2,  # EIP-1559
+    "maxPriorityFeePerGas": w3.to_wei(1, "gwei"),
+    "maxFeePerGas": w3.eth.gas_price * 2 + w3.to_wei(1, "gwei"),
+}
+tx["gas"] = w3.eth.estimate_gas(tx)  # always estimate rather than hard-coding
+
+signed = w3.eth.account.sign_transaction(tx, account.key)
+tx_hash = w3.eth.send_raw_transaction(signed.raw_transaction)
+
+receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
+print("Mined in block:", receipt.blockNumber)  # final immediately — Sei has instant finality
+```
+
+<Warning>Never hard-code or commit a private key. Load it from an environment variable or a secrets manager, and use a dedicated throwaway key funded with only what you need.</Warning>
+
+<Note>`signed.raw_transaction` is the attribute name in web3.py v7+. On web3.py v6 it is `signed.rawTransaction`.</Note>
+
+## Reading a Contract
+
+```python
+abi = [{
+    "constant": True,
+    "inputs": [{"name": "owner", "type": "address"}],
+    "name": "balanceOf",
+    "outputs": [{"name": "", "type": "uint256"}],
+    "stateMutability": "view",
+    "type": "function",
+}]
+
+token = w3.eth.contract(address="0xTokenAddress", abi=abi)
+print(token.functions.balanceOf(address).call())
+```
+
+## Next Steps
+
+- [viem Quickstart](/evm/evm-parity/examples/viem-quickstart) — the TypeScript/Node.js equivalent
+- [ethers v6 Quickstart](/evm/evm-parity/examples/ethers-quickstart) — TypeScript with ethers
+- [Network information](/evm/networks) — RPC endpoints, chain IDs, and explorers
+- [Faucet](/learn/faucet) — get testnet SEI
