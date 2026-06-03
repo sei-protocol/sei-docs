@@ -11,7 +11,7 @@ Sei's EVM and Ethereum itself:
 | --- | --- | --- |
 | Blocktime | 400 ms | 12 s |
 | Gas per Second | ~ 100 MegaGas/s | ~ 5 MegaGas/s |
-| Finality | Instant | Various commitment levels (safe, latest, justified, finalized) |
+| Finality | Instant (~400 ms) | Various commitment levels (safe, latest, justified, finalized) |
 | Parallelized Execution | Yes | No |
 | EVM Tooling Compatibility | 100% | 100% |
 | EVM Version | Pectra (w/o blobs) | Fusaka |
@@ -26,7 +26,7 @@ Sei's EVM and Ethereum itself:
 
 - Sei uses the Pectra (Prague + Electra) version of EVM, excluding blob transactions. Ethereum has since upgraded to Fusaka (December 2025), which introduced PeerDAS for enhanced data availability.
 - Sei's gas limit is 12.5 M as opposed to Ethereum's 60 M (increased from 45 M in the Fusaka upgrade via EIP-7935). Sei also has a byte size limit of 21MB.
-- Sei has instant finality. This means the various commitment levels typical for Ethereum (i.e., safe, latest, justified) do not apply on Sei.
+- Sei has instant finality — a transaction is final as soon as its block is committed (~400 ms). This means the various commitment levels typical for Ethereum (i.e., safe, latest, justified) do not apply on Sei.
 
 <Danger>
 
@@ -69,7 +69,7 @@ Sei EVM was originally deployed at the following block heights and versions:
 | --- | --- | --- | --- |
 | PREVRANDAO | Returns a value derived from the current block time | Returns the RANDAO mix (EIP‑4399) | Not a randomness source; use an oracle/VRF. `DIFFICULTY` aliases to this. |
 | COINBASE | Always the global fee collector address | Block proposer (miner) address | Do not assume it is the validator address. |
-| BASEFEE | Returns current base fee; no burn | Returns current base fee; a portion is burned (EIP‑1559) | Legacy tx must specify ≥ `10 gwei` base fee on Sei. |
+| BASEFEE | Returns current base fee; no burn | Returns current base fee; a portion is burned (EIP‑1559) | Legacy tx must meet Sei's governance-set minimum gas price (currently `50 gwei`); query `eth_gasPrice` for the live value. |
 | BLOCKHASH | Hash of the Tendermint header; different encoding | Keccak of the Ethereum block header | Usable for recent blocks only; values are not interchangeable across chains. |
 | GASLIMIT | = 12,500,000 per block | = 60,000,000 per block | Represents block gas limit in both chains. |
 | TIMESTAMP | Tendermint block time | Proposer-chosen block time | Same semantics; do not use as randomness. |
@@ -106,7 +106,7 @@ format, and is different from Ethereum's block Hash as a result.
 ## Base Fee & Tips
 
 Sei supports all non‑blob transaction types, including the Pectra `SetCode` transaction (EIP‑7702). However for a legacy (non EIP‑1559) type
-transaction, you must specify a base fee of `10 gwei`. In addition to this, excess
+transaction, you must specify a gas price at or above Sei's governance-set minimum gas price (currently `50 gwei` on mainnet). Query the live value with `eth_gasPrice` rather than hard-coding it. In addition to this, excess
 "gas wanted/gas limit" beyond the actual "gas used" may not be refunded in full
 or in part.
 
@@ -138,7 +138,8 @@ may find certain state changes unattributable to any EVM transaction.
 
 ## Finality
 
-Sei has instant finality, meaning that commitment levels of "safe", "latest",
+Sei has instant finality — a transaction is final as soon as its block is
+committed (~400 ms) — meaning that commitment levels of "safe", "latest",
 "justified", and "finalized" on Ethereum are all the same thing on Sei.
 
 ## Pending State
