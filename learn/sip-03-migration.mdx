@@ -2,7 +2,7 @@
 title: 'SIP-03 Migration Guide'
 sidebarTitle: 'SIP-03 Migration'
 description: 'Practical steps and resources for users and exchanges migrating during SIP-03, including asset transfer, USDC, and exchange migration guidance.'
-keywords: ['SIP-03', 'migration', 'asset transfer', 'USDC on Sei', 'Keplr', 'Leap', 'Compass', 'EVM wallet', 'exchange migration', 'FundsForwarder', 'address association']
+keywords: ['SIP-03', 'migration', 'asset transfer', 'USDC on Sei', 'Keplr', 'Leap', 'Compass', 'EVM wallet', 'exchange migration', 'FundsForwarder', 'address association', 'Ledger', 'hardware wallet', 'mnemonic', 'private key export', 'coin type 118', 'coin type 60']
 ---
 <Danger>
 
@@ -90,6 +90,64 @@ Native USDC and Circle's CCTP V2 are now supported on Sei. USDC from Noble (USDC
 
 - Wind down and withdraw your positions **before** migrating to native USDC. Failure to do so before the SIP-03 upgrade may result in inability to access your supplied assets.
 
+## Migrating a hardware or mnemonic-only wallet
+
+If your wallet can export a raw private key, the simplest path is to import that key into an EVM wallet. A private key is independent of coin type, so it reproduces the same `0x...` and `sei1...` addresses in any wallet, and no funds need to move.
+
+If your wallet cannot export a private key, you can still migrate by moving your funds to a new EVM-native account, as described below.
+
+### When private-key export isn't an option
+
+A raw private key always works, but two common setups do not provide one:
+
+- **Mnemonic-only wallets.** Some wallets back up only a recovery phrase, not a raw private key. Sei's Cosmos (`sei1...`) accounts use coin type 118 (`m/44'/118'/0'/0/0`). Importing the same phrase into an EVM wallet such as MetaMask derives it on coin type 60 (`m/44'/60'/0'/0/0`), producing a different account with no access to the original funds. The underlying private key would import correctly if the wallet exposed it, but a mnemonic-only wallet does not.
+- **Hardware wallets (such as Ledger).** A Ledger does not export the private key or seed under any circumstances. It only allows switching between the Cosmos app (coin type 118) and the Ethereum app (coin type 60), which control separate accounts with different addresses. The Cosmos-app account cannot be used from an EVM wallet.
+
+For background, see [HD Paths and Coin Types](/learn/accounts#hd-paths-and-coin-types).
+
+### Migration steps
+
+This works because every account has exactly one EVM (`0x...`) address and one Cosmos (`sei1...`) address, both derived from the same key. Funds sent to the new account's `sei1...` address are therefore spendable from the EVM wallet that holds its `0x...` address.
+
+<Steps>
+
+<Step title="Create a new account in an EVM wallet you control">
+Use MetaMask, Compass, Rabby, or a Ledger running its Ethereum app. This produces a new `0x...` address.
+</Step>
+
+<Step title="Fund the new address with a small amount of SEI">
+Roughly 0.1 SEI is sufficient. Association is an on-chain transaction, so the account requires SEI for gas. Fund it from an exchange withdrawal or from any EVM wallet that already holds SEI.
+</Step>
+
+<Step title="Associate the new account on the Sei Dashboard">
+Connect the new EVM account to the [Sei Dashboard](https://dashboard.sei.io) and complete address association. This records the public key on-chain and links the `0x...` address to its `sei1...` counterpart. The dashboard then displays the linked `sei1...` address, which is the destination for the next step. See [Account Linking](/learn/accounts) for details on association.
+</Step>
+
+<Step title="Send a test transfer of 1 SEI">
+From the original Cosmos wallet (Keplr, Leap, the Ledger Cosmos app, and so on), send 1 SEI to the `sei1...` address from step 3. This is a standard Cosmos-to-Cosmos transfer.
+</Step>
+
+<Step title="Confirm receipt">
+Because the addresses are associated, the test amount should appear under the new account on the dashboard and as a spendable balance in the EVM wallet.
+</Step>
+
+<Step title="Transfer the remaining balance">
+Once the test transfer is confirmed, send the rest of the funds the same way. The assets are then held by an account whose key you control from an EVM wallet.
+</Step>
+
+</Steps>
+
+<Warning>
+Send the 1 SEI test transfer and confirm receipt before moving the full balance. Verify that the destination matches the exact `sei1...` address shown after association in step 3.
+</Warning>
+
+### Notes and limitations
+
+- **Complete this before the SIP-03 upgrade.** After the Cosmos interface is deprecated, addresses can no longer be associated and `sei1...` transfers can no longer be broadcast. Steps 3 and 4 must be completed beforehand.
+- **This procedure moves liquid balances only.** Staked SEI must be unbonded first, and the unbonding period is 21 days. See the staking question in the [FAQ](#faq).
+- **Associate before sending.** Associating the new account before transferring ensures the funds arrive at the correct, immediately spendable address rather than a temporary holding address.
+- **Optional verification.** To confirm the paired `sei1...` address independently, call `getSeiAddr(0x...)` on the `addr` precompile. See [Query Linked Addresses](/learn/accounts#query-linked-addresses).
+
 ## FAQ
 
 ### I am a Keplr / Leap wallet user; do I need to do anything?
@@ -99,6 +157,10 @@ Yes. Use the Asset Transfer tool to ensure your assets are available via an EVM 
 ### I use Compass wallet; do I need to do anything?
 
 No action needed. Compass ensures your assets are available via EVM. Continue connecting to Sei like any EVM chain.
+
+### My wallet only shows a recovery phrase, or I use a Ledger — how do I migrate?
+
+If you can export a raw private key, import it into an EVM wallet. This always works, because the key reproduces the same addresses in any wallet. If you cannot (a wallet that exports only a recovery phrase, or a Ledger that only switches between apps), create a new account in an EVM wallet you control, fund it with a small amount of SEI, associate it to reveal its paired `sei1...` address, and send your existing Cosmos funds to that address. Send a 1 SEI test transfer first. See [Migrating a hardware or mnemonic-only wallet](#migrating-a-hardware-or-mnemonic-only-wallet) for the full procedure.
 
 ### I stake SEI — do I need to do anything?
 
@@ -120,4 +182,4 @@ To check whether your addresses are linked, see [Query Linked Addresses](/learn/
 
 ### I hold USDC.n (USDC via Noble) — what should I do?
 
-You must swap or migrate your USDC.n to native USDC before the SIP-03 upgrade (expected end of March 2026). After the upgrade, USDC.n may become inaccessible or lose its value on Sei. See the [USDC on Sei](#3-usdc-on-sei) section above for swap and migration options, or read the full announcement: [Holders of USDC.n Need to Swap or Migrate](https://blog.sei.io/announcements/holders-of-usdcn-need-to-swap-or-migrate/).
+You must swap or migrate your USDC.n to native USDC before the SIP-03 upgrade (expected end of March 2026). After the upgrade, USDC.n may become inaccessible or lose its value on Sei. See the [USDC on Sei](#2-usdc-on-sei) section above for swap and migration options, or read the full announcement: [Holders of USDC.n Need to Swap or Migrate](https://blog.sei.io/announcements/holders-of-usdcn-need-to-swap-or-migrate/).
