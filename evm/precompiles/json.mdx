@@ -565,7 +565,8 @@ node json-precompile-mainnet.js
    📊 Source: MainnetPriceOracle
    🔢 Version: 2.1.0
    ⏰ Timestamp: 2024-12-27T12:00:00Z
-   ⚠️  Key "nonexistent.key" not found, using default: "N/A"
+   🟢 Is Live: Yes
+   ⚠️  Key "nonexistent" not found, using default: "N/A"
    ❓ Missing Key: N/A
 
 2️⃣  Extracting Numeric Data...
@@ -592,11 +593,11 @@ node json-precompile-mainnet.js
       Complex processing: 120,000 gas
 
 6️⃣  Performance & Error Testing...
-   ✅ metadata.source: "MainnetPriceOracle" (15ms)
-   ✅ market.prices.SEI: "275" (12ms)
-   ✅ assets: "[\"SEI\",\"BTC\",\"ETH\",\"USDC\"]" (18ms)
-   ⚠️  Key "nonexistent.deeply.nested.key" not found, using default: ""
-   ✅ nonexistent.deeply.nested.key: "" (8ms)
+   ✅ metadata object: "{"timestamp":"2024-12-27T12:00:00Z","source":"..." (15ms)
+   ✅ market data: "{"prices":{"SEI":275,"BTC":5000000,"ETH":30000..." (12ms)
+   ✅ assets array: "["SEI","BTC","ETH","USDC"]" (18ms)
+   ⚠️  Key "nonexistent" not found, using default: ""
+   ✅ missing key: "" (8ms)
 
 🎉 === JSON Precompile Demo Completed Successfully! ===
 ```
@@ -620,21 +621,23 @@ class SeiPriceOracle {
     isValid: boolean;
   }> {
     try {
-      // Extract timestamp
-      const timestamp = await safeExtractBytes(this.jsonPrecompile, oracleResponse, 'metadata.timestamp');
+      // The precompile does not support dot notation for nested keys.
+      // Extract the parent "metadata" object as bytes, then parse it manually.
+      const metadataJson = await safeExtractBytes(this.jsonPrecompile, oracleResponse, 'metadata', '{}');
+      const metadata = JSON.parse(metadataJson);
+      const timestamp = metadata.timestamp ?? '';
+      const isValid = metadata.isValid === 1;
 
-      // Extract validation flag
-      const isValidRaw = await safeExtractUint256(this.jsonPrecompile, oracleResponse, 'metadata.isValid');
-      const isValid = isValidRaw === 1n;
+      // Extract the parent "prices" object the same way
+      const pricesJson = await safeExtractBytes(this.jsonPrecompile, oracleResponse, 'prices', '{}');
+      const rawPrices = JSON.parse(pricesJson);
 
-      // Extract price data
       const prices = new Map<string, number>();
       const assets = await safeExtractBytesList(this.jsonPrecompile, oracleResponse, 'assets');
 
       for (const asset of assets) {
-        const priceRaw = await safeExtractUint256(this.jsonPrecompile, oracleResponse, `prices.${asset}`);
         // Convert from integer with 6 decimal places
-        prices.set(asset, Number(priceRaw) / 1000000);
+        prices.set(asset, Number(rawPrices[asset] ?? 0) / 1000000);
       }
 
       return { prices, timestamp, isValid };

@@ -131,11 +131,11 @@ Before getting started, ensure you have:
 Install the required packages for interacting with Sei precompiles:
 
 ```bash
-# Instantiate a new hardhat project
-npx hardhat init
+# Instantiate a new Hardhat 3 project (choose "Hardhat 3" and the Mocha + Ethers.js TypeScript setup)
+npx hardhat --init
 
 # Install ethers.js for smart contract interactions
-npm install ethers dotenv
+npm install ethers
 
 # Install Sei EVM bindings for precompile addresses and ABIs
 npm install @sei-js/precompiles@2.1.2
@@ -143,30 +143,30 @@ npm install @sei-js/precompiles@2.1.2
 
 #### Setup Hardhat Environment
 
-Create a `hardhat.config.js` file with the following content:
+Create a `hardhat.config.ts` file with the following content:
 
-```javascript
-require('@nomicfoundation/hardhat-toolbox');
-require('dotenv').config();
+```typescript
+import { defineConfig, configVariable } from 'hardhat/config';
+import hardhatToolboxMochaEthers from '@nomicfoundation/hardhat-toolbox-mocha-ethers';
 
-/** @type import('hardhat/config').HardhatUserConfig */
-module.exports = {
+export default defineConfig({
   solidity: '0.8.28',
   networks: {
     sei: {
-      url: 'https://evm-rpc.sei-apis.com',
+      type: 'http',
       chainId: 1329,
-      accounts: [process.env.PRIVATE_KEY]
+      url: 'https://evm-rpc.sei-apis.com',
+      accounts: [configVariable('PRIVATE_KEY')]
     }
-  }
-};
+  },
+  plugins: [hardhatToolboxMochaEthers]
+});
 ```
 
-Create a `.env` file in the root directory with your private key and RPC URL:
+Store your private key in Hardhat's encrypted keystore (no plaintext `.env` file needed):
 
-```plaintext
-RPC_URL=https://evm-rpc.sei-apis.com
-PRIVATE_KEY=your_private_key_here
+```bash
+npx hardhat keystore set PRIVATE_KEY
 ```
 
 #### Import Precompile Components
@@ -290,12 +290,12 @@ const recipientAddress = 'sei1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq6s8dpw';
 const amountInSei = '0.1'; // 0.1 SEI
 
 try {
-  // Convert SEI to usei (1 SEI = 1,000,000 usei)
-  const amountInUsei = ethers.parseUnits(amountInSei, 6);
+  // msg.value is in wei (18 decimals), like any other EVM transaction
+  const amountInWei = ethers.parseUnits(amountInSei, 18); // equivalent to ethers.parseEther(amountInSei)
 
   // Send native SEI
   const tx = await bank.sendNative(recipientAddress, {
-    value: amountInUsei,
+    value: amountInWei,
     gasLimit: 300000n
   });
 
@@ -335,31 +335,30 @@ contract PaymentProcessor {
 <Tabs>
 <Tab title="JavaScript">
 
+<Warning>`send()` can only be called by the registered ERC20 native pointer contract for the given denom — calling it from a regular wallet will revert. The snippet below only illustrates the arguments a pointer contract passes. As a user, transfer native denoms through the denom's ERC20 pointer contract (`transfer()`), or use `sendNative()` for SEI.</Warning>
+
 ```typescript
-// Send custom tokens between addresses
+// Illustration: how a registered ERC20 pointer contract calls send()
 const fromAddress = '0x1234567890123456789012345678901234567890';
 const toAddress = '0x9876543210987654321098765432109876543210';
 const tokenDenom = 'usei';
 const amount = '1';
 
-try {
-  // Convert addresses to proper format if needed
-  const tx = await bank.send(
-    fromAddress,
-    toAddress,
-    tokenDenom,
-    ethers.parseUnits(amount, 18), // Adjust decimals based on token
-    {
-      gasLimit: 300000n
-    }
-  );
+// Amounts are in the denom's base units — check decimals() for each denom.
+// usei has 6 decimals (1 SEI = 1,000,000 usei)
+const tx = await bank.send(
+  fromAddress,
+  toAddress,
+  tokenDenom,
+  ethers.parseUnits(amount, 6),
+  {
+    gasLimit: 300000n
+  }
+);
 
-  const receipt = await tx.wait();
-  console.log('Custom token transfer successful:', receipt.transactionHash);
-  console.log(`Sent ${amount} ${tokenDenom} from ${fromAddress} to ${toAddress}`);
-} catch (error) {
-  console.error('Custom token transfer failed:', error);
-}
+const receipt = await tx.wait();
+console.log('Custom token transfer successful:', receipt.transactionHash);
+console.log(`Sent ${amount} ${tokenDenom} from ${fromAddress} to ${toAddress}`);
 ```
 
 </Tab>
@@ -1013,14 +1012,14 @@ npx hardhat compile
 First, deploy the contract using Hardhat:
 
 ```javascript
-const { ethers } = require('hardhat');
+import { network } from 'hardhat';
 
-const dotenv = require('dotenv');
-dotenv.config();
+// Hardhat 3 exposes ethers through a network connection rather than a global import
+const { ethers } = await network.getOrCreate();
 
 async function main() {
-  const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
-  const deployer = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
+  // The signer comes from the network config (encrypted keystore)
+  const [deployer] = await ethers.getSigners();
   console.log('Deploying contracts with the account:', deployer.address);
 
   const balance = await deployer.provider.getBalance(deployer.address);
@@ -1051,13 +1050,16 @@ npx hardhat run scripts/deploy.js --network sei
 Next look through the integration example:
 
 ```javascript
-const { ethers } = require('hardhat');
-const TokenManager = require('./artifacts/contracts/ComprehensiveTokenManager.sol/ComprehensiveTokenManager.json');
+import { network } from 'hardhat';
+import TokenManager from './artifacts/contracts/ComprehensiveTokenManager.sol/ComprehensiveTokenManager.json' with { type: 'json' };
+
+// Hardhat 3 exposes ethers through a network connection rather than a global import
+const { ethers } = await network.getOrCreate();
 
 async function main() {
-  const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
-  const deployer = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
-  console.log('Deploying contracts with the account:', deployer.address);
+  // The signer comes from the network config (encrypted keystore)
+  const [deployer] = await ethers.getSigners();
+  console.log('Interacting with the account:', deployer.address);
 
   const address = '0xYourDeployedContractAddress'; // Replace with your contract address
   const tokenManager = new ethers.Contract(address, TokenManager.abi, deployer);
@@ -1092,10 +1094,10 @@ main()
   });
 ```
 
-The run the integration example:
+Then run the integration example:
 
 ```bash
-node integrationExample.js
+npx hardhat run scripts/integrationExample.js --network sei
 ```
 
 </Tab>

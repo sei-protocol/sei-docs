@@ -66,10 +66,15 @@ library P256 {
         returns (bool)
     {
         bytes memory input = abi.encode(digest, signature.r, signature.s, publicKey.x, publicKey.y);
-        bytes memory output = P256VERIFY_CONTRACT.verify(input);
-        bool success = output.length == 32 && output[31] == 0x01;
+        // On invalid signatures the precompile returns no data, which would
+        // make a high-level interface call revert when decoding the `bytes`
+        // return value. Use a low-level staticcall and treat empty return
+        // data as "invalid signature" instead.
+        (bool success, bytes memory output) = P256VERIFY_PRECOMPILE_ADDRESS.staticcall(
+            abi.encodeWithSelector(IP256VERIFY.verify.selector, input)
+        );
 
-        return success;
+        return success && output.length > 0;
     }
 }
 ```
@@ -106,7 +111,7 @@ For more control, you can call the precompile directly:
 pragma solidity ^0.8.0;
 
 interface IP256Verify {
-    function verify(bytes calldata input) external view returns (bytes32);
+    function verify(bytes calldata input) external view returns (bytes memory response);
 }
 
 contract P256Verifier {
@@ -127,8 +132,12 @@ contract P256Verifier {
             publicKeyY
         );
 
-        bytes32 result = P256_PRECOMPILE.verify(input);
-        return result != bytes32(0);
+        // Success returns a non-empty (ABI-encoded 32-byte) value; invalid
+        // signatures return no data, which would revert a high-level call.
+        (bool ok, bytes memory output) = address(P256_PRECOMPILE).staticcall(
+            abi.encodeWithSelector(IP256Verify.verify.selector, input)
+        );
+        return ok && output.length > 0;
     }
 }
 ```
@@ -198,8 +207,10 @@ contract WebAuthnAuth {
             userKey.y
         );
 
-        bytes32 result = P256_PRECOMPILE.verify(input);
-        return result != bytes32(0);
+        (bool ok, bytes memory output) = address(P256_PRECOMPILE).staticcall(
+            abi.encodeWithSelector(IP256Verify.verify.selector, input)
+        );
+        return ok && output.length > 0;
     }
 }
 ```
@@ -208,6 +219,8 @@ contract WebAuthnAuth {
 
 ```solidity
 contract SecureEnclaveAuth {
+    IP256Verify constant P256_PRECOMPILE = IP256Verify(0x0000000000000000000000000000000000001011);
+
     event SecureOperation(address indexed user, bytes32 indexed operationHash);
 
     function executeSecureOperation(
@@ -233,8 +246,10 @@ contract SecureEnclaveAuth {
         bytes32 y
     ) internal view returns (bool) {
         bytes memory input = abi.encodePacked(hash, r, s, x, y);
-        bytes32 result = P256_PRECOMPILE.verify(input);
-        return result != bytes32(0);
+        (bool ok, bytes memory output) = address(P256_PRECOMPILE).staticcall(
+            abi.encodeWithSelector(IP256Verify.verify.selector, input)
+        );
+        return ok && output.length > 0;
     }
 }
 ```
@@ -275,8 +290,10 @@ contract HardwareMultiSig {
                 publicKeys[i].y
             );
 
-            bytes32 result = P256_PRECOMPILE.verify(input);
-            if (result != bytes32(0)) {
+            (bool ok, bytes memory output) = address(P256_PRECOMPILE).staticcall(
+                abi.encodeWithSelector(IP256Verify.verify.selector, input)
+            );
+            if (ok && output.length > 0) {
                 validSignatures++;
             }
         }
@@ -309,9 +326,9 @@ P256 signatures can be malleable. If your application requires unique signatures
 
 ```solidity
 function isLowS(bytes32 s) internal pure returns (bool) {
-    // Check if s is in the lower half of the curve order
-    // This prevents signature malleability
-    return uint256(s) <= 0x7FFFFFFF80000000FFFFFFFFFFFFFFFF;
+    // Check if s is in the lower half of the curve order (n / 2, where n is
+    // the P-256 group order). This prevents signature malleability.
+    return uint256(s) <= 0x7FFFFFFF800000007FFFFFFFFFFFFFFFDE737D56D38BCF4279DCE5617E3192A8;
 }
 ```
 
@@ -320,30 +337,41 @@ function isLowS(bytes32 s) internal pure returns (bool) {
 ### Preparing Input Data
 
 ```javascript
-// Example: Preparing P256 verification input
+// Example: Preparing P256 verification input (ethers v6)
 function prepareP256Input(messageHash, signature, publicKey) {
   // Ensure all components are 32 bytes
-  const hash = ethers.utils.hexZeroPad(messageHash, 32);
-  const r = ethers.utils.hexZeroPad(signature.r, 32);
-  const s = ethers.utils.hexZeroPad(signature.s, 32);
-  const x = ethers.utils.hexZeroPad(publicKey.x, 32);
-  const y = ethers.utils.hexZeroPad(publicKey.y, 32);
+  const hash = ethers.zeroPadValue(messageHash, 32);
+  const r = ethers.zeroPadValue(signature.r, 32);
+  const s = ethers.zeroPadValue(signature.s, 32);
+  const x = ethers.zeroPadValue(publicKey.x, 32);
+  const y = ethers.zeroPadValue(publicKey.y, 32);
 
   // Concatenate all components
-  return ethers.utils.concat([hash, r, s, x, y]);
+  return ethers.concat([hash, r, s, x, y]);
 }
 
 // Usage with ethers.js
-async function verifyP256Signature(contract, messageHash, signature, publicKey) {
+const P256_VERIFY_ADDRESS = '0x0000000000000000000000000000000000001011';
+const P256_VERIFY_ABI = ['function verify(bytes input) view returns (bytes response)'];
+
+async function verifyP256Signature(provider, messageHash, signature, publicKey) {
+  const precompile = new ethers.Contract(P256_VERIFY_ADDRESS, P256_VERIFY_ABI, provider);
   const input = prepareP256Input(messageHash, signature, publicKey);
-  const result = await contract.P256_PRECOMPILE.verify(input);
-  return result !== '0x0000000000000000000000000000000000000000000000000000000000000000';
+  try {
+    const result = await precompile.verify(input);
+    // Success returns 32 bytes ending in 0x01
+    return result === '0x0000000000000000000000000000000000000000000000000000000000000001';
+  } catch (err) {
+    // Invalid signatures return no data, which ethers cannot decode as `bytes`
+    // (BAD_DATA) — treat that as a failed verification.
+    return false;
+  }
 }
 ```
 
 ## Error Handling
 
-The P256 precompile returns zero on failure. Common failure cases include:
+The P256 precompile returns no data on failure. Because `verify` is declared as returning `bytes`, a high-level Solidity interface call reverts when it tries to decode that empty return data — always use a low-level `staticcall` (as in the examples above) so invalid signatures resolve to `false` instead of reverting. Common failure cases include:
 
 1. **Invalid Input Length**: Input must be exactly 160 bytes
 2. **Invalid Public Key**: Point not on the P256 curve
@@ -372,8 +400,11 @@ function safeVerifyP256(
         messageHash, r, s, publicKeyX, publicKeyY
     );
 
-    bytes32 result = P256_PRECOMPILE.verify(input);
-    return (result != bytes32(0), result == bytes32(0) ? "Verification failed" : "");
+    (bool ok, bytes memory output) = address(P256_PRECOMPILE).staticcall(
+        abi.encodeWithSelector(IP256Verify.verify.selector, input)
+    );
+    bool verified = ok && output.length > 0;
+    return (verified, verified ? "" : "Verification failed");
 }
 ```
 
@@ -395,9 +426,11 @@ contract P256Test {
         bytes32 y = 0x...; // Valid public key y
 
         bytes memory input = abi.encodePacked(messageHash, r, s, x, y);
-        bytes32 result = P256_PRECOMPILE.verify(input);
+        (bool ok, bytes memory output) = address(P256_PRECOMPILE).staticcall(
+            abi.encodeWithSelector(IP256Verify.verify.selector, input)
+        );
 
-        assert(result != bytes32(0));
+        assert(ok && output.length > 0);
     }
 }
 ```

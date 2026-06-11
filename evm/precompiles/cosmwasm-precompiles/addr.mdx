@@ -102,11 +102,11 @@ Before getting started, ensure you have:
 Install the required packages for interacting with Sei precompiles:
 
 ```bash
-# Intitate a hardhat project
-npx hardhat init
+# Initiate a Hardhat 3 project (choose "Hardhat 3" and the Mocha + Ethers.js TypeScript setup)
+npx hardhat --init
 
 # Install ethers.js for smart contract interactions
-npm install ethers dotenv
+npm install ethers
 
 # Install Sei EVM bindings for precompile addresses and ABIs
 npm install @sei-js/precompiles@2.1.2
@@ -114,30 +114,30 @@ npm install @sei-js/precompiles@2.1.2
 
 #### Setup Hardhat Environment
 
-Create a `hardhat.config.js` file with the following content:
+Create a `hardhat.config.ts` file with the following content:
 
-```javascript
-require('@nomicfoundation/hardhat-toolbox');
-require('dotenv').config();
+```typescript
+import { defineConfig, configVariable } from 'hardhat/config';
+import hardhatToolboxMochaEthers from '@nomicfoundation/hardhat-toolbox-mocha-ethers';
 
-/** @type import('hardhat/config').HardhatUserConfig */
-module.exports = {
+export default defineConfig({
   solidity: '0.8.28',
   networks: {
     sei: {
-      url: 'https://evm-rpc.sei-apis.com',
+      type: 'http',
       chainId: 1329,
-      accounts: [process.env.PRIVATE_KEY]
+      url: 'https://evm-rpc.sei-apis.com',
+      accounts: [configVariable('PRIVATE_KEY')]
     }
-  }
-};
+  },
+  plugins: [hardhatToolboxMochaEthers]
+});
 ```
 
-Create a `.env` file in the root directory with your private key and RPC URL:
+Store your private key in Hardhat's encrypted keystore (no plaintext `.env` file needed):
 
-```plaintext
-PRIVATE_KEY=your_private_key_here
-RPC_URL=https://evm-rpc.sei-apis.com
+```bash
+npx hardhat keystore set PRIVATE_KEY
 ```
 
 #### Import Precompile Components
@@ -262,9 +262,9 @@ try {
   const signature = await signer.signMessage(message);
   const sig = ethers.Signature.from(signature);
 
-  // Prepare the prefixed message (signMessage already applies this prefix)
-  const messageBytes = new TextEncoder().encode(message);
-  const customMessage = `\x19Ethereum Signed Message:\n${message}`;
+  // Reconstruct the EIP-191 prefixed message that signMessage() actually signed:
+  // "\x19Ethereum Signed Message:\n" + message length + message
+  const customMessage = `\x19Ethereum Signed Message:\n${message.length}${message}`;
 
   // Convert signature components to strings
   const v = (sig.v - 27).toString();
@@ -611,14 +611,14 @@ contract CrossChainAddressManager {
 Deploy the contract:
 
 ```javascript
-const { ethers } = require('hardhat');
+import { network } from 'hardhat';
 
-const dotenv = require('dotenv');
-dotenv.config();
+// Hardhat 3 exposes ethers through a network connection rather than a global import
+const { ethers } = await network.getOrCreate();
 
 async function main() {
-  const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
-  const deployer = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
+  // The signer comes from the network config (encrypted keystore)
+  const [deployer] = await ethers.getSigners();
   console.log('Deploying contracts with the account:', deployer.address);
 
   const balance = await deployer.provider.getBalance(deployer.address);
@@ -647,13 +647,16 @@ npx hardhat run scripts/deploy.js --network sei
 ```
 
 ```javascript
-const { ethers } = require('hardhat');
-const addressManagerAbi = require('./artifacts/contracts/CrossChainAddressManager.sol/CrossChainAddressManager.json');
+import { network } from 'hardhat';
+import addressManagerAbi from './artifacts/contracts/CrossChainAddressManager.sol/CrossChainAddressManager.json' with { type: 'json' };
+
+// Hardhat 3 exposes ethers through a network connection rather than a global import
+const { ethers } = await network.getOrCreate();
 
 async function main() {
-  const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
-  const deployer = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
-  console.log('Deploying contracts with the account:', deployer.address);
+  // The signer comes from the network config (encrypted keystore)
+  const [deployer] = await ethers.getSigners();
+  console.log('Interacting with the account:', deployer.address);
 
   const balance = await deployer.provider.getBalance(deployer.address);
   console.log('Account balance:', ethers.formatEther(balance));

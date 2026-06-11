@@ -128,6 +128,7 @@ import {
   ConnectButton,
   TransactionButton,
   useActiveAccount,
+  useReadContract,
 } from "thirdweb/react";
 import { inAppWallet } from "thirdweb/wallets";
 import { client } from "./client";
@@ -196,30 +197,14 @@ async function handleStore(account: any, value: string) {
   }
 }
 
-// Retrieve value function
-async function handleRetrieve(account: any) {
-  if (!account) return;
+function App() {
+  const account = useActiveAccount();
 
-  const transaction = prepareContractCall({
+  // Read the stored value (free RPC call — no transaction needed)
+  const { data: storedValue, refetch: refetchStoredValue } = useReadContract({
     contract: storageContract,
     method: "function retrieve() view returns (uint256)",
   });
-
-  try {
-    const txResult = await sendAndConfirmTransaction({
-      transaction,
-      account,
-    });
-    console.log("Retrieved value:", txResult);
-    return txResult.transactionHash;
-  } catch (error) {
-    console.error("Retrieve failed:", error);
-    alert("Failed to retrieve value. Check console.");
-  }
-}
-
-function App() {
-  const account = useActiveAccount();
 
   return (
     <div className="min-h-screen bg-gray-100 py-8">
@@ -295,11 +280,15 @@ function App() {
 
               <div>
                 <h4 className="font-medium mb-2">Retrieve Stored Number</h4>
+                <p className="text-gray-600 mb-2">
+                  Stored value:{" "}
+                  {storedValue !== undefined ? storedValue.toString() : "—"}
+                </p>
                 <button
-                  onClick={() => handleRetrieve(account)}
+                  onClick={() => refetchStoredValue()}
                   className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600"
                 >
-                  Retrieve Number
+                  Refresh Number
                 </button>
               </div>
             </div>
