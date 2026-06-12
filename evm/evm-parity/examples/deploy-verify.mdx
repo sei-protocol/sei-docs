@@ -3,8 +3,6 @@ title: 'Deploy and Verify'
 description: 'Deploying and verifying smart contracts on Sei with viem, ethers, Foundry, and Hardhat'
 ---
 
-# Deploy and Verify
-
 Sei is EVM-compatible — standard deployment tooling works without modification. This page covers deploying a contract and verifying its source on the Sei block explorer.
 
 For a deeper look at verification options (Remix, Sourcify UI, batch verification), see the [Verify Contracts](/evm/evm-verify-contracts) page.
@@ -68,10 +66,11 @@ forge create src/MyContract.sol:MyContract \
 
 ## Deploying with Hardhat
 
-Add Sei networks to your `hardhat.config.ts` (Hardhat 3):
+Add Sei networks to your `hardhat.config.ts` (Hardhat 3). Keep the toolbox in the `plugins` array — it ships with projects created by `npx hardhat --init` and provides Hardhat Ignition for deployments:
 
 ```ts
 import { defineConfig, configVariable } from 'hardhat/config';
+import hardhatToolboxMochaEthers from '@nomicfoundation/hardhat-toolbox-mocha-ethers';
 
 export default defineConfig({
   networks: {
@@ -88,6 +87,8 @@ export default defineConfig({
       accounts: [configVariable('SEI_PRIVATE_KEY')],
     },
   },
+
+  plugins: [hardhatToolboxMochaEthers],
 });
 ```
 
@@ -97,7 +98,18 @@ Store your private key in Hardhat's encrypted keystore so it never lives in a pl
 npx hardhat keystore set SEI_PRIVATE_KEY
 ```
 
-Then deploy with Hardhat Ignition:
+Describe the deployment in a minimal Ignition module at `ignition/modules/MyContract.ts`:
+
+```ts
+import { buildModule } from '@nomicfoundation/hardhat-ignition/modules';
+
+export default buildModule('MyContractModule', (m) => {
+  const myContract = m.contract('MyContract', [/* constructor args */]);
+  return { myContract };
+});
+```
+
+Then deploy it:
 
 ```bash
 npx hardhat ignition deploy ignition/modules/MyContract.ts --network sei
@@ -134,13 +146,13 @@ For testnet, use `--chain-id 1328` and `--rpc-url https://evm-rpc-testnet.sei-ap
 
 ### Hardhat
 
-Install the verify plugin:
+If you use a Hardhat toolbox (as in the config above), `hardhat-verify` is already bundled and active — skip ahead to the verify command. Without a toolbox, install the plugin:
 
 ```bash
 npm install --save-dev @nomicfoundation/hardhat-verify
 ```
 
-Add it to the `plugins` array in `hardhat.config.ts` — Sourcify verification is enabled by default in `hardhat-verify` and needs no API key:
+Then add it to the `plugins` array in `hardhat.config.ts` — Sourcify verification is enabled by default in `hardhat-verify` and needs no API key:
 
 ```ts
 import { defineConfig, configVariable } from 'hardhat/config';
@@ -178,7 +190,7 @@ If your contract has constructor arguments:
 npx hardhat verify sourcify --network sei 0xDeployedContractAddress "arg1" "arg2"
 ```
 
-Running `npx hardhat verify` without the `sourcify` subtask attempts verification on all enabled providers (Etherscan, Blockscout, and Sourcify) simultaneously.
+Running `npx hardhat verify` without the `sourcify` subtask attempts verification on all enabled providers (Etherscan, Blockscout, and Sourcify) in a single run.
 
 ## Network Reference
 
