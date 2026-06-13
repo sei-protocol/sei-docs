@@ -346,7 +346,7 @@ While Sei handles parallelization automatically, you can still optimize your con
 # https://nodejs.org/
 
 # Install Hardhat (recommended for Solana devs transitioning)
-npm install --save-dev hardhat @nomicfoundation/hardhat-toolbox
+npm install --save-dev hardhat @nomicfoundation/hardhat-toolbox-mocha-ethers
 
 # Or install Foundry (Rust-based, may feel more familiar)
 curl -L https://foundry.paradigm.xyz | bash
@@ -359,29 +359,33 @@ foundryup
   <Tab title="Hardhat">
 
 ```ts title="hardhat.config.ts"
-import { HardhatUserConfig } from 'hardhat/config';
-import '@nomicfoundation/hardhat-toolbox';
+import { defineConfig, configVariable } from 'hardhat/config';
+import hardhatToolboxMochaEthers from '@nomicfoundation/hardhat-toolbox-mocha-ethers';
 
-const config: HardhatUserConfig = {
+export default defineConfig({
   solidity: '0.8.22',
   networks: {
     seiMainnet: {
-      url: 'https://evm-rpc.sei-apis.com',
+      type: 'http',
       chainId: 1329,
-      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : []
+      url: 'https://evm-rpc.sei-apis.com',
+      accounts: [configVariable('SEI_PRIVATE_KEY')]
     },
     seiTestnet: {
-      url: 'https://evm-rpc-testnet.sei-apis.com',
+      type: 'http',
       chainId: 1328,
-      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : []
+      url: 'https://evm-rpc-testnet.sei-apis.com',
+      accounts: [configVariable('SEI_PRIVATE_KEY')]
     }
   },
-  sourcify: {
-    enabled: true
-  }
-};
+  plugins: [hardhatToolboxMochaEthers]
+});
+```
 
-export default config;
+Store your deployer key in Hardhat's encrypted keystore (no plaintext `.env` file needed):
+
+```bash
+npx hardhat keystore set SEI_PRIVATE_KEY
 ```
 
   </Tab>
@@ -692,7 +696,10 @@ describe('counter', () => {
 
 ```ts
 import { expect } from 'chai';
-import { ethers } from 'hardhat';
+import { network } from 'hardhat';
+
+// Hardhat 3 exposes ethers through a network connection rather than a global import
+const { ethers } = await network.create();
 
 describe('Counter', function () {
   it('Initializes', async function () {

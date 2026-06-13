@@ -125,11 +125,7 @@ You'll be prompted to paste the private key of the account you deploy from; Hard
 
 ## Using OpenZeppelin Contracts
 
-OpenZeppelin provides a library of secure, tested smart contract components that you can use to build your applications. First, let's install the OpenZeppelin Contracts package:
-
-```bash
-npm install @openzeppelin/contracts
-```
+OpenZeppelin provides a library of secure, tested smart contract components that you can use to build your applications. The `@openzeppelin/contracts` package was already installed during setup, so you're ready to import its contracts directly.
 
 ## Creating and Deploying an ERC20 Token, ERC721 NFT or an Upgradeable UUPS Token
 
@@ -303,9 +299,12 @@ console.log('SeiNFT deployed to:', await seiNFT.getAddress());
 
 // Mint an example NFT
 console.log('Minting an example NFT...');
-const mintTx = await seiNFT.safeMint(deployer.address, '1.json');
-await mintTx.wait();
-console.log('NFT minted with ID: 1');
+const mintTx = await seiNFT.safeMint(deployer.address, '0.json');
+const receipt = await mintTx.wait();
+// _nextTokenId starts at 0, so the first minted token has ID 0.
+// Read the actual ID from the Transfer event:
+const transferEvent = receipt.logs.map((log) => seiNFT.interface.parseLog(log)).find((parsed) => parsed?.name === 'Transfer');
+console.log('NFT minted with ID:', transferEvent?.args.tokenId.toString() ?? 'unknown (no Transfer event in receipt)');
 ```
 
 Deploy the NFT contract to the Sei testnet:
@@ -582,7 +581,7 @@ npx hardhat test
 Once you've tested your contracts, you can deploy them to the Sei testnet or mainnet. To deploy, you'll need:
 
 1. SEI tokens in your wallet for gas fees
-2. Your private key in the `.env` file
+2. Your private key stored in the encrypted keystore (`npx hardhat keystore set SEI_PRIVATE_KEY`) — or exported as a `SEI_PRIVATE_KEY` environment variable in CI
 
 Deploy to the testnet:
 
