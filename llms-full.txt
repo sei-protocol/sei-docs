@@ -130,6 +130,7 @@ Native USDC: mainnet 0xe15fC38F6D8c56aF07bbCBe3BAf5708A2Bf42392, testnet 0x4fCF1
 - [Deploy and Verify](https://docs.sei.io/evm/evm-parity/examples/deploy-verify): Deploying and verifying smart contracts on Sei with viem, ethers, Foundry, and Hardhat
 - [Transaction Lifecycle](https://docs.sei.io/evm/evm-parity/examples/transaction-lifecycle): Send transactions, wait for receipts, and decode event logs on Sei
 - [Error Handling](https://docs.sei.io/evm/evm-parity/examples/error-handling): Decode contract reverts, handle wallet rejections, and recover from RPC errors in Sei apps
+- [Envio](https://docs.sei.io/evm/indexer-providers/envio): Index Sei smart contract data using Envio, a modular hyper-performant data indexing solution.
 - [Goldsky](https://docs.sei.io/evm/indexer-providers/goldsky): Implement Goldsky's Subgraphs and Mirror products to efficiently index, query, and stream Sei blockchain data for your dApps with customizable data models and real-time pipelines.
 - [The Graph](https://docs.sei.io/evm/indexer-providers/the-graph): Build and deploy subgraphs on The Graph to efficiently index and query data from Sei smart contracts, with step-by-step instructions from initialization to production deployment.
 - [GoldRush API Integration](https://docs.sei.io/evm/indexer-providers/goldrush): Learn how to integrate GoldRush indexing services with Sei network for blockchain data analysis and application development.
@@ -656,7 +657,13 @@ completing the transaction.
 
 ### Fee
 
-`Fee = Gas Price * Gas Limit`.
+`Fee = Gas Price * Gas Used`.
+
+The gas limit caps the maximum possible charge at `Gas Price * Gas Limit`. Note
+that on Sei, excess gas (the gas limit beyond the actual gas used) may not be
+refunded in full or in part, so avoid setting gas limits far above what a
+transaction actually needs. See
+[Sei EVM vs Ethereum](/evm/differences-with-ethereum) for details.
 
 To help developers and users estimate fees on Sei, please reference
 [Sei Gas](https://seigas.com) and the associated
@@ -862,8 +869,12 @@ This method involves signing a predefined message to prove ownership of the
 account.
 
 ```ts theme={"dark"}
+import { createWalletClient, http, parseSignature, toHex } from 'viem';
 import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
-import { parseSignature, toHex } from 'viem';
+import { seiTestnet } from 'viem/chains';
+import { ADDRESS_PRECOMPILE_ABI, ADDRESS_PRECOMPILE_ADDRESS } from '@sei-js/evm';
+
+const client = createWalletClient({ chain: seiTestnet, transport: http() });
 
 const associate = async () => {
 	const account = privateKeyToAccount('<replace_with_private_key>');
@@ -873,13 +884,14 @@ const associate = async () => {
 	const message = 'associate';
 	const signature = await newAccount.signMessage({ message });
 	const parsedSignature = parseSignature(signature);
+	const customMessage = `\x19Ethereum Signed Message:\n${message.length}${message}`;
 
 	const response = await client.writeContract({
 		account,
 		address: ADDRESS_PRECOMPILE_ADDRESS,
 		abi: ADDRESS_PRECOMPILE_ABI,
 		functionName: 'associate',
-		args: [toHex(Number(parsedSignature.v) - 27), parsedSignature.r, parsedSignature.s, message],
+		args: [toHex(Number(parsedSignature.v) - 27), parsedSignature.r, parsedSignature.s, customMessage],
 		gasPrice: BigInt(100_000_000_000)
 	});
 	console.log(response);
@@ -896,7 +908,12 @@ This method compresses the public key and sends it for association.
 
 ```ts theme={"dark"}
 import secp256k1 from 'secp256k1';
+import { createWalletClient, http } from 'viem';
 import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
+import { seiTestnet } from 'viem/chains';
+import { ADDRESS_PRECOMPILE_ABI, ADDRESS_PRECOMPILE_ADDRESS } from '@sei-js/evm';
+
+const client = createWalletClient({ chain: seiTestnet, transport: http() });
 
 const associateViaPubkey = async () => {
 	const account = privateKeyToAccount('<replace_with_private_key>');
@@ -1378,17 +1395,17 @@ If you hold any of the following IBC assets on Sei, take action before [Proposal
 
 \[We’ll update this table as more resources are made available]
 
-| Asset                            | Token contract                                                                                                                                                                                         | Action(s)                               | Possible route(s)                                                                                                                                  | Support                                                                                                                                                                                            |
-| :------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **USDC.n (USDC via Noble)**      | [seiscan](https://seiscan.io/address/0x3894085ef7ff0f0aedf52e2a2704928d1ec074f1) [mintscan](https://www.mintscan.io/sei/assets/ibc%2FCA6FBFAF399474A06263E10D0CE5AEBBE15189D6D4B2DD9ADE61007E68EB9DB0) | Swap to native USDC or migrate via CCTP | Sapyhre, [Symphony](https://symph.ag/), or [Stargate](https://stargate.finance/?srcChain=sei\&srcToken=0x3894085Ef7Ff0f0aeDf52E2A2704928d1Ec074F1) | [Sei blog](https://blog.sei.io/announcements/holders-of-usdcn-need-to-swap-or-migrate/) [Sei Tech Chat](https://t.me/+KZdhZ1eE-G01NmZk)  [Discord](https://discord.com/invite/sei?ref=blog.sei.io) |
-| **USDT.kava (USDT via Kava)**    | [seiscan](https://seiscan.io/token/0xb75d0b03c06a926e488e2659df1a861f860bd3d1) [mintscan](https://www.mintscan.io/sei/assets/ibc%2F6C00E4AA0CC7618370F81F7378638AE6C48EFF8C9203CE1C2357012B440EBDB7)   | Swap via Symphony or bridge out to Kava | [Symphony](https://symph.ag/), [Stargate](https://stargate.finance/?srcChain=sei\&srcToken=0xB75D0B03c06A926e488e2659DF1A861F860bD3d1)             | [Sei Tech Chat](https://t.me/+KZdhZ1eE-G01NmZk)  [Discord](https://discord.com/invite/sei)                                                                                                         |
-| **USDCso (Wormhole, Solana)**    | [mintscan](https://www.mintscan.io/sei/assets/factory%2Fsei189adguawugk3e55zn63z8r9ll29xrjwca636ra7v7gxuzn98sxyqwzt47l%2F9fELvUhFo6yWL34ZaLgPbCPzdk9MD1tAzMycgH45qShH)                                 | Bridge out to Solana via Wormhole       | [Portal Bridge (legacy)](https://legacy.portalbridge.com/#/transfer)                                                                               | [Sei Tech Chat](https://t.me/+KZdhZ1eE-G01NmZk) [Discord](https://discord.com/invite/sei)                                                                                                          |
-| **Wormhole-bridged WETH**        | [mintscan](https://www.mintscan.io/sei/assets/factory%2Fsei189adguawugk3e55zn63z8r9ll29xrjwca636ra7v7gxuzn98sxyqwzt47l%2F4tLQqCLaoKKfNFuPjA9o39YbKUwhR1F8N29Tz3hEbfP2)                                 | Bridge out to Ethereum via Wormhole     | [Portal Bridge (legacy)](https://legacy.portalbridge.com/#/transfer)                                                                               | [Sei Tech Chat](https://t.me/+KZdhZ1eE-G01NmZk)  [Discord](https://discord.com/invite/sei)                                                                                                         |
-| **USDCet (Wormhole, Ethereum)**  | [mintscan](https://www.mintscan.io/sei/assets/factory%2Fsei189adguawugk3e55zn63z8r9ll29xrjwca636ra7v7gxuzn98sxyqwzt47l%2FHq4tuDzhRBnxw3tFA5n6M52NVMVcC19XggbyDiJKCD6H)                                 | Bridge out to Ethereum via Wormhole     | [Portal Bridge (legacy)](https://legacy.portalbridge.com/#/transfer)                                                                               | [Sei Tech Chat](https://t.me/+KZdhZ1eE-G01NmZk)  [Discord](https://discord.com/invite/sei)                                                                                                         |
-| **USDCop (Wormhole, Optimism)**  | [mintscan](https://www.mintscan.io/sei/assets/factory%2Fsei189adguawugk3e55zn63z8r9ll29xrjwca636ra7v7gxuzn98sxyqwzt47l%2F3VKKYtbQ9iq8f9CaZfgR6Cr3TUj6ypXPAn6kco6wjcAu)                                 | Bridge out to Optimism via Wormhole     | [Portal Bridge (legacy)](https://legacy.portalbridge.com/#/transfer)                                                                               | [Sei Tech Chat](https://t.me/+KZdhZ1eE-G01NmZk)  [Discord](https://discord.com/invite/sei)                                                                                                         |
-| **USDTbs (Wormhole, BSC Chain)** | [mintscan](https://www.mintscan.io/sei/assets/factory%2Fsei189adguawugk3e55zn63z8r9ll29xrjwca636ra7v7gxuzn98sxyqwzt47l%2F871jbn9unTavWsAe83f2Ma9GJWSv6BKsyWYLiQ6z3Pva)                                 | Bridge out to BSC Chain via Wormhole    | [Portal Bridge (legacy)](https://legacy.portalbridge.com/#/transfer)                                                                               | [Sei Tech Chat](https://t.me/+KZdhZ1eE-G01NmZk)  [Discord](https://discord.com/invite/sei)                                                                                                         |
-| **ATOM**                         | [mintscan](https://www.mintscan.io/sei/assets/ibc%2FC4CFF46FD6DE35CA4CF4CE031E643C8FDC9BA4B99AE598E9B0ED98FE3A2319F9)                                                                                  | Bridge out to Cosmos Hub                | Skip:Go                                                                                                                                            | [Sei Tech Chat](https://t.me/+KZdhZ1eE-G01NmZk) [Discord](https://discord.com/invite/sei)                                                                                                          |
-| **WBTC**                         | [mintscan](https://www.mintscan.io/sei/assets/factory%2Fsei189adguawugk3e55zn63z8r9ll29xrjwca636ra7v7gxuzn98sxyqwzt47l%2F7omXa4gryZ5NiBmLep7JsTtTtANCVKXwT9vbN91aS1br)                                 | Bridge out to origin chain              | Skip:Go                                                                                                                                            | [Sei Tech Chat](https://t.me/+KZdhZ1eE-G01NmZk)  [Discord](https://discord.com/invite/sei)                                                                                                         |
+| Asset                            | Token contract                                                                                                                                                                                         | Action(s)                               | Possible route(s)                                                                                                                                                                                                                                                                                  | Support                                                                                                                                                                                            |
+| :------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **USDC.n (USDC via Noble)**      | [seiscan](https://seiscan.io/address/0x3894085ef7ff0f0aedf52e2a2704928d1ec074f1) [mintscan](https://www.mintscan.io/sei/assets/ibc%2FCA6FBFAF399474A06263E10D0CE5AEBBE15189D6D4B2DD9ADE61007E68EB9DB0) | Swap to native USDC or migrate via CCTP | [Saphyre](https://saphyre.xyz/swap?inputCurrency=0x3894085Ef7Ff0f0aeDf52E2A2704928d1Ec074F1\&outputCurrency=0xe15fC38F6D8c56aF07bbCBe3BAf5708A2Bf42392), [Symphony](https://symph.ag/), or [Stargate](https://stargate.finance/?srcChain=sei\&srcToken=0x3894085Ef7Ff0f0aeDf52E2A2704928d1Ec074F1) | [Sei blog](https://blog.sei.io/announcements/holders-of-usdcn-need-to-swap-or-migrate/) [Sei Tech Chat](https://t.me/+KZdhZ1eE-G01NmZk)  [Discord](https://discord.com/invite/sei?ref=blog.sei.io) |
+| **USDT.kava (USDT via Kava)**    | [seiscan](https://seiscan.io/token/0xb75d0b03c06a926e488e2659df1a861f860bd3d1) [mintscan](https://www.mintscan.io/sei/assets/ibc%2F6C00E4AA0CC7618370F81F7378638AE6C48EFF8C9203CE1C2357012B440EBDB7)   | Swap via Symphony or bridge out to Kava | [Symphony](https://symph.ag/), [Stargate](https://stargate.finance/?srcChain=sei\&srcToken=0xB75D0B03c06A926e488e2659DF1A861F860bD3d1)                                                                                                                                                             | [Sei Tech Chat](https://t.me/+KZdhZ1eE-G01NmZk)  [Discord](https://discord.com/invite/sei)                                                                                                         |
+| **USDCso (Wormhole, Solana)**    | [mintscan](https://www.mintscan.io/sei/assets/factory%2Fsei189adguawugk3e55zn63z8r9ll29xrjwca636ra7v7gxuzn98sxyqwzt47l%2F9fELvUhFo6yWL34ZaLgPbCPzdk9MD1tAzMycgH45qShH)                                 | Bridge out to Solana via Wormhole       | [Portal Bridge (legacy)](https://legacy.portalbridge.com/#/transfer)                                                                                                                                                                                                                               | [Sei Tech Chat](https://t.me/+KZdhZ1eE-G01NmZk) [Discord](https://discord.com/invite/sei)                                                                                                          |
+| **Wormhole-bridged WETH**        | [mintscan](https://www.mintscan.io/sei/assets/factory%2Fsei189adguawugk3e55zn63z8r9ll29xrjwca636ra7v7gxuzn98sxyqwzt47l%2F4tLQqCLaoKKfNFuPjA9o39YbKUwhR1F8N29Tz3hEbfP2)                                 | Bridge out to Ethereum via Wormhole     | [Portal Bridge (legacy)](https://legacy.portalbridge.com/#/transfer)                                                                                                                                                                                                                               | [Sei Tech Chat](https://t.me/+KZdhZ1eE-G01NmZk)  [Discord](https://discord.com/invite/sei)                                                                                                         |
+| **USDCet (Wormhole, Ethereum)**  | [mintscan](https://www.mintscan.io/sei/assets/factory%2Fsei189adguawugk3e55zn63z8r9ll29xrjwca636ra7v7gxuzn98sxyqwzt47l%2FHq4tuDzhRBnxw3tFA5n6M52NVMVcC19XggbyDiJKCD6H)                                 | Bridge out to Ethereum via Wormhole     | [Portal Bridge (legacy)](https://legacy.portalbridge.com/#/transfer)                                                                                                                                                                                                                               | [Sei Tech Chat](https://t.me/+KZdhZ1eE-G01NmZk)  [Discord](https://discord.com/invite/sei)                                                                                                         |
+| **USDCop (Wormhole, Optimism)**  | [mintscan](https://www.mintscan.io/sei/assets/factory%2Fsei189adguawugk3e55zn63z8r9ll29xrjwca636ra7v7gxuzn98sxyqwzt47l%2F3VKKYtbQ9iq8f9CaZfgR6Cr3TUj6ypXPAn6kco6wjcAu)                                 | Bridge out to Optimism via Wormhole     | [Portal Bridge (legacy)](https://legacy.portalbridge.com/#/transfer)                                                                                                                                                                                                                               | [Sei Tech Chat](https://t.me/+KZdhZ1eE-G01NmZk)  [Discord](https://discord.com/invite/sei)                                                                                                         |
+| **USDTbs (Wormhole, BSC Chain)** | [mintscan](https://www.mintscan.io/sei/assets/factory%2Fsei189adguawugk3e55zn63z8r9ll29xrjwca636ra7v7gxuzn98sxyqwzt47l%2F871jbn9unTavWsAe83f2Ma9GJWSv6BKsyWYLiQ6z3Pva)                                 | Bridge out to BSC Chain via Wormhole    | [Portal Bridge (legacy)](https://legacy.portalbridge.com/#/transfer)                                                                                                                                                                                                                               | [Sei Tech Chat](https://t.me/+KZdhZ1eE-G01NmZk)  [Discord](https://discord.com/invite/sei)                                                                                                         |
+| **ATOM**                         | [mintscan](https://www.mintscan.io/sei/assets/ibc%2FC4CFF46FD6DE35CA4CF4CE031E643C8FDC9BA4B99AE598E9B0ED98FE3A2319F9)                                                                                  | Bridge out to Cosmos Hub                | Skip:Go                                                                                                                                                                                                                                                                                            | [Sei Tech Chat](https://t.me/+KZdhZ1eE-G01NmZk) [Discord](https://discord.com/invite/sei)                                                                                                          |
+| **WBTC**                         | [mintscan](https://www.mintscan.io/sei/assets/factory%2Fsei189adguawugk3e55zn63z8r9ll29xrjwca636ra7v7gxuzn98sxyqwzt47l%2F7omXa4gryZ5NiBmLep7JsTtTtANCVKXwT9vbN91aS1br)                                 | Bridge out to origin chain              | Skip:Go                                                                                                                                                                                                                                                                                            | [Sei Tech Chat](https://t.me/+KZdhZ1eE-G01NmZk)  [Discord](https://discord.com/invite/sei)                                                                                                         |
 
 The mention of third-party platforms does not constitute an endorsement. Users should do their own research before using any third-party service.
 
@@ -1425,6 +1442,62 @@ Native USDC and Circle's CCTP V2 are now supported on Sei. USDC from Noble (USDC
 
 * Wind down and withdraw your positions **before** migrating to native USDC. Failure to do so before the SIP-03 upgrade may result in inability to access your supplied assets.
 
+## Migrating a hardware or mnemonic-only wallet
+
+If your wallet can export a raw private key, the simplest path is to import that key into an EVM wallet. A private key is independent of coin type, so it reproduces the same `0x...` and `sei1...` addresses in any wallet, and no funds need to move.
+
+If your wallet cannot export a private key, you can still migrate by moving your funds to a new EVM-native account, as described below.
+
+### When private-key export isn't an option
+
+A raw private key always works, but two common setups do not provide one:
+
+* **Mnemonic-only wallets.** Some wallets back up only a recovery phrase, not a raw private key. Sei's Cosmos (`sei1...`) accounts use coin type 118 (`m/44'/118'/0'/0/0`). Importing the same phrase into an EVM wallet such as MetaMask derives it on coin type 60 (`m/44'/60'/0'/0/0`), producing a different account with no access to the original funds. The underlying private key would import correctly if the wallet exposed it, but a mnemonic-only wallet does not.
+* **Hardware wallets (such as Ledger).** A Ledger does not export the private key or seed under any circumstances. It only allows switching between the Cosmos app (coin type 118) and the Ethereum app (coin type 60), which control separate accounts with different addresses. The Cosmos-app account cannot be used from an EVM wallet.
+
+For background, see [HD Paths and Coin Types](/learn/accounts#hd-paths-and-coin-types).
+
+### Migration steps
+
+This works because every account has exactly one EVM (`0x...`) address and one Cosmos (`sei1...`) address, both derived from the same key. Funds sent to the new account's `sei1...` address are therefore spendable from the EVM wallet that holds its `0x...` address.
+
+<Steps>
+  <Step title="Create a new account in an EVM wallet you control">
+    Use MetaMask, Compass, Rabby, or a Ledger running its Ethereum app. This produces a new `0x...` address.
+  </Step>
+
+  <Step title="Fund the new address with a small amount of SEI">
+    Roughly 0.1 SEI is sufficient. Association is an on-chain transaction, so the account requires SEI for gas. Fund it from an exchange withdrawal or from any EVM wallet that already holds SEI.
+  </Step>
+
+  <Step title="Associate the new account on the Sei Dashboard">
+    Connect the new EVM account to the [Sei Dashboard](https://dashboard.sei.io) and complete address association. This records the public key on-chain and links the `0x...` address to its `sei1...` counterpart. The dashboard then displays the linked `sei1...` address, which is the destination for the next step. See [Account Linking](/learn/accounts) for details on association.
+  </Step>
+
+  <Step title="Send a test transfer of 1 SEI">
+    From the original Cosmos wallet (Keplr, Leap, the Ledger Cosmos app, and so on), send 1 SEI to the `sei1...` address from step 3. This is a standard Cosmos-to-Cosmos transfer.
+  </Step>
+
+  <Step title="Confirm receipt">
+    Because the addresses are associated, the test amount should appear under the new account on the dashboard and as a spendable balance in the EVM wallet.
+  </Step>
+
+  <Step title="Transfer the remaining balance">
+    Once the test transfer is confirmed, send the rest of the funds the same way. The assets are then held by an account whose key you control from an EVM wallet.
+  </Step>
+</Steps>
+
+<Warning>
+  Send the 1 SEI test transfer and confirm receipt before moving the full balance. Verify that the destination matches the exact `sei1...` address shown after association in step 3.
+</Warning>
+
+### Notes and limitations
+
+* **Complete this before the SIP-03 upgrade.** After the Cosmos interface is deprecated, addresses can no longer be associated and `sei1...` transfers can no longer be broadcast. Steps 3 and 4 must be completed beforehand.
+* **This procedure moves liquid balances only.** Staked SEI must be unbonded first, and the unbonding period is 21 days. See the staking question in the [FAQ](#faq).
+* **Associate before sending.** Associating the new account before transferring ensures the funds arrive at the correct, immediately spendable address rather than a temporary holding address.
+* **Optional verification.** To confirm the paired `sei1...` address independently, call `getSeiAddr(0x...)` on the `addr` precompile. See [Query Linked Addresses](/learn/accounts#query-linked-addresses).
+
 ## FAQ
 
 ### I am a Keplr / Leap wallet user; do I need to do anything?
@@ -1435,11 +1508,15 @@ Yes. Use the Asset Transfer tool to ensure your assets are available via an EVM 
 
 No action needed. Compass ensures your assets are available via EVM. Continue connecting to Sei like any EVM chain.
 
+### My wallet only shows a recovery phrase, or I use a Ledger — how do I migrate?
+
+If you can export a raw private key, import it into an EVM wallet. This always works, because the key reproduces the same addresses in any wallet. If you cannot (a wallet that exports only a recovery phrase, or a Ledger that only switches between apps), create a new account in an EVM wallet you control, fund it with a small amount of SEI, associate it to reveal its paired `sei1...` address, and send your existing Cosmos funds to that address. Send a 1 SEI test transfer first. See [Migrating a hardware or mnemonic-only wallet](#migrating-a-hardware-or-mnemonic-only-wallet) for the full procedure.
+
 ### I stake SEI — do I need to do anything?
 
 It depends on whether your Cosmos (`sei1...`) and EVM (`0x...`) addresses are **associated (linked)**. Staking on Sei is handled by the Cosmos staking module. After SIP-03, Cosmos-native transaction interfaces will no longer be available — but the underlying staking state is preserved and accessible via EVM for associated addresses.
 
-**If your addresses are associated:** No action is needed. After the upgrade, your existing delegations, rewards, and unbonding state will be fully accessible via EVM. You can continue managing your stake through an EVM wallet using the [Staking Precompile](/evm/precompiles/staking), the [Sei Dashboard](https://dashboard.sei.io/stake), or the [Sei Dashboard](https://dashboard.sei.io/stake).
+**If your addresses are associated:** No action is needed. After the upgrade, your existing delegations, rewards, and unbonding state will be fully accessible via EVM. You can continue managing your stake through an EVM wallet using the [Staking Precompile](/evm/precompiles/staking) or the [Sei Dashboard](https://dashboard.sei.io/stake).
 
 **If your addresses are NOT associated:** You must act before the upgrade. After SIP-03, you will not be able to associate addresses or manage delegations through a Cosmos wallet.
 
@@ -1456,7 +1533,7 @@ To check whether your addresses are linked, see [Query Linked Addresses](/learn/
 
 ### I hold USDC.n (USDC via Noble) — what should I do?
 
-You must swap or migrate your USDC.n to native USDC before the SIP-03 upgrade (expected end of March 2026). After the upgrade, USDC.n may become inaccessible or lose its value on Sei. See the [USDC on Sei](#3-usdc-on-sei) section above for swap and migration options, or read the full announcement: [Holders of USDC.n Need to Swap or Migrate](https://blog.sei.io/announcements/holders-of-usdcn-need-to-swap-or-migrate/).
+You must swap or migrate your USDC.n to native USDC before the SIP-03 deprecation of Cosmos, CosmWasm and IBC related functionality, slated for **June 15, 2026**. After the upgrade, USDC.n may become inaccessible or lose its value on Sei. See the [USDC on Sei](#2-usdc-on-sei) section above for swap and migration options, or read the full announcement: [Holders of USDC.n Need to Swap or Migrate](https://blog.sei.io/announcements/holders-of-usdcn-need-to-swap-or-migrate/).
 
 ---
 
@@ -1584,7 +1661,7 @@ This diagram illustrates the conceptual overlap. Transaction preparation feeds i
 
 This highly optimized consensus flow translates directly into tangible benefits:
 
-* **Near-Instant Finality:** The \~400ms target block time means transactions achieve probabilistic finality almost immediately, confirmed within a single block. Deterministic finality typically follows within two blocks (\~800ms). This eliminates the long confirmation waits common on other chains.
+* **Near-Instant Finality:** Sei has instant, deterministic finality — a transaction is final as soon as its block is committed, within the \~400ms target block time. There is no probabilistic confirmation window or multi-block wait. This eliminates the long confirmation waits common on other chains.
 * **Responsive Applications:** The low latency transforms the user experience. Interactions feel instantaneous, bridging the gap between decentralized applications and traditional web services.
 * **Advanced Use Cases:** The speed enables applications previously impractical on-chain, such as high-frequency trading components, real-time price oracles critical for stable DeFi, and responsive on-chain games.
 * **Efficient Multi-Step Operations:** Complex DeFi workflows (e.g., approve-swap-stake) that involve multiple transactions can execute in sequence within roughly a second, boosting capital efficiency and simplifying user interactions.
@@ -2115,28 +2192,6 @@ SeiDB maintains complete compatibility with the Ethereum protocol specifications
 * Complete compatibility with JSON-RPC API endpoints
 
 These compatibility guarantees ensure existing smart contracts, development tools, and infrastructure components work without modification. The system undergoes extensive compatibility testing against the official Ethereum test suites to verify identical results compared to reference implementations.
-
-### Developer Tooling
-
-SeiDB includes analysis tools that provide insights into contract storage behavior:
-
-```javascript theme={"dark"}
-// Storage analysis integration
-async function analyzeContractStorage(contractAddress) {
-  const provider = new ethers.providers.JsonRpcProvider('https://evm-rpc.sei-apis.com');
-
-  const stats = await provider.send('sei_getStorageStats', [contractAddress, { blockCount: 1000 }]);
-
-  console.log('Access Hotspots:', stats.hotSlots);
-  console.log('Access Pattern Type:', stats.accessPattern);
-  console.log('Contention Points:', stats.contentionPoints);
-  console.log('Optimization Suggestions:', stats.optimizationSuggestions);
-
-  return stats;
-}
-```
-
-These tools integrate with standard development environments and provide actionable insights into storage usage patterns. The analysis examines actual on-chain behavior over specified time ranges and identifies patterns that might not be obvious from code inspection alone.
 
 ### Deployment Configurations
 
@@ -3539,8 +3594,17 @@ URL: https://docs.sei.io/learn/hardware-wallets
 # Hardware Wallets
 
 Signing transactions manually or using hardware wallets like Ledger ensures
-secure transaction approval. In order to sign Sei transactions you must have the
-Cosmos app installed on your wallet and interact with a Cosmos RPC endpoint.
+secure transaction approval. To sign Sei transactions, install the Ethereum app
+(or the dedicated Sei app) on your Ledger device and sign through an EVM wallet
+such as MetaMask.
+
+<Note>
+  The legacy flow that used the Cosmos app with a Cosmos RPC endpoint is
+  deprecated: per [SIP-03](/learn/sip-03-migration), Cosmos-native interfaces are
+  slated for deprecation on June 15, 2026. If you still hold funds on a Ledger
+  Cosmos-app (`sei1...`) account, see
+  [Migrating a hardware or mnemonic-only wallet](/learn/sip-03-migration#migrating-a-hardware-or-mnemonic-only-wallet).
+</Note>
 
 ## Using MetaMask with Ledger
 
@@ -3557,12 +3621,17 @@ To connect your Ledger device through MetaMask and sign transactions:
 4. **Sign Transactions**: Once connected, you can sign transactions directly
    through MetaMask using your Ledger device.
 
-**Installing the Cosmos App on Ledger**
+**Installing the Ethereum App on Ledger**
 
-Before you can use your Ledger device to sign transactions, ensure you have the
-Cosmos app installed. You can download it from the Ledger app store:
+Before you can use your Ledger device to sign transactions through MetaMask,
+ensure you have the Ethereum app installed. You can install it through Ledger
+Live:
 
-• [Ledger App Store - Cosmos App](https://www.ledger.com/coin/wallet/cosmos)
+• [Ledger App Store - Ethereum App](https://www.ledger.com/coin/wallet/ethereum)
+
+Alternatively, you can install the dedicated Sei app from the Ledger Live App
+Catalog — see [Ledger Setup](/learn/ledger-setup) for step-by-step
+instructions.
 
 ---
 
@@ -5380,28 +5449,29 @@ Revisit the [Divergence from Ethereum](/evm/differences-with-ethereum) doc and c
 **Hardhat Configuration:**
 
 ```ts title="hardhat.config.ts" theme={"dark"}
-import '@nomicfoundation/hardhat-verify';
+import { defineConfig, configVariable } from 'hardhat/config';
+import hardhatToolboxMochaEthers from '@nomicfoundation/hardhat-toolbox-mocha-ethers';
 
-const config = {
+export default defineConfig({
   networks: {
     seiMainnet: {
-      url: process.env.SEI_MAINNET_RPC ?? 'https://evm-rpc.sei-apis.com',
+      type: 'http',
       chainId: 1329,
-      accounts: process.env.DEPLOYER_KEYS?.split(',') ?? []
+      url: 'https://evm-rpc.sei-apis.com',
+      accounts: [configVariable('SEI_PRIVATE_KEY')]
     },
     seiTestnet: {
-      url: process.env.SEI_TESTNET_RPC ?? 'https://evm-rpc-testnet.sei-apis.com',
+      type: 'http',
       chainId: 1328,
-      accounts: process.env.DEPLOYER_KEYS?.split(',') ?? []
+      url: 'https://evm-rpc-testnet.sei-apis.com',
+      accounts: [configVariable('SEI_PRIVATE_KEY')]
     }
   },
-  sourcify: {
-    enabled: true
-  }
-};
-
-export default config;
+  plugins: [hardhatToolboxMochaEthers]
+});
 ```
+
+Store your deployer key in Hardhat's encrypted keystore with `npx hardhat keystore set SEI_PRIVATE_KEY`. Contract verification via Sourcify is enabled by default in Hardhat 3's `hardhat-verify` (bundled with the toolbox).
 
 **Foundry Configuration:**
 
@@ -5950,7 +6020,7 @@ function swap(
 # https://nodejs.org/
 
 # Install Hardhat (recommended for Solana devs transitioning)
-npm install --save-dev hardhat @nomicfoundation/hardhat-toolbox
+npm install --save-dev hardhat @nomicfoundation/hardhat-toolbox-mocha-ethers
 
 # Or install Foundry (Rust-based, may feel more familiar)
 curl -L https://foundry.paradigm.xyz | bash
@@ -5962,29 +6032,33 @@ foundryup
 <Tabs>
   <Tab title="Hardhat">
     ```ts title="hardhat.config.ts" theme={"dark"}
-    import { HardhatUserConfig } from 'hardhat/config';
-    import '@nomicfoundation/hardhat-toolbox';
+    import { defineConfig, configVariable } from 'hardhat/config';
+    import hardhatToolboxMochaEthers from '@nomicfoundation/hardhat-toolbox-mocha-ethers';
 
-    const config: HardhatUserConfig = {
+    export default defineConfig({
       solidity: '0.8.22',
       networks: {
         seiMainnet: {
-          url: 'https://evm-rpc.sei-apis.com',
+          type: 'http',
           chainId: 1329,
-          accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : []
+          url: 'https://evm-rpc.sei-apis.com',
+          accounts: [configVariable('SEI_PRIVATE_KEY')]
         },
         seiTestnet: {
-          url: 'https://evm-rpc-testnet.sei-apis.com',
+          type: 'http',
           chainId: 1328,
-          accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : []
+          url: 'https://evm-rpc-testnet.sei-apis.com',
+          accounts: [configVariable('SEI_PRIVATE_KEY')]
         }
       },
-      sourcify: {
-        enabled: true
-      }
-    };
+      plugins: [hardhatToolboxMochaEthers]
+    });
+    ```
 
-    export default config;
+    Store your deployer key in Hardhat's encrypted keystore (no plaintext `.env` file needed):
+
+    ```bash theme={"dark"}
+    npx hardhat keystore set SEI_PRIVATE_KEY
     ```
   </Tab>
 
@@ -6276,7 +6350,10 @@ const seiMainnet = {
   <Tab title="Hardhat Tests">
     ```ts theme={"dark"}
     import { expect } from 'chai';
-    import { ethers } from 'hardhat';
+    import { network } from 'hardhat';
+
+    // Hardhat 3 exposes ethers through a network connection rather than a global import
+    const { ethers } = await network.create();
 
     describe('Counter', function () {
       it('Initializes', async function () {
@@ -7069,7 +7146,7 @@ If the machine you run these commands from are not a node of the network, you'd 
 --evm-rpc http://<sei-evm-rpc-url>
 ```
 
-Refer to the bottom of this [page](/) for the list of available RPC endpoints.
+Refer to the [RPC endpoints](/evm/networks) page for the list of available RPC endpoints.
 
 <Info>Most commands support `--evm-rpc` flag to specify custom RPC endpoints. The default is `http://localhost:8545`.</Info>
 
@@ -8208,7 +8285,7 @@ Below are integration examples for different frameworks and wallet provider libr
   **Install Dependencies:**
 
   ```bash theme={"dark"}
-  npm install @web3auth/modal @web3auth/modal/react \
+  npm install @web3auth/modal \
     wagmi viem @tanstack/react-query \
     @sei-js/sei-global-wallet
   ```
@@ -9096,7 +9173,7 @@ export const config = createConfig({
 Now implement the Wagmi interface:
 
 ```tsx title="src/components/WagmiInterface.tsx" theme={"dark"}
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAccount, useConnect, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { injected } from 'wagmi/connectors';
 import { parseEther, formatEther } from 'viem';
@@ -9169,11 +9246,13 @@ export function WagmiInterface() {
   };
 
   // Handle successful transfer
-  if (isConfirmed) {
-    refetchBalance();
-    setRecipientAddress('');
-    setAmount('');
-  }
+  useEffect(() => {
+    if (isConfirmed) {
+      refetchBalance();
+      setRecipientAddress('');
+      setAmount('');
+    }
+  }, [isConfirmed, refetchBalance]);
 
   return (
     <div className="card">
@@ -9307,13 +9386,13 @@ To build your application, run:
 npm run build
 ```
 
-Then deploy via:
+Then preview the production build locally:
 
 ```bash theme={"dark"}
 npm run preview
 ```
 
-This will start a local production server, at `http://localhost:4173`. You can toggle between the different library implementations to see how each one works.
+This serves the built app at `http://localhost:4173` so you can verify it before deploying. To go live, deploy the contents of the `dist` directory to any static hosting provider.
 
 ---
 
@@ -9848,11 +9927,7 @@ You'll be prompted to paste the private key of the account you deploy from; Hard
 
 ## Using OpenZeppelin Contracts
 
-OpenZeppelin provides a library of secure, tested smart contract components that you can use to build your applications. First, let's install the OpenZeppelin Contracts package:
-
-```bash theme={"dark"}
-npm install @openzeppelin/contracts
-```
+OpenZeppelin provides a library of secure, tested smart contract components that you can use to build your applications. The `@openzeppelin/contracts` package was already installed during setup, so you're ready to import its contracts directly.
 
 ## Creating and Deploying an ERC20 Token, ERC721 NFT or an Upgradeable UUPS Token
 
@@ -10025,9 +10100,12 @@ npm install @openzeppelin/contracts
 
     // Mint an example NFT
     console.log('Minting an example NFT...');
-    const mintTx = await seiNFT.safeMint(deployer.address, '1.json');
-    await mintTx.wait();
-    console.log('NFT minted with ID: 1');
+    const mintTx = await seiNFT.safeMint(deployer.address, '0.json');
+    const receipt = await mintTx.wait();
+    // _nextTokenId starts at 0, so the first minted token has ID 0.
+    // Read the actual ID from the Transfer event:
+    const transferEvent = receipt.logs.map((log) => seiNFT.interface.parseLog(log)).find((parsed) => parsed?.name === 'Transfer');
+    console.log('NFT minted with ID:', transferEvent?.args.tokenId.toString() ?? 'unknown (no Transfer event in receipt)');
     ```
 
     Deploy the NFT contract to the Sei testnet:
@@ -10303,7 +10381,7 @@ npx hardhat test
 Once you've tested your contracts, you can deploy them to the Sei testnet or mainnet. To deploy, you'll need:
 
 1. SEI tokens in your wallet for gas fees
-2. Your private key in the `.env` file
+2. Your private key stored in the encrypted keystore (`npx hardhat keystore set SEI_PRIVATE_KEY`) — or exported as a `SEI_PRIVATE_KEY` environment variable in CI
 
 Deploy to the testnet:
 
@@ -10993,8 +11071,6 @@ URL: https://docs.sei.io/evm/python-quickstart
 # Python Quickstart (web3.py)
 
 > Connect to Sei from Python using web3.py — read chain data, then sign and broadcast transactions against the Sei EVM JSON-RPC.
-
-# Python Quickstart (web3.py)
 
 Sei is fully EVM-compatible, so any standard Ethereum client works — including Python's [web3.py](https://web3py.readthedocs.io). This guide connects to Sei from a Python script, reads chain data with no credentials, then signs and broadcasts a transaction.
 
@@ -11897,13 +11973,15 @@ URL: https://docs.sei.io/evm/tracing
 
 ## Requirements
 
-Install Ethers.js v6.14.4+:
+The examples in this guide call the debug JSON-RPC endpoints directly with `curl` — no SDK or additional libraries are required. Optionally install [`jq`](https://jqlang.github.io/jq/) to pretty-print the JSON responses:
 
 ```bash theme={"dark"}
-npm install ethers@^6.14.4
-```
+# macOS
+brew install jq
 
-All examples use modern ES6 modules and TypeScript patterns.
+# Debian/Ubuntu
+sudo apt-get install jq
+```
 
 Debug tracing is your primary tool for understanding EVM transaction execution on Sei. This comprehensive system allows you to analyze transaction flow, optimize gas usage, debug smart contract interactions, and troubleshoot production issues.
 
@@ -13482,12 +13560,12 @@ Delegate, undelegate, and query staking state:
     args: [account, 'seivaloper1...'],
   });
 
-  // Undelegate
+  // Undelegate 5 SEI — amount is in 6-decimal usei (1 SEI = 1_000_000 usei), not wei
   const undelegateHash = await walletClient.writeContract({
     address: STAKING_PRECOMPILE_ADDRESS,
     abi: STAKING_PRECOMPILE_ABI,
     functionName: 'undelegate',
-    args: ['seivaloper1...', parseEther('5')],
+    args: ['seivaloper1...', 5_000_000n],
   });
   ```
 
@@ -13505,8 +13583,8 @@ Delegate, undelegate, and query staking state:
   const delegation = await readStaking.delegation(await signer.getAddress(), 'seivaloper1...');
   console.log('Delegated:', delegation.balance.amount.toString());
 
-  // Undelegate
-  const undelegateTx = await staking.undelegate('seivaloper1...', ethers.parseEther('5'));
+  // Undelegate 5 SEI — amount is in 6-decimal usei (1 SEI = 1_000_000 usei), not wei
+  const undelegateTx = await staking.undelegate('seivaloper1...', ethers.parseUnits('5', 6));
   await undelegateTx.wait();
   ```
 </CodeGroup>
@@ -13550,8 +13628,8 @@ Claim staking rewards from a validator:
   const hash = await walletClient.writeContract({
     address: DISTRIBUTION_PRECOMPILE_ADDRESS,
     abi: DISTRIBUTION_PRECOMPILE_ABI,
-    functionName: 'withdrawDelegatorReward',
-    args: [account, 'seivaloper1...'],
+    functionName: 'withdrawDelegationRewards',
+    args: ['seivaloper1...'],
   });
   ```
 
@@ -13564,7 +13642,7 @@ Claim staking rewards from a validator:
     signer,
   );
 
-  const tx = await distribution.withdrawDelegatorReward(await signer.getAddress(), 'seivaloper1...');
+  const tx = await distribution.withdrawDelegationRewards('seivaloper1...');
   await tx.wait();
   ```
 </CodeGroup>
@@ -14815,7 +14893,7 @@ Create a comprehensive governance interaction script:
 
 ```javascript title="governance-mainnet-demo.js" theme={"dark"}
 const { ethers } = require('ethers');
-const { GOVERNANCE_PRECOMPILE_ABI, GOVERNANCE_PRECOMPILE_ADDRESS } = require('@sei-js/evm');
+const { GOVERNANCE_PRECOMPILE_ABI, GOVERNANCE_PRECOMPILE_ADDRESS } = require('@sei-js/precompiles');
 require('dotenv').config();
 
 // Validation functions
@@ -15037,7 +15115,7 @@ This is a test proposal. Vote according to your preference to test the system.`,
       // Summary
       console.log('\n🎉 === Governance Demo Completed Successfully! ===');
       console.log(`📊 Proposal ID: ${proposalID.toString()}`);
-      console.log(`💰 Total deposited: ${ethers.formatEther(depositAmount.add(additionalDeposit))} SEI`);
+      console.log(`💰 Total deposited: ${ethers.formatEther(depositAmount + additionalDeposit)} SEI`);
       console.log('🔗 View all governance proposals: https://sei.explorers.guru/proposals');
     } catch (error) {
       if (error.message.includes('insufficient funds')) {
@@ -15863,7 +15941,8 @@ node json-precompile-mainnet.js
    📊 Source: MainnetPriceOracle
    🔢 Version: 2.1.0
    ⏰ Timestamp: 2024-12-27T12:00:00Z
-   ⚠️  Key "nonexistent.key" not found, using default: "N/A"
+   🟢 Is Live: Yes
+   ⚠️  Key "nonexistent" not found, using default: "N/A"
    ❓ Missing Key: N/A
 
 2️⃣  Extracting Numeric Data...
@@ -15890,11 +15969,11 @@ node json-precompile-mainnet.js
       Complex processing: 120,000 gas
 
 6️⃣  Performance & Error Testing...
-   ✅ metadata.source: "MainnetPriceOracle" (15ms)
-   ✅ market.prices.SEI: "275" (12ms)
-   ✅ assets: "[\"SEI\",\"BTC\",\"ETH\",\"USDC\"]" (18ms)
-   ⚠️  Key "nonexistent.deeply.nested.key" not found, using default: ""
-   ✅ nonexistent.deeply.nested.key: "" (8ms)
+   ✅ metadata object: "{"timestamp":"2024-12-27T12:00:00Z","source":"..." (15ms)
+   ✅ market data: "{"prices":{"SEI":275,"BTC":5000000,"ETH":30000..." (12ms)
+   ✅ assets array: "["SEI","BTC","ETH","USDC"]" (18ms)
+   ⚠️  Key "nonexistent" not found, using default: ""
+   ✅ missing key: "" (8ms)
 
 🎉 === JSON Precompile Demo Completed Successfully! ===
 ```
@@ -15918,21 +15997,24 @@ class SeiPriceOracle {
     isValid: boolean;
   }> {
     try {
-      // Extract timestamp
-      const timestamp = await safeExtractBytes(this.jsonPrecompile, oracleResponse, 'metadata.timestamp');
+      // The precompile does not support dot notation for nested keys.
+      // Extract the parent "metadata" object as bytes, then parse it manually.
+      const metadataJson = await safeExtractBytes(this.jsonPrecompile, oracleResponse, 'metadata', '{}');
+      const metadata = JSON.parse(metadataJson);
+      const timestamp = metadata.timestamp ?? '';
+      const isValid = metadata.isLive === 1;
 
-      // Extract validation flag
-      const isValidRaw = await safeExtractUint256(this.jsonPrecompile, oracleResponse, 'metadata.isValid');
-      const isValid = isValidRaw === 1n;
+      // Extract the parent "market" object the same way, then read its prices.
+      const marketJson = await safeExtractBytes(this.jsonPrecompile, oracleResponse, 'market', '{}');
+      const market = JSON.parse(marketJson);
+      const rawPrices = market.prices ?? {};
 
-      // Extract price data
       const prices = new Map<string, number>();
       const assets = await safeExtractBytesList(this.jsonPrecompile, oracleResponse, 'assets');
 
       for (const asset of assets) {
-        const priceRaw = await safeExtractUint256(this.jsonPrecompile, oracleResponse, `prices.${asset}`);
         // Convert from integer with 6 decimal places
-        prices.set(asset, Number(priceRaw) / 1000000);
+        prices.set(asset, Number(rawPrices[asset] ?? 0) / 1000000);
       }
 
       return { prices, timestamp, isValid };
@@ -16488,7 +16570,7 @@ npm install @sei-js/precompiles@2.1.2
 
 ```typescript theme={"dark"}
 // Import Staking precompile address and ABI
-// View the entire ABI here: https://github.com/sei-protocol/sei-chain/tree/evm/precompiles/staking
+// View the entire ABI here: https://github.com/sei-protocol/sei-chain/tree/main/precompiles/staking
 import { STAKING_PRECOMPILE_ABI, STAKING_PRECOMPILE_ADDRESS } from '@sei-js/precompiles';
 import { ethers } from 'ethers';
 ```
@@ -17293,10 +17375,10 @@ async function rebalanceStaking(
     **Client Integration Example**
 
     ```javascript theme={"dark"}
-    const abi = require('./artifacts/contracts/Staking.sol/StakingManager.json');
-    const { ethers } = require('hardhat');
-    const dotenv = require('dotenv');
-    dotenv.config();
+    import { network } from 'hardhat';
+
+    // Hardhat 3 exposes ethers through a network connection rather than a global import
+    const { ethers } = await network.create();
 
     async function main() {
       const [deployer] = await ethers.getSigners();
@@ -17508,10 +17590,15 @@ library P256 {
         returns (bool)
     {
         bytes memory input = abi.encode(digest, signature.r, signature.s, publicKey.x, publicKey.y);
-        bytes memory output = P256VERIFY_CONTRACT.verify(input);
-        bool success = output.length == 32 && output[31] == 0x01;
+        // On invalid signatures the precompile returns no data, which would
+        // make a high-level interface call revert when decoding the `bytes`
+        // return value. Use a low-level staticcall and treat empty return
+        // data as "invalid signature" instead.
+        (bool success, bytes memory output) = P256VERIFY_PRECOMPILE_ADDRESS.staticcall(
+            abi.encodeWithSelector(IP256VERIFY.verify.selector, input)
+        );
 
-        return success;
+        return success && output.length > 0;
     }
 }
 ```
@@ -17548,7 +17635,7 @@ For more control, you can call the precompile directly:
 pragma solidity ^0.8.0;
 
 interface IP256Verify {
-    function verify(bytes calldata input) external view returns (bytes32);
+    function verify(bytes calldata input) external view returns (bytes memory response);
 }
 
 contract P256Verifier {
@@ -17569,8 +17656,12 @@ contract P256Verifier {
             publicKeyY
         );
 
-        bytes32 result = P256_PRECOMPILE.verify(input);
-        return result != bytes32(0);
+        // Success returns a non-empty (ABI-encoded 32-byte) value; invalid
+        // signatures return no data, which would revert a high-level call.
+        (bool ok, bytes memory output) = address(P256_PRECOMPILE).staticcall(
+            abi.encodeWithSelector(IP256Verify.verify.selector, input)
+        );
+        return ok && output.length > 0;
     }
 }
 ```
@@ -17640,8 +17731,10 @@ contract WebAuthnAuth {
             userKey.y
         );
 
-        bytes32 result = P256_PRECOMPILE.verify(input);
-        return result != bytes32(0);
+        (bool ok, bytes memory output) = address(P256_PRECOMPILE).staticcall(
+            abi.encodeWithSelector(IP256Verify.verify.selector, input)
+        );
+        return ok && output.length > 0;
     }
 }
 ```
@@ -17650,6 +17743,8 @@ contract WebAuthnAuth {
 
 ```solidity theme={"dark"}
 contract SecureEnclaveAuth {
+    IP256Verify constant P256_PRECOMPILE = IP256Verify(0x0000000000000000000000000000000000001011);
+
     event SecureOperation(address indexed user, bytes32 indexed operationHash);
 
     function executeSecureOperation(
@@ -17675,8 +17770,10 @@ contract SecureEnclaveAuth {
         bytes32 y
     ) internal view returns (bool) {
         bytes memory input = abi.encodePacked(hash, r, s, x, y);
-        bytes32 result = P256_PRECOMPILE.verify(input);
-        return result != bytes32(0);
+        (bool ok, bytes memory output) = address(P256_PRECOMPILE).staticcall(
+            abi.encodeWithSelector(IP256Verify.verify.selector, input)
+        );
+        return ok && output.length > 0;
     }
 }
 ```
@@ -17717,8 +17814,10 @@ contract HardwareMultiSig {
                 publicKeys[i].y
             );
 
-            bytes32 result = P256_PRECOMPILE.verify(input);
-            if (result != bytes32(0)) {
+            (bool ok, bytes memory output) = address(P256_PRECOMPILE).staticcall(
+                abi.encodeWithSelector(IP256Verify.verify.selector, input)
+            );
+            if (ok && output.length > 0) {
                 validSignatures++;
             }
         }
@@ -17751,9 +17850,9 @@ P256 signatures can be malleable. If your application requires unique signatures
 
 ```solidity theme={"dark"}
 function isLowS(bytes32 s) internal pure returns (bool) {
-    // Check if s is in the lower half of the curve order
-    // This prevents signature malleability
-    return uint256(s) <= 0x7FFFFFFF80000000FFFFFFFFFFFFFFFF;
+    // Check if s is in the lower half of the curve order (n / 2, where n is
+    // the P-256 group order). This prevents signature malleability.
+    return uint256(s) <= 0x7FFFFFFF800000007FFFFFFFFFFFFFFFDE737D56D38BCF4279DCE5617E3192A8;
 }
 ```
 
@@ -17762,30 +17861,41 @@ function isLowS(bytes32 s) internal pure returns (bool) {
 ### Preparing Input Data
 
 ```javascript theme={"dark"}
-// Example: Preparing P256 verification input
+// Example: Preparing P256 verification input (ethers v6)
 function prepareP256Input(messageHash, signature, publicKey) {
   // Ensure all components are 32 bytes
-  const hash = ethers.utils.hexZeroPad(messageHash, 32);
-  const r = ethers.utils.hexZeroPad(signature.r, 32);
-  const s = ethers.utils.hexZeroPad(signature.s, 32);
-  const x = ethers.utils.hexZeroPad(publicKey.x, 32);
-  const y = ethers.utils.hexZeroPad(publicKey.y, 32);
+  const hash = ethers.zeroPadValue(messageHash, 32);
+  const r = ethers.zeroPadValue(signature.r, 32);
+  const s = ethers.zeroPadValue(signature.s, 32);
+  const x = ethers.zeroPadValue(publicKey.x, 32);
+  const y = ethers.zeroPadValue(publicKey.y, 32);
 
   // Concatenate all components
-  return ethers.utils.concat([hash, r, s, x, y]);
+  return ethers.concat([hash, r, s, x, y]);
 }
 
 // Usage with ethers.js
-async function verifyP256Signature(contract, messageHash, signature, publicKey) {
+const P256_VERIFY_ADDRESS = '0x0000000000000000000000000000000000001011';
+const P256_VERIFY_ABI = ['function verify(bytes input) view returns (bytes response)'];
+
+async function verifyP256Signature(provider, messageHash, signature, publicKey) {
+  const precompile = new ethers.Contract(P256_VERIFY_ADDRESS, P256_VERIFY_ABI, provider);
   const input = prepareP256Input(messageHash, signature, publicKey);
-  const result = await contract.P256_PRECOMPILE.verify(input);
-  return result !== '0x0000000000000000000000000000000000000000000000000000000000000000';
+  try {
+    const result = await precompile.verify(input);
+    // Success returns 32 bytes ending in 0x01
+    return result === '0x0000000000000000000000000000000000000000000000000000000000000001';
+  } catch (err) {
+    // Invalid signatures return no data, which ethers cannot decode as `bytes`
+    // (BAD_DATA) — treat that as a failed verification.
+    return false;
+  }
 }
 ```
 
 ## Error Handling
 
-The P256 precompile returns zero on failure. Common failure cases include:
+The P256 precompile returns no data on failure. Because `verify` is declared as returning `bytes`, a high-level Solidity interface call reverts when it tries to decode that empty return data — always use a low-level `staticcall` (as in the examples above) so invalid signatures resolve to `false` instead of reverting. Common failure cases include:
 
 1. **Invalid Input Length**: Input must be exactly 160 bytes
 2. **Invalid Public Key**: Point not on the P256 curve
@@ -17814,8 +17924,11 @@ function safeVerifyP256(
         messageHash, r, s, publicKeyX, publicKeyY
     );
 
-    bytes32 result = P256_PRECOMPILE.verify(input);
-    return (result != bytes32(0), result == bytes32(0) ? "Verification failed" : "");
+    (bool ok, bytes memory output) = address(P256_PRECOMPILE).staticcall(
+        abi.encodeWithSelector(IP256Verify.verify.selector, input)
+    );
+    bool verified = ok && output.length > 0;
+    return (verified, verified ? "" : "Verification failed");
 }
 ```
 
@@ -17837,9 +17950,11 @@ contract P256Test {
         bytes32 y = 0x...; // Valid public key y
 
         bytes memory input = abi.encodePacked(messageHash, r, s, x, y);
-        bytes32 result = P256_PRECOMPILE.verify(input);
+        (bool ok, bytes memory output) = address(P256_PRECOMPILE).staticcall(
+            abi.encodeWithSelector(IP256Verify.verify.selector, input)
+        );
 
-        assert(result != bytes32(0));
+        assert(ok && output.length > 0);
     }
 }
 ```
@@ -17947,13 +18062,13 @@ const overrides = {
 };
 const executeResponse = await contract.execute(
   COUNTER_CONTRACT_ADDRESS,
-  toUtf8Bytes(JSON.stringify(executeJSON)),
-  toUtf8Bytes(JSON.stringify({ denom: 'usdc', amount: '100' })), // Also send 100 usdc
+  toUtf8Bytes(JSON.stringify(executeMsg)),
+  toUtf8Bytes(JSON.stringify([{ denom: 'uusdc', amount: '100' }])), // Also send 100 uusdc
   overrides
 );
 
 await executeResponse.wait();
-const receipt = await provider.getTransactionReceipt(executionResponse.hash);
+const receipt = await provider.getTransactionReceipt(executeResponse.hash);
 ```
 
 For payable contracts, Sei amounts have to be sent directly to the contract
@@ -18065,11 +18180,11 @@ Before getting started, ensure you have:
 Install the required packages for interacting with Sei precompiles:
 
 ```bash theme={"dark"}
-# Intitate a hardhat project
-npx hardhat init
+# Initiate a Hardhat 3 project (choose "Hardhat 3" and the Mocha + Ethers.js TypeScript setup)
+npx hardhat --init
 
 # Install ethers.js for smart contract interactions
-npm install ethers dotenv
+npm install ethers
 
 # Install Sei EVM bindings for precompile addresses and ABIs
 npm install @sei-js/precompiles@2.1.2
@@ -18077,30 +18192,30 @@ npm install @sei-js/precompiles@2.1.2
 
 #### Setup Hardhat Environment
 
-Create a `hardhat.config.js` file with the following content:
+Create a `hardhat.config.ts` file with the following content:
 
-```javascript theme={"dark"}
-require('@nomicfoundation/hardhat-toolbox');
-require('dotenv').config();
+```typescript theme={"dark"}
+import { defineConfig, configVariable } from 'hardhat/config';
+import hardhatToolboxMochaEthers from '@nomicfoundation/hardhat-toolbox-mocha-ethers';
 
-/** @type import('hardhat/config').HardhatUserConfig */
-module.exports = {
+export default defineConfig({
   solidity: '0.8.28',
   networks: {
     sei: {
-      url: 'https://evm-rpc.sei-apis.com',
+      type: 'http',
       chainId: 1329,
-      accounts: [process.env.PRIVATE_KEY]
+      url: 'https://evm-rpc.sei-apis.com',
+      accounts: [configVariable('PRIVATE_KEY')]
     }
-  }
-};
+  },
+  plugins: [hardhatToolboxMochaEthers]
+});
 ```
 
-Create a `.env` file in the root directory with your private key and RPC URL:
+Store your private key in Hardhat's encrypted keystore (no plaintext `.env` file needed):
 
-```plaintext theme={"dark"}
-PRIVATE_KEY=your_private_key_here
-RPC_URL=https://evm-rpc.sei-apis.com
+```bash theme={"dark"}
+npx hardhat keystore set PRIVATE_KEY
 ```
 
 #### Import Precompile Components
@@ -18223,9 +18338,9 @@ Address association between EVM and Cosmos addresses occurs automatically in mos
       const signature = await signer.signMessage(message);
       const sig = ethers.Signature.from(signature);
 
-      // Prepare the prefixed message (signMessage already applies this prefix)
-      const messageBytes = new TextEncoder().encode(message);
-      const customMessage = `\x19Ethereum Signed Message:\n${message}`;
+      // Reconstruct the EIP-191 prefixed message that signMessage() actually signed:
+      // "\x19Ethereum Signed Message:\n" + message length + message
+      const customMessage = `\x19Ethereum Signed Message:\n${message.length}${message}`;
 
       // Convert signature components to strings
       const v = (sig.v - 27).toString();
@@ -18559,14 +18674,14 @@ Address association between EVM and Cosmos addresses occurs automatically in mos
     Deploy the contract:
 
     ```javascript theme={"dark"}
-    const { ethers } = require('hardhat');
+    import { network } from 'hardhat';
 
-    const dotenv = require('dotenv');
-    dotenv.config();
+    // Hardhat 3 exposes ethers through a network connection rather than a global import
+    const { ethers } = await network.create();
 
     async function main() {
-      const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
-      const deployer = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
+      // The signer comes from the network config (encrypted keystore)
+      const [deployer] = await ethers.getSigners();
       console.log('Deploying contracts with the account:', deployer.address);
 
       const balance = await deployer.provider.getBalance(deployer.address);
@@ -18595,13 +18710,17 @@ Address association between EVM and Cosmos addresses occurs automatically in mos
     ```
 
     ```javascript theme={"dark"}
-    const { ethers } = require('hardhat');
-    const addressManagerAbi = require('./artifacts/contracts/CrossChainAddressManager.sol/CrossChainAddressManager.json');
+    import { network } from 'hardhat';
+    // Path is relative to this file in scripts/ — Hardhat writes artifacts to the project root
+    import addressManagerAbi from '../artifacts/contracts/CrossChainAddressManager.sol/CrossChainAddressManager.json' with { type: 'json' };
+
+    // Hardhat 3 exposes ethers through a network connection rather than a global import
+    const { ethers } = await network.create();
 
     async function main() {
-      const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
-      const deployer = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
-      console.log('Deploying contracts with the account:', deployer.address);
+      // The signer comes from the network config (encrypted keystore)
+      const [deployer] = await ethers.getSigners();
+      console.log('Interacting with the account:', deployer.address);
 
       const balance = await deployer.provider.getBalance(deployer.address);
       console.log('Account balance:', ethers.formatEther(balance));
@@ -18628,6 +18747,12 @@ Address association between EVM and Cosmos addresses occurs automatically in mos
       console.error(error);
       process.exitCode = 1;
     });
+    ```
+
+    Then run the interaction script:
+
+    ```bash theme={"dark"}
+    npx hardhat run scripts/interact.js --network sei
     ```
   </Tab>
 </Tabs>
@@ -18837,11 +18962,11 @@ Before getting started, ensure you have:
 Install the required packages for interacting with Sei precompiles:
 
 ```bash theme={"dark"}
-# Instantiate a new hardhat project
-npx hardhat init
+# Instantiate a new Hardhat 3 project (choose "Hardhat 3" and the Mocha + Ethers.js TypeScript setup)
+npx hardhat --init
 
 # Install ethers.js for smart contract interactions
-npm install ethers dotenv
+npm install ethers
 
 # Install Sei EVM bindings for precompile addresses and ABIs
 npm install @sei-js/precompiles@2.1.2
@@ -18849,30 +18974,30 @@ npm install @sei-js/precompiles@2.1.2
 
 #### Setup Hardhat Environment
 
-Create a `hardhat.config.js` file with the following content:
+Create a `hardhat.config.ts` file with the following content:
 
-```javascript theme={"dark"}
-require('@nomicfoundation/hardhat-toolbox');
-require('dotenv').config();
+```typescript theme={"dark"}
+import { defineConfig, configVariable } from 'hardhat/config';
+import hardhatToolboxMochaEthers from '@nomicfoundation/hardhat-toolbox-mocha-ethers';
 
-/** @type import('hardhat/config').HardhatUserConfig */
-module.exports = {
+export default defineConfig({
   solidity: '0.8.28',
   networks: {
     sei: {
-      url: 'https://evm-rpc.sei-apis.com',
+      type: 'http',
       chainId: 1329,
-      accounts: [process.env.PRIVATE_KEY]
+      url: 'https://evm-rpc.sei-apis.com',
+      accounts: [configVariable('PRIVATE_KEY')]
     }
-  }
-};
+  },
+  plugins: [hardhatToolboxMochaEthers]
+});
 ```
 
-Create a `.env` file in the root directory with your private key and RPC URL:
+Store your private key in Hardhat's encrypted keystore (no plaintext `.env` file needed):
 
-```plaintext theme={"dark"}
-RPC_URL=https://evm-rpc.sei-apis.com
-PRIVATE_KEY=your_private_key_here
+```bash theme={"dark"}
+npx hardhat keystore set PRIVATE_KEY
 ```
 
 #### Import Precompile Components
@@ -18995,12 +19120,12 @@ PRIVATE_KEY=your_private_key_here
     const amountInSei = '0.1'; // 0.1 SEI
 
     try {
-      // Convert SEI to usei (1 SEI = 1,000,000 usei)
-      const amountInUsei = ethers.parseUnits(amountInSei, 6);
+      // msg.value is in wei (18 decimals), like any other EVM transaction
+      const amountInWei = ethers.parseUnits(amountInSei, 18); // equivalent to ethers.parseEther(amountInSei)
 
       // Send native SEI
       const tx = await bank.sendNative(recipientAddress, {
-        value: amountInUsei,
+        value: amountInWei,
         gasLimit: 300000n
       });
 
@@ -19037,31 +19162,30 @@ PRIVATE_KEY=your_private_key_here
 
 <Tabs>
   <Tab title="JavaScript">
+    <Warning>`send()` can only be called by the registered ERC20 native pointer contract for the given denom — calling it from a regular wallet will revert. The snippet below only illustrates the arguments a pointer contract passes. As a user, transfer native denoms through the denom's ERC20 pointer contract (`transfer()`), or use `sendNative()` for SEI.</Warning>
+
     ```typescript theme={"dark"}
-    // Send custom tokens between addresses
+    // Illustration: how a registered ERC20 pointer contract calls send()
     const fromAddress = '0x1234567890123456789012345678901234567890';
     const toAddress = '0x9876543210987654321098765432109876543210';
     const tokenDenom = 'usei';
     const amount = '1';
 
-    try {
-      // Convert addresses to proper format if needed
-      const tx = await bank.send(
-        fromAddress,
-        toAddress,
-        tokenDenom,
-        ethers.parseUnits(amount, 18), // Adjust decimals based on token
-        {
-          gasLimit: 300000n
-        }
-      );
+    // Amounts are in the denom's base units — check decimals() for each denom.
+    // usei has 6 decimals (1 SEI = 1,000,000 usei)
+    const tx = await bank.send(
+      fromAddress,
+      toAddress,
+      tokenDenom,
+      ethers.parseUnits(amount, 6),
+      {
+        gasLimit: 300000n
+      }
+    );
 
-      const receipt = await tx.wait();
-      console.log('Custom token transfer successful:', receipt.transactionHash);
-      console.log(`Sent ${amount} ${tokenDenom} from ${fromAddress} to ${toAddress}`);
-    } catch (error) {
-      console.error('Custom token transfer failed:', error);
-    }
+    const receipt = await tx.wait();
+    console.log('Custom token transfer successful:', receipt.transactionHash);
+    console.log(`Sent ${amount} ${tokenDenom} from ${fromAddress} to ${toAddress}`);
     ```
   </Tab>
 
@@ -19702,14 +19826,14 @@ PRIVATE_KEY=your_private_key_here
     First, deploy the contract using Hardhat:
 
     ```javascript theme={"dark"}
-    const { ethers } = require('hardhat');
+    import { network } from 'hardhat';
 
-    const dotenv = require('dotenv');
-    dotenv.config();
+    // Hardhat 3 exposes ethers through a network connection rather than a global import
+    const { ethers } = await network.create();
 
     async function main() {
-      const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
-      const deployer = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
+      // The signer comes from the network config (encrypted keystore)
+      const [deployer] = await ethers.getSigners();
       console.log('Deploying contracts with the account:', deployer.address);
 
       const balance = await deployer.provider.getBalance(deployer.address);
@@ -19740,13 +19864,16 @@ PRIVATE_KEY=your_private_key_here
     Next look through the integration example:
 
     ```javascript theme={"dark"}
-    const { ethers } = require('hardhat');
-    const TokenManager = require('./artifacts/contracts/ComprehensiveTokenManager.sol/ComprehensiveTokenManager.json');
+    import { network } from 'hardhat';
+    import TokenManager from './artifacts/contracts/ComprehensiveTokenManager.sol/ComprehensiveTokenManager.json' with { type: 'json' };
+
+    // Hardhat 3 exposes ethers through a network connection rather than a global import
+    const { ethers } = await network.create();
 
     async function main() {
-      const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
-      const deployer = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
-      console.log('Deploying contracts with the account:', deployer.address);
+      // The signer comes from the network config (encrypted keystore)
+      const [deployer] = await ethers.getSigners();
+      console.log('Interacting with the account:', deployer.address);
 
       const address = '0xYourDeployedContractAddress'; // Replace with your contract address
       const tokenManager = new ethers.Contract(address, TokenManager.abi, deployer);
@@ -19781,10 +19908,10 @@ PRIVATE_KEY=your_private_key_here
       });
     ```
 
-    The run the integration example:
+    Then run the integration example:
 
     ```bash theme={"dark"}
-    node integrationExample.js
+    npx hardhat run scripts/integrationExample.js --network sei
     ```
   </Tab>
 </Tabs>
@@ -20556,10 +20683,10 @@ async function crossRuntimeDeFiOperation(cosmwasmDexContract: string, evmTokenCo
     **Client Integration Example**
 
     ```javascript theme={"dark"}
-    const abi = require('./artifacts/contracts/CosmWasmBridge.sol/CosmWasmBridge.json');
-    const { ethers } = require('hardhat');
-    const dotenv = require('dotenv');
-    dotenv.config();
+    import { network } from 'hardhat';
+
+    // Hardhat 3 exposes ethers through a network connection rather than a global import
+    const { ethers } = await network.create();
 
     async function main() {
       const [deployer] = await ethers.getSigners();
@@ -20836,8 +20963,17 @@ Every generated project includes wallet connections, contract interactions, Type
 You don't need to install `@sei-js/create-sei` globally. Use it directly with npx or pnpm:
 
 <Tabs>
-  <Tab title="npx">`bash npx @sei-js/create-sei app --name my-sei-app `</Tab>
-  <Tab title="pnpm">`bash pnpm create @sei-js/create-sei app --name my-sei-app `</Tab>
+  <Tab title="npx">
+    ```bash theme={"dark"}
+    npx @sei-js/create-sei app --name my-sei-app
+    ```
+  </Tab>
+
+  <Tab title="pnpm">
+    ```bash theme={"dark"}
+    pnpm create @sei-js/sei app --name my-sei-app
+    ```
+  </Tab>
 </Tabs>
 
 ## Interactive Setup
@@ -21039,7 +21175,7 @@ async function delegateWithLedger() {
   const msgDelegate = {
     typeUrl: '/cosmos.staking.v1beta1.MsgDelegate',
     value: {
-      delegatorAddress: nativeAddress.address,
+      delegatorAddress: nativeAddress,
       validatorAddress: 'seivaloper1...',
       amount: coins(500, 'usei')
     }
@@ -21050,7 +21186,7 @@ async function delegateWithLedger() {
     gas: '200000'
   };
 
-  const result = await client.signAndBroadcast(nativeAddress.address, [msgDelegate], fee, 'Delegation via Ledger');
+  const result = await client.signAndBroadcast(nativeAddress, [msgDelegate], fee, 'Delegation via Ledger');
 
   console.log('Broadcast result:', result);
 }
@@ -22834,8 +22970,6 @@ URL: https://docs.sei.io/evm/evm-parity/examples/deploy-verify
 
 > Deploying and verifying smart contracts on Sei with viem, ethers, Foundry, and Hardhat
 
-# Deploy and Verify
-
 Sei is EVM-compatible — standard deployment tooling works without modification. This page covers deploying a contract and verifying its source on the Sei block explorer.
 
 For a deeper look at verification options (Remix, Sourcify UI, batch verification), see the [Verify Contracts](/evm/evm-verify-contracts) page.
@@ -22897,33 +23031,53 @@ forge create src/MyContract.sol:MyContract \
 
 ## Deploying with Hardhat
 
-Add Sei networks to your `hardhat.config.ts`:
+Add Sei networks to your `hardhat.config.ts` (Hardhat 3). Keep the toolbox in the `plugins` array — it ships with projects created by `npx hardhat --init` and provides Hardhat Ignition for deployments:
 
 ```ts theme={"dark"}
-import { HardhatUserConfig } from 'hardhat/config';
+import { defineConfig, configVariable } from 'hardhat/config';
+import hardhatToolboxMochaEthers from '@nomicfoundation/hardhat-toolbox-mocha-ethers';
 
-const config: HardhatUserConfig = {
+export default defineConfig({
   networks: {
     sei: {
-      url: 'https://evm-rpc.sei-apis.com',
+      type: 'http',
       chainId: 1329,
-      accounts: [process.env.PRIVATE_KEY!],
+      url: 'https://evm-rpc.sei-apis.com',
+      accounts: [configVariable('SEI_PRIVATE_KEY')],
     },
     seiTestnet: {
-      url: 'https://evm-rpc-testnet.sei-apis.com',
+      type: 'http',
       chainId: 1328,
-      accounts: [process.env.PRIVATE_KEY!],
+      url: 'https://evm-rpc-testnet.sei-apis.com',
+      accounts: [configVariable('SEI_PRIVATE_KEY')],
     },
   },
-};
 
-export default config;
+  plugins: [hardhatToolboxMochaEthers],
+});
 ```
 
-Then deploy:
+Store your private key in Hardhat's encrypted keystore so it never lives in a plaintext file:
 
 ```bash theme={"dark"}
-npx hardhat run scripts/deploy.ts --network sei
+npx hardhat keystore set SEI_PRIVATE_KEY
+```
+
+Describe the deployment in a minimal Ignition module at `ignition/modules/MyContract.ts`:
+
+```ts theme={"dark"}
+import { buildModule } from '@nomicfoundation/hardhat-ignition/modules';
+
+export default buildModule('MyContractModule', (m) => {
+  const myContract = m.contract('MyContract', [/* constructor args */]);
+  return { myContract };
+});
+```
+
+Then deploy it:
+
+```bash theme={"dark"}
+npx hardhat ignition deploy ignition/modules/MyContract.ts --network sei
 ```
 
 ## Verifying Contracts
@@ -22957,34 +23111,39 @@ For testnet, use `--chain-id 1328` and `--rpc-url https://evm-rpc-testnet.sei-ap
 
 ### Hardhat
 
-Install the verify plugin:
+If you use a Hardhat toolbox (as in the config above), `hardhat-verify` is already bundled and active — skip ahead to the verify command. Without a toolbox, install the plugin:
 
 ```bash theme={"dark"}
 npm install --save-dev @nomicfoundation/hardhat-verify
 ```
 
-Add it to `hardhat.config.ts` — no additional Sourcify config block is needed:
+Then add it to the `plugins` array in `hardhat.config.ts` — Sourcify verification is enabled by default in `hardhat-verify` and needs no API key:
 
 ```ts theme={"dark"}
-import '@nomicfoundation/hardhat-verify';
+import { defineConfig, configVariable } from 'hardhat/config';
+import hardhatVerify from '@nomicfoundation/hardhat-verify';
 
-const config: HardhatUserConfig = {
+export default defineConfig({
   networks: {
     sei: {
-      url: 'https://evm-rpc.sei-apis.com',
+      type: 'http',
       chainId: 1329,
-      accounts: [process.env.PRIVATE_KEY!],
+      url: 'https://evm-rpc.sei-apis.com',
+      accounts: [configVariable('SEI_PRIVATE_KEY')],
     },
     seiTestnet: {
-      url: 'https://evm-rpc-testnet.sei-apis.com',
+      type: 'http',
       chainId: 1328,
-      accounts: [process.env.PRIVATE_KEY!],
+      url: 'https://evm-rpc-testnet.sei-apis.com',
+      accounts: [configVariable('SEI_PRIVATE_KEY')],
     },
   },
-};
+
+  plugins: [hardhatVerify],
+});
 ```
 
-Verify a deployed contract:
+Verify a deployed contract on Sourcify:
 
 ```bash theme={"dark"}
 npx hardhat verify sourcify --network sei 0xDeployedContractAddress
@@ -22995,6 +23154,8 @@ If your contract has constructor arguments:
 ```bash theme={"dark"}
 npx hardhat verify sourcify --network sei 0xDeployedContractAddress "arg1" "arg2"
 ```
+
+Running `npx hardhat verify` without the `sourcify` subtask attempts verification on all enabled providers (Etherscan, Blockscout, and Sourcify) in a single run.
 
 ## Network Reference
 
@@ -23372,6 +23533,108 @@ const balance = await withRetry(() =>
 
 ---
 
+URL: https://docs.sei.io/evm/indexer-providers/envio
+
+# Envio
+
+> Index Sei smart contract data using Envio, a modular hyper-performant data indexing solution.
+
+## Envio
+
+Index Sei smart contract data using Envio, a modular hyper-performant data indexing solution. Envio offers three products you can use individually or together to fit your data needs on Sei.
+
+1. [HyperIndex](https://docs.envio.dev/docs/HyperIndex/overview), a fully customizable blockchain indexing framework that powers GraphQL APIs over Postgres
+2. [HyperSync](https://docs.envio.dev/docs/HyperSync/overview), a real-time data retrieval layer up to 2000x faster than traditional RPC
+3. [HyperRPC](https://docs.envio.dev/docs/HyperRPC/overview-hyperrpc), an extremely fast RPC for data-intensive queries
+
+> **New to Envio?** Jump straight to [How to Index Sei Smart Contract Data in Minutes using Envio](https://docs.envio.dev/blog/index-sei-smart-contracts-envio) for a step-by-step walkthrough that builds a USDC indexer on Sei in under five minutes.
+
+| Field                  | Value                                                               |
+| ---------------------- | ------------------------------------------------------------------- |
+| Sei Chain ID           | 1329                                                                |
+| HyperSync URL Endpoint | `https://sei.hypersync.xyz` or `https://1329.hypersync.xyz`         |
+| HyperRPC URL Endpoint  | `https://sei.rpc.hypersync.xyz` or `https://1329.rpc.hypersync.xyz` |
+
+> Sei testnet is also supported, with HyperSync at [https://sei-testnet.hypersync.xyz](https://sei-testnet.hypersync.xyz) and HyperRPC at [https://sei-testnet.rpc.hypersync.xyz](https://sei-testnet.rpc.hypersync.xyz).
+
+## Choosing a Product
+
+### HyperIndex
+
+**Best for:** projects that need a complete indexing solution with schema management, event handling, and a GraphQL API.
+
+* A full-featured indexing framework that transforms on-chain events into structured, queryable databases with GraphQL APIs
+* Configured with a YAML file, a GraphQL schema, and TypeScript, JavaScript, or ReScript event handlers
+* Supports multichain indexing, real-time indexing, reorg support, and factory (dynamic) contracts
+* Powered by HyperSync for historical backfill
+
+### HyperSync
+
+**Best for:** new projects designing their own data access layer, performance-critical workloads, advanced filtering, and full control over data formatting.
+
+* A purpose-built, high-performance data retrieval layer, built from the ground up in Rust as an alternative to traditional JSON-RPC endpoints
+* The raw blockchain data access layer that powers HyperIndex, delivering up to 2000x faster performance than traditional RPC endpoints
+* Client libraries available for Python, Rust, Node.js, and Go
+* Filter, select, and process exactly the data you need with powerful query options
+
+Common use cases include custom indexers, data analytics, block explorers, monitoring tools, cross-chain applications, and ETL pipelines.
+
+### HyperRPC
+
+**Best for:** drop-in replacements for existing RPC-based code, projects that need standard JSON-RPC interfaces, and teams without time for a deeper integration.
+
+* An extremely fast RPC designed specifically for data-intensive blockchain tasks
+* A specialized JSON-RPC endpoint optimized for data retrieval workflows
+* Drop-in compatible with existing tooling that uses standard RPC methods
+* Up to 5x faster than traditional nodes for data-intensive operations; uses HyperSync to fulfill requests
+
+Common use cases include historical data queries, log event filtering, block and transaction retrievals, and analytics applications.
+
+## Getting Started
+
+Make sure you have installed the [prerequisites](https://docs.envio.dev/docs/HyperIndex/quickstart#prerequisites), then initialize a new indexer.
+
+```bash theme={"dark"} theme={"dark"}
+pnpx envio init
+```
+
+You'll follow interactive prompts to customize your indexer for Sei. A minimal Sei `config.yaml` looks like this.
+
+```yaml theme={"dark"} theme={"dark"}
+name: IndexerName
+description: Indexer Description
+chains:
+  - id: 1329 # Sei
+    start_block: START_BLOCK_NUMBER
+    contracts:
+      - name: ContractName
+        address:
+          - "0xYourContractAddress1"
+        events:
+          - event: Event
+```
+
+For more detail on configuring chains, schemas, and event handlers, see the [HyperIndex configuration guide](https://docs.envio.dev/docs/HyperIndex/configuration-file) and [Indexing Sei on Envio](https://docs.envio.dev/docs/HyperIndex/sei).
+
+## Built with Envio
+
+* [Indexer Explorer](https://envio.dev/explorer), browse public real-time indexers built on Envio
+* [Case studies](https://docs.envio.dev/blog/tags/case-studies), see real-world deployments and migrations
+* [Showcase](https://docs.envio.dev/showcase), explore live demos built with HyperIndex and HyperSync
+
+## More Resources
+
+* [HyperIndex Quickstart](https://docs.envio.dev/docs/HyperIndex/quickstart)
+* [Quickstart with AI](https://docs.envio.dev/docs/HyperIndex/quickstart-with-ai)
+* [Envio Cloud](https://docs.envio.dev/docs/HyperIndex/hosted-service)
+* [GitHub](https://github.com/enviodev/hyperindex)
+
+## Support
+
+Need help? Connect with the Envio team on [Discord](https://discord.gg/envio) or [Telegram](https://t.me/+kAIGElzPjApiMjI0).
+
+---
+
 URL: https://docs.sei.io/evm/indexer-providers/goldsky
 
 # Goldsky
@@ -23620,9 +23883,11 @@ Before you can query your subgraph, Indexers need to begin serving queries on
 it. In order to streamline this process, you can curate your own subgraph using
 GRT.
 
-When publishing, you'll see the option to curate your subgraph. As of May 2024,
-it is recommended that you curate your own subgraph with at least 3,000 GRT to
-ensure that it is indexed and available for querying as soon as possible.
+When publishing, you'll see the option to curate your subgraph. Signaling GRT
+on your own subgraph helps ensure that it is indexed and available for querying
+as soon as possible. See The Graph's
+[curating documentation](https://thegraph.com/docs/en/resources/roles/curating/)
+for current guidance on how much GRT to signal.
 
 <img src="https://mintcdn.com/seilabs/szEAtr1JphlH_mVc/assets/ecosystem/resources/the-graph/publish_screen.png?fit=max&auto=format&n=szEAtr1JphlH_mVc&q=85&s=f46e60dbc2a736a585e583ddd1739b46" alt="Publish screen" width="1600" height="1065" data-path="assets/ecosystem/resources/the-graph/publish_screen.png" />
 
@@ -23647,7 +23912,7 @@ by Messari:
 *Query URL*
 
 The query URL for this subgraph is:
-`https://gateway-arbitrum.network.thegraph.com/api/`**\[api-key]**`/subgraphs/id/HdVdERFUe8h61vm2fDyycgxjsde5PbB832NHgJfZNqK`
+`https://gateway-arbitrum.network.thegraph.com/api/`**\[api-key]**`/subgraphs/id/HdVdERFUe8h61vm2fDyycHgxjsde5PbB832NHgJfZNqK`
 
 Now, you simply need to fill in your own API Key to start sending GraphQL
 queries to this endpoint.
@@ -25067,9 +25332,9 @@ This transaction will be gasless because it meets two key conditions:
 1. **Gasless Mode Configuration**: By setting `SendTransactionMode.Gasless`
    within `AAWrapProvider`, we've specified that the transaction should be
    gasless and sponsored.
-2. **Funding Requirements**: On a Testnet like Sei, all transactions are
-   automatically sponsored, meaning you don't need to deposit USDT to cover
-   transaction fees. However, on mainnets like Sei, the Paymaster (configurable
+2. **Funding Requirements**: On Sei testnet, all transactions are
+   automatically sponsored, meaning you don't need to deposit funds to cover
+   transaction fees. However, on Sei mainnet, the Paymaster (configurable
    in the [Particle dashboard](https://dashboard.particle.network)) would need
    sufficient funds to sponsor these transactions.
 
@@ -25084,7 +25349,7 @@ With the setup complete, Particle Connect can now be leveraged, as demonstrated
 in the example application below.
 
 In this example, the application creates a smart account on Sei using a social
-login or a Web3 login and sends a gasless transaction of 0.01 SEI via the
+login or a Web3 login and sends a gasless transaction of 0.001 SEI via the
 `ethers` provider.
 
 ```tsx theme={"dark"}
@@ -25273,8 +25538,6 @@ import { toSimpleSmartAccount } from 'permissionless/accounts';
 import { writeFileSync } from 'fs';
 import 'dotenv/config';
 
-// Load environment variables
-dotenv.config();
 const apiKey = process.env.PIMLICO_API_KEY;
 if (!apiKey) throw new Error('Missing PIMLICO_API_KEY');
 
@@ -25592,6 +25855,7 @@ import {
   ConnectButton,
   TransactionButton,
   useActiveAccount,
+  useReadContract,
 } from "thirdweb/react";
 import { inAppWallet } from "thirdweb/wallets";
 import { client } from "./client";
@@ -25660,30 +25924,14 @@ async function handleStore(account: any, value: string) {
   }
 }
 
-// Retrieve value function
-async function handleRetrieve(account: any) {
-  if (!account) return;
+function App() {
+  const account = useActiveAccount();
 
-  const transaction = prepareContractCall({
+  // Read the stored value (free RPC call — no transaction needed)
+  const { data: storedValue, refetch: refetchStoredValue } = useReadContract({
     contract: storageContract,
     method: "function retrieve() view returns (uint256)",
   });
-
-  try {
-    const txResult = await sendAndConfirmTransaction({
-      transaction,
-      account,
-    });
-    console.log("Retrieved value:", txResult);
-    return txResult.transactionHash;
-  } catch (error) {
-    console.error("Retrieve failed:", error);
-    alert("Failed to retrieve value. Check console.");
-  }
-}
-
-function App() {
-  const account = useActiveAccount();
 
   return (
     <div className="min-h-screen bg-gray-100 py-8">
@@ -25759,11 +26007,15 @@ function App() {
 
               <div>
                 <h4 className="font-medium mb-2">Retrieve Stored Number</h4>
+                <p className="text-gray-600 mb-2">
+                  Stored value:{" "}
+                  {storedValue !== undefined ? storedValue.toString() : "—"}
+                </p>
                 <button
-                  onClick={() => handleRetrieve(account)}
+                  onClick={() => refetchStoredValue()}
                   className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600"
                 >
-                  Retrieve Number
+                  Refresh Number
                 </button>
               </div>
             </div>
@@ -26841,7 +27093,7 @@ pragma solidity ^0.8.22;
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { OFT } from "@layerzerolabs/oft-evm/contracts/OFT.sol";
 
-contract MyOFT is OFT, Ownable {
+contract MyOFT is OFT {
     constructor(string memory name, string memory symbol, address endpoint, address owner)
         OFT(name, symbol, endpoint, owner) Ownable(owner) {}
 
@@ -27405,7 +27657,7 @@ We also log key info and handle errors:
 		console.log('Tx hash:', hash);
 		const explorerBase =
 			chain.blockExplorers && chain.blockExplorers.default && chain.blockExplorers.default.url ? chain.blockExplorers.default.url : 'https://seiscan.io';
-		console.log('Explorer:', `${explorerBase}&tx=${hash}`);
+		console.log('Explorer:', `${explorerBase}/tx/${hash}`);
 	} catch (err) {
 		console.error('Transfer failed:', err.message || err);
 		process.exit(1);
@@ -27936,7 +28188,7 @@ Before starting this tutorial, ensure you have:
 * **API credentials**: Contact Chainlink to get access to Data Streams on Sei Mainnet/testnet
 * **API Key** and **User Secret** for testnet access
 * **Feed IDs**: We'll use [SEI/USDT](https://docs.chain.link/data-streams/crypto-streams?page=1\&testnetPage=1\&testnetSearch=SEI#testnet-crypto-streams) feed ID `0x0003dba2d8553dfd7afe35c2bfe217ef5106d7805e5272c04a08940ddb868117`
-* **VerifierProxy contract address** on [Sei mainnet/testnet](https://docs.chain.link/data-streams/crypto-streams?page=1\&testnetPage=1#overview): [`0x60fAa7faC949aF392DFc858F5d97E3EEfa07E9EB`](https://seiscan.io/address/0x60fAa7faC949aF392DFc858F5d97E3EEfa07E9EB)
+* **VerifierProxy contract address**: `0x60fAa7faC949aF392DFc858F5d97E3EEfa07E9EB` — the same address is used on [Sei mainnet](https://seiscan.io/address/0x60fAa7faC949aF392DFc858F5d97E3EEfa07E9EB) and [Sei testnet](https://testnet.seiscan.io/address/0x60fAa7faC949aF392DFc858F5d97E3EEfa07E9EB). See Chainlink's [Stream Addresses](https://docs.chain.link/data-streams/crypto-streams) page for the current list.
 
 ## Step-by-Step Tutorial
 
@@ -28295,7 +28547,7 @@ npx tsx verifyOnChain.ts
 **Expected Output:**
 
 ```bash theme={"dark"}
-npx tsx singleStream.ts
+npx tsx verifyOnChain.ts
 [DataStreams] Data Streams client initialized
 Fetching latest report...
 [DataStreams] Request successful: GET https://api.testnet-dataengine.chain.link/api/v1/reports/latest?feedID=0x0003dba2d8553dfd7afe35c2bfe217ef5106d7805e5272c04a08940ddb868117 - 200
@@ -28542,7 +28794,7 @@ contract DataFeedReaderExample is Ownable {
     }
 
     function readDataFeed()
-        external
+        public
         view
         returns (int224 value, uint256 timestamp)
     {
@@ -28623,7 +28875,7 @@ console.log('Last Updated:', new Date(result.timestamp * 1000));
 
 **Expected Output Format:**
 
-* `value`: SEI price in USD (with 18 decimals, e.g., `3000000000000000` = \$0.3)
+* `value`: SEI price in USD (with 18 decimals, e.g., `300000000000000000` = \$0.3)
 * `timestamp`: Unix timestamp of the last price update
 
 ### 3. Integration Examples
@@ -28631,9 +28883,10 @@ console.log('Last Updated:', new Date(result.timestamp * 1000));
 **Basic Price Display:**
 
 ```solidity theme={"dark"}
-function getSEIPriceFormatted() external view returns (string memory) {
-    (int224 value, uint256 timestamp) = readDataFeed();
-    return string(abi.encodePacked("$", uint224(value) / 1e18));
+function getSEIPrice() external view returns (int224 value) {
+    (value, ) = readDataFeed();
+    // `value` has 18 decimals, e.g. 300000000000000000 = $0.30.
+    // Divide by 1e18 off-chain (or scale on-chain) to get the dollar price.
 }
 ```
 
@@ -28855,7 +29108,7 @@ async function updateAndQuerySeiPrice(contractAddress, privateKey, rpcUrl = 'htt
     const wallet = new ethers.Wallet(privateKey, provider);
 
     // Contract ABI
-    const contractAbi = ['function getSeiPrice(bytes[] calldata priceUpdateData) external payable returns (tuple(int64 price, uint64 conf, int32 expo, uint256 publishTime))', 'function getLatestSeiPrice(uint256 time) external view returns (tuple(int64 price, uint64 conf, int32 expo, uint256 publishTime))', 'function isPriceFresh(uint256 maxAge) external view returns (bool)', 'function getUpdateFee(bytes[] calldata priceUpdateData) external view returns (uint256)', 'receive() external payable'];
+    const contractAbi = ['function getSeiPrice(bytes[] calldata priceUpdateData) external payable returns (tuple(int64 price, uint64 conf, int32 expo, uint256 publishTime))', 'function getLatestSeiPrice() external view returns (tuple(int64 price, uint64 conf, int32 expo, uint256 publishTime))', 'function isPriceFresh(uint256 maxAge) external view returns (bool)', 'function getUpdateFee(bytes[] calldata priceUpdateData) external view returns (uint256)', 'receive() external payable'];
 
     const contract = new ethers.Contract(contractAddress, contractAbi, wallet);
     const seiPriceId = '0x53614f1cb0c031d4af66c04cb9c756234adad0e1cee85303795091499a4084eb';
@@ -28883,9 +29136,8 @@ async function updateAndQuerySeiPrice(contractAddress, privateKey, rpcUrl = 'htt
     const receipt = await tx.wait();
     console.log(`✅ Transaction confirmed in block: ${receipt.blockNumber}`);
 
-    const time = 120; // 120 seconds freshness
-
-    const onChainPrice = await contract.getLatestSeiPrice(time);
+    // Reads the last known price (the contract enforces a 60-second freshness window)
+    const onChainPrice = await contract.getLatestSeiPrice();
 
     console.log('Onchain Query Raw', onChainPrice);
 
@@ -29063,7 +29315,7 @@ Pyth price data includes several important fields:
 ## Resources
 
 * [Pyth Network Documentation](https://docs.pyth.network/)
-* [Pyth Price Feed IDs](https://docs.pyth.network/price-feeds/core/contract-addresses/evm)
+* [Pyth Price Feed IDs](https://docs.pyth.network/price-feeds/core/price-feeds/price-feed-ids?search=sei\&pageSize=50)
 * [Pyth EVM SDK GitHub](https://github.com/pyth-network/pyth-crosschain)
 * [Hermes Price Service API](https://api-reference.pyth.network/price-feeds/evm)
 
@@ -31318,8 +31570,10 @@ Comprehensive guides for running, maintaining, and optimizing Sei network nodes.
     ##### Configure App Settings
 
     ```bash theme={"dark"}
-    # Set minimum gas price (recommended)
-    sed -i -e "s/^minimum-gas-prices *=.*/minimum-gas-prices = \"0usei\"/" $HOME/.sei/config/app.toml
+    # Set minimum gas price (recommended; helps prevent spam transactions)
+    # Mainnet enforces a chain-wide minimum of 0.02usei, so set at least that value
+    # Use "0usei" only for local development or private networks
+    sed -i -e "s/^minimum-gas-prices *=.*/minimum-gas-prices = \"0.02usei\"/" $HOME/.sei/config/app.toml
 
     # Tune mempool settings
     sed -i \
@@ -31449,7 +31703,7 @@ Comprehensive guides for running, maintaining, and optimizing Sei network nodes.
 
     ```bash theme={"dark"}
     # Check sync status
-    seid status | jq .SyncInfo
+    seid status
 
     # Monitor logs in real-time
     journalctl -u seid -f -o cat
@@ -33024,13 +33278,15 @@ du -sh $HOME/.sei/data/
 # - `config.toml` & `app.toml`: Retains node-specific configuration.
 # - `genesis.json`: Required for correct chain initialization.
 
-# Compact database to optimize storage (only if needed)
+# Wipe database for a fresh resync (destructive — deletes all chain data)
 find $HOME/.sei/data/ -mindepth 1 ! -name 'priv_validator_state.json' -delete && rm -rf $HOME/.sei/wasm
 
 
 # Backup database
 cp -r $HOME/.sei/data/ $HOME/sei-backup-$(date +%Y%m%d)/
 ```
+
+<Warning>The wipe command above deletes the entire local database (everything except `priv_validator_state.json`) and the `wasm` folder. It does not compact data in place — after running it, the node must be re-synced from a [snapshot](/node/snapshot) or via [state sync](/node/statesync) before it can serve traffic again.</Warning>
 
 ## Service Management
 
@@ -33402,7 +33658,7 @@ seictl genesis patch [patch-file]
 seictl genesis patch patch.json
 
 # Patch from stdin
-echo '{"chain_id": "sei-testnet"}' | seictl genesis patch
+echo '{"chain_id": "atlantic-2"}' | seictl genesis patch
 
 # Patch and save to a new file
 seictl genesis patch patch.json -o genesis-modified.json
@@ -33541,7 +33797,7 @@ swagger = true
 
 <Accordion title="Modify Genesis Chain ID">
   ```bash theme={"dark"}
-  echo '{"chain_id": "sei-mainnet-1"}' | seictl genesis patch -i
+  echo '{"chain_id": "pacific-1"}' | seictl genesis patch -i
   ```
 </Accordion>
 
@@ -33659,7 +33915,7 @@ seid tendermint unsafe-reset-all --home $HOME/.sei
 Finally, remove the existing data and wasm folders and restore the `priv_validator_state.json`:
 
 ```bash theme={"dark"}
-rm -rf $HOME/.sei/data/\*
+rm -rf $HOME/.sei/data/*
 rm -rf $HOME/.sei/wasm
 cp $HOME/priv_validator_state.json $HOME/.sei/data/priv_validator_state.json
 ```
@@ -33997,7 +34253,7 @@ When you encounter consensus errors, quick and appropriate action is essential:
 ```text theme={"dark"}
 Error: "Consensus failure - height halted"
 Solution: Check for network upgrades or chain halts
-Command: seid status | jq .SyncInfo
+Command: seid status
 ```
 
 ```text theme={"dark"}
@@ -34050,7 +34306,7 @@ These commands help you investigate issues and monitor your node:
 
 ```bash theme={"dark"}
 # Check node synchronization
-seid status | jq '.sync_info'
+seid status
 
 # Check validator status
 seid query staking validator $(seid tendermint show-validator)
@@ -34311,7 +34567,7 @@ echo "/tmp/core.%e.%p" > /proc/sys/kernel/core_pattern
      `app.toml` or running:
 
      ```bash theme={"dark"}
-     seid unsafe-reset-all --home=$HOME/.sei --keep-addr-book
+     seid tendermint unsafe-reset-all --home $HOME/.sei --keep-addr-book
      ```
 
      Alternatively, manually remove old state snapshots to free up space:
@@ -34431,7 +34687,7 @@ For production validators, using an HSM is strongly recommended to protect your 
   # Configure seid to use HSM
   tee "$HOME/.sei/config/priv_validator_config.json" << EOF
   {
-      "chain_id": "sei-chain",
+      "chain_id": "pacific-1",
       "key_type": "yubihsm",
       "state_file": "$HOME/.sei/data/priv_validator_state.json",
       "hsm_serial": "YOUR_HSM_SERIAL",
@@ -34443,14 +34699,16 @@ For production validators, using an HSM is strongly recommended to protect your 
 
 ### Validator Registration
 
-Before registering your validator, ensure your node is fully synced with the network. The creation of a validator is a crucial step that requires careful consideration of commission parameters:
+Before registering your validator, ensure your node is fully synced with the network. The creation of a validator is a crucial step that requires careful consideration of commission parameters.
+
+The examples below use `pacific-1` (mainnet); use `atlantic-2` for testnet.
 
 ```bash theme={"dark"}
 seid tx staking create-validator \
     --amount=1000000usei \
     --pubkey=$(seid tendermint show-validator) \
     --moniker="choose_moniker" \
-    --chain-id=sei-chain \
+    --chain-id=pacific-1 \
     --commission-rate="0.10" \
     --commission-max-rate="0.20" \
     --commission-max-change-rate="0.01" \
@@ -34573,7 +34831,7 @@ seid query gov proposals --status voting_period
 # Vote on a proposal
 seid tx gov vote 1 yes \
     --from operator \
-    --chain-id sei-chain \
+    --chain-id pacific-1 \
     --gas auto \
     --gas-prices 0.01usei
 ```
@@ -34714,17 +34972,17 @@ Example Prometheus configuration:
 
 ```yaml theme={"dark"}
 global:
-	scrape_interval: 15s
-	evaluation_interval: 15s
+  scrape_interval: 15s
+  evaluation_interval: 15s
 
 scrape_configs:
-	- job_name: 'sei_node'
-		static_configs:
-			- targets: ['node1_ip:port']
-		metrics_path: /metrics
-	- job_name: 'node'
-		static_configs:
-			- targets: ['node2_ip:port']
+  - job_name: 'sei_node'
+    static_configs:
+      - targets: ['node1_ip:port']
+    metrics_path: /metrics
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node2_ip:port']
 ```
 
 ### Grafana Integration
@@ -34885,44 +35143,44 @@ tar xvf alertmanager-0.25.0.linux-amd64.tar.gz
 <Accordion title="Create Alert Rules Configuration">
   ```yaml theme={"dark"}
   groups:
-  	- name: validator_alerts
-  		rules:
-  			- alert: NodeDown
-  				expr: up == 0
-  				for: 5m
-  				labels:
-  					severity: critical
-  				annotations:
-  					summary: 'Node {{ $labels.instance }} down'
+    - name: validator_alerts
+      rules:
+        - alert: NodeDown
+          expr: up == 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: 'Node {{ $labels.instance }} down'
 
-  			- alert: BlockProductionSlow
-  				expr: rate(tendermint_consensus_height[5m]) < 0.1
-  				for: 5m
-  				labels:
-  					severity: warning
-  				annotations:
-  					summary: 'Block production is slow on {{ $labels.instance }}'
-  			- alert: ValidatorMissedBlocks
-  				expr: increase(tendermint_consensus_validator_missed_blocks[1h]) > 0
-  				labels:
-  					severity: critical
-  				annotations:
-  					summary: 'Validator missing blocks'
+        - alert: BlockProductionSlow
+          expr: rate(tendermint_consensus_height[5m]) < 0.1
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: 'Block production is slow on {{ $labels.instance }}'
+        - alert: ValidatorMissedBlocks
+          expr: increase(tendermint_consensus_validator_missed_blocks[1h]) > 0
+          labels:
+            severity: critical
+          annotations:
+            summary: 'Validator missing blocks'
 
-  			- alert: ValidatorJailed
-  				expr: tendermint_consensus_validator_status == 0
-  				labels:
-  					severity: critical
-  				annotations:
-  					summary: 'Validator has been jailed'
+        - alert: ValidatorJailed
+          expr: tendermint_consensus_validator_status == 0
+          labels:
+            severity: critical
+          annotations:
+            summary: 'Validator has been jailed'
 
-  			- alert: ConsensusStalled
-  				expr: tendermint_consensus_height_status == 0
-  				for: 5m
-  				labels:
-  					severity: critical
-  				annotations:
-  					summary: 'Consensus has stalled'
+        - alert: ConsensusStalled
+          expr: tendermint_consensus_height_status == 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: 'Consensus has stalled'
   ```
 </Accordion>
 
@@ -36539,7 +36797,7 @@ Pre-configured prompts for common tasks:
 
   <div className="bg-white dark:bg-neutral-800/50  p-4 border-l-4 border-purple-500">
     <p className="text-sm font-medium text-purple-600 dark:text-purple-400 mb-1">Send Transaction</p>
-    <p className="text-neutral-700 dark:text-neutral-300">"Send 1 SEI to 0x742d35Cc6634C0532925a3b8D4C1C4e3153DC"</p>
+    <p className="text-neutral-700 dark:text-neutral-300">"Send 1 SEI to 0x742d35Cc6634C0532925a3b844Bc454e4438f44e"</p>
     <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-2">→ Executes transfer and returns transaction hash</p>
   </div>
 
@@ -37441,7 +37699,7 @@ If you only need self-custodial keys (no TEE, you hold the private key), use `Vi
             "caip2": "eip155:1329",
             "params": {
               "transaction": {
-                "to": "0x742d35Cc6634C0532925a3b844De3e9Fe0b5BaDa",
+                "to": "0x742d35Cc6634C0532925a3b844Bc454e4438f44e",
                 "value": "0x2386F26FC10000",
                 "chain_id": 1329
               }
@@ -37497,7 +37755,7 @@ If you only need self-custodial keys (no TEE, you hold the private key), use `Vi
           walletId: wallet.id,
           caip2: 'eip155:1329', // Sei mainnet
           transaction: {
-            to: '0x742d35Cc6634C0532925a3b844De3e9Fe0b5BaDa',
+            to: '0x742d35Cc6634C0532925a3b844Bc454e4438f44e',
             value: '0x' + parseEther('0.01').toString(16),
             chainId: 1329,
           },
@@ -37533,7 +37791,7 @@ If you only need self-custodial keys (no TEE, you hold the private key), use `Vi
             caip2="eip155:1329",  # Sei mainnet
             params={
                 "transaction": {
-                    "to": "0x742d35Cc6634C0532925a3b844De3e9Fe0b5BaDa",
+                    "to": "0x742d35Cc6634C0532925a3b844Bc454e4438f44e",
                     "value": "0x2386F26FC10000",
                     "chain_id": 1329,
                 }
@@ -37845,15 +38103,15 @@ These packages help streamline both the client-side (paying) and server-side (ch
 
 ***
 
-# Axiom Kit Integration
+## Axiom Kit Integration
 
 While you can build x402 integrations using standard tools and the libraries mentioned above, you can also optionally use Axiom Kit for a more agent-centric approach. This guide demonstrates an end-to-end x402 (HTTP 402 Payment Required) micropayment flow on the Sei testnet using AxiomKit.
 
-## What is x402?
+### What is x402?
 
 x402 is an open standard protocol for internet-native payments that enables users to send and receive payments globally in a simple, secure, and interoperable manner. The protocol leverages the HTTP 402 status code ("Payment Required") to facilitate blockchain-based micropayments directly through HTTP requests.
 
-### Key Features of x402:
+#### Key Features of x402:
 
 * **HTTP-Native**: Uses standard HTTP status codes and headers
 * **Blockchain Integration**: Supports multiple blockchain networks
@@ -37861,7 +38119,7 @@ x402 is an open standard protocol for internet-native payments that enables user
 * **Interoperable**: Works across different payment schemes and networks
 * **Micropayment Support**: Designed for small, frequent transactions
 
-## Protocol Overview
+### Protocol Overview
 
 The x402 protocol follows a specific flow:
 
@@ -37871,22 +38129,22 @@ The x402 protocol follows a specific flow:
 4. **Payment Proof**: Client includes payment proof in subsequent request
 5. **Resource Access**: Server verifies payment and grants access
 
-## Axiom Integration
+### Axiom Integration
 
 Axiom is a blockchain interaction framework that provides tools and libraries for building decentralized applications. In this implementation, Axiom integrates with x402 to enable seamless blockchain payments within Sei network applications.
 
-### Axiom Components Used:
+#### Axiom Components Used:
 
 * **@axiomkit/core**: Core framework for building blockchain agents
 * **@axiomkit/sei**: Sei blockchain integration
 * **AxiomSeiWallet**: Wallet management for Sei transactions
 * **Context and Actions**: Framework for building interactive blockchain agents
 
-## Sei Blockchain Implementation
+### Sei Blockchain Implementation
 
 This implementation uses the Sei testnet for x402 payments with the following configuration:
 
-### Network Configuration
+#### Network Configuration
 
 ```typescript theme={"dark"}
 export const X402_CONFIG = {
@@ -37900,11 +38158,11 @@ export const X402_CONFIG = {
 };
 ```
 
-## Technical Architecture
+### Technical Architecture
 
 The x402 implementation consists of several key components:
 
-### 1. Payment Challenge Generation
+#### 1. Payment Challenge Generation
 
 ```typescript theme={"dark"}
 function generatePaymentChallenge() {
@@ -37935,7 +38193,7 @@ function generatePaymentChallenge() {
 }
 ```
 
-### 2. Payment Verification
+#### 2. Payment Verification
 
 ```typescript theme={"dark"}
 async function verifyPayment(paymentHeader: string) {
@@ -37956,7 +38214,7 @@ async function verifyPayment(paymentHeader: string) {
 }
 ```
 
-### 3. Axiom Agent Integration
+#### 3. Axiom Agent Integration
 
 The Axiom agent handles the complete x402 flow:
 
@@ -37994,16 +38252,16 @@ action({
 });
 ```
 
-## Payment Flow
+### Payment Flow
 
-### 1. Initial Request
+#### 1. Initial Request
 
 ```
 Client → GET /api/weather
 Server → 402 Payment Required + Payment Challenge
 ```
 
-### 2. Payment Challenge Response
+#### 2. Payment Challenge Response
 
 ```json theme={"dark"}
 {
@@ -38029,7 +38287,7 @@ Server → 402 Payment Required + Payment Challenge
 }
 ```
 
-### 3. Payment Execution
+#### 3. Payment Execution
 
 The Axiom agent executes a USDC transfer on Sei testnet:
 
@@ -38057,16 +38315,16 @@ const hash = await seiWallet.walletClient.sendTransaction({
 });
 ```
 
-### 4. Payment Proof Submission
+#### 4. Payment Proof Submission
 
 ```
 Client → GET /api/weather + X-Payment Header (base64 encoded payment proof)
 Server → Verifies payment + Returns weather data
 ```
 
-## Code Examples
+### Code Examples
 
-### Complete Weather API Implementation
+#### Complete Weather API Implementation
 
 ```typescript theme={"dark"}
 export async function GET(req: NextRequest) {
@@ -38102,7 +38360,7 @@ export async function GET(req: NextRequest) {
 }
 ```
 
-### Axiom Agent Weather Action
+#### Axiom Agent Weather Action
 
 ```typescript theme={"dark"}
 action({
@@ -38185,29 +38443,29 @@ Please try again or check your wallet balance for USDC tokens needed for the pay
 });
 ```
 
-## Security Considerations
+### Security Considerations
 
-### Payment Verification
+#### Payment Verification
 
 * **On-chain Verification**: All payments are verified against the Sei blockchain.
 * **Transaction Receipt Validation**: Ensures transaction success and proper recipient.
 * **Payment Caching**: Prevents double-spending by caching verified payments.
 * **Reference Validation**: Unique payment references prevent replay attacks.
 
-### Network Security
+#### Network Security
 
 * **HTTPS Required**: All API communications use secure connections.
 * **Base64 Encoding**: Payment proofs are base64 encoded for safe transmission.
 * **Timeout Handling**: Payment challenges include timeout mechanisms.
 * **Error Handling**: Comprehensive error handling prevents information leakage.
 
-### Wallet Security
+#### Wallet Security
 
 * **Private Key Management**: Private keys are stored securely in environment variables.
 * **Transaction Signing**: All transactions are properly signed before submission.
 * **Balance Validation**: Sufficient balance checks before payment execution.
 
-## Tutorials & Resources
+### Tutorials & Resources
 
 * **[Sei-js X402 Repository](https://github.com/sei-protocol/sei-x402)**: Comprehensive guide on using the x402 protocol with the sei-js library, including package details and examples.
 * **[AxiomKit X402 Demo Repository](https://github.com/AxiomKit/axiomkit-showcase)**: The complete source code for the Axiom integration demo used in this guide, including installation and configuration instructions.
