@@ -63,7 +63,8 @@ timeout-broadcast-tx-commit = "10s"
 
 ```toml
 # Minimum gas prices to prevent spam transactions
-minimum-gas-prices = "0.01usei"
+# (mainnet enforces a chain-wide minimum of 0.02usei)
+minimum-gas-prices = "0.02usei"
 
 # Block retention for /block, /block_results, etc., and the floor used by
 # the receipt store's pruner. 0 disables block pruning.
@@ -1463,7 +1464,7 @@ async-write-buffer = 100
 prune-interval-seconds = 600
 ```
 
-Setting very small (more frequent) pruning intervals may collide with
+Setting small (more frequent) pruning intervals may collide with
 snapshot creation. Too-large (less frequent) intervals mean pruning takes
 longer overall, which can cause missed blocks and excessive resync time.
 
@@ -1520,19 +1521,20 @@ may be required:
 # Check database size
 du -sh $HOME/.sei/data/
 
-# Confirm correct file paths as per your own setup before proceeding
-# Before performing a database wipe, ensure you back up essential files:
+# Confirm correct file paths as per your own setup before proceeding.
+# Back up the data directory BEFORE wiping it:
+cp -r $HOME/.sei/data/ $HOME/sei-backup-$(date +%Y%m%d)/
+
+# Your keys and config live in $HOME/.sei/config and are NOT removed by the
+# wipe below, but keep them safe regardless:
 # - `node_key.json`: Preserves node identity to maintain peer connections.
 # - `priv_validator_key.json`: Critical for validators; losing this key results in double signing risks.
 # - `config.toml` & `app.toml`: Retains node-specific configuration.
 # - `genesis.json`: Required for correct chain initialization.
 
-# Wipe database for a fresh resync (destructive — deletes all chain data)
+# Wipe database for a fresh resync (destructive — deletes all chain data
+# except priv_validator_state.json)
 find $HOME/.sei/data/ -mindepth 1 ! -name 'priv_validator_state.json' -delete && rm -rf $HOME/.sei/wasm
-
-
-# Backup database
-cp -r $HOME/.sei/data/ $HOME/sei-backup-$(date +%Y%m%d)/
 ```
 
 <Warning>The wipe command above deletes the entire local database (everything except `priv_validator_state.json`) and the `wasm` folder. It does not compact data in place — after running it, the node must be re-synced from a [snapshot](/node/snapshot) or via [state sync](/node/statesync) before it can serve traffic again.</Warning>
