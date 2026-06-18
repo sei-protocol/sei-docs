@@ -253,7 +253,10 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedNamespace, setSelectedNamespace] = useState('all');
-  const [showUnsupported, setShowUnsupported] = useState(false);
+  // Off by default: hide deprecated (sei_*/sei2_*) and unavailable methods so
+  // only the available, current methods show. Toggle reveals everything.
+  const [showAll, setShowAll] = useState(false);
+  const isHiddenByDefault = (m) => m.status === 'unsupported' || !!(NAMESPACE_META[m.namespace] && NAMESPACE_META[m.namespace].deprecated);
 
   const [selectedMethod, setSelectedMethod] = useState(null);
   const [selectedLanguage, setSelectedLanguage] = useState('curl');
@@ -309,7 +312,7 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
   const filteredMethods = useMemo(() => {
     let list = allMethods;
     if (selectedNamespace !== 'all') list = list.filter((m) => m.namespace === selectedNamespace);
-    if (!showUnsupported) list = list.filter((m) => m.status !== 'unsupported');
+    if (!showAll) list = list.filter((m) => !isHiddenByDefault(m));
     if (searchTerm) {
       const q = searchTerm.toLowerCase();
       list = list.filter((m) => m.name.toLowerCase().includes(q) || (m.description || '').toLowerCase().includes(q));
@@ -320,13 +323,13 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
       if (ns !== 0) return ns;
       return rank(a.status) - rank(b.status);
     });
-  }, [allMethods, selectedNamespace, showUnsupported, searchTerm]);
+  }, [allMethods, selectedNamespace, showAll, searchTerm]);
 
   const visibleNamespaces = useMemo(() => {
     const present = new Set();
-    allMethods.forEach((m) => { if (showUnsupported || m.status !== 'unsupported') present.add(m.namespace); });
+    allMethods.forEach((m) => { if (showAll || !isHiddenByDefault(m)) present.add(m.namespace); });
     return NAMESPACE_ORDER.filter((ns) => present.has(ns));
-  }, [allMethods, showUnsupported]);
+  }, [allMethods, showAll]);
 
   const counts = useMemo(() => allMethods.reduce((a, m) => ((a[m.status] = (a[m.status] || 0) + 1), a), {}), [allMethods]);
 
@@ -610,8 +613,8 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
 
   return (
     <div className="not-prose" style={{ fontFamily: 'var(--sei-font-body, inherit)', color: c.text, background: c.bg, border: `1px solid ${c.border}`, borderRadius: 6, overflow: 'hidden', display: 'flex', flexDirection: 'column', height: '80vh', minHeight: 640 }}>
-      {/* Header */}
-      <div style={{ borderBottom: `1px solid ${c.border}`, background: c.panel, padding: '14px 18px', display: 'flex', flexWrap: 'wrap', gap: 14, alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+      {/* Header — always stacked (title row, then controls row) so a long RPC URL never cramps the layout */}
+      <div style={{ borderBottom: `1px solid ${c.border}`, background: c.panel, padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 12, flexShrink: 0 }}>
         <div>
           <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: '-0.01em' }}>Sei EVM JSON-RPC Explorer</div>
           <div style={{ fontSize: 12, color: c.sub, marginTop: 2 }}>
@@ -645,7 +648,7 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
               style={{ fontSize: 12, fontFamily: mono, padding: '6px 10px', width: 220, background: c.input, color: c.text, border: `1px solid ${c.border}`, borderRadius: 4, outline: 'none' }}
             />
           ) : (
-            <code style={{ fontSize: 12, fontFamily: mono, color: c.sub, padding: '5px 10px', background: c.panel2, borderRadius: 4, border: `1px solid ${c.border}` }}>{endpoint}</code>
+            <code style={{ fontSize: 12, fontFamily: mono, color: c.sub, padding: '5px 10px', background: c.panel2, borderRadius: 4, border: `1px solid ${c.border}`, maxWidth: '100%', overflowWrap: 'anywhere' }}>{endpoint}</code>
           )}
           <span title={connection === 'ok' ? 'Reachable' : connection === 'fail' ? 'Unreachable from this browser' : 'Not checked'} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: connection === 'ok' ? '#22c55e' : connection === 'fail' ? '#ef4444' : c.faint }}>
             <span style={{ width: 8, height: 8, borderRadius: 9, background: connection === 'ok' ? '#22c55e' : connection === 'fail' ? '#ef4444' : c.faint }} />
@@ -687,8 +690,22 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
               })}
             </div>
             <label style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 11, fontSize: 12, color: c.sub, cursor: 'pointer' }}>
-              <input type="checkbox" checked={showUnsupported} onChange={(e) => setShowUnsupported(e.target.checked)} style={{ accentColor: c.maroon }} />
-              Show unavailable methods
+              <input
+                type="checkbox"
+                checked={showAll}
+                onChange={(e) => {
+                  const next = e.target.checked;
+                  setShowAll(next);
+                  // If collapsing back to defaults while a now-hidden namespace
+                  // (deprecated/unavailable) is selected, reset to All.
+                  if (!next && selectedNamespace !== 'all') {
+                    const meta = NAMESPACE_META[selectedNamespace];
+                    if (meta && (meta.deprecated || meta.unavailable)) setSelectedNamespace('all');
+                  }
+                }}
+                style={{ accentColor: c.maroon }}
+              />
+              Show deprecated &amp; unavailable methods
             </label>
           </div>
           <div style={{ flex: 1, overflowY: 'auto' }}>
