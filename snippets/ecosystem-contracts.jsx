@@ -652,9 +652,14 @@ export const EcosystemContracts = () => {
 				const address = String(contract[addressKey] || '').toLowerCase();
 				if (name.includes(q) || address.includes(q)) {
 					setOpenSections((prev) => ({ ...prev, [group.projectName]: true }));
-					const id = `contract-${slugify(group.projectName)}-${address}`;
+					const baseId = `contract-${slugify(group.projectName)}-${address}`;
 					requestAnimationFrame(() => {
-						const el = document.getElementById(id);
+						const el =
+								[`${baseId}-desktop`, `${baseId}-mobile`]
+									.map((cid) => document.getElementById(cid))
+									.find((node) => node && node.offsetParent !== null) ||
+								document.getElementById(`${baseId}-desktop`) ||
+								document.getElementById(`${baseId}-mobile`);
 						if (!el) return;
 
 						// Center the element in the viewport for better visibility
@@ -803,7 +808,7 @@ export const EcosystemContracts = () => {
 															const addr = String(contract[addressKey] || '').toLowerCase();
 															const id = `contract-${slugify(group.projectName)}-${addr}`;
 															return (
-																<tr key={contractIndex} id={id} className='transition-colors'>
+																<tr key={contractIndex} id={`${id}-desktop`} className='transition-colors'>
 																	<td className='border border-gray-200 dark:border-gray-700 px-4 py-3 text-sm text-gray-900 dark:text-white font-medium'>
 																		{contract[nameKey] || 'Unnamed Contract'}
 																	</td>
@@ -830,7 +835,7 @@ export const EcosystemContracts = () => {
 													const addr = String(contract[addressKey] || '').toLowerCase();
 													const id = `contract-${slugify(group.projectName)}-${addr}`;
 													return (
-														<div key={contractIndex} id={id} className='border border-gray-200 dark:border-gray-700 p-4 bg-white dark:bg-gray-800'>
+														<div key={contractIndex} id={`${id}-mobile`} className='border border-gray-200 dark:border-gray-700 p-4 bg-white dark:bg-gray-800'>
 															<div className='space-y-2'>
 																<div>
 																	<span className='text-xs text-gray-500 dark:text-gray-400 block mb-1'>Contract Name</span>

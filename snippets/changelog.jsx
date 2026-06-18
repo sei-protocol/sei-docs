@@ -535,7 +535,10 @@ sei-tendermint
     }
   ];
 
-  const STATIC_VERSION_NAMES = new Set(STATIC_CHANGELOG.map((entry) => entry.version));
+  // Normalize version headers so dedup matches across formats — e.g. a fetched
+  // "v3.0.8" and a static "3.0.8" (or differing case/spacing) collapse to one key.
+  const normVersion = (s) => (s || '').toLowerCase().replace(/\s+/g, '').replace(/^v/, '');
+  const STATIC_VERSION_NAMES = new Set(STATIC_CHANGELOG.map((entry) => normVersion(entry.version)));
 
   const [dynamicVersions, setDynamicVersions] = useState([]);
   const [error, setError] = useState(null);
@@ -564,7 +567,7 @@ sei-tendermint
       const version = lines[0]?.trim() || '';
       const body = lines.slice(1).join('\n').trim();
 
-      if (!version || STATIC_VERSION_NAMES.has(version)) continue;
+      if (!version || STATIC_VERSION_NAMES.has(normVersion(version))) continue;
 
       if (merged.has(version)) {
         const existing = merged.get(version);
@@ -932,15 +935,6 @@ sei-tendermint
     );
   }
 
-  if (loading) {
-    return (
-      <div className="py-12 text-center text-neutral-500 dark:text-neutral-400">
-        <div className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-current border-r-transparent mr-2 align-middle" />
-        Loading changelog...
-      </div>
-    );
-  }
-
   return (
     <div>
       <div className="flex items-center justify-between mb-2 pb-4 mt-4">
@@ -971,6 +965,12 @@ sei-tendermint
           </svg>
           View on GitHub
         </a>
+        {loading && (
+          <span className="inline-flex items-center text-xs text-neutral-500 dark:text-neutral-400">
+            <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-r-transparent mr-2" />
+            Checking for the latest releases…
+          </span>
+        )}
       </div>
 
       <div className="changelog-content">

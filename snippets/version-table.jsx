@@ -27,11 +27,19 @@ export const VersionTable = () => {
       try {
         const response = await fetch(`${rpcEndpoint}/abci_info`);
         const data = await response.json();
-        const version = data.response.version;
-        setVersionFor(chainId, version);
-        localStorage.setItem(`${chainId}-version`, version);
-        localStorage.setItem(`${chainId}-version-timestamp`, Date.now().toString());
+        // Sei's RPC returns { response: { version } }; standard Tendermint wraps
+        // it as { result: { response: { version } } }. Accept either shape.
+        const info = (data && data.result && data.result.response) || (data && data.response) || {};
+        const version = info.version;
+        // Only cache real values — localStorage.setItem coerces undefined to the
+        // literal string "undefined", which would then display for an hour.
+        if (typeof version === 'string' && version) {
+          setVersionFor(chainId, version);
+          localStorage.setItem(`${chainId}-version`, version);
+          localStorage.setItem(`${chainId}-version-timestamp`, Date.now().toString());
+        }
       } catch (error) {
+        // Leave any cached value (set below) in place instead of blanking.
         console.error('Error fetching version:', error);
       }
     };
@@ -39,10 +47,14 @@ export const VersionTable = () => {
     networks.forEach(({ chainId, rpcEndpoint }) => {
       const storedVersion = localStorage.getItem(`${chainId}-version`);
       const storedTimestamp = localStorage.getItem(`${chainId}-version-timestamp`);
+      const isFresh = storedVersion && storedTimestamp && Date.now() - parseInt(storedTimestamp, 10) < oneHour;
 
-      if (storedVersion && storedTimestamp && Date.now() - parseInt(storedTimestamp, 10) < oneHour) {
+      // Show any cached value immediately (even when stale) so the column never
+      // sits on "Fetching..." while we revalidate; only fetch when missing/stale.
+      if (storedVersion) {
         setVersionFor(chainId, storedVersion);
-      } else {
+      }
+      if (!isFresh) {
         fetchVersion(chainId, rpcEndpoint);
       }
     });
