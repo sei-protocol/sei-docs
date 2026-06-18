@@ -1,0 +1,546 @@
+export const RpcSelector = ({ network = 'mainnet', count = 3 } = {}) => {
+	// --- dark-mode detection (Mintlify toggles `dark` class on <html>) ---
+	const [isDark, setIsDark] = useState(false);
+	useEffect(() => {
+		const el = document.documentElement;
+		const update = () => setIsDark(el.classList.contains('dark'));
+		update();
+		const obs = new MutationObserver(update);
+		obs.observe(el, { attributes: true, attributeFilter: ['class'] });
+		return () => obs.disconnect();
+	}, []);
+
+	// --- brand color helpers (sei-maroon link hover, theme-aware) ---
+	const maroon100 = 'var(--sei-maroon-100)';
+	const maroon25 = 'var(--sei-maroon-25)';
+	const linkColor = maroon100;
+	const linkHoverColor = isDark ? maroon25 : maroon100;
+
+	// --- icon sub-components (all inside the component scope) ---
+	const AlertCircleIcon = ({ className }) => (
+		<svg
+			xmlns='http://www.w3.org/2000/svg'
+			width='24'
+			height='24'
+			viewBox='0 0 24 24'
+			fill='none'
+			stroke='currentColor'
+			strokeWidth='2'
+			strokeLinecap='round'
+			strokeLinejoin='round'
+			className={className}>
+			<path d='M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0' />
+			<path d='M12 8v4' />
+			<path d='M12 16h.01' />
+		</svg>
+	);
+
+	const ArrowRightIcon = ({ className }) => (
+		<svg
+			xmlns='http://www.w3.org/2000/svg'
+			width='24'
+			height='24'
+			viewBox='0 0 24 24'
+			fill='none'
+			stroke='currentColor'
+			strokeWidth='2'
+			strokeLinecap='round'
+			strokeLinejoin='round'
+			className={className}>
+			<path d='M5 12l14 0' />
+			<path d='M13 18l6 -6' />
+			<path d='M13 6l6 6' />
+		</svg>
+	);
+
+	const CheckIcon = ({ className }) => (
+		<svg
+			xmlns='http://www.w3.org/2000/svg'
+			width='24'
+			height='24'
+			viewBox='0 0 24 24'
+			fill='none'
+			stroke='currentColor'
+			strokeWidth='2'
+			strokeLinecap='round'
+			strokeLinejoin='round'
+			className={className}>
+			<path d='M5 12l5 5l10 -10' />
+		</svg>
+	);
+
+	const ChevronDownIcon = ({ className }) => (
+		<svg
+			xmlns='http://www.w3.org/2000/svg'
+			width='24'
+			height='24'
+			viewBox='0 0 24 24'
+			fill='none'
+			stroke='currentColor'
+			strokeWidth='2'
+			strokeLinecap='round'
+			strokeLinejoin='round'
+			className={className}>
+			<path d='M6 9l6 6l6 -6' />
+		</svg>
+	);
+
+	const ChevronUpIcon = ({ className }) => (
+		<svg
+			xmlns='http://www.w3.org/2000/svg'
+			width='24'
+			height='24'
+			viewBox='0 0 24 24'
+			fill='none'
+			stroke='currentColor'
+			strokeWidth='2'
+			strokeLinecap='round'
+			strokeLinejoin='round'
+			className={className}>
+			<path d='M6 15l6 -6l6 6' />
+		</svg>
+	);
+
+	const CopyIcon = ({ className }) => (
+		<svg
+			xmlns='http://www.w3.org/2000/svg'
+			width='24'
+			height='24'
+			viewBox='0 0 24 24'
+			fill='none'
+			stroke='currentColor'
+			strokeWidth='2'
+			strokeLinecap='round'
+			strokeLinejoin='round'
+			className={className}>
+			<path d='M7 7m0 2.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667z' />
+			<path d='M4.012 16.737a2.005 2.005 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1' />
+		</svg>
+	);
+
+	const InfoCircleIcon = ({ className }) => (
+		<svg
+			xmlns='http://www.w3.org/2000/svg'
+			width='24'
+			height='24'
+			viewBox='0 0 24 24'
+			fill='none'
+			stroke='currentColor'
+			strokeWidth='2'
+			strokeLinecap='round'
+			strokeLinejoin='round'
+			className={className}>
+			<path d='M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0' />
+			<path d='M12 9h.01' />
+			<path d='M11 12h1v4h1' />
+		</svg>
+	);
+
+	const SearchIcon = ({ className }) => (
+		<svg
+			xmlns='http://www.w3.org/2000/svg'
+			width='24'
+			height='24'
+			viewBox='0 0 24 24'
+			fill='none'
+			stroke='currentColor'
+			strokeWidth='2'
+			strokeLinecap='round'
+			strokeLinejoin='round'
+			className={className}>
+			<path d='M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0' />
+			<path d='M21 21l-6 -6' />
+		</svg>
+	);
+
+	// --- full endpoint dataset (inlined, all 10 entries) ---
+	const rpcEndpoints = [
+		{
+			url: 'https://evm-rpc.sei-apis.com',
+			type: 'public',
+			provider: 'Sei Foundation',
+			network: 'mainnet',
+			description: 'Official Sei RPC endpoint for mainnet',
+			latency: 'Low',
+			rateLimit: '10 req/s',
+			notes: 'Recommended for development'
+		},
+		{
+			url: 'https://evm-rpc-sei.stingray.plus',
+			type: 'public',
+			provider: 'Staketab',
+			network: 'mainnet',
+			description: 'Community maintained RPC endpoint',
+			latency: 'Medium'
+		},
+		{
+			url: 'https://sei-evm-rpc.publicnode.com',
+			type: 'public',
+			provider: 'PublicNode',
+			network: 'mainnet',
+			description: 'Community maintained RPC endpoint',
+			latency: 'Medium',
+			rateLimit: '5 req/s'
+		},
+		{
+			url: 'https://seievm-rpc.polkachu.com',
+			type: 'public',
+			provider: 'Polkachu',
+			network: 'mainnet',
+			description: 'Community maintained RPC endpoint',
+			latency: 'Medium'
+		},
+		{
+			url: 'https://jsonrpc.lavenderfive.com:443/sei',
+			type: 'public',
+			provider: 'LavenderFive',
+			network: 'mainnet',
+			description: 'Community maintained RPC endpoint',
+			latency: 'Medium'
+		},
+		{
+			url: 'https://evm-rpc-testnet.sei-apis.com',
+			type: 'public',
+			provider: 'Sei Foundation',
+			network: 'testnet',
+			description: 'Official Sei RPC endpoint for atlantic-2 testnet',
+			latency: 'Low',
+			rateLimit: '20 req/s',
+			notes: 'Recommended for testing'
+		},
+		{
+			url: 'https://evm-rpc-testnet-sei.stingray.plus',
+			type: 'public',
+			provider: 'Staketab',
+			network: 'testnet',
+			description: 'Community maintained RPC endpoint',
+			latency: 'Medium'
+		},
+		{
+			url: 'https://seievm-testnet-rpc.polkachu.com',
+			type: 'public',
+			provider: 'Polkachu',
+			network: 'testnet',
+			description: 'Community maintained RPC endpoint',
+			latency: 'Medium'
+		},
+		{
+			url: 'https://sei-testnet.drpc.org',
+			type: 'public',
+			provider: 'dRPC',
+			network: 'testnet',
+			description: 'Community maintained RPC endpoint',
+			latency: 'Medium'
+		},
+		{
+			url: 'http://localhost:8545',
+			type: 'public',
+			provider: 'Local Node',
+			network: 'localnet',
+			description: 'Local development endpoint',
+			latency: 'Very Low',
+			notes: 'For local development only'
+		}
+	];
+
+	// --- state ---
+	const initialNetwork = network === 'testnet' || network === 'localnet' ? network : 'mainnet';
+	const initialCount = typeof count === 'number' && count > 0 ? count : 3;
+
+	const [selectedNetwork, setSelectedNetwork] = useState(initialNetwork);
+	const [copiedUrl, setCopiedUrl] = useState(null);
+	const [searchTerm, setSearchTerm] = useState('');
+	const [expandedEndpoint, setExpandedEndpoint] = useState(null);
+	const [showAllEndpoints, setShowAllEndpoints] = useState(false);
+	const [baseHeights, setBaseHeights] = useState({});
+
+	const handleCopy = (url) => {
+		navigator.clipboard.writeText(url);
+		setCopiedUrl(url);
+		setTimeout(() => setCopiedUrl(null), 2000);
+	};
+
+	// --- live base-height probe ---
+	const fetchBaseHeight = async (url) => {
+		const response = await fetch(url, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({
+				jsonrpc: '2.0',
+				method: 'eth_getBlockByNumber',
+				params: ['0x1', false],
+				id: 1
+			}),
+			mode: 'cors'
+		});
+
+		if (!response.ok) {
+			throw new Error(`HTTP error! status: ${response.status}`);
+		}
+
+		const data = await response.json();
+
+		if (data.error && data.error.message) {
+			const match = data.error.message.match(/base height:\s*(\d+)/);
+			if (match) {
+				return parseInt(match[1], 10);
+			}
+		}
+
+		return null;
+	};
+
+	const toggleEndpointDetails = (url) => {
+		if (expandedEndpoint === url) {
+			setExpandedEndpoint(null);
+		} else {
+			setExpandedEndpoint(url);
+			if (!baseHeights[url]) {
+				setBaseHeights((prev) => ({
+					...prev,
+					[url]: { baseHeight: null, loading: true, error: false }
+				}));
+
+				fetchBaseHeight(url)
+					.then((baseHeight) => {
+						setBaseHeights((prev) => ({
+							...prev,
+							[url]: { baseHeight, loading: false, error: false }
+						}));
+					})
+					.catch(() => {
+						setBaseHeights((prev) => ({
+							...prev,
+							[url]: { baseHeight: null, loading: false, error: true }
+						}));
+					});
+			}
+		}
+	};
+
+	const filteredEndpoints = rpcEndpoints.filter(
+		(endpoint) =>
+			endpoint.network === selectedNetwork &&
+			(searchTerm === '' || endpoint.url.toLowerCase().includes(searchTerm.toLowerCase()) || endpoint.provider.toLowerCase().includes(searchTerm.toLowerCase()))
+	);
+
+	const displayedEndpoints = showAllEndpoints || searchTerm !== '' ? filteredEndpoints : filteredEndpoints.slice(0, initialCount);
+	const hasMoreEndpoints = filteredEndpoints.length > initialCount && !showAllEndpoints && searchTerm === '';
+
+	return (
+		<div className='flex flex-col'>
+			<div className='flex justify-end mb-6'>
+				<a
+					href='https://docs.sei.io/evm/reference'
+					target='_top'
+					rel='noopener noreferrer'
+					className='text-sm flex items-center transition-colors'
+					style={{ color: linkColor }}
+					onMouseEnter={(e) => {
+						e.currentTarget.style.color = linkHoverColor;
+					}}
+					onMouseLeave={(e) => {
+						e.currentTarget.style.color = linkColor;
+					}}>
+					View full RPC reference
+					<ArrowRightIcon className='h-4 w-4 ml-1' />
+				</a>
+			</div>
+
+			<div className='flex flex-col sm:flex-row gap-4 mb-6'>
+				<div className='flex items-center bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700 px-3 py-1.5 w-full sm:max-w-md'>
+					<SearchIcon className='h-4 w-4 text-neutral-400 mr-2' />
+					<input
+						type='text'
+						placeholder='Search by URL or provider...'
+						className='bg-transparent border-none outline-none text-neutral-800 dark:text-neutral-200 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 text-sm w-full'
+						value={searchTerm}
+						onChange={(e) => setSearchTerm(e.target.value)}
+					/>
+				</div>
+
+				<div className='flex space-x-2'>
+					<button
+						type='button'
+						onClick={() => {
+							setSelectedNetwork('mainnet');
+							setShowAllEndpoints(false);
+						}}
+						className={`px-3 py-1.5 text-sm transition-colors ${
+							selectedNetwork === 'mainnet'
+								? 'bg-neutral-200 dark:bg-neutral-700 text-neutral-900 dark:text-white'
+								: 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-700'
+						}`}>
+						Mainnet
+					</button>
+					<button
+						type='button'
+						onClick={() => {
+							setSelectedNetwork('testnet');
+							setShowAllEndpoints(false);
+						}}
+						className={`px-3 py-1.5 text-sm transition-colors ${
+							selectedNetwork === 'testnet'
+								? 'bg-neutral-200 dark:bg-neutral-700 text-neutral-900 dark:text-white'
+								: 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-700'
+						}`}>
+						Testnet
+					</button>
+				</div>
+			</div>
+
+			<div className='bg-neutral-50 dark:bg-neutral-900/40 border border-neutral-200 dark:border-neutral-800 overflow-hidden'>
+				<div className='px-4 py-3 bg-neutral-50 dark:bg-neutral-800/50 border-b border-neutral-200 dark:border-neutral-800 grid grid-cols-12 text-sm font-medium text-neutral-500 dark:text-neutral-400'>
+					<div className='col-span-6 sm:col-span-5'>Endpoint URL</div>
+					<div className='col-span-4 sm:col-span-3'>Provider</div>
+					<div className='hidden sm:block sm:col-span-3'>Type</div>
+					<div className='col-span-2 sm:col-span-1'>Action</div>
+				</div>
+
+				<div className='divide-y divide-neutral-200 dark:divide-neutral-800'>
+					{displayedEndpoints.length > 0 ? (
+						<>
+							{displayedEndpoints.map((endpoint) => (
+								<div key={endpoint.url} className='bg-neutral-50 dark:bg-transparent hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors'>
+									<div className='px-4 py-3 grid grid-cols-12 items-center text-sm'>
+										<div className='col-span-6 sm:col-span-5 truncate'>
+											<code className='text-neutral-800 dark:text-neutral-300 text-xs' style={{ fontFamily: 'var(--sei-font-mono)' }}>
+												{endpoint.url}
+											</code>
+										</div>
+										<div className='col-span-4 sm:col-span-3 text-neutral-700 dark:text-neutral-400'>{endpoint.provider}</div>
+										<div className='hidden sm:block sm:col-span-3'>
+											<span
+												className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+													endpoint.type === 'public'
+														? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
+														: endpoint.type === 'premium'
+															? 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400'
+															: 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400'
+												}`}>
+												{endpoint.type}
+											</span>
+										</div>
+										<div className='col-span-2 sm:col-span-1 flex justify-end'>
+											<div className='flex space-x-2'>
+												<button
+													type='button'
+													onClick={() => handleCopy(endpoint.url)}
+													className='p-1 text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200 hover:bg-neutral-200/50 dark:hover:bg-neutral-700/50 transition-colors'
+													title='Copy to clipboard'
+													aria-label='Copy to clipboard'>
+													{copiedUrl === endpoint.url ? <CheckIcon className='h-4 w-4 text-green-500' /> : <CopyIcon className='h-4 w-4' />}
+												</button>
+												<button
+													type='button'
+													onClick={() => toggleEndpointDetails(endpoint.url)}
+													className='p-1 text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200 hover:bg-neutral-200/50 dark:hover:bg-neutral-700/50 transition-colors'
+													title='Show details'
+													aria-label='Show details'>
+													<ChevronDownIcon className={`h-4 w-4 transform transition-transform ${expandedEndpoint === endpoint.url ? 'rotate-180' : ''}`} />
+												</button>
+											</div>
+										</div>
+									</div>
+
+									{expandedEndpoint === endpoint.url && (
+										<div className='px-4 py-3 bg-neutral-50 dark:bg-neutral-800/30 text-sm'>
+											<div className='flex flex-col space-y-2'>
+												<div>
+													<span className='text-neutral-500 dark:text-neutral-400'>Description:</span>
+													<span className='ml-2 text-neutral-800 dark:text-neutral-300'>{endpoint.description}</span>
+												</div>
+												<div className='grid grid-cols-1 sm:grid-cols-2 gap-2'>
+													{endpoint.latency && (
+														<div>
+															<span className='text-neutral-500 dark:text-neutral-400'>Latency:</span>
+															<span className='ml-2 text-neutral-800 dark:text-neutral-300'>{endpoint.latency}</span>
+														</div>
+													)}
+													{endpoint.rateLimit && (
+														<div>
+															<span className='text-neutral-500 dark:text-neutral-400'>Rate Limit:</span>
+															<span className='ml-2 text-neutral-800 dark:text-neutral-300'>{endpoint.rateLimit}</span>
+														</div>
+													)}
+												</div>
+												<div>
+													<span className='text-neutral-500 dark:text-neutral-400'>Historical Data:</span>
+													{baseHeights[endpoint.url] && baseHeights[endpoint.url].loading ? (
+														<span className='ml-2 text-neutral-600 dark:text-neutral-400 italic'>Checking availability...</span>
+													) : baseHeights[endpoint.url] && baseHeights[endpoint.url].error ? (
+														<span className='ml-2 text-orange-600 dark:text-orange-400'>Unable to verify</span>
+													) : baseHeights[endpoint.url] && baseHeights[endpoint.url].baseHeight ? (
+														<span className='ml-2 text-neutral-800 dark:text-neutral-300'>
+															Available from block {baseHeights[endpoint.url].baseHeight.toLocaleString()}
+														</span>
+													) : baseHeights[endpoint.url] ? (
+														<span className='ml-2 text-green-600 dark:text-green-400'>Full history available</span>
+													) : (
+														<span className='ml-2 text-neutral-600 dark:text-neutral-400 italic'>Click to check</span>
+													)}
+												</div>
+												{baseHeights[endpoint.url] && baseHeights[endpoint.url].baseHeight && (
+													<div className='flex items-start bg-orange-50 dark:bg-orange-900/10 border border-orange-200 dark:border-orange-800 p-2'>
+														<AlertCircleIcon className='h-4 w-4 text-orange-500 mr-2 mt-0.5 flex-shrink-0' />
+														<span className='text-xs text-orange-800 dark:text-orange-300'>
+															Historical blocks before {baseHeights[endpoint.url].baseHeight.toLocaleString()} are not available on this endpoint.
+														</span>
+													</div>
+												)}
+												{endpoint.notes && (
+													<div className='flex items-start'>
+														<InfoCircleIcon className='h-4 w-4 text-blue-500 mr-2 mt-0.5' />
+														<span className='text-neutral-700 dark:text-neutral-300'>{endpoint.notes}</span>
+													</div>
+												)}
+											</div>
+										</div>
+									)}
+								</div>
+							))}
+							{hasMoreEndpoints && (
+								<div className='px-4 py-3 flex justify-center'>
+									<button
+										type='button'
+										onClick={() => setShowAllEndpoints(true)}
+										className='flex items-center text-sm text-neutral-700 dark:text-neutral-300 transition-colors font-medium'
+										onMouseEnter={(e) => {
+											e.currentTarget.style.color = linkHoverColor;
+										}}
+										onMouseLeave={(e) => {
+											e.currentTarget.style.color = '';
+										}}>
+										<span>Show more</span>
+										<ChevronDownIcon className='h-4 w-4 ml-1' />
+									</button>
+								</div>
+							)}
+							{showAllEndpoints && (
+								<div className='px-4 py-3 flex justify-center'>
+									<button
+										type='button'
+										onClick={() => setShowAllEndpoints(false)}
+										className='flex items-center text-sm text-neutral-700 dark:text-neutral-300 transition-colors font-medium'
+										onMouseEnter={(e) => {
+											e.currentTarget.style.color = linkHoverColor;
+										}}
+										onMouseLeave={(e) => {
+											e.currentTarget.style.color = '';
+										}}>
+										<span>Show fewer RPC endpoints</span>
+										<ChevronUpIcon className='h-4 w-4 ml-1' />
+									</button>
+								</div>
+							)}
+						</>
+					) : (
+						<div className='px-4 py-6 text-center text-neutral-600 dark:text-neutral-400'>No endpoints found for your search criteria.</div>
+					)}
+				</div>
+			</div>
+		</div>
+	);
+};
