@@ -1,15 +1,5 @@
 /*
- * Sei EVM JSON-RPC Explorer
- * -------------------------------------------------------------------------
- * Interactive reference for every JSON-RPC method exposed by Sei's EVM RPC.
- *
- * The method catalog (`SEI_RPC_METHODS`) is generated from an audit of the
- * sei-protocol/sei-chain `evmrpc` package (the registration map in
- * endpoints.go/server.go, the explicit rpc_unsupported.go rejections, and each
- * namespace handler) cross-checked against the curated docs. Statuses:
- *   - supported   : registered + real implementation, standard behavior
- *   - limited     : works, but stub/static/deprecated or has a Sei-specific caveat
- *   - unsupported : not registered, explicitly errors, or N/A to Sei's architecture
+ * Sei EVM JSON-RPC Explorer — interactive reference for Sei's EVM RPC methods.
  *
  * Mintlify note: snippets must use arrow-function syntax (no `function` keyword),
  * React hooks are provided in scope by the Mintlify runtime, and ALL declarations
@@ -33,9 +23,6 @@ const NETWORKS = {
   },
 };
 
-// Per-namespace display metadata. Colors are accent hues used for the left
-// border / pills; `deprecated` flags the legacy Sei surfaces; `unavailable`
-// flags geth namespaces Sei does not expose.
 const NAMESPACE_META = {
   eth: { label: 'eth', color: '#b05c6c', blurb: 'Standard Ethereum methods — accounts, balances, blocks, transactions, logs, calls, and filters.' },
   debug: { label: 'debug', color: '#966f22', blurb: 'Transaction and block tracing.' },
@@ -70,7 +57,6 @@ const LANGUAGES = [
   { id: 'csharp', name: 'C#' },
 ];
 
-// Method catalog — see header comment. Injected at build time.
 const SEI_RPC_METHODS = [
   {"namespace":"eth","name":"eth_blockNumber","status":"supported","description":"Returns the number of the most recent committed EVM block as a hex uint64.","seiNote":"Block height comes from CometBFT latest height; the latest committed block is already final on Sei (instant finality, so latest == safe == finalized)."},
   {"namespace":"eth","name":"eth_chainId","status":"supported","description":"Returns the EVM chain ID as a hex big int.","seiNote":"Sourced from the x/evm keeper. Mainnet (pacific-1) = 1329 (0x531); testnet (atlantic-2) = 1328 (0x530)."},
@@ -192,9 +178,6 @@ const SEI_RPC_METHODS = [
   {"namespace":"personal","name":"personal_*","status":"unsupported","description":"Geth account-management namespace (personal_newAccount, personal_unlockAccount, personal_sendTransaction, personal_sign, etc.). Not run by Sei.","seiNote":"Sei does not expose the deprecated personal namespace; hosted RPC nodes hold no user keys. Key management/signing is client-side and eth_sendRawTransaction is the supported path. All personal_* methods return -32601."}
 ];
 
-// Parse a stored/typed param value into a real JSON value when it clearly is
-// one (object, array, boolean, null); otherwise keep the raw string so hex
-// strings and block tags ("latest") pass through unchanged.
 const parseValue = (raw) => {
   if (typeof raw !== 'string') return raw;
   const t = raw.trim();
@@ -213,25 +196,17 @@ const isEmptyValue = (v) => {
   return false;
 };
 
-// Build the JSON-RPC params array for a method, applying example fallbacks and
-// trimming trailing empty/optional values (so eth_call sends [args, "latest"]
-// rather than [args, "latest", {}, {}]).
 const buildParams = (method, values) => {
   const params = (method.params || []).map((p) => {
-    // Only fall back to the catalog example when the field is untouched
-    // (undefined). A field the user explicitly cleared ('') stays empty.
     const v = values ? values[p.name] : undefined;
     return parseValue(v !== undefined ? v : (p.example || ''));
   });
-  // eth_subscribe: the optional `filter` only applies to the `logs` stream. For
-  // `newHeads` (or any other type) the subscription name is the sole param, so
-  // drop the trailing filter rather than sending it alongside `newHeads`.
+  // eth_subscribe: the optional filter only applies to the logs stream.
   if (method.name === 'eth_subscribe' && params[0] !== 'logs') params.length = 1;
   while (params.length && isEmptyValue(params[params.length - 1])) params.pop();
   return params;
 };
 
-// Best-effort WebSocket endpoint for a given HTTP URL (custom networks).
 const deriveWsEndpoint = (httpUrl) => {
   if (!httpUrl) return 'wss://<your-ws-endpoint>';
   try {
@@ -259,8 +234,6 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedNamespace, setSelectedNamespace] = useState('all');
-  // Off by default: hide deprecated (sei_*/sei2_*) and unavailable methods so
-  // only the available, current methods show. Toggle reveals everything.
   const [showAll, setShowAll] = useState(false);
   const isHiddenByDefault = (m) => m.status === 'unsupported' || !!(NAMESPACE_META[m.namespace] && NAMESPACE_META[m.namespace].deprecated);
 
@@ -274,7 +247,6 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
 
   const isDark = theme === 'dark';
 
-  // Theme detection — Mintlify toggles the `dark` class on <html>.
   useEffect(() => {
     const detect = () => setTheme(document.documentElement.classList.contains('dark') ? 'dark' : 'light');
     detect();
@@ -283,9 +255,6 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
     return () => observer.disconnect();
   }, []);
 
-  // Drive the layout off the explorer's OWN width, not the viewport — so it
-  // uses the two-pane layout whenever its column has room and stacks when it
-  // doesn't, regardless of page mode, sidebar, or table-of-contents width.
   useEffect(() => {
     const stackBelow = (w) => setIsMobile(w < 768);
     const el = rootRef.current;
@@ -300,13 +269,11 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
     return () => window.removeEventListener('resize', check);
   }, []);
 
-  // Debounce param values so code regen doesn't fire on every keystroke.
   useEffect(() => {
     const t = setTimeout(() => setDebouncedParams(paramValues), 250);
     return () => clearTimeout(t);
   }, [paramValues]);
 
-  // Probe the endpoint for a connection indicator.
   const validateEndpoint = useCallback(async () => {
     if (!endpoint) { setConnection('idle'); return; }
     try {
@@ -352,8 +319,7 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
   const selectMethod = (m) => {
     setSelectedMethod(m);
     setParamValues({});
-    // Clear the debounced copy synchronously too; otherwise code examples reuse
-    // the previous method's values until the 250ms debounce timer fires.
+    // Clear synchronously so examples don't reuse the previous method's values.
     setDebouncedParams({});
     setRequestResult(null);
     setSelectedLanguage('curl');
@@ -396,9 +362,6 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
     const BT = String.fromCharCode(96); // backtick, for raw string literals
     const csBody = bodyJson.replace(/\\/g, '\\\\').replace(/"/g, '\\"'); // valid C#/JSON string literal
 
-    // WebSocket-only methods (eth_subscribe / eth_unsubscribe): every language
-    // gets a real WebSocket example built from the actual method + params and
-    // the active network's WS endpoint.
     if (isWsOnly(method.name)) {
       if (language === 'javascript') {
         return [
@@ -675,8 +638,7 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
   const mMeta = m ? NAMESPACE_META[m.namespace] || {} : {};
 
   return (
-    <div ref={rootRef} className="not-prose rpc-explorer-root" style={{ fontFamily: 'var(--sei-font-body, inherit)', color: c.text, background: c.bg, border: bd, borderRadius: 6, overflow: 'hidden', display: 'flex', flexDirection: 'column', height: '80vh', minHeight: 640 }}>
-      {/* Header — always stacked (title row, then controls row) so a long RPC URL never cramps the layout */}
+    <div ref={rootRef} className="not-prose rpc-explorer-root" style={{ fontFamily: 'var(--sei-font-body, inherit)', color: c.text, background: c.bg, border: bd, borderRadius: 6, overflow: 'hidden', display: 'flex', flexDirection: 'column', height: '96vh', minHeight: 768 }}>
       <div style={{ borderBottom: bd, background: c.panel, padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 12, flexShrink: 0 }}>
         <div>
           <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: '-0.01em' }}>Sei EVM JSON-RPC Explorer</div>
@@ -759,8 +721,6 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
                 onChange={(e) => {
                   const next = e.target.checked;
                   setShowAll(next);
-                  // If collapsing back to defaults while a now-hidden namespace
-                  // (deprecated/unavailable) is selected, reset to All.
                   if (!next && selectedNamespace !== 'all') {
                     const meta = NAMESPACE_META[selectedNamespace];
                     if (meta && (meta.deprecated || meta.unavailable)) setSelectedNamespace('all');
