@@ -70,6 +70,1167 @@ Log filters (`eth_getLogs`, `eth_getFilterLogs`) are subject to the following li
 Real-time subscriptions (`eth_subscribe` for `newHeads` and `logs`) are available over WebSocket only. See [WebSocket connections](/evm/evm-parity/websocket) for transport details.
 </Info>
 
+## Standard Ethereum endpoints
+
+Every method below is also browsable interactively in the explorer above; this section is the static, copy-friendly reference. Methods are grouped by purpose and labelled with their Sei support status. Block parameters accept a hex number or one of the tags `latest`, `earliest`, `pending`, `safe`, or `finalized` — on Sei, `safe`, `finalized`, and `latest` all resolve to the latest committed block due to [instant finality](/evm/differences-with-ethereum#finality). The deprecated `sei_*`/`sei2_*` extensions are documented separately under [Sei custom endpoints](#sei-custom-endpoints).
+
+<Accordion title="Send transactions">
+#### `eth_sendRawTransaction`
+
+**Supported.** Submits a signed, RLP-encoded raw EVM transaction to the network and returns its hash.
+
+**Sei-specific behavior:** Decodes to an ethtypes.Transaction, wraps it in a Cosmos MsgEVMTransaction, and broadcasts via CometBFT (async BroadcastTx by default; slow mode uses BroadcastTxCommit). Non-zero CheckTx codes surface as ABCI errors, not geth mempool errors. Legacy (non-1559) txs must set gasPrice at or above the governance minimum (currently 50 gwei on mainnet); blob (EIP-4844) txs are not enabled. Supports per-sender EvmProxy forwarding.
+
+**Parameters:**
+
+| # | Name | Type | Description |
+| :- | :- | :- | :- |
+| 1 | `data` | DATA | Signed, RLP-encoded transaction bytes (0x-prefixed). |
+
+**Example request:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "eth_sendRawTransaction",
+  "params": [
+    "0x02f8b101808459682f00..."
+  ]
+}
+```
+
+#### `eth_sendTransaction`
+
+**Limited.** Signs (with a node-hosted key) and submits a transaction in one call.
+
+**Sei-specific behavior:** Requires the 'from' address's private key in the node's local test keyring; production/public RPC nodes hold no hosted keys, so this returns 'from address does not have hosted key'. Always signs as LegacyTxType. Sign client-side and use eth_sendRawTransaction instead.
+
+**Parameters:**
+
+| # | Name | Type | Description |
+| :- | :- | :- | :- |
+| 1 | `args` | object | Transaction object (from, to, value, data, gas, nonce, etc.). |
+
+**Example request:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "eth_sendTransaction",
+  "params": [
+    {
+      "from": "0xDa52B9E673d1f48FcD9916b3F606A136a8eA5e55",
+      "to": "0x7507454444fa193d39f1392076bc784b77a7a8ff",
+      "value": "0x1"
+    }
+  ]
+}
+```
+
+#### `eth_signTransaction`
+
+**Limited.** Signs a transaction with a node-hosted key and returns the signed payload without broadcasting.
+
+**Sei-specific behavior:** Requires a node-hosted key for the from address; not usable on public RPC nodes that hold no keys. Returns both the raw RLP bytes and the decoded tx.
+
+**Parameters:**
+
+| # | Name | Type | Description |
+| :- | :- | :- | :- |
+| 1 | `args` | object | SendTxArgs transaction object to sign (from, to, gas, gasPrice, value, nonce, data). |
+
+**Example request:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "eth_signTransaction",
+  "params": [
+    {
+      "from": "0xDa52B9E673d1f48FcD9916b3F606A136a8eA5e55",
+      "to": "0x7507454444fa193d39f1392076bc784b77a7a8ff",
+      "value": "0x1",
+      "nonce": "0x0",
+      "gas": "0x5208",
+      "gasPrice": "0x3b9aca00"
+    }
+  ]
+}
+```
+
+#### `eth_sign`
+
+**Limited.** Signs an EIP-191 personal message with a node-hosted key for the given address.
+
+**Sei-specific behavior:** Only works for addresses in the node's local test keyring; production/public RPC nodes hold no hosted keys, so this returns 'address does not have hosted key'. Applies the EIP-191 personal-message TextHash before signing.
+
+**Parameters:**
+
+| # | Name | Type | Description |
+| :- | :- | :- | :- |
+| 1 | `address` | DATA, 20 bytes | Address whose hosted key signs the data. |
+| 2 | `data` | DATA | Message bytes to sign. |
+
+**Example request:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "eth_sign",
+  "params": [
+    "0xDa52B9E673d1f48FcD9916b3F606A136a8eA5e55",
+    "0xdeadbeef"
+  ]
+}
+```
+
+</Accordion>
+
+<Accordion title="Transaction lookup">
+#### `eth_getTransactionByHash`
+
+**Supported.** Returns the EVM transaction matching the given hash, or null if not found.
+
+**Sei-specific behavior:** Sees EVM transactions only; if the hash resolves to a non-EVM Cosmos tx it errors. Pending lookups read from the CometBFT mempool, not a geth txpool. Use the legacy sei_getTransactionByHash to also surface Cosmos txs with synthetic representations.
+
+**Parameters:**
+
+| # | Name | Type | Description |
+| :- | :- | :- | :- |
+| 1 | `hash` | DATA, 32 bytes | Transaction hash. |
+
+**Example request:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "eth_getTransactionByHash",
+  "params": [
+    "0x828c91592453fe7c5bf743204495a35bf02b67b579b8f59ee7eea8af031d7c14"
+  ]
+}
+```
+
+#### `eth_getTransactionReceipt`
+
+**Supported.** Returns the receipt of a transaction by hash, or null if not found.
+
+**Sei-specific behavior:** Receipt is reconstructed from keeper.GetReceipt + CometBFT block data rather than from a native MPT receipt trie; status/logs are standard Ethereum format.
+
+**Parameters:**
+
+| # | Name | Type | Description |
+| :- | :- | :- | :- |
+| 1 | `hash` | DATA, 32 bytes | Transaction hash. |
+
+**Example request:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "eth_getTransactionReceipt",
+  "params": [
+    "0x828c91592453fe7c5bf743204495a35bf02b67b579b8f59ee7eea8af031d7c14"
+  ]
+}
+```
+
+#### `eth_getTransactionByBlockNumberAndIndex`
+
+**Supported.** Returns the EVM transaction at the given index within the block at the specified number.
+
+**Sei-specific behavior:** Index maps over EVM transactions only; an out-of-range index yields a null result rather than an error.
+
+**Parameters:**
+
+| # | Name | Type | Description |
+| :- | :- | :- | :- |
+| 1 | `blockNr` | BLOCKNUMBER | Block number or tag. |
+| 2 | `index` | QUANTITY | Transaction index within the block. |
+
+**Example request:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "eth_getTransactionByBlockNumberAndIndex",
+  "params": [
+    "latest",
+    "0x0"
+  ]
+}
+```
+
+#### `eth_getTransactionByBlockHashAndIndex`
+
+**Supported.** Returns the EVM transaction at the given index within the block identified by hash.
+
+**Sei-specific behavior:** Index maps over EVM transactions only; same null-on-overflow semantics as the block-number variant.
+
+**Parameters:**
+
+| # | Name | Type | Description |
+| :- | :- | :- | :- |
+| 1 | `blockHash` | DATA, 32 bytes | Block hash. |
+| 2 | `index` | QUANTITY | Transaction index within the block. |
+
+**Example request:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "eth_getTransactionByBlockHashAndIndex",
+  "params": [
+    "0x5620c15afd9a1d0ab19d7560043df6e038d731c6205974dca7a55900071e3864",
+    "0x0"
+  ]
+}
+```
+
+#### `eth_getTransactionCount`
+
+**Supported.** Returns the number of transactions sent from an address (nonce) at a given block.
+
+**Sei-specific behavior:** For the 'pending' tag Sei returns EvmNextPendingNonce from the CometBFT mempool (or redirects to an EvmProxy if the sender is sharded there). safe/finalized/latest are equivalent due to instant finality.
+
+**Parameters:**
+
+| # | Name | Type | Description |
+| :- | :- | :- | :- |
+| 1 | `address` | DATA, 20 bytes | Account address. |
+| 2 | `blockNrOrHash` | BLOCKNUMBER or DATA | Block number, tag, or hash; 'pending' returns the next pending nonce. |
+
+**Example request:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "eth_getTransactionCount",
+  "params": [
+    "0xDa52B9E673d1f48FcD9916b3F606A136a8eA5e55",
+    "latest"
+  ]
+}
+```
+
+#### `eth_getNonce`
+
+**Limited.** Sei-specific helper that returns the current EVM nonce for an address (latest state only).
+
+**Sei-specific behavior:** Non-standard Sei extension exposed as eth_getNonce, implemented as StateAPI.GetNonce in state.go (NOT on TransactionAPI). Unlike eth_getTransactionCount it takes no block tag (latest-only via ctxProvider(LatestCtxHeight)) and returns a bare uint64 with no block-tag argument. Prefer eth_getTransactionCount for standard nonce queries.
+
+**Parameters:**
+
+| # | Name | Type | Description |
+| :- | :- | :- | :- |
+| 1 | `address` | DATA, 20 bytes | Account address. |
+
+**Example request:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "eth_getNonce",
+  "params": [
+    "0xDa52B9E673d1f48FcD9916b3F606A136a8eA5e55"
+  ]
+}
+```
+
+#### `eth_getTransactionErrorByHash`
+
+**Limited.** Sei extension that returns the recorded VM error string for a transaction by hash (empty string if it succeeded or is not found).
+
+**Sei-specific behavior:** Non-standard Sei extension registered under the eth namespace. Unlike eth_getVMError, a not-found lookup returns an empty string and no error.
+
+**Parameters:**
+
+| # | Name | Type | Description |
+| :- | :- | :- | :- |
+| 1 | `hash` | DATA, 32 bytes | Transaction hash. |
+
+**Example request:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "eth_getTransactionErrorByHash",
+  "params": [
+    "0x828c91592453fe7c5bf743204495a35bf02b67b579b8f59ee7eea8af031d7c14"
+  ]
+}
+```
+
+#### `eth_getVMError`
+
+**Limited.** Sei extension that returns the EVM VM error string recorded in a transaction's receipt by hash.
+
+**Sei-specific behavior:** Non-standard Sei extension registered under the eth namespace. Returns the receipt's VmError field and propagates a not-found error (unlike eth_getTransactionErrorByHash, which returns an empty string on not-found).
+
+**Parameters:**
+
+| # | Name | Type | Description |
+| :- | :- | :- | :- |
+| 1 | `hash` | DATA, 32 bytes | Transaction hash. |
+
+**Example request:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "eth_getVMError",
+  "params": [
+    "0x828c91592453fe7c5bf743204495a35bf02b67b579b8f59ee7eea8af031d7c14"
+  ]
+}
+```
+
+</Accordion>
+
+<Accordion title="Account information">
+#### `eth_getBalance`
+
+**Supported.** Returns the wei balance of an account at a given block.
+
+**Sei-specific behavior:** Balance reflects the account's SEI bank balance (18-decimal wei representation) and can change from both EVM and non-EVM (Cosmos bank send / wasm) transactions. Height is resolved via the watermark manager with a state-version guard.
+
+**Parameters:**
+
+| # | Name | Type | Description |
+| :- | :- | :- | :- |
+| 1 | `address` | DATA, 20 bytes | Account address. |
+| 2 | `blockNrOrHash` | BLOCKNUMBER or DATA | Block number, tag (latest/earliest/pending/safe/finalized), or hash. |
+
+**Example request:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "eth_getBalance",
+  "params": [
+    "0xDa52B9E673d1f48FcD9916b3F606A136a8eA5e55",
+    "latest"
+  ]
+}
+```
+
+#### `eth_getCode`
+
+**Supported.** Returns the contract bytecode at an address for a given block.
+
+**Parameters:**
+
+| # | Name | Type | Description |
+| :- | :- | :- | :- |
+| 1 | `address` | DATA, 20 bytes | Contract address. |
+| 2 | `blockNrOrHash` | BLOCKNUMBER or DATA | Block number, tag, or hash. |
+
+**Example request:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "eth_getCode",
+  "params": [
+    "0xE30feDd158A2e3b13e9badaeABaFc5516e95e8C7",
+    "latest"
+  ]
+}
+```
+
+#### `eth_getStorageAt`
+
+**Supported.** Returns the value stored at a storage slot of an address at a given block.
+
+**Sei-specific behavior:** Reads the EVM keeper's slot value directly rather than from an MPT trie. The slot key must decode to at most 32 bytes.
+
+**Parameters:**
+
+| # | Name | Type | Description |
+| :- | :- | :- | :- |
+| 1 | `address` | DATA, 20 bytes | Contract address. |
+| 2 | `key` | DATA, 32 bytes | Storage slot key (hex, up to 32 bytes). |
+| 3 | `blockNrOrHash` | BLOCKNUMBER or DATA | Block number, tag, or hash. |
+
+**Example request:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "eth_getStorageAt",
+  "params": [
+    "0xE30feDd158A2e3b13e9badaeABaFc5516e95e8C7",
+    "0x0",
+    "latest"
+  ]
+}
+```
+
+#### `eth_getProof`
+
+**Limited.** Returns a Merkle proof for an account and the requested storage slots.
+
+**Sei-specific behavior:** Sei stores state in an IAVL tree, not an Ethereum Merkle-Patricia trie. The result is a Sei-specific ProofResult&#123;address, hexValues, storageProof&#125; where storageProof entries are CometBFT/IAVL crypto.ProofOps, NOT eth-style MPT proof nodes. There is no accountProof, balance, codeHash, nonce, or storageHash field (Sei has no per-account state root); standard eth_getProof verifiers will not work.
+
+**Parameters:**
+
+| # | Name | Type | Description |
+| :- | :- | :- | :- |
+| 1 | `address` | DATA, 20 bytes | Account address. |
+| 2 | `storageKeys` | array of DATA, 32 bytes | Storage slot keys to prove (bounded by MaxStorageKeysPerProof). |
+| 3 | `blockNrOrHash` | BLOCKNUMBER or DATA | Block number, tag, or hash. |
+
+**Example request:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "eth_getProof",
+  "params": [
+    "0xE30feDd158A2e3b13e9badaeABaFc5516e95e8C7",
+    [
+      "0x0"
+    ],
+    "latest"
+  ]
+}
+```
+
+#### `eth_accounts`
+
+**Limited.** Returns the list of addresses for which the node holds hosted keys.
+
+**Sei-specific behavior:** Sourced from the node's local test keyring only; production/public RPC nodes hold no hosted keys, so this returns an empty list. Sign client-side and use eth_sendRawTransaction.
+
+**Parameters:** none.
+
+</Accordion>
+
+<Accordion title="Block information">
+#### `eth_getBlockByNumber`
+
+**Supported.** Returns block information by number or tag, with full transactions when fullTx is true.
+
+**Sei-specific behavior:** Under the eth namespace only EVM transactions are indexed (synthetic/bank-transfer txs excluded). Block number 0 returns a synthetic genesis block (for The Graph compatibility); future/non-existent numeric blocks return null. Uncle/PoW header fields (sha3Uncles, nonce, mixHash, difficulty) are placeholders and the uncles array is always empty (CometBFT consensus). safe/finalized/latest are equivalent due to instant finality.
+
+**Parameters:**
+
+| # | Name | Type | Description |
+| :- | :- | :- | :- |
+| 1 | `number` | BLOCKNUMBER | Block number (hex) or tag (latest/safe/finalized/pending/earliest). |
+| 2 | `fullTx` | boolean | If true include full transaction objects, else only hashes. |
+
+**Example request:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "eth_getBlockByNumber",
+  "params": [
+    "latest",
+    true
+  ]
+}
+```
+
+#### `eth_getBlockByHash`
+
+**Supported.** Returns block information by block hash, with full transactions when fullTx is true.
+
+**Sei-specific behavior:** Block hashes are CometBFT block hashes (computed from the Tendermint header), so they differ from Ethereum block hashes and are not interchangeable across chains. Under the eth namespace synthetic txs and bank transfers are excluded. The genesis hash returns a synthetic genesis block; unknown/zero hash returns null. Uncles array is always empty.
+
+**Parameters:**
+
+| # | Name | Type | Description |
+| :- | :- | :- | :- |
+| 1 | `blockHash` | DATA, 32 bytes | Block hash. |
+| 2 | `fullTx` | boolean | If true include full transaction objects, else only hashes. |
+
+**Example request:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "eth_getBlockByHash",
+  "params": [
+    "0x5620c15afd9a1d0ab19d7560043df6e038d731c6205974dca7a55900071e3864",
+    false
+  ]
+}
+```
+
+#### `eth_getBlockTransactionCountByNumber`
+
+**Supported.** Returns the number of EVM transactions in a block by number, as a hex quantity.
+
+**Sei-specific behavior:** Counts EVM transactions only (via getEvmTxCount); synthetic/bank-transfer txs are excluded. Genesis returns 0x0; non-existent/future blocks return null.
+
+**Parameters:**
+
+| # | Name | Type | Description |
+| :- | :- | :- | :- |
+| 1 | `number` | BLOCKNUMBER | Block number or tag. |
+
+**Example request:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "eth_getBlockTransactionCountByNumber",
+  "params": [
+    "latest"
+  ]
+}
+```
+
+#### `eth_getBlockTransactionCountByHash`
+
+**Supported.** Returns the number of EVM transactions in a block by hash, as a hex quantity.
+
+**Sei-specific behavior:** Counts EVM transactions only; synthetic/bank-transfer txs are excluded. Genesis hash returns 0x0; unknown hash returns null.
+
+**Parameters:**
+
+| # | Name | Type | Description |
+| :- | :- | :- | :- |
+| 1 | `blockHash` | DATA, 32 bytes | Block hash. |
+
+**Example request:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "eth_getBlockTransactionCountByHash",
+  "params": [
+    "0x5620c15afd9a1d0ab19d7560043df6e038d731c6205974dca7a55900071e3864"
+  ]
+}
+```
+
+#### `eth_getBlockReceipts`
+
+**Supported.** Returns all EVM transaction receipts for a given block.
+
+**Sei-specific behavior:** Under the eth namespace synthetic/shell receipts are excluded (includeShellReceipts=false). Genesis returns an empty array; zero hash returns null. transactionIndex is recomputed sequentially over the compacted receipt list.
+
+**Parameters:**
+
+| # | Name | Type | Description |
+| :- | :- | :- | :- |
+| 1 | `blockNrOrHash` | BLOCKNUMBER or DATA | Block number, tag, or hash. |
+
+**Example request:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "eth_getBlockReceipts",
+  "params": [
+    "latest"
+  ]
+}
+```
+
+</Accordion>
+
+<Accordion title="Blockchain information">
+#### `eth_blockNumber`
+
+**Supported.** Returns the number of the most recent committed EVM block as a hex uint64.
+
+**Sei-specific behavior:** Block height comes from CometBFT latest height; the latest committed block is already final on Sei (instant finality, so latest == safe == finalized).
+
+**Parameters:** none.
+
+#### `eth_chainId`
+
+**Supported.** Returns the EVM chain ID as a hex big int.
+
+**Sei-specific behavior:** Sourced from the x/evm keeper. Mainnet (pacific-1) = 1329 (0x531); testnet (atlantic-2) = 1328 (0x530).
+
+**Parameters:** none.
+
+#### `eth_coinbase`
+
+**Limited.** Returns the block reward beneficiary (coinbase) address.
+
+**Sei-specific behavior:** Sei has no miner; this returns the Cosmos fee-collector module address (GetFeeCollectorAddress), not a validator/miner address. The COINBASE opcode returns the same value.
+
+**Parameters:** none.
+
+#### `eth_gasPrice`
+
+**Limited.** Returns a suggested gas price in wei (hex).
+
+**Sei-specific behavior:** Sei-specific congestion heuristic, not a raw mempool oracle. InfoAPI.GasPrice/GasPriceHelper (info.go): when uncongested it returns baseFee * 110/100 (base fee +10%); when congested it returns medianRewardPrevBlock + baseFee (50th-percentile priority-fee reward from the previous block added to base fee). The base fee comes from the x/evm keeper (GetNextBaseFeePerGas), which is itself floored at the governance-set minimum base fee; the RPC handler applies no additional explicit lower-bound clamp. The mainnet minimum gas price (~50 gwei) is enforced for transaction acceptance at the mempool/ante-handler level, not inside eth_gasPrice.
+
+**Parameters:** none.
+
+#### `eth_maxPriorityFeePerGas`
+
+**Limited.** Returns a suggested priority fee (tip) per gas in wei (hex).
+
+**Sei-specific behavior:** Sei-specific: returns a hardcoded 1 gwei (defaultPriorityFeePerGas) when the chain is uncongested; only when congested does it derive the tip from the previous block's 50th-percentile reward. Sei docs advise using a single gasPrice and omitting EIP-1559 fee fields.
+
+**Parameters:** none.
+
+#### `eth_feeHistory`
+
+**Supported.** Returns base fees, gas-used ratios, and reward percentile data over a range of blocks.
+
+**Sei-specific behavior:** Base fees and rewards reflect Sei's x/evm fee market (GetNextBaseFee), not an Ethereum EIP-1559 mempool, and Sei does not burn the base fee. Watermark-aware: pruned/historical blocks may not be available as far back as on Ethereum archive nodes.
+
+**Parameters:**
+
+| # | Name | Type | Description |
+| :- | :- | :- | :- |
+| 1 | `blockCount` | QUANTITY | Number of blocks in the requested range. |
+| 2 | `newestBlock` | BLOCKNUMBER | Highest block of the range (number or tag). |
+| 3 | `rewardPercentiles` | array of float | Monotonically increasing percentiles to sample for priority-fee rewards. |
+
+**Example request:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "eth_feeHistory",
+  "params": [
+    "0x5",
+    "latest",
+    [
+      25,
+      50,
+      75
+    ]
+  ]
+}
+```
+
+#### `net_version`
+
+**Supported.** Returns the network/chain ID as a decimal string.
+
+**Sei-specific behavior:** Returns the EVM chain ID in decimal (alias of eth_chainId): '1329' on pacific-1 mainnet, '1328' on atlantic-2 testnet.
+
+**Parameters:** none.
+
+#### `web3_clientVersion`
+
+**Supported.** Returns the client version string.
+
+**Sei-specific behavior:** Reports a synthetic 'Geth/&lt;os&gt;-&lt;arch&gt;/&lt;goVersion&gt;' string (Sei's EVM is backed by go-ethereum); it does NOT embed the actual sei-chain/seid version, so it is not a reliable Sei version indicator.
+
+**Parameters:** none.
+
+</Accordion>
+
+<Accordion title="Filters & subscriptions">
+#### `eth_newFilter`
+
+**Supported.** Creates a log filter for the given criteria and returns a filter ID for later polling.
+
+**Sei-specific behavior:** Subject to the same range/size caps as eth_getLogs: open-ended ranges return up to 10,000 logs (DefaultMaxLogLimit); close-ended ranges are limited to 2,000 blocks (DefaultMaxBlockRange), with large-query rate limiting.
+
+**Parameters:**
+
+| # | Name | Type | Description |
+| :- | :- | :- | :- |
+| 1 | `crit` | object | Filter criteria: fromBlock, toBlock (or blockHash), address(es), and topics. |
+
+**Example request:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "eth_newFilter",
+  "params": [
+    {
+      "fromBlock": "latest",
+      "address": "0xE30feDd158A2e3b13e9badaeABaFc5516e95e8C7",
+      "topics": []
+    }
+  ]
+}
+```
+
+#### `eth_newBlockFilter`
+
+**Supported.** Creates a filter that tracks newly arrived block hashes and returns its ID.
+
+**Parameters:** none.
+
+#### `eth_getFilterChanges`
+
+**Supported.** Polls a filter and returns new logs (log filters) or block hashes (block filters) since the last poll.
+
+**Parameters:**
+
+| # | Name | Type | Description |
+| :- | :- | :- | :- |
+| 1 | `filterID` | QUANTITY/ID | Filter ID from a New*Filter call. |
+
+**Example request:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "eth_getFilterChanges",
+  "params": [
+    "0x1"
+  ]
+}
+```
+
+#### `eth_getFilterLogs`
+
+**Supported.** Returns all logs matching a previously created log filter, including historical logs.
+
+**Sei-specific behavior:** Bounded by the same caps as eth_getLogs (2,000-block range, 10,000-log limit) with large-query rate limiting.
+
+**Parameters:**
+
+| # | Name | Type | Description |
+| :- | :- | :- | :- |
+| 1 | `filterID` | QUANTITY/ID | Filter ID from a NewFilter call. |
+
+**Example request:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "eth_getFilterLogs",
+  "params": [
+    "0x1"
+  ]
+}
+```
+
+#### `eth_getLogs`
+
+**Supported.** Returns logs matching the given filter criteria.
+
+**Sei-specific behavior:** Returns EVM logs only. Hard limits: max 2,000 blocks per close-ended query and up to 10,000 logs per response; exceeding the range errors with 'block range too large'. Large queries are globally rate-limited. Use the legacy sei_getLogs to include synthetic logs from Cosmos activity.
+
+**Parameters:**
+
+| # | Name | Type | Description |
+| :- | :- | :- | :- |
+| 1 | `crit` | object | Filter criteria: fromBlock, toBlock (or blockHash), address(es), topics. |
+
+**Example request:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "eth_getLogs",
+  "params": [
+    {
+      "fromBlock": "0x0",
+      "toBlock": "latest",
+      "address": "0xE30feDd158A2e3b13e9badaeABaFc5516e95e8C7",
+      "topics": []
+    }
+  ]
+}
+```
+
+#### `eth_uninstallFilter`
+
+**Supported.** Removes a previously installed filter by ID; returns true if it existed and was removed.
+
+**Sei-specific behavior:** Returns false if the filter did not exist rather than erroring. Filters also expire automatically when not polled.
+
+**Parameters:**
+
+| # | Name | Type | Description |
+| :- | :- | :- | :- |
+| 1 | `filterID` | QUANTITY/ID | Filter ID to remove. |
+
+**Example request:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "eth_uninstallFilter",
+  "params": [
+    "0x1"
+  ]
+}
+```
+
+#### `eth_subscribe`
+
+**Limited.** Opens a WebSocket-only push subscription for newHeads or logs notifications.
+
+**Sei-specific behavior:** WebSocket-only (SubscriptionAPI is not registered on the HTTP server; returns rpc.ErrNotificationsUnsupported over HTTP). Only 'newHeads' and 'logs' are implemented in source; there is no 'newPendingTransactions' subscription despite some client docs implying otherwise. newHeads subscriptions are capped by MaxSubscriptionsNewHead.
+
+**Parameters:**
+
+| # | Name | Type | Description |
+| :- | :- | :- | :- |
+| 1 | `subscriptionType` | string | Subscription name: 'newHeads' or 'logs'. |
+| 2 | `filter` | object | Optional filter criteria (address/topics) for the 'logs' subscription. |
+
+**Example request:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "eth_subscribe",
+  "params": [
+    "newHeads",
+    {
+      "address": "0xE30feDd158A2e3b13e9badaeABaFc5516e95e8C7",
+      "topics": []
+    }
+  ]
+}
+```
+
+#### `eth_unsubscribe`
+
+**Supported.** Cancels an existing WebSocket subscription by ID; returns true on success.
+
+**Sei-specific behavior:** WebSocket only; has no effect over HTTP (notifications unsupported there).
+
+**Parameters:**
+
+| # | Name | Type | Description |
+| :- | :- | :- | :- |
+| 1 | `subscriptionID` | string | The subscription ID returned by a prior eth_subscribe call. |
+
+**Example request:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "eth_unsubscribe",
+  "params": [
+    "0x9cef478923ff08bf67fde6c64013158d"
+  ]
+}
+```
+
+</Accordion>
+
+<Accordion title="Simulation">
+#### `eth_call`
+
+**Supported.** Executes a read-only message call against state without creating a transaction; supports state and block overrides.
+
+**Sei-specific behavior:** Gas is capped by RPCGasCap and execution time by RPCEVMTimeout; a fail-fast limiter may reject with 'eth_call rejected due to rate limit: server busy'. Canonical EVM&lt;-&gt;Sei address resolution uses eth_call to the addr precompile at 0x0000000000000000000000000000000000001004.
+
+**Parameters:**
+
+| # | Name | Type | Description |
+| :- | :- | :- | :- |
+| 1 | `args` | object | Call object (to, from, data/input, gas, gasPrice/maxFeePerGas, value). |
+| 2 | `blockNrOrHash` | BLOCKNUMBER or DATA | Block number, tag, or hash. Defaults to latest. |
+| 3 | `overrides` | object | Optional per-account state overrides (balance, code, nonce, state). |
+| 4 | `blockOverrides` | object | Optional block-context overrides (number, time, coinbase). |
+
+**Example request:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "eth_call",
+  "params": [
+    {
+      "to": "0x0000000000000000000000000000000000001004",
+      "data": "0x0c3c20ed000000000000000000000000Da52B9E673d1f48FcD9916b3F606A136a8eA5e55"
+    },
+    "latest"
+  ]
+}
+```
+
+#### `eth_estimateGas`
+
+**Supported.** Estimates the gas needed to execute a transaction.
+
+**Sei-specific behavior:** Bounded by RPCGasCap and protected by a fail-fast limiter. Block gas limit on Sei is 12.5M; parallel execution can cause estimates to vary slightly, so size gasLimit with a modest buffer.
+
+**Parameters:**
+
+| # | Name | Type | Description |
+| :- | :- | :- | :- |
+| 1 | `args` | object | Transaction call object. |
+| 2 | `blockNrOrHash` | BLOCKNUMBER or DATA | Optional block number, tag, or hash; defaults to latest. |
+| 3 | `overrides` | object | Optional state overrides. |
+
+**Example request:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "eth_estimateGas",
+  "params": [
+    {
+      "to": "0xE30feDd158A2e3b13e9badaeABaFc5516e95e8C7",
+      "data": "0x18160ddd"
+    },
+    "latest"
+  ]
+}
+```
+
+#### `eth_estimateGasAfterCalls`
+
+**Limited.** Estimates gas for a transaction after first applying a sequence of preceding calls against the same simulated state.
+
+**Sei-specific behavior:** Non-standard Sei/geth extension (not part of the standard Ethereum JSON-RPC spec). Same gas-cap and fail-fast-limiter behavior as eth_estimateGas.
+
+**Parameters:**
+
+| # | Name | Type | Description |
+| :- | :- | :- | :- |
+| 1 | `args` | object | The final call to estimate gas for. |
+| 2 | `calls` | array of object | Ordered list of preceding calls applied before the estimate. |
+| 3 | `blockNrOrHash` | BLOCKNUMBER or DATA | Optional block number, tag, or hash; defaults to latest. |
+| 4 | `overrides` | object | Optional state overrides. |
+
+**Example request:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "eth_estimateGasAfterCalls",
+  "params": [
+    {
+      "to": "0xE30feDd158A2e3b13e9badaeABaFc5516e95e8C7",
+      "data": "0x"
+    },
+    [],
+    "latest"
+  ]
+}
+```
+
+#### `eth_createAccessList`
+
+**Supported.** Generates an EIP-2930 access list (and gas used) for a transaction.
+
+**Sei-specific behavior:** Defaults to the pending block tag (matching geth). A VM error during simulation is surfaced in the result's 'error' field rather than failing the RPC.
+
+**Parameters:**
+
+| # | Name | Type | Description |
+| :- | :- | :- | :- |
+| 1 | `args` | object | Transaction call object. |
+| 2 | `blockNrOrHash` | BLOCKNUMBER or DATA | Optional block number, tag, or hash; defaults to pending. |
+
+**Example request:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "eth_createAccessList",
+  "params": [
+    {
+      "to": "0xE30feDd158A2e3b13e9badaeABaFc5516e95e8C7",
+      "data": "0x"
+    },
+    "pending"
+  ]
+}
+```
+
+</Accordion>
+
+<Accordion title="Transaction pool">
+#### `txpool_content`
+
+**Limited.** Returns the transactions currently in the pool, grouped by sender address and nonce into pending and queued buckets.
+
+**Sei-specific behavior:** Sei-specific simplification: every unconfirmed EVM tx from the CometBFT mempool is reported under 'pending' and 'queued' is always empty (no geth-style pending/queued nonce-gap distinction). The result set is truncated to the node's MaxTxPoolTxs config, so it may not reflect the entire mempool.
+
+**Parameters:** none.
+
+</Accordion>
+
+<Accordion title="Debugging & tracing">
+#### `debug_traceTransaction`
+
+**Supported.** Replays a transaction by hash and returns an execution trace using the configured tracer.
+
+**Sei-specific behavior:** HTTP-only (the debug namespace is not registered on the WebSocket server). Supports geth tracers (callTracer, prestateTracer, flatCallTracer, struct/opcode logger); callTracer/prestateTracer/flatCallTracer results are pre-baked/cached via TraceBaker. Requires trace-enabled/archive state for the target height.
+
+**Parameters:**
+
+| # | Name | Type | Description |
+| :- | :- | :- | :- |
+| 1 | `hash` | DATA, 32 bytes | Transaction hash to trace. |
+| 2 | `config` | object | Optional tracer config (tracer name, tracerConfig, timeout, reexec, disableStorage/Stack/Memory). |
+
+**Example request:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "debug_traceTransaction",
+  "params": [
+    "0x5c504ed432cb51138bcf09aa5e8a410dd4a1e204ef84bfed1be16dfba1b22060",
+    {
+      "tracer": "callTracer"
+    }
+  ]
+}
+```
+
+#### `debug_traceBlockByNumber`
+
+**Supported.** Traces all transactions in a block by number and returns per-transaction execution traces.
+
+**Sei-specific behavior:** HTTP-only. safe/finalized/latest are equivalent due to instant finality.
+
+**Parameters:**
+
+| # | Name | Type | Description |
+| :- | :- | :- | :- |
+| 1 | `number` | BLOCKNUMBER | Block number or tag. |
+| 2 | `config` | object | Optional tracer config. |
+
+**Example request:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "debug_traceBlockByNumber",
+  "params": [
+    "latest",
+    {
+      "tracer": "callTracer"
+    }
+  ]
+}
+```
+
+#### `debug_traceBlockByHash`
+
+**Supported.** Traces all transactions in a block by hash and returns per-transaction execution traces.
+
+**Sei-specific behavior:** HTTP-only.
+
+**Parameters:**
+
+| # | Name | Type | Description |
+| :- | :- | :- | :- |
+| 1 | `hash` | DATA, 32 bytes | Block hash. |
+| 2 | `config` | object | Optional tracer config. |
+
+**Example request:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "debug_traceBlockByHash",
+  "params": [
+    "0x5620c15afd9a1d0ab19d7560043df6e038d731c6205974dca7a55900071e3864",
+    {
+      "tracer": "callTracer"
+    }
+  ]
+}
+```
+
+#### `debug_traceCall`
+
+**Supported.** Executes and traces a call against a block's state without creating a transaction.
+
+**Sei-specific behavior:** HTTP-only. Arbitrary geth tracer names pass through. Tracing on the pending block is not supported.
+
+**Parameters:**
+
+| # | Name | Type | Description |
+| :- | :- | :- | :- |
+| 1 | `args` | object | Transaction call object. |
+| 2 | `blockNrOrHash` | BLOCKNUMBER or DATA | Block number, tag, or hash. |
+| 3 | `config` | object | Optional trace-call config (tracer name, state overrides, block overrides). |
+
+**Example request:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "debug_traceCall",
+  "params": [
+    {
+      "to": "0xE30feDd158A2e3b13e9badaeABaFc5516e95e8C7",
+      "data": "0x70a08231"
+    },
+    "latest",
+    {
+      "tracer": "callTracer"
+    }
+  ]
+}
+```
+
+#### `debug_traceStateAccess`
+
+**Limited.** Sei extension that replays a transaction and returns its app/tendermint/receipt state-access traces.
+
+**Sei-specific behavior:** Sei-specific extension (not part of upstream go-ethereum's debug namespace). HTTP-only and subject to historical-debug-trace availability guards.
+
+**Parameters:**
+
+| # | Name | Type | Description |
+| :- | :- | :- | :- |
+| 1 | `hash` | DATA, 32 bytes | Transaction hash whose state accesses are returned. |
+
+**Example request:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "debug_traceStateAccess",
+  "params": [
+    "0x5c504ed432cb51138bcf09aa5e8a410dd4a1e204ef84bfed1be16dfba1b22060"
+  ]
+}
+```
+
+</Accordion>
+
 ## Sei Custom Endpoints
 
 Sei extends the standard Ethereum JSON-RPC API with custom endpoints that enhance functionality for developers. These extensions enable better handling of cross-VM interactions, synthetic transactions, improved error reporting, and other Sei-specific features.
