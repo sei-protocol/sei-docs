@@ -37,10 +37,17 @@ export const VersionTable = () => {
           setVersionFor(chainId, version);
           localStorage.setItem(`${chainId}-version`, version);
           localStorage.setItem(`${chainId}-version-timestamp`, Date.now().toString());
+          return;
         }
+        throw new Error('abci_info response had no version field');
       } catch (error) {
-        // Leave any cached value (set below) in place instead of blanking.
         console.error('Error fetching version:', error);
+        // Keep any cached value (set above) so it stays visible. With no cache,
+        // surface "Unavailable" instead of leaving the column on "Fetching..."
+        // indefinitely.
+        if (!localStorage.getItem(`${chainId}-version`)) {
+          setVersionFor(chainId, 'Unavailable');
+        }
       }
     };
 

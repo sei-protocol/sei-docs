@@ -27,6 +27,7 @@ export const EcosystemAppGrid = (props) => {
 	//     cache is not allowed in a snippet, so this lives in component state) ---
 	const [data, setData] = useState([]);
 	const [isLoading, setIsLoading] = useState(true);
+	const [hasError, setHasError] = useState(false);
 
 	useEffect(() => {
 		let cancelled = false;
@@ -42,7 +43,9 @@ export const EcosystemAppGrid = (props) => {
 			})
 			.catch(() => {
 				if (cancelled) return;
-				setData([]);
+				// Distinguish a failed load from an empty catalog so we don't
+				// render "No integrations published yet" during an outage.
+				setHasError(true);
 				setIsLoading(false);
 			});
 		return () => {
@@ -237,6 +240,14 @@ export const EcosystemAppGrid = (props) => {
 		);
 	}
 
+	if (hasError) {
+		return (
+			<div className='py-10 text-sm text-neutral-500 dark:text-neutral-400 italic'>
+				Couldn’t load {category} integrations right now. Please refresh to try again.
+			</div>
+		);
+	}
+
 	const apps = data.filter((app) => app && app.fieldData && app.fieldData['docs-category'] === category);
 
 	if (!apps || apps.length === 0) {
@@ -244,7 +255,11 @@ export const EcosystemAppGrid = (props) => {
 	}
 
 	return (
-		<div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 py-2'>
+		// `sei-eco-grid` is a non-utility marker so style.css can reset the logo
+		// <figure>/<img> — Mintlify's prose injects !important margins + a rounded
+		// class on content images, which otherwise stops the logo from filling
+		// its tile the way the original widget does.
+		<div className='sei-eco-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 py-2'>
 			{apps.map((app) => (
 				<AppCardV2 key={app.id} app={app} />
 			))}

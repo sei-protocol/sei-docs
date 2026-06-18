@@ -91,11 +91,15 @@ export const RandomPeers = ({ format = 'bash', network = 'mainnet', count = 5 })
     </svg>
   );
 
-  const [peers, setPeers] = useState([]);
+  const pool = PEERS[network] ?? [];
+
+  // Peers are inlined, not fetched. Seed with a deterministic slice so the
+  // first paint already shows peers (no misleading "loading" text, no
+  // SSR/hydration mismatch), then randomize on the client in useEffect.
+  const [peers, setPeers] = useState(() => pool.slice(0, count));
   const [copied, setCopied] = useState(false);
 
   const shuffle = () => {
-    const pool = PEERS[network] ?? [];
     setPeers(pickRandom(pool, count));
   };
 
@@ -103,13 +107,13 @@ export const RandomPeers = ({ format = 'bash', network = 'mainnet', count = 5 })
     shuffle();
   }, [network, count]);
 
-  if (peers.length === 0) {
+  if (pool.length === 0) {
     return (
       <div className="not-prose w-full">
         <pre
           className="m-0 p-3 rounded-md bg-neutral-100 dark:bg-neutral-800 text-sm opacity-70"
           style={{ fontFamily: 'var(--sei-font-mono)' }}>
-          Loading peers…
+          No peers configured for network “{network}”.
         </pre>
       </div>
     );
