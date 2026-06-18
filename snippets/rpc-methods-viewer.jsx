@@ -223,6 +223,10 @@ const buildParams = (method, values) => {
     const v = values ? values[p.name] : undefined;
     return parseValue(v !== undefined ? v : (p.example || ''));
   });
+  // eth_subscribe: the optional `filter` only applies to the `logs` stream. For
+  // `newHeads` (or any other type) the subscription name is the sole param, so
+  // drop the trailing filter rather than sending it alongside `newHeads`.
+  if (method.name === 'eth_subscribe' && params[0] !== 'logs') params.length = 1;
   while (params.length && isEmptyValue(params[params.length - 1])) params.pop();
   return params;
 };
@@ -245,6 +249,7 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
   const [theme, setTheme] = useState('dark');
   const [isMobile, setIsMobile] = useState(false);
   const [mobileView, setMobileView] = useState('list');
+  const rootRef = useRef(null);
 
   const [network, setNetwork] = useState('mainnet');
   const [customEndpoint, setCustomEndpoint] = useState('');
@@ -278,8 +283,18 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
     return () => observer.disconnect();
   }, []);
 
+  // Drive the layout off the explorer's OWN width, not the viewport — so it
+  // uses the two-pane layout whenever its column has room and stacks when it
+  // doesn't, regardless of page mode, sidebar, or table-of-contents width.
   useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 1024);
+    const stackBelow = (w) => setIsMobile(w < 768);
+    const el = rootRef.current;
+    if (el && typeof ResizeObserver !== 'undefined') {
+      const ro = new ResizeObserver((entries) => stackBelow(entries[0].contentRect.width));
+      ro.observe(el);
+      return () => ro.disconnect();
+    }
+    const check = () => stackBelow(window.innerWidth);
     check();
     window.addEventListener('resize', check);
     return () => window.removeEventListener('resize', check);
@@ -337,6 +352,9 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
   const selectMethod = (m) => {
     setSelectedMethod(m);
     setParamValues({});
+    // Clear the debounced copy synchronously too; otherwise code examples reuse
+    // the previous method's values until the 250ms debounce timer fires.
+    setDebouncedParams({});
     setRequestResult(null);
     setSelectedLanguage('curl');
     if (isMobile) setMobileView('detail');
@@ -412,7 +430,7 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
           '# pip install websocket-client',
           'from websocket import create_connection',
           `socket = create_connection("${ws}")`,
-          `socket.send('${bodyJson}')`,
+          `socket.send(r"""${bodyJson}""")`,
           'print(socket.recv())',
           'socket.close()',
         ].join('\n');
@@ -537,7 +555,7 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
         'import requests, json',
         '',
         `url = "${url}"`,
-        `params = json.loads('${paramsJson}')`,
+        `params = json.loads(r"""${paramsJson}""")`,
         'res = requests.post(url, json={',
         '    "jsonrpc": "2.0", "id": 1,',
         `    "method": "${method.name}", "params": params,`,
@@ -657,7 +675,7 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
   const mMeta = m ? NAMESPACE_META[m.namespace] || {} : {};
 
   return (
-    <div className="not-prose" style={{ fontFamily: 'var(--sei-font-body, inherit)', color: c.text, background: c.bg, border: bd, borderRadius: 6, overflow: 'hidden', display: 'flex', flexDirection: 'column', height: '80vh', minHeight: 640 }}>
+    <div ref={rootRef} className="not-prose rpc-explorer-root" style={{ fontFamily: 'var(--sei-font-body, inherit)', color: c.text, background: c.bg, border: bd, borderRadius: 6, overflow: 'hidden', display: 'flex', flexDirection: 'column', height: '80vh', minHeight: 640 }}>
       {/* Header — always stacked (title row, then controls row) so a long RPC URL never cramps the layout */}
       <div style={{ borderBottom: bd, background: c.panel, padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 12, flexShrink: 0 }}>
         <div>
@@ -837,39 +855,36 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
                     <span style={{ fontSize: 11, fontWeight: 400, color: c.faint }}>· {network === 'custom' ? (endpoint || 'set a custom endpoint') : NETWORKS[network].label}</span>
                   </div>
 
-                  {isWsOnly(m.name) ? (
-                    <div style={{ padding: '10px 14px', borderRadius: 4, background: c.panel2, border: bd, fontSize: 12.5, color: c.sub, lineHeight: 1.5 }}>
-                      This is a WebSocket subscription method. Connect to <code style={{ fontFamily: mono }}>{wsEndpoint}</code> — see the example below.
+                  {isWsOnly(m.name) && (
+                    <div style={{ padding: '10px 14px', borderRadius: 4, background: c.panel2, border: bd, fontSize: 12.5, color: c.sub, lineHeight: 1.5, marginBottom: 10 }}>
+                      This is a WebSocket subscription method. Connect to <code style={{ fontFamily: mono }}>{wsEndpoint}</code> and send the payload below — edit the parameters to customize the subscription.
                     </div>
-                  ) : (
-                    <>
-                      {m.params && m.params.length > 0 && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
-                          {m.params.map((p) => {
-                            const ex = p.example || '';
-                            const big = ex.trim().startsWith('{') || ex.trim().startsWith('[') || (p.type || '').toLowerCase().includes('object');
-                            const field = {
-                              value: paramValues[p.name] !== undefined ? paramValues[p.name] : '',
-                              onChange: (e) => setParamValues((prev) => ({ ...prev, [p.name]: e.target.value })),
-                              placeholder: ex,
-                            };
-                            return (
-                              <div key={p.name}>
-                                <label style={{ fontSize: 11, color: c.faint, fontFamily: mono, display: 'block', marginBottom: 3 }}>{p.name}</label>
-                                {big
-                                  ? <textarea rows={2} {...field} style={{ ...fieldStyle, resize: 'vertical' }} />
-                                  : <input {...field} style={fieldStyle} />}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                      {isMutation(m.name) && (
-                        <div style={{ fontSize: 11.5, color: c.faint, marginBottom: 8, lineHeight: 1.45 }}>
-                          This is a state-changing / signing method. Public RPC nodes hold no keys, so it generally errors unless you supply a signed payload.
-                        </div>
-                      )}
-                    </>
+                  )}
+                  {m.params && m.params.length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
+                      {m.params.map((p) => {
+                        const ex = p.example || '';
+                        const big = ex.trim().startsWith('{') || ex.trim().startsWith('[') || (p.type || '').toLowerCase().includes('object');
+                        const field = {
+                          value: paramValues[p.name] !== undefined ? paramValues[p.name] : '',
+                          onChange: (e) => setParamValues((prev) => ({ ...prev, [p.name]: e.target.value })),
+                          placeholder: ex,
+                        };
+                        return (
+                          <div key={p.name}>
+                            <label style={{ fontSize: 11, color: c.faint, fontFamily: mono, display: 'block', marginBottom: 3 }}>{p.name}</label>
+                            {big
+                              ? <textarea rows={2} {...field} style={{ ...fieldStyle, resize: 'vertical' }} />
+                              : <input {...field} style={fieldStyle} />}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {isMutation(m.name) && (
+                    <div style={{ fontSize: 11.5, color: c.faint, marginBottom: 8, lineHeight: 1.45 }}>
+                      This is a state-changing / signing method. Public RPC nodes hold no keys, so it generally errors unless you supply a signed payload.
+                    </div>
                   )}
 
                   {/* Request — code example */}
