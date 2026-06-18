@@ -216,9 +216,26 @@ const isEmptyValue = (v) => {
 // trimming trailing empty/optional values (so eth_call sends [args, "latest"]
 // rather than [args, "latest", {}, {}]).
 const buildParams = (method, values) => {
-  const params = (method.params || []).map((p) => parseValue((values && values[p.name]) || p.example || ''));
+  const params = (method.params || []).map((p) => {
+    // Only fall back to the catalog example when the field is untouched
+    // (undefined). A field the user explicitly cleared ('') stays empty.
+    const v = values ? values[p.name] : undefined;
+    return parseValue(v !== undefined ? v : (p.example || ''));
+  });
   while (params.length && isEmptyValue(params[params.length - 1])) params.pop();
   return params;
+};
+
+// Best-effort WebSocket endpoint for a given HTTP URL (custom networks).
+const deriveWsEndpoint = (httpUrl) => {
+  if (!httpUrl) return 'wss://<your-ws-endpoint>';
+  try {
+    const u = new URL(httpUrl);
+    u.protocol = u.protocol === 'http:' ? 'ws:' : 'wss:';
+    return u.toString().replace(/\/$/, '');
+  } catch (e) {
+    return 'wss://<your-ws-endpoint>';
+  }
 };
 
 const isWsOnly = (name) => name === 'eth_subscribe' || name === 'eth_unsubscribe';
@@ -231,7 +248,7 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
   const [network, setNetwork] = useState('mainnet');
   const [customEndpoint, setCustomEndpoint] = useState('');
   const endpoint = network === 'custom' ? customEndpoint : NETWORKS[network].http;
-  const wsEndpoint = network === 'custom' ? '' : NETWORKS[network].ws;
+  const wsEndpoint = network === 'custom' ? deriveWsEndpoint(customEndpoint) : NETWORKS[network].ws;
   const [connection, setConnection] = useState('idle'); // idle | ok | fail
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -351,33 +368,102 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
     if (!method) return '';
     const params = buildParams(method, debouncedParams);
     const paramsJson = JSON.stringify(params);
+    const bodyJson = JSON.stringify({ jsonrpc: '2.0', id: 1, method: method.name, params });
     const url = endpoint || 'https://evm-rpc.sei-apis.com';
+    const ws = wsEndpoint;
+    const BT = String.fromCharCode(96); // backtick, for raw string literals
+    const csBody = bodyJson.replace(/\\/g, '\\\\').replace(/"/g, '\\"'); // valid C#/JSON string literal
 
+    // WebSocket-only methods (eth_subscribe / eth_unsubscribe): every language
+    // gets a real WebSocket example built from the actual method + params and
+    // the active network's WS endpoint.
     if (isWsOnly(method.name)) {
-      const ws = wsEndpoint || 'wss://evm-ws.sei-apis.com';
       if (language === 'javascript') {
         return [
-          "// eth_subscribe works over WebSocket only.",
-          "import { ethers } from 'ethers';",
-          '',
-          `const provider = new ethers.WebSocketProvider('${ws}');`,
-          "provider.on('block', (n) => console.log('new block', n)); // newHeads",
-          '',
-          '// Raw WebSocket',
-          `const ws = new WebSocket('${ws}');`,
-          "ws.onopen = () => ws.send(JSON.stringify({",
-          "  jsonrpc: '2.0', id: 1, method: 'eth_subscribe', params: ['newHeads']",
+          `// ${method.name} runs over WebSocket only.`,
+          `const socket = new WebSocket('${ws}');`,
+          'socket.onopen = () => socket.send(JSON.stringify({',
+          `  jsonrpc: '2.0', id: 1, method: '${method.name}', params: ${paramsJson},`,
           '}));',
-          'ws.onmessage = (e) => console.log(JSON.parse(e.data));',
+          'socket.onmessage = (e) => console.log(JSON.parse(e.data));',
+          '',
+          '// ethers v6',
+          "import { WebSocketProvider } from 'ethers';",
+          `const provider = new WebSocketProvider('${ws}');`,
+          `console.log(await provider.send('${method.name}', ${paramsJson}));`,
         ].join('\n');
       }
-      if (language === 'curl') {
+      if (language === 'python') {
         return [
-          '# eth_subscribe is WebSocket-only. Use wscat:',
-          `wscat -c ${ws}`,
-          `> {"jsonrpc":"2.0","id":1,"method":"eth_subscribe","params":["newHeads"]}`,
+          '# pip install websocket-client',
+          'from websocket import create_connection',
+          `socket = create_connection("${ws}")`,
+          `socket.send('${bodyJson}')`,
+          'print(socket.recv())',
+          'socket.close()',
         ].join('\n');
       }
+      if (language === 'go') {
+        return [
+          '// go get github.com/gorilla/websocket',
+          'package main',
+          '',
+          'import (',
+          '\t"fmt"',
+          '\t"github.com/gorilla/websocket"',
+          ')',
+          '',
+          'func main() {',
+          `\tc, _, err := websocket.DefaultDialer.Dial("${ws}", nil)`,
+          '\tif err != nil {',
+          '\t\tpanic(err)',
+          '\t}',
+          '\tdefer c.Close()',
+          '\tc.WriteMessage(websocket.TextMessage, []byte(' + BT + bodyJson + BT + '))',
+          '\t_, msg, _ := c.ReadMessage()',
+          '\tfmt.Println(string(msg))',
+          '}',
+        ].join('\n');
+      }
+      if (language === 'rust') {
+        return [
+          '// tokio-tungstenite = "0.23"  futures-util = "0.3"  tokio = { version = "1", features = ["full"] }',
+          'use futures_util::{SinkExt, StreamExt};',
+          'use tokio_tungstenite::{connect_async, tungstenite::Message};',
+          '',
+          '#[tokio::main]',
+          'async fn main() -> Result<(), Box<dyn std::error::Error>> {',
+          `    let (mut socket, _) = connect_async("${ws}").await?;`,
+          '    socket.send(Message::Text(r#"' + bodyJson + '"#.to_string())).await?;',
+          '    if let Some(msg) = socket.next().await {',
+          '        println!("{}", msg?);',
+          '    }',
+          '    Ok(())',
+          '}',
+        ].join('\n');
+      }
+      if (language === 'csharp') {
+        return [
+          'using System;',
+          'using System.Net.WebSockets;',
+          'using System.Text;',
+          'using System.Threading;',
+          '',
+          'using var socket = new ClientWebSocket();',
+          `await socket.ConnectAsync(new Uri("${ws}"), CancellationToken.None);`,
+          `var body = Encoding.UTF8.GetBytes("${csBody}");`,
+          'await socket.SendAsync(body, WebSocketMessageType.Text, true, CancellationToken.None);',
+          'var buffer = new byte[8192];',
+          'var res = await socket.ReceiveAsync(buffer, CancellationToken.None);',
+          'Console.WriteLine(Encoding.UTF8.GetString(buffer, 0, res.Count));',
+        ].join('\n');
+      }
+      // curl (default) — wscat
+      return [
+        `# ${method.name} is WebSocket-only. Use wscat (npm i -g wscat):`,
+        `wscat -c ${ws}`,
+        `> ${bodyJson}`,
+      ].join('\n');
     }
 
     if (language === 'javascript') {
@@ -408,99 +494,78 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
 
     if (language === 'python') {
       return [
-        'import requests',
+        'import requests, json',
         '',
         `url = "${url}"`,
-        'payload = {',
+        `params = json.loads('${paramsJson}')`,
+        'res = requests.post(url, json={',
         '    "jsonrpc": "2.0", "id": 1,',
-        `    "method": "${method.name}",`,
-        `    "params": ${paramsJson},`,
-        '}',
-        'res = requests.post(url, json=payload)',
+        `    "method": "${method.name}", "params": params,`,
+        '})',
         'print(res.json().get("result"))',
         '',
         '# web3.py',
         'from web3 import Web3',
-        `w3 = Web3(Web3.HTTPProvider("${url}"))`,
-        `print(w3.provider.make_request("${method.name}", ${paramsJson}))`,
+        'w3 = Web3(Web3.HTTPProvider(url))',
+        `print(w3.provider.make_request("${method.name}", params))`,
       ].join('\n');
     }
 
     if (language === 'go') {
-      const goParams = params.map((p) => (typeof p === 'string' ? '"' + p + '"' : JSON.stringify(p))).join(', ');
       return [
         'package main',
         '',
         'import (',
         '\t"bytes"',
-        '\t"encoding/json"',
         '\t"fmt"',
+        '\t"io"',
         '\t"net/http"',
         ')',
         '',
         'func main() {',
-        '\tpayload := map[string]interface{}{',
-        '\t\t"jsonrpc": "2.0",',
-        '\t\t"id":      1,',
-        `\t\t"method":  "${method.name}",`,
-        `\t\t"params":  []interface{}{${goParams}},`,
-        '\t}',
-        '\tbody, _ := json.Marshal(payload)',
+        '\tbody := []byte(' + BT + bodyJson + BT + ')',
         `\tresp, _ := http.Post("${url}", "application/json", bytes.NewBuffer(body))`,
         '\tdefer resp.Body.Close()',
-        '\tvar out map[string]interface{}',
-        '\tjson.NewDecoder(resp.Body).Decode(&out)',
-        '\tfmt.Printf("%+v\\n", out["result"])',
+        '\tout, _ := io.ReadAll(resp.Body)',
+        '\tfmt.Println(string(out))',
         '}',
       ].join('\n');
     }
 
     if (language === 'rust') {
-      const rustParams = params.map((p) => (typeof p === 'string' ? `json!("${p}")` : `json!(${JSON.stringify(p)})`)).join(', ');
       return [
-        'use serde_json::json;',
+        '// reqwest = { version = "0.12", features = ["json"] }',
+        '// serde_json = "1"   tokio = { version = "1", features = ["full"] }',
+        'use serde_json::Value;',
         '',
         '#[tokio::main]',
         'async fn main() -> Result<(), Box<dyn std::error::Error>> {',
-        '    let client = reqwest::Client::new();',
-        '    let body = json!({',
-        '        "jsonrpc": "2.0", "id": 1,',
-        `        "method": "${method.name}",`,
-        `        "params": [${rustParams}],`,
-        '    });',
-        `    let res = client.post("${url}").json(&body).send().await?;`,
-        '    let out: serde_json::Value = res.json().await?;',
-        '    println!("{:#?}", out["result"]);',
+        '    let body: Value = serde_json::from_str(r#"' + bodyJson + '"#)?;',
+        `    let res = reqwest::Client::new().post("${url}")`,
+        '        .json(&body).send().await?',
+        '        .json::<Value>().await?;',
+        '    println!("{:#?}", res["result"]);',
         '    Ok(())',
         '}',
-        '',
-        '// Cargo.toml: reqwest = { version = "0.12", features = ["json"] }',
-        '//             serde_json = "1"  tokio = { version = "1", features = ["full"] }',
       ].join('\n');
     }
 
     if (language === 'csharp') {
-      const csParams = params.map((p) => (typeof p === 'string' ? `"${p}"` : JSON.stringify(p))).join(', ');
       return [
+        'using System;',
         'using System.Net.Http;',
         'using System.Text;',
-        'using System.Text.Json;',
         '',
         'using var http = new HttpClient();',
-        'var payload = new {',
-        '    jsonrpc = "2.0", id = 1,',
-        `    method = "${method.name}",`,
-        `    @params = new object[] { ${csParams} }`,
-        '};',
-        'var json = JsonSerializer.Serialize(payload);',
-        `var res = await http.PostAsync("${url}",`,
-        '    new StringContent(json, Encoding.UTF8, "application/json"));',
+        `var json = "${csBody}";`,
+        'var content = new StringContent(json, Encoding.UTF8, "application/json");',
+        `var res = await http.PostAsync("${url}", content);`,
         'Console.WriteLine(await res.Content.ReadAsStringAsync());',
       ].join('\n');
     }
 
     // curl (default)
-    return `curl -s -X POST ${url} \\\n  -H "Content-Type: application/json" \\\n  -d '${JSON.stringify({ jsonrpc: '2.0', id: 1, method: method.name, params })}'`;
+    return `curl -s -X POST ${url} \\\n  -H "Content-Type: application/json" \\\n  -d '${bodyJson}'`;
   }, [endpoint, wsEndpoint, debouncedParams]);
 
   const codeExample = useMemo(() => generateCode(selectedMethod, selectedLanguage), [selectedMethod, selectedLanguage, generateCode]);
@@ -711,7 +776,7 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
                   </div>
                   {isWsOnly(m.name) ? (
                     <div style={{ padding: '10px 14px', borderRadius: 4, background: c.panel2, border: `1px solid ${c.border}`, fontSize: 12.5, color: c.sub, lineHeight: 1.5 }}>
-                      This is a WebSocket subscription method. Connect to <code style={{ fontFamily: mono }}>{wsEndpoint || 'wss://evm-ws.sei-apis.com'}</code> — see the example below.
+                      This is a WebSocket subscription method. Connect to <code style={{ fontFamily: mono }}>{wsEndpoint}</code> — see the example below.
                     </div>
                   ) : (
                     <>
