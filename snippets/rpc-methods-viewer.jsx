@@ -63,6 +63,7 @@ const STATUS_META = {
 const LANGUAGES = [
   { id: 'curl', name: 'cURL' },
   { id: 'javascript', name: 'JavaScript' },
+  { id: 'typescript', name: 'TypeScript' },
   { id: 'python', name: 'Python' },
   { id: 'go', name: 'Go' },
   { id: 'rust', name: 'Rust' },
@@ -396,6 +397,16 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
           `console.log(await provider.send('${method.name}', ${paramsJson}));`,
         ].join('\n');
       }
+      if (language === 'typescript') {
+        return [
+          `// ${method.name} runs over WebSocket only.`,
+          `const socket = new WebSocket('${ws}');`,
+          'socket.onopen = () => socket.send(JSON.stringify({',
+          `  jsonrpc: '2.0', id: 1, method: '${method.name}', params: ${paramsJson},`,
+          '}));',
+          'socket.onmessage = (e: MessageEvent) => console.log(JSON.parse(e.data));',
+        ].join('\n');
+      }
       if (language === 'python') {
         return [
           '# pip install websocket-client',
@@ -495,6 +506,32 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
       ].join('\n');
     }
 
+    if (language === 'typescript') {
+      return [
+        'type RpcResponse<T> = {',
+        '  jsonrpc: string; id: number;',
+        '  result?: T; error?: { code: number; message: string };',
+        '};',
+        '',
+        `const res = await fetch('${url}', {`,
+        "  method: 'POST',",
+        "  headers: { 'Content-Type': 'application/json' },",
+        '  body: JSON.stringify({',
+        "    jsonrpc: '2.0', id: 1,",
+        `    method: '${method.name}',`,
+        `    params: ${paramsJson},`,
+        '  }),',
+        '});',
+        'const data: RpcResponse<unknown> = await res.json();',
+        'console.log(data.result);',
+        '',
+        '// ethers v6',
+        "import { JsonRpcProvider } from 'ethers';",
+        `const provider = new JsonRpcProvider('${url}');`,
+        `console.log(await provider.send('${method.name}', ${paramsJson}));`,
+      ].join('\n');
+    }
+
     if (language === 'python') {
       return [
         'import requests, json',
@@ -587,6 +624,8 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
     maroon: '#600014',
   };
   const mono = 'var(--sei-font-mono, ui-monospace, "SF Mono", Menlo, monospace)';
+  const bd = '1px solid ' + c.border; // shared 1px border
+  const fieldStyle = { width: '100%', fontSize: 12, fontFamily: mono, padding: '7px 10px', background: c.input, color: c.text, border: bd, borderRadius: 4, outline: 'none', boxSizing: 'border-box' };
   const statusColor = (s) => (isDark ? STATUS_META[s].dark : STATUS_META[s].light);
 
   const StatusDot = ({ status }) => (
@@ -602,19 +641,25 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
   const CopyBtn = ({ text, k }) => (
     <button
       onClick={() => copy(text, k)}
-      style={{ fontSize: 11, color: c.sub, background: 'transparent', border: `1px solid ${c.border}`, borderRadius: 3, padding: '3px 8px', cursor: 'pointer' }}
+      style={{ fontSize: 11, color: c.sub, background: 'transparent', border: bd, borderRadius: 3, padding: '3px 8px', cursor: 'pointer' }}
     >
       {copied === k ? 'Copied' : 'Copy'}
     </button>
+  );
+
+  const CodeBlock = ({ text, maxHeight }) => (
+    <pre style={{ margin: 0, padding: 14, borderRadius: 4, background: c.code, border: bd, overflowX: 'auto', maxHeight }}>
+      <code style={{ fontFamily: mono, fontSize: 12, color: '#d4d4d4', whiteSpace: 'pre', lineHeight: 1.6 }}>{text}</code>
+    </pre>
   );
 
   const m = selectedMethod;
   const mMeta = m ? NAMESPACE_META[m.namespace] || {} : {};
 
   return (
-    <div className="not-prose" style={{ fontFamily: 'var(--sei-font-body, inherit)', color: c.text, background: c.bg, border: `1px solid ${c.border}`, borderRadius: 6, overflow: 'hidden', display: 'flex', flexDirection: 'column', height: '80vh', minHeight: 640 }}>
+    <div className="not-prose" style={{ fontFamily: 'var(--sei-font-body, inherit)', color: c.text, background: c.bg, border: bd, borderRadius: 6, overflow: 'hidden', display: 'flex', flexDirection: 'column', height: '80vh', minHeight: 640 }}>
       {/* Header — always stacked (title row, then controls row) so a long RPC URL never cramps the layout */}
-      <div style={{ borderBottom: `1px solid ${c.border}`, background: c.panel, padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 12, flexShrink: 0 }}>
+      <div style={{ borderBottom: bd, background: c.panel, padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 12, flexShrink: 0 }}>
         <div>
           <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: '-0.01em' }}>Sei EVM JSON-RPC Explorer</div>
           <div style={{ fontSize: 12, color: c.sub, marginTop: 2 }}>
@@ -623,7 +668,7 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           {/* Network segmented control */}
-          <div style={{ display: 'flex', border: `1px solid ${c.border}`, borderRadius: 4, overflow: 'hidden' }}>
+          <div style={{ display: 'flex', border: bd, borderRadius: 4, overflow: 'hidden' }}>
             {['mainnet', 'testnet', 'custom'].map((n) => (
               <button
                 key={n}
@@ -645,10 +690,10 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
               onChange={(e) => { setCustomEndpoint(e.target.value); setConnection('idle'); }}
               onBlur={validateEndpoint}
               placeholder="https://your-rpc"
-              style={{ fontSize: 12, fontFamily: mono, padding: '6px 10px', width: 220, background: c.input, color: c.text, border: `1px solid ${c.border}`, borderRadius: 4, outline: 'none' }}
+              style={{ fontSize: 12, fontFamily: mono, padding: '6px 10px', width: 220, background: c.input, color: c.text, border: bd, borderRadius: 4, outline: 'none' }}
             />
           ) : (
-            <code style={{ fontSize: 12, fontFamily: mono, color: c.sub, padding: '5px 10px', background: c.panel2, borderRadius: 4, border: `1px solid ${c.border}`, maxWidth: '100%', overflowWrap: 'anywhere' }}>{endpoint}</code>
+            <code style={{ fontSize: 12, fontFamily: mono, color: c.sub, padding: '5px 10px', background: c.panel2, borderRadius: 4, border: bd, maxWidth: '100%', overflowWrap: 'anywhere' }}>{endpoint}</code>
           )}
           <span title={connection === 'ok' ? 'Reachable' : connection === 'fail' ? 'Unreachable from this browser' : 'Not checked'} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: connection === 'ok' ? '#22c55e' : connection === 'fail' ? '#ef4444' : c.faint }}>
             <span style={{ width: 8, height: 8, borderRadius: 9, background: connection === 'ok' ? '#22c55e' : connection === 'fail' ? '#ef4444' : c.faint }} />
@@ -660,13 +705,13 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
       {/* Body */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         {/* Left: list */}
-        <div style={{ width: isMobile ? '100%' : 320, flexShrink: 0, display: (isMobile && mobileView !== 'list') ? 'none' : 'flex', flexDirection: 'column', borderRight: isMobile ? 'none' : `1px solid ${c.border}`, background: c.panel, overflow: 'hidden' }}>
-          <div style={{ padding: 14, borderBottom: `1px solid ${c.border}` }}>
+        <div style={{ width: isMobile ? '100%' : 320, flexShrink: 0, display: (isMobile && mobileView !== 'list') ? 'none' : 'flex', flexDirection: 'column', borderRight: isMobile ? 'none' : bd, background: c.panel, overflow: 'hidden' }}>
+          <div style={{ padding: 14, borderBottom: bd }}>
             <input
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search methods…"
-              style={{ width: '100%', fontSize: 13, padding: '8px 12px', background: c.input, color: c.text, border: `1px solid ${c.border}`, borderRadius: 4, outline: 'none', boxSizing: 'border-box' }}
+              style={{ width: '100%', fontSize: 13, padding: '8px 12px', background: c.input, color: c.text, border: bd, borderRadius: 4, outline: 'none', boxSizing: 'border-box' }}
             />
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 10 }}>
               <button
@@ -718,7 +763,7 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
                 <button
                   key={mm.name}
                   onClick={() => selectMethod(mm)}
-                  style={{ width: '100%', textAlign: 'left', padding: '9px 13px 9px 12px', cursor: 'pointer', border: 'none', borderLeft: `3px solid ${mm.meta.color}`, borderBottom: `1px solid ${c.border}`, background: active ? (isDark ? '#161616' : '#f0eef0') : 'transparent', display: 'block', opacity: mm.status === 'unsupported' ? 0.6 : 1 }}
+                  style={{ width: '100%', textAlign: 'left', padding: '9px 13px 9px 12px', cursor: 'pointer', border: 'none', borderLeft: `3px solid ${mm.meta.color}`, borderBottom: bd, background: active ? (isDark ? '#161616' : '#f0eef0') : 'transparent', display: 'block', opacity: mm.status === 'unsupported' ? 0.6 : 1 }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                     <StatusDot status={mm.status} />
@@ -755,7 +800,7 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
                 </div>
               )}
               {mMeta.unavailable && (
-                <div style={{ marginTop: 14, padding: '10px 14px', borderRadius: 4, background: isDark ? '#ffffff0a' : '#0000000a', border: `1px solid ${c.border}`, fontSize: 12.5, color: c.sub, lineHeight: 1.5 }}>
+                <div style={{ marginTop: 14, padding: '10px 14px', borderRadius: 4, background: isDark ? '#ffffff0a' : '#0000000a', border: bd, fontSize: 12.5, color: c.sub, lineHeight: 1.5 }}>
                   The entire <code style={{ fontFamily: mono }}>{m.namespace}_*</code> namespace is not exposed on Sei. {mMeta.blurb}
                 </div>
               )}
@@ -772,10 +817,10 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
                   <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>Parameters</div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {m.params.map((p) => (
-                      <div key={p.name} style={{ padding: '10px 13px', borderRadius: 4, background: c.panel2, border: `1px solid ${c.border}` }}>
+                      <div key={p.name} style={{ padding: '10px 13px', borderRadius: 4, background: c.panel2, border: bd }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                           <code style={{ fontFamily: mono, fontSize: 12.5, color: isDark ? '#e9b8c0' : c.maroon, fontWeight: 600 }}>{p.name}</code>
-                          <span style={{ fontSize: 10.5, padding: '1px 7px', borderRadius: 3, color: c.sub, background: isDark ? '#ffffff10' : '#00000008', border: `1px solid ${c.border}`, fontFamily: mono }}>{p.type}</span>
+                          <span style={{ fontSize: 10.5, padding: '1px 7px', borderRadius: 3, color: c.sub, background: isDark ? '#ffffff10' : '#00000008', border: bd, fontFamily: mono }}>{p.type}</span>
                         </div>
                         <div style={{ fontSize: 12.5, color: c.sub, marginTop: 5, lineHeight: 1.5 }}>{p.description}</div>
                       </div>
@@ -784,15 +829,16 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
                 </div>
               )}
 
-              {/* Try it */}
+              {/* Try it — request (inputs + code) first, then Run, then Result */}
               {m.status !== 'unsupported' && (
                 <div style={{ marginTop: 22 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
                     Try it
                     <span style={{ fontSize: 11, fontWeight: 400, color: c.faint }}>· {network === 'custom' ? (endpoint || 'set a custom endpoint') : NETWORKS[network].label}</span>
                   </div>
+
                   {isWsOnly(m.name) ? (
-                    <div style={{ padding: '10px 14px', borderRadius: 4, background: c.panel2, border: `1px solid ${c.border}`, fontSize: 12.5, color: c.sub, lineHeight: 1.5 }}>
+                    <div style={{ padding: '10px 14px', borderRadius: 4, background: c.panel2, border: bd, fontSize: 12.5, color: c.sub, lineHeight: 1.5 }}>
                       This is a WebSocket subscription method. Connect to <code style={{ fontFamily: mono }}>{wsEndpoint}</code> — see the example below.
                     </div>
                   ) : (
@@ -802,25 +848,17 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
                           {m.params.map((p) => {
                             const ex = p.example || '';
                             const big = ex.trim().startsWith('{') || ex.trim().startsWith('[') || (p.type || '').toLowerCase().includes('object');
+                            const field = {
+                              value: paramValues[p.name] !== undefined ? paramValues[p.name] : '',
+                              onChange: (e) => setParamValues((prev) => ({ ...prev, [p.name]: e.target.value })),
+                              placeholder: ex,
+                            };
                             return (
                               <div key={p.name}>
                                 <label style={{ fontSize: 11, color: c.faint, fontFamily: mono, display: 'block', marginBottom: 3 }}>{p.name}</label>
-                                {big ? (
-                                  <textarea
-                                    rows={2}
-                                    value={paramValues[p.name] !== undefined ? paramValues[p.name] : ''}
-                                    onChange={(e) => setParamValues((prev) => ({ ...prev, [p.name]: e.target.value }))}
-                                    placeholder={ex}
-                                    style={{ width: '100%', fontSize: 12, fontFamily: mono, padding: '7px 10px', background: c.input, color: c.text, border: `1px solid ${c.border}`, borderRadius: 4, outline: 'none', boxSizing: 'border-box', resize: 'vertical' }}
-                                  />
-                                ) : (
-                                  <input
-                                    value={paramValues[p.name] !== undefined ? paramValues[p.name] : ''}
-                                    onChange={(e) => setParamValues((prev) => ({ ...prev, [p.name]: e.target.value }))}
-                                    placeholder={ex}
-                                    style={{ width: '100%', fontSize: 12, fontFamily: mono, padding: '7px 10px', background: c.input, color: c.text, border: `1px solid ${c.border}`, borderRadius: 4, outline: 'none', boxSizing: 'border-box' }}
-                                  />
-                                )}
+                                {big
+                                  ? <textarea rows={2} {...field} style={{ ...fieldStyle, resize: 'vertical' }} />
+                                  : <input {...field} style={fieldStyle} />}
                               </div>
                             );
                           })}
@@ -831,6 +869,34 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
                           This is a state-changing / signing method. Public RPC nodes hold no keys, so it generally errors unless you supply a signed payload.
                         </div>
                       )}
+                    </>
+                  )}
+
+                  {/* Request — code example */}
+                  <div style={{ marginTop: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: c.sub }}>Request</div>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+                          {LANGUAGES.map((l) => (
+                            <button
+                              key={l.id}
+                              onClick={() => setSelectedLanguage(l.id)}
+                              style={{ fontSize: 11, padding: '3px 9px', borderRadius: 3, cursor: 'pointer', border: 'none', background: selectedLanguage === l.id ? c.maroon : (isDark ? '#161616' : '#ececee'), color: selectedLanguage === l.id ? '#fff' : c.sub }}
+                            >
+                              {l.name}
+                            </button>
+                          ))}
+                        </div>
+                        <CopyBtn text={codeExample} k="code" />
+                      </div>
+                    </div>
+                    <CodeBlock text={codeExample} />
+                  </div>
+
+                  {/* Run + Result (HTTP-callable methods) */}
+                  {!isWsOnly(m.name) && (
+                    <div style={{ marginTop: 14 }}>
                       <button
                         onClick={execute}
                         disabled={isLoading || !endpoint}
@@ -844,39 +910,13 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
                             <span style={{ fontSize: 11, color: requestResult.error ? '#ef4444' : '#22c55e', fontWeight: 600 }}>{requestResult.error ? 'Error' : 'Result'}</span>
                             <CopyBtn text={JSON.stringify(requestResult, null, 2)} k="resp" />
                           </div>
-                          <pre style={{ margin: 0, padding: 14, borderRadius: 4, background: c.code, border: `1px solid ${c.border}`, overflowX: 'auto', maxHeight: 280 }}>
-                            <code style={{ fontFamily: mono, fontSize: 12, color: '#d4d4d4', whiteSpace: 'pre' }}>{JSON.stringify(requestResult, null, 2)}</code>
-                          </pre>
+                          <CodeBlock text={JSON.stringify(requestResult, null, 2)} maxHeight={280} />
                         </div>
                       )}
-                    </>
+                    </div>
                   )}
                 </div>
               )}
-
-              {/* Code examples */}
-              <div style={{ marginTop: 22 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700 }}>Code example</div>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
-                      {LANGUAGES.map((l) => (
-                        <button
-                          key={l.id}
-                          onClick={() => setSelectedLanguage(l.id)}
-                          style={{ fontSize: 11, padding: '3px 9px', borderRadius: 3, cursor: 'pointer', border: 'none', background: selectedLanguage === l.id ? c.maroon : (isDark ? '#161616' : '#ececee'), color: selectedLanguage === l.id ? '#fff' : c.sub }}
-                        >
-                          {l.name}
-                        </button>
-                      ))}
-                    </div>
-                    <CopyBtn text={codeExample} k="code" />
-                  </div>
-                </div>
-                <pre style={{ margin: 0, padding: 14, borderRadius: 4, background: c.code, border: `1px solid ${c.border}`, overflowX: 'auto' }}>
-                  <code style={{ fontFamily: mono, fontSize: 12, color: '#d4d4d4', whiteSpace: 'pre', lineHeight: 1.6 }}>{codeExample}</code>
-                </pre>
-              </div>
             </div>
           )}
         </div>
