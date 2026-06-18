@@ -95,6 +95,13 @@ export const NetworkTabs = (props) => {
 		return () => window.removeEventListener('hashchange', handleHashChange);
 	}, []);
 
+	const selectTab = (tab) => {
+		setActiveTab(tab);
+		if (typeof window !== 'undefined' && window.history && window.history.replaceState) {
+			window.history.replaceState(null, '', `#${tab}`);
+		}
+	};
+
 	const tabButtonClass = (tab) =>
 		`px-3 py-1.5 text-sm transition-colors ${
 			activeTab === tab
@@ -258,13 +265,13 @@ export const NetworkTabs = (props) => {
 	return (
 		<div className='network-tabs w-full'>
 			<div className='flex flex-wrap gap-2 mb-6'>
-				<button type='button' onClick={() => setActiveTab('mainnet')} className={tabButtonClass('mainnet')}>
+				<button type='button' onClick={() => selectTab('mainnet')} className={tabButtonClass('mainnet')}>
 					Mainnet (pacific-1)
 				</button>
-				<button type='button' onClick={() => setActiveTab('testnet')} className={tabButtonClass('testnet')}>
+				<button type='button' onClick={() => selectTab('testnet')} className={tabButtonClass('testnet')}>
 					Testnet (atlantic-2)
 				</button>
-				<button type='button' onClick={() => setActiveTab('localnet')} className={tabButtonClass('localnet')}>
+				<button type='button' onClick={() => selectTab('localnet')} className={tabButtonClass('localnet')}>
 					Local Environment
 				</button>
 			</div>

@@ -578,7 +578,7 @@ sei-tendermint
       }
     }
 
-    return order.map((v, idx) => ({ ...merged.get(v), idx }));
+    return order.map((v) => merged.get(v));
   };
 
   useEffect(() => {
@@ -629,6 +629,7 @@ sei-tendermint
         'sei-db': 'sei-protocol/sei-db',
         'sei-wasmd': 'sei-protocol/sei-wasmd',
         'sei-iavl': 'sei-protocol/sei-iavl',
+        'sei-ibc-go': 'sei-protocol/sei-ibc-go',
         'tm-db': 'sei-protocol/tm-db'
       };
       return repoMap[compName] || 'sei-protocol/sei-chain';
@@ -706,7 +707,7 @@ sei-tendermint
                 if (trimmedPart.match(/^#\d+$/)) {
                   const num = trimmedPart.slice(1);
                   const prevParts = prParts.slice(0, j).join('');
-                  const inlineComponentMatch = prevParts.match(/\b(sei-chain|sei-tendermint|sei-cosmos|sei-db|sei-wasmd|sei-iavl|tm-db)\s*$/i);
+                  const inlineComponentMatch = prevParts.match(/\b(sei-chain|sei-tendermint|sei-cosmos|sei-db|sei-wasmd|sei-iavl|sei-ibc-go|tm-db)\s*$/i);
                   const effectiveComponent = inlineComponentMatch ? inlineComponentMatch[1] : componentName;
                   const repoPath = getRepoUrl(effectiveComponent);
                   return (
@@ -735,7 +736,7 @@ sei-tendermint
 
                   if (isLikelyPRNumber) {
                     const prevParts = prParts.slice(0, j).join('');
-                    const inlineComponentMatch = prevParts.match(/\b(sei-chain|sei-tendermint|sei-cosmos|sei-db|sei-wasmd|sei-iavl|tm-db)\s*$/i);
+                    const inlineComponentMatch = prevParts.match(/\b(sei-chain|sei-tendermint|sei-cosmos|sei-db|sei-wasmd|sei-iavl|sei-ibc-go|tm-db)\s*$/i);
                     const effectiveComponent = inlineComponentMatch ? inlineComponentMatch[1] : componentName;
                     const repoPath = getRepoUrl(effectiveComponent);
                     return (
@@ -907,10 +908,9 @@ sei-tendermint
     );
   };
 
-  const staticVersions = STATIC_CHANGELOG.map((entry, idx) => ({
+  const staticVersions = STATIC_CHANGELOG.map((entry) => ({
     version: entry.version,
-    body: entry.body,
-    idx: dynamicVersions.length + idx
+    body: entry.body
   }));
   const versions = [...dynamicVersions, ...staticVersions];
 
@@ -922,7 +922,7 @@ sei-tendermint
         </div>
         <div className="changelog-content">
           {staticVersions.map((version) => (
-            <div key={version.idx} className="mb-8">
+            <div key={version.version} className="mb-8">
               <div className="flex items-center gap-3 mb-4">
                 <h2 className="text-xl font-bold text-gray-900 dark:text-white m-0">{version.version}</h2>
                 <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">Release</span>
@@ -975,7 +975,7 @@ sei-tendermint
 
       <div className="changelog-content">
         {versions.map((version) => (
-          <div key={version.idx} className="mb-8">
+          <div key={version.version} className="mb-8">
             <div className="flex items-center gap-3 mb-4">
               <h2 className="text-xl font-bold text-gray-900 dark:text-white m-0">{version.version}</h2>
               <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">Release</span>

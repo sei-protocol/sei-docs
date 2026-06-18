@@ -4,7 +4,7 @@ export const EcosystemAppGrid = (props) => {
 	// --- Static config: inlined verbatim from lib/ecosystemData.ts ---
 	const ECOSYSTEM_API_URL = 'https://app-api.seinetwork.io/sanity/ecosystem';
 
-	// --- Integration-guide overrides: inlined verbatim from AppCard.v2.tsx ---
+	// --- Integration-guide overrides ---
 	const integrationGuideOverrides = {
 		'The Graph': '/evm/indexer-providers/the-graph',
 		Covalent: '/evm/indexer-providers/goldrush',
@@ -107,10 +107,8 @@ export const EcosystemAppGrid = (props) => {
 		</div>
 	);
 
-	// --- App card (ported from AppCard.v2.tsx) ---
-	// Runs on docs.sei.io, so internal links ('/...') are rendered as
-	// site-relative hrefs; external links open in a new tab.
-	const AppCardV2 = ({ app }) => {
+	// --- App card ---
+	const AppCard = ({ app }) => {
 		const [hover, setHover] = useState(false);
 		const [linkHover, setLinkHover] = useState(false);
 
@@ -261,7 +259,7 @@ export const EcosystemAppGrid = (props) => {
 		// its tile the way the original widget does.
 		<div className='sei-eco-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 py-2'>
 			{apps.map((app) => (
-				<AppCardV2 key={app.id} app={app} />
+				<AppCard key={app.id} app={app} />
 			))}
 		</div>
 	);
