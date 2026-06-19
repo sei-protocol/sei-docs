@@ -128,7 +128,14 @@ export const EcosystemAppGrid = (props) => {
 	);
 
 	// --- App card ---
-	const AppCard = ({ app }) => {
+	// Created once via a lazy initializer so its component identity is stable
+	// across parent re-renders. EcosystemAppGrid re-renders whenever the
+	// MutationObserver toggles `isDark`; if AppCard were redeclared on every
+	// render, React would see a new component type and remount every card —
+	// resetting hover state and reloading the logo <img> tiles. `isDark` is
+	// passed in as a prop so theme changes still reach the card. (Mintlify
+	// snippets can't hoist this to module scope — see mintlify-jsx-snippet-rules.)
+	const [AppCard] = useState(() => ({ app, isDark }) => {
 		const [hover, setHover] = useState(false);
 		const [linkHover, setLinkHover] = useState(false);
 
@@ -252,7 +259,7 @@ export const EcosystemAppGrid = (props) => {
 				</div>
 			</div>
 		);
-	};
+	});
 
 	// --- Loading state: 4 skeleton cards ---
 	if (isLoading) {
@@ -286,7 +293,7 @@ export const EcosystemAppGrid = (props) => {
 		// its tile the way the original widget does.
 		<div className='sei-eco-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 py-2'>
 			{apps.map((app) => (
-				<AppCard key={app.id} app={app} />
+				<AppCard key={app.id} app={app} isDark={isDark} />
 			))}
 		</div>
 	);

@@ -806,7 +806,7 @@ sei-tendermint
                     <div key={j} className="flex items-start gap-3 py-2">
                       <span className="text-base mt-0.5 text-gray-400">•</span>
                       <div className="flex-1">
-                        <TextWithLinks content={change.trim()} componentName="sei-chain" />
+                        <TextWithLinks content={change.trim()} componentName={comp.name} />
                       </div>
                     </div>
                   ))}
