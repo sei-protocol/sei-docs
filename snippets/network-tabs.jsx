@@ -76,20 +76,29 @@ export const NetworkTabs = (props) => {
 	const validTabs = ['mainnet', 'testnet', 'localnet'];
 	const initialTab = validTabs.includes(network) ? network : 'mainnet';
 
-	const [activeTab, setActiveTab] = useState(initialTab);
+	// Read the URL hash during the initial render so a deep link like
+	// `#testnet` shows the right tab on the first paint, instead of rendering
+	// mainnet first and only correcting it inside an effect. Guarded for any
+	// non-browser (SSR) render where `window` is undefined.
+	const [activeTab, setActiveTab] = useState(() => {
+		if (typeof window !== 'undefined') {
+			const hash = window.location.hash.substring(1);
+			if (validTabs.includes(hash)) return hash;
+		}
+		return initialTab;
+	});
 
 	useEffect(() => {
-		const hash = window.location.hash.substring(1);
-		if (validTabs.includes(hash)) {
-			setActiveTab(hash);
-		}
-
 		const handleHashChange = () => {
 			const h = window.location.hash.substring(1);
 			if (validTabs.includes(h)) {
 				setActiveTab(h);
 			}
 		};
+
+		// Re-sync once on mount (covers a hash that changed between the initial
+		// render and mount) and then on every subsequent hash change.
+		handleHashChange();
 
 		window.addEventListener('hashchange', handleHashChange);
 		return () => window.removeEventListener('hashchange', handleHashChange);

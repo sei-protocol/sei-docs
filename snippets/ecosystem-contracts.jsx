@@ -629,6 +629,10 @@ export const EcosystemContracts = () => {
 
 	const [query, setQuery] = useState('');
 	const [openSections, setOpenSections] = useState({});
+	// Base id of the latest search hit. The scroll runs in the effect below —
+	// after React commits this state — so the target row has already left its
+	// `hidden` (display:none) section and getBoundingClientRect is accurate.
+	const [pendingScrollId, setPendingScrollId] = useState(null);
 
 	const slugify = (value) => {
 		return String(value)
@@ -651,34 +655,44 @@ export const EcosystemContracts = () => {
 				const name = String(contract[nameKey] || '').toLowerCase();
 				const address = String(contract[addressKey] || '').toLowerCase();
 				if (name.includes(q) || address.includes(q)) {
-					setOpenSections((prev) => ({ ...prev, [group.projectName]: true }));
 					const baseId = `contract-${slugify(group.projectName)}-${address}`;
-					requestAnimationFrame(() => {
-						const el =
-								[`${baseId}-desktop`, `${baseId}-mobile`]
-									.map((cid) => document.getElementById(cid))
-									.find((node) => node && node.offsetParent !== null) ||
-								document.getElementById(`${baseId}-desktop`) ||
-								document.getElementById(`${baseId}-mobile`);
-						if (!el) return;
-
-						// Center the element in the viewport for better visibility
-						const rect = el.getBoundingClientRect();
-						const currentScrollY = window.scrollY || window.pageYOffset;
-						const absoluteTop = rect.top + currentScrollY;
-						const viewportHeight = window.innerHeight;
-						const targetTop = absoluteTop - Math.max(0, (viewportHeight - rect.height) / 2);
-
-						const maxScroll = Math.max(0, (document.documentElement.scrollHeight || document.body.scrollHeight) - viewportHeight);
-						const clampedTop = Math.min(Math.max(0, targetTop), maxScroll);
-
-						window.scrollTo({ top: clampedTop, behavior: 'smooth' });
-					});
+					// Open the matching section and defer the scroll: the effect
+					// below runs it once React has committed the open state and the
+					// row is no longer inside a `hidden` (display:none) section.
+					setOpenSections((prev) => ({ ...prev, [group.projectName]: true }));
+					setPendingScrollId(baseId);
 					return;
 				}
 			}
 		}
 	};
+
+	useEffect(() => {
+		if (!pendingScrollId) return;
+		const baseId = pendingScrollId;
+		// Clear immediately so unrelated re-renders never re-trigger the scroll.
+		setPendingScrollId(null);
+
+		const el =
+			[`${baseId}-desktop`, `${baseId}-mobile`]
+				.map((cid) => document.getElementById(cid))
+				.find((node) => node && node.offsetParent !== null) ||
+			document.getElementById(`${baseId}-desktop`) ||
+			document.getElementById(`${baseId}-mobile`);
+		if (!el) return;
+
+		// Center the element in the viewport for better visibility.
+		const rect = el.getBoundingClientRect();
+		const currentScrollY = window.scrollY || window.pageYOffset;
+		const absoluteTop = rect.top + currentScrollY;
+		const viewportHeight = window.innerHeight;
+		const targetTop = absoluteTop - Math.max(0, (viewportHeight - rect.height) / 2);
+
+		const maxScroll = Math.max(0, (document.documentElement.scrollHeight || document.body.scrollHeight) - viewportHeight);
+		const clampedTop = Math.min(Math.max(0, targetTop), maxScroll);
+
+		window.scrollTo({ top: clampedTop, behavior: 'smooth' });
+	}, [pendingScrollId]);
 
 	// --- Theme-aware brand colors (replace former sei-* Tailwind classes) ---
 	// Light/dark text + background for the SeiScan link button.
@@ -687,6 +701,12 @@ export const EcosystemContracts = () => {
 		: { color: 'var(--sei-maroon-100)', backgroundColor: 'var(--sei-grey-25)' };
 
 	const focusRingColor = 'var(--sei-maroon-100)';
+
+	// Desktop rows use a div-based grid (not a <table>): Mintlify maps MDX
+	// <table> to a wrapper with a negative `var(--page-padding)` margin that,
+	// inside this card's overflow-hidden box, clipped the first column. An inline
+	// grid template also avoids relying on Tailwind's JIT for an arbitrary value.
+	const rowGridStyle = { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.3fr)' };
 
 	// --- SeiScan link (nested component) handles its own hover state ---
 	const SeiScanLink = ({ address }) => {
@@ -790,43 +810,47 @@ export const EcosystemContracts = () => {
 									</button>
 									<section id={sectionId} className={`${isOpen ? 'block' : 'hidden'}`}>
 										<div className='p-4 space-y-4'>
-											{/* Desktop table view */}
-											<div className='hidden sm:block overflow-x-auto'>
-												<table className='w-full border-collapse border border-gray-200 dark:border-gray-700'>
-													<thead>
-														<tr className='bg-gray-50 dark:bg-gray-800'>
-															<th className='border border-gray-200 dark:border-gray-700 px-4 py-3 text-left text-sm font-semibold text-gray-900 dark:text-white'>
-																Contract Name
-															</th>
-															<th className='border border-gray-200 dark:border-gray-700 px-4 py-3 text-left text-sm font-semibold text-gray-900 dark:text-white'>
-																Contract Address
-															</th>
-														</tr>
-													</thead>
-													<tbody>
-														{group.contracts.map((contract, contractIndex) => {
-															const addr = String(contract[addressKey] || '').toLowerCase();
-															const id = `contract-${slugify(group.projectName)}-${addr}`;
-															return (
-																<tr key={contractIndex} id={`${id}-desktop`} className='transition-colors'>
-																	<td className='border border-gray-200 dark:border-gray-700 px-4 py-3 text-sm text-gray-900 dark:text-white font-medium'>
-																		{contract[nameKey] || 'Unnamed Contract'}
-																	</td>
-																	<td className='border border-gray-200 dark:border-gray-700 px-4 py-3 text-sm'>
-																		<div className='flex items-center gap-2'>
-																			<code
-																				className='text-xs bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded'
-																				style={{ fontFamily: 'var(--sei-font-mono)' }}>
-																				{contract[addressKey]}
-																			</code>
-																			<SeiScanLink address={contract[addressKey]} />
-																		</div>
-																	</td>
-																</tr>
-															);
-														})}
-													</tbody>
-												</table>
+												{/* Desktop view — a div grid (not a <table>): Mintlify maps MDX
+											    <table> to a wrapper with a negative var(--page-padding) margin
+											    that this card's overflow-hidden clipped, shifting the first
+											    column off the left edge. */}
+											<div className='hidden sm:block border border-gray-200 dark:border-gray-700'>
+												<div role='table' className='w-full text-sm'>
+													<div role='row' style={rowGridStyle} className='bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700'>
+														<div role='columnheader' className='px-4 py-3 text-left font-semibold text-gray-900 dark:text-white'>
+															Contract Name
+														</div>
+														<div role='columnheader' className='px-4 py-3 text-left font-semibold text-gray-900 dark:text-white'>
+															Contract Address
+														</div>
+													</div>
+													{group.contracts.map((contract, contractIndex) => {
+														const addr = String(contract[addressKey] || '').toLowerCase();
+														const id = `contract-${slugify(group.projectName)}-${addr}`;
+														return (
+															<div
+																role='row'
+																key={contractIndex}
+																id={`${id}-desktop`}
+																style={rowGridStyle}
+																className='border-b border-gray-200 dark:border-gray-700 last:border-b-0 transition-colors'>
+																<div role='cell' className='px-4 py-3 text-gray-900 dark:text-white font-medium break-words'>
+																	{contract[nameKey] || 'Unnamed Contract'}
+																</div>
+																<div role='cell' className='px-4 py-3'>
+																	<div className='flex items-center gap-2 min-w-0'>
+																		<code
+																			className='text-xs bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded break-all'
+																			style={{ fontFamily: 'var(--sei-font-mono)' }}>
+																			{contract[addressKey]}
+																		</code>
+																		<SeiScanLink address={contract[addressKey]} />
+																	</div>
+																</div>
+															</div>
+														);
+													})}
+												</div>
 											</div>
 
 											{/* Mobile card view */}
@@ -845,7 +869,7 @@ export const EcosystemContracts = () => {
 																	<span className='text-xs text-gray-500 dark:text-gray-400 block mb-1'>Contract Address</span>
 																	<div className='flex items-center gap-2'>
 																		<code
-																			className='text-xs bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded'
+																			className='text-xs bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded break-all'
 																			style={{ fontFamily: 'var(--sei-font-mono)' }}>
 																			{contract[addressKey]}
 																		</code>
