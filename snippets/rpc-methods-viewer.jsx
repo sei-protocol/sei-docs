@@ -49,11 +49,15 @@ const STATUS_META = {
 
 const LANGUAGES = [
   { id: 'curl', name: 'cURL' },
+  { id: 'cast', name: 'cast' },
   { id: 'javascript', name: 'JavaScript' },
   { id: 'typescript', name: 'TypeScript' },
   { id: 'python', name: 'Python' },
   { id: 'go', name: 'Go' },
   { id: 'rust', name: 'Rust' },
+  { id: 'java', name: 'Java' },
+  { id: 'kotlin', name: 'Kotlin' },
+  { id: 'swift', name: 'Swift' },
   { id: 'csharp', name: 'C#' },
 ];
 
@@ -453,6 +457,64 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
           'Console.WriteLine(Encoding.UTF8.GetString(buffer, 0, res.Count));',
         ].join('\n');
       }
+      if (language === 'cast') {
+        return [
+          `# ${method.name} is WebSocket-only. cast has no native WebSocket support.`,
+          '# Use wscat (npm i -g wscat):',
+          `wscat -c ${ws}`,
+          `> ${bodyJson}`,
+        ].join('\n');
+      }
+      if (language === 'java') {
+        return [
+          'import java.net.URI;',
+          'import java.net.http.*;',
+          'import java.util.concurrent.CompletableFuture;',
+          'import java.util.concurrent.CompletionStage;',
+          '',
+          'var done = new CompletableFuture<Void>();',
+          'HttpClient.newHttpClient().newWebSocketBuilder()',
+          `    .buildAsync(URI.create("${ws}"), new WebSocket.Listener() {`,
+          '        public void onOpen(WebSocket ws) {',
+          `            ws.sendText("${csBody}", true); ws.request(1);`,
+          '        }',
+          '        public CompletionStage<?> onText(WebSocket ws, CharSequence data, boolean last) {',
+          '            System.out.println(data); done.complete(null); return null;',
+          '        }',
+          '    }).join();',
+          'done.join();',
+        ].join('\n');
+      }
+      if (language === 'kotlin') {
+        return [
+          'import java.net.URI',
+          'import java.net.http.*',
+          'import java.util.concurrent.CompletableFuture',
+          '',
+          'val done = CompletableFuture<Void>()',
+          'HttpClient.newHttpClient().newWebSocketBuilder()',
+          `    .buildAsync(URI.create("${ws}"), object : WebSocket.Listener {`,
+          '        override fun onOpen(ws: WebSocket) {',
+          `            ws.sendText("${csBody}", true); ws.request(1)`,
+          '        }',
+          '        override fun onText(ws: WebSocket, data: CharSequence, last: Boolean) =',
+          '            run { println(data); done.complete(null); null }',
+          '    }).join()',
+          'done.join()',
+        ].join('\n');
+      }
+      if (language === 'swift') {
+        return [
+          'import Foundation',
+          '',
+          `let task = URLSession.shared.webSocketTask(with: URL(string: "${ws}")!)`,
+          'task.resume()',
+          `try await task.send(.string(#"${bodyJson}"#))`,
+          'let msg = try await task.receive()',
+          'if case .string(let text) = msg { print(text) }',
+          'task.cancel(with: .normalClosure, reason: nil)',
+        ].join('\n');
+      }
       // curl (default) — wscat
       return [
         `# ${method.name} is WebSocket-only. Use wscat (npm i -g wscat):`,
@@ -582,6 +644,58 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
         'var content = new StringContent(json, Encoding.UTF8, "application/json");',
         `var res = await http.PostAsync("${url}", content);`,
         'Console.WriteLine(await res.Content.ReadAsStringAsync());',
+      ].join('\n');
+    }
+
+    if (language === 'cast') {
+      const castArgs = params.map(p => `'${JSON.stringify(p)}'`).join(' ');
+      return `cast rpc --rpc-url ${url} ${method.name}${params.length ? ' ' + castArgs : ''}`;
+    }
+
+    if (language === 'java') {
+      return [
+        'import java.net.URI;',
+        'import java.net.http.*;',
+        '',
+        `var json = "${csBody}";`,
+        `var req = HttpRequest.newBuilder(URI.create("${url}"))`,
+        '    .header("Content-Type", "application/json")',
+        '    .POST(HttpRequest.BodyPublishers.ofString(json))',
+        '    .build();',
+        'var res = HttpClient.newHttpClient().send(req, HttpResponse.BodyHandlers.ofString());',
+        'System.out.println(res.body());',
+      ].join('\n');
+    }
+
+    if (language === 'kotlin') {
+      return [
+        'import java.net.URI',
+        'import java.net.http.HttpClient',
+        'import java.net.http.HttpRequest',
+        'import java.net.http.HttpResponse',
+        '',
+        `val json = "${csBody}"`,
+        `val req = HttpRequest.newBuilder(URI.create("${url}"))`,
+        '    .header("Content-Type", "application/json")',
+        '    .POST(HttpRequest.BodyPublishers.ofString(json))',
+        '    .build()',
+        'val res = HttpClient.newHttpClient().send(req, HttpResponse.BodyHandlers.ofString())',
+        'println(res.body())',
+      ].join('\n');
+    }
+
+    if (language === 'swift') {
+      return [
+        'import Foundation',
+        '',
+        `let url = URL(string: "${url}")!`,
+        'var request = URLRequest(url: url)',
+        'request.httpMethod = "POST"',
+        'request.setValue("application/json", forHTTPHeaderField: "Content-Type")',
+        `request.httpBody = Data(#"${bodyJson}"#.utf8)`,
+        '',
+        'let (data, _) = try await URLSession.shared.data(for: request)',
+        'print(String(decoding: data, as: UTF8.self))',
       ].join('\n');
     }
 
