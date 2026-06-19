@@ -635,132 +635,127 @@ sei-tendermint
       return repoMap[compName] || 'sei-protocol/sei-chain';
     };
 
-    const cleanedContent = content
-      .replace(/\]\(https:\/\/[^)]+\)/g, '')
-      .replace(/\[/g, '')
-      .replace(/\]/g, '');
+    const renderLink = (key, href, text, marginClass = 'ml-1') => (
+      <a
+        key={key}
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={`px-2 py-0.5 text-sm font-medium no-underline ${marginClass}`}
+        style={linkBaseStyle()}
+        onMouseEnter={(e) => applyLinkHover(e, true)}
+        onMouseLeave={(e) => applyLinkHover(e, false)}>
+        {text}
+      </a>
+    );
 
-    const urlPattern = /(https:\/\/github\.com\/[^\s)]+)/g;
-    const parts = cleanedContent.split(urlPattern);
+    // Friendly label for a bare GitHub URL that has no explicit markdown label.
+    const labelForUrl = (url) => {
+      if (url.includes('/compare/')) {
+        const m = url.match(/\/compare\/([^/\s]+)/);
+        if (m) return `Compare ${m[1].replace('...', ' → ')}`;
+      } else if (url.includes('/releases/tag/')) {
+        const m = url.match(/\/releases\/tag\/([^/\s]+)/);
+        if (m) return `Release ${m[1]}`;
+      } else if (url.includes('/pull/')) {
+        const m = url.match(/\/pull\/(\d+)/);
+        if (m) return `#${m[1]}`;
+      }
+      return url;
+    };
 
-    return (
-      <span className="text-base">
-        {parts.map((part, i) => {
-          if (part.match(urlPattern)) {
-            let linkText = part;
-            if (part.includes('/compare/')) {
-              const compareMatch = part.match(/\/compare\/([^/\s]+)/);
-              if (compareMatch) linkText = `Compare ${compareMatch[1].replace('...', ' → ')}`;
-            } else if (part.includes('/releases/tag/')) {
-              const tagMatch = part.match(/\/releases\/tag\/([^/\s]+)/);
-              if (tagMatch) linkText = `Release ${tagMatch[1]}`;
-            } else if (part.includes('/pull/')) {
-              const prMatch = part.match(/\/pull\/(\d+)/);
-              if (prMatch) linkText = `#${prMatch[1]}`;
-            }
-            return (
-              <a
-                key={i}
-                href={part}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-2 py-0.5 text-sm font-medium no-underline ml-1"
-                style={linkBaseStyle()}
-                onMouseEnter={(e) => applyLinkHover(e, true)}
-                onMouseLeave={(e) => applyLinkHover(e, false)}>
-                {linkText}
-              </a>
-            );
-          }
+    // Render a run of text that contains no [label](url) markdown links. Bare
+    // GitHub URLs, "Compare X → Y" strings, and bare PR numbers are still linked
+    // heuristically so entries authored without markdown link syntax keep working.
+    const renderPlainSegment = (text, keyPrefix) => {
+      const stripped = text.replace(/\[/g, '').replace(/\]/g, '');
+      const urlPattern = /(https:\/\/github\.com\/[^\s)]+)/g;
+      const parts = stripped.split(urlPattern);
 
-          const compareMatch = part.match(
-            /Compare\s+((?:sei-[a-z]+-)?(v?\d+\.\d+\.\d+(?:\.\d+)?(?:beta|alpha|rc\d*)?(?:-release)?))(?:\s*[→-]\s*|\.\.\.)+(v?\d+\.\d+\.\d+(?:\.\d+)?(?:beta|alpha|rc\d*)?(?:-release)?)/i
-          );
-          if (compareMatch) {
-            const [fullMatch, fromVersion, , toVersion] = compareMatch;
-            const cleanFromVersion = fromVersion.replace(/^sei-[a-z]+-/, '');
-            const cleanToVersion = toVersion.replace(/^sei-[a-z]+-/, '');
-            const repoPath = getRepoUrl(componentName);
-            const compareUrl = `https://github.com/${repoPath}/compare/${cleanFromVersion}...${cleanToVersion}`;
-            return (
-              <span key={i}>
-                {part.replace(fullMatch, '')}
-                <a
-                  href={compareUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-2 py-0.5 text-sm font-medium no-underline ml-1"
-                  style={linkBaseStyle()}
-                  onMouseEnter={(e) => applyLinkHover(e, true)}
-                  onMouseLeave={(e) => applyLinkHover(e, false)}>
-                  Compare {cleanFromVersion} → {cleanToVersion}
-                </a>
-              </span>
-            );
-          }
+      return parts.map((part, i) => {
+        const key = `${keyPrefix}-${i}`;
+        if (part.match(urlPattern)) {
+          return renderLink(key, part, labelForUrl(part));
+        }
 
-          const prParts = part.split(/(\b\d{1,4}\b|#\d+)/g);
+        const compareMatch = part.match(
+          /Compare\s+((?:sei-[a-z]+-)?(v?\d+\.\d+\.\d+(?:\.\d+)?(?:beta|alpha|rc\d*)?(?:-release)?))(?:\s*[→-]\s*|\.\.\.)+(v?\d+\.\d+\.\d+(?:\.\d+)?(?:beta|alpha|rc\d*)?(?:-release)?)/i
+        );
+        if (compareMatch) {
+          const [fullMatch, fromVersion, , toVersion] = compareMatch;
+          const cleanFromVersion = fromVersion.replace(/^sei-[a-z]+-/, '');
+          const cleanToVersion = toVersion.replace(/^sei-[a-z]+-/, '');
+          const repoPath = getRepoUrl(componentName);
+          const compareUrl = `https://github.com/${repoPath}/compare/${cleanFromVersion}...${cleanToVersion}`;
           return (
-            <span key={i}>
-              {prParts.map((subPart, j) => {
-                const trimmedPart = subPart.trim();
-                if (trimmedPart.match(/^#\d+$/)) {
-                  const num = trimmedPart.slice(1);
+            <span key={key}>
+              {part.replace(fullMatch, '')}
+              {renderLink(`${key}-cmp`, compareUrl, `Compare ${cleanFromVersion} → ${cleanToVersion}`)}
+            </span>
+          );
+        }
+
+        const prParts = part.split(/(\b\d{1,4}\b|#\d+)/g);
+        return (
+          <span key={key}>
+            {prParts.map((subPart, j) => {
+              const trimmedPart = subPart.trim();
+              if (trimmedPart.match(/^#\d+$/)) {
+                const num = trimmedPart.slice(1);
+                const prevParts = prParts.slice(0, j).join('');
+                const inlineComponentMatch = prevParts.match(/\b(sei-chain|sei-tendermint|sei-cosmos|sei-db|sei-wasmd|sei-iavl|sei-ibc-go|tm-db)\s*$/i);
+                const effectiveComponent = inlineComponentMatch ? inlineComponentMatch[1] : componentName;
+                const repoPath = getRepoUrl(effectiveComponent);
+                return renderLink(`${key}-${j}`, `https://github.com/${repoPath}/pull/${num}`, `#${num}`);
+              } else if (trimmedPart.match(/^\d{1,4}$/) && parseInt(trimmedPart, 10) > 0) {
+                const prevPart = prParts[j - 1] || '';
+                const nextPart = prParts[j + 1] || '';
+                const followedByNonPR = nextPart.match(/^\s*(hop|limit|version|v\d|\.\d|px|ms|s\b|mb|gb|kb)/i);
+                const precededByNonPR = prevPart.match(/(v|version|\d\.)\s*$/i);
+                const isLikelyPRNumber =
+                  (j < 3 || prevPart.includes('•') || prevPart.includes('\n') || prevPart.includes('#')) &&
+                  !followedByNonPR &&
+                  !precededByNonPR &&
+                  parseInt(trimmedPart, 10) >= 10;
+
+                if (isLikelyPRNumber) {
                   const prevParts = prParts.slice(0, j).join('');
                   const inlineComponentMatch = prevParts.match(/\b(sei-chain|sei-tendermint|sei-cosmos|sei-db|sei-wasmd|sei-iavl|sei-ibc-go|tm-db)\s*$/i);
                   const effectiveComponent = inlineComponentMatch ? inlineComponentMatch[1] : componentName;
                   const repoPath = getRepoUrl(effectiveComponent);
-                  return (
-                    <a
-                      key={j}
-                      href={`https://github.com/${repoPath}/pull/${num}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-2 py-0.5 text-sm font-medium no-underline ml-1"
-                      style={linkBaseStyle()}
-                      onMouseEnter={(e) => applyLinkHover(e, true)}
-                      onMouseLeave={(e) => applyLinkHover(e, false)}>
-                      #{num}
-                    </a>
-                  );
-                } else if (trimmedPart.match(/^\d{1,4}$/) && parseInt(trimmedPart, 10) > 0) {
-                  const prevPart = prParts[j - 1] || '';
-                  const nextPart = prParts[j + 1] || '';
-                  const followedByNonPR = nextPart.match(/^\s*(hop|limit|version|v\d|\.\d|px|ms|s\b|mb|gb|kb)/i);
-                  const precededByNonPR = prevPart.match(/(v|version|\d\.)\s*$/i);
-                  const isLikelyPRNumber =
-                    (j < 3 || prevPart.includes('•') || prevPart.includes('\n') || prevPart.includes('#')) &&
-                    !followedByNonPR &&
-                    !precededByNonPR &&
-                    parseInt(trimmedPart, 10) >= 10;
-
-                  if (isLikelyPRNumber) {
-                    const prevParts = prParts.slice(0, j).join('');
-                    const inlineComponentMatch = prevParts.match(/\b(sei-chain|sei-tendermint|sei-cosmos|sei-db|sei-wasmd|sei-iavl|sei-ibc-go|tm-db)\s*$/i);
-                    const effectiveComponent = inlineComponentMatch ? inlineComponentMatch[1] : componentName;
-                    const repoPath = getRepoUrl(effectiveComponent);
-                    return (
-                      <a
-                        key={j}
-                        href={`https://github.com/${repoPath}/pull/${trimmedPart}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-2 py-0.5 text-sm font-medium no-underline mr-1"
-                        style={linkBaseStyle()}
-                        onMouseEnter={(e) => applyLinkHover(e, true)}
-                        onMouseLeave={(e) => applyLinkHover(e, false)}>
-                        #{trimmedPart}
-                      </a>
-                    );
-                  }
+                  return renderLink(`${key}-${j}`, `https://github.com/${repoPath}/pull/${trimmedPart}`, `#${trimmedPart}`, 'mr-1');
                 }
-                return <span key={j}>{subPart}</span>;
-              })}
-            </span>
-          );
-        })}
-      </span>
-    );
+              }
+              return <span key={`${key}-${j}`}>{subPart}</span>;
+            })}
+          </span>
+        );
+      });
+    };
+
+    // Honor explicit [label](url) markdown links first: the rendered href is the
+    // real target from the source, never a number re-derived from the label.
+    // Upstream entries sometimes label an issue (e.g. #1850) while linking the PR
+    // that fixed it (e.g. /pull/1853), so the source URL must win.
+    const markdownLinkPattern = /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g;
+    const tokens = content.split(markdownLinkPattern);
+
+    const nodes = [];
+    for (let i = 0; i < tokens.length; i++) {
+      const mod = i % 3;
+      if (mod === 0) {
+        if (tokens[i]) {
+          nodes.push(<span key={`seg-${i}`}>{renderPlainSegment(tokens[i], `seg-${i}`)}</span>);
+        }
+      } else if (mod === 1) {
+        const label = tokens[i];
+        const url = tokens[i + 1] || '';
+        nodes.push(renderLink(`md-${i}`, url, label));
+      }
+      // mod === 2 holds the URL already consumed alongside its label above.
+    }
+
+    return <span className="text-base">{nodes}</span>;
   };
 
   const renderContent = (body) => {
@@ -779,11 +774,10 @@ sei-tendermint
         for (let j = 1; j < lines.length; j++) {
           const line = lines[j].trim();
           if (line.startsWith('*') || line.startsWith('-') || line.startsWith('•')) {
-            let cleanLine = line
+            const cleanLine = line
               .replace(/^\*\s*/, '')
               .replace(/^-\s*/, '')
               .replace(/^•\s*/, '');
-            cleanLine = cleanLine.replace(/\[([^\]]+)\]\([^)^]+\)/g, '$1');
             bulletPoints.push(cleanLine);
           }
         }
@@ -837,11 +831,10 @@ sei-tendermint
           for (const line of compContent.split('\n')) {
             const trimmedLine = line.trim();
             if (trimmedLine.startsWith('*') || trimmedLine.startsWith('-') || trimmedLine.startsWith('•')) {
-              let cleanLine = trimmedLine
+              const cleanLine = trimmedLine
                 .replace(/^\*\s*/, '')
                 .replace(/^-\s*/, '')
                 .replace(/^•\s*/, '');
-              cleanLine = cleanLine.replace(/\[([^\]]+)\]\([^)^]+\)/g, '$1');
               bulletPoints.push(cleanLine);
             } else if (trimmedLine && !trimmedLine.match(/^[a-zA-Z][a-zA-Z0-9-]*:?\s*(?:\(.*\))?\s*$/)) {
               bulletPoints.push(trimmedLine);

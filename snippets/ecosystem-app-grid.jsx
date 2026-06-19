@@ -92,6 +92,26 @@ export const EcosystemAppGrid = (props) => {
 		</svg>
 	);
 
+	// Site-relative integration guides get an in-page arrow instead of the
+	// off-site box-arrow, so on-docs links don't masquerade as external ones.
+	const ArrowRightIcon = ({ size = 14, style }) => (
+		<svg
+			xmlns='http://www.w3.org/2000/svg'
+			width={size}
+			height={size}
+			viewBox='0 0 24 24'
+			fill='none'
+			stroke='currentColor'
+			strokeWidth='2'
+			strokeLinecap='round'
+			strokeLinejoin='round'
+			style={style}
+			aria-hidden='true'>
+			<path d='M5 12h14' />
+			<path d='M12 5l7 7-7 7' />
+		</svg>
+	);
+
 	// --- Skeleton card (ported from AppCardSkeleton.tsx) ---
 	const AppCardSkeleton = () => (
 		<div className='animate-pulse border backdrop-blur-sm bg-neutral-50/80 dark:bg-neutral-900/80 border-neutral-200/50 dark:border-neutral-800/50 p-5 h-full flex flex-col'>
@@ -206,10 +226,17 @@ export const EcosystemAppGrid = (props) => {
 								style={{ color: linkColor, transition: 'color 0.2s' }}
 								className='inline-flex items-center gap-1.5 text-sm font-medium no-underline'>
 								<span>{linkText}</span>
-								<ExternalLinkIcon
-									size={14}
-									style={{ marginLeft: linkHover ? '0.25rem' : 0, transform: linkHover ? 'scale(1.1)' : 'none', transition: 'all 0.3s' }}
-								/>
+								{isExternalLink ? (
+									<ExternalLinkIcon
+										size={14}
+										style={{ marginLeft: linkHover ? '0.25rem' : 0, transform: linkHover ? 'scale(1.1)' : 'none', transition: 'all 0.3s' }}
+									/>
+								) : (
+									<ArrowRightIcon
+										size={14}
+										style={{ transform: linkHover ? 'translateX(0.25rem)' : 'none', transition: 'transform 0.3s' }}
+									/>
+								)}
 							</a>
 						</div>
 					)}
