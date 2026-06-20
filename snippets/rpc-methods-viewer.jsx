@@ -223,7 +223,7 @@ const deriveWsEndpoint = (httpUrl) => {
 };
 
 const isWsOnly = (name) => name === 'eth_subscribe' || name === 'eth_unsubscribe';
-const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_sendTransaction' || name === 'eth_signTransaction' || name === 'eth_sign' || name === 'sei_sign' || name === 'sei_associate' || name === 'personal';
+const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_sendTransaction' || name === 'eth_signTransaction' || name === 'eth_sign' || name === 'sei_sign' || name === 'sei_associate' || name.startsWith('personal_');
 
   const [theme, setTheme] = useState('dark');
   const [isMobile, setIsMobile] = useState(false);
@@ -235,6 +235,7 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
   const endpoint = network === 'custom' ? customEndpoint : NETWORKS[network].http;
   const wsEndpoint = network === 'custom' ? deriveWsEndpoint(customEndpoint) : NETWORKS[network].ws;
   const [connection, setConnection] = useState('idle'); // idle | ok | fail
+  const [consoleActive, setConsoleActive] = useState(false); // true once the user engages the console; gates the connectivity ping so a page view alone doesn't hit the RPC
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedNamespace, setSelectedNamespace] = useState('all');
@@ -292,7 +293,7 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
     }
   }, [endpoint]);
 
-  useEffect(() => { validateEndpoint(); }, [validateEndpoint]);
+  useEffect(() => { if (consoleActive) validateEndpoint(); }, [validateEndpoint, consoleActive]);
 
   const allMethods = useMemo(() => SEI_RPC_METHODS.map((m) => ({ ...m, meta: NAMESPACE_META[m.namespace] || { label: m.namespace, color: '#6b7280' } })), []);
 
@@ -321,6 +322,7 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
   const counts = useMemo(() => allMethods.reduce((a, m) => ((a[m.status] = (a[m.status] || 0) + 1), a), {}), [allMethods]);
 
   const selectMethod = (m) => {
+    setConsoleActive(true);
     setSelectedMethod(m);
     setParamValues({});
     // Clear synchronously so examples don't reuse the previous method's values.
@@ -490,6 +492,7 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
           'import java.net.URI',
           'import java.net.http.*',
           'import java.util.concurrent.CompletableFuture',
+          'import java.util.concurrent.CompletionStage',
           '',
           'val done = CompletableFuture<Void>()',
           'HttpClient.newHttpClient().newWebSocketBuilder()',
@@ -497,8 +500,9 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
           '        override fun onOpen(ws: WebSocket) {',
           `            ws.sendText("${csBody}", true); ws.request(1)`,
           '        }',
-          '        override fun onText(ws: WebSocket, data: CharSequence, last: Boolean) =',
-          '            run { println(data); done.complete(null); null }',
+          '        override fun onText(ws: WebSocket, data: CharSequence, last: Boolean): CompletionStage<*>? {',
+          '            println(data); done.complete(null); ws.request(1); return null',
+          '        }',
           '    }).join()',
           'done.join()',
         ].join('\n');
@@ -939,14 +943,16 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
                       {m.params.map((p) => {
                         const ex = p.example || '';
                         const big = ex.trim().startsWith('{') || ex.trim().startsWith('[') || (p.type || '').toLowerCase().includes('object');
+                        const fieldId = `rpc-param-${p.name}`;
                         const field = {
+                          id: fieldId,
                           value: paramValues[p.name] !== undefined ? paramValues[p.name] : '',
                           onChange: (e) => setParamValues((prev) => ({ ...prev, [p.name]: e.target.value })),
                           placeholder: ex,
                         };
                         return (
                           <div key={p.name}>
-                            <label style={{ fontSize: 11, color: c.faint, fontFamily: mono, display: 'block', marginBottom: 3 }}>{p.name}</label>
+                            <label htmlFor={fieldId} style={{ fontSize: 11, color: c.faint, fontFamily: mono, display: 'block', marginBottom: 3 }}>{p.name}</label>
                             {big
                               ? <textarea rows={2} {...field} style={{ ...fieldStyle, resize: 'vertical' }} />
                               : <input {...field} style={fieldStyle} />}
