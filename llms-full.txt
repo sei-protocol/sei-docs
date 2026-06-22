@@ -441,7 +441,7 @@ Download a compatible wallet such as [MetaMask](https://metamask.io/), [Rabby](h
 
 ## 2. Set Up and "Associate" Your Wallet
 
-Simply making a transaction will broadcast your public key to the chain, allowing full cross-environment functionality. If your wallet is not "associated" it simply means that the network is not aware that your key exists, and therefore it cannot be determined which two addresses are actually the same wallet due to the cryptographic algorithm by which the EVM wallet address is derived from the key(s).
+Making a transaction will broadcast your public key to the chain, allowing full cross-environment functionality. If your wallet is not "associated" it means that the network is not aware that your key exists, and therefore it cannot be determined which two addresses are actually the same wallet due to the cryptographic algorithm by which the EVM wallet address is derived from the key(s).
 
 <Info>
   Learn more about [how accounts work](/learn/accounts) on Sei.
@@ -470,6 +470,97 @@ URL: https://docs.sei.io/learn/dev-chains
 
 > Compare Sei's different network environments including testnet, mainnet, and local chains, with detailed chain IDs and purposes for each development stage.
 
+export const AddSeiButton = ({network = 'mainnet', label = 'Add Sei to MetaMask'}) => {
+  const SEI_MAINNET_CHAIN_PARAMS = {
+    chainId: '0x531',
+    chainName: 'Sei Network',
+    rpcUrls: ['https://evm-rpc.sei-apis.com'],
+    nativeCurrency: {
+      name: 'Sei',
+      symbol: 'SEI',
+      decimals: 18
+    },
+    blockExplorerUrls: ['https://seiscan.io']
+  };
+  const SEI_TESTNET_CHAIN_PARAMS = {
+    chainId: '0x530',
+    chainName: 'Sei Testnet',
+    rpcUrls: ['https://evm-rpc-testnet.sei-apis.com'],
+    nativeCurrency: {
+      name: 'Sei',
+      symbol: 'SEI',
+      decimals: 18
+    },
+    blockExplorerUrls: ['https://testnet.seiscan.io']
+  };
+  const chainParams = network === 'testnet' ? SEI_TESTNET_CHAIN_PARAMS : SEI_MAINNET_CHAIN_PARAMS;
+  const [status, setStatus] = useState(null);
+  const [isHovered, setIsHovered] = useState(false);
+  const [isBusy, setIsBusy] = useState(false);
+  const addOrSwitchSeiNetwork = async params => {
+    if (typeof window === 'undefined' || !window.ethereum) {
+      throw new Error('MetaMask is not installed');
+    }
+    const ethereum = window.ethereum;
+    try {
+      await ethereum.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{
+          chainId: params.chainId
+        }]
+      });
+    } catch (switchError) {
+      if (switchError && switchError.code === 4902) {
+        await ethereum.request({
+          method: 'wallet_addEthereumChain',
+          params: [params]
+        });
+      } else {
+        throw switchError;
+      }
+    }
+  };
+  const onClick = async e => {
+    e.preventDefault();
+    setIsBusy(true);
+    setStatus(null);
+    try {
+      await addOrSwitchSeiNetwork(chainParams);
+      setStatus({
+        type: 'success',
+        message: `${chainParams.chainName} added or switched.`
+      });
+    } catch (err) {
+      const message = err && err.message ? err.message : 'Failed to add or switch network.';
+      setStatus({
+        type: 'error',
+        message
+      });
+    } finally {
+      setIsBusy(false);
+    }
+  };
+  return <span className="inline-flex flex-col items-start gap-1">
+      <button type="button" onClick={onClick} disabled={isBusy} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)} className="inline-flex items-center gap-1 px-3 py-1.5 text-white transition-colors min-w-[160px]" style={{
+    backgroundColor: isHovered ? 'var(--sei-maroon-200)' : 'var(--sei-maroon-100)',
+    color: '#ffffff',
+    fontFamily: 'var(--sei-font-mono)',
+    textTransform: 'uppercase',
+    letterSpacing: '0.04em',
+    fontSize: '10px',
+    opacity: isBusy ? 0.7 : 1,
+    cursor: isBusy ? 'default' : 'pointer'
+  }}>
+        {isBusy ? 'Adding…' : label}
+      </button>
+      {status && <span className={status.type === 'error' ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'} style={{
+    fontSize: '11px'
+  }}>
+          {status.message}
+        </span>}
+    </span>;
+};
+
 Sei utilizes multiple chains for various stages of the development lifecycle.
 This multi-chain approach allows developers to build, deploy, manage, and
 iterate confidently, ensuring thorough testing and feedback before updates go
@@ -490,7 +581,7 @@ applications and activities.
 * **WebSocket**: `wss://evm-ws.sei-apis.com`
 * **Explorer**: `https://seiscan.io`
 
-<iframe src="https://sei-widgets.vercel.app/add-sei?network=mainnet&label=Add+Sei+Mainnet+to+your+wallet" style={{ width: "100%", minHeight: "72px", border: "0" }} loading="lazy" title="Add Sei Mainnet to your wallet" />
+<AddSeiButton network="mainnet" label="Add Sei Mainnet to your wallet" />
 
 ## Testnet
 
@@ -506,7 +597,7 @@ applications work as expected before going live.
 * **WebSocket**: `wss://evm-ws-testnet.sei-apis.com`
 * **Explorer**: `https://testnet.seiscan.io`
 
-<iframe src="https://sei-widgets.vercel.app/add-sei?network=testnet&label=Add+Sei+Testnet+to+your+wallet" style={{ width: "100%", minHeight: "72px", border: "0" }} loading="lazy" title="Add Sei Testnet to your wallet" />
+<AddSeiButton network="testnet" label="Add Sei Testnet to your wallet" />
 
 ## Local Chains
 
@@ -838,7 +929,7 @@ This method directly uses the private key to interact with the network.
 import { createPublicClient, createWalletClient, http } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { seiTestnet } from 'viem/chains';
-import { ADDRESS_PRECOMPILE_ABI, ADDRESS_PRECOMPILE_ADDRESS } from '@sei-js/evm';
+import { ADDRESS_PRECOMPILE_ABI, ADDRESS_PRECOMPILE_ADDRESS } from '@sei-js/precompiles';
 
 const PRIVATE_KEY = '<replace_with_private_key>';
 
@@ -872,7 +963,7 @@ account.
 import { createWalletClient, http, parseSignature, toHex } from 'viem';
 import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
 import { seiTestnet } from 'viem/chains';
-import { ADDRESS_PRECOMPILE_ABI, ADDRESS_PRECOMPILE_ADDRESS } from '@sei-js/evm';
+import { ADDRESS_PRECOMPILE_ABI, ADDRESS_PRECOMPILE_ADDRESS } from '@sei-js/precompiles';
 
 const client = createWalletClient({ chain: seiTestnet, transport: http() });
 
@@ -911,7 +1002,7 @@ import secp256k1 from 'secp256k1';
 import { createWalletClient, http } from 'viem';
 import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
 import { seiTestnet } from 'viem/chains';
-import { ADDRESS_PRECOMPILE_ABI, ADDRESS_PRECOMPILE_ADDRESS } from '@sei-js/evm';
+import { ADDRESS_PRECOMPILE_ABI, ADDRESS_PRECOMPILE_ADDRESS } from '@sei-js/precompiles';
 
 const client = createWalletClient({ chain: seiTestnet, transport: http() });
 
@@ -1622,7 +1713,7 @@ URL: https://docs.sei.io/learn/twin-turbo-consensus
 
 ## Introduction
 
-Sei's consensus mechanism, often referred to as Twin Turbo Consensus, represents a suite of optimizations designed to achieve exceptionally low block finality times, targeting approximately 400 milliseconds. This rapid finality is not achieved through a completely novel consensus algorithm but rather through significant enhancements to the underlying Tendermint Byzantine Fault Tolerant (BFT) consensus engine, aggressive configuration tuning, and tight integration with Sei's parallel execution layer and SeiDB storage system. The goal is to provide near-instant transaction confirmation, enabling a new class of high-performance decentralized applications, particularly those built for the EVM.
+Sei's consensus mechanism, often referred to as Twin Turbo Consensus, represents a suite of optimizations designed to achieve exceptionally low block finality times, targeting approximately 400 milliseconds. This rapid finality is not achieved through a novel consensus algorithm but rather through significant enhancements to the underlying Tendermint Byzantine Fault Tolerant (BFT) consensus engine, aggressive configuration tuning, and tight integration with Sei's parallel execution layer and SeiDB storage system. The goal is to provide near-instant transaction confirmation, enabling a new class of high-performance decentralized applications, particularly those built for the EVM.
 
 ## Core Concept: Pipelined & Parallelized Consensus
 
@@ -1835,7 +1926,7 @@ The dependency analyzer might also consider secondary effects such as:
 
 The dependency generator outputs an estimated read/write set for each transaction. These sets contain the state keys expected to be accessed, with additional metadata indicating access types (read vs. write) and confidence levels for each prediction. The system uses these confidence levels during scheduling decisions to minimize the likelihood of conflicts.
 
-The output from this phase consists of an "estimated writeset" for each transaction—essentially a prediction of its state impact—which serves as crucial input for the next execution planning phase.
+The output from this phase consists of an "estimated writeset" for each transaction—a prediction of its state impact—which serves as crucial input for the next execution planning phase.
 
 ### 3. Parallel Execution
 
@@ -1929,7 +2020,7 @@ The system must identify and resolve any conflicts that emerge during and after 
 The OCC approach includes a critical safety mechanism for situations where parallel execution cannot succeed:
 
 1. **Failure Detection**: The system detects failure conditions when parallel execution encounters excessive conflicts or critical errors.
-2. **State Rollback**: All state changes from the failed parallel attempt are completely discarded.
+2. **State Rollback**: All state changes from the failed parallel attempt are discarded.
 3. **Sequential Reprocessing**: The entire transaction batch undergoes sequential processing as a fallback.
 
 This fallback guarantees that the blockchain can always make progress, even in worst-case scenarios where parallelization proves ineffective for a particular block.
@@ -2212,6 +2303,173 @@ URL: https://docs.sei.io/learn/wallets
 
 > Comprehensive guide to Sei Wallet Providers Guide on Sei. Learn key concepts, commands, and best practices.
 
+export const EcosystemAppGrid = props => {
+  const category = props.category;
+  const ECOSYSTEM_API_URL = 'https://app-api.seinetwork.io/sanity/ecosystem';
+  const integrationGuideOverrides = {
+    'The Graph': '/evm/indexer-providers/the-graph',
+    Covalent: '/evm/indexer-providers/goldrush',
+    Goldsky: '/evm/indexer-providers/goldsky',
+    Alchemy: '/evm/indexer-providers/alchemy'
+  };
+  const [isDark, setIsDark] = useState(false);
+  useEffect(() => {
+    const el = document.documentElement;
+    const update = () => setIsDark(el.classList.contains('dark'));
+    update();
+    const obs = new MutationObserver(update);
+    obs.observe(el, {
+      attributes: true,
+      attributeFilter: ['class']
+    });
+    return () => obs.disconnect();
+  }, []);
+  const [data, setData] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    fetch(ECOSYSTEM_API_URL, {
+      headers: {
+        Accept: 'application/json'
+      }
+    }).then(res => {
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    }).then(json => {
+      if (cancelled) return;
+      setData(Array.isArray(json && json.data) ? json.data : []);
+      setIsLoading(false);
+    }).catch(() => {
+      if (cancelled) return;
+      setHasError(true);
+      setIsLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const WorldIcon = ({size = 24, style}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style} aria-hidden="true">
+			<circle cx="12" cy="12" r="9" />
+			<path d="M3 12h18" />
+			<path d="M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18" />
+		</svg>;
+  const ExternalLinkIcon = ({size = 14, style}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style} aria-hidden="true">
+			<path d="M15 3h6v6" />
+			<path d="M10 14L21 3" />
+			<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+		</svg>;
+  const ArrowRightIcon = ({size = 14, style}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style} aria-hidden="true">
+			<path d="M5 12h14" />
+			<path d="M12 5l7 7-7 7" />
+		</svg>;
+  const AppCardSkeleton = () => <div className="animate-pulse border backdrop-blur-sm bg-neutral-50/80 dark:bg-neutral-900/80 border-neutral-200/50 dark:border-neutral-800/50 p-5 h-full flex flex-col">
+			<div className="flex flex-col gap-4">
+				<div className="w-12 h-12 bg-neutral-200 dark:bg-neutral-800 rounded" />
+				<div className="flex flex-col gap-2">
+					<div className="h-5 w-32 bg-neutral-200 dark:bg-neutral-800 rounded" />
+					<div className="h-4 w-full bg-neutral-200/70 dark:bg-neutral-800/70 rounded" />
+					<div className="h-4 w-2/3 bg-neutral-200/70 dark:bg-neutral-800/70 rounded" />
+				</div>
+				<div className="h-4 w-28 bg-neutral-200/50 dark:bg-neutral-800/50 rounded mt-auto pt-2" />
+			</div>
+		</div>;
+  const [AppCard] = useState(() => ({app, isDark}) => {
+    const [hover, setHover] = useState(false);
+    const [linkHover, setLinkHover] = useState(false);
+    const fieldData = app.fieldData;
+    const appName = fieldData.name;
+    const logo = fieldData.logo;
+    const desc = fieldData['short-description'];
+    const integration = fieldData['integration-guide-link'];
+    const logoUrl = logo && logo.url;
+    if (!logoUrl) return null;
+    const finalIntegrationLink = integrationGuideOverrides[appName] || integration;
+    const isExternalLink = finalIntegrationLink && !finalIntegrationLink.startsWith('/');
+    const linkText = isExternalLink ? 'Documentation' : 'Integration Guide';
+    const resolvedLink = finalIntegrationLink ? finalIntegrationLink : undefined;
+    const titleColor = hover ? isDark ? 'var(--sei-maroon-25)' : 'var(--sei-maroon-200)' : undefined;
+    const linkColor = isDark ? linkHover ? 'var(--sei-cream)' : 'var(--sei-maroon-25)' : 'var(--sei-maroon-200)';
+    const maroonRgb = isDark ? '96, 0, 20' : '52, 5, 13';
+    const decorativeGradient = `linear-gradient(to right, rgba(${maroonRgb}, 0.15), rgba(${maroonRgb}, 0.1), rgba(${maroonRgb}, 0.15))`;
+    const logoTileBg = hover ? `rgba(${maroonRgb}, ${isDark ? 0.2 : 0.1})` : undefined;
+    return <div onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)} className="group relative overflow-hidden transition-all duration-300 ease-out transform-gpu will-change-transform hover:scale-[1.02] hover:shadow-xl hover:shadow-black/10 dark:hover:shadow-black/30 border backdrop-blur-sm bg-neutral-50/80 dark:bg-neutral-900/80 border-neutral-200/50 dark:border-neutral-800/50 hover:bg-white dark:hover:bg-neutral-900 hover:border-neutral-300 dark:hover:border-neutral-700 p-5 h-full flex flex-col">
+				{}
+				<div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-br from-white/10 via-transparent to-transparent dark:from-white/5 dark:via-transparent dark:to-transparent pointer-events-none" />
+
+				{}
+				<div className="absolute inset-0 transition-all duration-700 blur-sm -z-10 transform scale-105 pointer-events-none" style={{
+      background: decorativeGradient,
+      opacity: hover ? 1 : 0
+    }} />
+
+				<div className="flex flex-col gap-4 relative z-10">
+					<div className="flex items-start justify-between">
+						<figure className="w-12 h-12 overflow-hidden flex-shrink-0 bg-neutral-200/50 dark:bg-neutral-800/50 transition-all duration-300 group-hover:scale-110 group-hover:rotate-3 flex items-center justify-center" style={{
+      backgroundColor: logoTileBg
+    }}>
+							{logoUrl ? <img src={logoUrl} alt={appName || ''} width={48} height={48} className="object-cover w-full h-full transform transition-all duration-300 group-hover:scale-110" /> : <WorldIcon size={24} style={{
+      color: hover ? 'var(--sei-maroon-100)' : '#737373',
+      transition: 'color 0.3s'
+    }} />}
+						</figure>
+					</div>
+
+					<div className="flex flex-col gap-2 flex-grow">
+						<h3 className="text-base font-bold text-neutral-800 dark:text-neutral-200 transition-colors duration-300 leading-tight" style={{
+      color: titleColor
+    }}>
+							{appName}
+						</h3>
+						{desc && <p className="text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed line-clamp-2 flex-grow">{desc}</p>}
+					</div>
+
+					{resolvedLink && <div className="flex items-center mt-auto pt-2">
+							<a href={resolvedLink} target={isExternalLink ? '_blank' : undefined} rel={isExternalLink ? 'noopener noreferrer' : undefined} onMouseEnter={() => setLinkHover(true)} onMouseLeave={() => setLinkHover(false)} style={{
+      color: linkColor,
+      transition: 'color 0.2s'
+    }} className="inline-flex items-center gap-1.5 text-sm font-medium no-underline">
+								<span>{linkText}</span>
+								{isExternalLink ? <ExternalLinkIcon size={14} style={{
+      marginLeft: linkHover ? '0.25rem' : 0,
+      transform: linkHover ? 'scale(1.1)' : 'none',
+      transition: 'all 0.3s'
+    }} /> : <ArrowRightIcon size={14} style={{
+      transform: linkHover ? 'translateX(0.25rem)' : 'none',
+      transition: 'transform 0.3s'
+    }} />}
+							</a>
+						</div>}
+
+					{}
+					<div className="w-full h-0.5 transition-opacity duration-300" style={{
+      background: `linear-gradient(to right, transparent, rgba(${maroonRgb}, 0.2), transparent)`,
+      opacity: hover ? 1 : 0
+    }} />
+				</div>
+			</div>;
+  });
+  if (isLoading) {
+    return <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 py-2">
+				{Array.from({
+      length: 4
+    }).map((_, i) => <AppCardSkeleton key={`skeleton-${i}`} />)}
+			</div>;
+  }
+  if (hasError) {
+    return <div className="py-10 text-sm text-neutral-500 dark:text-neutral-400 italic">
+				Couldn’t load {category} integrations right now. Please refresh to try again.
+			</div>;
+  }
+  const apps = data.filter(app => app && app.fieldData && app.fieldData['docs-category'] === category);
+  if (!apps || apps.length === 0) {
+    return <div className="py-10 text-sm text-neutral-500 dark:text-neutral-400 italic">No {category} integrations published yet.</div>;
+  }
+  return <div className="sei-eco-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 py-2">
+			{apps.map(app => <AppCard key={app.id} app={app} isDark={isDark} />)}
+		</div>;
+};
+
 Wallets are essential for managing assets and interacting with the Sei
 blockchain. There are various types of wallets available, each offering
 different features and levels of security.
@@ -2240,7 +2498,8 @@ different features and levels of security.
 | Dynamic        | ✅   | Any                               | All       | Embedded | ✅      | [Dynamic Wallet](https://dynamic.xyz)                                                                  |
 | Privy          | ✅   | Email / Social / Passkey / Wallet | 60        | Embedded | ✅      | [Privy](https://privy.io)                                                                              |
 | Rabby          | ✅   | Mnemonic / Priv/Passkey           | 60        | Software | ✅      | [Rabby Wallet](https://chromewebstore.google.com/detail/rabby-wallet/acmacodkjbdgmoleebolmdjonilkdbch) |
-| OKX            | ✅   | Mnemonic / Privkey                | 118 / 60  | Software | ✅      | [OKX Wallet](https://www.okx.com/web3/wallet/sei)                                                      |
+| OKX            | ✅   | Mnemonic / Privkey                | 118 / 60  | Software | ✅      | [OKX Wallet](https://web3.okx.com/wallet/sei)                                                          |
+| Gem Wallet     | ✅   | Mnemonic / Privkey                | 118 / 60  | Software | ✅      | [Gem Wallet](https://gemwallet.com/sei-wallet/)                                                        |
 
 Wallets with coin type 118 use the Cosmos HD derivation path; the same key still maps to a unique EVM `0x...` address via Sei's address-association system.
 
@@ -2262,7 +2521,7 @@ well as deriving wallet addresses properly, please refer to the
 
 ## All Wallets
 
-<iframe src="https://sei-widgets.vercel.app/ecosystem/wallet" style={{ width: "100%", minHeight: "600px", border: "0" }} loading="lazy" title="Sei wallet providers" />
+<EcosystemAppGrid category="wallet" />
 
 ---
 
@@ -2272,11 +2531,178 @@ URL: https://docs.sei.io/learn/rpc-providers
 
 > Directory of reliable RPC service providers for Sei blockchain. Access endpoints for development, node connections, and blockchain interactions.
 
+export const EcosystemAppGrid = props => {
+  const category = props.category;
+  const ECOSYSTEM_API_URL = 'https://app-api.seinetwork.io/sanity/ecosystem';
+  const integrationGuideOverrides = {
+    'The Graph': '/evm/indexer-providers/the-graph',
+    Covalent: '/evm/indexer-providers/goldrush',
+    Goldsky: '/evm/indexer-providers/goldsky',
+    Alchemy: '/evm/indexer-providers/alchemy'
+  };
+  const [isDark, setIsDark] = useState(false);
+  useEffect(() => {
+    const el = document.documentElement;
+    const update = () => setIsDark(el.classList.contains('dark'));
+    update();
+    const obs = new MutationObserver(update);
+    obs.observe(el, {
+      attributes: true,
+      attributeFilter: ['class']
+    });
+    return () => obs.disconnect();
+  }, []);
+  const [data, setData] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    fetch(ECOSYSTEM_API_URL, {
+      headers: {
+        Accept: 'application/json'
+      }
+    }).then(res => {
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    }).then(json => {
+      if (cancelled) return;
+      setData(Array.isArray(json && json.data) ? json.data : []);
+      setIsLoading(false);
+    }).catch(() => {
+      if (cancelled) return;
+      setHasError(true);
+      setIsLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const WorldIcon = ({size = 24, style}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style} aria-hidden="true">
+			<circle cx="12" cy="12" r="9" />
+			<path d="M3 12h18" />
+			<path d="M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18" />
+		</svg>;
+  const ExternalLinkIcon = ({size = 14, style}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style} aria-hidden="true">
+			<path d="M15 3h6v6" />
+			<path d="M10 14L21 3" />
+			<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+		</svg>;
+  const ArrowRightIcon = ({size = 14, style}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style} aria-hidden="true">
+			<path d="M5 12h14" />
+			<path d="M12 5l7 7-7 7" />
+		</svg>;
+  const AppCardSkeleton = () => <div className="animate-pulse border backdrop-blur-sm bg-neutral-50/80 dark:bg-neutral-900/80 border-neutral-200/50 dark:border-neutral-800/50 p-5 h-full flex flex-col">
+			<div className="flex flex-col gap-4">
+				<div className="w-12 h-12 bg-neutral-200 dark:bg-neutral-800 rounded" />
+				<div className="flex flex-col gap-2">
+					<div className="h-5 w-32 bg-neutral-200 dark:bg-neutral-800 rounded" />
+					<div className="h-4 w-full bg-neutral-200/70 dark:bg-neutral-800/70 rounded" />
+					<div className="h-4 w-2/3 bg-neutral-200/70 dark:bg-neutral-800/70 rounded" />
+				</div>
+				<div className="h-4 w-28 bg-neutral-200/50 dark:bg-neutral-800/50 rounded mt-auto pt-2" />
+			</div>
+		</div>;
+  const [AppCard] = useState(() => ({app, isDark}) => {
+    const [hover, setHover] = useState(false);
+    const [linkHover, setLinkHover] = useState(false);
+    const fieldData = app.fieldData;
+    const appName = fieldData.name;
+    const logo = fieldData.logo;
+    const desc = fieldData['short-description'];
+    const integration = fieldData['integration-guide-link'];
+    const logoUrl = logo && logo.url;
+    if (!logoUrl) return null;
+    const finalIntegrationLink = integrationGuideOverrides[appName] || integration;
+    const isExternalLink = finalIntegrationLink && !finalIntegrationLink.startsWith('/');
+    const linkText = isExternalLink ? 'Documentation' : 'Integration Guide';
+    const resolvedLink = finalIntegrationLink ? finalIntegrationLink : undefined;
+    const titleColor = hover ? isDark ? 'var(--sei-maroon-25)' : 'var(--sei-maroon-200)' : undefined;
+    const linkColor = isDark ? linkHover ? 'var(--sei-cream)' : 'var(--sei-maroon-25)' : 'var(--sei-maroon-200)';
+    const maroonRgb = isDark ? '96, 0, 20' : '52, 5, 13';
+    const decorativeGradient = `linear-gradient(to right, rgba(${maroonRgb}, 0.15), rgba(${maroonRgb}, 0.1), rgba(${maroonRgb}, 0.15))`;
+    const logoTileBg = hover ? `rgba(${maroonRgb}, ${isDark ? 0.2 : 0.1})` : undefined;
+    return <div onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)} className="group relative overflow-hidden transition-all duration-300 ease-out transform-gpu will-change-transform hover:scale-[1.02] hover:shadow-xl hover:shadow-black/10 dark:hover:shadow-black/30 border backdrop-blur-sm bg-neutral-50/80 dark:bg-neutral-900/80 border-neutral-200/50 dark:border-neutral-800/50 hover:bg-white dark:hover:bg-neutral-900 hover:border-neutral-300 dark:hover:border-neutral-700 p-5 h-full flex flex-col">
+				{}
+				<div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-br from-white/10 via-transparent to-transparent dark:from-white/5 dark:via-transparent dark:to-transparent pointer-events-none" />
+
+				{}
+				<div className="absolute inset-0 transition-all duration-700 blur-sm -z-10 transform scale-105 pointer-events-none" style={{
+      background: decorativeGradient,
+      opacity: hover ? 1 : 0
+    }} />
+
+				<div className="flex flex-col gap-4 relative z-10">
+					<div className="flex items-start justify-between">
+						<figure className="w-12 h-12 overflow-hidden flex-shrink-0 bg-neutral-200/50 dark:bg-neutral-800/50 transition-all duration-300 group-hover:scale-110 group-hover:rotate-3 flex items-center justify-center" style={{
+      backgroundColor: logoTileBg
+    }}>
+							{logoUrl ? <img src={logoUrl} alt={appName || ''} width={48} height={48} className="object-cover w-full h-full transform transition-all duration-300 group-hover:scale-110" /> : <WorldIcon size={24} style={{
+      color: hover ? 'var(--sei-maroon-100)' : '#737373',
+      transition: 'color 0.3s'
+    }} />}
+						</figure>
+					</div>
+
+					<div className="flex flex-col gap-2 flex-grow">
+						<h3 className="text-base font-bold text-neutral-800 dark:text-neutral-200 transition-colors duration-300 leading-tight" style={{
+      color: titleColor
+    }}>
+							{appName}
+						</h3>
+						{desc && <p className="text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed line-clamp-2 flex-grow">{desc}</p>}
+					</div>
+
+					{resolvedLink && <div className="flex items-center mt-auto pt-2">
+							<a href={resolvedLink} target={isExternalLink ? '_blank' : undefined} rel={isExternalLink ? 'noopener noreferrer' : undefined} onMouseEnter={() => setLinkHover(true)} onMouseLeave={() => setLinkHover(false)} style={{
+      color: linkColor,
+      transition: 'color 0.2s'
+    }} className="inline-flex items-center gap-1.5 text-sm font-medium no-underline">
+								<span>{linkText}</span>
+								{isExternalLink ? <ExternalLinkIcon size={14} style={{
+      marginLeft: linkHover ? '0.25rem' : 0,
+      transform: linkHover ? 'scale(1.1)' : 'none',
+      transition: 'all 0.3s'
+    }} /> : <ArrowRightIcon size={14} style={{
+      transform: linkHover ? 'translateX(0.25rem)' : 'none',
+      transition: 'transform 0.3s'
+    }} />}
+							</a>
+						</div>}
+
+					{}
+					<div className="w-full h-0.5 transition-opacity duration-300" style={{
+      background: `linear-gradient(to right, transparent, rgba(${maroonRgb}, 0.2), transparent)`,
+      opacity: hover ? 1 : 0
+    }} />
+				</div>
+			</div>;
+  });
+  if (isLoading) {
+    return <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 py-2">
+				{Array.from({
+      length: 4
+    }).map((_, i) => <AppCardSkeleton key={`skeleton-${i}`} />)}
+			</div>;
+  }
+  if (hasError) {
+    return <div className="py-10 text-sm text-neutral-500 dark:text-neutral-400 italic">
+				Couldn’t load {category} integrations right now. Please refresh to try again.
+			</div>;
+  }
+  const apps = data.filter(app => app && app.fieldData && app.fieldData['docs-category'] === category);
+  if (!apps || apps.length === 0) {
+    return <div className="py-10 text-sm text-neutral-500 dark:text-neutral-400 italic">No {category} integrations published yet.</div>;
+  }
+  return <div className="sei-eco-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 py-2">
+			{apps.map(app => <AppCard key={app.id} app={app} isDark={isDark} />)}
+		</div>;
+};
+
 RPC providers offer endpoints for developers to interact with the Sei
 blockchain, archive nodes, and more. Some notable providers
 include:
 
-<iframe src="https://sei-widgets.vercel.app/ecosystem/rpc-provider" style={{ width: "100%", minHeight: "600px", border: "0" }} loading="lazy" title="Sei RPC providers" />
+<EcosystemAppGrid category="rpc-provider" />
 
 ---
 
@@ -2374,6 +2800,173 @@ URL: https://docs.sei.io/learn/indexers
 
 > Comprehensive guide to Blockchain Indexers for Sei Network on Sei. Learn key concepts, commands, and best practices.
 
+export const EcosystemAppGrid = props => {
+  const category = props.category;
+  const ECOSYSTEM_API_URL = 'https://app-api.seinetwork.io/sanity/ecosystem';
+  const integrationGuideOverrides = {
+    'The Graph': '/evm/indexer-providers/the-graph',
+    Covalent: '/evm/indexer-providers/goldrush',
+    Goldsky: '/evm/indexer-providers/goldsky',
+    Alchemy: '/evm/indexer-providers/alchemy'
+  };
+  const [isDark, setIsDark] = useState(false);
+  useEffect(() => {
+    const el = document.documentElement;
+    const update = () => setIsDark(el.classList.contains('dark'));
+    update();
+    const obs = new MutationObserver(update);
+    obs.observe(el, {
+      attributes: true,
+      attributeFilter: ['class']
+    });
+    return () => obs.disconnect();
+  }, []);
+  const [data, setData] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    fetch(ECOSYSTEM_API_URL, {
+      headers: {
+        Accept: 'application/json'
+      }
+    }).then(res => {
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    }).then(json => {
+      if (cancelled) return;
+      setData(Array.isArray(json && json.data) ? json.data : []);
+      setIsLoading(false);
+    }).catch(() => {
+      if (cancelled) return;
+      setHasError(true);
+      setIsLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const WorldIcon = ({size = 24, style}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style} aria-hidden="true">
+			<circle cx="12" cy="12" r="9" />
+			<path d="M3 12h18" />
+			<path d="M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18" />
+		</svg>;
+  const ExternalLinkIcon = ({size = 14, style}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style} aria-hidden="true">
+			<path d="M15 3h6v6" />
+			<path d="M10 14L21 3" />
+			<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+		</svg>;
+  const ArrowRightIcon = ({size = 14, style}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style} aria-hidden="true">
+			<path d="M5 12h14" />
+			<path d="M12 5l7 7-7 7" />
+		</svg>;
+  const AppCardSkeleton = () => <div className="animate-pulse border backdrop-blur-sm bg-neutral-50/80 dark:bg-neutral-900/80 border-neutral-200/50 dark:border-neutral-800/50 p-5 h-full flex flex-col">
+			<div className="flex flex-col gap-4">
+				<div className="w-12 h-12 bg-neutral-200 dark:bg-neutral-800 rounded" />
+				<div className="flex flex-col gap-2">
+					<div className="h-5 w-32 bg-neutral-200 dark:bg-neutral-800 rounded" />
+					<div className="h-4 w-full bg-neutral-200/70 dark:bg-neutral-800/70 rounded" />
+					<div className="h-4 w-2/3 bg-neutral-200/70 dark:bg-neutral-800/70 rounded" />
+				</div>
+				<div className="h-4 w-28 bg-neutral-200/50 dark:bg-neutral-800/50 rounded mt-auto pt-2" />
+			</div>
+		</div>;
+  const [AppCard] = useState(() => ({app, isDark}) => {
+    const [hover, setHover] = useState(false);
+    const [linkHover, setLinkHover] = useState(false);
+    const fieldData = app.fieldData;
+    const appName = fieldData.name;
+    const logo = fieldData.logo;
+    const desc = fieldData['short-description'];
+    const integration = fieldData['integration-guide-link'];
+    const logoUrl = logo && logo.url;
+    if (!logoUrl) return null;
+    const finalIntegrationLink = integrationGuideOverrides[appName] || integration;
+    const isExternalLink = finalIntegrationLink && !finalIntegrationLink.startsWith('/');
+    const linkText = isExternalLink ? 'Documentation' : 'Integration Guide';
+    const resolvedLink = finalIntegrationLink ? finalIntegrationLink : undefined;
+    const titleColor = hover ? isDark ? 'var(--sei-maroon-25)' : 'var(--sei-maroon-200)' : undefined;
+    const linkColor = isDark ? linkHover ? 'var(--sei-cream)' : 'var(--sei-maroon-25)' : 'var(--sei-maroon-200)';
+    const maroonRgb = isDark ? '96, 0, 20' : '52, 5, 13';
+    const decorativeGradient = `linear-gradient(to right, rgba(${maroonRgb}, 0.15), rgba(${maroonRgb}, 0.1), rgba(${maroonRgb}, 0.15))`;
+    const logoTileBg = hover ? `rgba(${maroonRgb}, ${isDark ? 0.2 : 0.1})` : undefined;
+    return <div onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)} className="group relative overflow-hidden transition-all duration-300 ease-out transform-gpu will-change-transform hover:scale-[1.02] hover:shadow-xl hover:shadow-black/10 dark:hover:shadow-black/30 border backdrop-blur-sm bg-neutral-50/80 dark:bg-neutral-900/80 border-neutral-200/50 dark:border-neutral-800/50 hover:bg-white dark:hover:bg-neutral-900 hover:border-neutral-300 dark:hover:border-neutral-700 p-5 h-full flex flex-col">
+				{}
+				<div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-br from-white/10 via-transparent to-transparent dark:from-white/5 dark:via-transparent dark:to-transparent pointer-events-none" />
+
+				{}
+				<div className="absolute inset-0 transition-all duration-700 blur-sm -z-10 transform scale-105 pointer-events-none" style={{
+      background: decorativeGradient,
+      opacity: hover ? 1 : 0
+    }} />
+
+				<div className="flex flex-col gap-4 relative z-10">
+					<div className="flex items-start justify-between">
+						<figure className="w-12 h-12 overflow-hidden flex-shrink-0 bg-neutral-200/50 dark:bg-neutral-800/50 transition-all duration-300 group-hover:scale-110 group-hover:rotate-3 flex items-center justify-center" style={{
+      backgroundColor: logoTileBg
+    }}>
+							{logoUrl ? <img src={logoUrl} alt={appName || ''} width={48} height={48} className="object-cover w-full h-full transform transition-all duration-300 group-hover:scale-110" /> : <WorldIcon size={24} style={{
+      color: hover ? 'var(--sei-maroon-100)' : '#737373',
+      transition: 'color 0.3s'
+    }} />}
+						</figure>
+					</div>
+
+					<div className="flex flex-col gap-2 flex-grow">
+						<h3 className="text-base font-bold text-neutral-800 dark:text-neutral-200 transition-colors duration-300 leading-tight" style={{
+      color: titleColor
+    }}>
+							{appName}
+						</h3>
+						{desc && <p className="text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed line-clamp-2 flex-grow">{desc}</p>}
+					</div>
+
+					{resolvedLink && <div className="flex items-center mt-auto pt-2">
+							<a href={resolvedLink} target={isExternalLink ? '_blank' : undefined} rel={isExternalLink ? 'noopener noreferrer' : undefined} onMouseEnter={() => setLinkHover(true)} onMouseLeave={() => setLinkHover(false)} style={{
+      color: linkColor,
+      transition: 'color 0.2s'
+    }} className="inline-flex items-center gap-1.5 text-sm font-medium no-underline">
+								<span>{linkText}</span>
+								{isExternalLink ? <ExternalLinkIcon size={14} style={{
+      marginLeft: linkHover ? '0.25rem' : 0,
+      transform: linkHover ? 'scale(1.1)' : 'none',
+      transition: 'all 0.3s'
+    }} /> : <ArrowRightIcon size={14} style={{
+      transform: linkHover ? 'translateX(0.25rem)' : 'none',
+      transition: 'transform 0.3s'
+    }} />}
+							</a>
+						</div>}
+
+					{}
+					<div className="w-full h-0.5 transition-opacity duration-300" style={{
+      background: `linear-gradient(to right, transparent, rgba(${maroonRgb}, 0.2), transparent)`,
+      opacity: hover ? 1 : 0
+    }} />
+				</div>
+			</div>;
+  });
+  if (isLoading) {
+    return <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 py-2">
+				{Array.from({
+      length: 4
+    }).map((_, i) => <AppCardSkeleton key={`skeleton-${i}`} />)}
+			</div>;
+  }
+  if (hasError) {
+    return <div className="py-10 text-sm text-neutral-500 dark:text-neutral-400 italic">
+				Couldn’t load {category} integrations right now. Please refresh to try again.
+			</div>;
+  }
+  const apps = data.filter(app => app && app.fieldData && app.fieldData['docs-category'] === category);
+  if (!apps || apps.length === 0) {
+    return <div className="py-10 text-sm text-neutral-500 dark:text-neutral-400 italic">No {category} integrations published yet.</div>;
+  }
+  return <div className="sei-eco-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 py-2">
+			{apps.map(app => <AppCard key={app.id} app={app} isDark={isDark} />)}
+		</div>;
+};
+
 **Query Sei Data at Scale**
 
 Indexers collect and organize blockchain data, making it easily queryable for applications. They provide structured APIs, real-time updates, and significantly better performance than querying nodes directly.
@@ -2388,7 +2981,7 @@ Indexers collect and organize blockchain data, making it easily queryable for ap
 
 Indexing solutions for querying Sei blockchain data with high performance and reliability.
 
-<iframe src="https://sei-widgets.vercel.app/ecosystem/indexer" style={{ width: "100%", minHeight: "600px", border: "0" }} loading="lazy" title="Sei indexers" />
+<EcosystemAppGrid category="indexer" />
 
 <Info>
   Projects listed here are developed by the Sei community. Inclusion on this site does not constitute endorsement. For questions related to each, please contact the project directly.
@@ -2405,6 +2998,173 @@ URL: https://docs.sei.io/learn/oracles
 
 > Directory of oracle providers for Sei blockchain. Access reliable price feeds and off-chain data for DeFi applications, smart contracts, and dApps.
 
+export const EcosystemAppGrid = props => {
+  const category = props.category;
+  const ECOSYSTEM_API_URL = 'https://app-api.seinetwork.io/sanity/ecosystem';
+  const integrationGuideOverrides = {
+    'The Graph': '/evm/indexer-providers/the-graph',
+    Covalent: '/evm/indexer-providers/goldrush',
+    Goldsky: '/evm/indexer-providers/goldsky',
+    Alchemy: '/evm/indexer-providers/alchemy'
+  };
+  const [isDark, setIsDark] = useState(false);
+  useEffect(() => {
+    const el = document.documentElement;
+    const update = () => setIsDark(el.classList.contains('dark'));
+    update();
+    const obs = new MutationObserver(update);
+    obs.observe(el, {
+      attributes: true,
+      attributeFilter: ['class']
+    });
+    return () => obs.disconnect();
+  }, []);
+  const [data, setData] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    fetch(ECOSYSTEM_API_URL, {
+      headers: {
+        Accept: 'application/json'
+      }
+    }).then(res => {
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    }).then(json => {
+      if (cancelled) return;
+      setData(Array.isArray(json && json.data) ? json.data : []);
+      setIsLoading(false);
+    }).catch(() => {
+      if (cancelled) return;
+      setHasError(true);
+      setIsLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const WorldIcon = ({size = 24, style}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style} aria-hidden="true">
+			<circle cx="12" cy="12" r="9" />
+			<path d="M3 12h18" />
+			<path d="M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18" />
+		</svg>;
+  const ExternalLinkIcon = ({size = 14, style}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style} aria-hidden="true">
+			<path d="M15 3h6v6" />
+			<path d="M10 14L21 3" />
+			<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+		</svg>;
+  const ArrowRightIcon = ({size = 14, style}) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style} aria-hidden="true">
+			<path d="M5 12h14" />
+			<path d="M12 5l7 7-7 7" />
+		</svg>;
+  const AppCardSkeleton = () => <div className="animate-pulse border backdrop-blur-sm bg-neutral-50/80 dark:bg-neutral-900/80 border-neutral-200/50 dark:border-neutral-800/50 p-5 h-full flex flex-col">
+			<div className="flex flex-col gap-4">
+				<div className="w-12 h-12 bg-neutral-200 dark:bg-neutral-800 rounded" />
+				<div className="flex flex-col gap-2">
+					<div className="h-5 w-32 bg-neutral-200 dark:bg-neutral-800 rounded" />
+					<div className="h-4 w-full bg-neutral-200/70 dark:bg-neutral-800/70 rounded" />
+					<div className="h-4 w-2/3 bg-neutral-200/70 dark:bg-neutral-800/70 rounded" />
+				</div>
+				<div className="h-4 w-28 bg-neutral-200/50 dark:bg-neutral-800/50 rounded mt-auto pt-2" />
+			</div>
+		</div>;
+  const [AppCard] = useState(() => ({app, isDark}) => {
+    const [hover, setHover] = useState(false);
+    const [linkHover, setLinkHover] = useState(false);
+    const fieldData = app.fieldData;
+    const appName = fieldData.name;
+    const logo = fieldData.logo;
+    const desc = fieldData['short-description'];
+    const integration = fieldData['integration-guide-link'];
+    const logoUrl = logo && logo.url;
+    if (!logoUrl) return null;
+    const finalIntegrationLink = integrationGuideOverrides[appName] || integration;
+    const isExternalLink = finalIntegrationLink && !finalIntegrationLink.startsWith('/');
+    const linkText = isExternalLink ? 'Documentation' : 'Integration Guide';
+    const resolvedLink = finalIntegrationLink ? finalIntegrationLink : undefined;
+    const titleColor = hover ? isDark ? 'var(--sei-maroon-25)' : 'var(--sei-maroon-200)' : undefined;
+    const linkColor = isDark ? linkHover ? 'var(--sei-cream)' : 'var(--sei-maroon-25)' : 'var(--sei-maroon-200)';
+    const maroonRgb = isDark ? '96, 0, 20' : '52, 5, 13';
+    const decorativeGradient = `linear-gradient(to right, rgba(${maroonRgb}, 0.15), rgba(${maroonRgb}, 0.1), rgba(${maroonRgb}, 0.15))`;
+    const logoTileBg = hover ? `rgba(${maroonRgb}, ${isDark ? 0.2 : 0.1})` : undefined;
+    return <div onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)} className="group relative overflow-hidden transition-all duration-300 ease-out transform-gpu will-change-transform hover:scale-[1.02] hover:shadow-xl hover:shadow-black/10 dark:hover:shadow-black/30 border backdrop-blur-sm bg-neutral-50/80 dark:bg-neutral-900/80 border-neutral-200/50 dark:border-neutral-800/50 hover:bg-white dark:hover:bg-neutral-900 hover:border-neutral-300 dark:hover:border-neutral-700 p-5 h-full flex flex-col">
+				{}
+				<div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-br from-white/10 via-transparent to-transparent dark:from-white/5 dark:via-transparent dark:to-transparent pointer-events-none" />
+
+				{}
+				<div className="absolute inset-0 transition-all duration-700 blur-sm -z-10 transform scale-105 pointer-events-none" style={{
+      background: decorativeGradient,
+      opacity: hover ? 1 : 0
+    }} />
+
+				<div className="flex flex-col gap-4 relative z-10">
+					<div className="flex items-start justify-between">
+						<figure className="w-12 h-12 overflow-hidden flex-shrink-0 bg-neutral-200/50 dark:bg-neutral-800/50 transition-all duration-300 group-hover:scale-110 group-hover:rotate-3 flex items-center justify-center" style={{
+      backgroundColor: logoTileBg
+    }}>
+							{logoUrl ? <img src={logoUrl} alt={appName || ''} width={48} height={48} className="object-cover w-full h-full transform transition-all duration-300 group-hover:scale-110" /> : <WorldIcon size={24} style={{
+      color: hover ? 'var(--sei-maroon-100)' : '#737373',
+      transition: 'color 0.3s'
+    }} />}
+						</figure>
+					</div>
+
+					<div className="flex flex-col gap-2 flex-grow">
+						<h3 className="text-base font-bold text-neutral-800 dark:text-neutral-200 transition-colors duration-300 leading-tight" style={{
+      color: titleColor
+    }}>
+							{appName}
+						</h3>
+						{desc && <p className="text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed line-clamp-2 flex-grow">{desc}</p>}
+					</div>
+
+					{resolvedLink && <div className="flex items-center mt-auto pt-2">
+							<a href={resolvedLink} target={isExternalLink ? '_blank' : undefined} rel={isExternalLink ? 'noopener noreferrer' : undefined} onMouseEnter={() => setLinkHover(true)} onMouseLeave={() => setLinkHover(false)} style={{
+      color: linkColor,
+      transition: 'color 0.2s'
+    }} className="inline-flex items-center gap-1.5 text-sm font-medium no-underline">
+								<span>{linkText}</span>
+								{isExternalLink ? <ExternalLinkIcon size={14} style={{
+      marginLeft: linkHover ? '0.25rem' : 0,
+      transform: linkHover ? 'scale(1.1)' : 'none',
+      transition: 'all 0.3s'
+    }} /> : <ArrowRightIcon size={14} style={{
+      transform: linkHover ? 'translateX(0.25rem)' : 'none',
+      transition: 'transform 0.3s'
+    }} />}
+							</a>
+						</div>}
+
+					{}
+					<div className="w-full h-0.5 transition-opacity duration-300" style={{
+      background: `linear-gradient(to right, transparent, rgba(${maroonRgb}, 0.2), transparent)`,
+      opacity: hover ? 1 : 0
+    }} />
+				</div>
+			</div>;
+  });
+  if (isLoading) {
+    return <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 py-2">
+				{Array.from({
+      length: 4
+    }).map((_, i) => <AppCardSkeleton key={`skeleton-${i}`} />)}
+			</div>;
+  }
+  if (hasError) {
+    return <div className="py-10 text-sm text-neutral-500 dark:text-neutral-400 italic">
+				Couldn’t load {category} integrations right now. Please refresh to try again.
+			</div>;
+  }
+  const apps = data.filter(app => app && app.fieldData && app.fieldData['docs-category'] === category);
+  if (!apps || apps.length === 0) {
+    return <div className="py-10 text-sm text-neutral-500 dark:text-neutral-400 italic">No {category} integrations published yet.</div>;
+  }
+  return <div className="sei-eco-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 py-2">
+			{apps.map(app => <AppCard key={app.id} app={app} isDark={isDark} />)}
+		</div>;
+};
+
 Oracles are the bridge between blockchain networks and real-world data. They provide a secure mechanism for bringing off-chain price data on-chain, enabling DeFi protocols, smart contracts, and dApps to access reliable external information.
 
 ## Use Cases
@@ -2415,7 +3175,7 @@ Oracles are the bridge between blockchain networks and real-world data. They pro
 
 ## Available Providers
 
-<iframe src="https://sei-widgets.vercel.app/ecosystem/oracle" style={{ width: "100%", minHeight: "600px", border: "0" }} loading="lazy" title="Sei oracle providers" />
+<EcosystemAppGrid category="oracle" />
 
 ---
 
@@ -2507,7 +3267,7 @@ Validators and delegators can split their voting power across multiple options u
 
 Guidelines for effective governance participation.
 
-* **Research Thoroughly** — Read proposals completely and understand their implications before voting.
+* **Research Thoroughly** — Read proposals and understand their implications before voting.
 * **Engage in Discussion** — Participate in community forums and discussions to better understand different perspectives.
 * **Vote Responsibly** — Consider the long-term implications of proposals for the network and ecosystem.
 * **Stay Informed** — Follow governance updates and participate actively in the democratic process.
@@ -2706,7 +3466,7 @@ validator's weight is based on the number of tokens delegated to them plus their
 own stake.
 
 The Sei protocol incentivizes validators and delegators with staking rewards
-from gas fees and genesis token unlocks. All rewards are distributed
+from gas and genesis token unlocks. All rewards are distributed
 to delegators proportional to their delegation, and the validator keeps a percentage of this as commission.
 Users can view a validator's commission rate on the Sei Dashboard, or by querying the validator information on-chain.
 
@@ -2858,7 +3618,7 @@ URL: https://docs.sei.io/learn/pointers
 
 Pointer Contracts enable tokens to be used interoperably in both EVM and
 Cosmos environments. Intended to be efficient and quick to deploy, a pointer
-simply serves as an interpreter between the two "languages" used in either
+serves as an interpreter between the two "languages" used in either
 execution environment.
 
 ## Why Pointer Contracts
@@ -4237,7 +4997,220 @@ URL: https://docs.sei.io/evm/networks
 
 > Discover network information for Sei EVM across all environments including mainnet and testnet. Access RPC endpoints, chain IDs, and blockchain explorers.
 
-<iframe src="https://sei-widgets.vercel.app/network-tabs" style={{ width: "100%", minHeight: "420px", border: "0" }} loading="lazy" title="Sei EVM chain information" />
+export const NetworkTabs = props => {
+  const {network = 'mainnet'} = props || ({});
+  const ChevronRightIcon = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+			<path d="M9 6l6 6l-6 6" />
+		</svg>;
+  const CheckIcon = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+			<path d="M5 12l5 5l10 -10" />
+		</svg>;
+  const CopyIcon = ({className}) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+			<path d="M7 7m0 2.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667z" />
+			<path d="M4.012 16.737a2.005 2.005 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1" />
+		</svg>;
+  const CopyButton = ({textToCopy}) => {
+    const [copied, setCopied] = useState(false);
+    const handleCopy = () => {
+      navigator.clipboard.writeText(textToCopy);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    };
+    return <button type="button" onClick={handleCopy} className="p-1  text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200 hover:bg-neutral-200/50 dark:hover:bg-neutral-700/50 transition-colors" title="Copy to clipboard" aria-label="Copy to clipboard">
+				{copied ? <CheckIcon className="h-4 w-4 text-green-500" /> : <CopyIcon className="h-4 w-4" />}
+			</button>;
+  };
+  const validTabs = ['mainnet', 'testnet', 'localnet'];
+  const initialTab = validTabs.includes(network) ? network : 'mainnet';
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash.substring(1);
+      if (validTabs.includes(hash)) return hash;
+    }
+    return initialTab;
+  });
+  useEffect(() => {
+    const handleHashChange = () => {
+      const h = window.location.hash.substring(1);
+      if (validTabs.includes(h)) {
+        setActiveTab(h);
+      }
+    };
+    handleHashChange();
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+  const selectTab = tab => {
+    setActiveTab(tab);
+    if (typeof window !== 'undefined' && window.history && window.history.replaceState) {
+      window.history.replaceState(null, '', `#${tab}`);
+    }
+  };
+  const tabButtonClass = tab => `px-3 py-1.5 text-sm transition-colors ${activeTab === tab ? 'bg-neutral-200 dark:bg-neutral-800/80 text-neutral-900 dark:text-white border border-neutral-300 dark:border-neutral-700' : 'bg-neutral-100 dark:bg-neutral-800/50 text-neutral-600 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-700/50 hover:bg-neutral-200 dark:hover:bg-neutral-700/70 hover:text-neutral-900 dark:hover:text-white'}`;
+  const sectionTitleClass = 'font-medium text-neutral-900 dark:text-white';
+  const statusIndicatorClass = 'w-2 h-2 rounded-full';
+  const labelClass = 'text-neutral-500 dark:text-neutral-500 mb-1';
+  const valueClass = 'text-neutral-700 dark:text-neutral-300';
+  const linkClass = 'text-neutral-700 hover:text-neutral-900 dark:text-neutral-300 dark:hover:text-white transition-colors';
+  const visitLinkClass = 'text-neutral-700 hover:text-neutral-900 dark:text-neutral-300 dark:hover:text-white flex items-center transition-colors';
+  const renderTabContent = (tab, isVisible = true) => {
+    const contentClass = isVisible ? 'tab-content' : 'sr-only';
+    const ariaHidden = !isVisible;
+    switch (tab) {
+      case 'mainnet':
+        return <div key={tab} className={contentClass} aria-hidden={ariaHidden} data-search-content data-tab-value="mainnet">
+						<div className="w-full">
+							<div>
+								<div className="flex items-center gap-2 mb-4">
+									<div className={`${statusIndicatorClass} bg-green-500`}></div>
+									<h3 className={sectionTitleClass}>EVM</h3>
+								</div>
+
+								<div className="space-y-3">
+									<div className="flex flex-col">
+										<div className={labelClass}>Chain ID:</div>
+										<div className="flex items-center justify-between">
+											<span className={valueClass}>1329 (0x531)</span>
+											<CopyButton textToCopy="1329" />
+										</div>
+									</div>
+
+									<div className="flex flex-col">
+										<div className={labelClass}>RPC URL:</div>
+										<div className="flex items-center justify-between">
+											<a href="https://evm-rpc.sei-apis.com" target="_blank" rel="noopener noreferrer" className={linkClass}>
+												https://evm-rpc.sei-apis.com
+											</a>
+											<CopyButton textToCopy="https://evm-rpc.sei-apis.com" />
+										</div>
+									</div>
+
+									<div className="flex flex-col">
+										<div className={labelClass}>Explorer:</div>
+										<div className="flex items-center justify-between">
+											<span className={valueClass}>seiscan.io</span>
+											<a href="https://seiscan.io" target="_blank" rel="noopener noreferrer" className={visitLinkClass}>
+												Visit
+												<ChevronRightIcon className="w-4 h-4 ml-1" />
+											</a>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>;
+      case 'testnet':
+        return <div key={tab} className={contentClass} aria-hidden={ariaHidden} data-search-content data-tab-value="testnet">
+						<div className="grid grid-cols-1 gap-6 w-full">
+							<div>
+								<div className="flex items-center gap-2 mb-4">
+									<div className={`${statusIndicatorClass} bg-blue-500`}></div>
+									<h3 className={sectionTitleClass}>EVM</h3>
+								</div>
+
+								<div className="space-y-3">
+									<div className="flex flex-col">
+										<div className={labelClass}>Chain ID:</div>
+										<div className="flex items-center justify-between">
+											<span className={valueClass}>1328 (0x530)</span>
+											<CopyButton textToCopy="1328" />
+										</div>
+									</div>
+
+									<div className="flex flex-col">
+										<div className={labelClass}>RPC URL:</div>
+										<div className="flex items-center justify-between">
+											<a href="https://evm-rpc-testnet.sei-apis.com" target="_blank" rel="noopener noreferrer" className={linkClass}>
+												https://evm-rpc-testnet.sei-apis.com
+											</a>
+											<CopyButton textToCopy="https://evm-rpc-testnet.sei-apis.com" />
+										</div>
+									</div>
+
+									<div className="flex flex-col">
+										<div className={labelClass}>Explorer:</div>
+										<div className="flex items-center justify-between">
+											<span className={valueClass}>testnet.seiscan.io</span>
+											<a href="https://testnet.seiscan.io" target="_blank" rel="noopener noreferrer" className={visitLinkClass}>
+												Visit
+												<ChevronRightIcon className="w-4 h-4 ml-1" />
+											</a>
+										</div>
+									</div>
+									<div className="flex flex-col">
+										<div className={labelClass}>Faucet:</div>
+										<div className="flex items-center justify-between">
+											<span className={valueClass}>Testnet faucet</span>
+											<a href="https://docs.sei.io/learn/faucet" target="_blank" rel="noopener noreferrer" className={visitLinkClass}>
+												Visit
+												<ChevronRightIcon className="w-4 h-4 ml-1" />
+											</a>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>;
+      case 'localnet':
+        return <div key={tab} className={contentClass} aria-hidden={ariaHidden} data-search-content data-tab-value="localnet">
+						<div className="grid grid-cols-1 gap-6 w-full">
+							<div>
+								<div className="flex items-center gap-2 mb-4">
+									<div className={`${statusIndicatorClass} bg-purple-500`}></div>
+									<h3 className={sectionTitleClass}>EVM</h3>
+								</div>
+
+								<div className="space-y-3">
+									<div className="flex flex-col">
+										<div className={labelClass}>Chain ID:</div>
+										<div className="flex items-center justify-between">
+											<span className={valueClass}>713714 (0xAE3F2)</span>
+											<CopyButton textToCopy="713714" />
+										</div>
+									</div>
+
+									<div className="flex flex-col">
+										<div className={labelClass}>RPC URL:</div>
+										<div className="flex items-center justify-between">
+											<span className={valueClass}>http://localhost:8545</span>
+											<CopyButton textToCopy="http://localhost:8545" />
+										</div>
+									</div>
+
+									<div className="flex flex-col">
+										<div className={labelClass}>Explorer:</div>
+										<div className="flex items-center justify-between">
+											<span className={valueClass}>N/A</span>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>;
+      default:
+        return null;
+    }
+  };
+  return <div className="network-tabs w-full">
+			<div className="flex flex-wrap gap-2 mb-6">
+				<button type="button" onClick={() => selectTab('mainnet')} className={tabButtonClass('mainnet')}>
+					Mainnet (pacific-1)
+				</button>
+				<button type="button" onClick={() => selectTab('testnet')} className={tabButtonClass('testnet')}>
+					Testnet (atlantic-2)
+				</button>
+				<button type="button" onClick={() => selectTab('localnet')} className={tabButtonClass('localnet')}>
+					Local Environment
+				</button>
+			</div>
+
+			{renderTabContent(activeTab, true)}
+
+			{['mainnet', 'testnet', 'localnet'].map(tab => tab !== activeTab ? renderTabContent(tab, false) : null)}
+		</div>;
+};
+
+<NetworkTabs />
 
 The panel above is interactive. For plain-text endpoints you can copy directly — plus additional provider options — see:
 
@@ -4324,7 +5297,7 @@ Sei EVM was originally deployed at the following block heights and versions:
 ### PREVRANDAO
 
 Since Sei doesn't rely on the same pseudo‑randomness way of determining the next
-validator like Proof of Stake (PoS) Ethereum does, it doesn't really have the
+validator like Proof of Stake (PoS) Ethereum does, it doesn't have the
 "randomness" artifact that can be set as `PREVRANDAO`'s return value. On Sei,
 `PREVRANDAO` returns a value derived from the current block time. For strong
 randomness needs in contract logic, use a verifiable randomness oracle (as is
@@ -4394,7 +5367,7 @@ state would be marked "pending" until the node is accepted by other nodes).
 
 However, on Sei, the block proposer would broadcast first and only execute the
 proposal if it's accepted (i.e. every node would execute the block at roughly
-the same time), so Sei does not really have a window when "pending state"
+the same time), so Sei does not have a window when "pending state"
 exists.
 
 ## Gas Model & Fees
@@ -6488,6 +7461,83 @@ URL: https://docs.sei.io/evm/installing-seid-cli
 
 > Complete guide to installing and setting up the Sei CLI (seid) tool, including wallet creation, EVM imports, and troubleshooting common installation issues.
 
+export const VersionTable = () => {
+  const networks = [{
+    label: 'Mainnet',
+    chainId: 'pacific-1',
+    rpcEndpoint: 'https://rpc.sei-apis.com',
+    evmChainId: '1329'
+  }, {
+    label: 'Testnet',
+    chainId: 'atlantic-2',
+    rpcEndpoint: 'https://rpc-testnet.sei-apis.com',
+    evmChainId: '1328'
+  }];
+  const [versions, setVersions] = useState({});
+  useEffect(() => {
+    const oneHour = 3600000;
+    const setVersionFor = (chainId, version) => {
+      setVersions(prev => ({
+        ...prev,
+        [chainId]: version
+      }));
+    };
+    const fetchVersion = async (chainId, rpcEndpoint) => {
+      try {
+        const response = await fetch(`${rpcEndpoint}/abci_info`);
+        const data = await response.json();
+        const info = data && data.result && data.result.response || data && data.response || ({});
+        const version = info.version;
+        if (typeof version === 'string' && version) {
+          setVersionFor(chainId, version);
+          localStorage.setItem(`${chainId}-version`, version);
+          localStorage.setItem(`${chainId}-version-timestamp`, Date.now().toString());
+          return;
+        }
+        throw new Error('abci_info response had no version field');
+      } catch (error) {
+        console.error('Error fetching version:', error);
+        if (!localStorage.getItem(`${chainId}-version`)) {
+          setVersionFor(chainId, 'Unavailable');
+        }
+      }
+    };
+    networks.forEach(({chainId, rpcEndpoint}) => {
+      const storedVersion = localStorage.getItem(`${chainId}-version`);
+      const storedTimestamp = localStorage.getItem(`${chainId}-version-timestamp`);
+      const isFresh = storedVersion && storedTimestamp && Date.now() - parseInt(storedTimestamp, 10) < oneHour;
+      if (storedVersion) {
+        setVersionFor(chainId, storedVersion);
+      }
+      if (!isFresh) {
+        fetchVersion(chainId, rpcEndpoint);
+      }
+    });
+  }, []);
+  return <table className="min-w-full divide-y divide-neutral-200 dark:divide-neutral-800">
+      <thead className="bg-neutral-50 dark:bg-neutral-900/50">
+        <tr>
+          <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Network</th>
+          <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Version</th>
+          <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Chain ID</th>
+          <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">EVM Chain ID</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800 bg-neutral-50 dark:bg-neutral-900/30">
+        {networks.map(({label, chainId, evmChainId}) => <tr key={chainId}>
+            <td className="px-4 py-3 text-sm font-medium text-neutral-900 dark:text-neutral-100">{label}</td>
+            <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">
+              <code style={{
+    fontFamily: 'var(--sei-font-mono)'
+  }}>{versions[chainId] || 'Fetching...'}</code>
+            </td>
+            <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">{chainId}</td>
+            <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">{evmChainId}</td>
+          </tr>)}
+      </tbody>
+    </table>;
+};
+
 ## What is seid CLI?
 
 The `seid` CLI is the command-line tool for interacting with the Sei blockchain. It allows you to manage wallets, send transactions, query network data, and perform validator operations.
@@ -6500,7 +7550,7 @@ The `seid` CLI is the command-line tool for interacting with the Sei blockchain.
 
 To install seid, locate the version you wish to use on the [sei-chain releases page](https://github.com/sei-protocol/sei-chain/releases). A list of the currently used versions on mainnet and testnet are displayed right below.
 
-<iframe src="https://sei-widgets.vercel.app/version-table" style={{ width: "100%", minHeight: "320px", border: "0" }} loading="lazy" title="Sei network versions" />
+<VersionTable />
 
 Then, execute the following commands with the version that you picked:
 
@@ -7386,7 +8436,7 @@ seid tx evm send 0x... 1000000000000000000 \
 <Warning>
   **Common Issues:**
 
-  * Insufficient balance for transaction + gas fees
+  * Insufficient balance for transaction + gas
   * Incorrect address formats (use 0x prefix for EVM addresses)
   * Gas limit too low for complex operations
   * Nonce conflicts in rapid successive transactions
@@ -7403,7 +8453,7 @@ seid tx evm send 0x... 1000000000000000000 \
 ## Transaction Requirements
 
 * **Key Configuration**: Local keyring must contain the signing key
-* **Sufficient Balance**: Account must have enough tokens for transaction amount + gas fees
+* **Sufficient Balance**: Account must have enough tokens for transaction amount + gas
 * **Address Formats**: Use proper formats (0x... for EVM, seivaloper... for validators)
 * **Network Access**: Ensure connectivity to the specified RPC endpoint
 * **Gas Limits**: Set appropriate gas limits for transaction complexity
@@ -7422,6 +8472,834 @@ URL: https://docs.sei.io/evm/changelog
 
 > Track the latest updates, improvements, and changes to Sei Chain. Stay informed about new features, bug fixes, and protocol upgrades.
 
+export const Changelog = props => {
+  const STATIC_CHANGELOG = [{
+    version: 'v5.9.0',
+    body: `sei-chain
+* [#1867](https://github.com/sei-protocol/sei-chain/pull/1867) Add synthetic events in separate sei endpoints
+* [#1861](https://github.com/sei-protocol/sei-chain/pull/1861) Revert showing wasm txs in EVM RPCs
+* [#1857](https://github.com/sei-protocol/sei-chain/pull/1857) Fix events in 2-hop scenarios
+* [#1856](https://github.com/sei-protocol/sei-chain/pull/1856) Add delegatecall flag to properly detect delegatecalls
+* [#1850](https://github.com/sei-protocol/sei-chain/pull/1853) Fix websocket from_height
+* [#1849](https://github.com/sei-protocol/sei-chain/pull/1849) Reduce block bloom storage
+* [#1844](https://github.com/sei-protocol/sei-chain/pull/1844) Allowlist for token extensions
+
+sei-iavl
+* [#41](https://github.com/sei-protocol/sei-iavl/pull/41) Fix tree versions causing slow restart and OOM`
+  }, {
+    version: 'v5.8.0',
+    body: `sei-chain
+* [#1840](https://github.com/sei-protocol/sei-chain/pull/1840) Add migration for new params
+* [#1837](https://github.com/sei-protocol/sei-chain/pull/1837) Move token id from Data to Topic in ERC721 Event
+* [#1836](https://github.com/sei-protocol/sei-chain/pull/1836) Properly handle gas in pointer precompile
+* [#1835](https://github.com/sei-protocol/sei-chain/pull/1835) Check TX nonce before registering hook to bump nonce for failed tx
+* [#1832](https://github.com/sei-protocol/sei-chain/pull/1832) Show CW transactions that have synthetic EVM events in eth_getBlock response
+* [#1831](https://github.com/sei-protocol/sei-chain/pull/1831) Fork event manager when creating EVM snapshots
+* [#1830](https://github.com/sei-protocol/sei-chain/pull/1830) Add wasm contract query gas limit
+* [#1826](https://github.com/sei-protocol/sei-chain/pull/1826) limit MsgExec max nested level
+* [#1821](https://github.com/sei-protocol/sei-chain/pull/1821) Add antehandler for EVM to check gas exceed limit or not
+* [#1818](https://github.com/sei-protocol/sei-chain/pull/1818) Prevent ddos against associate msgs
+* [#1816](https://github.com/sei-protocol/sei-chain/pull/1816) Actually remove dex module
+* [#1813](https://github.com/sei-protocol/sei-chain/pull/1813) Tune Configs
+* [#1812](https://github.com/sei-protocol/sei-chain/pull/1812) Evidence Max Bytes Update
+* [#1785](https://github.com/sei-protocol/sei-chain/pull/1785) Allow CW->ERC pointers to be called through wasmd precompile
+* [#1778](https://github.com/sei-protocol/sei-chain/pull/1778) Bump nonce even if tx fails
+
+sei-cosmos
+* [#535](https://github.com/sei-protocol/sei-cosmos/pull/535) init app earliest version correctly after state sync
+* [#534](https://github.com/sei-protocol/sei-cosmos/pull/534) Stop executing the handler when proposal is submitted
+* [#533](https://github.com/sei-protocol/sei-cosmos/pull/533) Delete kvstore specified in store upgrades
+* [#532](https://github.com/sei-protocol/sei-cosmos/pull/532) Add max gas limit check in ante handler
+* [#528](https://github.com/sei-protocol/sei-cosmos/pull/528) Add logs for snapshot export and import
+
+sei-wasmd
+* [#63](https://github.com/sei-protocol/sei-wasmd/pull/63) Add CW dispatch call depth
+* [#62](https://github.com/sei-protocol/sei-wasmd/pull/62) Patch Gas mispricing in CW VM
+
+sei-tendermint
+* [#242](https://github.com/sei-protocol/sei-tendermint/pull/242) Allow hyphen in event query`
+  }, {
+    version: 'v5.7.5',
+    body: `sei-chain
+* [#1795](https://github.com/sei-protocol/sei-chain/pull/1795) Do not charge gas for feecollector address query
+* [#1782](https://github.com/sei-protocol/sei-chain/pull/1782) Update excessBlobGas and BlobBaseFee to fix simulate evmcontext
+
+sei-cosmos
+* [#530](https://github.com/sei-protocol/sei-cosmos/pull/530) Add EVMEntryViaWasmdPrecompile flag
+* [#519](https://github.com/sei-protocol/sei-cosmos/pull/519) Genesis export stream
+* [#529](https://github.com/sei-protocol/sei-cosmos/pull/529) Add DeliverTx callback
+* [#528](https://github.com/sei-protocol/sei-cosmos/pull/528) Add logs for snapshot export and import
+
+sei-wasmd
+* [#58](https://github.com/sei-protocol/sei-wasmd/pull/58) Genesis Export OOM
+
+sei-tendermint
+* [#239](https://github.com/sei-protocol/sei-tendermint/pull/239) Use Marshal and UnmarshalJSON For HexBytes`
+  }, {
+    version: 'v5.7.1 & v5.7.2',
+    body: `sei-chain
+* [#1779](https://github.com/sei-protocol/sei-chain/pull/1779) Fix subscribe logs empty params crash
+* [#1783](https://github.com/sei-protocol/sei-chain/pull/1783) Add meaningful message for eth_call balance override overflow
+* [#1783](https://github.com/sei-protocol/sei-chain/pull/1784) Fix log index on synthetic receipt
+* [#1775](https://github.com/sei-protocol/sei-chain/pull/1775) Disallow sending to direct cast addr after association
+
+sei-wasmd
+* [#60](https://github.com/sei-protocol/sei-wasmd/pull/60) Query penalty fixes
+
+sei-tendermint
+* [#237](https://github.com/sei-protocol/sei-tendermint/pull/237) Add metrics for total txs bytes in mempool`
+  }, {
+    version: 'v5.7.0',
+    body: `sei-chain
+* [#1731](https://github.com/sei-protocol/sei-chain/pull/1731) Remove 1-hop limit
+* [#1663](https://github.com/sei-protocol/sei-chain/pull/1663) Retain pointer address on upgrade`
+  }, {
+    version: 'v5.6.0',
+    body: `sei-chain
+* [#1690](https://github.com/sei-protocol/sei-chain/pull/1690) Use transient store for EVM deferred info
+* [#1742](https://github.com/sei-protocol/sei-chain/pull/1742) Add transient receipts with eventual flush to store
+* [#1744](https://github.com/sei-protocol/sei-chain/pull/1744) Only emit cosmos events if no error in precompiles
+* [#1737](https://github.com/sei-protocol/sei-chain/pull/1737) Only send unlocked tokens upon address association
+* [#1740](https://github.com/sei-protocol/sei-chain/pull/1740) Update Random to Hash of Block Timestamp
+* [#1734](https://github.com/sei-protocol/sei-chain/pull/1734) Add migration to unwind dex state
+* [#1736](https://github.com/sei-protocol/sei-chain/pull/1736) Create account for sendNative receiver
+* [#1738](https://github.com/sei-protocol/sei-chain/pull/1738) Reduce Default TTL configs
+* [#1733](https://github.com/sei-protocol/sei-chain/pull/1733) Update getBlockReceipts to accept block hash
+* [#1732](https://github.com/sei-protocol/sei-chain/pull/1732) Show empty trace on insufficient funds error
+* [#1727](https://github.com/sei-protocol/sei-chain/pull/1727) Add association error metric
+* [#1728](https://github.com/sei-protocol/sei-chain/pull/1728) Make occ caused evm panics less noisy
+* [#1719](https://github.com/sei-protocol/sei-chain/pull/1719) Fixes local network in /scripts/run-node.py
+
+sei-cosmos
+* [#521](https://github.com/sei-protocol/sei-cosmos/pull/521) add DeliverTx hook
+* [#520](https://github.com/sei-protocol/sei-cosmos/pull/520) Add callback for receipt storage
+* [#517](https://github.com/sei-protocol/sei-cosmos/pull/517) Fix metric name for chain state size
+* [#516](https://github.com/sei-protocol/sei-cosmos/pull/516) add EVM event manager to context
+
+sei-wasmd
+* [#54](https://github.com/sei-protocol/sei-wasmd/pull/54) Update wasm query behavior upon error
+
+sei-tendermint
+* [#238](https://github.com/sei-protocol/sei-tendermint/pull/238) Make RPC timeout configurable
+* [#219](https://github.com/sei-protocol/sei-tendermint/pull/219) Add metrics for mempool change`
+  }, {
+    version: 'v5.5.5',
+    body: `sei-chain
+* [#1726](https://github.com/sei-protocol/sei-chain/pull/1726) Handle VM error code properly
+* [#1713](https://github.com/sei-protocol/sei-chain/pull/1713) RPC Get Evm Hash
+* [#1711](https://github.com/sei-protocol/sei-chain/pull/1711) Add gov proposal v2 for native pointer
+* [#1694](https://github.com/sei-protocol/sei-chain/pull/1694) Add native associate tx type
+
+sei-cosmos
+* [#511](https://github.com/sei-protocol/sei-cosmos/pull/511) Add error for evm revert`
+  }, {
+    version: 'v5.5.2',
+    body: `sei-chain
+* [#1685](https://github.com/sei-protocol/sei-chain/pull/1685) Add EVM support to v5.5.2`
+  }, {
+    version: 'v5.4.0',
+    body: `sei-chain
+* [#1671](https://github.com/sei-protocol/sei-chain/pull/1671) Update and fixes to ERC721 contract
+* [#1672](https://github.com/sei-protocol/sei-chain/pull/1672) Add sei_getCosmosTx endpoint
+* [#1669](https://github.com/sei-protocol/sei-chain/pull/1669) Add ERC/CW 2981 in pointer
+* [#1668](https://github.com/sei-protocol/sei-chain/pull/1673) Bring CW721 pointer contract up to spec
+* [#1662](https://github.com/sei-protocol/sei-chain/pull/1662) Add memo support to ibc compiles
+* [#1661](https://github.com/sei-protocol/sei-chain/pull/1661) Do not modify original value passed in executeBatch call
+
+sei-cosmos
+* [#505](https://github.com/sei-protocol/sei-cosmos/pull/505) Fix export genesis for historical height
+* [#506](https://github.com/sei-protocol/sei-cosmos/pull/506) Allow reading pairs in changeset before flush
+
+sei-wasmd
+* [#50](https://github.com/sei-protocol/sei-wasmd/pull/50) Changes to fix runtime gas and add paramsKeeper to wasmKeeper for query gas multiplier`
+  }, {
+    version: 'v5.2.0',
+    body: `sei-chain
+* [#1621](https://github.com/sei-protocol/sei-chain/pull/1621) Add websocket metrics
+* [#1619](https://github.com/sei-protocol/sei-chain/pull/1619) Limit number of subscriptions
+* [#1618](https://github.com/sei-protocol/sei-chain/pull/1618) Fix contract deploy receipts
+* [#1615](https://github.com/sei-protocol/sei-chain/pull/1615) Optimize websocket newHead by reusing tendermint subscription
+* [#1609](https://github.com/sei-protocol/sei-chain/pull/1609) Add association logic to simulate endpoints
+* [#1605](https://github.com/sei-protocol/sei-chain/pull/1605) Disallow sr25519 addresses for evm functions
+* [#1606](https://github.com/sei-protocol/sei-chain/pull/1606) Skip evm antehandler on sr25519 signatures
+
+sei-cosmos
+* [#495](https://github.com/sei-protocol/sei-cosmos/pull/495) Fix seid keys list by ignoring evm-addr for sr25519
+* [#493](https://github.com/sei-protocol/sei-cosmos/pull/493) Remove non-multiplier gas meter
+
+sei-tendermint
+* [#235](https://github.com/sei-protocol/sei-tendermint/pull/235) Check removed including wrapped tx state
+
+sei-db
+* [#63](https://github.com/sei-protocol/sei-db/pull/63) Fix edge case for iterating over tombstoned value`
+  }, {
+    version: 'v5.0.1',
+    body: `sei-chain
+* [#1577](https://github.com/sei-protocol/sei-chain/pull/1577) Re-enable Cancun`
+  }, {
+    version: 'v5.0.0',
+    body: `sei-chain
+* [Compare v3.9.0 → v5.0.0](https://github.com/sei-protocol/sei-chain/compare/v3.9.0...008ff68)
+
+sei-cosmos
+* [Compare v0.2.84 → v0.3.1](https://github.com/sei-protocol/sei-cosmos/compare/v0.2.83...v0.3.1)
+
+sei-tendermint
+* [Compare v0.2.40 → v0.3.0](https://github.com/sei-protocol/sei-tendermint/compare/v0.2.40...v0.3.0)`
+  }, {
+    version: 'v3.9.0',
+    body: `sei-chain
+* [#1565](https://github.com/sei-protocol/sei-chain/pull/1565) Cosmos Gas Multiplier Params
+* [#1444](https://github.com/sei-protocol/sei-chain/pull/1444) Adding tokenfactory denom metadata endpoint
+
+sei-cosmos
+* [#489](https://github.com/sei-protocol/sei-cosmos/pull/489) Cosmos Gas Multiplier Params
+* [#477](https://github.com/sei-protocol/sei-cosmos/pull/477) OCC if synchronous, reset non-pending
+
+sei-tendermint
+* [#211](https://github.com/sei-protocol/sei-tendermint/pull/211) Replay events during restart to avoid tx missing
+
+sei-db
+* [#62](https://github.com/sei-protocol/sei-db/pull/62) Set CreateIfMissing to false when copyExisting
+
+sei-wasmd
+* [#45](https://github.com/sei-protocol/sei-wasmd/pull/45) Update LimitSimulationGasDecorator with custom Gas Meter Setter
+* [#44](https://github.com/sei-protocol/sei-wasmd/pull/44) Bump wasmvm to v1.5.2`
+  }, {
+    version: 'v3.8.0',
+    body: `sei-tendermint
+* [#209](https://github.com/sei-protocol/sei-tendermint/pull/209) Use write-lock in (*TxPriorityQueue).ReapMax funcs
+
+sei-db
+* [#61](https://github.com/sei-protocol/sei-db/pull/61) LoadVersion should open DB with read only
+
+sei-wasmd
+* [#41](https://github.com/sei-protocol/sei-wasmd/pull/42) Bump wasmd version`
+  }, {
+    version: 'v3.7.0',
+    body: `sei-chain
+* [#1283](https://github.com/sei-protocol/sei-chain/pull/1283) Update synchronous execution to set tx indices properly
+* [#1325](https://github.com/sei-protocol/sei-chain/pull/1325) Oracle price feeder ignore error for vote already exist
+
+sei-cosmos
+* [#401](https://github.com/sei-protocol/sei-cosmos/pull/401) Ensure Panic Recovery in Prepare & Process Handlers
+* [#404](https://github.com/sei-protocol/sei-cosmos/pull/404) No longer disable dynamic dep generation
+* [#411](https://github.com/sei-protocol/sei-cosmos/pull/411) Fix concurrent map access for seidb
+* [#424](https://github.com/sei-protocol/sei-cosmos/pull/424) Fix SS apply changeset version off by 1`
+  }, {
+    version: 'v3.6.1',
+    body: `sei-chain
+* [#1204](https://github.com/sei-protocol/sei-chain/pull/1204) Cleanup removed oracle feeds
+* [#1196](https://github.com/sei-protocol/sei-chain/pull/1196) Add panic handler in dex endblock
+* [#1170](https://github.com/sei-protocol/sei-chain/pull/1170) Integrate SeiDB into Sei Chain
+
+sei-cosmos
+* [#391](https://github.com/sei-protocol/sei-cosmos/pull/391) Fix potential memory leak due to emitting events
+* [#388](https://github.com/sei-protocol/sei-cosmos/pull/388) Improve cachekv write performance
+* [#385](https://github.com/sei-protocol/sei-cosmos/pull/385) Add params to disable seqno
+* [#373](https://github.com/sei-protocol/sei-cosmos/pull/373) Add root multistore v2 for SeiDB
+
+sei-tendermint
+* [#175](https://github.com/sei-protocol/sei-tendermint/pull/175) Fix self remediation bug for block sync`
+  }, {
+    version: 'v3.5.0',
+    body: `sei-chain
+* [#1164](https://github.com/sei-protocol/sei-chain/pull/1164) Bump wasmd
+* [#1163](https://github.com/sei-protocol/sei-chain/pull/1163) Update antehandler
+* [#1160](https://github.com/sei-protocol/sei-chain/pull/1160) Allow metrics script to query remote
+* [#1156](https://github.com/sei-protocol/sei-chain/pull/1156) Bump ledger version to support nano s
+* [#1155](https://github.com/sei-protocol/sei-chain/pull/1155) Allow loadtest client to take a list of grpc endpoints
+
+sei-cosmos
+* [#383](https://github.com/sei-protocol/sei-cosmos/pull/383) Refactor wasm dependency behavior
+* [#353](https://github.com/sei-protocol/sei-cosmos/pull/353) Perf: Relax locking contention for cache and cachekv
+* [#331](https://github.com/sei-protocol/sei-cosmos/pull/331) Fast reject invalid consensus params
+
+sei-tendermint
+* [#170](https://github.com/sei-protocol/sei-tendermint/pull/170) P2P: Optimize block pool requester retry and peer pick up logic
+* [#167](https://github.com/sei-protocol/sei-tendermint/pull/167) Perf: Increase buffer size for pubsub server to boost performance
+* [#164](https://github.com/sei-protocol/sei-tendermint/pull/164) Add regex support to query syntax
+* [#163](https://github.com/sei-protocol/sei-tendermint/pull/163) Reduce noisy tendermint logs
+* [#162](https://github.com/sei-protocol/sei-tendermint/pull/162) Use peermanager scores for blocksync peers and don't error out on block mismatch`
+  }, {
+    version: 'v3.3.0',
+    body: `sei-ibc-go
+* [#35](https://github.com/sei-protocol/sei-ibc-go/pull/35) Upgrade to Ibc v3.4.0`
+  }, {
+    version: 'v3.2.1',
+    body: `sei-chain
+* [#1073](https://github.com/sei-protocol/sei-chain/pull/1073) Add timestamp to oracle exchange rates
+
+sei-cosmos
+* [#320](https://github.com/sei-protocol/sei-cosmos/pull/320) Allow minor release upgrades prior to upgrade height
+
+sei-tendermint
+* [#158](https://github.com/sei-protocol/sei-tendermint/pull/158) Add metrics for peermanager scores
+* [#157](https://github.com/sei-protocol/sei-tendermint/pull/157) Fix findNewPrimary never timing out upon encountering poor witnesses
+* [#156](https://github.com/sei-protocol/sei-tendermint/pull/156) Remove bad witness and don't block on all witnesses for ConsensusParams`
+  }, {
+    version: 'v3.1.1',
+    body: `sei-ibc-go
+* [#34](https://github.com/sei-protocol/sei-ibc-go/pull/34) Upgrade to Ibc v3.2.0`
+  }, {
+    version: 'v3.0.9',
+    body: `sei-tendermint
+* [#154](https://github.com/sei-protocol/sei-tendermint/pull/154) Fix empty prevote latency metrics`
+  }, {
+    version: '3.0.8',
+    body: `sei-chain
+* [#1018](https://github.com/sei-protocol/sei-chain/pull/1018) Reorder tx results into absolute order`
+  }, {
+    version: '3.0.7',
+    body: `sei-chain
+* [#1002](https://github.com/sei-protocol/sei-chain/pull/1002) Tokenfactory Query Wasmbindings
+* [#989](https://github.com/sei-protocol/sei-chain/pull/989) Add CLI/wasmbinding to set tokenfactory metadata
+* [#963](https://github.com/sei-protocol/sei-chain/pull/963) Add SetMetadata to tokenfactory
+
+sei-cosmos
+* [#308](https://github.com/sei-protocol/sei-cosmos/pull/308) Add NoConsumptionInfiniteGasMeter`
+  }, {
+    version: '3.0.6',
+    body: `sei-chain
+* [#944](https://github.com/sei-protocol/sei-chain/pull/944) Add new configuration for snapshot directory
+* [#940](https://github.com/sei-protocol/sei-chain/pull/940) Use ImmutableAppend for v16 to v17 dex migration
+
+sei-cosmos
+* [#306](https://github.com/sei-protocol/sei-cosmos/pull/306) Fix dryRun for seid tx`
+  }, {
+    version: '3.0.5',
+    body: `sei-chain
+* [#878](https://github.com/sei-protocol/sei-chain/pull/878) Fix denom key collision
+
+sei-tendermint
+* [#149](https://github.com/sei-protocol/sei-tendermint/pull/149) Fix condition for tx key dissemination
+
+sei-iavl
+* [#32](https://github.com/sei-protocol/sei-iavl/pull/32) Separate orphan storage`
+  }, {
+    version: '3.0.4',
+    body: `sei-chain
+* [#874](https://github.com/sei-protocol/sei-chain/pull/874) Charge rent after failed Sudo call
+* [#869](https://github.com/sei-protocol/sei-chain/pull/869) Require fee per byte in order data
+* [#861](https://github.com/sei-protocol/sei-chain/pull/861) Fix tokenfactory metadata
+
+sei-cosmos
+* [#287](https://github.com/sei-protocol/sei-cosmos/pull/287) Refactor deferred balance to use memkv
+* [#286](https://github.com/sei-protocol/sei-cosmos/pull/286) Prevent multisig sign with wrong key
+* [#284](https://github.com/sei-protocol/sei-cosmos/pull/284) Fix allowed_msg uncapped spend limit
+* [#280](https://github.com/sei-protocol/sei-cosmos/pull/280) Barberry patch
+
+sei-tendermint
+* [#148](https://github.com/sei-protocol/sei-tendermint/pull/148) Add sleep to avoid consensus reactor retrying too quickly`
+  }, {
+    version: '3.0.3',
+    body: `sei-chain
+* [#816](https://github.com/sei-protocol/sei-chain/pull/816) Reenable tx concurrency for non oracle/priority txs
+
+sei-cosmos
+* [#254](https://github.com/sei-protocol/sei-cosmos/pull/254) Use sequential searching instead of binary search for coins
+
+sei-tendermint
+* [#143](https://github.com/sei-protocol/sei-tendermint/pull/143) Fix cpu leak for simple pq but stopping timer
+* [#140](https://github.com/sei-protocol/sei-tendermint/pull/140) Add raw logs to tx output`
+  }, {
+    version: '3.0.2',
+    body: `sei-chain
+* [#810](https://github.com/sei-protocol/sei-chain/pull/810) Disable FOK orders
+* [#809](https://github.com/sei-protocol/sei-chain/pull/809) Huckleberry patch
+* [#808](https://github.com/sei-protocol/sei-chain/pull/808) Add global min fees as a param`
+  }, {
+    version: '3.0.1',
+    body: `sei-chain
+* [#797](https://github.com/sei-protocol/sei-chain/pull/797) Don't charge gas for loading contract dependencies
+* [#792](https://github.com/sei-protocol/sei-chain/pull/792) Reset block gas meter if concurrent processing fails
+* [#791](https://github.com/sei-protocol/sei-chain/pull/791) Disable skipFastStorageUpgrade to make iavl dump faster
+* [#790](https://github.com/sei-protocol/sei-chain/pull/790) Disable non-prioritized tx concurrency
+* [#789](https://github.com/sei-protocol/sei-chain/pull/789) Adds appropriate READ access for dex contract in antehandler
+* [#788](https://github.com/sei-protocol/sei-chain/pull/788) Clear dex memstate cache when falling back to sequential processing
+* [#786](https://github.com/sei-protocol/sei-chain/pull/786) Add NoVersioning to seid command
+* [#781](https://github.com/sei-protocol/sei-chain/pull/781) Add order limit for price level and pair limit for contracts
+
+tm-db
+* [#2](https://github.com/sei-protocol/tm-db/pull/2) Load items eagerly to memdb_iterator to avoid deadlock
+
+sei-tendermint
+* [#137](https://github.com/sei-protocol/sei-tendermint/pull/137) New endpoint to expose lag`
+  }, {
+    version: '3.0.0',
+    body: `sei-chain
+* [#777](https://github.com/sei-protocol/sei-chain/pull/777) Parallelize Sudo Deposit
+* [#771](https://github.com/sei-protocol/sei-chain/pull/771) Parallelize BeginBlock for x/dex
+* [#768](https://github.com/sei-protocol/sei-chain/pull/768) Add FOK back to order match result
+* [#763](https://github.com/sei-protocol/sei-chain/pull/763) Refactor dex EndBlock to optimize store access
+
+sei-cosmos
+* [#240](https://github.com/sei-protocol/sei-cosmos/pull/239) Add dex contract ACL type
+* [#237](https://github.com/sei-protocol/sei-cosmos/pull/237) Add next-account-numnber cli
+
+sei-tendermint
+* [#136](https://github.com/sei-protocol/sei-tendermint/pull/136) Revert block.Evidence to nested block.Evidence.Evidence
+* [#135](https://github.com/sei-protocol/sei-tendermint/pull/135) Auto switch to blocksync should only start in consensus mode`
+  }, {
+    version: '2.0.48beta',
+    body: `sei-chain
+* [#743](https://github.com/sei-protocol/sei-chain/pull/743) Do not unregister contract if out of rent
+* [#742](https://github.com/sei-protocol/sei-chain/pull/742) Add more metrics to dex module
+* [#733](https://github.com/sei-protocol/sei-chain/pull/733) Remove liquidation logic from dex
+
+sei-cosmos
+* [#235](https://github.com/sei-protocol/sei-cosmos/pull/235) Fix x/simulation fee check
+* [#234](https://github.com/sei-protocol/sei-cosmos/pull/234) Add more metrics for Begin/Mid/End Block
+
+sei-tendermint
+* [#134](https://github.com/sei-protocol/sei-tendermint/pull/134) Fix nil peer address map`
+  }, {
+    version: '2.0.47beta',
+    body: `sei-chain
+* [#726](https://github.com/sei-protocol/sei-chain/pull/726) Fix of dex rent transfer issue
+* [#723](https://github.com/sei-protocol/sei-chain/pull/723) Security CW Patch Cherry
+* [#699](https://github.com/sei-protocol/sei-chain/pull/699) Loadtest update
+* [#716](https://github.com/sei-protocol/sei-chain/pull/716) Sei cluster init script update
+* [#725](https://github.com/sei-protocol/sei-chain/pull/725) DBSync config update
+* [#718](https://github.com/sei-protocol/sei-chain/pull/718) Update mint distribution to be daily
+* [#729](https://github.com/sei-protocol/sei-chain/pull/729) Add gov prop handler for updating current minter
+* [#730](https://github.com/sei-protocol/sei-chain/pull/730) Add README.md for epoch module
+* [#727](https://github.com/sei-protocol/sei-chain/pull/727) Bump max wasm file size to 2MB
+* [#731](https://github.com/sei-protocol/sei-chain/pull/731) Bump for module to module debug logs
+* [#732](https://github.com/sei-protocol/sei-chain/pull/732) Remove x/nitro from genesis version
+
+sei-cosmos
+* [#231](https://github.com/sei-protocol/sei-cosmos/pull/231) Typo for m2m debug message
+* [#230](https://github.com/sei-protocol/sei-cosmos/pull/230) Add debug message for module to module transactions
+* [#228](https://github.com/sei-protocol/sei-cosmos/pull/228) Deprecate LoadLatest flag
+* [#229](https://github.com/sei-protocol/sei-cosmos/pull/229) Replace snapshot manager multistore with new one after DBSync
+
+sei-tendermint
+* [#130](https://github.com/sei-protocol/sei-tendermint/pull/130) Do not run DBSync if there is already a readable app version`
+  }, {
+    version: '2.0.46beta',
+    body: `sei-chain
+* [#694](https://github.com/sei-protocol/sei-chain/pull/694) Register prune command
+* [#702](https://github.com/sei-protocol/sei-chain/pull/702) Change tick failure log to warning
+
+sei-cosmos
+* [#227](https://github.com/sei-protocol/sei-cosmos/pull/227) Add checkTxResponse log to RPCResponse
+* [#224](https://github.com/sei-protocol/sei-cosmos/pull/224) Default to secp256k1
+* [#220](https://github.com/sei-protocol/sei-cosmos/pull/220) Add admin field to base vesting account
+* [#218](https://github.com/sei-protocol/sei-cosmos/pull/218) Restart node instead of panicking
+* [#216](https://github.com/sei-protocol/sei-cosmos/pull/216) Fix pruning command
+
+sei-tendermint
+* [#118](https://github.com/sei-protocol/sei-tendermint/pull/118) Add DBSync module`
+  }, {
+    version: '2.0.45beta',
+    body: `sei-chain
+* [#666](https://github.com/sei-protocol/sei-chain/pull/666) DEX remove BeginBlock/FinalizeBlock sudo hooks
+* [#674](https://github.com/sei-protocol/sei-chain/pull/674) Longterm fix for max gas enforcement
+
+sei-cosmos
+* [#210](https://github.com/sei-protocol/sei-cosmos/pull/210) Add levelDB compaction goroutine
+
+sei-tendermint
+* [#110](https://github.com/sei-protocol/sei-tendermint/pull/110) Add more granular buckets for block interval
+* [#111](https://github.com/sei-protocol/sei-tendermint/pull/111) Add unused prival pubKey back to node info - fix for IBC on full nodes
+* [#113](https://github.com/sei-protocol/sei-tendermint/pull/113) Add metrics label for missing val power`
+  }, {
+    version: '2.0.44beta',
+    body: `sei-chain
+* [#658](https://github.com/sei-protocol/sei-chain/pull/658) Revert EventAttribute fields to byte array
+
+sei-cosmos
+* [#204](https://github.com/sei-protocol/sei-cosmos/pull/204) IBC Compatibility Fix
+
+sei-tendermint
+* IBC Compatibility Fix, Bump default max gas limit, Add metrics & visibility for high block time`
+  }, {
+    version: '2.0.42beta',
+    body: `sei-chain
+* [#670](https://github.com/sei-protocol/sei-chain/pull/670) Add add-wasm-genesis-message to seid
+* [#654](https://github.com/sei-protocol/sei-chain/pull/654) Improve endblock performance and fix trace
+
+sei-cosmos
+* improvements around monitoring for sei-cosmos, dont enforce gas limit on deliverTx, refactor slashing module
+
+sei-tendermint
+* [#95](https://github.com/sei-protocol/sei-tendermint/pull/95) Patch forging empty merkle tree attack vector, set default max gas param to 6mil, log tunning for p2p`
+  }, {
+    version: '2.0.40beta - 2023-03-10',
+    body: `sei-chain
+* [#646](https://github.com/sei-protocol/sei-chain/pull/646) Optimizations for FinalizeBlock
+* [#644](https://github.com/sei-protocol/sei-chain/pull/644) Oak Audit: Add check for non-existent transaction
+* [#647](https://github.com/sei-protocol/sei-chain/pull/647) Fixes to race conditions
+* [#638](https://github.com/sei-protocol/sei-chain/pull/638) Emit Version Related Metrics
+* [#636](https://github.com/sei-protocol/sei-chain/pull/636) Fix deadlock with upgrades
+* [#635](https://github.com/sei-protocol/sei-chain/pull/635) Add event to dex messages`
+  }, {
+    version: '2.0.39beta - 2023-03-06',
+    body: `sei-chain
+* [#632](https://github.com/sei-protocol/sei-chain/pull/632) Bump Sei-tendermint to reduce log volume
+* [#631](https://github.com/sei-protocol/sei-chain/pull/631) Nondeterminism deadlock fixes
+* [#630](https://github.com/sei-protocol/sei-chain/pull/630) Mempool configs to avoid node slow down`
+  }, {
+    version: '2.0.38beta - 2023-03-04',
+    body: `sei-chain
+* [#623](https://github.com/sei-protocol/sei-chain/pull/623) Add new epoch events
+* [#624](https://github.com/sei-protocol/sei-chain/pull/624) Add long messages for dex and mint
+* [#588](https://github.com/sei-protocol/sei-chain/pull/588) Send deposit funds in message server instead of EndBlock
+* [#627](https://github.com/sei-protocol/sei-chain/pull/627) Add slash window progress query
+* [#625](https://github.com/sei-protocol/sei-chain/pull/625) Update contract rent deposit logic + add query endpoint`
+  }, {
+    version: '2.0.37beta - 2023-02-27',
+    body: `sei-chain
+* [#621](https://github.com/sei-protocol/sei-chain/pull/621) Add success count to the oracle query
+* [#600](https://github.com/sei-protocol/sei-chain/pull/600) Add params to guard Nitro fraud challenge
+* [#617](https://github.com/sei-protocol/sei-chain/pull/617) gracefully handle nil response for new provider
+* [#619](https://github.com/sei-protocol/sei-chain/pull/619) Move store operations outside of iterator
+
+sei-tendermint
+* [#73](https://github.com/sei-protocol/sei-tendermint/pull/73) reduce checktx log noise`
+  }, {
+    version: '2.0.36beta - 2023-02-27',
+    body: `sei-chain
+* [#603](https://github.com/sei-protocol/sei-chain/pull/603) Set mempool ttl
+* [#612](https://github.com/sei-protocol/sei-chain/pull/612) Optimistic Processing should finish before main goroutine
+* [#613](https://github.com/sei-protocol/sei-chain/pull/613) Incorporate IAVL change that removes mutex locking
+* Various audit fixes`
+  }];
+  const normVersion = s => (s || '').toLowerCase().replace(/\s+/g, '').replace(/^v/, '');
+  const STATIC_VERSION_NAMES = new Set(STATIC_CHANGELOG.map(entry => normVersion(entry.version)));
+  const [dynamicVersions, setDynamicVersions] = useState([]);
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [isDark, setIsDark] = useState(false);
+  useEffect(() => {
+    const el = document.documentElement;
+    const update = () => setIsDark(el.classList.contains('dark'));
+    update();
+    const obs = new MutationObserver(update);
+    obs.observe(el, {
+      attributes: true,
+      attributeFilter: ['class']
+    });
+    return () => obs.disconnect();
+  }, []);
+  const parseContent = rawContent => {
+    if (!rawContent) return [];
+    const sections = rawContent.split(/^## /gm).slice(1);
+    const merged = new Map();
+    const order = [];
+    for (const section of sections) {
+      const lines = section.split('\n');
+      const version = lines[0]?.trim() || '';
+      const body = lines.slice(1).join('\n').trim();
+      if (!version || STATIC_VERSION_NAMES.has(normVersion(version))) continue;
+      if (merged.has(version)) {
+        const existing = merged.get(version);
+        existing.body += `\n\n${body}`;
+      } else {
+        merged.set(version, {
+          version,
+          body
+        });
+        order.push(version);
+      }
+    }
+    return order.map(v => merged.get(v));
+  };
+  useEffect(() => {
+    fetch('https://raw.githubusercontent.com/sei-protocol/sei-chain/main/CHANGELOG.md').then(res => {
+      if (!res.ok) throw new Error(`Failed to fetch: ${res.status}`);
+      return res.text();
+    }).then(content => {
+      setDynamicVersions(parseContent(content));
+      setLoading(false);
+    }).catch(err => {
+      setError(err.message);
+      setLoading(false);
+    });
+  }, []);
+  const linkBaseStyle = () => ({
+    color: isDark ? 'var(--sei-maroon-25)' : 'var(--sei-maroon-100)',
+    backgroundColor: isDark ? 'rgba(96, 0, 20, 0.2)' : 'var(--sei-grey-25)',
+    fontFamily: 'var(--sei-font-mono)',
+    transition: 'color 0.15s, background-color 0.15s'
+  });
+  const applyLinkHover = (e, hovering) => {
+    if (hovering) {
+      e.currentTarget.style.color = isDark ? 'var(--sei-cream)' : 'var(--sei-maroon-200)';
+      e.currentTarget.style.backgroundColor = isDark ? 'rgba(96, 0, 20, 0.3)' : 'var(--sei-grey-30)';
+    } else {
+      e.currentTarget.style.color = isDark ? 'var(--sei-maroon-25)' : 'var(--sei-maroon-100)';
+      e.currentTarget.style.backgroundColor = isDark ? 'rgba(96, 0, 20, 0.2)' : 'var(--sei-grey-25)';
+    }
+  };
+  const TextWithLinks = ({content, componentName}) => {
+    if (!content) {
+      return <span className="text-base">{content}</span>;
+    }
+    const getRepoUrl = compName => {
+      const repoMap = {
+        'sei-chain': 'sei-protocol/sei-chain',
+        'sei-tendermint': 'sei-protocol/sei-tendermint',
+        'sei-cosmos': 'sei-protocol/sei-cosmos',
+        'sei-db': 'sei-protocol/sei-db',
+        'sei-wasmd': 'sei-protocol/sei-wasmd',
+        'sei-iavl': 'sei-protocol/sei-iavl',
+        'sei-ibc-go': 'sei-protocol/sei-ibc-go',
+        'tm-db': 'sei-protocol/tm-db'
+      };
+      return repoMap[compName] || 'sei-protocol/sei-chain';
+    };
+    const renderLink = (key, href, text, marginClass = 'ml-1') => <a key={key} href={href} target="_blank" rel="noopener noreferrer" className={`px-2 py-0.5 text-sm font-medium no-underline ${marginClass}`} style={linkBaseStyle()} onMouseEnter={e => applyLinkHover(e, true)} onMouseLeave={e => applyLinkHover(e, false)}>
+        {text}
+      </a>;
+    const labelForUrl = url => {
+      if (url.includes('/compare/')) {
+        const m = url.match(/\/compare\/([^/\s]+)/);
+        if (m) return `Compare ${m[1].replace('...', ' → ')}`;
+      } else if (url.includes('/releases/tag/')) {
+        const m = url.match(/\/releases\/tag\/([^/\s]+)/);
+        if (m) return `Release ${m[1]}`;
+      } else if (url.includes('/pull/')) {
+        const m = url.match(/\/pull\/(\d+)/);
+        if (m) return `#${m[1]}`;
+      }
+      return url;
+    };
+    const renderPlainSegment = (text, keyPrefix) => {
+      const stripped = text.replace(/\[/g, '').replace(/\]/g, '');
+      const urlPattern = /(https:\/\/github\.com\/[^\s)]+)/g;
+      const parts = stripped.split(urlPattern);
+      return parts.map((part, i) => {
+        const key = `${keyPrefix}-${i}`;
+        if (part.match(urlPattern)) {
+          return renderLink(key, part, labelForUrl(part));
+        }
+        const compareMatch = part.match(/Compare\s+((?:sei-[a-z]+-)?(v?\d+\.\d+\.\d+(?:\.\d+)?(?:beta|alpha|rc\d*)?(?:-release)?))(?:\s*[→-]\s*|\.\.\.)+(v?\d+\.\d+\.\d+(?:\.\d+)?(?:beta|alpha|rc\d*)?(?:-release)?)/i);
+        if (compareMatch) {
+          const [fullMatch, fromVersion, , toVersion] = compareMatch;
+          const cleanFromVersion = fromVersion.replace(/^sei-[a-z]+-/, '');
+          const cleanToVersion = toVersion.replace(/^sei-[a-z]+-/, '');
+          const repoPath = getRepoUrl(componentName);
+          const compareUrl = `https://github.com/${repoPath}/compare/${cleanFromVersion}...${cleanToVersion}`;
+          return <span key={key}>
+              {part.replace(fullMatch, '')}
+              {renderLink(`${key}-cmp`, compareUrl, `Compare ${cleanFromVersion} → ${cleanToVersion}`)}
+            </span>;
+        }
+        const prParts = part.split(/(\b\d{1,4}\b|#\d+)/g);
+        return <span key={key}>
+            {prParts.map((subPart, j) => {
+          const trimmedPart = subPart.trim();
+          if (trimmedPart.match(/^#\d+$/)) {
+            const num = trimmedPart.slice(1);
+            const prevParts = prParts.slice(0, j).join('');
+            const inlineComponentMatch = prevParts.match(/\b(sei-chain|sei-tendermint|sei-cosmos|sei-db|sei-wasmd|sei-iavl|sei-ibc-go|tm-db)\s*$/i);
+            const effectiveComponent = inlineComponentMatch ? inlineComponentMatch[1] : componentName;
+            const repoPath = getRepoUrl(effectiveComponent);
+            return renderLink(`${key}-${j}`, `https://github.com/${repoPath}/pull/${num}`, `#${num}`);
+          } else if (trimmedPart.match(/^\d{1,4}$/) && parseInt(trimmedPart, 10) > 0) {
+            const prevPart = prParts[j - 1] || '';
+            const nextPart = prParts[j + 1] || '';
+            const followedByNonPR = nextPart.match(/^\s*(hop|limit|version|v\d|\.\d|px|ms|s\b|mb|gb|kb)/i);
+            const precededByNonPR = prevPart.match(/(v|version|\d\.)\s*$/i);
+            const isLikelyPRNumber = (j < 3 || prevPart.includes('•') || prevPart.includes('\n') || prevPart.includes('#')) && !followedByNonPR && !precededByNonPR && parseInt(trimmedPart, 10) >= 10;
+            if (isLikelyPRNumber) {
+              const prevParts = prParts.slice(0, j).join('');
+              const inlineComponentMatch = prevParts.match(/\b(sei-chain|sei-tendermint|sei-cosmos|sei-db|sei-wasmd|sei-iavl|sei-ibc-go|tm-db)\s*$/i);
+              const effectiveComponent = inlineComponentMatch ? inlineComponentMatch[1] : componentName;
+              const repoPath = getRepoUrl(effectiveComponent);
+              return renderLink(`${key}-${j}`, `https://github.com/${repoPath}/pull/${trimmedPart}`, `#${trimmedPart}`, 'mr-1');
+            }
+          }
+          return <span key={`${key}-${j}`}>{subPart}</span>;
+        })}
+          </span>;
+      });
+    };
+    const markdownLinkPattern = /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g;
+    const tokens = content.split(markdownLinkPattern);
+    const nodes = [];
+    for (let i = 0; i < tokens.length; i++) {
+      const mod = i % 3;
+      if (mod === 0) {
+        if (tokens[i]) {
+          nodes.push(<span key={`seg-${i}`}>{renderPlainSegment(tokens[i], `seg-${i}`)}</span>);
+        }
+      } else if (mod === 1) {
+        const label = tokens[i];
+        const url = tokens[i + 1] || '';
+        nodes.push(renderLink(`md-${i}`, url, label));
+      }
+    }
+    return <span className="text-base">{nodes}</span>;
+  };
+  const renderContent = body => {
+    if (!body) {
+      return <div className="text-gray-500 dark:text-white italic py-4">No changes listed</div>;
+    }
+    const sectionComponents = [];
+    const sections = body.split(/^### /gm);
+    for (let i = 1; i < sections.length; i++) {
+      const section = sections[i];
+      const lines = section.split('\n');
+      const sectionName = lines[0]?.trim();
+      if (sectionName) {
+        const bulletPoints = [];
+        for (let j = 1; j < lines.length; j++) {
+          const line = lines[j].trim();
+          if (line.startsWith('*') || line.startsWith('-') || line.startsWith('•')) {
+            const cleanLine = line.replace(/^\*\s*/, '').replace(/^-\s*/, '').replace(/^•\s*/, '');
+            bulletPoints.push(cleanLine);
+          }
+        }
+        if (bulletPoints.length > 0) {
+          sectionComponents.push({
+            name: sectionName,
+            changes: bulletPoints.join('\n* ').replace(/^\* /, '')
+          });
+        }
+      }
+    }
+    if (sectionComponents.length > 0) {
+      return <div className="space-y-6">
+          {sectionComponents.map((comp, i) => <div key={i}>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="flex items-center gap-2 bg-gray-100 px-3 py-1.5">
+                  <div className="w-2 h-2 rounded-full" style={{
+        backgroundColor: 'var(--sei-maroon-100)'
+      }}></div>
+                  <span className="font-medium text-gray-700 dark:text-white text-sm">{comp.name}</span>
+                </div>
+              </div>
+              <div className="space-y-2">
+                {comp.changes.split(/\s*\*\s+/).filter(c => c.trim()).map((change, j) => <div key={j} className="flex items-start gap-3 py-2">
+                      <span className="text-base mt-0.5 text-gray-400">•</span>
+                      <div className="flex-1">
+                        <TextWithLinks content={change.trim()} componentName={comp.name} />
+                      </div>
+                    </div>)}
+              </div>
+            </div>)}
+        </div>;
+    }
+    const componentPattern = /^([a-zA-Z][a-zA-Z0-9-]*):?\s*(?:\(.*\))?\s*$/gm;
+    const componentMatches = Array.from(body.matchAll(componentPattern));
+    const components = [];
+    if (componentMatches.length > 0) {
+      const parts = body.split(/^([a-zA-Z][a-zA-Z0-9-]*):?\s*(?:\(.*\))?\s*$/gm);
+      for (let i = 1; i < parts.length; i += 2) {
+        const compName = parts[i]?.trim().replace(':', '');
+        const compContent = parts[i + 1]?.trim();
+        if (compName && compContent) {
+          const bulletPoints = [];
+          for (const line of compContent.split('\n')) {
+            const trimmedLine = line.trim();
+            if (trimmedLine.startsWith('*') || trimmedLine.startsWith('-') || trimmedLine.startsWith('•')) {
+              const cleanLine = trimmedLine.replace(/^\*\s*/, '').replace(/^-\s*/, '').replace(/^•\s*/, '');
+              bulletPoints.push(cleanLine);
+            } else if (trimmedLine && !trimmedLine.match(/^[a-zA-Z][a-zA-Z0-9-]*:?\s*(?:\(.*\))?\s*$/)) {
+              bulletPoints.push(trimmedLine);
+            }
+          }
+          if (bulletPoints.length > 0) {
+            components.push({
+              name: compName,
+              changes: bulletPoints.join('\n* ').replace(/^\* /, '')
+            });
+          }
+        }
+      }
+    }
+    if (components.length > 0) {
+      return <div className="space-y-6">
+          {components.map((comp, i) => <div key={i}>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="flex items-center gap-2 bg-slate-100 px-3 py-1.5">
+                  <div className="w-2 h-2 rounded-full" style={{
+        backgroundColor: 'var(--sei-maroon-100)'
+      }}></div>
+                  <span className="font-medium text-slate-700 text-sm">{comp.name}</span>
+                </div>
+              </div>
+              <div className="space-y-2">
+                {comp.changes.split(/\s*\*\s+/).filter(c => c.trim()).map((change, j) => <div key={j} className="flex items-start gap-3 py-2">
+                      <span className="text-base mt-0.5 text-gray-400">•</span>
+                      <div className="flex-1">
+                        <TextWithLinks content={change.trim()} componentName={comp.name} />
+                      </div>
+                    </div>)}
+              </div>
+            </div>)}
+        </div>;
+    }
+    const fallbackLines = body.split('\n').map(l => l.trim().replace(/^\*\s*/, '').replace(/^-\s*/, '').replace(/^•\s*/, '')).filter(l => l);
+    return <div className="space-y-2">
+        {fallbackLines.map((line, i) => <div key={i} className="flex items-start gap-3 py-2">
+            <span className="text-base mt-0.5 text-gray-400">•</span>
+            <div className="flex-1">
+              <TextWithLinks content={line} componentName="sei-chain" />
+            </div>
+          </div>)}
+      </div>;
+  };
+  const staticVersions = STATIC_CHANGELOG.map(entry => ({
+    version: entry.version,
+    body: entry.body
+  }));
+  const versions = [...dynamicVersions, ...staticVersions];
+  if (error) {
+    return <div>
+        <div className="my-4 p-4 border border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200 text-sm">
+          Failed to load latest changelog: {error}. Showing cached versions below.
+        </div>
+        <div className="changelog-content">
+          {staticVersions.map(version => <div key={version.version} className="mb-8">
+              <div className="flex items-center gap-3 mb-4">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white m-0">{version.version}</h2>
+                <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">Release</span>
+              </div>
+              <div className="space-y-4">{renderContent(version.body)}</div>
+            </div>)}
+        </div>
+      </div>;
+  }
+  return <div>
+      <div className="flex items-center justify-between mb-2 pb-4 mt-4">
+        <a href="https://github.com/sei-protocol/sei-chain/blob/main/CHANGELOG.md" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-sm px-3 py-1.5 font-medium no-underline" style={{
+    color: isDark ? 'var(--sei-maroon-25)' : 'var(--sei-maroon-100)',
+    backgroundColor: isDark ? 'rgba(96, 0, 20, 0.2)' : 'var(--sei-grey-25)',
+    transition: 'color 0.15s, background-color 0.15s'
+  }} onMouseEnter={e => {
+    e.currentTarget.style.color = isDark ? 'var(--sei-cream)' : 'var(--sei-maroon-200)';
+    e.currentTarget.style.backgroundColor = isDark ? 'rgba(96, 0, 20, 0.3)' : 'var(--sei-grey-30)';
+  }} onMouseLeave={e => {
+    e.currentTarget.style.color = isDark ? 'var(--sei-maroon-25)' : 'var(--sei-maroon-100)';
+    e.currentTarget.style.backgroundColor = isDark ? 'rgba(96, 0, 20, 0.2)' : 'var(--sei-grey-25)';
+  }}>
+          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M10 0C4.477 0 0 4.484 0 10.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0110 4.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.203 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.942.359.31.678.921.678 1.856 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0020 10.017C20 4.484 15.522 0 10 0z" clipRule="evenodd" />
+          </svg>
+          View on GitHub
+        </a>
+        {loading && <span className="inline-flex items-center text-xs text-neutral-500 dark:text-neutral-400">
+            <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-r-transparent mr-2" />
+            Checking for the latest releases…
+          </span>}
+      </div>
+
+      <div className="changelog-content">
+        {versions.map(version => <div key={version.version} className="mb-8">
+            <div className="flex items-center gap-3 mb-4">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white m-0">{version.version}</h2>
+              <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">Release</span>
+            </div>
+            <div className="space-y-4">{renderContent(version.body)}</div>
+          </div>)}
+      </div>
+    </div>;
+};
+
 Stay up-to-date with the latest changes, improvements, and new features in Sei.
 
 <Info>This changelog is automatically synced from the [sei-chain repository](https://github.com/sei-protocol/sei-chain/blob/main/CHANGELOG.md). For the most up-to-date information, you can also view the changelog directly on GitHub.</Info>
@@ -7434,7 +9312,7 @@ Stay up-to-date with the latest changes, improvements, and new features in Sei.
 
 ## Latest Changes
 
-<iframe src="https://sei-widgets.vercel.app/changelog" style={{ width: "100%", minHeight: "800px", border: "0" }} loading="lazy" title="Sei changelog" />
+<Changelog />
 
 ---
 
@@ -7448,7 +9326,7 @@ URL: https://docs.sei.io/evm/sei-global-wallet
 
 Sei Global Wallet is a cross-application embedded crypto wallet powered by [Dynamic Global Wallets](https://www.dynamic.xyz/docs/react/global-wallets/overview). It gives users a persistent wallet experience across any integrated app within the Sei ecosystem, allowing them to authenticate and interact using familiar login methods like Google, Twitter, or Telegram—no browser extension or prior crypto knowledge required.
 
-<Info>Additional auth methods such as existing wallet apps (Metamask, ..) are possible through Dynamic, but are not currently enabled</Info>
+<Info>Additional auth methods such as existing wallet apps (MetaMask, ..) are possible through Dynamic, but are not currently enabled</Info>
 
 ## What is Sei Global Wallet?
 
@@ -7505,7 +9383,7 @@ Import the package to register the wallet:
 import '@sei-js/sei-global-wallet/eip6963';
 ```
 
-<Warning>**Important:** Simply importing the package registers the wallet for discovery, but you'll need to ensure your application's provider stack is properly configured to interact with it. Most wallet connection libraries that support EIP-6963 will automatically detect the wallet after import.</Warning>
+<Warning>**Important:** Importing the package registers the wallet for discovery, but you'll need to ensure your application's provider stack is properly configured to interact with it. Most wallet connection libraries that support EIP-6963 will automatically detect the wallet after import.</Warning>
 
 ***
 
@@ -10084,7 +11962,7 @@ OpenZeppelin provides a library of secure, tested smart contract components that
     import { network } from 'hardhat';
 
     // Hardhat 3 exposes ethers through a network connection rather than a global import
-    const { ethers } = await network.getOrCreate();
+    const { ethers } = await network.create();
 
     const [deployer] = await ethers.getSigners();
     console.log('Deploying contracts with the account:', deployer.address);
@@ -10196,7 +12074,7 @@ OpenZeppelin provides a library of secure, tested smart contract components that
     ```typescript title="scripts/deploy-upgradeable-token.ts" theme={"dark"}
     import { network } from 'hardhat';
 
-    const { ethers } = await network.getOrCreate();
+    const { ethers } = await network.create();
 
     const [deployer] = await ethers.getSigners();
     console.log('Deploying contracts with the account:', deployer.address);
@@ -10260,7 +12138,7 @@ OpenZeppelin provides a library of secure, tested smart contract components that
     ```typescript title="scripts/upgrade-token.ts" theme={"dark"}
     import { network } from 'hardhat';
 
-    const { ethers } = await network.getOrCreate();
+    const { ethers } = await network.create();
 
     // !! REPLACE WITH YOUR PROXY ADDRESS from the deploy step !!
     const PROXY_ADDRESS = '0xYOUR_PROXY_CONTRACT_ADDRESS_HERE';
@@ -10309,7 +12187,7 @@ describe('SeiToken', function () {
 
   beforeEach(async function () {
     // Hardhat 3 exposes ethers through a network connection
-    ({ ethers } = await network.getOrCreate());
+    ({ ethers } = await network.create());
 
     // Get signers
     [owner, addr1, addr2] = await ethers.getSigners();
@@ -10380,7 +12258,7 @@ npx hardhat test
 
 Once you've tested your contracts, you can deploy them to the Sei testnet or mainnet. To deploy, you'll need:
 
-1. SEI tokens in your wallet for gas fees
+1. SEI tokens in your wallet for gas
 2. Your private key stored in the encrypted keystore (`npx hardhat keystore set SEI_PRIVATE_KEY`) — or exported as a `SEI_PRIVATE_KEY` environment variable in CI
 
 Deploy to the testnet:
@@ -10430,7 +12308,7 @@ Before we begin, ensure you have the following:
 
 * [Foundry](https://book.getfoundry.sh/) installed on your system
 * A basic understanding of Solidity and smart contract development
-* A wallet with SEI tokens for gas fees
+* A wallet with SEI tokens for gas
 * [Node.js](https://nodejs.org/) (v18.0.0 or later) for ethers.js interactions
 
 ## Setting Up Your Development Environment
@@ -14384,7 +16262,7 @@ Before getting started, ensure you have:
 * **Node.js** (v18 or higher)
 * **npm** or **yarn** package manager
 * **MetaMask** or compatible EVM wallet configured for Sei Mainnet
-* **SEI tokens** for gas fees and governance deposits (minimum 3,500 SEI for proposals)
+* **SEI tokens** for gas and governance deposits (minimum 3,500 SEI for proposals)
 
 #### Install Dependencies
 
@@ -14420,7 +16298,7 @@ Purchase SEI tokens from supported exchanges:
 * **Decentralized Exchanges:** Astroport, Dragonswap (on Sei)
 * **Bridge Options:** Various cross-chain bridges support SEI
 
-<Warning>**Minimum Requirements:** You need at least 3,500 SEI to submit a governance proposal, plus additional tokens for gas fees and potential additional deposits.</Warning>
+<Warning>**Minimum Requirements:** You need at least 3,500 SEI to submit a governance proposal, plus additional tokens for gas and potential additional deposits.</Warning>
 
 ### Contract Initialization
 
@@ -15170,7 +17048,7 @@ PRIVATE_KEY=your_private_key_here
 5. **Ensure you have sufficient SEI:**
 
    * Minimum 3,500 SEI for proposal deposit
-   * Additional SEI for gas fees and optional additional deposits
+   * Additional SEI for gas and optional additional deposits
    * Staked SEI for voting power
 
 6. **Run the script:**
@@ -15449,7 +17327,7 @@ Before getting started, ensure you have:
 * **Node.js** (v18 or higher)
 * **npm** or **yarn** package manager
 * **MetaMask** or compatible EVM wallet configured for Sei Mainnet
-* **SEI tokens** for gas fees
+* **SEI tokens** for gas
 
 #### Install Dependencies
 
@@ -15894,7 +17772,7 @@ PRIVATE_KEY=your_private_key_here
 
 5. **Ensure you have SEI tokens:**
 
-   * SEI for gas fees (small amounts needed for view functions)
+   * SEI for gas (small amounts needed for view functions)
 
 6. **Run the script:**
 
@@ -16552,7 +18430,7 @@ Before getting started, ensure you have:
 * **Node.js** (v18 or higher)
 * **npm** or **yarn** package manager
 * **EVM-compatible wallet**
-* **SEI tokens** for gas fees and staking operations
+* **SEI tokens** for gas and staking operations
 
 #### Install Dependencies
 
@@ -18172,7 +20050,7 @@ Before getting started, ensure you have:
 * **Node.js** (v18 or higher)
 * **npm** or **yarn** package manager
 * **EVM-compatible wallet**
-* **SEI tokens** for gas fees
+* **SEI tokens** for gas
 * **Hardhat** development environment set up
 
 #### Install Dependencies
@@ -18954,7 +20832,7 @@ Before getting started, ensure you have:
 * **Node.js** (v18 or higher)
 * **npm** or **yarn** package manager
 * **EVM-compatible wallet**
-* **SEI tokens** for gas fees and testing transfers
+* **SEI tokens** for gas and testing transfers
 * **Hardhat** for development and testing
 
 #### Install Dependencies
@@ -19130,7 +21008,7 @@ npx hardhat keystore set PRIVATE_KEY
       });
 
       const receipt = await tx.wait();
-      console.log('Native SEI transfer successful:', receipt.transactionHash);
+      console.log('Native SEI transfer successful:', receipt.hash);
       console.log(`Sent ${amountInSei} SEI to ${recipientAddress}`);
     } catch (error) {
       console.error('Native SEI transfer failed:', error);
@@ -19184,7 +21062,7 @@ npx hardhat keystore set PRIVATE_KEY
     );
 
     const receipt = await tx.wait();
-    console.log('Custom token transfer successful:', receipt.transactionHash);
+    console.log('Custom token transfer successful:', receipt.hash);
     console.log(`Sent ${amount} ${tokenDenom} from ${fromAddress} to ${toAddress}`);
     ```
   </Tab>
@@ -19458,16 +21336,16 @@ npx hardhat keystore set PRIVATE_KEY
       // Send native SEI tokens
       async sendSei(recipientAddress: string, amountInSei: string) {
         try {
-          const amountInUsei = ethers.parseUnits(amountInSei, 18);
+          const amountInWei = ethers.parseUnits(amountInSei, 18);
           const tx = await this.bank.sendNative(recipientAddress, {
-            value: amountInUsei,
+            value: amountInWei,
             gasLimit: 100000
           });
 
           const receipt = await tx.wait();
           return {
             success: true,
-            transactionHash: receipt.transactionHash,
+            transactionHash: receipt.hash,
             amount: amountInSei,
             recipient: recipientAddress
           };
@@ -19530,7 +21408,7 @@ npx hardhat keystore set PRIVATE_KEY
           const receipt = await tx.wait();
           return {
             success: true,
-            transactionHash: receipt.transactionHash,
+            transactionHash: receipt.hash,
             from: fromAddress,
             to: toAddress,
             denom,
@@ -20113,7 +21991,7 @@ Before getting started, ensure you have:
 * **Node.js** (v18 or higher)
 * **npm** or **yarn** package manager
 * **EVM-compatible wallet**
-* **SEI tokens** for gas fees and contract operations
+* **SEI tokens** for gas and contract operations
 
 #### Install Dependencies
 
@@ -20818,7 +22696,7 @@ URL: https://docs.sei.io/evm/sei-js
 
 * **Complete TypeScript support** — Full type safety for every function, contract interaction, and API response. Catch errors at compile time.
 * **Production ready** — Battle-tested components used by major applications in the Sei ecosystem.
-* **Optimized for Sei** — Take advantage of Sei's fast finality, low gas fees, and native features.
+* **Optimized for Sei** — Take advantage of Sei's fast finality, low gas, and native features.
 
 ## Package Ecosystem
 
@@ -23555,7 +25433,7 @@ Index Sei smart contract data using Envio, a modular hyper-performant data index
 | HyperSync URL Endpoint | `https://sei.hypersync.xyz` or `https://1329.hypersync.xyz`         |
 | HyperRPC URL Endpoint  | `https://sei.rpc.hypersync.xyz` or `https://1329.rpc.hypersync.xyz` |
 
-> Sei testnet is also supported, with HyperSync at [https://sei-testnet.hypersync.xyz](https://sei-testnet.hypersync.xyz) and HyperRPC at [https://sei-testnet.rpc.hypersync.xyz](https://sei-testnet.rpc.hypersync.xyz).
+> Sei testnet is also supported, with HyperSync at `https://sei-testnet.hypersync.xyz` and HyperRPC at `https://sei-testnet.rpc.hypersync.xyz`.
 
 ## Choosing a Product
 
@@ -23832,7 +25710,7 @@ You'll be prompted to provide some info on your subgraph like this:
 
 *CLI*
 
-Simply have your contract verified on the block explorer and the CLI will
+Have your contract verified on the block explorer and the CLI will
 automatically obtain the ABI and set up your subgraph. The default settings will
 generate an entity for each event.
 
@@ -23914,7 +25792,7 @@ by Messari:
 The query URL for this subgraph is:
 `https://gateway-arbitrum.network.thegraph.com/api/`**\[api-key]**`/subgraphs/id/HdVdERFUe8h61vm2fDyycHgxjsde5PbB832NHgJfZNqK`
 
-Now, you simply need to fill in your own API Key to start sending GraphQL
+Now, you need to fill in your own API Key to start sending GraphQL
 queries to this endpoint.
 
 ### Getting your own API Key
@@ -25051,7 +26929,7 @@ main();
 
 ## Working with Testnet
 
-<Warning>To switch to Sei testnet, simply change the chain ID in your API calls.</Warning>
+<Warning>To switch to Sei testnet, change the chain ID in your API calls.</Warning>
 
 ```typescript theme={"dark"}
 // Testnet configuration
@@ -25713,7 +27591,7 @@ You've now learned how to:
 * Create a smart account
 * Send gasless transactions
 
-This implementation enables a seamless user experience where end users don't need to worry about gas fees or managing native tokens to interact with your dApp.
+This implementation enables a seamless user experience where end users don't need to worry about gas or managing native tokens to interact with your dApp.
 
 For more information about Pimlico and its features, check out:
 
@@ -26081,7 +27959,7 @@ npm run dev
 1. Open your browser and navigate to `http://localhost:5173`
 2. Click "Connect to Sei Network"
 3. Choose your preferred login method (Google, email, etc.)
-4. A smart wallet is automatically created for you (no gas fees!)
+4. A smart wallet is automatically created for you (no gas!)
 5. After connecting, you'll see three interaction buttons
 6. Try storing number 37 or a custom number
 7. Retrieve the stored value - all transactions are gasless!
@@ -26753,7 +28631,7 @@ This guide provides a comprehensive, step-by-step tutorial for integrating Layer
 
 * Basic knowledge of Solidity and smart contracts
 * Node.js and npm installed
-* A wallet with SEI and other chain tokens for gas fees
+* A wallet with SEI and other chain tokens for gas
 * Familiarity with Hardhat or Foundry
 
 ## What is LayerZero?
@@ -30089,7 +31967,7 @@ EVM transactions in Sei follow the Ethereum transaction format with standard pro
     | `nonce`                | A sequentially incrementing counter that indicates the transaction number from the account. This prevents replay attacks and ensures transaction ordering.                                                    |
     | `data`                 | The input data (also called 'input' or 'calldata') for contract execution. For simple transfers, this is usually empty. For contract interactions, this contains the function selector and encoded arguments. |
     | `value`                | Amount of SEI to transfer from sender to recipient (denominated in WEI, where 1 SEI equals 1e+18 WEI).                                                                                                        |
-    | `gasLimit`             | The maximum amount of gas units that can be consumed by the transaction. Often referred to simply as 'gas' in transaction objects.                                                                            |
+    | `gasLimit`             | The maximum amount of gas units that can be consumed by the transaction. Often referred to as 'gas' in transaction objects.                                                                                   |
     | `maxPriorityFeePerGas` | The maximum price of the consumed gas to be included as a tip to the validator (denominated in WEI). Used in EIP-1559 transactions.                                                                           |
     | `maxFeePerGas`         | The maximum fee per unit of gas willing to be paid for the transaction (inclusive of baseFeePerGas and maxPriorityFeePerGas). Used in EIP-1559 transactions.                                                  |
     | `gasPrice`             | The price per unit of gas the sender is willing to pay (denominated in WEI). Used in legacy transactions.                                                                                                     |
@@ -31302,6 +33180,705 @@ URL: https://docs.sei.io/evm/ecosystem-contracts
 
 > Comprehensive registry of smart contract addresses for projects building on Sei. Find verified contract addresses organized by project.
 
+export const EcosystemContracts = () => {
+  const ECOSYSTEM_CONTRACTS_DATA = [{
+    Protocol: 'Common',
+    'Contract Address': '0xB952578f3520EE8Ea45b7914994dcf4702cEe578',
+    'Contract Name': 'Permit2'
+  }, {
+    Protocol: 'Common',
+    'Contract Address': '0xcA11bde05977b3631167028862bE2a173976CA11',
+    'Contract Name': 'Multicall3'
+  }, {
+    Protocol: 'Common',
+    'Contract Address': '0x0000000000FFe8B47B3e2130213B802212439497',
+    'Contract Name': 'ImmutableCreate2Factory'
+  }, {
+    Protocol: 'Common',
+    'Contract Address': '0xce0042B868300000d44A59004Da54A005ffdcf9f',
+    'Contract Name': 'SingletonFactory'
+  }, {
+    Protocol: 'Common',
+    'Contract Address': '0xba5Ed099633D3B313e4D5F7bdc1305d3c28ba5Ed',
+    'Contract Name': 'CreateX'
+  }, {
+    Protocol: 'Account Abstraction',
+    'Contract Address': '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789',
+    'Contract Name': 'EntryPoint v0.6.0'
+  }, {
+    Protocol: 'Account Abstraction',
+    'Contract Address': '0x0000000071727De22E5E9d8BAf0edAc6f37da032',
+    'Contract Name': 'EntryPoint v0.7.0'
+  }, {
+    Protocol: 'Account Abstraction',
+    'Contract Address': '0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108',
+    'Contract Name': 'EntryPoint v0.8.0 (+ EIP-7702)'
+  }, {
+    Protocol: 'Account Abstraction',
+    'Contract Address': '0x433709009B8330FDa32311DF1C2AFA402eD8D009',
+    'Contract Name': 'EntryPoint v0.9.0 (+ EIP-7702)'
+  }, {
+    Protocol: 'Account Abstraction',
+    'Contract Address': '0x0A630a99Df908A81115A3022927Be82f9299987e',
+    'Contract Name': 'SenderCreator v0.9'
+  }, {
+    Protocol: 'Saphyre',
+    'Contract Address': '0x11da6463d6cb5a03411dbf5ab6f6bc3997ac7428',
+    'Contract Name': 'SwapRouter02'
+  }, {
+    Protocol: 'Saphyre',
+    'Contract Address': '0x179d9a5592bc77050796f7be28058c51ca575df4',
+    'Contract Name': 'DragonswapV2Factory'
+  }, {
+    Protocol: 'Saphyre',
+    'Contract Address': '0xe30fedd158a2e3b13e9badaeabafc5516e95e8c7',
+    'Contract Name': 'WSEI'
+  }, {
+    Protocol: 'Saphyre',
+    'Contract Address': '0x71f6b49ae1558357bbb5a6074f1143c46cbca03d',
+    'Contract Name': 'DragonswapFactory'
+  }, {
+    Protocol: 'Saphyre',
+    'Contract Address': '0x150b4A3088dFB06d92531D1cCa6E980FB9a270e1',
+    'Contract Name': 'Dragonswap DS ERC 20'
+  }, {
+    Protocol: 'Saphyre',
+    'Contract Address': '0xa4cf2f53d1195addde9e4d3aca54f556895712f2',
+    'Contract Name': 'DragonswapRouter'
+  }, {
+    Protocol: 'Stargate',
+    'Contract Address': '0xDe48600aA18Ae707f5D57e0FaafEC7C118ABaeb2',
+    'Contract Name': 'FeeLibV1'
+  }, {
+    Protocol: 'Stargate',
+    'Contract Address': '0x45d417612e177672958dc0537c45a8f8d754ac2e',
+    'Contract Name': 'StargatePoolUSDC'
+  }, {
+    Protocol: 'Stargate',
+    'Contract Address': '0x873cfB4bAe1Ab6A5DE753400e9d0616e10Dced22',
+    'Contract Name': 'Treasurer'
+  }, {
+    Protocol: 'Stargate',
+    'Contract Address': '0x0db9afb4c33be43a0a0e396fd1383b4ea97ab10a',
+    'Contract Name': 'StargatePoolMigratable'
+  }, {
+    Protocol: 'Stargate',
+    'Contract Address': '0x1502FA4be69d526124D453619276FacCab275d3D',
+    'Contract Name': 'TokenMessaging'
+  }, {
+    Protocol: 'Stargate',
+    'Contract Address': '0x5c386D85b1B82FD9Db681b9176C8a4248bb6345B',
+    'Contract Name': 'StargateOFT'
+  }, {
+    Protocol: 'YEI',
+    'Contract Address': '0x8138da4417340594aeea4be8fbc7693d9875b6cb',
+    'Contract Name': 'PoolAddressesProviderRegistry'
+  }, {
+    Protocol: 'YEI',
+    'Contract Address': '0x5c57266688a4ad1d3ab61209ebcb967b84227642',
+    'Contract Name': 'PoolAddressesProvider'
+  }, {
+    Protocol: 'YEI',
+    'Contract Address': '0xa1ce28cebab91d8df346d19970e4ee69a6989734',
+    'Contract Name': 'AaveOracle'
+  }, {
+    Protocol: 'YEI',
+    'Contract Address': '0x127201e84ad4ee06ec15104cf083696d6354f8dd',
+    'Contract Name': 'PullRewardsTransferStrategy'
+  }, {
+    Protocol: 'YEI',
+    'Contract Address': '0x4ec5e3f9a32aabd6af62b9a22188f429d65f39c7',
+    'Contract Name': 'CollectorController'
+  }, {
+    Protocol: 'YEI',
+    'Contract Address': '0xbf63c919a8c15f4741e75c232c7be0d0af4d1d05',
+    'Contract Name': 'InitializableAdminUpgradeabilityProxy'
+  }, {
+    Protocol: 'YEI',
+    'Contract Address': '0x69ea2c310a950e58984f4bec4accf2ece391dafd',
+    'Contract Name': 'EmissionManager'
+  }, {
+    Protocol: 'YEI',
+    'Contract Address': '0xd078c43f88fbed47b3ce16dc361606b594c8f305',
+    'Contract Name': 'Pool'
+  }, {
+    Protocol: 'YEI',
+    'Contract Address': '0x800f3e929686ec90eeaabb8b98ed1eff126d532c',
+    'Contract Name': 'Collector'
+  }, {
+    Protocol: 'YEI',
+    'Contract Address': '0x60c82a40c57736a9c692c42e87a8849fb407f0d6',
+    'Contract Name': 'AaveProtocolDataProvider'
+  }, {
+    Protocol: 'YEI',
+    'Contract Address': '0xf8157786e3401a7377becb7af288b84c8ee614e1',
+    'Contract Name': 'InitializableImmutableAdminUpgradeabilityProxy'
+  }, {
+    Protocol: 'YEI',
+    'Contract Address': '0x241995b768c1ae629eb5a6f3749c6e7b8c4d47f2',
+    'Contract Name': 'ACLManager'
+  }, {
+    Protocol: 'CarbonDeFi',
+    'Contract Address': '0xe4816658ad10bF215053C533cceAe3f59e1f1087',
+    'Contract Name': 'Carbon Controller'
+  }, {
+    Protocol: 'oku.trade',
+    'Contract Address': '0x75FC67473A91335B5b8F8821277262a13B38c9b3',
+    'Contract Name': 'v3 Core Factory'
+  }, {
+    Protocol: 'oku.trade',
+    'Contract Address': '0xa683c66045ad16abb1bCE5ad46A64d95f9A25785',
+    'Contract Name': 'Universal Router'
+  }, {
+    Protocol: 'oku.trade',
+    'Contract Address': '0xB3309C48F8407651D918ca3Da4C45DE40109E641',
+    'Contract Name': 'Proxy Admin'
+  }, {
+    Protocol: 'oku.trade',
+    'Contract Address': '0xE3dbcD53f4Ce1b06Ab200f4912BD35672e68f1FA',
+    'Contract Name': 'Tick Lens'
+  }, {
+    Protocol: 'oku.trade',
+    'Contract Address': '0x454050C4c9190390981Ac4b8d5AFcd7aC65eEffa',
+    'Contract Name': 'NFT Descriptor Library V1.3.0'
+  }, {
+    Protocol: 'oku.trade',
+    'Contract Address': '0x38EB9e62ABe4d3F70C0e161971F29593b8aE29FF',
+    'Contract Name': 'Nonfungible Token Position Descriptor V1.3.0'
+  }, {
+    Protocol: 'oku.trade',
+    'Contract Address': '0x743E03cceB4af2efA3CC76838f6E8B50B63F184c',
+    'Contract Name': 'Descriptor Proxy'
+  }, {
+    Protocol: 'oku.trade',
+    'Contract Address': '0x8B3c541c30f9b29560f56B9E44b59718916B69EF',
+    'Contract Name': 'Nonfungible Token Position Manager'
+  }, {
+    Protocol: 'oku.trade',
+    'Contract Address': '0x6Aa54a43d7eEF5b239a18eed3Af4877f46522BCA',
+    'Contract Name': 'v3 Migrator'
+  }, {
+    Protocol: 'oku.trade',
+    'Contract Address': '0xaa52bB8110fE38D0d2d2AF0B85C3A3eE622CA455',
+    'Contract Name': 'v3 Staker'
+  }, {
+    Protocol: 'oku.trade',
+    'Contract Address': '0x807F4E281B7A3B324825C64ca53c69F0b418dE40',
+    'Contract Name': 'Quoter V2'
+  }, {
+    Protocol: 'oku.trade',
+    'Contract Address': '0xdD489C75be1039ec7d843A6aC2Fd658350B067Cf',
+    'Contract Name': 'Swap Router02'
+  }, {
+    Protocol: 'oku.trade',
+    'Contract Address': '0xA9d71E1dd7ca26F26e656E66d6AA81ed7f745bf0',
+    'Contract Name': 'Limit order registry'
+  }, {
+    Protocol: 'JellyVerse',
+    'Contract Address': '0xfb43069f6d0473b85686a85f4ce4fc1fd8f00875',
+    'Contract Name': 'Vault'
+  }, {
+    Protocol: 'Takara Lend',
+    'Contract Address': '0x56A171Acb1bBa46D4fdF21AfBE89377574B8D9BD',
+    'Contract Name': 'Comptroller'
+  }, {
+    Protocol: 'Takara Lend',
+    'Contract Address': '0x71034bf5eC0FAd7aEE81a213403c8892F3d8CAeE',
+    'Contract Name': 'Unitroller'
+  }, {
+    Protocol: 'Takara Lend',
+    'Contract Address': '0x323917A279B209754B32Ab57a817c64ECfE2AF40',
+    'Contract Name': 'MarketState'
+  }, {
+    Protocol: 'Takara Lend',
+    'Contract Address': '0x68A92Be349d48766128C0Ae893Fc391859F9BC11',
+    'Contract Name': 'MultiRewardDistributor'
+  }, {
+    Protocol: 'Takara Lend',
+    'Contract Address': '0x8DF1265bFb778fFD08341c63e7C67367c0a60288',
+    'Contract Name': 'ProxyAdmin'
+  }, {
+    Protocol: 'Pit',
+    'Contract Address': '0x5512D5E89a29447462Ab6BBBcbD3fe6F0A0D9FDd',
+    'Contract Name': 'vaultOriginalAddress'
+  }, {
+    Protocol: 'Pit',
+    'Contract Address': '0x6944BfDAcD00957715eCBCeAac3F49e07cB6f35F',
+    'Contract Name': 'vaultFactoryAddress'
+  }, {
+    Protocol: 'Pit',
+    'Contract Address': '0x7c96Bf5203fA1584A81f160B9445EAB02bfa3E7B',
+    'Contract Name': 'tokenizedStrategyAddress'
+  }, {
+    Protocol: 'Pit',
+    'Contract Address': '0xE560fC83EA78028a95CCAb1ECD45039fFB62301C',
+    'Contract Name': 'registryAddress'
+  }, {
+    Protocol: 'Pit',
+    'Contract Address': '0x43e60c59567996C5a1b27ca8719ADF6CA2bC407B',
+    'Contract Name': 'releaseRegistryAddress'
+  }, {
+    Protocol: 'Pit',
+    'Contract Address': '0x79756b033390232a5A55B5D6571a7Bc1b11A2b93',
+    'Contract Name': 'accountantAddress'
+  }, {
+    Protocol: 'Pit',
+    'Contract Address': '0x07428D1CdC20Ce70Ac5D06E44CCB9920F99ab447',
+    'Contract Name': 'accountantFactoryAddress'
+  }, {
+    Protocol: 'Pit',
+    'Contract Address': '0x9CDdFFc79Ba597CCBBd6da6a81Cc1b1ef29FB4de',
+    'Contract Name': 'keeperAddress'
+  }, {
+    Protocol: 'Pit',
+    'Contract Address': '0xed6A3CD7591Df25bC92E42381d9c53E041B5ACAa',
+    'Contract Name': 'baseAprOracleAddress'
+  }, {
+    Protocol: 'Pit',
+    'Contract Address': '0xdF7F9020800c2B444ad524982Fc6cA5A30915811',
+    'Contract Name': 'aaveStrategyAprOracleAddress'
+  }, {
+    Protocol: 'Pit',
+    'Contract Address': '0x63E37028c1740303e8456962E6ddf98359FE0BDc',
+    'Contract Name': 'vault-PITv1-AAVEv3-WSEI-LENDER-POOL'
+  }, {
+    Protocol: 'Pit',
+    'Contract Address': '0x0044f5f3F121beB7ef11c6cfBc45a56e80adFd6B',
+    'Contract Name': 'strategy-PITv1-AAVEv3-WSEI-LENDER-POOL'
+  }, {
+    Protocol: 'Pit',
+    'Contract Address': '0x0f9BaCD61cf1fd9d038F41a8380dBd7A826470A7',
+    'Contract Name': 'rewards-escrow-PITv1-AAVEv3-WSEI-LENDER-POOL'
+  }, {
+    Protocol: 'Pit',
+    'Contract Address': '0x1e3BcEb9AD3dc3f80820d29039C1A46e28d3A573',
+    'Contract Name': 'vault-PITv1-AAVEv3-USDT-LENDER-POOL'
+  }, {
+    Protocol: 'Pit',
+    'Contract Address': '0x5E2BAF273586F747e406eB0fD0CAdAECe0f479Da',
+    'Contract Name': 'strategy-PITv1-AAVEv3-USDT-LENDER-POOL'
+  }, {
+    Protocol: 'Pit',
+    'Contract Address': '0x3aEC64F4e285cFFD50605EB962455159d436d31B',
+    'Contract Name': 'rewards-escrow-PITv1-AAVEv3-USDT-LENDER-POOL'
+  }, {
+    Protocol: 'Pit',
+    'Contract Address': '0x575E2291C6FDe8eEf7284CBd7Ff17615de75c47B',
+    'Contract Name': 'vault-PITv1-AAVEv3-USDC-LENDER-POOL'
+  }, {
+    Protocol: 'Pit',
+    'Contract Address': '0x1eB5B573852897831414Fbd607c214EdB9b0B7Dd',
+    'Contract Name': 'strategy-PITv1-AAVEv3-USDC-LENDER-POOL'
+  }, {
+    Protocol: 'Pit',
+    'Contract Address': '0x318253deCE357Ef0f75428C7369A180D60FD0971',
+    'Contract Name': 'rewards-escrow-PITv1-AAVEv3-USDC-LENDER-POOL'
+  }, {
+    Protocol: 'Pit',
+    'Contract Address': '0x49561C4a905f7acCdaCAec5e3C17113d5f1C5a3b',
+    'Contract Name': 'vault-PITv1-AAVEv3-iSEI-LENDER-POOL'
+  }, {
+    Protocol: 'Pit',
+    'Contract Address': '0xA4A3B54665A5ef21ac5B294b8945Dd130aC6E5fc',
+    'Contract Name': 'strategy-PITv1-AAVEv3-iSEI-LENDER-POOL'
+  }, {
+    Protocol: 'Pit',
+    'Contract Address': '0x130c58f93cE57121c97F524CD5171BDd258f4314',
+    'Contract Name': 'rewards-escrow-PITv1-AAVEv3-iSEI-LENDER-POOL'
+  }, {
+    Protocol: 'Pit',
+    'Contract Address': '0xE8d7f53173BB5D0C898e4D576E4E297cB2859472',
+    'Contract Name': 'vault-PITv1-AAVEv3-FRAX-LENDER-POOL'
+  }, {
+    Protocol: 'Pit',
+    'Contract Address': '0xCd6d59a116F0d4E370A62b8D6EA146dD02E2114A',
+    'Contract Name': 'strategy-PITv1-AAVEv3-FRAX-LENDER-POOL'
+  }, {
+    Protocol: 'Pit',
+    'Contract Address': '0x9975f0d8560ed6a29C376ddc950f5663527327e8',
+    'Contract Name': 'rewards-escrow-PITv1-AAVEv3-FRAX-LENDER-POOL'
+  }, {
+    Protocol: 'Pit',
+    'Contract Address': '0x0AEfC6F2E9a866ddB4813Cb1E897a2E9e26a1E53',
+    'Contract Name': 'vault-PITv1-AAVEv3-WETH-LENDER-POOL'
+  }, {
+    Protocol: 'Pit',
+    'Contract Address': '0xE77790035f956E9C6E895e57cded63A7AC69F2c9',
+    'Contract Name': 'strategy-PITv1-AAVEv3-WETH-LENDER-POOL'
+  }, {
+    Protocol: 'Pit',
+    'Contract Address': '0xb4169a0cD663FB4A7762a71c9d0Dd0ddc18201e2',
+    'Contract Name': 'rewards-escrow-PITv1-AAVEv3-WETH-LENDER-POOL'
+  }, {
+    Protocol: 'Symbiosis',
+    'Contract Address': '0x292fC50e4eB66C3f6514b9E402dBc25961824D62',
+    'Contract Name': 'Portal'
+  }, {
+    Protocol: 'Filament Finance',
+    'Contract Address': '0xB28EAb5253f6a0f8a5B0a1120d9C03Db8Fc10C2f',
+    'Contract Name': 'DiamondProxy'
+  }, {
+    Protocol: 'DonkeSwap',
+    'Contract Address': '0x4B4746216214f9e972c5D35D3Fe88e6Ec4C28A6B',
+    'Contract Name': 'DonkeV2Factory'
+  }, {
+    Protocol: 'Sailor Finance',
+    'Contract Address': '0xd1EFe48B71Acd98Db16FcB9E7152B086647Ef544',
+    'Contract Name': 'SwapRouter'
+  }, {
+    Protocol: 'Sailor Finance',
+    'Contract Address': '0x4ed1F9Cc4ee6bc11b27e285464C4DCaF911c85d9',
+    'Contract Name': 'NFTDescriptor'
+  }, {
+    Protocol: 'Sailor Finance',
+    'Contract Address': '0xA51136931fdd3875902618bF6B3abe38Ab2D703b',
+    'Contract Name': 'UniswapV3Factory'
+  }, {
+    Protocol: 'Sailor Finance',
+    'Contract Address': '0x9aeB489F5bc0d3Eb7892DD7E1FAE2d2ebD02E80b',
+    'Contract Name': 'Quoter'
+  }, {
+    Protocol: 'Sailor Finance',
+    'Contract Address': '0xE40703878aC5d3F76eAc66f8688A8F5652Af85b1',
+    'Contract Name': 'QuoterV2'
+  }, {
+    Protocol: 'Citrex',
+    'Contract Address': '0x993543DC8BdFCba9fc7355d822108eF49dB6b9F9',
+    'Contract Name': 'OrderDispatch'
+  }, {
+    Protocol: 'Citrex',
+    'Contract Address': '0x7461cFe1A4766146cAFce60F6907Ea657550670d',
+    'Contract Name': 'Ciao'
+  }, {
+    Protocol: 'Symphony',
+    'Contract Address': '0xAD3DF981018149CD90e5869d14Efe2516b108270',
+    'Contract Name': 'Symphony'
+  }, {
+    Protocol: 'Open Ocean',
+    'Contract Address': '0x6352a56caadC4F1E25CD6c75970Fa768A3304e64',
+    'Contract Name': 'OpenOceanExchangeProxy'
+  }, {
+    Protocol: 'DZap',
+    'Contract Address': '0xb3926deF2e0989B0700a57034C9A211bfBcF858B',
+    'Contract Name': 'DZapDiamond'
+  }, {
+    Protocol: 'OKX Dex',
+    'Contract Address': '0x411d2C093e4c2e69Bf0D8E94be1bF13DaDD879c6',
+    'Contract Name': 'DexRouter'
+  }, {
+    Protocol: 'Morpho',
+    'Contract Address': '0xc9cDAc20FCeAAF616f7EB0bb6Cd2c69dcfa9094c',
+    'Contract Name': 'Morpho'
+  }, {
+    Protocol: 'Morpho',
+    'Contract Address': '0x6eFA8e3Aa8279eB2fd46b6083A9E52dA72EA56c4',
+    'Contract Name': 'Adaptive Curve Irm'
+  }, {
+    Protocol: 'Morpho',
+    'Contract Address': '0x4bD68c2FF3274207EC07ED281C915758b6F23F07',
+    'Contract Name': 'Morpho ChainlinkOracleV2 Factory'
+  }, {
+    Protocol: 'Morpho',
+    'Contract Address': '0x8Dea49ec5bd5AeAc8bcf96B3E187F59354118291',
+    'Contract Name': 'MetaMorpho Factory V1.1'
+  }, {
+    Protocol: 'Morpho',
+    'Contract Address': '0xD878509446bE2C601f0f032F501851001B159D6B',
+    'Contract Name': 'Public Allocator'
+  }, {
+    Protocol: 'Morpho',
+    'Contract Address': '0x65eD61058cEB4895B7d62437BaCEA39b04f6D27B',
+    'Contract Name': 'PreLiquidation Factory'
+  }, {
+    Protocol: 'Morpho',
+    'Contract Address': '0xF9457356F18A3349Bb317Ac144c3Bcc62e5761aD',
+    'Contract Name': 'Bundler3'
+  }, {
+    Protocol: 'Morpho',
+    'Contract Address': '0x02e0e71e145f254820B9D89c9E6068f08256F601',
+    'Contract Name': 'GeneralAdapter1'
+  }, {
+    Protocol: 'Morpho',
+    'Contract Address': '0x30f5b078c80bd06fedc3b40b4a4441a96dd9cf22',
+    'Contract Name': 'VaultV2Factory'
+  }, {
+    Protocol: 'Morpho',
+    'Contract Address': '0xbADd49F7db90f65fF5822681AA6B8548E8356a1D',
+    'Contract Name': 'MorphoMarketV1AdapterV2Factory'
+  }, {
+    Protocol: 'Morpho',
+    'Contract Address': '0x26abEaee65A878E9Fe8F99fEb31aec62fbA2624E',
+    'Contract Name': 'MorphoRegistry'
+  }, {
+    Protocol: 'LayerZero',
+    'Contract Address': '0x1a44076050125825900e736c501f859c50fE728c',
+    'Contract Name': 'EndpointV2'
+  }, {
+    Protocol: 'Circle CCTP',
+    'Contract Address': '0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d',
+    'Contract Name': 'TokenMessengerV2'
+  }, {
+    Protocol: 'Circle CCTP',
+    'Contract Address': '0x81D40F21F12A8F0E3252Bccb954D722d4c464B64',
+    'Contract Name': 'MessageTransmitterV2'
+  }, {
+    Protocol: 'Circle CCTP',
+    'Contract Address': '0xfd78EE919681417d192449715b2594ab58f5D002',
+    'Contract Name': 'TokenMinterV2'
+  }, {
+    Protocol: 'Tokens',
+    'Contract Address': '0xe15fC38F6D8c56aF07bbCBe3BAf5708A2Bf42392',
+    'Contract Name': 'USDC'
+  }, {
+    Protocol: 'Tokens',
+    'Contract Address': '0x9151434b16b9763660705744891fA906F660EcC5',
+    'Contract Name': 'USDT0'
+  }, {
+    Protocol: 'Tokens',
+    'Contract Address': '0x54cD901491AeF397084453F4372B93c33260e2A6',
+    'Contract Name': 'USDY (Ondo)'
+  }, {
+    Protocol: 'Splashing',
+    'Contract Address': '0xC257361320F4514D91c05F461006CE6a0300E2d2',
+    'Contract Name': 'spSEI Token'
+  }, {
+    Protocol: 'Splashing',
+    'Contract Address': '0x151669B501b561a52ad95574603AD52546F46Bf4',
+    'Contract Name': 'Staking Pool (Proxy)'
+  }, {
+    Protocol: 'Pyth',
+    'Contract Address': '0x6dd1f8257e1fb3ef75f8d6aafae608b42cfc1270',
+    'Contract Name': 'Pyth Oracle'
+  }, {
+    Protocol: 'Chainlink',
+    'Contract Address': '0x60fAa7faC949aF392DFc858F5d97E3EEfa07E9EB',
+    'Contract Name': 'VerifierProxy'
+  }, {
+    Protocol: 'Safe',
+    'Contract Address': '0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7',
+    'Contract Name': 'SafeSingletonFactory'
+  }];
+  const nameKey = 'Contract Name';
+  const addressKey = 'Contract Address';
+  const [isDark, setIsDark] = useState(false);
+  useEffect(() => {
+    const el = document.documentElement;
+    const update = () => setIsDark(el.classList.contains('dark'));
+    update();
+    const obs = new MutationObserver(update);
+    obs.observe(el, {
+      attributes: true,
+      attributeFilter: ['class']
+    });
+    return () => obs.disconnect();
+  }, []);
+  const groupedData = useMemo(() => {
+    const groups = {};
+    for (const row of ECOSYSTEM_CONTRACTS_DATA) {
+      const key = row.Protocol;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(row);
+    }
+    return Object.entries(groups).map(([projectName, contracts]) => ({
+      projectName,
+      contracts,
+      contractCount: contracts.length
+    }));
+  }, []);
+  const [query, setQuery] = useState('');
+  const [openSections, setOpenSections] = useState({});
+  const [pendingScrollId, setPendingScrollId] = useState(null);
+  const slugify = value => {
+    return String(value).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  };
+  const toggleSection = projectName => {
+    setOpenSections(prev => ({
+      ...prev,
+      [projectName]: !prev[projectName]
+    }));
+  };
+  const handleSearchSubmit = e => {
+    e.preventDefault();
+    const q = query.trim().toLowerCase();
+    if (!q) return;
+    for (const group of groupedData) {
+      for (const contract of group.contracts) {
+        const name = String(contract[nameKey] || '').toLowerCase();
+        const address = String(contract[addressKey] || '').toLowerCase();
+        if (name.includes(q) || address.includes(q)) {
+          const baseId = `contract-${slugify(group.projectName)}-${address}`;
+          setOpenSections(prev => ({
+            ...prev,
+            [group.projectName]: true
+          }));
+          setPendingScrollId(baseId);
+          return;
+        }
+      }
+    }
+  };
+  useEffect(() => {
+    if (!pendingScrollId) return;
+    const baseId = pendingScrollId;
+    setPendingScrollId(null);
+    const el = [`${baseId}-desktop`, `${baseId}-mobile`].map(cid => document.getElementById(cid)).find(node => node && node.offsetParent !== null) || document.getElementById(`${baseId}-desktop`) || document.getElementById(`${baseId}-mobile`);
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const currentScrollY = window.scrollY || window.pageYOffset;
+    const absoluteTop = rect.top + currentScrollY;
+    const viewportHeight = window.innerHeight;
+    const targetTop = absoluteTop - Math.max(0, (viewportHeight - rect.height) / 2);
+    const maxScroll = Math.max(0, (document.documentElement.scrollHeight || document.body.scrollHeight) - viewportHeight);
+    const clampedTop = Math.min(Math.max(0, targetTop), maxScroll);
+    window.scrollTo({
+      top: clampedTop,
+      behavior: 'smooth'
+    });
+  }, [pendingScrollId]);
+  const seiScanStyle = isDark ? {
+    color: 'var(--sei-maroon-25)',
+    backgroundColor: 'rgba(96, 0, 20, 0.2)'
+  } : {
+    color: 'var(--sei-maroon-100)',
+    backgroundColor: 'var(--sei-grey-25)'
+  };
+  const focusRingColor = 'var(--sei-maroon-100)';
+  const rowGridStyle = {
+    display: 'grid',
+    gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.3fr)'
+  };
+  const SeiScanLink = ({address}) => {
+    const [hover, setHover] = useState(false);
+    const baseStyle = isDark ? {
+      color: hover ? 'var(--sei-cream)' : 'var(--sei-maroon-25)',
+      backgroundColor: hover ? 'rgba(96, 0, 20, 0.3)' : 'rgba(96, 0, 20, 0.2)'
+    } : {
+      color: hover ? 'var(--sei-maroon-200)' : 'var(--sei-maroon-100)',
+      backgroundColor: hover ? 'var(--sei-grey-30)' : 'var(--sei-grey-25)'
+    };
+    return <a href={`https://seiscan.io/address/${address}`} target="_blank" rel="noopener noreferrer" onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)} style={{
+      ...baseStyle,
+      transition: 'colors 0.15s ease'
+    }} className="text-xs px-2 py-1 transition-colors no-underline">
+				SeiScan ↗
+			</a>;
+  };
+  if (groupedData.length === 0) {
+    return <div className="my-4 p-4 border border-yellow-300 dark:border-yellow-700 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200 text-sm">
+				No contract data available.
+			</div>;
+  }
+  const SearchButton = () => {
+    const [hover, setHover] = useState(false);
+    return <button type="submit" onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)} style={{
+      backgroundColor: hover ? 'var(--sei-maroon-200)' : 'var(--sei-maroon-100)'
+    }} className="px-3 py-2 text-white text-sm transition-colors focus:outline-none">
+				Search
+			</button>;
+  };
+  return <div className="my-6">
+			<div className="sheet-content">
+				<div className="space-y-4">
+					<form onSubmit={handleSearchSubmit} className="flex gap-2 items-center">
+						<input type="text" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search by contract name or address" aria-label="Search by contract name or address" autoComplete="off" onFocus={e => {
+    e.target.style.borderColor = focusRingColor;
+    e.target.style.boxShadow = `0 0 0 2px rgba(96, 0, 20, 0.25)`;
+  }} onBlur={e => {
+    e.target.style.borderColor = '';
+    e.target.style.boxShadow = '';
+  }} className="w-full px-3 py-2 rounded border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:!bg-neutral-900 text-sm text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:outline-none transition-colors" />
+						<SearchButton />
+					</form>
+
+					<div className="w-full space-y-3">
+						{groupedData.map(group => {
+    const isOpen = !!openSections[group.projectName];
+    const sectionId = `section-${slugify(group.projectName)}`;
+    return <div key={group.projectName} className="border border-neutral-200 dark:border-neutral-800 overflow-hidden">
+									<button type="button" onClick={() => toggleSection(group.projectName)} className="w-full flex items-center justify-between px-4 py-3 bg-white dark:!bg-neutral-900 hover:bg-neutral-50 dark:hover:!bg-neutral-800 transition-colors" aria-expanded={isOpen} aria-controls={sectionId}>
+										<span className="flex items-center gap-3 text-left">
+											<span className="text-sm sm:text-base font-semibold text-neutral-900 dark:text-neutral-100">{group.projectName}</span>
+											<span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded-full">
+												{group.contractCount} contract{group.contractCount !== 1 ? 's' : ''}
+											</span>
+										</span>
+										<span className={`ml-4 inline-block transition-transform ${isOpen ? 'rotate-180' : ''}`} aria-hidden="true">
+											<svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-neutral-600 dark:text-neutral-300">
+												<path d="M5 8l5 5 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+											</svg>
+										</span>
+									</button>
+									<section id={sectionId} className={`${isOpen ? 'block' : 'hidden'}`}>
+										<div className="p-4 space-y-4">
+												{}
+											<div className="hidden sm:block border border-gray-200 dark:border-gray-700">
+												<div role="table" className="w-full text-sm">
+													<div role="row" style={rowGridStyle} className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+														<div role="columnheader" className="px-4 py-3 text-left font-semibold text-gray-900 dark:text-white">
+															Contract Name
+														</div>
+														<div role="columnheader" className="px-4 py-3 text-left font-semibold text-gray-900 dark:text-white">
+															Contract Address
+														</div>
+													</div>
+													{group.contracts.map((contract, contractIndex) => {
+      const addr = String(contract[addressKey] || '').toLowerCase();
+      const id = `contract-${slugify(group.projectName)}-${addr}`;
+      return <div role="row" key={contractIndex} id={`${id}-desktop`} style={rowGridStyle} className="border-b border-gray-200 dark:border-gray-700 last:border-b-0 transition-colors">
+																<div role="cell" className="px-4 py-3 text-gray-900 dark:text-white font-medium break-words">
+																	{contract[nameKey] || 'Unnamed Contract'}
+																</div>
+																<div role="cell" className="px-4 py-3">
+																	<div className="flex items-center gap-2 min-w-0">
+																		<code className="text-xs bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded break-all" style={{
+        fontFamily: 'var(--sei-font-mono)'
+      }}>
+																			{contract[addressKey]}
+																		</code>
+																		<SeiScanLink address={contract[addressKey]} />
+																	</div>
+																</div>
+															</div>;
+    })}
+												</div>
+											</div>
+
+											{}
+											<div className="block sm:hidden space-y-3">
+												{group.contracts.map((contract, contractIndex) => {
+      const addr = String(contract[addressKey] || '').toLowerCase();
+      const id = `contract-${slugify(group.projectName)}-${addr}`;
+      return <div key={contractIndex} id={`${id}-mobile`} className="border border-gray-200 dark:border-gray-700 p-4 bg-white dark:bg-gray-800">
+															<div className="space-y-2">
+																<div>
+																	<span className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Contract Name</span>
+																	<span className="text-sm font-medium text-gray-900 dark:text-white">{contract[nameKey] || 'Unnamed Contract'}</span>
+																</div>
+																<div>
+																	<span className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Contract Address</span>
+																	<div className="flex items-center gap-2">
+																		<code className="text-xs bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded break-all" style={{
+        fontFamily: 'var(--sei-font-mono)'
+      }}>
+																			{contract[addressKey]}
+																		</code>
+																		<SeiScanLink address={contract[addressKey]} />
+																	</div>
+																</div>
+															</div>
+														</div>;
+    })}
+											</div>
+										</div>
+									</section>
+								</div>;
+  })}
+					</div>
+				</div>
+			</div>
+		</div>;
+};
+
 Discover and interact with the ecosystem building on Sei. This registry contains smart contract addresses for projects built across Sei.
 
 <Info>
@@ -31326,7 +33903,7 @@ Discover and interact with the ecosystem building on Sei. This registry contains
 
 ## Contract Registry
 
-<iframe src="https://sei-widgets.vercel.app/ecosystem-contracts" style={{ width: "100%", minHeight: "600px", border: "0" }} loading="lazy" title="Sei ecosystem contract registry" />
+<EcosystemContracts />
 
 ***
 
@@ -31416,6 +33993,165 @@ URL: https://docs.sei.io/node
 
 > Deploy and maintain Sei Network infrastructure with comprehensive guides for validators, RPC nodes, and archive nodes, including hardware requirements, installation steps, and operational best practices.
 
+export const RandomPeers = ({format = 'bash', network = 'mainnet', count = 5}) => {
+  const PEERS = {
+    mainnet: ['d53ab7681ed0df3d3249fc0132df7c3a131c9c1a@45.250.253.40:51656', '4ee8aea5bb58e9038d72e74322e3bba755287398@202.8.8.183:11956', '81409623ae4da3ec7b400cf640dea0b0999a964b@57.128.230.96:51556', '61a5be64b5215786fe5da712584678d0626636b5@87.249.137.71:51556', 'f83c536f43df9a5d900cd3c2f702c04d7dddc7b5@136.243.67.45:11956', 'b8d600a2f568576b5a2df5ee649cf9b809389064@162.19.62.176:26756', '57860b18ed3e1bbe8901ba73f2e63c7e6fe8b3d3@57.129.54.81:26656', '04fc6bba6c5c33034811612dca31c7adda24b299@91.134.60.37:16856', 'de64b779c7f4091e6f1765f5ca4c46f9d3011732@65.108.70.106:46656', '3be6b24cf86a5938cce7d48f44fb6598465a9924@p2p.state-sync.pacific-1.seinetwork.io:26656', '70e0c91b83b5ed1beaca798267f2debdf97dac10@18.156.6.83:26656', 'dd6b1ae002a15c1c8a38e05660f49a93c75d4159@148.251.181.225:26656'],
+    testnet: ['71beea83970431f55816eee5f066a611a1dc80f7@p2p.state-sync.atlantic-2.seinetwork.io:26656', '65c257f9275beb1b99ca169ef89743c034b15db0@3.76.192.224:26656', '33588592e477c5238ff2a5d8dc765f85790ef853@23.109.47.225:26656', 'babc3f3f7804933265ec9c40ad94f4da8e9e0017@testnet-seed.rhinostake.com:11956', '8542cd7e6bf9d260fef543bc49e59be5a3fa9074@seed.publicnode.com:56656']
+  };
+  const pickRandom = (arr, n) => {
+    const shuffled = [...arr];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled.slice(0, Math.min(n, arr.length));
+  };
+  const CopyIcon = ({className}) => <svg role="img" aria-label="Copy" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M7 7m0 2.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667z" />
+      <path d="M4.012 16.737a2.005 2.005 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1" />
+    </svg>;
+  const CheckIcon = ({className}) => <svg role="img" aria-label="Copied" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M5 12l5 5l10 -10" />
+    </svg>;
+  const ShuffleIcon = ({className}) => <svg role="img" aria-label="Shuffle" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M16 3h5v5" />
+      <path d="M4 20l16.2 -16.2" />
+      <path d="M21 16v5h-5" />
+      <path d="M15 15l6 6" />
+      <path d="M4 4l5 5" />
+    </svg>;
+  const pool = PEERS[network] ?? [];
+  const [peers, setPeers] = useState(() => pool.slice(0, count));
+  const [copied, setCopied] = useState(false);
+  const shuffle = () => {
+    setPeers(pickRandom(pool, count));
+  };
+  useEffect(() => {
+    shuffle();
+  }, [network, count]);
+  if (pool.length === 0) {
+    return <div className="not-prose w-full">
+        <pre className="m-0 p-3 rounded-md bg-neutral-100 dark:bg-neutral-800 text-sm opacity-70" style={{
+      fontFamily: 'var(--sei-font-mono)'
+    }}>
+          No peers configured for network “{network}”.
+        </pre>
+      </div>;
+  }
+  const peerString = peers.join(',');
+  const displayText = format === 'toml' ? `persistent_peers = "${peerString}"` : `PEERS="${peerString}"`;
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(displayText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {}
+  };
+  return <div className="not-prose w-full">
+      <div className="relative">
+        <pre className="m-0 px-4 py-3 pr-28 rounded-lg bg-neutral-100 dark:bg-neutral-900 text-[12.5px] leading-[1.55] whitespace-pre-wrap break-all border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100" style={{
+    fontFamily: 'var(--sei-font-mono)'
+  }}>
+          <code style={{
+    fontFamily: 'var(--sei-font-mono)'
+  }}>{displayText}</code>
+        </pre>
+        <div className="absolute top-2 right-2 flex items-center gap-1.5">
+          <button type="button" onClick={shuffle} aria-label="Shuffle peers" title="Shuffle" className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold border border-neutral-300 dark:border-neutral-600 bg-white/80 dark:bg-neutral-800/80 text-neutral-700 dark:text-neutral-200 hover:bg-white dark:hover:bg-neutral-800 transition-colors">
+            <ShuffleIcon />
+            Shuffle
+          </button>
+          <button type="button" onClick={handleCopy} aria-label="Copy peers" title="Copy to clipboard" className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold border border-neutral-300 dark:border-neutral-600 bg-white/80 dark:bg-neutral-800/80 text-neutral-700 dark:text-neutral-200 hover:bg-white dark:hover:bg-neutral-800 transition-colors">
+            {copied ? <>
+                <CheckIcon className="text-green-600" />
+                Copied
+              </> : <>
+                <CopyIcon />
+                Copy
+              </>}
+          </button>
+        </div>
+      </div>
+    </div>;
+};
+
+export const VersionTable = () => {
+  const networks = [{
+    label: 'Mainnet',
+    chainId: 'pacific-1',
+    rpcEndpoint: 'https://rpc.sei-apis.com',
+    evmChainId: '1329'
+  }, {
+    label: 'Testnet',
+    chainId: 'atlantic-2',
+    rpcEndpoint: 'https://rpc-testnet.sei-apis.com',
+    evmChainId: '1328'
+  }];
+  const [versions, setVersions] = useState({});
+  useEffect(() => {
+    const oneHour = 3600000;
+    const setVersionFor = (chainId, version) => {
+      setVersions(prev => ({
+        ...prev,
+        [chainId]: version
+      }));
+    };
+    const fetchVersion = async (chainId, rpcEndpoint) => {
+      try {
+        const response = await fetch(`${rpcEndpoint}/abci_info`);
+        const data = await response.json();
+        const info = data && data.result && data.result.response || data && data.response || ({});
+        const version = info.version;
+        if (typeof version === 'string' && version) {
+          setVersionFor(chainId, version);
+          localStorage.setItem(`${chainId}-version`, version);
+          localStorage.setItem(`${chainId}-version-timestamp`, Date.now().toString());
+          return;
+        }
+        throw new Error('abci_info response had no version field');
+      } catch (error) {
+        console.error('Error fetching version:', error);
+        if (!localStorage.getItem(`${chainId}-version`)) {
+          setVersionFor(chainId, 'Unavailable');
+        }
+      }
+    };
+    networks.forEach(({chainId, rpcEndpoint}) => {
+      const storedVersion = localStorage.getItem(`${chainId}-version`);
+      const storedTimestamp = localStorage.getItem(`${chainId}-version-timestamp`);
+      const isFresh = storedVersion && storedTimestamp && Date.now() - parseInt(storedTimestamp, 10) < oneHour;
+      if (storedVersion) {
+        setVersionFor(chainId, storedVersion);
+      }
+      if (!isFresh) {
+        fetchVersion(chainId, rpcEndpoint);
+      }
+    });
+  }, []);
+  return <table className="min-w-full divide-y divide-neutral-200 dark:divide-neutral-800">
+      <thead className="bg-neutral-50 dark:bg-neutral-900/50">
+        <tr>
+          <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Network</th>
+          <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Version</th>
+          <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">Chain ID</th>
+          <th className="px-4 py-3 text-left text-sm font-medium text-neutral-900 dark:text-neutral-100">EVM Chain ID</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800 bg-neutral-50 dark:bg-neutral-900/30">
+        {networks.map(({label, chainId, evmChainId}) => <tr key={chainId}>
+            <td className="px-4 py-3 text-sm font-medium text-neutral-900 dark:text-neutral-100">{label}</td>
+            <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">
+              <code style={{
+    fontFamily: 'var(--sei-font-mono)'
+  }}>{versions[chainId] || 'Fetching...'}</code>
+            </td>
+            <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">{chainId}</td>
+            <td className="px-4 py-3 text-sm text-neutral-600 dark:text-neutral-400">{evmChainId}</td>
+          </tr>)}
+      </tbody>
+    </table>;
+};
+
 **Power the Sei Network Infrastructure**
 
 Comprehensive guides for running, maintaining, and optimizing Sei network nodes. Whether you're setting up a validator, an RPC node, or a relayer, you'll find detailed instructions and best practices to ensure optimal performance and security.
@@ -31432,9 +34168,9 @@ Comprehensive guides for running, maintaining, and optimizing Sei network nodes.
 
 ## Network Versions
 
-<iframe src="https://sei-widgets.vercel.app/version-table" style={{ width: "100%", minHeight: "320px", border: "0" }} loading="lazy" title="Sei network versions" />
+<VersionTable />
 
-*Live binary versions, genesis, and seed peers — see the [network versions widget](https://sei-widgets.vercel.app/version-table) or the [technical reference](/node/technical-reference).*
+*Live binary versions, genesis, and seed peers — see the [technical reference](/node/technical-reference).*
 
 ## Hardware Requirements
 
@@ -31547,11 +34283,11 @@ Comprehensive guides for running, maintaining, and optimizing Sei network nodes.
 
     * mainnet (pacific-1):
 
-    <iframe src="https://sei-widgets.vercel.app/random-peers?network=mainnet&format=bash" title="Random Sei mainnet peers" loading="lazy" style={{ width: "100%", height: "120px", border: "0", display: "block", margin: "0.75rem 0" }} />
+    <RandomPeers network="mainnet" format="bash" />
 
     * testnet (atlantic-2):
 
-    <iframe src="https://sei-widgets.vercel.app/random-peers?network=testnet&format=bash" title="Random Sei testnet peers" loading="lazy" style={{ width: "100%", height: "120px", border: "0", display: "block", margin: "0.75rem 0" }} />
+    <RandomPeers network="testnet" format="bash" />
 
     ```bash theme={"dark"}
     # Initialize node (default mode is full: RPC/P2P bind to all interfaces)
@@ -31833,7 +34569,8 @@ timeout-broadcast-tx-commit = "10s"
 
 ```toml theme={"dark"}
 # Minimum gas prices to prevent spam transactions
-minimum-gas-prices = "0.01usei"
+# (mainnet enforces a chain-wide minimum of 0.02usei)
+minimum-gas-prices = "0.02usei"
 
 # Block retention for /block, /block_results, etc., and the floor used by
 # the receipt store's pruner. 0 disables block pruning.
@@ -33215,7 +35952,7 @@ async-write-buffer = 100
 prune-interval-seconds = 600
 ```
 
-Setting very small (more frequent) pruning intervals may collide with
+Setting small (more frequent) pruning intervals may collide with
 snapshot creation. Too-large (less frequent) intervals mean pruning takes
 longer overall, which can cause missed blocks and excessive resync time.
 
@@ -33271,19 +36008,20 @@ may be required:
 # Check database size
 du -sh $HOME/.sei/data/
 
-# Confirm correct file paths as per your own setup before proceeding
-# Before performing a database wipe, ensure you back up essential files:
+# Confirm correct file paths as per your own setup before proceeding.
+# Back up the data directory BEFORE wiping it:
+cp -r $HOME/.sei/data/ $HOME/sei-backup-$(date +%Y%m%d)/
+
+# Your keys and config live in $HOME/.sei/config and are NOT removed by the
+# wipe below, but keep them safe regardless:
 # - `node_key.json`: Preserves node identity to maintain peer connections.
 # - `priv_validator_key.json`: Critical for validators; losing this key results in double signing risks.
 # - `config.toml` & `app.toml`: Retains node-specific configuration.
 # - `genesis.json`: Required for correct chain initialization.
 
-# Wipe database for a fresh resync (destructive — deletes all chain data)
+# Wipe database for a fresh resync (destructive — deletes all chain data
+# except priv_validator_state.json)
 find $HOME/.sei/data/ -mindepth 1 ! -name 'priv_validator_state.json' -delete && rm -rf $HOME/.sei/wasm
-
-
-# Backup database
-cp -r $HOME/.sei/data/ $HOME/sei-backup-$(date +%Y%m%d)/
 ```
 
 <Warning>The wipe command above deletes the entire local database (everything except `priv_validator_state.json`) and the `wasm` folder. It does not compact data in place — after running it, the node must be re-synced from a [snapshot](/node/snapshot) or via [state sync](/node/statesync) before it can serve traffic again.</Warning>
@@ -33694,7 +36432,7 @@ seictl config patch patch.toml
 seictl config --target app patch patch.toml
 
 # Patch from stdin and output to stdout
-echo 'minimum-gas-prices = "0.01usei"' | seictl config patch
+echo 'minimum-gas-prices = "0.02usei"' | seictl config patch
 
 # Patch and modify in-place
 seictl config --target app patch patch.toml -i
@@ -33804,7 +36542,7 @@ swagger = true
 <Accordion title="Update Multiple Configuration Sections">
   ```bash theme={"dark"}
   cat > patch.toml << EOF
-  minimum-gas-prices = "0.01usei"
+  minimum-gas-prices = "0.02usei"
 
   [telemetry]
   enabled = true
@@ -34239,6 +36977,88 @@ URL: https://docs.sei.io/node/troubleshooting
 
 > Detailed guide for troubleshooting node problems.
 
+export const RandomPeers = ({format = 'bash', network = 'mainnet', count = 5}) => {
+  const PEERS = {
+    mainnet: ['d53ab7681ed0df3d3249fc0132df7c3a131c9c1a@45.250.253.40:51656', '4ee8aea5bb58e9038d72e74322e3bba755287398@202.8.8.183:11956', '81409623ae4da3ec7b400cf640dea0b0999a964b@57.128.230.96:51556', '61a5be64b5215786fe5da712584678d0626636b5@87.249.137.71:51556', 'f83c536f43df9a5d900cd3c2f702c04d7dddc7b5@136.243.67.45:11956', 'b8d600a2f568576b5a2df5ee649cf9b809389064@162.19.62.176:26756', '57860b18ed3e1bbe8901ba73f2e63c7e6fe8b3d3@57.129.54.81:26656', '04fc6bba6c5c33034811612dca31c7adda24b299@91.134.60.37:16856', 'de64b779c7f4091e6f1765f5ca4c46f9d3011732@65.108.70.106:46656', '3be6b24cf86a5938cce7d48f44fb6598465a9924@p2p.state-sync.pacific-1.seinetwork.io:26656', '70e0c91b83b5ed1beaca798267f2debdf97dac10@18.156.6.83:26656', 'dd6b1ae002a15c1c8a38e05660f49a93c75d4159@148.251.181.225:26656'],
+    testnet: ['71beea83970431f55816eee5f066a611a1dc80f7@p2p.state-sync.atlantic-2.seinetwork.io:26656', '65c257f9275beb1b99ca169ef89743c034b15db0@3.76.192.224:26656', '33588592e477c5238ff2a5d8dc765f85790ef853@23.109.47.225:26656', 'babc3f3f7804933265ec9c40ad94f4da8e9e0017@testnet-seed.rhinostake.com:11956', '8542cd7e6bf9d260fef543bc49e59be5a3fa9074@seed.publicnode.com:56656']
+  };
+  const pickRandom = (arr, n) => {
+    const shuffled = [...arr];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled.slice(0, Math.min(n, arr.length));
+  };
+  const CopyIcon = ({className}) => <svg role="img" aria-label="Copy" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M7 7m0 2.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667z" />
+      <path d="M4.012 16.737a2.005 2.005 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1" />
+    </svg>;
+  const CheckIcon = ({className}) => <svg role="img" aria-label="Copied" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M5 12l5 5l10 -10" />
+    </svg>;
+  const ShuffleIcon = ({className}) => <svg role="img" aria-label="Shuffle" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M16 3h5v5" />
+      <path d="M4 20l16.2 -16.2" />
+      <path d="M21 16v5h-5" />
+      <path d="M15 15l6 6" />
+      <path d="M4 4l5 5" />
+    </svg>;
+  const pool = PEERS[network] ?? [];
+  const [peers, setPeers] = useState(() => pool.slice(0, count));
+  const [copied, setCopied] = useState(false);
+  const shuffle = () => {
+    setPeers(pickRandom(pool, count));
+  };
+  useEffect(() => {
+    shuffle();
+  }, [network, count]);
+  if (pool.length === 0) {
+    return <div className="not-prose w-full">
+        <pre className="m-0 p-3 rounded-md bg-neutral-100 dark:bg-neutral-800 text-sm opacity-70" style={{
+      fontFamily: 'var(--sei-font-mono)'
+    }}>
+          No peers configured for network “{network}”.
+        </pre>
+      </div>;
+  }
+  const peerString = peers.join(',');
+  const displayText = format === 'toml' ? `persistent_peers = "${peerString}"` : `PEERS="${peerString}"`;
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(displayText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {}
+  };
+  return <div className="not-prose w-full">
+      <div className="relative">
+        <pre className="m-0 px-4 py-3 pr-28 rounded-lg bg-neutral-100 dark:bg-neutral-900 text-[12.5px] leading-[1.55] whitespace-pre-wrap break-all border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100" style={{
+    fontFamily: 'var(--sei-font-mono)'
+  }}>
+          <code style={{
+    fontFamily: 'var(--sei-font-mono)'
+  }}>{displayText}</code>
+        </pre>
+        <div className="absolute top-2 right-2 flex items-center gap-1.5">
+          <button type="button" onClick={shuffle} aria-label="Shuffle peers" title="Shuffle" className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold border border-neutral-300 dark:border-neutral-600 bg-white/80 dark:bg-neutral-800/80 text-neutral-700 dark:text-neutral-200 hover:bg-white dark:hover:bg-neutral-800 transition-colors">
+            <ShuffleIcon />
+            Shuffle
+          </button>
+          <button type="button" onClick={handleCopy} aria-label="Copy peers" title="Copy to clipboard" className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold border border-neutral-300 dark:border-neutral-600 bg-white/80 dark:bg-neutral-800/80 text-neutral-700 dark:text-neutral-200 hover:bg-white dark:hover:bg-neutral-800 transition-colors">
+            {copied ? <>
+                <CheckIcon className="text-green-600" />
+                Copied
+              </> : <>
+                <CopyIcon />
+                Copy
+              </>}
+          </button>
+        </div>
+      </div>
+    </div>;
+};
+
 Understanding common errors and their solutions helps maintain a healthy node
 operation.
 
@@ -34426,7 +37246,7 @@ ERR peer handshake failed endpoint={} err=EOF module=p2p
 
 1. **Update peer configurations** with current node IDs:
 
-   <iframe src="https://sei-widgets.vercel.app/random-peers?network=mainnet&format=toml" title="Random Sei mainnet persistent_peers (TOML)" loading="lazy" style={{ width: "100%", height: "120px", border: "0", display: "block", margin: "0.75rem 0" }} />
+   <RandomPeers network="mainnet" format="toml" />
 
 2. **Verify network connectivity:**
 
@@ -34715,7 +37535,7 @@ seid tx staking create-validator \
     --min-self-delegation="1" \
     --gas="auto" \
     --gas-adjustment="1.5" \
-    --gas-prices="0.01usei" \
+    --gas-prices="0.02usei" \
     --from=operator
 ```
 
@@ -34833,7 +37653,7 @@ seid tx gov vote 1 yes \
     --from operator \
     --chain-id pacific-1 \
     --gas auto \
-    --gas-prices 0.01usei
+    --gas-prices 0.02usei
 ```
 
 ## Recovery Procedures
@@ -34851,7 +37671,7 @@ Never run your validator keys on more than one machine simultaneously. If your p
 The safe approach to recovery is:
 
 1. Diagnose why the original validator is offline
-2. If the original validator cannot be recovered, verify it is completely offline and powered down
+2. If the original validator cannot be recovered, verify it is offline and powered down
 3. Only then proceed with key migration to a new machine
 
 ### Validator Recovery
@@ -34890,7 +37710,7 @@ URL: https://docs.sei.io/node/advanced-config-monitoring
 
 ## Optimizing System Configuration
 
-There are a virtually unlimited number of unique individual setups that cannot be covered in this document. As well, even very similar builds and configurations can behave very differently due to external factors, so your results may vary.
+There are a virtually unlimited number of unique individual setups that cannot be covered in this document. As well, even similar builds and configurations can behave differently due to external factors, so your results may vary.
 
 Here are some general guidelines to use as a starting point. Be cautious, make incremental changes, testing and observing before moving forward.
 Always focus on only one specific area at a time - avoid making changes to memory, storage, and CPU configs all at once. Diagnosing potential problems becomes nearly impossible otherwise.
@@ -35637,7 +38457,7 @@ ss-backend = "rocksdb"
 ## TL;DR
 
 * RocksDB backend drastically improves trace iteration and historical query performance.
-* Install once, then simply run:
+* Install once, then run:
 
 ```bash theme={"dark"}
 make install-rocksdb
@@ -35997,7 +38817,7 @@ The app.toml file controls application-specific settings:
 <Accordion title="Complete app.toml Configuration">
   ```toml theme={"dark"}
   # Minimum gas prices for transaction acceptance
-  minimum-gas-prices = "0.01usei"
+  minimum-gas-prices = "0.02usei"
 
   # API configuration
   [api]
@@ -36940,7 +39760,7 @@ This tutorial guides you through:
 * Node.js & npm installed
 * SEI wallet private key
 * OpenAI API key (for AI integrations)
-* **Minimum SEI balance**: Ensure you have sufficient SEI for gas fees
+* **Minimum SEI balance**: Ensure you have sufficient SEI for gas
 
 ### 2. Project Setup
 
@@ -38060,12 +40880,12 @@ URL: https://docs.sei.io/ai/x402
 
 x402 Protocol brings HTTP micro payments to Sei, enabling you to monetize APIs, premium content, and digital services with instant, low-cost payments. Whether you're building AI APIs, data feeds, or premium content platforms, x402 makes it simple to add payment gates to any HTTP endpoint.
 
-**Works with Sei's advantages:** Sei's fast finality, low gas fees, and EVM compatibility make it perfect for micro payments. x402 leverages these features to enable seamless payment flows that complete in milliseconds.
+**Works with Sei's advantages:** Sei's fast finality, low gas, and EVM compatibility make it perfect for micro payments. x402 leverages these features to enable seamless payment flows that complete in milliseconds.
 
 <Info>
   **Why x402 on Sei?**
 
-  * **Fast & Cheap Payments**: Sei's 400ms finality and low gas fees make micropayments practical. Perfect for pay-per-request APIs and streaming content.
+  * **Fast & Cheap Payments**: Sei's 400ms finality and low gas make micropayments practical. Perfect for pay-per-request APIs and streaming content.
   * **EVM Compatible**: Use familiar tools like Viem, Ethers.js, and Hardhat. All existing Ethereum tooling works seamlessly on Sei.
   * **Built-in Wallet Support**: Integrates with Sei wallets, MetaMask, and any EIP-6963 compatible wallet for smooth user experiences.
 </Info>
