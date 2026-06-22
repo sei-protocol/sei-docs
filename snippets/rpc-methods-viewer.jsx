@@ -295,6 +295,11 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
 
   useEffect(() => { if (consoleActive) validateEndpoint(); }, [validateEndpoint, consoleActive]);
 
+  // Clear any prior run result when the target endpoint changes (network switch
+  // or custom-URL edit), so a response from one endpoint is never left showing
+  // under a different network's label.
+  useEffect(() => { setRequestResult(null); }, [endpoint]);
+
   const allMethods = useMemo(() => SEI_RPC_METHODS.map((m) => ({ ...m, meta: NAMESPACE_META[m.namespace] || { label: m.namespace, color: '#6b7280' } })), []);
 
   const filteredMethods = useMemo(() => {
