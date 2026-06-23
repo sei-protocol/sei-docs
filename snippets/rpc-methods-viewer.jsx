@@ -201,13 +201,26 @@ const isEmptyValue = (v) => {
 };
 
 const buildParams = (method, values) => {
-  const params = (method.params || []).map((p) => {
+  const defs = method.params || [];
+  // Untouched fields (undefined) use the catalog example.
+  const raw = defs.map((p) => {
     const v = values ? values[p.name] : undefined;
-    return parseValue(v !== undefined ? v : (p.example || ''));
+    return v !== undefined ? v : (p.example || '');
   });
-  // eth_subscribe: the optional filter only applies to the logs stream.
-  if (method.name === 'eth_subscribe' && params[0] !== 'logs') params.length = 1;
-  while (params.length && isEmptyValue(params[params.length - 1])) params.pop();
+  // A field is "cleared" only when it's blank. Typing a valid empty collection
+  // ([] or {}) is a deliberate value and must be preserved as-is.
+  const isBlank = (v) => typeof v === 'string' && v.trim() === '';
+  // Drop trailing empty values (optional trailing args left empty/default)...
+  let end = raw.length;
+  while (end > 0 && isEmptyValue(parseValue(raw[end - 1]))) end--;
+  // ...but a cleared *middle* arg can't be sent as "" (invalid positional
+  // JSON-RPC param), so fall back to its catalog example to keep the call valid.
+  // A non-blank middle value (including [] or {}) is preserved verbatim.
+  const params = raw.slice(0, end).map((v, i) => (isBlank(v) ? parseValue(defs[i].example || '') : parseValue(v)));
+  // eth_subscribe: the optional filter only applies to the logs stream
+  // (tolerate casing/whitespace on the subscription type).
+  const sub = typeof params[0] === 'string' ? params[0].trim().toLowerCase() : params[0];
+  if (method.name === 'eth_subscribe' && sub !== 'logs') params.length = 1;
   return params;
 };
 
@@ -229,6 +242,8 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
   const [isMobile, setIsMobile] = useState(false);
   const [mobileView, setMobileView] = useState('list');
   const rootRef = useRef(null);
+  const runIdRef = useRef(0);    // tags Run requests so a stale in-flight response can't overwrite a newer one
+  const probeIdRef = useRef(0);  // tags reachability probes so a stale one can't set the wrong Live/Offline state
 
   const [network, setNetwork] = useState('mainnet');
   const [customEndpoint, setCustomEndpoint] = useState('');
@@ -281,24 +296,29 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
 
   const validateEndpoint = useCallback(async () => {
     if (!endpoint) { setConnection('idle'); return; }
+    const probeId = ++probeIdRef.current;
     try {
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'web3_clientVersion', params: [] }),
       });
-      setConnection(res.ok ? 'ok' : 'fail');
+      // Ignore a late response from a previous endpoint so the indicator
+      // always reflects the current URL.
+      if (probeId === probeIdRef.current) setConnection(res.ok ? 'ok' : 'fail');
     } catch (e) {
-      setConnection('fail');
+      if (probeId === probeIdRef.current) setConnection('fail');
     }
   }, [endpoint]);
 
   useEffect(() => { if (consoleActive) validateEndpoint(); }, [validateEndpoint, consoleActive]);
 
   // Clear any prior run result when the target endpoint changes (network switch
-  // or custom-URL edit), so a response from one endpoint is never left showing
-  // under a different network's label.
-  useEffect(() => { setRequestResult(null); }, [endpoint]);
+  // or custom-URL edit) and invalidate any in-flight request, so a response from
+  // one endpoint is never left showing under a different network's label.
+  // Also clear isLoading: a superseded in-flight Run is guarded out of its own
+  // finally{}, so without this its spinner would stay stuck on.
+  useEffect(() => { runIdRef.current++; setRequestResult(null); setIsLoading(false); }, [endpoint]);
 
   const allMethods = useMemo(() => SEI_RPC_METHODS.map((m) => ({ ...m, meta: NAMESPACE_META[m.namespace] || { label: m.namespace, color: '#6b7280' } })), []);
 
@@ -332,7 +352,9 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
     setParamValues({});
     // Clear synchronously so examples don't reuse the previous method's values.
     setDebouncedParams({});
+    runIdRef.current++; // a pending Run from the previous method must not land here
     setRequestResult(null);
+    setIsLoading(false); // ...and its guarded finally{} won't reset the spinner, so do it here
     setSelectedLanguage('curl');
     if (isMobile) setMobileView('detail');
   };
@@ -345,6 +367,7 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
 
   const execute = async () => {
     if (!selectedMethod) return;
+    const runId = ++runIdRef.current; // a newer run, method switch, or endpoint change supersedes this one
     setIsLoading(true);
     setRequestResult(null);
     const params = buildParams(selectedMethod, paramValues);
@@ -354,11 +377,12 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: selectedMethod.name, params }),
       });
-      setRequestResult(await res.json());
+      const json = await res.json();
+      if (runId === runIdRef.current) setRequestResult(json);
     } catch (e) {
-      setRequestResult({ error: { code: -1, message: e.message + ' (the endpoint may not allow browser requests / CORS)' } });
+      if (runId === runIdRef.current) setRequestResult({ error: { code: -1, message: e.message + ' (the endpoint may not allow browser requests / CORS)' } });
     } finally {
-      setIsLoading(false);
+      if (runId === runIdRef.current) setIsLoading(false);
     }
   };
 
@@ -616,7 +640,10 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
         '',
         'func main() {',
         '\tbody := []byte(' + BT + bodyJson + BT + ')',
-        `\tresp, _ := http.Post("${url}", "application/json", bytes.NewBuffer(body))`,
+        `\tresp, err := http.Post("${url}", "application/json", bytes.NewBuffer(body))`,
+        '\tif err != nil {',
+        '\t\tpanic(err)',
+        '\t}',
         '\tdefer resp.Body.Close()',
         '\tout, _ := io.ReadAll(resp.Body)',
         '\tfmt.Println(string(out))',
@@ -708,8 +735,10 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
       ].join('\n');
     }
 
-    // curl (default)
-    return `curl -s -X POST ${url} \\\n  -H "Content-Type: application/json" \\\n  -d '${bodyJson}'`;
+    // curl (default) — escape single quotes so apostrophes in param values
+    // don't terminate the shell-quoted -d string ('\'' closes, escapes, reopens).
+    const curlBody = bodyJson.replace(/'/g, "'\\''");
+    return `curl -s -X POST ${url} \\\n  -H "Content-Type: application/json" \\\n  -d '${curlBody}'`;
   }, [endpoint, wsEndpoint, debouncedParams]);
 
   const codeExample = useMemo(() => generateCode(selectedMethod, selectedLanguage), [selectedMethod, selectedLanguage, generateCode]);
@@ -844,9 +873,19 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
                 onChange={(e) => {
                   const next = e.target.checked;
                   setShowAll(next);
-                  if (!next && selectedNamespace !== 'all') {
-                    const meta = NAMESPACE_META[selectedNamespace];
-                    if (meta && (meta.deprecated || meta.unavailable)) setSelectedNamespace('all');
+                  if (!next) {
+                    if (selectedNamespace !== 'all') {
+                      const meta = NAMESPACE_META[selectedNamespace];
+                      if (meta && (meta.deprecated || meta.unavailable)) setSelectedNamespace('all');
+                    }
+                    // If the open method just disappeared from the list, close its
+                    // detail pane so it can't linger behind a hidden filter.
+                    if (selectedMethod && isHiddenByDefault(selectedMethod)) {
+                      runIdRef.current++;
+                      setSelectedMethod(null);
+                      setRequestResult(null);
+                      setIsLoading(false);
+                    }
                   }
                 }}
                 style={{ accentColor: c.maroon }}
@@ -941,6 +980,7 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
                   {isWsOnly(m.name) && (
                     <div style={{ padding: '10px 14px', borderRadius: 4, background: c.panel2, border: bd, fontSize: 12.5, color: c.sub, lineHeight: 1.5, marginBottom: 10 }}>
                       This is a WebSocket subscription method. Connect to <code style={{ fontFamily: mono }}>{wsEndpoint}</code> and send the payload below — edit the parameters to customize the subscription.
+                      {network === 'custom' && ' This URL is derived from your HTTP endpoint as a best guess; Sei serves WebSocket on a separate host (evm-ws…) from HTTP (evm-rpc…), so replace it with your node’s actual WebSocket endpoint if they differ.'}
                     </div>
                   )}
                   {m.params && m.params.length > 0 && (
