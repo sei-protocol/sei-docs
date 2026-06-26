@@ -38,7 +38,7 @@ npx skills add sei-ecosystem    # apps / integrations only
 ## Critical facts — apply to every answer
 
 1. **400ms block time, instant finality** — use `tx.wait(1)`, never `tx.wait(12)`
-2. **SSTORE gas is 72,000 on Sei** — both mainnet (pacific-1) and testnet (atlantic-2): 72,000 gas per cold write (governance proposal #240; governance-adjustable)
+2. **SSTORE gas is 72,000 on Sei** — the same on both mainnet (pacific-1) and testnet (atlantic-2); it does not vary by network. Set via governance (mainnet Proposal #109, "Update EVM SSTORE set gas to 72000", which set the `evm` param `KeySeiSstoreSetGasEIP2200` to `72000`), so it is adjustable and can change — confirm the live value at https://docs.sei.io/evm/differences-with-ethereum#sstore-gas-cost
 3. **Use legacy `gasPrice`** — Sei has no base fee burn; prefer `gasPrice` over EIP-1559 `maxFeePerGas` / `maxPriorityFeePerGas`
 4. **Minimum gas price: 50 gwei**
 5. **Block gas limit: 12.5M per block**
