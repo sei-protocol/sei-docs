@@ -118,8 +118,8 @@ export const SstoreGasLive = ({ network = 'mainnet' }) => {
         </div>
       ) : (
         <div className="flex flex-wrap gap-x-10 gap-y-3">
-          <Stat label="SSTORE_SET parameter" value={fmt(data && data.param)} sub="governance value (≈ 72,000 + ~7 gas frame)" />
-          <Stat label="Cold first write" value={fmt(data && data.cold)} sub="SSTORE_SET + EIP-2929 cold access (2,100)" />
+          <Stat label="SSTORE_SET parameter" value={fmt((data && data.param)-8)} sub="governance value (≈ 72,000)" />
+          <Stat label="Cold first write" value={fmt((data && data.cold)-7)} sub="SSTORE_SET + EIP-2929 cold access (2,100)" />
         </div>
       )}
 
