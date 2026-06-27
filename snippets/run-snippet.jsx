@@ -57,6 +57,10 @@ export const RunSnippet = (props) => {
 
 	const hexToDecimal = (value) => {
 		if (typeof value !== 'string' || !/^0x[0-9a-fA-F]+$/.test(value)) return null;
+		// Only decode values that fit in a single 32-byte word (a uint256 quantity).
+		// Longer hex — contract bytecode, multi-word ABI returns — is not one number,
+		// so leave it raw rather than rendering a meaningless giant decimal.
+		if (value.length > 66) return null;
 		try {
 			return groupThousands(BigInt(value).toString(10));
 		} catch (e) {
@@ -97,26 +101,34 @@ export const RunSnippet = (props) => {
 	const decoded = decode !== 'off' && typeof result === 'string' ? hexToDecimal(result) : null;
 
 	const copyResult = () => {
-		if (typeof navigator !== 'undefined' && navigator.clipboard) {
-			navigator.clipboard.writeText(resultString);
+		const flashCopied = () => {
 			setCopied(true);
 			setTimeout(() => setCopied(false), 2000);
+		};
+		// Prefer the async Clipboard API; only flash "Copied" once the write resolves,
+		// so a rejected/denied write never shows a false confirmation.
+		if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+			navigator.clipboard.writeText(resultString).then(flashCopied, () => {});
+			return;
+		}
+		// Fallback for insecure (http://) or older contexts where navigator.clipboard
+		// is unavailable — copy via a hidden textarea + execCommand.
+		if (typeof document !== 'undefined') {
+			try {
+				const ta = document.createElement('textarea');
+				ta.value = resultString;
+				ta.style.position = 'fixed';
+				ta.style.opacity = '0';
+				document.body.appendChild(ta);
+				ta.select();
+				document.execCommand('copy');
+				document.body.removeChild(ta);
+				flashCopied();
+			} catch (e) {
+				/* clipboard unavailable — no-op */
+			}
 		}
 	};
-
-	// --- icons (nested) ---
-	const SpinnerIcon = () => (
-		<svg className='animate-spin h-4 w-4' xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24'>
-			<circle className='opacity-25' cx='12' cy='12' r='10' stroke='currentColor' strokeWidth='4' />
-			<path className='opacity-75' fill='currentColor' d='M4 12a8 8 0 0 1 8-8v4a4 4 0 0 0-4 4H4z' />
-		</svg>
-	);
-
-	const PlayIcon = () => (
-		<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='currentColor'>
-			<path d='M8 5v14l11-7z' />
-		</svg>
-	);
 
 	// --- theme-agnostic surfaces (see theming note above) ---
 	const HAIRLINE = 'rgba(128, 128, 128, 0.25)';
@@ -157,7 +169,16 @@ export const RunSnippet = (props) => {
 					onMouseLeave={() => setBtnHover(false)}
 					className='inline-flex items-center gap-1.5 px-3 py-1.5 shrink-0 transition-colors'
 					style={buttonStyle}>
-					{phase === 'loading' ? <SpinnerIcon /> : <PlayIcon />}
+					{phase === 'loading' ? (
+							<svg className='animate-spin h-4 w-4' aria-hidden='true' xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24'>
+								<circle className='opacity-25' cx='12' cy='12' r='10' stroke='currentColor' strokeWidth='4' />
+								<path className='opacity-75' fill='currentColor' d='M4 12a8 8 0 0 1 8-8v4a4 4 0 0 0-4 4H4z' />
+							</svg>
+						) : (
+							<svg aria-hidden='true' xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='currentColor'>
+								<path d='M8 5v14l11-7z' />
+							</svg>
+						)}
 					{phase === 'loading' ? 'Running…' : label || 'Run'}
 				</button>
 			</div>

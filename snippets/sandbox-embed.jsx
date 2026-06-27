@@ -46,7 +46,10 @@ export const SandboxEmbed = (props) => {
 		stackblitz: { name: 'StackBlitz', host: 'stackblitz.com', defaultHeight: 500 }
 	};
 	const meta = KINDS[kind] || KINDS.codesandbox;
-	const frameHeight = typeof height === 'number' ? height : meta.defaultHeight;
+	// Coerce so a string height from MDX (height="600") is honored, and guard against
+	// 0 / negative / NaN, which would otherwise render an invisible iframe.
+	const parsedHeight = Number(height);
+	const frameHeight = Number.isFinite(parsedHeight) && parsedHeight > 0 ? parsedHeight : meta.defaultHeight;
 
 	// Permissions kept minimal. `cross-origin-isolated` is deliberately NOT
 	// requested — it is inert unless the parent page is COOP/COEP isolated, which
@@ -76,13 +79,13 @@ export const SandboxEmbed = (props) => {
 
 	// --- icons (nested) ---
 	const PlayIcon = () => (
-		<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='currentColor'>
+		<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='currentColor' aria-hidden='true'>
 			<path d='M8 5v14l11-7z' />
 		</svg>
 	);
 
 	const ExternalIcon = () => (
-		<svg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2' strokeLinecap='round' strokeLinejoin='round'>
+		<svg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2' strokeLinecap='round' strokeLinejoin='round' aria-hidden='true'>
 			<path d='M14 5h5v5' />
 			<path d='M19 5l-9 9' />
 			<path d='M19 14v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1h5' />
