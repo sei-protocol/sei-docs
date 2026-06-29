@@ -23,7 +23,7 @@ This skill makes an agent good at moving and accepting digital dollars on Sei: t
   - Mainnet (pacific-1, chain id 1329): `0xe15fC38F6D8c56aF07bbCBe3BAf5708A2Bf42392`
   - Testnet (atlantic-2, chain id 1328): `0x4fCF1784B31630811181f670Aea7A7bEF803eaED`
 - **Get testnet USDC** from the [Circle Faucet](https://faucet.circle.com), or bridge real USDC cross-chain with [Circle CCTP v2](https://github.com/circlefin/circle-cctp-crosschain-transfer). You still need a little native SEI to pay transaction fees.
-- **Sei runs ~400ms blocks with fast finality, which makes micropayments practical.** A payment confirms in roughly a block — confirm with one confirmation (`tx.wait(1)` or one block of polling), never `tx.wait(12)`. There are no `safe`/`finalized` block tags on Sei; query `latest`.
+- **Sei runs ~400ms blocks with fast finality, which makes micropayments practical.** A payment confirms in roughly a block — confirm with one confirmation (`tx.wait(1)` or one block of polling), never `tx.wait(12)`. On Sei `safe`/`finalized`/`latest` all resolve to the same instantly-final block; query `latest`.
 - **Use legacy `gasPrice`** for payment transactions. Sei has no EIP-1559 base-fee burn — set a single `gasPrice` rather than `maxFeePerGas`/`maxPriorityFeePerGas` (all fees go to validators). The minimum gas price is governance-adjustable; check the live value at https://docs.sei.io/evm/differences-with-ethereum.
 - **x402 uses HTTP 402 ("Payment Required").** The server answers an unpaid request with `402` plus a JSON payment challenge; the client pays on-chain, then retries with proof in an `X-Payment` header (base64-encoded JSON). The challenge `x402Version` is `1` and the scheme is `exact`.
 - **EVM tooling works as-is.** Use viem or ethers with the Sei EVM RPCs — mainnet `https://evm-rpc.sei-apis.com`, testnet `https://evm-rpc-testnet.sei-apis.com`.
@@ -218,7 +218,7 @@ For production, prefer the `@sei-js/x402-*` middleware (Express/Hono/Next) and c
 
 - **Treating USDC as 18 decimals.** USDC is 6 decimals on Sei. `parseUnits('10', 6)` not `parseEther('10')`. A single wrong constant multiplies the amount by 10^12.
 - **Waiting for 12 confirmations.** Sei runs ~400ms blocks with fast finality. Use a single confirmation (`waitForTransactionReceipt` / `tx.wait(1)`); waiting 12 blocks adds pointless latency that defeats the point of micropayments.
-- **Querying `safe` or `finalized` block tags.** Those tags do not exist on Sei. Read state at `latest`.
+- **Expecting `safe`/`finalized` to differ from `latest`.** On Sei they all resolve to the same instantly-final block. Read state at `latest`.
 - **Sending EIP-1559 fee fields.** Use legacy `gasPrice`; there is no base-fee burn on Sei (all fees go to validators). The minimum gas price is governance-adjustable — link to https://docs.sei.io/evm/differences-with-ethereum rather than hardcoding a number.
 - **Mixing TypeScript syntax into a `.js` file.** Plain `node index.js` cannot parse `as const`, the `!` non-null assertion, or `as` casts. Either keep the script as valid ESM JavaScript (as above) or rename it `index.ts` and run it with a TS runner like `npx tsx index.ts`.
 - **Forgetting native SEI for fees.** A USDC transfer still costs transaction fees paid in native SEI. A wallet with USDC but zero SEI cannot pay.

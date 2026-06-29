@@ -24,7 +24,7 @@ This skill makes the agent precise at calling Sei's native precompiles — fixed
 - **The native Oracle precompile (`0x...1008`) is deprecated** and will be shut off soon. For new price feeds use a third-party oracle (Chainlink, Pyth, Redstone, API3) — see https://docs.sei.io/evm/oracles. Do not build new code on the Oracle precompile.
 - **Governance voting power = staked SEI only.** Liquid (unstaked) SEI gives zero voting power. Mainnet proposal deposit is 3,500 SEI (7,000 expedited); deposits are burned if a proposal gets >33.4% NoWithVeto. Vote options: `1`=Yes, `2`=Abstain, `3`=No, `4`=NoWithVeto. `voteWeighted` weights are decimal strings that must sum to exactly `"1.0"`.
 - **Dual-address accounts.** Every key has a `sei1...` (bech32) and a `0x...` (EVM) address. They are linked only after *association*; the Addr precompile (`0x...1004`) queries/creates the mapping, and association happens automatically on the account's first on-chain transaction. Validator addresses use the `seivaloper1...` prefix.
-- **Fast finality + legacy fees.** Block time is ~400ms with fast/instant finality — use `tx.wait(1)`, never `tx.wait(12)`. There are no `safe`/`finalized` tags; query `latest`. Send transactions with a legacy `gasPrice` (Sei has no EIP-1559 base-fee burn).
+- **Fast finality + legacy fees.** Block time is ~400ms with fast/instant finality — use `tx.wait(1)`, never `tx.wait(12)`. The `safe`/`finalized`/`latest` commitment levels all resolve to the same instantly-final block on Sei, so just query `latest`. Send transactions with a legacy `gasPrice` (Sei has no EIP-1559 base-fee burn).
 - **Storage gas differs from Ethereum.** Writing storage (SSTORE) costs 72,000 gas on Sei — far above Ethereum's 20,000, and the same on mainnet and testnet (set by governance [Proposal #109](https://www.mintscan.io/sei/proposals/109)). It is a governance-adjustable on-chain parameter, so don't hardcode it forever. Block gas limit and minimum gas price are likewise governance-adjustable. Check the live values at https://docs.sei.io/evm/differences-with-ethereum#sstore-gas-cost.
 
 ## Setup
@@ -217,7 +217,7 @@ import { ethers } from 'ethers';
 import { ADDRESS_PRECOMPILE_ADDRESS, ADDRESS_PRECOMPILE_ABI } from '@sei-js/precompiles';
 
 const addr = new ethers.Contract(ADDRESS_PRECOMPILE_ADDRESS, ADDRESS_PRECOMPILE_ABI, provider);
-const seiAddr = await addr.getSeiAddr('0xYourAddress'); // "sei1..."; reverts or returns "" if unassociated
+const seiAddr = await addr.getSeiAddr('0xYourAddress'); // "sei1..."; REVERTS if unassociated — wrap in try/catch
 const evmAddr = await addr.getEvmAddr('sei1...');        // "0x..."
 ```
 
@@ -250,7 +250,7 @@ Deploying a *new* pointer (the registration side, Pointer precompile `0x...100B`
 - **`extractAsUint256` on non-integers** (decimals, booleans, negatives) reverts. Scale decimals to integers; encode booleans as 0/1.
 - **Expecting voting power from liquid SEI.** Only staked/delegated SEI votes; if you don't vote, your validator's vote is inherited.
 - **`voteWeighted` weights not summing to exactly `"1.0"`** → the transaction is rejected by the gov module.
-- **Using `tx.wait(12)` or `finalized`/`safe` block tags.** Sei finalizes fast — `tx.wait(1)` and `latest` are correct. Use legacy `gasPrice`, not EIP-1559 `maxFeePerGas`/priority fees.
+- **Using `tx.wait(12)` or expecting `finalized`/`safe` to lag `latest`.** Sei finalizes fast and those commitment levels resolve to the same block — `tx.wait(1)` and `latest` are correct. Use legacy `gasPrice`, not EIP-1559 `maxFeePerGas`/priority fees.
 - **Hardcoding a single SSTORE/storage gas number.** It is currently 72,000 gas (the same on mainnet and testnet) but is governance-adjustable. Estimate gas dynamically (`estimateGas`) and link to the live value rather than baking in a constant.
 - **Assuming a `sei1` and `0x` address are already linked.** They share a key but are only mapped after association; sending native tokens to an unassociated counterpart can be unreachable from the other VM.
 

@@ -19,12 +19,12 @@ This skill makes an agent fluent in EVM smart-contract development on Sei: scaff
 
 - **Chain IDs:** mainnet `pacific-1` = `1329` (`0x531`); testnet `atlantic-2` = `1328` (`0x530`). Deploy and verify against testnet first.
 - **EVM RPC:** mainnet `https://evm-rpc.sei-apis.com`; testnet `https://evm-rpc-testnet.sei-apis.com`. On the EVM side SEI uses 18 decimals (1 SEI = 10^18 wei); the Cosmos-side micro-denom `usei` has 6 decimals (1 SEI = 1,000,000 usei).
-- **~400ms blocks with fast finality:** use `tx.wait(1)` — never `tx.wait(12)`. There are **no `safe` or `finalized` block tags** on Sei; use `latest`.
+- **~400ms blocks with fast finality:** use `tx.wait(1)` — never `tx.wait(12)`. On Sei the `safe`, `finalized`, and `latest` commitment levels all resolve to the same instantly-final block, so just use `latest`.
 - **No EIP-1559 base-fee burn:** all transaction fees go to validators. Prefer **legacy `gasPrice`**. `maxFeePerGas`/`maxPriorityFeePerGas` are accepted but there is no priority-fee market.
 - **`block.coinbase` returns the global fee collector**, not the block proposer — do not use it to identify the validator that produced a block.
 - **`block.prevrandao` is NOT a safe randomness source** on Sei. Use an external VRF (Pyth Entropy/VRF or Chainlink VRF).
 - **Parallel execution (OCC):** Sei executes non-conflicting transactions in parallel. Transactions that write the same storage key conflict and get re-executed serially. Partition state by user/asset/id; avoid hot global counters.
-- **Storage write (SSTORE) gas is 72,000** — far above Ethereum's 20,000, and the **same on mainnet and testnet** (set by governance [Proposal #109](https://www.mintscan.io/sei/proposals/109)). It is a **governance-adjustable** on-chain parameter, so don't assume it is fixed forever: read the live value at https://docs.sei.io/evm/differences-with-ethereum#sstore-gas-cost and estimate per-transaction with `eth_estimateGas`. (A `forge --gas-report --fork-url` report uses revm's standard EVM schedule and shows ~22k, not Sei's cost.) The same governance-adjustable caveat applies to the **minimum gas price** and **block gas limit**.
+- **Storage write (SSTORE) gas is 72,000** — far above Ethereum's 20,000, and the **same on mainnet and testnet** (set by governance [Proposal #109](https://www.mintscan.io/sei/proposals/109)). It is a **governance-adjustable** on-chain parameter, so don't assume it is fixed forever: read the live value at https://docs.sei.io/evm/differences-with-ethereum#sstore-gas-cost and estimate per-transaction with `eth_estimateGas`. (A `forge --gas-report --fork-url` report uses revm's standard EVM schedule and shows ~22,100, not Sei's cost.) The same governance-adjustable caveat applies to the **minimum gas price** and **block gas limit**.
 - **Dual-address accounts:** every key has a `sei1...` (Cosmos) address and a `0x...` (EVM) address. Cross-VM value transfers require address association via the `Addr` precompile. See https://docs.sei.io/learn/accounts.
 - **CosmWasm is deprecated for new development** per SIP-3 — target Sei EVM.
 - **Verification is via Seiscan, backed by Sourcify** — no Etherscan API key required.
@@ -72,7 +72,7 @@ forge verify-contract \
   src/Counter.sol:Counter
 ```
 
-Profile your contract's gas with Foundry, but get Sei's real storage-write cost from a live estimate — a `--fork-url` report forks state yet runs the standard EVM gas schedule, so it shows SSTORE at ~22k, not Sei's ~72k:
+Profile your contract's gas with Foundry, but get Sei's real storage-write cost from a live estimate — a `--fork-url` report forks state yet runs the standard EVM gas schedule, so it shows SSTORE at ~22,100, not Sei's ~72,000:
 
 ```bash
 forge test --gas-report --fork-url https://evm-rpc-testnet.sei-apis.com  # relative profiling of your own logic
@@ -184,7 +184,7 @@ const signer = new ethers.Wallet(process.env.PRIVATE_KEY!, provider);
 const tx = await contract.increment();
 await tx.wait(1); // one confirmation is final on Sei — do NOT use wait(12)
 
-// Always read against 'latest' — Sei has no 'safe'/'finalized' tags
+// Read against 'latest' — on Sei 'safe'/'finalized'/'latest' resolve to the same block
 const head = await provider.getBlock('latest');
 ```
 
@@ -229,7 +229,7 @@ ERC-4337 works on Sei EVM. Sei's instant finality and gas model make it a good f
 ## Common pitfalls
 
 - **Waiting for 12 confirmations.** Sei is final in ~1 block; `tx.wait(12)` just stalls your dApp. Use `tx.wait(1)`.
-- **Querying `safe` or `finalized` block tags.** They don't exist on Sei — use `latest`.
+- **Expecting `safe`/`finalized` to differ from `latest`.** On Sei they all resolve to the same instantly-final block — just use `latest`.
 - **Using EIP-1559 fee fields and expecting a priority market.** There's no base-fee burn; set a legacy `gasPrice`.
 - **Trusting `block.prevrandao` for randomness.** It is block-time-derived on Sei, not RANDAO output — use an external VRF.
 - **Reading the proposer from `block.coinbase`.** It returns the global fee collector address.

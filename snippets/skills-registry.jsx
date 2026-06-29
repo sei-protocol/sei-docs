@@ -210,6 +210,7 @@ export const SkillsRegistry = () => {
 					</span>
 					<a
 						href={skill.href}
+						aria-label={`View ${skill.title} docs`}
 						onMouseEnter={() => setLinkHover(true)}
 						onMouseLeave={() => setLinkHover(false)}
 						className='inline-flex items-center gap-1 text-sm font-medium no-underline'
@@ -231,7 +232,7 @@ export const SkillsRegistry = () => {
 						borderRadius: 8,
 						cursor: 'pointer'
 					}}
-					aria-label={`Copy install command for ${skill.id}`}>
+					aria-label='Copy the Sei Foundation skills install command'>
 					<code className='text-xs text-neutral-700 dark:text-neutral-300 truncate' style={{ fontFamily: 'var(--sei-font-mono)' }}>
 						{INSTALL_CMD}
 					</code>

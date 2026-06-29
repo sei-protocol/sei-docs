@@ -29,7 +29,7 @@ The guiding rule: **on Sei, never trust an EVM assumption you haven't verified a
 - **`block.prevrandao` is NOT random on Sei.** It returns a deterministic value derived from block time and is predictable by validators. Use Pyth Entropy/VRF or Chainlink VRF for any value-bearing randomness.
 - **`block.coinbase` is the global fee collector, not the block proposer.** Do not use it for MEV detection, tip routing, or proposer logic.
 - **Dual-address accounts.** Every key controls a `sei1...` (Cosmos) address and a `0x...` (EVM) address. Cross-VM value transfers require the two to be **associated** via the Addr precompile (`0x0000000000000000000000000000000000001004`). An unassociated `0x...` can be derived that does not yet map to the `sei1...` a user expects — verify association before relying on the mapping. See https://docs.sei.io/learn/accounts.
-- **Sub-second finality (~400ms block time).** Use `tx.wait(1)` — one confirmation is final. Never wait 12 blocks, and there are **no `safe` or `finalized` block tags** on Sei; query `latest`.
+- **Sub-second finality (~400ms block time).** Use `tx.wait(1)` — one confirmation is final. Never wait 12 blocks; on Sei the `safe`, `finalized`, and `latest` commitment levels all resolve to the same instantly-final block, so there is nothing to gain from `safe`/`finalized` — just query `latest`.
 - **Use legacy `gasPrice`.** Sei has no EIP-1559 base-fee burn (all fees go to validators), so EIP-1559 priority-fee mechanics don't apply. Passing `maxFeePerGas`/`maxPriorityFeePerGas` can trigger fee errors.
 - **Storage (`SSTORE`) gas is 72,000 — far above Ethereum's 20,000, and the same on mainnet and testnet.** It was set by governance [Proposal #109](https://www.mintscan.io/sei/proposals/109) and is an on-chain parameter that can change again via governance, so don't hardcode a single eternal figure; check the live value at https://docs.sei.io/evm/differences-with-ethereum#sstore-gas-cost. Minimum gas price and block gas limit are likewise governance-adjustable.
 - **CosmWasm is deprecated for new development** per SIP-3. Target the Sei EVM.
@@ -137,12 +137,16 @@ interface IAddr {
 address constant ADDR_PRECOMPILE = 0x0000000000000000000000000000000000001004;
 
 function requireAssociated(address evmAddr, string memory expectedSeiAddr) view {
-    string memory actual = IAddr(ADDR_PRECOMPILE).getSeiAddr(evmAddr);
-    require(bytes(actual).length != 0, "address not associated"); // empty == unassociated
-    require(
-        keccak256(bytes(actual)) == keccak256(bytes(expectedSeiAddr)),
-        "address mismatch"
-    );
+    // getSeiAddr REVERTS for an unassociated address — it does NOT return "".
+    // Wrap the call in try/catch and treat the revert as "not associated".
+    try IAddr(ADDR_PRECOMPILE).getSeiAddr(evmAddr) returns (string memory actual) {
+        require(
+            keccak256(bytes(actual)) == keccak256(bytes(expectedSeiAddr)),
+            "address mismatch"
+        );
+    } catch {
+        revert("address not associated");
+    }
 }
 ```
 
@@ -157,7 +161,7 @@ function requireAllowedValidator(string calldata validatorAddr) view {
 }
 ```
 
-See the Staking precompile (`0x0000000000000000000000000000000000001005`) address format and method signatures at https://docs.sei.io/evm/precompiles. Off-chain, the Addr precompile returns an empty string for an unassociated address — branch on that before assuming a transfer will land where the user intends. See https://docs.sei.io/learn/accounts.
+See the Staking precompile (`0x0000000000000000000000000000000000001005`) address format and method signatures at https://docs.sei.io/evm/precompiles. Off-chain, the Addr precompile **reverts** for an unassociated address — catch the revert (do not expect an empty string) and surface it as "not linked" before assuming a transfer will land where the user intends. See https://docs.sei.io/learn/accounts.
 
 ## AI-agent safety
 
@@ -205,10 +209,10 @@ Mandatory write-op flow for an agent: **simulate → estimate cost → summarize
 - **Using `PREVRANDAO` (or `blockhash`/`timestamp`/`coinbase`) for randomness.** All deterministic on Sei. Validators can predict the outcome.
 - **Trusting `block.coinbase` as the proposer.** It is the fee collector; proposer logic built on it is wrong.
 - **Sending EIP-1559 fee fields.** `max fee per gas less than block base fee` / `transaction underpriced` errors usually mean you should pass legacy `gasPrice` instead. Minimum gas price is governance-set — check docs, not a hardcoded constant.
-- **Waiting for 12 confirmations or polling `safe`/`finalized` tags.** Finality is one block (~400ms); those tags don't exist on Sei. Use `latest` and `tx.wait(1)`.
+- **Waiting for 12 confirmations or expecting `safe`/`finalized` to lag `latest`.** Finality is one block (~400ms); on Sei `safe`/`finalized`/`latest` all resolve to the same block, so waiting on them buys nothing. Use `latest` and `tx.wait(1)`.
 - **Transferring across VMs without checking association.** An unassociated `0x...` may not map to the `sei1...` a user assumes — verify via the Addr precompile first.
 - **Mixing wei and usei in Staking precompile calls.** `delegate` is `payable` (value in **wei**, 18 decimals, e.g. `parseEther`); `undelegate` takes an amount in **usei** (6 decimals, 1 SEI = 1,000,000 usei). Confirm the unit for any other Staking precompile method against https://docs.sei.io/evm/precompiles — passing the wrong unit silently sends ~1e12× too much or too little.
-- **Hardcoding `SSTORE` / min-gas / block-gas-limit numbers.** All governance-adjustable. Read the live value from https://docs.sei.io/evm/differences-with-ethereum and budget storage-write gas with on-chain `eth_estimateGas` — a `forge --gas-report --fork-url` report uses the standard EVM schedule and understates Sei's SSTORE (~22k vs ~72k).
+- **Hardcoding `SSTORE` / min-gas / block-gas-limit numbers.** All governance-adjustable. Read the live value from https://docs.sei.io/evm/differences-with-ethereum and budget storage-write gas with on-chain `eth_estimateGas` — a `forge --gas-report --fork-url` report uses the standard EVM schedule and understates Sei's SSTORE (~22,100 vs ~72,000).
 - **Auto-retrying failed writes in an agent.** A failed-looking RPC response may have been included. Check inclusion by hash before resubmitting, or risk a double action.
 - **Forwarding raw on-chain strings into an LLM prompt.** Token names, memos, and metadata are untrusted; sanitize against an allowlist regex first.
 - **Skipping verification.** Always run the simulate-before-write flow and verify source on Seiscan; for revert reasons use `cast` tracing (see Key docs).
