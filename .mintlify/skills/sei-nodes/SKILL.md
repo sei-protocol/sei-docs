@@ -25,7 +25,7 @@ Sei is a Cosmos SDK chain with an integrated EVM execution layer. Nodes run cons
 - **Init mode binds ports.** Default `--mode full` binds RPC and P2P to all interfaces (`0.0.0.0`). For validators (and seed nodes) use `--mode validator` / `--mode seed` so RPC and P2P listen on localhost only.
 - **SeiDB is the storage backend**, not the legacy IAVL store. It has two layers: State Commit (SC, hot state on memiavl, computes the app hash) and State Store (SS, historical key/values for queries). Legacy IAVL (`sc-enable = false`) is deprecated and slated for removal — run SeiDB.
 - **SS is required for any node that serves RPC** (`ss-enable = true`). Validators that serve no queries can disable it to save disk.
-- **Minimum gas price is governance-set and chain-enforced.** mainnet enforces a chain-wide floor (set `minimum-gas-prices` at or above it, e.g. `0.02usei`); `0usei` is only valid for local/private dev. The exact floor, block gas limit, and SSTORE/storage gas cost are governance-adjustable — confirm the live values at [docs.sei.io](https://docs.sei.io) rather than hardcoding them.
+- **Minimum gas price is governance-set and chain-enforced.** mainnet enforces a chain-wide floor (set `minimum-gas-prices` at or above it, e.g. `0.02usei`); `0usei` is only valid for local/private dev. The exact floor, block gas limit, and SSTORE/storage gas cost are governance-adjustable — confirm the live values at [docs.sei.io/evm/differences-with-ethereum](https://docs.sei.io/evm/differences-with-ethereum) rather than hardcoding them.
 - **Double-signing = permanent tombstoning.** Never run the same `priv_validator_key.json` on two machines at once. Always preserve `priv_validator_state.json` across any resync.
 - **`occ-enabled = true`** turns on Optimistic Concurrency Control for parallel transaction execution — keep it on.
 - **Go 1.24.x** is required to build `seid` v6.3+. Official Docker images: `ghcr.io/sei-protocol/sei` (linux/amd64 and linux/arm64).
@@ -136,7 +136,7 @@ sc-keep-recent = 1            # set 1 if serving IBC light-client / relayer proo
 [state-store]
 ss-enable = true              # REQUIRED for any RPC-serving node
 ss-backend = "pebbledb"       # or "rocksdb" (see below)
-ss-keep-recent = 100000       # ~28h of pacific-1 history; 0 = keep everything (archive)
+ss-keep-recent = 100000       # ~100k blocks of pacific-1 history; 0 = keep everything (archive)
 
 [receipt-store]
 rs-backend = "pebbledb"       # EVM receipts; pruned with min-retain-blocks
@@ -160,7 +160,7 @@ For an **archive node**: set `ss-keep-recent = 0`, disable `[statesync]` (`enabl
   ```
 
   RocksDB RPC nodes must state-sync on first start; archive nodes currently must sync from genesis (a PebbleDB→RocksDB migration is in progress).
-- **Giga Storage** (optional, RPC nodes only today): repartitions SeiDB so EVM state lives in its own SC/SS databases, freeing non-EVM modules from EVM write amplification. It requires a **fresh state sync** — flipping the EVM SS modes on a node with existing data fails startup safety checks. Follow the [Giga SS Store Migration Guide](https://docs.sei.io/node/giga-storage-migration); the resulting shape is `sc-write-mode = "dual_write"`, `sc-read-mode = "split_read"`, `sc-enable-lattice-hash = true`, plus split EVM SS modes.
+- **Giga Storage** (optional, RPC nodes only today): repartitions SeiDB so EVM state lives in its own SC/SS databases, freeing non-EVM modules from EVM write amplification. It requires a **fresh state sync** — flipping the EVM SS modes on a node with existing data fails startup safety checks. Follow the [Giga SS Store Migration Guide](https://docs.sei.io/node/giga-storage-migration); the resulting shape is `sc-write-mode = "dual_write"`, `sc-read-mode = "split_read"`, `sc-enable-lattice-hash = true`, plus `evm-ss-split = true` (Sei v6.5+; older releases used per-key `evm-ss-write-mode` / `evm-ss-read-mode` toggles).
 - **Giga Executor** is a *separate* feature (`[giga_executor] enabled`) that swaps the EVM interpreter to an evmone-based engine for throughput. Don't conflate it with Giga Storage.
 
 ## Run as a service
@@ -221,7 +221,7 @@ Use `atlantic-2` for testnet. Protect the consensus key (`priv_validator_key.jso
 - **Skipping the `priv_validator_state.json` restore after a reset/resync** — `seid tendermint unsafe-reset-all` plus `rm -rf data/*` wipes it, so always copy your backup back to `$HOME/.sei/data/priv_validator_state.json` before starting. On a snapshot restore, copy it back *after* extraction since the extract overwrites it.
 - **Running validator keys on two machines** → permanent tombstoning. The same applies after any resync: verify the old instance is fully offline.
 - **Validator with RPC/P2P on `0.0.0.0`** — happens when you forget `--mode validator`. Re-init or rebind to localhost and use sentries.
-- **Hardcoding gas / SSTORE numbers.** Minimum gas price and block gas limit are governance-adjustable (and the gas-price floor differs between mainnet and testnet); SSTORE/storage gas is governance-adjustable too, currently 72,000 — the same on both networks. Read live values from [docs.sei.io](https://docs.sei.io); do not assume Ethereum's 20,000 SSTORE.
+- **Hardcoding gas / SSTORE numbers.** Minimum gas price and block gas limit are governance-adjustable (and the gas-price floor differs between mainnet and testnet); SSTORE/storage gas is governance-adjustable too, currently 72,000 — the same on both networks. Read live values from [docs.sei.io/evm/differences-with-ethereum](https://docs.sei.io/evm/differences-with-ethereum); do not assume Ethereum's 20,000 SSTORE.
 - **Stale binary after a snapshot/state-sync** → `AppHash` errors. Use the `seid` version that matches the snapshot/network height.
 - **Disabling SS on an RPC node** — historical queries break. `ss-enable = true` is mandatory wherever you serve RPC.
 - **Treating SeiDB like Ethereum geth.** This is a Cosmos+EVM node; storage, pruning, and the app hash live in SeiDB (memiavl + PebbleDB/RocksDB), not a single geth-style DB.

@@ -32,7 +32,7 @@ The guiding rule: **on Sei, never trust an EVM assumption you haven't verified a
 - **Sub-second finality (~400ms block time).** Use `tx.wait(1)` — one confirmation is final. Never wait 12 blocks, and there are **no `safe` or `finalized` block tags** on Sei; query `latest`.
 - **Use legacy `gasPrice`.** Sei has no EIP-1559 base-fee burn (all fees go to validators), so EIP-1559 priority-fee mechanics don't apply. Passing `maxFeePerGas`/`maxPriorityFeePerGas` can trigger fee errors.
 - **Storage (`SSTORE`) gas is 72,000 — far above Ethereum's 20,000, and the same on mainnet and testnet.** It was set by governance [Proposal #109](https://www.mintscan.io/sei/proposals/109) and is an on-chain parameter that can change again via governance, so don't hardcode a single eternal figure; check the live value at https://docs.sei.io/evm/differences-with-ethereum#sstore-gas-cost. Minimum gas price and block gas limit are likewise governance-adjustable.
-- **CosmWasm is deprecated for new development** per SIP-3 (proposal 99). Target the Sei EVM.
+- **CosmWasm is deprecated for new development** per SIP-3. Target the Sei EVM.
 - **Contract verification uses Sourcify** (no Etherscan API key): `forge verify-contract --verifier sourcify`. Verify immediately after deploy so reviewers can read your source.
 
 ## Deploy testnet-first, simulate-before-write
@@ -42,7 +42,7 @@ Every state-changing transaction should be simulated with `eth_call` (or `estima
 ```typescript
 import { createPublicClient, createWalletClient, http } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { seiTestnet } from '@sei-js/precompiles'; // also exports `sei` (mainnet)
+import { seiTestnet } from 'viem/chains'; // viem also exports `sei` (mainnet)
 
 const SEI_MAINNET = 1329; // pacific-1
 const SEI_TESTNET = 1328; // atlantic-2
@@ -198,7 +198,7 @@ Mandatory write-op flow for an agent: **simulate → estimate cost → summarize
 | Prices | Pyth / Chainlink / Redstone / API3 — never AMM spot (the native Oracle precompile is deprecated) |
 | Static analysis | Slither / Aderyn before mainnet; external audit above meaningful TVL |
 | Verification | Sourcify via `forge verify-contract --verifier sourcify` |
-| Chain config | `@sei-js/precompiles` (`sei`, `seiTestnet`, precompile ABIs) |
+| Chain config | `sei` / `seiTestnet` from `viem/chains`; precompile ABIs from `@sei-js/precompiles` |
 
 ## Common pitfalls
 
@@ -208,7 +208,7 @@ Mandatory write-op flow for an agent: **simulate → estimate cost → summarize
 - **Waiting for 12 confirmations or polling `safe`/`finalized` tags.** Finality is one block (~400ms); those tags don't exist on Sei. Use `latest` and `tx.wait(1)`.
 - **Transferring across VMs without checking association.** An unassociated `0x...` may not map to the `sei1...` a user assumes — verify via the Addr precompile first.
 - **Mixing wei and usei in Staking precompile calls.** `delegate` is `payable` (value in **wei**, 18 decimals, e.g. `parseEther`); `undelegate` takes an amount in **usei** (6 decimals, 1 SEI = 1,000,000 usei). Confirm the unit for any other Staking precompile method against https://docs.sei.io/evm/precompiles — passing the wrong unit silently sends ~1e12× too much or too little.
-- **Hardcoding `SSTORE` / min-gas / block-gas-limit numbers.** All governance-adjustable. Read the live value from docs.sei.io and budget storage-write gas with on-chain `eth_estimateGas` — a `forge --gas-report --fork-url` report uses the standard EVM schedule and understates Sei's SSTORE (~22k vs ~72k).
+- **Hardcoding `SSTORE` / min-gas / block-gas-limit numbers.** All governance-adjustable. Read the live value from https://docs.sei.io/evm/differences-with-ethereum and budget storage-write gas with on-chain `eth_estimateGas` — a `forge --gas-report --fork-url` report uses the standard EVM schedule and understates Sei's SSTORE (~22k vs ~72k).
 - **Auto-retrying failed writes in an agent.** A failed-looking RPC response may have been included. Check inclusion by hash before resubmitting, or risk a double action.
 - **Forwarding raw on-chain strings into an LLM prompt.** Token names, memos, and metadata are untrusted; sanitize against an allowlist regex first.
 - **Skipping verification.** Always run the simulate-before-write flow and verify source on Seiscan; for revert reasons use `cast` tracing (see Key docs).

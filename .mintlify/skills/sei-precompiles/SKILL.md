@@ -13,7 +13,7 @@ metadata:
 
 # Sei precompiles
 
-This skill makes the agent precise at calling Sei's native precompiles — fixed-address contracts deployed by the protocol that expose Cosmos-layer functionality (staking, governance, distribution, bank, address association, IBC, cross-VM pointers) plus JSON parsing and P-256 verification to the EVM. Precompiles behave like ordinary contracts from Solidity/viem/ethers, but they execute privileged native logic. Use `@sei-js/precompiles` for the addresses, ABIs, and viem chain configs.
+This skill makes the agent precise at calling Sei's native precompiles — fixed-address contracts deployed by the protocol that expose Cosmos-layer functionality (staking, governance, distribution, bank, address association, IBC, cross-VM pointers) plus JSON parsing and P-256 verification to the EVM. Precompiles behave like ordinary contracts from Solidity/viem/ethers, but they execute privileged native logic. Use `@sei-js/precompiles` for the addresses and ABIs, and `viem/chains` for the `sei` / `seiTestnet` chain configs.
 
 ## Critical facts
 
@@ -34,7 +34,7 @@ npm install @sei-js/precompiles viem ethers
 ```
 
 ```ts
-// Addresses + ABIs + viem chain configs all come from one package.
+// Addresses + ABIs come from @sei-js/precompiles; viem chains from viem/chains.
 import {
   BANK_PRECOMPILE_ADDRESS, BANK_PRECOMPILE_ABI,
   STAKING_PRECOMPILE_ADDRESS, STAKING_PRECOMPILE_ABI,
@@ -43,12 +43,12 @@ import {
   JSON_PRECOMPILE_ADDRESS, JSON_PRECOMPILE_ABI,
   ADDRESS_PRECOMPILE_ADDRESS, ADDRESS_PRECOMPILE_ABI,
 } from '@sei-js/precompiles';
-import { sei, seiTestnet } from '@sei-js/precompiles'; // viem chain configs
+import { sei, seiTestnet } from 'viem/chains'; // viem chain configs
 ```
 
 ## Default stack
 
-- **TypeScript:** viem or ethers v6 + `@sei-js/precompiles` for addresses/ABIs. Use the exported `sei` (pacific-1, chainId 1329) / `seiTestnet` (atlantic-2, chainId 1328) chain configs.
+- **TypeScript:** viem or ethers v6 + `@sei-js/precompiles` for addresses/ABIs. Import the `sei` (pacific-1, chainId 1329) / `seiTestnet` (atlantic-2, chainId 1328) chain configs from `viem/chains`.
 - **Solidity:** declare a minimal `interface` for the precompile you call and cast the fixed address to it (shown below). Solidity 0.8.x.
 - **Testing:** Foundry with `--fork-url`, or Hardhat with network forking, so the precompile addresses are populated.
 - **Scaffold:** `npx @sei-js/create-sei app --name <name>`.
@@ -59,7 +59,7 @@ import { sei, seiTestnet } from '@sei-js/precompiles'; // viem chain configs
 
 ```ts
 import { createPublicClient, http } from 'viem';
-import { sei } from '@sei-js/precompiles';
+import { sei } from 'viem/chains';
 import { BANK_PRECOMPILE_ADDRESS, BANK_PRECOMPILE_ABI } from '@sei-js/precompiles';
 
 const client = createPublicClient({ chain: sei, transport: http('https://evm-rpc.sei-apis.com') });
@@ -117,7 +117,7 @@ await claimTx.wait(1);
 
 ```ts
 import { createWalletClient, custom } from 'viem';
-import { sei } from '@sei-js/precompiles';
+import { sei } from 'viem/chains';
 import { GOVERNANCE_PRECOMPILE_ADDRESS, GOVERNANCE_PRECOMPILE_ABI } from '@sei-js/precompiles';
 
 const walletClient = createWalletClient({ chain: sei, transport: custom(window.ethereum) });
@@ -217,7 +217,7 @@ import { ethers } from 'ethers';
 import { ADDRESS_PRECOMPILE_ADDRESS, ADDRESS_PRECOMPILE_ABI } from '@sei-js/precompiles';
 
 const addr = new ethers.Contract(ADDRESS_PRECOMPILE_ADDRESS, ADDRESS_PRECOMPILE_ABI, provider);
-const seiAddr = await addr.getSeiAddr('0xYourAddress'); // "sei1..." or reverts if unassociated
+const seiAddr = await addr.getSeiAddr('0xYourAddress'); // "sei1..."; reverts or returns "" if unassociated
 const evmAddr = await addr.getEvmAddr('sei1...');        // "0x..."
 ```
 
@@ -237,7 +237,7 @@ if (result.exists) {
 }
 ```
 
-Deploying a *new* pointer (the registration side, Pointer precompile `0x...100B`) and the cross-VM/CosmWasm interop story are out of scope here — CosmWasm is deprecated for new development per SIP-3 (proposal 99), so new projects should target EVM-only. For pointer registration details and the full cross-VM model, see https://docs.sei.io/learn/pointers.
+Deploying a *new* pointer (the registration side, Pointer precompile `0x...100B`) and the cross-VM/CosmWasm interop story are out of scope here — CosmWasm is deprecated for new development per SIP-3, so new projects should target EVM-only. For pointer registration details and the full cross-VM model, see https://docs.sei.io/learn/pointers.
 
 ## Common pitfalls
 

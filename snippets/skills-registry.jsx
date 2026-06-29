@@ -1,6 +1,6 @@
 export const SkillsRegistry = () => {
 	// --- Foundation skills hosted on docs.sei.io (.mintlify/skills/<id>/SKILL.md).
-	//     All install together via `npx skills add docs.sei.io`. Keep this list in
+	//     All install together via `npx skills add https://docs.sei.io`. Keep this list in
 	//     sync with the .mintlify/skills/ directory. ---
 	const SKILLS = [
 		{
@@ -47,7 +47,7 @@ export const SkillsRegistry = () => {
 		}
 	];
 
-	const INSTALL_CMD = 'npx skills add docs.sei.io';
+	const INSTALL_CMD = 'npx skills add https://docs.sei.io';
 	const FILTERS = ['All', 'Contracts', 'Frontend', 'Precompiles', 'Infrastructure', 'Payments', 'Security'];
 
 	// --- Dark mode detection (Mintlify toggles a `dark` class on <html>) ---

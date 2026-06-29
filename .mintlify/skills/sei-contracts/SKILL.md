@@ -18,7 +18,7 @@ This skill makes an agent fluent in EVM smart-contract development on Sei: scaff
 ## Critical facts
 
 - **Chain IDs:** mainnet `pacific-1` = `1329` (`0x531`); testnet `atlantic-2` = `1328` (`0x530`). Deploy and verify against testnet first.
-- **EVM RPC:** mainnet `https://evm-rpc.sei-apis.com`; testnet `https://evm-rpc-testnet.sei-apis.com`. Gas is paid in `usei` (1 SEI = 10^18 wei, 18 decimals on the EVM side).
+- **EVM RPC:** mainnet `https://evm-rpc.sei-apis.com`; testnet `https://evm-rpc-testnet.sei-apis.com`. On the EVM side SEI uses 18 decimals (1 SEI = 10^18 wei); the Cosmos-side micro-denom `usei` has 6 decimals (1 SEI = 1,000,000 usei).
 - **~400ms blocks with fast finality:** use `tx.wait(1)` — never `tx.wait(12)`. There are **no `safe` or `finalized` block tags** on Sei; use `latest`.
 - **No EIP-1559 base-fee burn:** all transaction fees go to validators. Prefer **legacy `gasPrice`**. `maxFeePerGas`/`maxPriorityFeePerGas` are accepted but there is no priority-fee market.
 - **`block.coinbase` returns the global fee collector**, not the block proposer — do not use it to identify the validator that produced a block.
@@ -26,7 +26,7 @@ This skill makes an agent fluent in EVM smart-contract development on Sei: scaff
 - **Parallel execution (OCC):** Sei executes non-conflicting transactions in parallel. Transactions that write the same storage key conflict and get re-executed serially. Partition state by user/asset/id; avoid hot global counters.
 - **Storage write (SSTORE) gas is 72,000** — far above Ethereum's 20,000, and the **same on mainnet and testnet** (set by governance [Proposal #109](https://www.mintscan.io/sei/proposals/109)). It is a **governance-adjustable** on-chain parameter, so don't assume it is fixed forever: read the live value at https://docs.sei.io/evm/differences-with-ethereum#sstore-gas-cost and estimate per-transaction with `eth_estimateGas`. (A `forge --gas-report --fork-url` report uses revm's standard EVM schedule and shows ~22k, not Sei's cost.) The same governance-adjustable caveat applies to the **minimum gas price** and **block gas limit**.
 - **Dual-address accounts:** every key has a `sei1...` (Cosmos) address and a `0x...` (EVM) address. Cross-VM value transfers require address association via the `Addr` precompile. See https://docs.sei.io/learn/accounts.
-- **CosmWasm is deprecated for new development** per SIP-3 (proposal 99) — target Sei EVM.
+- **CosmWasm is deprecated for new development** per SIP-3 — target Sei EVM.
 - **Verification is via Seiscan, backed by Sourcify** — no Etherscan API key required.
 
 ## Default stack
@@ -34,7 +34,7 @@ This skill makes an agent fluent in EVM smart-contract development on Sei: scaff
 - **Toolchain:** Foundry for contract-heavy work (fast tests, fuzzing, fork testing); Hardhat for JS/TS-heavy teams that want Ignition and the OpenZeppelin Upgrades plugin.
 - **Solidity:** `solc` 0.8.x (the docs use `0.8.28`) with the optimizer enabled (`runs = 200`).
 - **Libraries:** OpenZeppelin Contracts v5 (`@openzeppelin/contracts`), plus `@openzeppelin/contracts-upgradeable` for proxies.
-- **Precompile ABIs + viem chain configs:** import from `@sei-js/precompiles` (exports the precompile addresses/ABIs and `sei` / `seiTestnet` viem chains) — do not hardcode.
+- **Precompile ABIs + viem chains:** import the precompile addresses/ABIs from `@sei-js/precompiles`, and the `sei` / `seiTestnet` viem chains from `viem/chains` — do not hardcode either.
 - **Scaffold a dApp:** `npx @sei-js/create-sei app --name <name>`.
 - **AI tooling:** `claude mcp add sei-mcp-server npx @sei-js/mcp-server`.
 - **Networks:** default to testnet (`atlantic-2`, 1328); only target mainnet (1329) on explicit confirmation.
@@ -167,7 +167,7 @@ Full playbook: https://docs.sei.io/evm/best-practices/optimizing-for-paralleliza
 Most Ethereum gas advice carries over. The Sei-specific priorities:
 
 - **Minimize storage writes.** SSTORE is 72,000 gas on Sei (vs Ethereum's 20,000) — batch computation in memory and commit a minimal set of writes. Estimate the real cost on-chain with `eth_estimateGas`; a `--fork-url` gas report uses the standard EVM schedule and understates it.
-- **Use legacy `gasPrice`.** Do not rely on EIP-1559 priority-fee mechanics; there is no base-fee burn. Check the live minimum gas price at https://docs.sei.io before assuming a floor.
+- **Use legacy `gasPrice`.** Do not rely on EIP-1559 priority-fee mechanics; there is no base-fee burn. Check the live minimum gas price at https://docs.sei.io/evm/differences-with-ethereum before assuming a floor.
 - **Respect the block gas limit.** A single transaction cannot exceed the (governance-adjustable) per-block gas limit — split long migration scripts into pageable batches.
 - Standard wins: mark externally-called functions `external`, pack storage variables into shared slots, prefer `calldata` over `memory` for read-only array inputs, use `unchecked { ++i; }` where overflow is impossible, and use custom errors instead of revert strings.
 

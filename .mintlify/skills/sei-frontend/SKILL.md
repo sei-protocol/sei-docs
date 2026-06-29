@@ -20,11 +20,11 @@ This skill makes the agent good at wiring a React dApp frontend to Sei EVM: conf
 - **Chain IDs.** Mainnet `pacific-1` is EVM chain `1329` (`0x531`); testnet `atlantic-2` is EVM chain `1328` (`0x530`). Default to testnet in development and promote to mainnet only when the user explicitly asks.
 - **RPC endpoints.** EVM mainnet `https://evm-rpc.sei-apis.com`, EVM testnet `https://evm-rpc-testnet.sei-apis.com`. Cosmos RPC is `https://rpc.sei-apis.com` / `https://rpc-testnet.sei-apis.com` (only needed for Cosmos-side queries).
 - **Chain config comes from `wagmi/chains` / `viem/chains`.** Import the `sei` and `seiTestnet` chain objects from `wagmi/chains` (or `viem/chains`) — this is what the Sei frontend docs use. `@sei-js/precompiles` separately exports the precompile constants you need for dual-address resolution (`ADDRESS_PRECOMPILE_ADDRESS`, `ADDRESS_PRECOMPILE_ABI`); it also ships viem chain configs as a secondary option, but lead with `wagmi/chains` and stay consistent across the app.
-- **Use legacy `gasPrice`, never EIP-1559 fields.** Sei has no EIP-1559 base-fee burn — set `gasPrice`, not `maxFeePerGas` / `maxPriorityFeePerGas`. The minimum gas price is a governance-adjustable parameter; do not hardcode a forever-number. Let the wallet/RPC estimate when possible, and check the live value at https://docs.sei.io.
+- **Use legacy `gasPrice`, never EIP-1559 fields.** Sei has no EIP-1559 base-fee burn — set `gasPrice`, not `maxFeePerGas` / `maxPriorityFeePerGas`. The minimum gas price is a governance-adjustable parameter; do not hardcode a forever-number. Let the wallet/RPC estimate when possible, and check the live value at https://docs.sei.io/evm/differences-with-ethereum.
 - **~400ms blocks with fast finality.** Wait for a single confirmation (`tx.wait(1)` in ethers, default `useWaitForTransactionReceipt` in wagmi). Never spin on 12 confirmations or "safe"/"finalized" tags — Sei has no `safe`/`finalized` block tags; use `latest`.
 - **Every account is dual-address.** One key yields a Cosmos `sei1…` (bech32) address and an EVM `0x…` (hex) address, both derived from the same public key. Until the two are **associated** on-chain they behave as separate accounts with separate balances. Resolve either side through the Addr precompile at `0x0000000000000000000000000000000000001004` (`getSeiAddr` / `getEvmAddr`). See https://docs.sei.io/learn/accounts.
 - **EIP-6963 is the wallet-discovery standard.** Wallets announce themselves via events instead of fighting over `window.ethereum`; wagmi's `injected()` connector discovers all of them automatically (Sei Global Wallet, MetaMask, Compass, …). See the supported list at https://docs.sei.io/learn/wallets.
-- **Target the EVM for new dApps.** CosmWasm is deprecated for new development per SIP-3 (proposal 99); build frontends against EVM contracts.
+- **Target the EVM for new dApps.** CosmWasm is deprecated for new development per SIP-3; build frontends against EVM contracts.
 
 ## Default stack
 
@@ -104,7 +104,7 @@ function Transfer({ token, to, amount }: { token: `0x${string}`; to: `0x${string
       args: [to, parseUnits(amount, 18)],
       chainId: sei.id // pin chain to prevent cross-network mistakes
       // Sei uses legacy gas — never maxFeePerGas. Omit gasPrice so the wallet/RPC
-      // estimates it. If you must override, read the live minimum from docs.sei.io;
+      // estimates it. If you must override, read the live minimum from docs.sei.io/evm/differences-with-ethereum;
       // do not hardcode a magic value (it is governance-adjustable).
     });
 
@@ -200,4 +200,4 @@ function DualAddress({ evm }: { evm: `0x${string}` }) {
 | Sei Global Wallet integration | https://docs.sei.io/evm/sei-global-wallet |
 | Dual-address accounts & association | https://docs.sei.io/learn/accounts |
 | Supported wallets | https://docs.sei.io/learn/wallets |
-| Network endpoints & chain IDs | https://docs.sei.io |
+| Network endpoints & chain IDs | https://docs.sei.io/evm/networks |
