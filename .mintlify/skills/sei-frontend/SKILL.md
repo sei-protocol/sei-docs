@@ -80,7 +80,7 @@ Pin `chainId` on every write so a wallet connected to the wrong network can't si
 ```tsx
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseUnits } from 'viem';
-import { sei } from 'wagmi/chains';
+import { seiTestnet } from 'wagmi/chains'; // switch to `sei` only after explicit mainnet approval
 
 function Transfer({ token, to, amount }: { token: `0x${string}`; to: `0x${string}`; amount: string }) {
   const { address } = useAccount();
@@ -102,7 +102,7 @@ function Transfer({ token, to, amount }: { token: `0x${string}`; to: `0x${string
       abi: ERC20_ABI,
       functionName: 'transfer',
       args: [to, parseUnits(amount, 18)],
-      chainId: sei.id // pin chain to prevent cross-network mistakes
+      chainId: seiTestnet.id // pin chain to Atlantic-2 during development
       // Sei uses legacy gas — never maxFeePerGas. Omit gasPrice so the wallet/RPC
       // estimates it. If you must override, read the live minimum from docs.sei.io/evm/differences-with-ethereum;
       // do not hardcode a magic value (it is governance-adjustable).

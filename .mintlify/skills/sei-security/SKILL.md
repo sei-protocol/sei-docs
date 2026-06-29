@@ -42,10 +42,9 @@ Every state-changing transaction should be simulated with `eth_call` (or `estima
 ```typescript
 import { createPublicClient, createWalletClient, http } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { seiTestnet } from 'viem/chains'; // viem also exports `sei` (mainnet)
+import { seiTestnet } from 'viem/chains'; // switch to `sei` only after explicit mainnet approval
 
-const SEI_MAINNET = 1329; // pacific-1
-const SEI_TESTNET = 1328; // atlantic-2
+const TARGET_CHAIN_ID = seiTestnet.id; // atlantic-2 = 1328
 
 const account = privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`);
 const publicClient = createPublicClient({ chain: seiTestnet, transport: http() });
@@ -54,15 +53,15 @@ const wallet = createWalletClient({ account, chain: seiTestnet, transport: http(
 async function safeWrite(params: Parameters<typeof publicClient.simulateContract>[0]) {
   // 1. Verify we are on the network we think we are — fail fast on a mismatch.
   const chainId = await publicClient.getChainId();
-  if (chainId !== SEI_TESTNET && chainId !== SEI_MAINNET) {
-    throw new Error(`Refusing to write: unknown chainId ${chainId}`);
+  if (chainId !== TARGET_CHAIN_ID) {
+    throw new Error(`Refusing to write: expected chainId ${TARGET_CHAIN_ID}, got ${chainId}`);
   }
 
   // 2. Simulate first. Reverts here exactly as the real tx would.
   const { request } = await publicClient.simulateContract(params);
 
   // 3. Only after a clean simulation do we sign and broadcast.
-  const hash = await wallet.writeContract(request);
+  const hash = await wallet.writeContract({ ...request, chainId: TARGET_CHAIN_ID });
 
   // 4. One confirmation is final on Sei. Do NOT poll for 12 blocks.
   const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 1 });
@@ -169,7 +168,8 @@ On-chain data is attacker-controlled input. A token name, NFT metadata field, or
 
 ```typescript
 // 1. Pin chainId on EVERY write so a wrong-network signer fails fast.
-const hash = await wallet.writeContract({ ...request, chainId: 1329 });
+const targetChainId = 1328; // atlantic-2 by default; use 1329 only after explicit mainnet approval
+const hash = await wallet.writeContract({ ...request, chainId: targetChainId });
 
 // 2. Sanitize untrusted on-chain strings before they reach an LLM prompt.
 const name = await token.read.name();
