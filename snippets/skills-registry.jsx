@@ -44,11 +44,25 @@ export const SkillsRegistry = () => {
 			domain: 'Security',
 			href: '/evm/debugging-contracts',
 			desc: 'Simulate-before-write, safe randomness, address-association checks, and AI-agent safety guardrails.'
+		},
+		{
+			id: 'sei-bridges',
+			title: 'Bridges',
+			domain: 'Bridges',
+			href: '/evm/bridging/layerzero',
+			desc: 'Bridge assets to and from Sei — LayerZero V2 OFTs, Wormhole, and Circle CCTP v2 for native USDC.'
+		},
+		{
+			id: 'sei-migration',
+			title: 'Migration',
+			domain: 'Migration',
+			href: '/evm/migrate-from-other-evms',
+			desc: 'Port EVM and Solana apps to Sei — the behavioral deltas that break a naive port, plus a Solana-to-Sei concept map.'
 		}
 	];
 
 	const INSTALL_CMD = 'npx skills add https://docs.sei.io';
-	const FILTERS = ['All', 'Contracts', 'Frontend', 'Precompiles', 'Infrastructure', 'Payments', 'Security'];
+	const FILTERS = ['All', 'Contracts', 'Frontend', 'Precompiles', 'Infrastructure', 'Payments', 'Security', 'Bridges', 'Migration'];
 
 	// --- Dark mode detection (Mintlify toggles a `dark` class on <html>) ---
 	const [isDark, setIsDark] = useState(false);
@@ -120,6 +134,20 @@ export const SkillsRegistry = () => {
 				<svg {...common}>
 					<path d='M12 3l8 4v5c0 5-3.4 8-8 9-4.6-1-8-4-8-9V7z' />
 					<path d='M9 12l2 2 4-4' />
+				</svg>
+			);
+		if (domain === 'Bridges')
+			return (
+				<svg {...common}>
+					<path d='M2 17 Q12 6 22 17' />
+					<path d='M2 17v3M22 17v3M8 12.5V20M16 12.5V20' />
+				</svg>
+			);
+		if (domain === 'Migration')
+			return (
+				<svg {...common}>
+					<path d='M3 8h13M13 5l3 3-3 3' />
+					<path d='M21 16H8M11 13l-3 3 3 3' />
 				</svg>
 			);
 		return (
