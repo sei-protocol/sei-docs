@@ -1,4 +1,7 @@
 ---
+# GENERATED FROM sei-protocol/sei-skill@0ce5ace — DO NOT EDIT BY HAND.
+# Edit the source in sei-skill, then regenerate via scripts/build-mintlify-skills.mjs
+# (see .github/workflows/sync-skills.yml).
 name: sei-payments
 description: >
   Use when "accept USDC on Sei", "send USDC payment", "USDC contract address on Sei",
@@ -15,8 +18,6 @@ metadata:
   intended-host: docs.sei.io
   domain: payments
 ---
-<!-- GENERATED FROM sei-protocol/sei-skill@0ce5ace — DO NOT EDIT BY HAND.
-     Edit the source in sei-skill, then regenerate via scripts/build-mintlify-skills.mjs (see .github/workflows/sync-skills.yml). -->
 
 # Sei payments
 

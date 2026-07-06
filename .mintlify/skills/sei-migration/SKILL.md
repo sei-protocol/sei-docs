@@ -1,4 +1,7 @@
 ---
+# GENERATED FROM sei-protocol/sei-skill@0ce5ace — DO NOT EDIT BY HAND.
+# Edit the source in sei-skill, then regenerate via scripts/build-mintlify-skills.mjs
+# (see .github/workflows/sync-skills.yml).
 name: sei-migration
 description: >
   Use when "port an Ethereum dapp to Sei", "migrate an EVM contract to Sei", "migrate
@@ -18,8 +21,6 @@ metadata:
   intended-host: docs.sei.io
   domain: migration
 ---
-<!-- GENERATED FROM sei-protocol/sei-skill@0ce5ace — DO NOT EDIT BY HAND.
-     Edit the source in sei-skill, then regenerate via scripts/build-mintlify-skills.mjs (see .github/workflows/sync-skills.yml). -->
 
 # Sei migration
 

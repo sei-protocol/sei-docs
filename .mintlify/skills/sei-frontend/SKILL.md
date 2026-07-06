@@ -1,4 +1,7 @@
 ---
+# GENERATED FROM sei-protocol/sei-skill@0ce5ace — DO NOT EDIT BY HAND.
+# Edit the source in sei-skill, then regenerate via scripts/build-mintlify-skills.mjs
+# (see .github/workflows/sync-skills.yml).
 name: sei-frontend
 description: >
   Use when "build a Sei dApp frontend", "connect a wallet to Sei", "set up wagmi or viem for Sei",
@@ -16,8 +19,6 @@ metadata:
   intended-host: docs.sei.io
   domain: frontend
 ---
-<!-- GENERATED FROM sei-protocol/sei-skill@0ce5ace — DO NOT EDIT BY HAND.
-     Edit the source in sei-skill, then regenerate via scripts/build-mintlify-skills.mjs (see .github/workflows/sync-skills.yml). -->
 
 # Sei frontend
 

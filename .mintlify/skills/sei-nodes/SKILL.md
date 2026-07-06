@@ -1,4 +1,7 @@
 ---
+# GENERATED FROM sei-protocol/sei-skill@0ce5ace — DO NOT EDIT BY HAND.
+# Edit the source in sei-skill, then regenerate via scripts/build-mintlify-skills.mjs
+# (see .github/workflows/sync-skills.yml).
 name: sei-nodes
 description: >
   Use when "run a Sei full node", "set up a Sei RPC node", "become a Sei validator",
@@ -17,8 +20,6 @@ metadata:
   intended-host: docs.sei.io
   domain: infrastructure
 ---
-<!-- GENERATED FROM sei-protocol/sei-skill@0ce5ace — DO NOT EDIT BY HAND.
-     Edit the source in sei-skill, then regenerate via scripts/build-mintlify-skills.mjs (see .github/workflows/sync-skills.yml). -->
 
 # Running Sei nodes and validators
 

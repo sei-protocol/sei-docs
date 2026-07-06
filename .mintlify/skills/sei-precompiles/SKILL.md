@@ -1,4 +1,7 @@
 ---
+# GENERATED FROM sei-protocol/sei-skill@0ce5ace — DO NOT EDIT BY HAND.
+# Edit the source in sei-skill, then regenerate via scripts/build-mintlify-skills.mjs
+# (see .github/workflows/sync-skills.yml).
 name: sei-precompiles
 description: >
   Use when "call the Sei staking precompile", "delegate SEI from a contract", "vote on a Sei
@@ -18,8 +21,6 @@ metadata:
   intended-host: docs.sei.io
   domain: precompiles
 ---
-<!-- GENERATED FROM sei-protocol/sei-skill@0ce5ace — DO NOT EDIT BY HAND.
-     Edit the source in sei-skill, then regenerate via scripts/build-mintlify-skills.mjs (see .github/workflows/sync-skills.yml). -->
 
 # Sei precompiles
 
