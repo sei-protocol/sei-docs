@@ -73,7 +73,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          if git diff --quiet -- .mintlify/skills; then
+          # Stage first: `git diff --quiet` ignores untracked files, so a brand-new
+          # skill (or a first run into an empty .mintlify/skills/) would be missed.
+          git add .mintlify/skills
+          if git diff --cached --quiet; then
             echo 'No skill changes; nothing to do.'
             exit 0
           fi
@@ -81,7 +84,6 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git checkout -b "$BRANCH"
-          git add .mintlify/skills
           git commit -m "chore(skills): regenerate from sei-skill@${{ steps.src.outputs.ref }}"
           git push -f origin "$BRANCH"
           gh pr create \
