@@ -27,7 +27,7 @@ This skill makes an agent fluent in migrating existing dApps to Sei along the tw
 
 ## Critical facts
 
-- **Networks:** mainnet `pacific-1` = chain ID `1329`, RPC `https://evm-rpc.sei-apis.com`; testnet `atlantic-2` = chain ID `1328`, RPC `https://evm-rpc-testnet.sei-apis.com`. Get testnet SEI at https://atlantic-2.app.sei.io/faucet.
+- **Networks:** mainnet `pacific-1` = chain ID `1329`, RPC `https://evm-rpc.sei-apis.com`; testnet `atlantic-2` = chain ID `1328`, RPC `https://evm-rpc-testnet.sei-apis.com`. Get testnet SEI at https://docs.sei.io/learn/faucet.
 - **400 ms blocks, instant finality:** one block confirmation is final — use `tx.wait(1)`, never `wait(12)` (12 blocks is ~2.5 min on Ethereum but ~4.8 s of pointless waiting on Sei).
 - **Block tags:** `safe` and `finalized` are accepted but resolve to the same instantly-final block as `latest`; there is no `pending` tag — use `latest`.
 - **Fee model:** no EIP-1559 base-fee burn — 100% of fees go to validators. Prefer legacy `gasPrice`; `maxFeePerGas`/`maxPriorityFeePerGas` can be omitted. The minimum gas price is a governance-set, adjustable value (currently ~50 gwei on mainnet, set by pacific-1 [Proposal #112](https://www.mintscan.io/sei/proposals/112) / atlantic-2 #244; it has changed before — 100 → 10 → 50). Query the live floor with `eth_gasPrice`; never hardcode it.
@@ -321,7 +321,7 @@ const fee = gasLimit * gasPrice;           // no rent, no minimum balance, no ac
 [ ] Replace Anchor error codes -> Solidity custom errors
 [ ] Frontend: @solana/web3.js -> ethers.js or viem; wallet-adapter -> wagmi + @sei-js/sei-global-wallet
 [ ] Use gasPrice via eth_gasPrice (not EIP-1559 fields); use tx.wait(1)
-[ ] Test on atlantic-2 first (faucet: https://atlantic-2.app.sei.io/faucet)
+[ ] Test on atlantic-2 first (faucet: https://docs.sei.io/learn/faucet)
 ```
 
 ## Parallelization: explicit vs automatic

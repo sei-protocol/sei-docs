@@ -92,7 +92,7 @@ const tx = await seiOft.send(sendParam, { nativeFee, lzTokenFee: 0n }, refund0x,
 await tx.wait(1); // one confirmation — Sei finalizes fast
 ```
 
-For an *already-deployed* ERC-20 you can't reissue, use an **OFT Adapter** (locks the existing token instead of minting) rather than `OFT`. If `quoteSend` reverts, the pathway/DVNs aren't wired; review the DVN set your pathway uses before mainnet. Full walkthrough, EIDs, and deployed contracts: https://docs.sei.io/evm/bridging/layerzero and https://docs.layerzero.network/v2/concepts/intro.
+For an *already-deployed* ERC-20 you can't reissue, use an **OFT Adapter** (locks the existing token instead of minting) rather than `OFT`. If `quoteSend` reverts, the pathway/DVNs aren't wired; review the DVN set your pathway uses before mainnet. Full walkthrough, EIDs, and deployed contracts: https://docs.sei.io/evm/bridging/layerzero and https://docs.layerzero.network/v2.
 
 ## Native USDC via Circle CCTP v2
 

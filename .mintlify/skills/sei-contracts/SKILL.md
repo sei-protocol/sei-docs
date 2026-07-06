@@ -28,7 +28,7 @@ This skill makes an agent fluent in EVM smart-contract development on Sei: Found
 ## Critical facts
 
 - **Chain IDs:** mainnet `pacific-1` = EVM chain ID `1329`; testnet `atlantic-2` = `1328`. Deploy and verify against testnet first.
-- **EVM RPC:** mainnet `https://evm-rpc.sei-apis.com`; testnet `https://evm-rpc-testnet.sei-apis.com`. Testnet faucet: https://atlantic-2.app.sei.io/faucet. On the EVM side SEI has 18 decimals.
+- **EVM RPC:** mainnet `https://evm-rpc.sei-apis.com`; testnet `https://evm-rpc-testnet.sei-apis.com`. Testnet faucet: https://docs.sei.io/learn/faucet. On the EVM side SEI has 18 decimals.
 - **~400ms blocks, instant finality:** use `tx.wait(1)` — never `tx.wait(12)`. `safe`, `finalized`, and `latest` all resolve to the same instantly-final block, and there is no pending state — just use `latest`.
 - **No EIP-1559 base-fee burn:** all fees go to validators. Prefer **legacy `gasPrice`**; `maxFeePerGas`/`maxPriorityFeePerGas` are accepted but there is no priority-fee market.
 - **The minimum gas price is governance-set:** currently ~50 gwei on mainnet (pacific-1 [Proposal #112](https://www.mintscan.io/sei/proposals/112) / atlantic-2 #244; it has changed before, 100→10→50). Query `eth_gasPrice` for the live floor — a `gasPrice` below it gets the tx evicted from the mempool, not included slowly.

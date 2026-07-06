@@ -26,7 +26,7 @@ This skill makes the agent good at wiring a web frontend to Sei EVM: configuring
 ## Critical facts
 
 - **Chain IDs.** Mainnet `pacific-1` is EVM chain `1329`; testnet `atlantic-2` is EVM chain `1328`. Default to testnet in development; mainnet is the production target — promote only when the user explicitly asks.
-- **RPC endpoints.** EVM mainnet `https://evm-rpc.sei-apis.com`; EVM testnet `https://evm-rpc-testnet.sei-apis.com`. Testnet SEI comes from the faucet at `https://atlantic-2.app.sei.io/faucet`.
+- **RPC endpoints.** EVM mainnet `https://evm-rpc.sei-apis.com`; EVM testnet `https://evm-rpc-testnet.sei-apis.com`. Testnet SEI comes from the faucet at `https://docs.sei.io/learn/faucet`.
 - **Chain config comes from `wagmi/chains` / `viem/chains`.** Import the `sei` and `seiTestnet` chain objects from `wagmi/chains` (or `viem/chains`) — they carry the canonical `chainName`, `nativeCurrency`, `rpcUrls`, and `blockExplorers` wallets need. `@sei-js/precompiles` ships only the `seiLocal` dev chain (not `sei`/`seiTestnet`), so use it for precompile addresses and ABIs (`ADDRESS_PRECOMPILE_ADDRESS`, `ADDRESS_PRECOMPILE_ABI`), never for chain config.
 - **Use legacy `gasPrice`, never EIP-1559 fields.** Sei does not use EIP-1559 priority fees — drop `maxFeePerGas` / `maxPriorityFeePerGas`. The minimum gas price is governance-set and adjustable (currently ~50 gwei on mainnet — pacific-1 Proposal #112 / atlantic-2 #244); query `eth_gasPrice` for the live floor rather than hardcoding a number.
 - **400ms blocks, instant finality.** Wait for a single confirmation (`tx.wait(1)` in ethers, `useWaitForTransactionReceipt` in wagmi). Never wait 12 confirmations. `safe` / `finalized` block tags are not distinct from `latest` on Sei — treat them as `latest`; libraries that map `finalized` to 64 blocks back just add ~25 seconds of lag for no benefit.
@@ -245,7 +245,7 @@ const client = createPublicClient({
 
 ## Testing the frontend
 
-- **End-to-end on testnet first.** Fund accounts from `https://atlantic-2.app.sei.io/faucet` and exercise the full wallet + transaction + dual-address flow on `atlantic-2` (1328) before mainnet.
+- **End-to-end on testnet first.** Fund accounts from `https://docs.sei.io/learn/faucet` and exercise the full wallet + transaction + dual-address flow on `atlantic-2` (1328) before mainnet.
 - **Local fork.** `anvil --fork-url https://evm-rpc-testnet.sei-apis.com --chain-id 1328`, then point the wagmi transport at `http://localhost:8545`.
 
 ## Common pitfalls
