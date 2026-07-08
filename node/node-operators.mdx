@@ -216,12 +216,14 @@ sc-directory = ""
 # WriteMode defines the write routing mode for EVM data in the SC layer.
 # Valid values: memiavl_only, migrate_evm, evm_migrated, migrate_all_but_bank,
 # all_migrated_but_bank, migrate_bank, flatkv_only, test_only_dual_write
-# defaults to memiavl_only
 sc-write-mode = "memiavl_only"
 
 # KeysToMigratePerBlock controls how many EVM keys the in-flight migration
 # (sc-write-mode = migrate_evm / migrate_bank / migrate_all_but_bank) drains
-# from memiavl into flatkv per block. Must be > 0; ignored when not migrating.
+# from memiavl into flatkv per block. Default 1024 is appropriate for
+# production drains; lower it (e.g. 256) to spread the migration across more
+# blocks for test runs that need to observe the resume / hybrid-read path.
+# Must be > 0; ignored entirely when not in a migration mode.
 sc-keys-to-migrate-per-block = 1024
 
 # Max concurrent historical proof queries (RPC /store path)
@@ -1496,6 +1498,22 @@ evm-ss-split = true
 # The SS-store migration guide below leaves SC config on its default.
 sc-write-mode = "memiavl_only"
 ```
+
+<Note>
+The SC keys on this page are the **v6.6+** model (first tagged in
+`v6.6.0-rc1`). v6.5.x binaries use a different set — `sc-write-mode` =
+`cosmos_only` / `dual_write` / `split_write` plus `sc-read-mode` and
+`sc-enable-lattice-hash` — and each binary rejects the other line's
+`sc-write-mode` values at startup. When upgrading across v6.6, update or
+remove any explicit `sc-write-mode` in `app.toml`; the removed
+`sc-read-mode` / `sc-enable-lattice-hash` keys are ignored and can be
+deleted. Post-v6.6, on sei-chain `main`, the drain rate moves from
+`sc-keys-to-migrate-per-block` to the `NumKeysToMigratePerBlock`
+governance parameter (default `0` = paused) and a new
+`sc-write-mode-enable-auto` (default `true`) derives the effective mode
+from on-disk migration state, ignoring the explicit key — expect these
+knobs to change again in the release after v6.6.
+</Note>
 
 Enabling Giga Storage requires a fresh state sync — flipping `evm-ss-split`
 on a node with existing data fails the startup safety checks because
