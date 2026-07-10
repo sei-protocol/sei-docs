@@ -1,7 +1,7 @@
 ---
 title: 'Gas'
 description: 'Understand gas pricing, limits, and optimization strategies for Sei transactions, with guides for sending transactions using seid and EVM interfaces.'
-keywords: ['gas fees', 'transaction costs', 'gas optimization', 'sei transactions', 'gas limits', 'blocknative']
+keywords: ['gas fees', 'transaction costs', 'gas optimization', 'sei transactions', 'gas limits', 'gas estimation']
 ---
 Gas is a measure of computational effort required to execute a transaction or
 contract on the Sei network. Gas fees are paid in Sei and are used to
@@ -37,11 +37,11 @@ refunded in full or in part, so avoid setting gas limits far above what a
 transaction actually needs. See
 [Sei EVM vs Ethereum](/evm/differences-with-ethereum) for details.
 
-To help developers and users estimate fees on Sei, please reference
-[Sei Gas](https://seigas.com) and the associated
-[APIs](https://docs.blocknative.com/gas-prediction/gas-platform) provided by
-Blocknative. Their estimates are based on real-time SEI data and advanced ML
-modeling to accurately and consistently estimate SEI transaction fees.
+To estimate fees on Sei, query the network directly using the standard EVM
+JSON-RPC methods `eth_gasPrice`, `eth_maxPriorityFeePerGas`, and
+`eth_feeHistory`. These return real-time gas pricing straight from the chain
+with no third-party service required. See
+[Estimating gas prices](#estimating-gas-prices) below for examples.
 
 ### Maximum Gas
 
@@ -106,10 +106,36 @@ Optimizing gas prices involves efficient smart contract coding practices:
 - Use fixed-size data structures where possible.
 - Avoid unnecessary computations.
 
-## Using Blocknative's Gas API
+## Estimating Gas Prices
 
-To leverage Blocknative's Gas API, you will need an [API Key](https://docs.blocknative.com/gas-prediction/gas-platform#authentication). This API is free, but heavily rate limited, so it is recommended you get an API key. Once you have your key, you can request fee estimation for SEI:
+Sei's EVM RPC exposes the standard Ethereum JSON-RPC methods for gas estimation, so you can read real-time pricing directly from the network without relying on a third-party service:
 
+- `eth_gasPrice` — current recommended gas price for legacy transactions.
+- `eth_maxPriorityFeePerGas` — suggested priority fee (tip) for EIP-1559 transactions.
+- `eth_feeHistory` — recent base fees and priority-fee percentiles, useful for building custom fee strategies.
+
+Query the current gas price on mainnet (`pacific-1`) directly:
+
+```sh
+curl -sS https://evm-rpc.sei-apis.com \
+  -H "Content-Type: application/json" \
+  --data '{"jsonrpc":"2.0","method":"eth_gasPrice","params":[],"id":1}'
 ```
-curl -H "Authorization: your-apikey-here" https://api.blocknative.com/gasprices/blockprices?chainid=1329
+
+Most EVM libraries wrap these methods for you. For example, with viem:
+
+```ts
+import { createPublicClient, http } from 'viem';
+import { sei } from 'viem/chains';
+
+const client = createPublicClient({
+  chain: sei,
+  transport: http('https://evm-rpc.sei-apis.com')
+});
+
+// Legacy gas price
+const gasPrice = await client.getGasPrice();
+
+// EIP-1559 fee suggestion
+const { maxFeePerGas, maxPriorityFeePerGas } = await client.estimateFeesPerGas();
 ```
