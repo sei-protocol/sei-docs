@@ -6,7 +6,7 @@ export const GigaProposerComparison = () => {
   return (
     <div className="not-prose w-full my-5">
       <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/40 p-4 text-neutral-800 dark:text-neutral-200">
-        <svg viewBox="0 0 860 300" role="img" aria-label="Single proposer versus Multi-concurrent proposer architecture" style={{ width: '100%', minWidth: 620, height: 'auto', display: 'block' }}>
+        <svg viewBox="0 0 860 300" role="img" aria-label="Single proposer versus Multi-Proposer architecture" style={{ width: '100%', minWidth: 620, height: 'auto', display: 'block' }}>
           <defs>
             <marker id="gpc-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
               <path d="M 0 1 L 9 5 L 0 9 z" fill={ink} fillOpacity="0.6" />
@@ -43,7 +43,7 @@ export const GigaProposerComparison = () => {
 
           <line x1={425} y1={20} x2={425} y2={285} stroke={ink} strokeOpacity="0.15" strokeWidth="1" />
 
-          <text x={560} y={30} fontSize="13" fontWeight="600" fill={ink}>Multi-concurrent proposer (Sei Giga)</text>
+          <text x={560} y={30} fontSize="13" fontWeight="600" fill={ink}>Multi-Proposer (Sei Giga)</text>
           {lanes.map((i) => (
             <g key={'r' + i}>
               <circle cx={480} cy={78 + i * 46} r={13} fill={accent} fillOpacity="0.85" />
@@ -67,7 +67,7 @@ export const GigaProposerComparison = () => {
           <text x={655} y={278} fontSize="10.5" fill={ink} fillOpacity="0.6" textAnchor="middle">bandwidth scales with the validator count</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">One leader per height versus every validator proposing concurrently. In Giga, consensus commits a cut of all lane tips, so a single decision finalizes many blocks of data.</div>
+      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">One leader per height versus every validator proposing concurrently. In Giga, consensus will commit a cut of all lane tips, so a single decision will finalize many blocks of data.</div>
     </div>
   );
 };
@@ -122,7 +122,7 @@ export const GigaAsyncPipeline = () => {
           <text x={126} y={243} fontSize="9.5" fill={ink} fillOpacity="0.55">time</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Consensus keeps ordering new blocks while earlier blocks execute and their divergence digests are attested. Ordering finality is the fast signal; state attestation follows a bounded number of blocks later.</div>
+      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Consensus will keep ordering new blocks while earlier blocks execute and their divergence digests are attested. Ordering finality will be the fast signal; state attestation will follow a bounded number of blocks later.</div>
     </div>
   );
 };
@@ -167,7 +167,7 @@ export const GigaTxJourney = () => {
           <line x1={826} y1={46} x2={826} y2={62} stroke={gold} strokeWidth="1.6" strokeDasharray="3 3" />
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">The six stops of a Giga transaction. There is no mempool: step 2 happens immediately, and step 4 fixes the order irrevocably.</div>
+      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">The six stops of a Giga transaction. With no traditional public mempool, step 2 will happen immediately, and step 4 will fix the order irrevocably.</div>
     </div>
   );
 };
@@ -277,7 +277,7 @@ export const GigaLanesAndCuts = () => {
           <text x={684} y={239} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.7">off the critical path</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Each validator chains batches into its own lane and certifies them with f + 1 availability votes. Consensus only ever orders the vector of lane tips.</div>
+      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Each validator will chain batches into its own lane and certify them with f + 1 availability votes. Consensus will only ever order the vector of lane tips.</div>
     </div>
   );
 };
@@ -318,7 +318,7 @@ export const GigaSlotPipeline = () => {
           <text x={630} y={208} fontSize="10.5" textAnchor="middle" fill={ink} fillOpacity="0.8">steady state: 1.5 round trips per cut</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Slots overlap: replicas begin slot s+1 as soon as they see the Prepare message for slot s, so the steady-state cost is 1.5 network round trips per committed cut.</div>
+      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Slots will overlap: replicas will begin slot s+1 as soon as they see the Prepare message for slot s, so the steady-state cost will be 1.5 network round trips per committed cut.</div>
     </div>
   );
 };
@@ -375,7 +375,7 @@ export const GigaAttestationFlow = () => {
           <text x={460} y={247} fontSize="10" textAnchor="middle" fill={ink} fillOpacity="0.75">divergence under 1/3 of validators isolates the fault, divergence over 1/3 halts the chain</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Execution results are committed as a lattice-hash digest rather than a state root, and validators attest to that digest a bounded number of blocks later.</div>
+      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Execution results will be committed as a lattice-hash digest rather than a state root, and validators will attest to that digest a bounded number of blocks later.</div>
     </div>
   );
 };
@@ -425,7 +425,7 @@ export const GigaOccDiagram = () => {
           <text x={126} y={244} fontSize="9.5" fill={ink} fillOpacity="0.6">only conflicting transactions re-run; after 10 retries the implementation falls back to sequential execution</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">All transactions in a block start in parallel with private write buffers. Validation re-executes only those whose reads collided with an earlier transaction's writes.</div>
+      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">All transactions in a block will start in parallel with private write buffers. Validation will re-execute only those whose reads collided with an earlier transaction's writes.</div>
     </div>
   );
 };
@@ -477,7 +477,7 @@ export const GigaStorageArchitecture = () => {
           <text x={690} y={276} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.75">bisect, replay one range</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">The write path never touches a Merkle tree: state lives in a RAM-first flat store with an append-only WAL, while commitments come from a homomorphic lattice hash over each block's write log.</div>
+      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">The write path will never touch a Merkle tree: state will live in a RAM-first flat store with an append-only WAL, while commitments will come from a homomorphic lattice hash over each block's write log.</div>
     </div>
   );
 };
@@ -529,7 +529,7 @@ export const GigaBudWindow = () => {
           <text x={520} y={232} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.6">touch transactions refresh a stale key's anchor; deletions leave tombstones for exclusion proofs</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Every block gets a Merkle root over just its own updates. SuperBUDs aggregate those roots over exponentially sized windows so provers cover long ranges with a handful of digests.</div>
+      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Every block will get a Merkle root over just its own updates. SuperBUDs will aggregate those roots over exponentially sized windows so provers can cover long ranges with a handful of digests.</div>
     </div>
   );
 };
@@ -598,7 +598,7 @@ export const GigaMergeRule = () => {
           <text x={741} y={276} fontSize="9" textAnchor="middle" fill={ink} fillOpacity="0.6">dropped copy gets a partial tip refund</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">The merged order is a pure function of finalized lane contents: lanes sort by their highest included tip, order inside each lane never changes, and the first occurrence of a hash wins.</div>
+      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">The merged order will be a pure function of finalized lane contents: lanes will sort by their highest included tip, order inside each lane will not change, and the first occurrence of a hash will win.</div>
     </div>
   );
 };
@@ -726,7 +726,7 @@ export const GigaFeeSplit = () => {
           <text x={430} y={166} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.6">tipping a specific proposer buys nothing: the pool pays validators by stake and measured liveness</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Execution, ordering, and duplicate distribution are priced separately. The tip is strictly enforced for ordering and then socialised across the validator set.</div>
+      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Execution, ordering, and duplicate distribution will be priced separately. The tip will be strictly enforced for ordering and then socialised across the validator set.</div>
     </div>
   );
 };

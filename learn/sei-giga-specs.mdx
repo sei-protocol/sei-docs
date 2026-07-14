@@ -1,19 +1,19 @@
 ---
 title: 'Sei Giga Technical Specification'
 sidebarTitle: 'Technical Specs'
-description: 'The complete Sei Giga protocol specification: Autobahn consensus with per-validator lanes and f+1 Proofs of Availability, asynchronous execution with divergence-digest attestation, Block-STM parallel EVM, flat lattice-hashed storage, BUD state proofs, MEV-resistant fee design, and the security model.'
-keywords: ['sei giga specification', 'autobahn consensus', 'proof of availability', 'ordering finality', 'divergence digest', 'lattice hash', 'block update digest', 'block-stm', 'socialised tips', 'Multi-concurrent proposer bft']
+description: 'The complete Sei Giga protocol specification: Autobahn consensus with per-validator lanes and f+1 Proofs of Availability, asynchronous execution with divergence-digest attestation, Block-STM parallel EVM, flat lattice-hashed storage, BUD state proofs, a fee design built to counter Multi-Proposer MEV channels, and the security model.'
+keywords: ['sei giga specification', 'autobahn consensus', 'proof of availability', 'ordering finality', 'divergence digest', 'lattice hash', 'block update digest', 'block-stm', 'socialised tips', 'multi-proposer bft']
 ---
 
 import { GigaLanesAndCuts, GigaSlotPipeline, GigaAttestationFlow, GigaOccDiagram, GigaStorageArchitecture, GigaBudWindow, GigaMergeRule } from '/snippets/giga-diagrams.jsx';
 
-This page specifies the Sei Giga protocol as defined in the [Giga whitepaper v2.0](https://arxiv.org/abs/2505.14914) (Marsh, Landers, Jog, Ranchal-Pedrosa; June 2026), with implementation notes from the [sei-chain](https://github.com/sei-protocol/sei-chain) codebase as of the v6.6 release line (July 2026). For a conceptual introduction, start with the [Sei Giga overview](/learn/sei-giga); for practical guidance, see the [developer guide](/learn/sei-giga-developers).
+This page specifies the Sei Giga protocol as defined in the [Giga whitepaper v2.0](https://arxiv.org/abs/2505.14914) (Marsh, Landers, Jog, Ranchal-Pedrosa; June 2026), with implementation notes from the [sei-chain](https://github.com/sei-protocol/sei-chain) codebase as of the v6.6 release line (July 2026). The specification is forward-looking and subject to change until the corresponding upgrades activate on the Sei network. For a conceptual introduction, start with the [Sei Giga overview](/learn/sei-giga); for practical guidance, see the [developer guide](/learn/sei-giga-developers).
 
 ## Protocol at a glance
 
 | Property                  | Specification                                                                                     |
 | ------------------------- | -------------------------------------------------------------------------------------------------- |
-| Chain type                | Permissionless Proof-of-Stake EVM Layer 1; SEI is the native gas, fee, and staking asset            |
+| Chain type                | Permissionless Proof-of-Stake EVM Layer 1; SEI will remain the native gas, fee, and staking asset   |
 | Fault model               | Byzantine, `n = 3f + 1` validators, up to `f` faulty                                                |
 | Synchrony assumption      | Partial synchrony: safety unconditional, liveness after network stabilization                       |
 | Consensus                 | Autobahn: per-validator data lanes with leader-driven cut-of-tips ordering                          |
@@ -24,51 +24,51 @@ This page specifies the Sei Giga protocol as defined in the [Giga whitepaper v2.
 | State attestation         | 2/3-quorum signatures over per-block lattice-hash divergence digests, included in a later block     |
 | State commitment          | Homomorphic multiset hash (LtHash) over the block write log, with no Merkle state root on the hot path |
 | State proofs              | Block Update Digests (BUDs) + SuperBUDs, governance-configurable proof window                       |
-| Mempool                   | None; direct lane inclusion, at most one copy of a transaction per validator per epoch              |
+| Mempool                   | No traditional public mempool; transactions will route through [Sedna](#sedna-private-dissemination) into per-validator lanes, at most one copy of a transaction per validator per epoch |
 | Transaction encoding      | Flat, length-prefixed, single-pass zero-copy decoding (not RLP)                                     |
 | EVM compatibility         | Ethereum-equivalent except EIP-4844, `PREVRANDAO`, state root, block gas limit, fee mechanism       |
 | Fee model                 | Three-part: EIP-1559-style execution fee + ordering fee (priority) + distribution fee (duplicates)  |
-| Measured performance      | &gt;5 gigagas/s, sub-250 ms ordering finality (internal devnet: 40 nodes, 20 regions, June 2026)     |
+| Measured performance      | &gt;5 gigagas/s, sub-250 ms ordering finality (internal devnet: 40 nodes, 20 regions; reported in whitepaper v2.0, June 2026) |
 
 ## Network and security model
 
-Giga assumes `n = 3f + 1` validator replicas, of which at most `f` are Byzantine, communicating over authenticated point-to-point channels with unforgeable cryptographic primitives. The protocol targets the partial synchrony model: safety is unconditional, and liveness requires only that the network eventually stabilizes so message delays respect known upper bounds.
+Giga's fault model assumes `n = 3f + 1` validator replicas, of which at most `f` are Byzantine, communicating over authenticated point-to-point channels with unforgeable cryptographic primitives. The protocol targets the partial synchrony model: safety is unconditional, and liveness requires only that the network eventually stabilizes so message delays respect known upper bounds.
 
-- Safety: no two conflicting proposals can both obtain a valid commit certificate in the same consensus slot. Attesting to two different divergence digests for the same finalized block is slashable equivocation, because quorum intersection guarantees at least one honest validator would have to sign both.
-- Censorship resistance: once a proposal holds `f + 1` availability votes, at least one honest replica stores its data, and a correct leader must include it in a future cut. Faulty proposers cannot disseminate data without it eventually being ordered, which bounds censorship to a finite delay. Users can also submit a transaction to multiple validators at once ([deduplicated at merge](#mev-and-fee-design), with a partial tip refund).
-- Execution divergence: if fewer than 1/3 of validators compute a divergent state (hardware fault, software bug), the chain continues while the fault is localized. Divergence beyond the Byzantine threshold pauses the chain, as in any BFT system.
-- Staking: validators bond SEI and can be slashed for malicious behavior. The complete slashing schedule, reward functions, and tokenomics for Giga are deferred to future work; today's staking parameters are documented in [Staking](/learn/general-staking).
+- Safety: no two conflicting proposals can both obtain a valid commit certificate in the same consensus slot. Attesting to two different divergence digests for the same finalized block will be slashable equivocation, because quorum intersection guarantees at least one honest validator would have to sign both.
+- Censorship resistance: once a proposal holds `f + 1` availability votes, at least one honest replica stores its data, and a correct leader must include it in a future cut. Faulty proposers will not be able to disseminate data without it eventually being ordered, which bounds censorship to a finite delay. Users will also be able to submit a transaction to multiple validators at once ([deduplicated at merge](#mev-and-fee-design), with a partial tip refund).
+- Execution divergence: if fewer than 1/3 of validators compute a divergent state (hardware fault, software bug), the chain will continue while the fault is localized. Divergence beyond the Byzantine threshold will pause the chain, as in any BFT system.
+- Staking: validators will continue to bond SEI and can be slashed for malicious behavior. The complete slashing schedule, reward functions, and tokenomics for Giga are deferred to future work; today's staking parameters are documented in [Staking](/learn/general-staking).
 
 ## Consensus: Autobahn
 
-Sei Giga orders transactions with [Autobahn](https://arxiv.org/abs/2401.10369) (Giridharan, Suri-Payer, Abraham, Alvisi, Crooks; 2024), a BFT protocol that decouples data dissemination from ordering. It occupies a deliberate middle ground between view-based protocols (HotStuff, Tendermint), which stall during network "blips," and DAG-based protocols (Narwhal-style), which pay extra latency in the good case. Autobahn pairs an asynchronous data layer with a partially synchronous, low-latency ordering layer; it recovers cleanly after periods of asynchrony and matches DAG-class throughput at roughly half the latency.
+Sei Giga will order transactions with [Autobahn](https://arxiv.org/abs/2401.10369) (Giridharan, Suri-Payer, Abraham, Alvisi, Crooks; 2024), a BFT protocol that decouples data dissemination from ordering. It occupies a deliberate middle ground between view-based protocols (HotStuff, Tendermint), which stall during network "blips," and DAG-based protocols (Narwhal-style), which pay extra latency in the good case. Autobahn pairs an asynchronous data layer with a partially synchronous, low-latency ordering layer; it recovers cleanly after periods of asynchrony and matches DAG-class throughput at roughly half the latency.
 
 ### Data dissemination: lanes and Proofs of Availability
 
-- Every validator `r` maintains its own lane: an append-only, hash-chained sequence of transaction batches (called cars). A proposal is the tuple `Prop = ⟨pos, batch, parentRef⟩` signed by `r`, where `pos` is the lane sequence number and `parentRef` is the hash of the previous proposal in the same lane.
-- Validators that receive a proposal verify it extends the lane correctly and return a signed vote over its digest. Once the proposer collects `f + 1` matching votes, it assembles a Proof of Availability (PoA), a certificate that the data is retrievable.
-- `f + 1` is sufficient because any such quorum contains at least one correct replica that held the full data when it voted, and that replica serves it until all correct replicas have it. Giga deliberately keeps the smaller quorum (rather than `2f + 1`) because commitment itself triggers full replication along the execution path; a larger quorum would only add certification latency.
+- Every validator `r` will maintain its own lane: an append-only, hash-chained sequence of transaction batches (called cars). A proposal is the tuple `Prop = ⟨pos, batch, parentRef⟩` signed by `r`, where `pos` is the lane sequence number and `parentRef` is the hash of the previous proposal in the same lane.
+- Validators that receive a proposal will verify it extends the lane correctly and return a signed vote over its digest. Once the proposer collects `f + 1` matching votes, it will assemble a Proof of Availability (PoA), a certificate that the data is retrievable.
+- `f + 1` is sufficient because any such quorum contains at least one correct replica that held the full data when it voted, and that replica serves it until all correct replicas have it. Giga's design deliberately keeps the smaller quorum (rather than `2f + 1`) because commitment itself triggers full replication along the execution path; a larger quorum would only add certification latency.
 - The latest proposal in a lane holding a PoA is the lane's tip. Lanes are hash-chained, so certifying a tip implicitly attests the availability of every earlier proposal in that lane, and consensus never re-certifies history.
 
 <GigaLanesAndCuts />
 
-All validators disseminate batches in parallel, continuously, without waiting for consensus. Dissemination is therefore never the bottleneck, and total bandwidth scales with the validator count rather than one leader's uplink.
+All validators will disseminate batches in parallel, continuously, without waiting for consensus. Dissemination will therefore not be the bottleneck, and total bandwidth will scale with the validator count rather than one leader's uplink.
 
 ### Ordering: cuts of tips
 
-Consensus periodically fixes a global order by committing a cut, a vector of every lane's current certified tip:
+Consensus will periodically fix a global order by committing a cut, a vector of every lane's current certified tip:
 
-1. Prepare. The slot's leader (chosen by stake-weighted selection, as in Tendermint) bundles the latest certified tips into a cut proposal; replicas validate the PoAs and broadcast prepare votes, forming a PrepareQC at `n - f` votes.
-2. Commit. Replicas exchange commit votes over the PrepareQC; a CommitQC finalizes the cut. If the leader gathers only the minimum `n - f` commit votes, it runs an additional confirm phase, collecting `2f + 1` confirmations before the commit certificate is final.
-3. Pipelining. Slots overlap: as soon as replicas see the Prepare message for slot `s`, they can begin slot `s + 1`, and the next leader may start proposing while the previous cut is still in its commit phase. With quadratic communication and pipelining, the effective cost is a 1.5 round-trip slow path, versus 2.5 without pipelining and 3 full rounds in Tendermint.
+1. Prepare. The slot's leader (chosen by stake-weighted selection, as in Tendermint) will bundle the latest certified tips into a cut proposal; replicas will validate the PoAs and broadcast prepare votes, forming a PrepareQC at `n - f` votes.
+2. Commit. Replicas will exchange commit votes over the PrepareQC; a CommitQC finalizes the cut. If the leader gathers only the minimum `n - f` commit votes, it will run an additional confirm phase, collecting `2f + 1` confirmations before the commit certificate is final.
+3. Pipelining. Slots will overlap: as soon as replicas see the Prepare message for slot `s`, they can begin slot `s + 1`, and the next leader may start proposing while the previous cut is still in its commit phase. With quadratic communication and pipelining, the effective cost will be a 1.5 round-trip slow path, versus 2.5 without pipelining and 3 full rounds in Tendermint.
 
 <GigaSlotPipeline />
 
-Committing one cut finalizes every uncommitted proposal in every lane up to the referenced tips. A single consensus decision can therefore commit many blocks' worth of data at once, which is why the whitepaper reports roughly 70 times higher block production than the single-proposer design (180 versus 2.5 blocks per second). Validators vote on compact certificates only; a replica that is missing batch data fetches it after commit, off the critical path.
+Committing one cut will finalize every uncommitted proposal in every lane up to the referenced tips. A single consensus decision can therefore commit many blocks' worth of data at once, which is why the whitepaper reports roughly 70 times higher block production than the single-proposer design (180 versus 2.5 blocks per second). Validators will vote on compact certificates only; a replica that is missing batch data will fetch it after commit, off the critical path.
 
 ### Leader failure and recovery
 
-If a leader fails to make progress, replicas fall back to a standard view change: a timeout certificate elects a new leader, and the protocol resumes. Data dissemination continues in every lane throughout, so a view change costs some ordering latency but no throughput. The Autobahn paper calls this "seamless" recovery from blips; chained-HotStuff-style protocols instead pay a hangover after asynchrony.
+If a leader fails to make progress, replicas will fall back to a standard view change: a timeout certificate will elect a new leader, and the protocol will resume. Data dissemination will continue in every lane throughout, so a view change will cost some ordering latency but no throughput. The Autobahn paper calls this "seamless" recovery from blips; chained-HotStuff-style protocols instead pay a hangover after asynchrony.
 
 Two consensus upgrades beyond launch are already specified:
 
@@ -79,11 +79,11 @@ Two consensus upgrades beyond launch are already specified:
 
 ### Two finality notions
 
-Giga separates what consensus decides from what execution produces:
+Giga will separate what consensus decides from what execution produces:
 
 | Finality                    | Definition                                                                                              | When it holds                        |
 | --------------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------ |
-| Ordering finality           | Consensus has finalized the unique total order of transactions induced by a committed cut                 | Sub-250 ms after submission (measured) |
+| Ordering finality           | Consensus has finalized the unique total order of transactions induced by a committed cut                 | Sub-250 ms after submission (measured on an internal devnet) |
 | State attestation finality  | A later finalized block includes a valid 2/3-quorum attestation of the block's divergence digest          | A bounded number of blocks later (lag `x` depends on execution timing) |
 
 Unless stated otherwise, latency claims in Giga materials refer to ordering finality. Ordering finality is already irreversible (the transaction sequence can never change); state attestation finality adds a BFT-signed confirmation of the results of execution.
@@ -92,7 +92,7 @@ Unless stated otherwise, latency claims in Giga materials refer to ordering fina
 
 ### Deterministic block transition
 
-For each finalized block, every executor computes the canonical transition `Apply(S_prev, context, block) → (S_new, receipts, gas, writeLog)`. Given the same pre-state, block context, ordered transactions, identical execution semantics, and serializable parallel execution, this transition is unique, so all honest executors derive byte-identical results without communicating. A transaction that reverts stays reverted; it does not invalidate the rest of the block. This determinism is what makes it safe to run execution entirely off the consensus critical path.
+For each finalized block, every executor will compute the canonical transition `Apply(S_prev, context, block) → (S_new, receipts, gas, writeLog)`. Given the same pre-state, block context, ordered transactions, identical execution semantics, and serializable parallel execution, this transition is unique, so all honest executors will derive byte-identical results without communicating. A transaction that reverts will stay reverted; it will not invalidate the rest of the block. This determinism is what makes it safe to run execution entirely off the consensus critical path.
 
 The execution client is deliberately narrow: it processes transactions and nothing else, with no tracing or log search on the hot path. Incoming blocks are pre-processed in parallel (parsing, sender recovery, signature verification), while exactly one block executes at a time. Receipt generation and indexing happen after execution, so block `n + 1` can start while block `n` post-processes.
 
@@ -110,18 +110,18 @@ Sei Labs measured that [64.85% of historical Ethereum transactions can be parall
 
 ### Transaction encoding
 
-Giga replaces nested RLP with a flat, length-prefixed encoding designed for single-pass, zero-copy decoding: fields (type, chain ID, sender, recipient, value, nonce, gas limit, signature, access list) appear in a fixed order, variable-length fields carry a one-byte length prefix, contract creation is signaled by a marker byte, and all remaining bytes are the calldata. A parser reads each transaction in one pass with no allocation-heavy tree construction, which matters when decoding hundreds of thousands of transactions per second.
+Giga will replace nested RLP with a flat, length-prefixed encoding designed for single-pass, zero-copy decoding: fields (type, chain ID, sender, recipient, value, nonce, gas limit, signature, access list) appear in a fixed order, variable-length fields carry a one-byte length prefix, contract creation is signaled by a marker byte, and all remaining bytes are the calldata. A parser reads each transaction in one pass with no allocation-heavy tree construction, which matters when decoding hundreds of thousands of transactions per second.
 
 ## EVM compatibility
 
-Sei Giga's EVM is mostly equivalent to mainnet Ethereum. Contracts are written in standard Solidity or Vyper and deployed with standard tooling.
+Sei Giga's EVM will be mostly equivalent to mainnet Ethereum. Contracts will be written in standard Solidity or Vyper and deployed with standard tooling.
 
-| Exception                    | What differs on Giga                                                                                          |
+| Exception                    | What will differ on Giga                                                                                      |
 | ---------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| EIP-4844 (blob transactions) | Not supported; Giga is an L1 and does not carry rollup blob data                                                |
-| `PREVRANDAO`                 | Not supported with Ethereum semantics (no beacon-chain randomness)                                              |
-| State root                   | Blocks carry no Merkle state root; state is attested via [divergence digests](#lattice-hash-divergence-digests) and proven via [BUDs](#block-update-digests-buds) |
-| Block gas limit              | Not a fixed Ethereum-style per-block constant; throughput is bounded by lane and consensus parameters           |
+| EIP-4844 (blob transactions) | Will not be supported; Giga will remain an L1 and will not carry rollup blob data                               |
+| `PREVRANDAO`                 | Will not be supported with Ethereum semantics (no beacon-chain randomness)                                      |
+| State root                   | Blocks will carry no Merkle state root; state will be attested via [divergence digests](#lattice-hash-divergence-digests) and proven via [BUDs](#block-update-digests-buds) |
+| Block gas limit              | Not a fixed Ethereum-style per-block constant; throughput will be bounded by lane and consensus parameters      |
 | Transaction fee mechanism    | Three-part model (below) instead of Ethereum's exact EIP-1559 burn semantics                                    |
 
 ### Fee model
@@ -130,7 +130,7 @@ Sei Giga's EVM is mostly equivalent to mainnet Ethereum. Contracts are written i
 | -------------------- | ---------------------------------------------------- | ------------------------------------------------------------------ |
 | Execution fee        | Gas consumed by execution                            | EIP-1559-style dynamic base fee driven by demand                    |
 | Ordering fee         | Position in the merged order                         | Priority fee, strictly enforced by the [deterministic merge rule](#mev-and-fee-design) |
-| Distribution fee     | Duplicate copies submitted for censorship resistance | Prices each additional lane slot a duplicate occupies; only one copy ever executes, with a partial tip refund |
+| Distribution fee     | Duplicate copies submitted for censorship resistance | Will price each additional lane slot a duplicate occupies; only one copy will execute, with a partial tip refund |
 
 
 ## Storage
@@ -139,54 +139,54 @@ Giga's storage layer is designed for petabyte-per-year data production at full 5
 
 ### Flat state, RAM-first
 
-- Every account, storage slot, and global variable maps directly to an entry in a log-structured merge (LSM) tree. Writes skip per-write Merkle path updates entirely, so flushes stay batched and sequential and nothing is re-hashed on the write path.
-- Frequently accessed state is held in RAM, and reads are served from memory in the common case. All disk writes are asynchronous and exist for durability only, protected by an append-only write-ahead log (WAL) that is replayed on crash recovery.
-- Storage is tiered: recent and hot data sits on local high-performance SSDs, while historical data moves to a distributed columnar store built for analytical queries and audit workloads.
+- Every account, storage slot, and global variable will map directly to an entry in a log-structured merge (LSM) tree. Writes will skip per-write Merkle path updates entirely, so flushes stay batched and sequential and nothing is re-hashed on the write path.
+- Frequently accessed state will be held in RAM, and reads will be served from memory in the common case. All disk writes will be asynchronous and exist for durability only, protected by an append-only write-ahead log (WAL) that is replayed on crash recovery.
+- Storage will be tiered: recent and hot data will sit on local high-performance SSDs, while historical data will move to a distributed columnar store built for analytical queries and audit workloads.
 
 <GigaStorageArchitecture />
 
 ### Lattice-hash divergence digests
 
-There is no state root, so Giga commits to execution results with a homomorphic multiset hash (LtHash, by Lewi, Kim, Maykov, and Weis): `LH(X) = Σ h(x) mod q`. Its collision resistance rests on lattice assumptions (short integer solution style). For each block `n`:
+There will be no state root; Giga will instead commit to execution results with a homomorphic multiset hash (LtHash, by Lewi, Kim, Maykov, and Weis): `LH(X) = Σ h(x) mod q`. Its collision resistance rests on lattice assumptions (short integer solution style). For each block `n`:
 
-- The committed multiset `X_n` contains one record per surviving write (after intra-block last-write-wins resolution), one record per transaction receipt (position-bound), and one gas-accounting record, each domain-separated by type tag and height.
-- The block digest is `d_n = LH(X_n)`; validators attest to the compact commitment `D_n = H(enc(n, d_n))`. The full vector `d_n` is exchanged only during disputes.
-- Disputes resolve by bisection. The key space partitions into ranges whose chunk digests sum to the write component of `d_n` by construction, so divergent executors compare chunk digests, narrow down, and replay only the affected range to find the first divergent write, receipt, or gas discrepancy.
+- The committed multiset `X_n` will contain one record per surviving write (after intra-block last-write-wins resolution), one record per transaction receipt (position-bound), and one gas-accounting record, each domain-separated by type tag and height.
+- The block digest is `d_n = LH(X_n)`; validators will attest to the compact commitment `D_n = H(enc(n, d_n))`. The full vector `d_n` will be exchanged only during disputes.
+- Disputes will resolve by bisection. The key space partitions into ranges whose chunk digests sum to the write component of `d_n` by construction, so divergent executors will compare chunk digests, narrow down, and replay only the affected range to find the first divergent write, receipt, or gas discrepancy.
 
 The homomorphism is what makes this practical: digests update incrementally as writes commit, in any order, and no tree walk is involved.
 
 ### Block Update Digests (BUDs)
 
-BUDs restore externally verifiable state proofs (the role `eth_getProof` plays on Ethereum) at a cost proportional to per-block update volume rather than total state size:
+BUDs will restore externally verifiable state proofs (the role `eth_getProof` plays on Ethereum) at a cost proportional to per-block update volume rather than total state size:
 
-- Every state entry carries an 8-byte last-modified height and a 1-byte serialization version. For each block `n`, the BUD `U_n` is the Merkle root over the lexicographically sorted leaves `(key, newValue, n, prevHeight)` of that block's writes. Validators attest `U_n` on the same delayed 2/3-quorum schedule as the divergence digest.
-- A membership proof is a Merkle path to an attested `U_n`, certifying that `key` held `value` immediately after block `n` and recording when it previously changed. Two proofs at heights `a < b` whose `b`-leaf records predecessor `a` prove the key was unmodified throughout `(a, b)`.
-- SuperBUDs aggregate BUDs over exponentially growing aligned windows (branching base `e` and maximum level `L_max`, both governance parameters), so provers cover long ranges with logarithmically many digests. The guaranteed proof window is `η = e^L_max` blocks; older claims can be served by archive nodes but fall outside the protocol guarantee.
-- Touch transactions rewrite only a key's last-modified metadata, giving long-untouched keys a fresh proof anchor. Deletions leave tombstones, garbage-collected after `η`, which anchor exclusion proofs.
-- At the activation height a one-time synthetic write log bootstraps every existing key, and the system reaches steady state after `η` blocks. BUD trees deliberately use a classical hash: the short proof window keeps classical collision resistance sufficient, and the trees fall under the same [post-quantum migration schedule](#post-quantum-migration) as the rest of the protocol.
+- Every state entry will carry an 8-byte last-modified height and a 1-byte serialization version. For each block `n`, the BUD `U_n` is the Merkle root over the lexicographically sorted leaves `(key, newValue, n, prevHeight)` of that block's writes. Validators will attest `U_n` on the same delayed 2/3-quorum schedule as the divergence digest.
+- A membership proof will be a Merkle path to an attested `U_n`, certifying that `key` held `value` immediately after block `n` and recording when it previously changed. Two proofs at heights `a < b` whose `b`-leaf records predecessor `a` will prove the key was unmodified throughout `(a, b)`.
+- SuperBUDs will aggregate BUDs over exponentially growing aligned windows (branching base `e` and maximum level `L_max`, both governance parameters), so provers will cover long ranges with logarithmically many digests. The guaranteed proof window will be `η = e^L_max` blocks; older claims can be served by archive nodes but fall outside the protocol guarantee.
+- Touch transactions will rewrite only a key's last-modified metadata, giving long-untouched keys a fresh proof anchor. Deletions will leave tombstones, garbage-collected after `η`, which anchor exclusion proofs.
+- At the activation height a one-time synthetic write log will bootstrap every existing key, and the system will reach steady state after `η` blocks. BUD trees deliberately use a classical hash: the short proof window keeps classical collision resistance sufficient, and the trees will fall under the same [post-quantum migration schedule](#post-quantum-migration) as the rest of the protocol.
 
 <GigaBudWindow />
 
-Light clients, bridges, and any external verifier consume BUD proofs against attested digests instead of Merkle-Patricia proofs against a state root.
+Light clients, bridges, and any external verifier will consume BUD proofs against attested digests instead of Merkle-Patricia proofs against a state root.
 
 ## Networking and transaction ingress
 
-- Nodes communicate over direct, authenticated point-to-point connections; nothing is gossip-flooded. Consensus messages, lane proposals, votes, and certificates stream over dedicated channels with per-channel rate and size limits.
-- There is no mempool. An RPC node forwards each incoming transaction to a validator for immediate lane inclusion, allocated by stake weight. In the current implementation, EVM senders map deterministically to a validator shard, and `eth_sendRawTransaction` plus pending-nonce queries are proxied to that shard's owner.
-- Users may submit the same transaction to multiple validators for censorship resistance. Admission is rate-limited: each validator includes at most one copy of a given transaction per epoch, duplicates are dropped deterministically at merge time, only one copy ever executes, and unexecuted duplicates earn a partial tip refund while paying the [distribution fee](#fee-model).
-- Four node roles exist: validators (consensus and execution), full nodes (RPC plus execution for the read path), light nodes (RPC only), and data nodes that serve recent data.
+- Nodes will communicate over direct, authenticated point-to-point connections; nothing will be gossip-flooded. Consensus messages, lane proposals, votes, and certificates will stream over dedicated channels with per-channel rate and size limits.
+- There will be no traditional public mempool. Transactions will route through [Sedna](#sedna-private-dissemination), Giga's private dissemination layer, into validator lanes for immediate inclusion, allocated by stake weight. In the current implementation, EVM senders map deterministically to a validator shard, and `eth_sendRawTransaction` plus pending-nonce queries are proxied to that shard's owner.
+- Users will be able to submit the same transaction to multiple validators for censorship resistance. Admission will be rate-limited: each validator will include at most one copy of a given transaction per epoch, duplicates will be dropped deterministically at merge time, only one copy will execute, and unexecuted duplicates will earn a partial tip refund while paying the [distribution fee](#fee-model).
+- Four node roles will exist: validators (consensus and execution), full nodes (RPC plus execution for the read path), light nodes (RPC only), and data nodes that serve recent data.
 
-### Sedna: private dissemination (planned)
+### Sedna: private dissemination
 
-[Sedna](https://arxiv.org/abs/2512.17045) is Giga's planned "private mempool" layer, though on Giga there is no mempool to make private; what Sedna makes private is dissemination. Senders encode a committed transaction payload into verifiable rateless coded symbols and send addressed bundles to selected proposer lanes. No lane sees the whole transaction, and executors reconstruct the unique payload only after ordering, once finalized symbols cross the decode threshold ("until-decode privacy"). Compared with threshold-encrypted mempools, this reaches similar pre-execution privacy without an extra decryption round or any trust assumption beyond the existing `f + 1` availability quorum, and with better goodput; coding also cuts per-lane bandwidth to a fraction of the payload size. The companion incentive mechanism [PIVOT-K](https://arxiv.org/abs/2603.17614) concentrates a sender-funded bounty on the bundles that trigger decoding and ratchets away from lanes that withhold, which closes the withholding attack. Sedna ships as its own roadmap milestone after Autobahn reaches mainnet.
+[Sedna](https://arxiv.org/abs/2512.17045) will be Giga's private dissemination layer, the mempool-adjacent stage of the transaction path: transactions will route through Sedna on their way into validator lanes. Senders will encode a committed transaction payload into verifiable rateless coded symbols and send addressed bundles to selected proposer lanes. No lane will see the whole transaction, and executors will reconstruct the unique payload only after ordering, once finalized symbols cross the decode threshold ("until-decode privacy"). Compared with threshold-encrypted mempools, the Sedna paper argues this design reaches similar pre-execution privacy without an extra decryption round or any trust assumption beyond the existing `f + 1` availability quorum, and with better goodput; coding is also designed to cut per-lane bandwidth to a fraction of the payload size. The companion incentive mechanism [PIVOT-K](https://arxiv.org/abs/2603.17614) will concentrate a sender-funded bounty on the bundles that trigger decoding and ratchet away from lanes that withhold, a mechanism designed to close the withholding attack. Sedna will ship as its own roadmap milestone after Autobahn reaches mainnet.
 
 ## MEV and fee design
 
-Multi-concurrent proposer architectures remove the single block-builder's private ordering monopoly but introduce their own MEV (maximal extractable value) channels, formalized in [MEV in Multiple Concurrent Proposer Blockchains](https://arxiv.org/abs/2511.13080): same-tick duplicate stealing (copying a visible transaction into your own lane to win the merge), proposer-to-proposer orderflow deals, and timing races around PoA latency. Giga's countermeasures live at the protocol level.
+Multi-Proposer architectures remove the single block-builder's private ordering monopoly but introduce their own MEV (maximal extractable value) channels, formalized in [MEV in Multiple Concurrent Proposer Blockchains](https://arxiv.org/abs/2511.13080): same-tick duplicate stealing (copying a visible transaction into your own lane to win the merge), proposer-to-proposer orderflow deals, and timing races around PoA latency. Giga's countermeasures will live at the protocol level.
 
 ### Deterministic merge rule
 
-For each committed cut, every node derives the executable sequence with the same pure function:
+For each committed cut, every node will derive the executable sequence with the same pure function:
 
 1. Take each lane's newly committed transactions, meaning those not in any previous cut, in their intra-lane order.
 2. Sort lanes by the maximum priority fee among their new transactions, descending; break ties by replica index.
@@ -194,24 +194,24 @@ For each committed cut, every node derives the executable sequence with the same
 
 <GigaMergeRule />
 
-The merged order depends only on finalized lane contents, not on arrival timing, wall clocks, or any node's discretion, so there is no post-consensus ordering game to play.
+The merged order will depend only on finalized lane contents, not on arrival timing, wall clocks, or any node's discretion — a design that leaves no post-consensus ordering game to play.
 
 ### Socialised tips
 
-All priority fees collected in an epoch (net of duplicate refunds) are pooled and distributed to validators pro rata by `stake × liveness`, where liveness is the measured fraction of observable duties performed: consensus votes included in committed QCs, certified lane blocks produced, and signed state attestations, with duty weighting set by governance. Payouts are shared with delegators in the same way as block rewards.
+All priority fees collected in an epoch (net of duplicate refunds) will be pooled and distributed to validators pro rata by `stake × liveness`, where liveness will be the measured fraction of observable duties performed: consensus votes included in committed QCs, certified lane blocks produced, and signed state attestations, with duty weighting set by governance. Payouts will be shared with delegators in the same way as block rewards.
 
-- Copying a high-tip transaction into your own lane no longer captures its fee, so the duplicate-steal channel loses its revenue motive.
-- Validator revenue is independent of orderflow routing, so there is no market for steering users to specific proposers.
-- Withholding or lazy participation directly reduces a validator's payout.
+- Copying a high-tip transaction into your own lane will not capture its fee, a design that removes the duplicate-steal channel's revenue motive.
+- Validator revenue will be independent of orderflow routing, removing the protocol-level incentive to steer users to specific proposers.
+- Withholding or lazy participation will directly reduce a validator's payout.
 
-The whitepaper sums it up: the priority fee buys ordering, not a relationship with a particular proposer. Side payments for intra-lane position are out of protocol scope for now and belong to the forthcoming fee-mechanism work.
+The whitepaper sums it up: the priority fee will buy ordering, not a relationship with a particular proposer. Side payments for intra-lane position are out of protocol scope for now and belong to the forthcoming fee-mechanism work.
 
 ## Post-quantum migration
 
-Giga ships with a survivability path for a sudden ECDSA break ("Q-day") that avoids a chain-wide account reset:
+Giga will ship with a survivability path for a sudden ECDSA break ("Q-day") that avoids a chain-wide account reset:
 
-- Before a governance-set cutoff height, any account may register a post-quantum verification key (scheme identifier, PQ public key, migration nonce, optional activation height), signed with its current classical key.
-- During the transition window the chain accepts classical or dual classical+PQ signatures. After the cutoff, verification is table-driven PQ-only: unregistered accounts become invalid, there is no public-key-recovery path, and no new classical EOAs can be created. Onboarding continues through pre-registration, contract wallets, or a later native PQ account format.
+- Before a governance-set cutoff height, any account will be able to register a post-quantum verification key (scheme identifier, PQ public key, migration nonce, optional activation height), signed with its current classical key.
+- During the transition window the chain will accept classical or dual classical+PQ signatures. After the cutoff, verification will be table-driven PQ-only: unregistered accounts will become invalid, there will be no public-key-recovery path, and no new classical EOAs will be creatable. Onboarding will continue through pre-registration, contract wallets, or a later native PQ account format.
 - The designated short-term scheme is ML-DSA (FIPS 204). The whitepaper is explicit that this is an emergency path and not fast enough for Giga's throughput; post-quantum cryptography at Giga scale is open research.
 
 ## Performance
@@ -222,7 +222,7 @@ Giga ships with a survivability path for a sudden ECDSA break ("Q-day") that avo
 | Ordering finality           | &lt;250 ms                          | Same devnet (whitepaper v1: &lt;400 ms; Feb 2025 devnet: ~700 ms, 4 regions) | Whitepaper v2.0 (June 2026)                     |
 | Transactions per second     | 200,000+                            | Simple transfers at 5 gigagas/s                           | Sei Labs roadmap and whitepaper (2025 and 2026) |
 | Consensus efficiency        | 1.5 round trips vs 3 (2×)           | Autobahn vs Tendermint voting rounds                      | Whitepaper §1.1 (2026)                          |
-| Throughput vs Tendermint    | &gt;50×                             | Multi-concurrent proposer dissemination vs single leader             | Whitepaper §1.1 (2026)                          |
+| Throughput vs Tendermint    | &gt;50×                             | Multi-Proposer dissemination vs single leader             | Whitepaper §1.1 (2026)                          |
 | Block production            | ~70× (180 blocks vs 2.5)            | All-lanes-at-once commits vs sequential single blocks     | Whitepaper §1.1 (2026)                          |
 | Autobahn testnet target     | 200,000 TPS at 400 ms finality      | Public testnet milestone                                  | [giga.seilabs.io](https://giga.seilabs.io) (May 2026) |
 
@@ -249,7 +249,7 @@ Node operators should follow the [node configuration reference](/node/node-opera
 
 | Term                          | Definition                                                                                                     |
 | ----------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| **MCP (multi-concurrent proposer)** | Architecture in which every validator proposes transaction data concurrently; Giga is the first MCP EVM L1 |
+| **Multi-Proposer (MCP)**      | Architecture in which every validator proposes transaction data concurrently (the whitepaper's "multiple concurrent proposers"); Giga is designed to be the first Multi-Proposer EVM L1 |
 | **Lane**                      | A validator's own append-only, hash-chained sequence of transaction batches                                       |
 | **Car**                       | One batch of transactions in a lane (a lane entry)                                                                |
 | **Proposal**                  | Signed lane entry `⟨pos, batch, parentRef⟩`                                                                       |
@@ -272,7 +272,7 @@ Node operators should follow the [node configuration reference](/node/node-opera
 | **Merge rule**                | Deterministic function from a committed cut to the executable transaction sequence (tip-priority order plus deduplication) |
 | **Socialised tips**           | Epoch-pooled priority fees distributed by stake × liveness instead of to the carrying proposer                     |
 | **Distribution fee**          | Fee component pricing duplicate submissions made for censorship resistance                                        |
-| **Sedna**                     | Planned private dissemination layer: rateless-coded, addressed bundles with until-decode privacy                  |
+| **Sedna**                     | Giga's private dissemination layer (its own roadmap milestone): rateless-coded, addressed bundles with until-decode privacy |
 | **PIVOT-K**                   | Sedna's incentive mechanism: bounties on decode-pivotal bundles plus a sender ratchet against withholding          |
 | **Ambulance**                 | Planned consensus upgrade replacing timeout-based leader recovery with a rigged race among replicas               |
 | **Hermes**                    | Next-generation consensus protocol after Autobahn (whitepaper forthcoming)                                        |
@@ -287,7 +287,7 @@ Node operators should follow the [node configuration reference](/node/node-opera
 - [Ambulance: saving BFT through racing](https://arxiv.org/abs/2606.25099) (arXiv 2606.25099)
 - [Block-STM](https://arxiv.org/abs/2203.06871), the parallel execution design Giga follows (arXiv 2203.06871)
 - [Sei Giga: Achieving 5 Gigagas with Autobahn Consensus](https://seiresearch.io/articles/sei-giga-achieving-5-gigagas-with-autobahn-consensus), devnet results (Feb 2025)
-- [Autobahn: Sei Giga's Multi-concurrent proposer approach to blockchain consensus](https://blog.sei.io/autobahn-sei-gigas-Multi-concurrent proposer-approach-to-blockchain-consensus), explainer post (Apr 2025)
+- [Autobahn: Sei Giga's Multi-Proposer approach to blockchain consensus](https://blog.sei.io/autobahn-sei-gigas-multi-proposer-approach-to-blockchain-consensus), explainer post (Apr 2025)
 - [The Giga Whitepaper v2](https://blog.sei.io/the-giga-whitepaper-2/), the announcement post (July 2026)
 - [sei-protocol/sei-chain](https://github.com/sei-protocol/sei-chain), the open-source implementation
 

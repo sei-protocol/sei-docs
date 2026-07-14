@@ -1,44 +1,44 @@
 ---
 title: 'Building on Sei Giga: What Changes for Developers'
 sidebarTitle: 'Developer Guide'
-description: 'What Sei Giga changes for smart contract and dApp developers: EVM parity with five exceptions, two finality signals, mempool-free submission, socialised priority fees, BUD state proofs, and contract patterns that maximize parallel execution.'
-keywords: ['sei giga development', 'giga developer guide', 'ordering finality', 'parallel execution patterns', 'no mempool', 'priority fee', 'eth_getproof', 'solidity', 'evm compatibility']
+description: 'What Sei Giga will change for smart contract and dApp developers: EVM parity with five exceptions, two finality signals, Sedna-routed submission with no public mempool, socialised priority fees, BUD state proofs, and contract patterns that maximize parallel execution.'
+keywords: ['sei giga development', 'giga developer guide', 'ordering finality', 'parallel execution patterns', 'no public mempool', 'priority fee', 'eth_getproof', 'solidity', 'evm compatibility']
 ---
 
 import { GigaFinalitySignals, GigaParallelismContrast, GigaFeeSplit } from '/snippets/giga-diagrams.jsx';
 
-Your contracts do not need to change for Sei Giga. The EVM is equivalent to Ethereum mainnet except for five things (EIP-4844 blobs, `PREVRANDAO`, the state root, the block gas limit, and the transaction fee mechanism), and standard Solidity and Vyper tooling keeps working: Foundry, Hardhat, viem, ethers. What changes is the environment around your contracts. Finality comes in two signals, there is no mempool, a priority fee buys a position in the order rather than a proposer's favor, and state proofs work differently. This page covers each change, plus the patterns that get the most out of Giga's parallel execution.
+Sei Giga is designed so that your contracts will not need to change. The EVM will be equivalent to Ethereum mainnet except for five things (EIP-4844 blobs, `PREVRANDAO`, the state root, the block gas limit, and the transaction fee mechanism), and standard Solidity and Vyper tooling will keep working: Foundry, Hardhat, viem, ethers. What will change is the environment around your contracts. Finality will come in two signals, there will be no traditional public mempool (transactions will route through [Sedna](/learn/sei-giga-specs#sedna-private-dissemination) into validator lanes), a priority fee will buy a position in the order rather than a proposer's favor, and state proofs will work differently. This page covers each change, plus the patterns that will get the most out of Giga's parallel execution.
 
 <Info>
-  Sei Giga rolls out as [phased upgrades to the live network](/learn/sei-giga#how-does-sei-giga-ship); as of July 2026 there is no public Giga testnet yet. Everything on this page describes the Giga architecture from the [whitepaper v2.0](https://arxiv.org/abs/2505.14914) and the shipping [sei-chain](https://github.com/sei-protocol/sei-chain) implementation. For building on Sei today, start with the [EVM development guides](/evm/evm-general).
+  Sei Giga will roll out as [phased upgrades to the live network](/learn/sei-giga#how-will-sei-giga-ship); as of July 2026 there is no public Giga testnet yet. Everything on this page describes the Giga architecture from the [whitepaper v2.0](https://arxiv.org/abs/2505.14914) and the shipping [sei-chain](https://github.com/sei-protocol/sei-chain) implementation; it is forward-looking and subject to change until each upgrade activates on the network. For building on Sei today, start with the [EVM development guides](/evm/evm-general).
 </Info>
 
-## What stays the same
+## What will stay the same
 
-- Contract code: Solidity and Vyper compile and behave identically. Opcodes and standard precompiles match Ethereum, and Sei tracks future EVM upgrades to stay near parity.
-- Tooling: standard JSON-RPC (`eth_call`, `eth_sendRawTransaction`, `eth_getTransactionReceipt`, `eth_feeHistory`, `eth_subscribe` for new heads), so Foundry, Hardhat, viem, ethers.js, and wagmi work unchanged.
+- Contract code: Solidity and Vyper will compile and behave identically. Opcodes and standard precompiles will match Ethereum, and Sei will track future EVM upgrades to stay near parity.
+- Tooling: standard JSON-RPC (`eth_call`, `eth_sendRawTransaction`, `eth_getTransactionReceipt`, `eth_feeHistory`, `eth_subscribe` for new heads), so Foundry, Hardhat, viem, ethers.js, and wagmi will work unchanged.
 - Accounts and signing: the same `0x` addresses and the same ECDSA flow, with a [post-quantum migration path](/learn/sei-giga-specs#post-quantum-migration) specified for the long term.
-- The gas token: SEI stays the native token for gas, staking, and fees.
-- The network itself: Giga upgrades the live Sei network in place. There is no regenesis and no new chain to redeploy to.
+- The gas token: SEI will stay the native token for gas, staking, and fees.
+- The network itself: Giga will upgrade the live Sei network in place, with no new chain to redeploy to.
 
-## What changes for your application
+## What will change for your application
 
 | Area                | On Ethereum / Sei today                                 | On Sei Giga                                                                                      | What you should do                                                            |
 | ------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
 | Finality            | One signal (block inclusion / finalized tag)              | Two signals: ordering finality (measured &lt;250 ms) and state attestation finality (a few blocks later)   | Pick the signal per flow; see [below](#finality-on-giga-which-signal-to-wait-for) |
-| Mempool             | Public pending pool, gossip, frontrunning games           | No mempool; transactions go straight into a validator's lane                                      | Drop pending-pool assumptions; there is no pending stream to watch              |
+| Mempool             | Public pending pool, gossip, frontrunning games           | No traditional public mempool; transactions will route through [Sedna](/learn/sei-giga-specs#sedna-private-dissemination) into a validator's lane | Drop pending-pool assumptions; there will be no pending stream to watch         |
 | Priority fee        | Paid to the block proposer; buys inclusion favor          | Strictly enforced for ordering, then socialised across validators by stake × liveness             | Use the tip to express urgency; courting specific proposers buys nothing        |
 | State proofs        | `eth_getProof` against the block state root               | No state root; [BUD proofs](/learn/sei-giga-specs#block-update-digests-buds) against attested per-block digests | Don't hard-depend on `eth_getProof`; plan for BUD-based verification            |
 | Randomness          | `PREVRANDAO` (beacon randomness)                          | `PREVRANDAO` not supported with Ethereum semantics                                                | Use a VRF or oracle for randomness                                              |
-| Blob transactions   | EIP-4844 type-3 transactions                              | Not supported (Giga is an L1, not a rollup DA consumer)                                           | Nothing to do unless you post blobs                                             |
+| Blob transactions   | EIP-4844 type-3 transactions                              | Will not be supported (Giga will remain an L1, not a rollup DA consumer)                          | Nothing to do unless you post blobs                                             |
 | Block gas limit     | Fixed per-block constant                                  | No Ethereum-style fixed block gas limit; throughput bounded by lane and consensus parameters      | Don't encode assumptions about a specific block gas limit                       |
-| Duplicate submission | Re-broadcasting the same tx is free but useless          | Multi-submitting to several validators is a censorship-resistance feature: one copy executes, duplicates pay a distribution fee with a partial tip refund | Optionally multi-submit high-value transactions                                 |
+| Duplicate submission | Re-broadcasting the same tx is free but useless          | Multi-submitting to several validators will be a censorship-resistance feature: one copy will execute, duplicates will pay a distribution fee with a partial tip refund | Optionally multi-submit high-value transactions                                 |
 
 ## Finality on Giga: which signal to wait for
 
-Giga separates consensus from execution, which gives you two distinct confirmation signals:
+Giga will separate consensus from execution, which will give you two distinct confirmation signals:
 
-- Ordering finality (measured under 250 ms on the internal devnet): consensus has irrevocably fixed your transaction's position. Execution is deterministic, so the outcome is decided at this moment; every honest node computes the same result. Ordered transactions do not reorg.
+- Ordering finality (measured under 250 ms on the internal devnet): consensus has irrevocably fixed your transaction's position. Execution will be deterministic, so the outcome will be decided at this moment; every honest node will compute the same result. Ordered transactions are designed never to reorg.
 - State attestation finality, a bounded number of blocks later: a 2/3 validator quorum has signed the block's [divergence digest](/learn/sei-giga-specs#lattice-hash-divergence-digests). This confirms the executed results, not just the order.
 
 <GigaFinalitySignals />
@@ -51,32 +51,32 @@ Which signal to wait for depends on the flow:
 | Exchange deposits, bridge withdrawals, high-value settlement | State attestation finality  | Adds a signed quorum attestation of executed state before you act on it  |
 | External verification (light clients, cross-chain)   | Attested BUD proofs         | Proofs anchor to attested digests, which follow the attestation schedule  |
 
-A transaction that reverts stays reverted; a revert is a valid, final outcome and does not invalidate the block. For today's finality behavior, before Giga, see [EVM finality on Sei](/evm/evm-parity/finality).
+A transaction that reverts will stay reverted; a revert will be a valid, final outcome and will not invalidate the block. For today's finality behavior, before Giga, see [EVM finality on Sei](/evm/evm-parity/finality).
 
-## Sending transactions without a mempool
+## Sending transactions without a public mempool
 
-On Giga there is no shared pending pool. The RPC node forwards your transaction to a validator, which places it directly into its proposal lane; consensus then commits the cut containing it in 1.5 network round trips. In practice:
+On Giga there will be no shared public pending pool. Transactions will route through [Sedna](/learn/sei-giga-specs#sedna-private-dissemination), Giga's private dissemination layer, into a validator's proposal lane; consensus will then commit the cut containing them in 1.5 network round trips. In practice:
 
-- There is no public mempool to scan for victims, and the merged execution order is a [deterministic function](/learn/sei-giga-specs#deterministic-merge-rule) of finalized lane contents, so post-consensus reordering games do not exist.
-- Pending semantics change. Don't build features on watching a gossiped pending-transaction stream. Pending-nonce queries are answered by the validator responsible for your sender address; the RPC layer routes this for you.
-- You control your own censorship resistance. Submit the identical signed transaction to multiple validators if it matters; only one copy executes, since duplicates are dropped by hash at merge time, and extra copies pay a distribution fee and get part of the tip back. A single submission is the right default for most transactions.
-- Each validator includes at most one copy of a given transaction per epoch, so duplicate floods cannot amplify.
+- There will be no public mempool to scan for victims, and the merged execution order will be a [deterministic function](/learn/sei-giga-specs#deterministic-merge-rule) of finalized lane contents — a design that leaves no post-consensus reordering game to play. Sedna will add pre-execution privacy on top: transaction contents are designed to stay hidden until ordering is final.
+- Pending semantics will change. Don't build features on watching a gossiped pending-transaction stream. Pending-nonce queries will be answered by the validator responsible for your sender address; the RPC layer will route this for you.
+- You will control your own censorship resistance. Submit the identical signed transaction to multiple validators if it matters; only one copy will execute, since duplicates will be dropped by hash at merge time, and extra copies will pay a distribution fee and get part of the tip back. A single submission will be the right default for most transactions.
+- Each validator will include at most one copy of a given transaction per epoch, so duplicate floods cannot amplify.
 
 ## Fees on Giga
 
-Giga prices three things separately (full details in the [fee model spec](/learn/sei-giga-specs#fee-model)):
+Giga will price three things separately (full details in the [fee model spec](/learn/sei-giga-specs#fee-model)):
 
-1. The execution fee: an EIP-1559-style dynamic base fee for gas actually consumed. `eth_feeHistory` and `eth_maxPriorityFeePerGas` remain your estimation tools.
-2. The ordering fee, better known as the priority fee. Giga enforces it strictly: lanes in each committed cut are ordered by their highest included tip, so a higher tip buys earlier execution, deterministically. The fee is also socialised (pooled per epoch and distributed to validators by stake and liveness), so tipping a specific proposer for special treatment achieves nothing.
+1. The execution fee: an EIP-1559-style dynamic base fee for gas actually consumed. `eth_feeHistory` and `eth_maxPriorityFeePerGas` will remain your estimation tools.
+2. The ordering fee, better known as the priority fee. Giga will enforce it strictly: lanes in each committed cut will be ordered by their highest included tip, so a higher tip will buy earlier execution, deterministically. The fee will also be socialised (pooled per epoch and distributed to validators by stake and liveness), a design under which tipping a specific proposer for special treatment achieves nothing.
 3. The distribution fee, charged per duplicate copy when you multi-submit for censorship resistance.
 
 <GigaFeeSplit />
 
-For gas metering inside the EVM, Sei's existing schedule applies, including Sei's custom `SSTORE` pricing (see [gas and fees](/evm/evm-parity/gas-and-fees)). The whitepaper defers the final Giga fee mechanism to a dedicated paper, so expect parameter-level details to firm up around the Autobahn testnet.
+For gas metering inside the EVM, Sei's existing schedule will continue to apply, including Sei's custom `SSTORE` pricing (see [gas and fees](/evm/evm-parity/gas-and-fees)). The whitepaper defers the final Giga fee mechanism to a dedicated paper, so expect parameter-level details to firm up around the Autobahn testnet.
 
 ## Writing parallel-friendly contracts
 
-Giga executes each block with [Block-STM-style optimistic concurrency](/learn/sei-giga-specs#parallel-execution-block-stm-style-occ): transactions run in parallel and re-execute only when their read/write sets collide. Sei Labs measured that [64.85% of historical Ethereum transactions parallelize](https://blog.sei.io/research-64-85-of-ethereum-transactions-can-be-parallelized/) as-is. Your contract's storage layout decides which side of that statistic it lands on. Transactions touching disjoint storage run simultaneously; transactions contending on one hot slot serialize (the engine retries conflicted transactions and, under sustained contention, falls back to sequential execution, so correctness is never at risk, only speed).
+Giga will execute each block with [Block-STM-style optimistic concurrency](/learn/sei-giga-specs#parallel-execution-block-stm-style-occ): transactions will run in parallel and re-execute only when their read/write sets collide. Sei Labs measured that [64.85% of historical Ethereum transactions parallelize](https://blog.sei.io/research-64-85-of-ethereum-transactions-can-be-parallelized/) as-is. Your contract's storage layout will decide which side of that statistic it lands on. Transactions touching disjoint storage will run simultaneously; transactions contending on one hot slot will serialize (the engine will retry conflicted transactions and, under sustained contention, fall back to sequential execution — a fallback designed to protect correctness at the cost of speed).
 
 <GigaParallelismContrast />
 
@@ -128,7 +128,7 @@ contract EventDrivenAuction {
 }
 ```
 
-Events are a particularly good deal on Giga: receipt generation and log indexing run off the execution hot path in dedicated stores, so keeping history in events trims your write set without losing queryability.
+Events will be a particularly good deal on Giga: receipt generation and log indexing will run off the execution hot path in dedicated stores, so keeping history in events will trim your write set without losing queryability.
 
 ### Pattern 4: pack storage you must share
 
@@ -150,9 +150,9 @@ The Giga execution engine currently fast-paths pure-EVM transactions. Calls into
 
 - Build EVM-only. [SIP-3](/learn/sip-03-migration) consolidates Sei to a streamlined EVM-only stack ahead of Giga: CosmWasm no longer accepts new deployments, inbound IBC is disabled, and oracles come from standard providers such as Chainlink, API3, and Pyth instead of the native module.
 - Audit for hot slots. Per-user state isolation is the single most effective change for parallel throughput, and it pays off now: the Giga executor with OCC ships enabled by default from the sei-chain v6.6 release line.
-- Classify your confirmation flows. Decide which flows act on ordering finality and which wait for state attestation, so the two-signal model lands as a config change rather than a redesign.
-- Remove fragile dependencies. Anything that relies on `eth_getProof` and state roots ([current behavior](/evm/evm-parity/state-proofs)), `PREVRANDAO` randomness, blob transactions, or watching the public mempool needs a plan.
-- Don't wait for a "Giga chain." There isn't one; Giga arrives on the network where you're already deployed, and contracts shipped on Sei today carry over untouched.
+- Classify your confirmation flows. Decide which flows act on ordering finality and which wait for state attestation, so the two-signal model will land as a config change rather than a redesign.
+- Remove fragile dependencies. Anything that relies on `eth_getProof` and state roots ([current behavior](/evm/evm-parity/state-proofs)), `PREVRANDAO` randomness, blob transactions, or watching the public mempool will need a plan.
+- Don't wait for a "Giga chain." There won't be one; Giga will arrive on the network where you're already deployed, and contracts shipped on Sei today are designed to carry over untouched.
 
 ## Related
 
