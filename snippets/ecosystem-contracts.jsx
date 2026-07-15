@@ -685,11 +685,6 @@ export const EcosystemContracts = () => {
 	}, [pendingScrollId]);
 
 	// --- Theme-aware brand colors (replace former sei-* Tailwind classes) ---
-	// Light/dark text + background for the SeiScan link button.
-	const seiScanStyle = isDark
-		? { color: 'var(--sei-maroon-25)', backgroundColor: 'rgba(96, 0, 20, 0.2)' }
-		: { color: 'var(--sei-maroon-100)', backgroundColor: 'var(--sei-grey-25)' };
-
 	const focusRingColor = 'var(--sei-maroon-100)';
 
 	// Desktop rows use a div-based grid (not a <table>): Mintlify maps MDX
