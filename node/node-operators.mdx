@@ -213,19 +213,16 @@ sc-enable = true
 # Defines the SC store directory, if not explicitly set, default to application home directory
 sc-directory = ""
 
-# WriteMode defines how EVM data writes are routed between backends.
-# Valid values: cosmos_only, dual_write, split_write, evm_only
-# defaults to cosmos_only
-sc-write-mode = "cosmos_only"
+# WriteMode defines the write routing mode for EVM data in the SC layer.
+# Valid values: memiavl_only, migrate_evm, evm_migrated, migrate_all_but_bank,
+# all_migrated_but_bank, migrate_bank, flatkv_only, test_only_dual_write
+# defaults to memiavl_only
+sc-write-mode = "memiavl_only"
 
-# ReadMode defines how EVM data reads are routed between backends.
-# Valid values: cosmos_only, evm_first, split_read
-# defaults to cosmos_only
-sc-read-mode = "cosmos_only"
-
-# EnableLatticeHash controls whether the FlatKV lattice hash participates
-# in the final app hash. Default: false.
-sc-enable-lattice-hash = false
+# KeysToMigratePerBlock controls how many EVM keys the in-flight migration
+# (sc-write-mode = migrate_evm / migrate_bank / migrate_all_but_bank) drains
+# from memiavl into flatkv per block. Must be > 0; ignored when not migrating.
+sc-keys-to-migrate-per-block = 1024
 
 # Max concurrent historical proof queries (RPC /store path)
 sc-historical-proof-max-inflight = 1
@@ -1376,9 +1373,9 @@ legacy single-database IAVL store with separate hot- and historical-data tiers:
    memory-mapped Merkle tree (`memiavl`) ported from Cronos. EVM state can
    additionally be routed through **FlatKV**, an EVM-tuned PebbleDB store
    with per-type sub-databases (`account`, `code`, `storage`, `legacy`,
-   `metadata`). Routing is controlled by `sc-write-mode` / `sc-read-mode`
-   and defaults to memiavl-only — FlatKV is only opened when one of those
-   modes is set to a non-default value.
+   `metadata`). Routing is controlled by `sc-write-mode` (default
+   `memiavl_only`) — FlatKV is only opened once a migration mode such as
+   `migrate_evm` is set.
 2. **State Store (SS)** — versioned raw key/value pairs used for historical
    queries. Required for any node that serves RPC. The default backend is
    **PebbleDB**; **RocksDB** is available for iteration-heavy workloads such
@@ -1418,17 +1415,22 @@ sc-snapshot-min-time-interval = 3600
 # Cap on snapshot write throughput across all trees (MB/s). 0 = unlimited.
 sc-snapshot-write-rate-mbps = 100
 
-# EVM data routing between the Cosmos memiavl tree and FlatKV.
-# Default: cosmos_only / cosmos_only — all EVM state lives in memiavl. See
-# the Giga Storage section below for the dual_write + split_read setup.
-sc-write-mode = "cosmos_only"
-sc-read-mode = "cosmos_only"
-sc-enable-lattice-hash = false
+# EVM data routing for the SC layer. Default memiavl_only — all SC state
+# lives in the memiavl tree. Valid values: memiavl_only, migrate_evm,
+# evm_migrated, migrate_all_but_bank, all_migrated_but_bank, migrate_bank,
+# flatkv_only (test_only_dual_write is test-only — never run in production).
+# There is no sc-read-mode; the evm_lattice app-hash handling is internal.
+# See the Giga Storage section below for the FlatKV migration.
+sc-write-mode = "memiavl_only"
+
+# Keys drained from memiavl into FlatKV per block while in a migration mode
+# (migrate_evm / migrate_bank / migrate_all_but_bank). Ignored otherwise.
+sc-keys-to-migrate-per-block = 1024
 
 [state-commit.flatkv]
 # FlatKV is the EVM-optimized commit store (PebbleDB). It is only opened
-# when sc-write-mode is dual_write or split_write — otherwise these
-# settings have no effect. WAL crash recovery is idempotent, so fsync
+# once sc-write-mode enters a migration mode (e.g. migrate_evm) — otherwise
+# these settings have no effect. WAL crash recovery is idempotent, so fsync
 # stays off by default.
 fsync = false
 async-write-buffer = 0
@@ -1450,10 +1452,11 @@ ss-keep-recent = 100000
 # snapshot creation.
 ss-prune-interval = 600
 
-# Optional EVM SS routing — same semantics as the SC modes above. Leave on
-# cosmos_only unless you have completed the Giga SS Store migration.
-evm-ss-write-mode = "cosmos_only"
-evm-ss-read-mode = "cosmos_only"
+# Optional EVM SS routing. Leave false unless you have completed the Giga SS
+# Store migration. When true, EVM state is routed to a dedicated EVM SS backend
+# under data/evm_ss/. (Older releases used per-key evm-ss-write-mode /
+# evm-ss-read-mode toggles — replaced by this single bool in v6.5+.)
+evm-ss-split = false
 evm-ss-separate-dbs = false
 
 [receipt-store]
@@ -1482,18 +1485,20 @@ write amplification.
 
 
 ```toml
-[state-commit]
-sc-write-mode = "dual_write"   # write EVM data to memiavl AND FlatKV
-sc-read-mode = "split_read"    # read EVM data from FlatKV
-sc-enable-lattice-hash = true  # required for split-mode app-hash equality
-
 [state-store]
-evm-ss-write-mode = "split_write"
-evm-ss-read-mode = "split_read"
+# Route EVM State Store into a dedicated EVM SS backend (data/evm_ss/) — the
+# setting the supported Giga SS Store migration flips. Requires a fresh state sync.
+evm-ss-split = true
+
+[state-commit]
+# (Advanced) The SC layer can separately route EVM State Commit data into
+# FlatKV via the migration modes (memiavl_only -> migrate_evm -> evm_migrated).
+# The SS-store migration guide below leaves SC config on its default.
+sc-write-mode = "memiavl_only"
 ```
 
-Enabling Giga Storage requires a fresh state sync — flipping the EVM SS
-modes on a node with existing data fails the startup safety checks because
+Enabling Giga Storage requires a fresh state sync — flipping `evm-ss-split`
+on a node with existing data fails the startup safety checks because
 the new EVM SS DB starts empty while Cosmos SS already has history. The
 full procedure is in the
 [Giga SS Store Migration Guide](/node/giga-storage-migration) and is

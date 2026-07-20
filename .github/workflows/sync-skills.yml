@@ -1,0 +1,92 @@
+name: Sync agent skills from sei-skill
+
+# The installable agent skills at .mintlify/skills/<name>/SKILL.md are GENERATED
+# from the canonical sei-skill repo (github.com/sei-protocol/sei-skill) by
+# scripts/build-mintlify-skills.mjs — they are never hand-authored here. This
+# workflow regenerates them and opens a PR for review (generation is LLM-assisted
+# and non-deterministic, so a human reviews before merge).
+#
+# Triggers:
+#   - workflow_dispatch    (manual; optionally pass a sei-skill ref)
+#   - repository_dispatch  (sei-skill's release workflow sends type: sei-skill-release
+#                           with client_payload.ref = the released tag/sha)
+#
+# Requires repo secret: ANTHROPIC_API_KEY
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'sei-skill ref to generate from'
+        required: false
+        default: 'main'
+  repository_dispatch:
+    types: [sei-skill-release]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout docs
+        uses: actions/checkout@v4
+
+      - name: Checkout sei-skill (canonical source)
+        uses: actions/checkout@v4
+        with:
+          repository: sei-protocol/sei-skill
+          ref: ${{ github.event.client_payload.ref || inputs.ref || 'main' }}
+          path: .sei-skill-src
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install generator dependency
+        run: npm install --no-save @anthropic-ai/sdk
+
+      - name: Record sei-skill revision
+        id: src
+        run: echo "ref=$(git -C .sei-skill-src rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Regenerate skills from sei-skill
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SEI_SKILL_DIR: ${{ github.workspace }}/.sei-skill-src/skill
+          SEI_SKILL_REF: ${{ steps.src.outputs.ref }}
+        run: node scripts/build-mintlify-skills.mjs --write
+
+      - name: Clean up source + build dirs
+        run: rm -rf .sei-skill-src dist
+
+      - name: Open PR if skills changed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # Stage first: `git diff --quiet` ignores untracked files, so a brand-new
+          # skill (or a first run into an empty .mintlify/skills/) would be missed.
+          git add .mintlify/skills
+          if git diff --cached --quiet; then
+            echo 'No skill changes; nothing to do.'
+            exit 0
+          fi
+          BRANCH="chore/sync-skills-${{ steps.src.outputs.ref }}"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git checkout -b "$BRANCH"
+          git commit -m "chore(skills): regenerate from sei-skill@${{ steps.src.outputs.ref }}"
+          git push -f origin "$BRANCH"
+          gh pr create \
+            --title "chore(skills): regenerate from sei-skill@${{ steps.src.outputs.ref }}" \
+            --body "Automated regeneration of \`.mintlify/skills/\` from [sei-protocol/sei-skill](https://github.com/sei-protocol/sei-skill)@${{ steps.src.outputs.ref }} via \`scripts/build-mintlify-skills.mjs\`. These are generated artifacts — review for quality before merge." \
+            || echo 'PR already exists for this branch; pushed update.'
