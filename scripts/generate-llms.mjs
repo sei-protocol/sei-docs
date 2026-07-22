@@ -28,7 +28,7 @@ const SEI_LLMS_CONFIG = {
 	blockquote:
 		'Technical documentation for Sei — a parallelized EVM Layer 1 with sub-second finality, full Ethereum tooling compatibility, and a clear roadmap toward Sei Giga (200K TPS, 5 gigagas/s).',
 	intro:
-		'Sei is a parallelized EVM Layer 1 blockchain with 400ms finality, ~100 MGas/s throughput today, and full Ethereum tooling compatibility. Deploy standard Solidity contracts with no modifications. Chain ID: mainnet 1329, testnet 1328. The next major upgrade, Sei Giga, targets 200K TPS via Autobahn multi-proposer BFT consensus and a custom EVM execution engine.',
+		'Sei is a parallelized EVM Layer 1 blockchain with 400ms finality, ~100 MGas/s throughput today, and full Ethereum tooling compatibility. Deploy standard Solidity contracts with no modifications. Chain ID: mainnet 1329, testnet 1328. The next major upgrade, Sei Giga, will target 200K TPS via Autobahn Multi-Proposer BFT consensus and a custom EVM execution engine.',
 	constraints: [
 		'Prerequisites: Node.js ≥ 18, a wallet (Compass, Rabby, MetaMask, or any EVM-compatible wallet), and SEI tokens for gas.',
 		'Authentication: No API key is required for public RPC endpoints. Rate limits apply — use a dedicated provider (Ankr, DRPC, Nirvana) for production workloads.',
@@ -138,7 +138,7 @@ const LLMS_SECTION_ORDER = [
 		match: (p) => p.startsWith('/learn'),
 		overview: [
 			"Sei is a parallelized EVM Layer 1 blockchain. Performance comes from Twin Turbo Consensus (optimistic block processing), parallel EVM execution (concurrent transactions on independent state), and SeiDB (high-throughput storage). Full Ethereum tooling compatibility — deploy standard Solidity contracts with no modifications.",
-			"Sei Giga is the next major upgrade targeting 200K TPS and 5 gigagas/s via Autobahn multi-proposer BFT consensus and a custom EVM execution engine. For developers, Sei Giga's parallel engine rewards contracts with user-scoped state (mapping per address) over shared global state.",
+			"Sei Giga, the next major upgrade, will target 200K TPS and 5 gigagas/s via Autobahn Multi-Proposer BFT consensus and a custom EVM execution engine. For developers, Sei Giga's parallel engine will reward contracts with user-scoped state (mapping per address) over shared global state.",
 			'Mainnet (pacific-1): chain ID 1329. Testnet (atlantic-2): chain ID 1328.',
 			'SIP-03 migration: inbound/outbound IBC transfers are being disabled. Holders of IBC assets must swap, migrate, or bridge out before the governance proposal activates.'
 		].join('\n\n')
