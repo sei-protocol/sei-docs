@@ -10,7 +10,7 @@ import { GigaProposerComparison, GigaAsyncPipeline, GigaTxJourney, GigaRoadmapTr
 Sei Giga will be the next generation of the Sei protocol following the Giga Upgrade, designed to be the first Multi-Proposer EVM Layer 1. Every validator will propose transactions at the same time, consensus will finalize only the order of those transactions, and execution and state attestation will happen afterwards, off the critical path. On an internal devnet of 40 nodes across 20 regions, Giga sustained more than 5 gigagas per second (5 billion gas per second) with ordering finality under 250 ms, which works out to roughly 200,000 transactions per second. Giga will ship as a series of in-place upgrades to the live Sei network rather than as a new chain.
 
 <Info>
-  **Status (July 2026):** The [Giga whitepaper v2.0](https://arxiv.org/abs/2505.14914) was published in June 2026. The execution rebuild (Ares), storage rebuild (Eidos), and the EVM-only consolidation ([SIP-3](/learn/sip-03-migration)) are in progress on the live network today; the Autobahn consensus testnet is the next milestone on the [official roadmap](https://giga.seilabs.io). See [How Sei Giga will ship](#how-will-sei-giga-ship) below. Giga functionality described on this page is forward-looking and subject to change until each upgrade activates on the Sei network.
+  **Status (July 2026):** The [Giga whitepaper v2.0](https://arxiv.org/abs/2505.14914) was published in June 2026. The storage rebuild (Eidos), execution rebuild (Ares), and the EVM-only consolidation ([SIP-3](/learn/sip-03-migration)) are in progress on the live network today; the Autobahn consensus testnet is the next milestone on the [official roadmap](https://giga.seilabs.io). See [How Sei Giga will ship](#how-will-sei-giga-ship) below. Giga functionality described on this page is forward-looking and subject to change until each upgrade activates on the Sei network.
 </Info>
 
 ## Sei Giga at a glance
@@ -87,7 +87,7 @@ Giga's storage layer is designed for a network that will produce petabytes of ne
 - Block Update Digests (BUDs): Merkle proofs over per-block updates will replace global state proofs, so proof cost will scale with how much a block changed rather than how large total state is. Light clients and bridges will consume these attested digests.
 - Tiered storage: recent, hot data will live on local high-performance SSDs; historical data will move to a distributed columnar store for analytics and audit workloads.
 
-The [Eidos upgrade](#how-will-sei-giga-ship) is delivering this storage model to the live network, and its first production pieces (FlatKV with lattice hashing) already ship in `sei-chain`. Details are in the [storage specification](/learn/sei-giga-specs#storage).
+The [Eidos upgrade](#how-will-sei-giga-ship) will deliver this storage model to the live network. Its first pieces (FlatKV with lattice hashing) are already in the `sei-chain` binary, but they sit behind operator flags and are off by default — today's app hash still comes from memiavl. Details are in the [storage specification](/learn/sei-giga-specs#storage).
 
 ## What will change from today's Sei?
 
@@ -96,7 +96,7 @@ The [Eidos upgrade](#how-will-sei-giga-ship) is delivering this storage model to
 | Block proposal   | One proposer per height                                                     | Every validator will propose concurrently in its own lane                                  |
 | Consensus        | [Twin Turbo](/learn/twin-turbo-consensus) (optimized Tendermint), ~400 ms  | Autobahn: PoA-certified lanes with cut-of-tips ordering, 1.5 round trips, sub-250 ms       |
 | Execution        | Interleaved with consensus, optimistically parallel ([OCC](/learn/parallelization-engine)) | Fully asynchronous after ordering finality; Block-STM-style OCC                            |
-| State commitment | Merkle app hash ([SeiDB](/learn/seidb): memiavl + FlatKV)                   | Lattice-hash divergence digests attested after execution, with no Merkle root on the hot path |
+| State commitment | Merkle app hash ([SeiDB](/learn/seidb): memiavl)                             | Lattice-hash divergence digests attested after execution, with no Merkle root on the hot path |
 | State proofs     | IAVL/Merkle proofs                                                          | Block Update Digests (BUDs) with a governance-set proof window                             |
 | Mempool          | Gossiped mempool                                                            | No public gossiped mempool; transactions will route through [Sedna](/learn/sei-giga-specs#sedna-private-dissemination) into validator lanes |
 | Fee model        | EIP-1559-style base fee + priority fee to the proposer                      | Three-part fees: 1559-style execution fee, ordering fee, distribution fee; tips socialised across validators |
@@ -139,8 +139,8 @@ Giga will arrive as a sequence of named upgrades to the live Sei network ([Sei L
 | Giga whitepaper v1     | Initial specification ([arXiv 2505.14914](https://arxiv.org/abs/2505.14914)), MEV formalization ([arXiv 2511.13080](https://arxiv.org/abs/2511.13080)) | Complete |
 | Internal devnet        | Geo-distributed devnet sustaining [5 gigagas/s with Autobahn](https://seiresearch.io/articles/sei-giga-achieving-5-gigagas-with-autobahn-consensus) | Complete |
 | Giga whitepaper v2     | Revised spec (June 2026): sub-250 ms finality, Sedna, BUDs, fee model, post-quantum path            | Complete |
-| Ares upgrade           | Execution client rebuilt for Giga-scale throughput on existing consensus: pipelined parsing, validation, and signature checks; receipts and indexing moved off the commit path; VM efficiency work; live deployment to mainnet | In progress |
 | Eidos upgrade          | Storage rebuild: Merkle trees replaced by a flat key-value store with lattice hashes; embedded DB for hot state, horizontally scalable cold archive; engines built specifically for receipts, logs, and blocks | In progress |
+| Ares upgrade           | Execution client rebuilt for Giga-scale throughput on existing consensus: pipelined parsing, validation, and signature checks; receipts and indexing moved off the commit path; VM efficiency work; live deployment to mainnet | In progress |
 | SIP-3                  | Pre-Giga consolidation to a streamlined EVM-only stack; see the [migration guide](/learn/sip-03-migration) | In progress |
 | Autobahn testnet       | Multi-Proposer, order-first consensus with asynchronous state on a public testnet, targeting 200,000 TPS with 400 ms finality; a final consensus whitepaper will accompany it | Coming soon |
 | Autobahn mainnet       | The live Sei network will upgrade to Autobahn consensus                                            | Coming soon |

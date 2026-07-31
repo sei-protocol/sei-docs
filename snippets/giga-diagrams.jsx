@@ -180,8 +180,8 @@ export const GigaRoadmapTrack = () => {
     { l: 'WP v1', s: 'done' },
     { l: 'Devnet', s: 'done' },
     { l: 'WP v2', s: 'done' },
-    { l: 'Ares', s: 'prog' },
     { l: 'Eidos', s: 'prog' },
+    { l: 'Ares', s: 'prog' },
     { l: 'SIP-3', s: 'prog' },
     { l: 'Autobahn testnet', s: 'next' },
     { l: 'Autobahn mainnet', s: 'next' },
@@ -218,7 +218,7 @@ export const GigaRoadmapTrack = () => {
           <text x={551} y={148.5} fontSize="10" fill={ink} fillOpacity="0.7">coming soon</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">The eleven roadmap milestones from giga.seilabs.io. Ares, Eidos, and SIP-3 are live workstreams on the network today; the Autobahn testnet is next.</div>
+      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">The eleven roadmap milestones from giga.seilabs.io. Eidos, Ares, and SIP-3 are live workstreams on the network today; the Autobahn testnet is next.</div>
     </div>
   );
 };
