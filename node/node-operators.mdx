@@ -518,14 +518,14 @@ worker_queue_size = 1000
 ###############################################################################
 
 [giga_executor]
-# enabled controls whether to use the Giga executor (evmone-based) instead of geth's interpreter.
-# This is an experimental feature for improved EVM throughput.
-# Default: false
+# enabled controls whether to use the Giga executor instead of the legacy execution path.
+# Improves EVM throughput.
+# Default: false through v6.5.x; true from the v6.6 release line.
 enabled = false
 
 # occ_enabled controls whether to use OCC (Optimistic Concurrency Control) with the Giga executor.
 # When true, transactions are executed in parallel with conflict detection and retry.
-# Default: false
+# Default: false through v6.5.x; true from the v6.6 release line.
 occ_enabled = false
 
 ###############################################################################
@@ -1450,10 +1450,9 @@ ss-keep-recent = 100000
 # snapshot creation.
 ss-prune-interval = 600
 
-# Optional EVM SS routing — same semantics as the SC modes above. Leave on
-# cosmos_only unless you have completed the Giga SS Store migration.
-evm-ss-write-mode = "cosmos_only"
-evm-ss-read-mode = "cosmos_only"
+# EVM state-store split. Leave false unless you have completed the Giga
+# SS Store migration (RPC nodes only); see the migration guide.
+evm-ss-split = false
 evm-ss-separate-dbs = false
 
 [receipt-store]
@@ -1470,45 +1469,33 @@ longer overall, which can cause missed blocks and excessive resync time.
 
 ### Giga Storage and Giga Executor
 
-These are two **separate** opt-in features that ship in newer `seid`
-releases. Both default to off; only enable them deliberately and after
-following the relevant migration guide.
+These are two **separate** features that ship in newer `seid` releases.
 
 **Giga Storage** repartitions SeiDB so EVM state lives in its own
 databases at both the SC and SS layers, freeing non-EVM modules from EVM
-write amplification.
-
-<Info>For step-by-step instructions — including the full state-sync flow, startup verification, safety checks, and rollback — see the [Giga SS Store Migration Guide](/node/giga-storage-migration). The snippet below is just the resulting `app.toml` shape.</Info>
-
-
-```toml
-[state-commit]
-sc-write-mode = "dual_write"   # write EVM data to memiavl AND FlatKV
-sc-read-mode = "split_read"    # read EVM data from FlatKV
-sc-enable-lattice-hash = true  # required for split-mode app-hash equality
-
-[state-store]
-evm-ss-write-mode = "split_write"
-evm-ss-read-mode = "split_read"
-```
-
-Enabling Giga Storage requires a fresh state sync — flipping the EVM SS
-modes on a node with existing data fails the startup safety checks because
-the new EVM SS DB starts empty while Cosmos SS already has history. The
-full procedure is in the
-[Giga SS Store Migration Guide](/node/giga-storage-migration) and is
+write amplification. It is opt-in on every release, and enabling it
+requires a fresh state sync: turning on the EVM SS split on a node with
+existing data fails the startup safety checks, because the new EVM SS DB
+starts empty while Cosmos SS already has history. The full procedure,
+including the exact `app.toml` keys, startup verification, safety checks,
+and rollback, is in the
+[Giga SS Store Migration Guide](/node/giga-storage-migration). It is
 currently supported on **RPC nodes only**; validators and archive nodes are
 not yet covered.
 
-**Giga Executor** is independent of Giga Storage. It swaps the EVM
-interpreter from go-ethereum's geth to an evmone-based executor for
-higher throughput, with optional OCC parallelism on top:
+**Giga Executor** is independent of Giga Storage. It routes EVM
+transactions through the Giga execution engine, built on Sei's go-ethereum
+fork, instead of the legacy execution path, with optional OCC parallelism
+on top. It is disabled by default through v6.5.x and enabled by default,
+together with OCC, from the v6.6 release line:
 
 ```toml
 [giga_executor]
-# Use the evmone-based executor instead of geth's interpreter. Experimental.
+# Use the Giga execution engine instead of the legacy path.
+# Default: false through v6.5.x; true from the v6.6 release line.
 enabled = false
 # Run Giga-executed txs in parallel with Optimistic Concurrency Control.
+# Default: false through v6.5.x; true from the v6.6 release line.
 occ_enabled = false
 ```
 
