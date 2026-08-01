@@ -2,8 +2,12 @@ export const SipIndex = () => {
 	const REPO = 'sei-protocol/sips';
 	const BRANCH = 'main';
 	const LIST_URL = `https://api.github.com/repos/${REPO}/contents/sips?ref=${BRANCH}`;
-	const CACHE_KEY = 'sei-sip-index';
+	// Suffix is bumped whenever parseSip's output shape changes, so a cached
+	// entry from an older build is discarded instead of rendered.
+	const CACHE_KEY = 'sei-sip-index-v1';
 	const CACHE_TTL = 3600000;
+	// Highest sip-N.md the fallback path will look for.
+	const MAX_PROBE = 40;
 
 	const rawUrl = (file) => `https://raw.githubusercontent.com/${REPO}/${BRANCH}/sips/${file}`;
 	const blobUrl = (file) => `https://github.com/${REPO}/blob/${BRANCH}/sips/${file}`;
@@ -44,13 +48,25 @@ export const SipIndex = () => {
 
 	// GitHub builds heading anchors by lowercasing the rendered text, dropping
 	// punctuation and mapping whitespace to hyphens. Mirroring that lets the
-	// outline deep-link straight into the source file.
+	// outline deep-link straight into the source file. Letters and digits are
+	// matched by Unicode property so accented headings keep their characters,
+	// and underscores survive because GitHub keeps them in snake_case names.
 	const slugify = (text) =>
 		text
 			.toLowerCase()
-			.replace(/[^\w\s-]/g, '')
+			.replace(/[^\p{L}\p{N}_\s-]/gu, '')
 			.trim()
 			.replace(/\s/g, '-');
+
+	// Reduce a heading to the text GitHub would render, since the anchor is
+	// derived from that rather than from the markdown source.
+	const headingText = (markdown) =>
+		markdown
+			.replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+			.replace(/\*\*/g, '')
+			.replace(/\*/g, '')
+			.replace(/`/g, '')
+			.trim();
 
 	const parseSip = (file, raw) => {
 		const number = Number((file.match(/sip-(\d+)\.md$/i) || [])[1]);
@@ -65,10 +81,15 @@ export const SipIndex = () => {
 		const header = raw.split(/^##\s/m)[0];
 
 		for (const line of header.split('\n')) {
-			const row = line.match(/^\s*\|([^|]+)\|(.*)\|\s*$/);
-			if (!row) continue;
-			const key = row[1].trim();
-			const value = row[2].replace(/\|\s*$/, '').trim();
+			const trimmed = line.trim();
+			if (!trimmed.startsWith('|')) continue;
+			// The closing pipe is optional in GitHub-flavored markdown, so drop
+			// it only when present rather than requiring it.
+			const cells = trimmed.slice(1).split('|');
+			if (cells.length && cells[cells.length - 1].trim() === '') cells.pop();
+			if (cells.length < 2) continue;
+			const key = cells[0].trim();
+			const value = cells.slice(1).join('|').trim();
 			// Skip the table's alignment row (| ----- | :---- |).
 			if (/^:?-{2,}:?$/.test(key)) continue;
 			if (!key || meta[normKey(key)]) continue;
@@ -80,10 +101,14 @@ export const SipIndex = () => {
 
 		const seen = Object.create(null);
 		const sections = [];
+		// Fenced blocks can contain lines that look like headings (SIP-1's format
+		// section quotes a template), and those produce anchors GitHub never
+		// renders, so strip the fences before scanning.
+		const prose = raw.replace(/^```[\s\S]*?^```/gm, '');
 		const headingPattern = /^(#{2,4})\s+(.+?)\s*$/gm;
 		let match;
-		while ((match = headingPattern.exec(raw)) !== null) {
-			const text = match[2].replace(/\*\*/g, '').replace(/`/g, '').trim();
+		while ((match = headingPattern.exec(prose)) !== null) {
+			const text = headingText(match[2]);
 			if (!text) continue;
 			let anchor = slugify(text);
 			// GitHub disambiguates repeated headings with a numeric suffix.
@@ -135,40 +160,40 @@ export const SipIndex = () => {
 			return null;
 		};
 
+		// Fetch and parse one file, returning null instead of throwing so a
+		// single failure never takes down the whole listing.
+		const readSip = async (file) => {
+			try {
+				const res = await fetch(rawUrl(file));
+				if (!res.ok) return null;
+				return parseSip(file, await res.text());
+			} catch {
+				return null;
+			}
+		};
+
 		// Primary path: one directory listing, then the files it names.
 		const loadFromApi = async () => {
 			const res = await fetch(LIST_URL, { headers: { Accept: 'application/vnd.github+json' } });
 			if (!res.ok) throw new Error(`GitHub API ${res.status}`);
 			const files = (await res.json()).filter((entry) => entry.type === 'file' && /^sip-\d+\.md$/i.test(entry.name)).map((entry) => entry.name);
 			if (!files.length) throw new Error('No SIP files listed');
-			return Promise.all(
-				files.map(async (file) => {
-					const fileRes = await fetch(rawUrl(file));
-					if (!fileRes.ok) throw new Error(`${file}: ${fileRes.status}`);
-					return parseSip(file, await fileRes.text());
-				})
-			);
+			// One unreadable file should cost that single card, not send the whole
+			// listing down the fallback path and refetch everything.
+			const fetched = await Promise.all(files.map(readSip));
+			const parsed = fetched.filter(Boolean);
+			if (!parsed.length) throw new Error('No SIP files could be read');
+			return parsed;
 		};
 
-		// Fallback for when the unauthenticated API quota is exhausted: walk
-		// sip-1.md upwards off the raw CDN and stop after a run of misses.
+		// Fallback for when the unauthenticated API quota is exhausted: probe
+		// sip-1.md through sip-40.md on the raw CDN. Every number is requested
+		// so a withdrawn or reserved number cannot truncate the index the way
+		// stopping after a run of misses would.
 		const loadByProbing = async () => {
-			const found = [];
-			let misses = 0;
-			for (let n = 1; n <= 40 && misses < 3; n++) {
-				const file = `sip-${n}.md`;
-				try {
-					const res = await fetch(rawUrl(file));
-					if (res.ok) {
-						found.push(parseSip(file, await res.text()));
-						misses = 0;
-					} else {
-						misses += 1;
-					}
-				} catch {
-					misses += 1;
-				}
-			}
+			const numbers = Array.from({ length: MAX_PROBE }, (_, i) => i + 1);
+			const fetched = await Promise.all(numbers.map((n) => readSip(`sip-${n}.md`)));
+			const found = fetched.filter(Boolean);
 			if (!found.length) throw new Error('No SIPs reachable');
 			return found;
 		};
@@ -203,30 +228,127 @@ export const SipIndex = () => {
 		};
 	}, []);
 
-	// --- Presentation ---------------------------------------------------------
-	// Colors follow the SIP-1 lifecycle: in-progress states are neutral/amber,
-	// accepted and shipped states are green, ended states are muted or red.
-	const statusStyles = {
-		idea: 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300',
-		draft: 'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300',
-		review: 'bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-300',
-		'fast track': 'bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-300',
-		'last call': 'bg-purple-100 text-purple-800 dark:bg-purple-500/15 dark:text-purple-300',
-		final: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300',
-		implemented: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300',
-		activated: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300',
-		living: 'bg-teal-100 text-teal-800 dark:bg-teal-500/15 dark:text-teal-300',
-		stagnant: 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400',
-		withdrawn: 'bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300'
+	// --- Theming --------------------------------------------------------------
+	// Mintlify serves a prebuilt stylesheet, so Tailwind utilities that appear
+	// only inside a snippet aren't guaranteed to exist in it. Variants carrying
+	// an opacity modifier (`dark:bg-neutral-900/40`) drop out that way, which is
+	// what left these cards white on a black page. The other data snippets here
+	// watch the `dark` class on <html> and style inline from the style.css
+	// tokens instead, so this follows the same approach.
+	const [isDark, setIsDark] = useState(false);
+
+	useEffect(() => {
+		const root = document.documentElement;
+		const sync = () => setIsDark(root.classList.contains('dark'));
+		sync();
+		const observer = new MutationObserver(sync);
+		observer.observe(root, { attributes: true, attributeFilter: ['class'] });
+		return () => observer.disconnect();
+	}, []);
+
+	const byMode = (light, dark) => (isDark ? dark : light);
+
+	const theme = {
+		cardBg: byMode('var(--sei-card-bg-light)', 'var(--sei-card-bg-dark)'),
+		border: byMode('var(--sei-card-border-light)', 'var(--sei-card-border-dark)'),
+		strong: byMode('var(--sei-grey-600)', 'var(--sei-white)'),
+		body: byMode('var(--sei-grey-300)', 'var(--sei-grey-50)'),
+		muted: byMode('var(--sei-grey-200)', 'var(--sei-grey-75)'),
+		label: byMode('var(--sei-gold-100)', 'var(--sei-gold-25)'),
+		accent: byMode('var(--sei-maroon-100)', 'var(--sei-maroon-25)'),
+		hoverBg: byMode('rgba(96, 0, 20, 0.02)', 'rgba(96, 0, 20, 0.08)'),
+		hoverBorder: byMode('rgba(96, 0, 20, 0.35)', 'rgba(185, 155, 161, 0.25)')
 	};
 
-	const statusClass = (status) => statusStyles[status.toLowerCase()] || statusStyles.idea;
+	// Tones map the SIP-1 lifecycle onto the Sei palette: gold while a proposal
+	// is still moving, green once accepted or shipped, grey for dormant states,
+	// red for withdrawn. These mirror the style.css tokens as literal hex
+	// because each badge tints its own fill, and the alpha channels can't be
+	// derived from a var() reference. `--sei-live` and `--sei-error` are pitched
+	// for dark surfaces and drop under 2:1 as text on white, so light mode takes
+	// a darkened counterpart.
+	const TONES = {
+		live: byMode('#1a7a00', '#38df00'),
+		error: byMode('#c20a00', '#fa0c00'),
+		gold: byMode('#966f22', '#d6c9ac'),
+		maroon: byMode('#600014', '#b99ba1'),
+		grey: byMode('#666666', '#999999')
+	};
 
-	const cardClass = 'rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/40 p-5';
-	const linkClass =
-		'inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium no-underline transition-colors ' +
-		'bg-white text-neutral-800 border border-neutral-200 hover:bg-neutral-100 ' +
-		'dark:bg-neutral-800 dark:text-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-700';
+	const STATUS_TONES = {
+		idea: 'grey',
+		draft: 'gold',
+		review: 'gold',
+		'fast track': 'gold',
+		'last call': 'gold',
+		final: 'live',
+		implemented: 'live',
+		activated: 'live',
+		living: 'maroon',
+		stagnant: 'grey',
+		withdrawn: 'error'
+	};
+
+	const channels = (hex) => {
+		const n = parseInt(hex.slice(1), 16);
+		return `${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}`;
+	};
+
+	const eyebrow = {
+		fontFamily: 'var(--sei-font-mono)',
+		fontSize: '10px',
+		letterSpacing: '0.04em',
+		textTransform: 'uppercase'
+	};
+
+	const statusStyle = (status) => {
+		const hex = TONES[STATUS_TONES[status.toLowerCase()] || 'grey'];
+		const rgb = channels(hex);
+		return {
+			...eyebrow,
+			color: hex,
+			backgroundColor: `rgba(${rgb}, ${byMode(0.09, 0.14)})`,
+			border: `1px solid rgba(${rgb}, ${byMode(0.28, 0.32)})`,
+			borderRadius: 'var(--sei-radius-sm)',
+			padding: '3px 6px',
+			whiteSpace: 'nowrap'
+		};
+	};
+
+	const cardStyle = {
+		background: theme.cardBg,
+		border: `1px solid ${theme.border}`,
+		borderRadius: 'var(--sei-radius-sm)',
+		padding: '20px'
+	};
+
+	const buttonStyle = {
+		display: 'inline-flex',
+		alignItems: 'center',
+		gap: '6px',
+		padding: '6px 12px',
+		fontFamily: 'var(--sei-font-mono)',
+		fontSize: '12px',
+		letterSpacing: '0.02em',
+		color: theme.strong,
+		background: 'transparent',
+		border: `1px solid ${theme.border}`,
+		borderRadius: 'var(--sei-radius-sm)',
+		textDecoration: 'none',
+		transition: 'background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease'
+	};
+
+	// Inline styles can't express :hover, so the maroon card hover from
+	// style.css is reproduced with handlers.
+	const hoverSwap = (hovering) => (event) => {
+		event.currentTarget.style.backgroundColor = hovering ? theme.hoverBg : 'transparent';
+		event.currentTarget.style.borderColor = hovering ? theme.hoverBorder : theme.border;
+		event.currentTarget.style.color = hovering ? theme.accent : theme.strong;
+	};
+
+	const tintSwap = (hovering) => (event) => {
+		event.currentTarget.style.color = hovering ? theme.accent : theme.body;
+	};
 
 	const ExternalLinkIcon = () => (
 		<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -239,28 +361,31 @@ export const SipIndex = () => {
 	const Field = ({ label, value }) =>
 		value ? (
 			<div>
-				<div className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-500">{label}</div>
-				<div className="text-sm text-neutral-800 dark:text-neutral-200">{value}</div>
+				<div style={{ ...eyebrow, color: theme.label, marginBottom: '3px' }}>{label}</div>
+				<div style={{ fontSize: '14px', color: theme.body }}>{value}</div>
 			</div>
 		) : null;
 
+	const statusMessage = { ...cardStyle, fontSize: '14px', color: theme.body };
+
 	if (state === 'loading') {
 		return (
-			<div className={`${cardClass} not-prose text-sm text-neutral-600 dark:text-neutral-400`}>
-				Loading proposals from{' '}
-				<code style={{ fontFamily: 'var(--sei-font-mono)' }}>
-					{REPO}
-				</code>
-				…
+			<div className="not-prose" style={statusMessage}>
+				Loading proposals from <code style={{ fontFamily: 'var(--sei-font-mono)' }}>{REPO}</code>…
 			</div>
 		);
 	}
 
 	if (state === 'error') {
 		return (
-			<div className={`${cardClass} not-prose text-sm text-neutral-600 dark:text-neutral-400`}>
+			<div className="not-prose" style={statusMessage}>
 				Could not reach the SIPs repository. Browse the proposals directly at{' '}
-				<a href={`https://github.com/${REPO}/tree/${BRANCH}/sips`} target="_blank" rel="noopener noreferrer">
+				<a
+					href={`https://github.com/${REPO}/tree/${BRANCH}/sips`}
+					target="_blank"
+					rel="noopener noreferrer"
+					style={{ color: theme.accent }}
+				>
 					github.com/{REPO}
 				</a>
 				.
@@ -269,34 +394,75 @@ export const SipIndex = () => {
 	}
 
 	return (
-		<div className="not-prose flex flex-col gap-4">
+		<div className="not-prose" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 			{sips.map((sip) => (
-				<div key={sip.number} className={cardClass}>
-					<div className="flex flex-wrap items-center gap-2">
-						<span className="rounded-md px-2 py-0.5 text-sm font-semibold text-white" style={{ backgroundColor: 'var(--sei-maroon-100, #600014)', fontFamily: 'var(--sei-font-mono)' }}>
+				<div key={sip.number} style={cardStyle}>
+					<div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px' }}>
+						<span
+							style={{
+								...eyebrow,
+								fontSize: '11px',
+								color: 'var(--sei-white)',
+								backgroundColor: 'var(--sei-maroon-100)',
+								borderRadius: 'var(--sei-radius-sm)',
+								padding: '3px 7px'
+							}}
+						>
 							SIP-{sip.number}
 						</span>
-						<span className={`rounded-md px-2 py-0.5 text-xs font-semibold uppercase tracking-wide ${statusClass(sip.status)}`}>{sip.status}</span>
-						{sip.type ? <span className="text-xs text-neutral-500 dark:text-neutral-400">{sip.type}</span> : null}
+						<span style={statusStyle(sip.status)}>{sip.status}</span>
+						{sip.type ? <span style={{ fontSize: '12px', color: theme.muted }}>{sip.type}</span> : null}
 					</div>
 
-					<h3 className="mt-3 mb-1 text-lg font-semibold text-neutral-900 dark:text-neutral-100">{sip.title}</h3>
+					<h3
+						style={{
+							fontFamily: 'var(--sei-font-display)',
+							fontSize: '18px',
+							fontWeight: 600,
+							letterSpacing: '-0.01em',
+							color: theme.strong,
+							margin: '14px 0 0'
+						}}
+					>
+						{sip.title}
+					</h3>
 
-					{sip.description ? <p className="mt-0 mb-4 text-sm text-neutral-600 dark:text-neutral-400">{sip.description}</p> : null}
+					{sip.description ? (
+						<p style={{ fontSize: '14px', lineHeight: 1.6, color: theme.body, margin: '6px 0 0' }}>{sip.description}</p>
+					) : null}
 
-					<div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+					<div
+						style={{
+							display: 'grid',
+							gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+							gap: '12px',
+							marginTop: '16px'
+						}}
+					>
 						<Field label="Author" value={sip.author} />
 						<Field label="Reviewer" value={sip.reviewer} />
 						<Field label="Created" value={sip.created} />
 					</div>
 
+					{/* style.css frames every <details> as the shared accordion with
+					    !important, so the outline is inset by the summary's own 16px
+					    padding rather than given a competing border here. */}
 					{sip.sections.length ? (
-						<details className="mt-4 border-t border-neutral-200 pt-3 dark:border-neutral-800">
-							<summary className="cursor-pointer text-sm font-medium text-neutral-700 dark:text-neutral-300">Contents ({sip.sections.length} sections)</summary>
-							<ul className="mt-3 mb-0 list-none space-y-1 pl-0">
+						<details style={{ marginTop: '16px' }}>
+							<summary style={{ fontSize: '13px', color: theme.body }}>
+								Contents ({sip.sections.length} sections)
+							</summary>
+							<ul style={{ listStyle: 'none', margin: 0, padding: '0 16px 12px' }}>
 								{sip.sections.map((section) => (
-									<li key={section.anchor} style={{ paddingLeft: `${(section.level - 2) * 16}px` }}>
-										<a href={`${blobUrl(sip.file)}#${section.anchor}`} target="_blank" rel="noopener noreferrer" className="text-sm text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100">
+									<li key={section.anchor} style={{ paddingLeft: `${(section.level - 2) * 16}px`, margin: '4px 0' }}>
+										<a
+											href={`${blobUrl(sip.file)}#${section.anchor}`}
+											target="_blank"
+											rel="noopener noreferrer"
+											style={{ fontSize: '13px', color: theme.body, textDecoration: 'none', transition: 'color 0.15s ease' }}
+											onMouseEnter={tintSwap(true)}
+											onMouseLeave={tintSwap(false)}
+										>
 											{section.text}
 										</a>
 									</li>
@@ -305,12 +471,26 @@ export const SipIndex = () => {
 						</details>
 					) : null}
 
-					<div className="mt-4 flex flex-wrap gap-2">
-						<a href={blobUrl(sip.file)} target="_blank" rel="noopener noreferrer" className={linkClass}>
+					<div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '16px' }}>
+						<a
+							href={blobUrl(sip.file)}
+							target="_blank"
+							rel="noopener noreferrer"
+							style={buttonStyle}
+							onMouseEnter={hoverSwap(true)}
+							onMouseLeave={hoverSwap(false)}
+						>
 							Read SIP-{sip.number} <ExternalLinkIcon />
 						</a>
 						{sip.discussion ? (
-							<a href={sip.discussion} target="_blank" rel="noopener noreferrer" className={linkClass}>
+							<a
+								href={sip.discussion}
+								target="_blank"
+								rel="noopener noreferrer"
+								style={buttonStyle}
+								onMouseEnter={hoverSwap(true)}
+								onMouseLeave={hoverSwap(false)}
+							>
 								Discussion <ExternalLinkIcon />
 							</a>
 						) : null}
@@ -318,9 +498,14 @@ export const SipIndex = () => {
 				</div>
 			))}
 
-			<p className="mt-0 text-xs text-neutral-500 dark:text-neutral-500">
+			<p style={{ fontSize: '12px', color: theme.muted, margin: 0 }}>
 				Pulled live from{' '}
-				<a href={`https://github.com/${REPO}/tree/${BRANCH}/sips`} target="_blank" rel="noopener noreferrer">
+				<a
+					href={`https://github.com/${REPO}/tree/${BRANCH}/sips`}
+					target="_blank"
+					rel="noopener noreferrer"
+					style={{ color: theme.accent }}
+				>
 					{REPO}
 				</a>
 				. Statuses and metadata reflect the {BRANCH} branch.
