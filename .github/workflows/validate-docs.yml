@@ -17,6 +17,28 @@ jobs:
       - name: Validate docs.json is valid JSON
         run: jq empty docs.json
 
+      - name: Enforce generated-only agent skills
+        run: |
+          set -euo pipefail
+          # .mintlify/skills/ is GENERATED from sei-protocol/sei-skill by
+          # scripts/build-mintlify-skills.mjs (see .github/workflows/sync-skills.yml).
+          # Hand-authored skill content is not allowed in this repo — every
+          # SKILL.md must carry the generation marker.
+          shopt -s nullglob
+          bad=0
+          count=0
+          for f in .mintlify/skills/*/SKILL.md; do
+            count=$((count+1))
+            if ! grep -q 'GENERATED FROM sei-protocol/sei-skill' "$f"; then
+              echo "::error file=$f::Missing 'GENERATED FROM sei-protocol/sei-skill' marker — edit the source in sei-skill and regenerate; do not hand-author skills here."
+              bad=$((bad+1))
+            fi
+          done
+          if [[ "$bad" -gt 0 ]]; then
+            exit 1
+          fi
+          echo "All ${count} skill(s) carry the generated-from-sei-skill marker."
+
       - name: Verify all referenced pages exist
         run: |
           set -euo pipefail

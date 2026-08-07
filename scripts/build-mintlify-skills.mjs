@@ -65,6 +65,7 @@ Produce a single SKILL.md for the skill "${name}":
 - YAML frontmatter: name (= "${name}"), description (a ">"-folded "Use when ..." trigger paragraph), license: MIT, compatibility, metadata { author: Sei, version, intended-host: docs.sei.io, domain }.
 - Body <= ~5000 tokens. Dense and Sei-specific: "Critical facts", code, "Common pitfalls", and a "Key docs" table.
 - Link to live https://docs.sei.io/... pages (NOT references/*.md). Keep every canonical constant (addresses, chain IDs, EIDs, gas values, governance proposal numbers) verbatim; never invent an address or proposal number.
+- The file is MDX-parsed by the docs tooling: no HTML comments, and no bare "<", ">", "{", or "}" outside code spans/fences (write placeholders like \`<your-rpc>\` in backticks).
 - Match or exceed the QUALITY BAR (the current docs skill) in correctness and concision. Do not reintroduce anything the source dropped (e.g. Axelar, LayerZero v1 API, native-oracle endorsement, overconfident Wormhole-EVM examples).
 
 ${bar ? '== QUALITY BAR (current docs skill — match this) ==\n' + bar + '\n' : ''}== CANONICAL SOURCE (flatten this) ==\n`;
@@ -74,13 +75,17 @@ const only = args.includes('--skill') ? args[args.indexOf('--skill') + 1] : null
 const write = args.includes('--write'); // also write generated SKILL.md into .mintlify/skills/<name>/
 const SRC_REF = process.env.SEI_SKILL_REF || '';
 
-// Stamp a GENERATED marker after the frontmatter so the artifact is clearly
-// machine-generated. The skills-generated guard (CI) enforces this marker's presence,
+// Stamp a GENERATED marker so the artifact is clearly machine-generated; the
+// "Enforce generated-only agent skills" step in validate-docs.yml requires it,
 // which is how "no hand-authored skill content in the docs" is kept true.
+// The marker lives as YAML comments INSIDE the frontmatter: invisible to YAML/
+// skill consumers, and — unlike an HTML comment in the body — safe for MDX
+// parsers (mint / the Mintlify platform parse .md as MDX, where `<!-- -->` is
+// a syntax error).
 function stampGenerated(md) {
-  const banner = `<!-- GENERATED FROM sei-protocol/sei-skill${SRC_REF ? '@' + SRC_REF : ''} — DO NOT EDIT BY HAND.\n     Edit the source in sei-skill, then regenerate via scripts/build-mintlify-skills.mjs (see .github/workflows/sync-skills.yml). -->`;
-  const fm = md.match(/^---\n[\s\S]*?\n---\n/);
-  return fm ? fm[0] + banner + '\n' + md.slice(fm[0].length) : banner + '\n' + md;
+  const banner = `# GENERATED FROM sei-protocol/sei-skill${SRC_REF ? '@' + SRC_REF : ''} — DO NOT EDIT BY HAND.\n# Edit the source in sei-skill, then regenerate via scripts/build-mintlify-skills.mjs\n# (see .github/workflows/sync-skills.yml).\n`;
+  if (md.startsWith('---\n')) return '---\n' + banner + md.slice(4);
+  return `---\n${banner}---\n` + md;
 }
 
 mkdirSync(DIST, { recursive: true });

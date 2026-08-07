@@ -88,18 +88,8 @@ export const EcosystemContracts = () => {
 		},
 		{
 			Protocol: 'Stargate',
-			'Contract Address': '0x45d417612e177672958dc0537c45a8f8d754ac2e',
-			'Contract Name': 'StargatePoolUSDC'
-		},
-		{
-			Protocol: 'Stargate',
 			'Contract Address': '0x873cfB4bAe1Ab6A5DE753400e9d0616e10Dced22',
 			'Contract Name': 'Treasurer'
-		},
-		{
-			Protocol: 'Stargate',
-			'Contract Address': '0x0db9afb4c33be43a0a0e396fd1383b4ea97ab10a',
-			'Contract Name': 'StargatePoolMigratable'
 		},
 		{
 			Protocol: 'Stargate',

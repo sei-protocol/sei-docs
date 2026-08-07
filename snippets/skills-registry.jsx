@@ -22,7 +22,7 @@ export const SkillsRegistry = () => {
 			title: 'Precompiles',
 			domain: 'Precompiles',
 			href: '/evm/precompiles/example-usage',
-			desc: 'Call Sei native precompiles — Bank, Staking, Governance, Oracle, and more — from Solidity and viem.'
+			desc: 'Call Sei native precompiles — Bank, Staking, Distribution, Governance, and more — from Solidity and viem.'
 		},
 		{
 			id: 'sei-nodes',
