@@ -35,7 +35,7 @@ const SEI_LLMS_CONFIG = {
 		'Version compatibility: Solidity ≥ 0.8.x recommended. Sei EVM tracks the Pectra EVM (without blob transactions).',
 		'Network requirements: Mainnet chain ID 1329 (pacific-1), testnet chain ID 1328 (atlantic-2). Gas is paid in SEI (18 decimals).',
 		'Important notes: Sei has 400ms block times — set lower polling intervals than on Ethereum. Transactions touching independent state are parallelized automatically; shared-state writes are serialized.',
-		'IBC deprecation: Per SIP-03, inbound/outbound IBC transfers are being disabled. Holders of IBC assets (USDC.n, USDT.kava, Wormhole-bridged tokens) must migrate before the governance proposal activates — see /learn/sip-03-migration.'
+		'IBC disabled: Per SIP-03, IBC is disabled on Sei in both directions. Proposals 116 and 120 set the ibc module InboundEnabled parameter to false, and Proposal 121 set OutboundEnabled to false on 2026-07-31. No asset can be bridged into or out of Sei over IBC, and IBC assets already on Sei (USDC.n, USDT.kava, ATOM, WBTC) can no longer be redeemed on their origin chain. The IBC precompile at 0x0000000000000000000000000000000000001009 is non-functional. See /learn/sip-03-migration.'
 	].join('\n'),
 	quickReference: [
 		'Chain ID: mainnet 1329 (pacific-1), testnet 1328 (atlantic-2)',
@@ -140,7 +140,7 @@ const LLMS_SECTION_ORDER = [
 			"Sei is a parallelized EVM Layer 1 blockchain. Performance comes from Twin Turbo Consensus (optimistic block processing), parallel EVM execution (concurrent transactions on independent state), and SeiDB (high-throughput storage). Full Ethereum tooling compatibility — deploy standard Solidity contracts with no modifications.",
 			"Sei Giga is the next major upgrade targeting 200K TPS and 5 gigagas/s via Autobahn multi-proposer BFT consensus and a custom EVM execution engine. For developers, Sei Giga's parallel engine rewards contracts with user-scoped state (mapping per address) over shared global state.",
 			'Mainnet (pacific-1): chain ID 1329. Testnet (atlantic-2): chain ID 1328.',
-			'SIP-03 migration: inbound/outbound IBC transfers are being disabled. Holders of IBC assets must swap, migrate, or bridge out before the governance proposal activates.'
+			'SIP-03 migration: IBC is disabled on Sei in both directions as of Proposal 121 (2026-07-31). IBC assets already on Sei can no longer be bridged out or redeemed on their origin chain, though the balances remain transferable within Sei.'
 		].join('\n\n')
 	},
 	{
@@ -157,7 +157,7 @@ const LLMS_SECTION_ORDER = [
 		match: (p) => p.startsWith('/evm'),
 		overview: [
 			"Sei's EVM is fully compatible with Ethereum. Standard Solidity contracts deploy without modification. All Ethereum tooling (Hardhat, Foundry, wagmi, ethers.js, viem, RainbowKit) works as-is. Transactions touching independent state execute concurrently.",
-			'Precompiled contracts at fixed addresses expose native Sei functionality (staking, governance, IBC, JSON, oracle, p256) to EVM.',
+			'Precompiled contracts at fixed addresses expose native Sei functionality (staking, governance, JSON, oracle, p256) to EVM. The IBC precompile is non-functional because IBC is disabled.',
 			'Native USDC: mainnet 0xe15fC38F6D8c56aF07bbCBe3BAf5708A2Bf42392, testnet 0x4fCF1784B31630811181f670Aea7A7bEF803eaED (6 decimals).'
 		].join('\n\n')
 	},
