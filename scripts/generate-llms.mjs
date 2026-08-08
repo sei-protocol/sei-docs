@@ -103,11 +103,6 @@ const SEI_LLMS_CONFIG = {
 			description: 'Open source repositories including sei-chain, sei-js, and MCP server'
 		},
 		{
-			title: 'Developer Hub',
-			url: 'https://www.sei.io/developers',
-			description: 'Curated entry points, ecosystem programs, and grant info'
-		},
-		{
 			title: 'Ecosystem',
 			url: 'https://www.sei.io/ecosystem',
 			description: 'Directory of projects building on Sei'
