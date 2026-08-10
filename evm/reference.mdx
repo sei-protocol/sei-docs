@@ -916,6 +916,8 @@ EVM endpoints that walk through these (e.g. `eth_getBlockByNumber`) therefore wo
 
 **Sei-specific behavior:** WebSocket-only (SubscriptionAPI is not registered on the HTTP server; returns rpc.ErrNotificationsUnsupported over HTTP). Only 'newHeads' and 'logs' are implemented in source; there is no 'newPendingTransactions' subscription despite some client docs implying otherwise. newHeads subscriptions are capped by MaxSubscriptionsNewHead.
 
+Under Autobahn consensus (i.e. when `AutobahnConfigFile` is set), `newHeads` notifications are delivered by an in-process notifier that publishes committed-block headers after a successful `Commit`, rather than through the CometBFT event bus used by the legacy path. Subscribers therefore observe only committed state, but the header payloads differ from the legacy encoding: `parentHash`, `receiptsRoot`, and `transactionsRoot` are returned as the zero hash (Autobahn does not compute a Tendermint-style hash chain), `stateRoot` is sourced from the finalized block's post-execution `AppHash`, and `hash` is the Autobahn block-header hash. `gasUsed` is an approximation (summed over transaction results); subscribers needing exact gas or the omitted header fields should query `eth_getBlockByNumber`. Under Autobahn, on consumer lag the latest head wins (overwrite-on-full) and intermediate heads may be dropped, and subscribers that chain-validate the head stream will need a different mechanism.
+
 **Parameters:**
 
 | # | Name | Type | Description |
