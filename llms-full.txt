@@ -52,6 +52,7 @@ SIP-03 migration: IBC is disabled on Sei in both directions as of Proposal 121 (
 - [Oracle Providers on Sei](https://docs.sei.io/learn/oracles): Directory of oracle providers for Sei blockchain. Access reliable price feeds and off-chain data for DeFi applications, smart contracts, and dApps.
 - [General Governance](https://docs.sei.io/learn/general-governance): Learn about Sei's governance system and how to participate in the decision-making process
 - [Proposals](https://docs.sei.io/learn/proposals): Complete guide to Sei governance proposals. Learn about different proposal types and how to submit them.
+- [Sei Improvement Proposals](https://docs.sei.io/learn/sips): Browse every Sei Improvement Proposal (SIP) with status, type, authorship, and section outlines pulled live from the sei-protocol/sips repository.
 - [Sei Blockchain Staking Guide](https://docs.sei.io/learn/general-staking): Participate in Sei's proof-of-stake consensus by staking tokens with validators, with detailed explanations of delegation, rewards, slashing risks, and the unbonding process.
 - [Sei Network Interoperability Framework](https://docs.sei.io/learn/dev-interoperability): Understand how Sei enables seamless interaction between EVM and Cosmos ecosystems through its dual address system and precompiles.
 - [Sei Pointer Contracts: Bridging EVM and Cosmos Environments](https://docs.sei.io/learn/pointers): Understand how Sei's pointer contract system enables seamless asset movement between EVM and Cosmos environments, with implementation patterns for various token types.
@@ -233,7 +234,6 @@ export const config = createConfig({
 ## Resources
 
 - [GitHub](https://github.com/sei-protocol): Open source repositories including sei-chain, sei-js, and MCP server
-- [Developer Hub](https://www.sei.io/developers): Curated entry points, ecosystem programs, and grant info
 - [Ecosystem](https://www.sei.io/ecosystem): Directory of projects building on Sei
 - [Blog](https://blog.sei.io): Announcements and technical deep dives
 - [Dashboard](https://dashboard.sei.io): Transfer, bridge, and stake on Sei
@@ -3557,6 +3557,526 @@ seid tx gov deposit 42 1000000000usei \
 
 ---
 
+URL: https://docs.sei.io/learn/sips
+
+# Sei Improvement Proposals
+
+> Browse every Sei Improvement Proposal (SIP) with status, type, authorship, and section outlines pulled live from the sei-protocol/sips repository.
+
+export const SipIndex = () => {
+  const REPO = 'sei-protocol/sips';
+  const BRANCH = 'main';
+  const LIST_URL = `https://api.github.com/repos/${REPO}/contents/sips?ref=${BRANCH}`;
+  const CACHE_KEY = 'sei-sip-index-v1';
+  const CACHE_TTL = 3600000;
+  const MAX_PROBE = 40;
+  const rawUrl = file => `https://raw.githubusercontent.com/${REPO}/${BRANCH}/sips/${file}`;
+  const blobUrl = file => `https://github.com/${REPO}/blob/${BRANCH}/sips/${file}`;
+  const normKey = key => key.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const pick = (meta, ...keys) => {
+    for (const key of keys) {
+      const value = meta[normKey(key)];
+      if (value) return value;
+    }
+    return '';
+  };
+  const toPlainText = value => value.replace(/<br\s*\/?>/gi, ', ').replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').replace(/\\([[\]])/g, '$1').replace(/\[[^\]]*@[^\]]*\]/g, '').replace(/`/g, '').replace(/\s+/g, ' ').replace(/\s+,/g, ',').replace(/[,\s]+$/, '').trim();
+  const firstUrl = value => {
+    const match = value.match(/https?:\/\/[^\s)|]+/);
+    return match ? match[0] : '';
+  };
+  const slugify = text => text.toLowerCase().replace(/[^\p{L}\p{N}_\s-]/gu, '').trim().replace(/\s/g, '-');
+  const headingText = markdown => markdown.replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').replace(/\*\*/g, '').replace(/\*/g, '').replace(/`/g, '').trim();
+  const parseSip = (file, raw) => {
+    const number = Number((file.match(/sip-(\d+)\.md$/i) || [])[1]);
+    const meta = Object.create(null);
+    const header = raw.split(/^##\s/m)[0];
+    for (const line of header.split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith('|')) continue;
+      const cells = trimmed.slice(1).split('|');
+      if (cells.length && cells[cells.length - 1].trim() === '') cells.pop();
+      if (cells.length < 2) continue;
+      const key = cells[0].trim();
+      const value = cells.slice(1).join('|').trim();
+      if ((/^:?-{2,}:?$/).test(key)) continue;
+      if (!key || meta[normKey(key)]) continue;
+      meta[normKey(key)] = value;
+    }
+    const headline = (header.match(/^\s*\*\*SIP[-\s]?\d+:\s*(.+?)\*\*/m) || [])[1];
+    const title = toPlainText(headline || pick(meta, 'Title') || file);
+    const seen = Object.create(null);
+    const sections = [];
+    const prose = raw.replace(/^```[\s\S]*?^```/gm, '');
+    const headingPattern = /^(#{2,4})\s+(.+?)\s*$/gm;
+    let match;
+    while ((match = headingPattern.exec(prose)) !== null) {
+      const text = headingText(match[2]);
+      if (!text) continue;
+      let anchor = slugify(text);
+      if (seen[anchor] !== undefined) {
+        seen[anchor] += 1;
+        anchor = `${anchor}-${seen[anchor]}`;
+      } else {
+        seen[anchor] = 0;
+      }
+      sections.push({
+        level: match[1].length,
+        text,
+        anchor
+      });
+    }
+    const type = toPlainText(pick(meta, 'Type'));
+    const category = toPlainText(pick(meta, 'Category'));
+    return {
+      number,
+      file,
+      title,
+      description: toPlainText(pick(meta, 'Description')),
+      type: type && category && !type.includes(category) ? `${type} (${category})` : type || category,
+      status: toPlainText(pick(meta, 'Status')) || 'Unknown',
+      author: toPlainText(pick(meta, 'Author', 'Authors')),
+      reviewer: toPlainText(pick(meta, 'Reviewer', 'Editor')),
+      created: toPlainText(pick(meta, 'Created')),
+      discussion: firstUrl(pick(meta, 'Comments', 'Comments-URI', 'CommentsURI')),
+      sections
+    };
+  };
+  const [sips, setSips] = useState([]);
+  const [state, setState] = useState('loading');
+  useEffect(() => {
+    let cancelled = false;
+    const readCache = () => {
+      try {
+        const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
+        if (cached && Date.now() - cached.time < CACHE_TTL && Array.isArray(cached.sips)) {
+          return cached.sips;
+        }
+      } catch {}
+      return null;
+    };
+    const readSip = async file => {
+      try {
+        const res = await fetch(rawUrl(file));
+        if (!res.ok) return null;
+        return parseSip(file, await res.text());
+      } catch {
+        return null;
+      }
+    };
+    const loadFromApi = async () => {
+      const res = await fetch(LIST_URL, {
+        headers: {
+          Accept: 'application/vnd.github+json'
+        }
+      });
+      if (!res.ok) throw new Error(`GitHub API ${res.status}`);
+      const files = (await res.json()).filter(entry => entry.type === 'file' && (/^sip-\d+\.md$/i).test(entry.name)).map(entry => entry.name);
+      if (!files.length) throw new Error('No SIP files listed');
+      const fetched = await Promise.all(files.map(readSip));
+      const parsed = fetched.filter(Boolean);
+      if (!parsed.length) throw new Error('No SIP files could be read');
+      return parsed;
+    };
+    const loadByProbing = async () => {
+      const numbers = Array.from({
+        length: MAX_PROBE
+      }, (_, i) => i + 1);
+      const fetched = await Promise.all(numbers.map(n => readSip(`sip-${n}.md`)));
+      const found = fetched.filter(Boolean);
+      if (!found.length) throw new Error('No SIPs reachable');
+      return found;
+    };
+    const cached = readCache();
+    if (cached) {
+      setSips(cached);
+      setState('ready');
+      return;
+    }
+    loadFromApi().catch(loadByProbing).then(parsed => {
+      if (cancelled) return;
+      const ordered = parsed.sort((a, b) => a.number - b.number);
+      setSips(ordered);
+      setState('ready');
+      try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify({
+          time: Date.now(),
+          sips: ordered
+        }));
+      } catch {}
+    }).catch(() => {
+      if (cancelled) return;
+      setState('error');
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const [isDark, setIsDark] = useState(false);
+  useEffect(() => {
+    const root = document.documentElement;
+    const sync = () => setIsDark(root.classList.contains('dark'));
+    sync();
+    const observer = new MutationObserver(sync);
+    observer.observe(root, {
+      attributes: true,
+      attributeFilter: ['class']
+    });
+    return () => observer.disconnect();
+  }, []);
+  const byMode = (light, dark) => isDark ? dark : light;
+  const theme = {
+    cardBg: byMode('var(--sei-card-bg-light)', 'var(--sei-card-bg-dark)'),
+    border: byMode('var(--sei-card-border-light)', 'var(--sei-card-border-dark)'),
+    strong: byMode('var(--sei-grey-600)', 'var(--sei-white)'),
+    body: byMode('var(--sei-grey-300)', 'var(--sei-grey-50)'),
+    muted: byMode('var(--sei-grey-200)', 'var(--sei-grey-75)'),
+    label: byMode('var(--sei-gold-100)', 'var(--sei-gold-25)'),
+    accent: byMode('var(--sei-maroon-100)', 'var(--sei-maroon-25)'),
+    hoverBg: byMode('rgba(96, 0, 20, 0.02)', 'rgba(96, 0, 20, 0.08)'),
+    hoverBorder: byMode('rgba(96, 0, 20, 0.35)', 'rgba(185, 155, 161, 0.25)')
+  };
+  const TONES = {
+    live: byMode('#1a7a00', '#38df00'),
+    error: byMode('#c20a00', '#fa0c00'),
+    gold: byMode('#966f22', '#d6c9ac'),
+    maroon: byMode('#600014', '#b99ba1'),
+    grey: byMode('#666666', '#999999')
+  };
+  const STATUS_TONES = {
+    idea: 'grey',
+    draft: 'gold',
+    review: 'gold',
+    'fast track': 'gold',
+    'last call': 'gold',
+    final: 'live',
+    implemented: 'live',
+    activated: 'live',
+    living: 'maroon',
+    stagnant: 'grey',
+    withdrawn: 'error'
+  };
+  const channels = hex => {
+    const n = parseInt(hex.slice(1), 16);
+    return `${n >> 16 & 255}, ${n >> 8 & 255}, ${n & 255}`;
+  };
+  const eyebrow = {
+    fontFamily: 'var(--sei-font-mono)',
+    fontSize: '10px',
+    letterSpacing: '0.04em',
+    textTransform: 'uppercase'
+  };
+  const statusStyle = status => {
+    const hex = TONES[STATUS_TONES[status.toLowerCase()] || 'grey'];
+    const rgb = channels(hex);
+    return {
+      ...eyebrow,
+      color: hex,
+      backgroundColor: `rgba(${rgb}, ${byMode(0.09, 0.14)})`,
+      border: `1px solid rgba(${rgb}, ${byMode(0.28, 0.32)})`,
+      borderRadius: 'var(--sei-radius-sm)',
+      padding: '3px 6px',
+      whiteSpace: 'nowrap'
+    };
+  };
+  const cardStyle = {
+    background: theme.cardBg,
+    border: `1px solid ${theme.border}`,
+    borderRadius: 'var(--sei-radius-sm)',
+    padding: '20px'
+  };
+  const buttonStyle = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+    padding: '6px 12px',
+    fontFamily: 'var(--sei-font-mono)',
+    fontSize: '12px',
+    letterSpacing: '0.02em',
+    color: theme.strong,
+    background: 'transparent',
+    border: `1px solid ${theme.border}`,
+    borderRadius: 'var(--sei-radius-sm)',
+    textDecoration: 'none',
+    transition: 'background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease'
+  };
+  const hoverSwap = hovering => event => {
+    event.currentTarget.style.backgroundColor = hovering ? theme.hoverBg : 'transparent';
+    event.currentTarget.style.borderColor = hovering ? theme.hoverBorder : theme.border;
+    event.currentTarget.style.color = hovering ? theme.accent : theme.strong;
+  };
+  const tintSwap = hovering => event => {
+    event.currentTarget.style.color = hovering ? theme.accent : theme.body;
+  };
+  const ExternalLinkIcon = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+			<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+			<path d="M15 3h6v6" />
+			<path d="M10 14 21 3" />
+		</svg>;
+  const Field = ({label, value}) => value ? <div>
+				<div style={{
+    ...eyebrow,
+    color: theme.label,
+    marginBottom: '3px'
+  }}>{label}</div>
+				<div style={{
+    fontSize: '14px',
+    color: theme.body
+  }}>{value}</div>
+			</div> : null;
+  const statusMessage = {
+    ...cardStyle,
+    fontSize: '14px',
+    color: theme.body
+  };
+  if (state === 'loading') {
+    return <div className="not-prose" style={statusMessage}>
+				Loading proposals from <code style={{
+      fontFamily: 'var(--sei-font-mono)'
+    }}>{REPO}</code>…
+			</div>;
+  }
+  if (state === 'error') {
+    return <div className="not-prose" style={statusMessage}>
+				Could not reach the SIPs repository. Browse the proposals directly at{' '}
+				<a href={`https://github.com/${REPO}/tree/${BRANCH}/sips`} target="_blank" rel="noopener noreferrer" style={{
+      color: theme.accent
+    }}>
+					github.com/{REPO}
+				</a>
+				.
+			</div>;
+  }
+  return <div className="not-prose" style={{
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '16px'
+  }}>
+			{sips.map(sip => <div key={sip.number} style={cardStyle}>
+					<div style={{
+    display: 'flex',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: '8px'
+  }}>
+						<span style={{
+    ...eyebrow,
+    fontSize: '11px',
+    color: 'var(--sei-white)',
+    backgroundColor: 'var(--sei-maroon-100)',
+    borderRadius: 'var(--sei-radius-sm)',
+    padding: '3px 7px'
+  }}>
+							SIP-{sip.number}
+						</span>
+						<span style={statusStyle(sip.status)}>{sip.status}</span>
+						{sip.type ? <span style={{
+    fontSize: '12px',
+    color: theme.muted
+  }}>{sip.type}</span> : null}
+					</div>
+
+					<h3 style={{
+    fontFamily: 'var(--sei-font-display)',
+    fontSize: '18px',
+    fontWeight: 600,
+    letterSpacing: '-0.01em',
+    color: theme.strong,
+    margin: '14px 0 0'
+  }}>
+						{sip.title}
+					</h3>
+
+					{sip.description ? <p style={{
+    fontSize: '14px',
+    lineHeight: 1.6,
+    color: theme.body,
+    margin: '6px 0 0'
+  }}>{sip.description}</p> : null}
+
+					<div style={{
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+    gap: '12px',
+    marginTop: '16px'
+  }}>
+						<Field label="Author" value={sip.author} />
+						<Field label="Reviewer" value={sip.reviewer} />
+						<Field label="Created" value={sip.created} />
+					</div>
+
+					{}
+					{sip.sections.length ? <details style={{
+    marginTop: '16px'
+  }}>
+							<summary style={{
+    fontSize: '13px',
+    color: theme.body
+  }}>
+								Contents ({sip.sections.length} sections)
+							</summary>
+							<ul style={{
+    listStyle: 'none',
+    margin: 0,
+    padding: '0 16px 12px'
+  }}>
+								{sip.sections.map(section => <li key={section.anchor} style={{
+    paddingLeft: `${(section.level - 2) * 16}px`,
+    margin: '4px 0'
+  }}>
+										<a href={`${blobUrl(sip.file)}#${section.anchor}`} target="_blank" rel="noopener noreferrer" style={{
+    fontSize: '13px',
+    color: theme.body,
+    textDecoration: 'none',
+    transition: 'color 0.15s ease'
+  }} onMouseEnter={tintSwap(true)} onMouseLeave={tintSwap(false)}>
+											{section.text}
+										</a>
+									</li>)}
+							</ul>
+						</details> : null}
+
+					<div style={{
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '8px',
+    marginTop: '16px'
+  }}>
+						<a href={blobUrl(sip.file)} target="_blank" rel="noopener noreferrer" style={buttonStyle} onMouseEnter={hoverSwap(true)} onMouseLeave={hoverSwap(false)}>
+							Read SIP-{sip.number} <ExternalLinkIcon />
+						</a>
+						{sip.discussion ? <a href={sip.discussion} target="_blank" rel="noopener noreferrer" style={buttonStyle} onMouseEnter={hoverSwap(true)} onMouseLeave={hoverSwap(false)}>
+								Discussion <ExternalLinkIcon />
+							</a> : null}
+					</div>
+				</div>)}
+
+			<p style={{
+    fontSize: '12px',
+    color: theme.muted,
+    margin: 0
+  }}>
+				Pulled live from{' '}
+				<a href={`https://github.com/${REPO}/tree/${BRANCH}/sips`} target="_blank" rel="noopener noreferrer" style={{
+    color: theme.accent
+  }}>
+					{REPO}
+				</a>
+				. Statuses and metadata reflect the {BRANCH} branch.
+			</p>
+		</div>;
+};
+
+A Sei Improvement Proposal (SIP) is a design document for a change to Sei. It might cover a new protocol feature, a change to how the project runs, or a convention for the wider ecosystem. Writing one is how you put an idea in front of the community, and how the reasoning behind a decision gets recorded.
+
+Every SIP lives in the [sei-protocol/sips](https://github.com/sei-protocol/sips) repository, and the list below reads from it directly. Titles, statuses, authors, and section outlines come from the source files rather than a copy that can fall behind.
+
+<Info>
+  A SIP is not the same as an on-chain governance proposal. The SIP holds the design and the reasoning; the on-chain proposal is the vote that enacts it. One SIP can take several governance proposals to carry out, as SIP-3 did. For the on-chain process, see [Governance](/learn/general-governance) and [Proposals](/learn/proposals).
+</Info>
+
+## All proposals
+
+<SipIndex />
+
+## Proposal types
+
+Every SIP declares a type, and the type decides how much community consensus it needs. [SIP-1](https://github.com/sei-protocol/sips/blob/main/sips/sip-1.md#sip-type) defines all three.
+
+| Type                                                                                        | Scope                                                                                                                                                                 | Needs consensus |
+| ------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
+| [Standard](https://github.com/sei-protocol/sips/blob/main/sips/sip-1.md#standard)           | Changes that affect most implementations of Sei, such as consensus, networking, RPC, EVM and CosmWasm behavior, and contract standards. Must also declare a category. | Yes             |
+| [Process](https://github.com/sei-protocol/sips/blob/main/sips/sip-1.md#process)             | Changes around Sei rather than inside it, such as developer tooling, node and validator procedures, and the SIP process itself.                                       | Yes             |
+| [Informational](https://github.com/sei-protocol/sips/blob/main/sips/sip-1.md#informational) | Guidelines or information for the community, with no change to the protocol or development environment.                                                               | No              |
+
+### Categories
+
+A Standard SIP must also declare one of five [categories](https://github.com/sei-protocol/sips/blob/main/sips/sip-1.md#sip-category).
+
+| Category    | Covers                                                                         |
+| ----------- | ------------------------------------------------------------------------------ |
+| Core        | Consensus, execution, storage, and account signatures                          |
+| Networking  | Mempool and network protocols                                                  |
+| Interface   | RPC specifications and lower-level naming conventions                          |
+| Framework   | EVM and CosmWasm contracts and primitives included in the Sei codebase         |
+| Application | New EVM or CosmWasm standards and primitives that sit outside the Sei codebase |
+
+## Status lifecycle
+
+A successful SIP usually moves through Draft, Review, Last Call, Final, Implemented, and Activated. Each card above shows the status recorded in that proposal's own source file.
+
+| Status                                                                                  | What it means                                                                                                                   |
+| --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| [Idea](https://github.com/sei-protocol/sips/blob/main/sips/sip-1.md#idea)               | Written, but not yet admitted to the process and not yet numbered.                                                              |
+| [Draft](https://github.com/sei-protocol/sips/blob/main/sips/sip-1.md#draft)             | An editor has accepted the formatting and assigned a number. The author now gathers community feedback.                         |
+| [Review](https://github.com/sei-protocol/sips/blob/main/sips/sip-1.md#review)           | The author has worked through early feedback. Assigned reviewers now give a formal review, and it takes at least three of them. |
+| [Fast Track](https://github.com/sei-protocol/sips/blob/main/sips/sip-1.md#fast-track)   | For proposals that already reached consensus outside the SIP process. Runs the same way as Review.                              |
+| [Last Call](https://github.com/sei-protocol/sips/blob/main/sips/sip-1.md#last-call)     | A final window for objections, usually at least one week.                                                                       |
+| [Final](https://github.com/sei-protocol/sips/blob/main/sips/sip-1.md#final)             | Accepted, and the specification is now frozen.                                                                                  |
+| [Implemented](https://github.com/sei-protocol/sips/blob/main/sips/sip-1.md#implemented) | Development is complete, but the feature is not yet live on mainnet.                                                            |
+| [Activated](https://github.com/sei-protocol/sips/blob/main/sips/sip-1.md#activated)     | Live on Sei mainnet.                                                                                                            |
+| [Stagnant](https://github.com/sei-protocol/sips/blob/main/sips/sip-1.md#stagnant)       | Inactive for four weeks while in Draft, Review, or Last Call.                                                                   |
+| [Withdrawn](https://github.com/sei-protocol/sips/blob/main/sips/sip-1.md#withdrawn)     | The author has withdrawn the proposal.                                                                                          |
+| [Living](https://github.com/sei-protocol/sips/blob/main/sips/sip-1.md#living)           | A continuously updated proposal that never reaches Final, such as SIP-1 itself.                                                 |
+
+<Note>
+  Once a SIP reaches Final, nobody can withdraw or edit it. To change an accepted specification, submit a new SIP that extends or replaces the original.
+</Note>
+
+## Guides for specific proposals
+
+SIP-3 and SIP-4 both affect how you use and build on Sei. These pages cover what they mean in practice.
+
+<CardGroup cols={2}>
+  <Card title="SIP-3 migration guide" icon="arrow-right-arrow-left" href="/learn/sip-03-migration">
+    What SIP-3 changes for asset holders, and how to move off Cosmos-native addresses.
+  </Card>
+
+  <Card title="SIP-3 for exchanges" icon="building-columns" href="/learn/sip-03-exchange-migration">
+    Integration changes for exchanges and custodians supporting Sei deposits and withdrawals.
+  </Card>
+
+  <Card title="Gas and transaction fees" icon="gas-pump" href="/learn/dev-gas">
+    How Sei's EIP-1559 implementation works, including the parameters SIP-4 revises.
+  </Card>
+
+  <Card title="Cosmos-SDK deprecation" icon="triangle-exclamation" href="/cosmos-sdk">
+    Legacy Cosmos SDK and CosmWasm documentation, deprecated under SIP-3.
+  </Card>
+</CardGroup>
+
+## Submit a proposal
+
+Anyone can author a SIP. Talk the idea over with the community before you write it, so you can gauge whether the proposal is needed at all.
+
+<Steps>
+  <Step title="Read SIP-1">
+    [SIP-1](https://github.com/sei-protocol/sips/blob/main/sips/sip-1.md) defines the process, the header fields your file needs, and what authors and editors are each responsible for.
+  </Step>
+
+  <Step title="Raise the idea with the community">
+    Open a thread in [GitHub Discussions](https://github.com/sei-protocol/sips/discussions) to collect early feedback, especially from the people who would implement the change.
+  </Step>
+
+  <Step title="Fork the repository and add your file">
+    Fork [sei-protocol/sips](https://github.com/sei-protocol/sips) and create your proposal at `sips/sip-temporary_title.md`. Put any images in `assets/sip-temporary_title/`.
+  </Step>
+
+  <Step title="Match the required format">
+    Start the file with the two-column header table and follow the section structure described in [SIP format](https://github.com/sei-protocol/sips/blob/main/sips/sip-1.md#sip-format). Keep the title under 64 characters and don't end it with a period.
+  </Step>
+
+  <Step title="Open a pull request">
+    Submit the pull request from your fork. A [SIP editor](https://github.com/sei-protocol/sips/blob/main/sips/sip-1.md#sip-editor) reviews the formatting, assigns a number, moves the status to Draft, and opens the official comments thread.
+  </Step>
+</Steps>
+
+<Tip>
+  From Draft onward, keeping the proposal moving is your job. An editor will help you find the right people to talk to, but won't chase the process for you.
+</Tip>
+
+---
+
 URL: https://docs.sei.io/learn/general-staking
 
 # Sei Blockchain Staking Guide
@@ -5508,8 +6028,6 @@ Sei's EVM and Ethereum itself:
   Cosmos SDK and CosmWasm functionality is being deprecated in favor of EVM-only. For more details, see [SIP-3](https://github.com/sei-protocol/sips/blob/main/sips/sip-3.md) and [Proposal 99](https://seistream.app/proposals/99).
 
   [Proposal 115](https://seistream.app/proposals/115) further disables CosmWasm code uploads and contract instantiations chain-wide — no new CosmWasm contracts can be deployed. Only `execute` and `query` against pre-existing CosmWasm contracts remain available.
-
-  **IBC is now disabled in both directions.** [Proposal 116](https://seistream.app/proposals/116) and [Proposal 120](https://seistream.app/proposals/120) set the `ibc` module's `InboundEnabled` parameter to `false`, and [Proposal 121](https://seistream.app/proposals/121) set `OutboundEnabled` to `false` on July 31, 2026. No asset can be bridged into or out of Sei over IBC, and IBC assets already on Sei can no longer be redeemed on their origin chain. See the [SIP-03 Migration Guide](/learn/sip-03-migration) for the full explanation and the list of affected assets.
 </Danger>
 
 * **Sei is a dual-execution environment (EVM and Cosmos-SDK).** This means:
@@ -5783,7 +6301,6 @@ These capabilities are Sei-specific and have no standard Ethereum equivalent. Th
 | Sei precompiles (staking, governance, distribution, oracle, P256, JSON, CosmWasm bridge) | EVM contracts at deterministic addresses. ABIs and contract addresses are exported from `@sei-js/precompiles` for use with any standard EVM library. |
 | Pointer contracts (CW20 ↔ ERC-20, CW721 ↔ ERC-721)                                       | Bridge between CosmWasm and EVM token standards. Standard ERC interfaces work against pointer contracts.                                             |
 | Native address association (EVM ↔ Cosmos address)                                        | Links an EVM address and a Cosmos address for the same account. Required before some Sei-native flows.                                               |
-| TokenFactory native token creation                                                       | Create native Sei tokens that are usable across EVM and CosmWasm without a wrapper contract.                                                         |
 
 ## Unsupported RPC Methods
 
@@ -7804,24 +8321,56 @@ The `seid` CLI is the command-line tool for interacting with the Sei blockchain.
 
 ## Prerequisites
 
-* Go 1.23+: Installation instructions are available [here](https://go.dev/doc/install).
+* Go 1.23+ (build from source only): Installation instructions are available [here](https://go.dev/doc/install). The prebuilt binary has no prerequisites.
 
 ## Installation
 
-To install seid, locate the version you wish to use on the [sei-chain releases page](https://github.com/sei-protocol/sei-chain/releases). A list of the currently used versions on mainnet and testnet are displayed right below.
+To install `seid`, locate the version you wish to use on the [sei-chain releases page](https://github.com/sei-protocol/sei-chain/releases). A list of the currently used versions on mainnet and testnet are displayed right below.
 
 <VersionTable />
 
-Then, execute the following commands with the version that you picked:
+<Tabs>
+  <Tab title="Prebuilt binary (recommended)">
+    Each release attaches a statically linked `seid` build for `linux/amd64` with no
+    runtime dependencies:
 
-```bash theme={"dark"}
-git clone https://github.com/sei-protocol/sei-chain
-cd sei-chain
-git checkout [VERSION]
-make install
-```
+    ```bash theme={"dark"}
+    VERSION=<version-tag>  # e.g. v6.6.1 — see the version table above
+    FILE=sei-chain_${VERSION#v}_linux_x86_64.tar.gz  # asset filenames omit the leading v
 
-You can verify that seid was installed correctly by running:
+    curl -fLO https://github.com/sei-protocol/sei-chain/releases/download/${VERSION}/${FILE}
+    curl -fLO https://github.com/sei-protocol/sei-chain/releases/download/${VERSION}/checksums.txt
+
+    # Verify integrity before trusting the binary; extract and install only if it passes
+    sha256sum -c checksums.txt --ignore-missing \
+      && tar -xzf ${FILE} seid \
+      && sudo install -m 0755 seid /usr/local/bin/seid
+    ```
+
+    <Info>
+      Prebuilt binaries are attached from `v6.6.1` onward — for earlier versions, build
+      from source. They are `linux/amd64` only and omit hardware Ledger support. On
+      other architectures, or if you sign with a Ledger device, build from source.
+    </Info>
+
+    <Note>
+      Previously installed with `make install`? An older copy in `$(go env GOPATH)/bin`
+      can shadow `/usr/local/bin/seid` depending on your `PATH` order — `which -a seid`
+      lists every copy.
+    </Note>
+  </Tab>
+
+  <Tab title="Build from source">
+    ```bash theme={"dark"}
+    git clone https://github.com/sei-protocol/sei-chain
+    cd sei-chain
+    git checkout <version-tag>
+    make install
+    ```
+  </Tab>
+</Tabs>
+
+You can verify that `seid` was installed correctly by running:
 
 ```bash theme={"dark"}
 seid version
@@ -7829,7 +8378,7 @@ seid version
 
 ## Troubleshooting Installation
 
-<Warning>If you encounter an error like `command not found: seid`, you may need to set your GOPATH environment variable.</Warning>
+<Warning>If you built from source and encounter an error like `command not found: seid`, you may need to set your GOPATH environment variable.</Warning>
 
 * Use `go env GOPATH` to find your GOPATH
 * Add the following lines to your `~/.bashrc` or `~/.zshrc`:
@@ -8060,9 +8609,13 @@ This will remove the specified wallet from your local keyring. Be cautious, as t
 
 ## Uninstalling seid
 
-If you need to remove `seid` from your system, you can delete the binary from your `$GOPATH/bin` directory:
+If you need to remove `seid` from your system, delete the binary from wherever it was installed:
 
 ```bash theme={"dark"}
+# Prebuilt binary install
+sudo rm /usr/local/bin/seid
+
+# Build-from-source install
 rm $(go env GOPATH)/bin/seid
 ```
 
@@ -21994,7 +22547,7 @@ URL: https://docs.sei.io/evm/precompiles/cosmwasm-precompiles/example-usage
 > Learn how to interact with Sei precompiles using ethers.js to query and execute CosmWasm contracts from the EVM.
 
 <Info>
-  Per [Proposal 115](https://seistream.app/proposals/115), no new CosmWasm contracts can be deployed on Sei. The examples below apply to **pre-existing CosmWasm contracts** only — `instantiate()` will revert. Separately, IBC is disabled in both directions as part of the [SIP-03](/learn/sip-03-migration) migration — Proposals [116](https://seistream.app/proposals/116) and [120](https://seistream.app/proposals/120) disabled inbound IBC, and [Proposal 121](https://seistream.app/proposals/121) disabled outbound IBC.
+  Per [Proposal 115](https://seistream.app/proposals/115), no new CosmWasm contracts can be deployed on Sei. The examples below apply to **pre-existing CosmWasm contracts** only — `instantiate()` will revert.
 </Info>
 
 The Sei precompiles can be used like any standard smart contract on the EVM. For
@@ -22864,9 +23417,9 @@ The bank precompile at address `0x0000000000000000000000000000000000001001` expo
 
 * **Direct Integration:** EVM contracts and dApps can call banking functions like any other smart contract method.
 * **Native Execution:** Operations are executed at the Cosmos SDK level for maximum efficiency and security.
-* **Any native denom:** Manage native SEI, factory tokens, and existing IBC denoms from EVM contracts. IBC is disabled on Sei (see [SIP-03](/learn/sip-03-migration#ibc-is-disabled)), so no new IBC denoms can arrive, but balances already held remain readable and transferable.
+* **Any native denom:** Manage native SEI and other bank module denominations from EVM contracts.
 
-**When to use `send` vs `sendNative`:** `send` moves an arbitrary `denom` (any IBC or factory token) between two EVM addresses (`0x...`) by reading the balance directly from the bank module — no `msg.value` is attached. It is gated to the registered ERC20 native pointer for that denom, so it is typically invoked from the auto-deployed pointer contract rather than from arbitrary user code. `sendNative` is for sending native SEI (the attached `msg.value`) from the EVM caller to a Cosmos bech32 (`sei1...`) destination, which is useful for crossing the EVM→Cosmos boundary when the recipient has no associated EVM address (for example, paying a Cosmos-only contract or account).
+**When to use `send` vs `sendNative`:** `send` moves an arbitrary `denom` between two EVM addresses (`0x...`) by reading the balance directly from the bank module — no `msg.value` is attached. It is gated to the registered ERC20 native pointer for that denom, so it is typically invoked from the auto-deployed pointer contract rather than from arbitrary user code. `sendNative` is for sending native SEI (the attached `msg.value`) from the EVM caller to a Cosmos bech32 (`sei1...`) destination, which is useful for crossing the EVM→Cosmos boundary when the recipient has no associated EVM address (for example, paying a Cosmos-only contract or account).
 
 ## Use Cases
 
@@ -24042,11 +24595,9 @@ URL: https://docs.sei.io/evm/precompiles/cosmwasm-precompiles/cosmwasm
 **Address:** `0x0000000000000000000000000000000000001002`
 
 <Danger>
-  **Deprecation Notice — Prop 115 & Prop 116**
+  **Deprecation Notice — Prop 115**
 
   Per [governance Proposal 115](https://seistream.app/proposals/115), CosmWasm code uploads (`MsgStoreCode`) and contract instantiations (`MsgInstantiateContract`) are disabled chain-wide. The `instantiate()` function on this precompile **will revert** for all callers. Only `execute()`, `execute_batch()`, and `query()` against pre-existing CosmWasm contracts remain functional, and all CosmWasm functionality is deprecated in favor of EVM-only per [SIP-3](https://github.com/sei-protocol/sips/blob/main/sips/sip-3.md).
-
-  In addition, IBC is disabled in both directions: Proposals [116](https://seistream.app/proposals/116) and [120](https://seistream.app/proposals/120) disabled inbound IBC, and [Proposal 121](https://seistream.app/proposals/121) disabled outbound IBC on July 31, 2026. No asset can be bridged into or out of Sei over IBC. See the [SIP-03 Migration Guide](/learn/sip-03-migration) for the full explanation and the list of affected assets.
 
   For new smart contract development, use the EVM directly. See [Deploy a Smart Contract](/evm/evm-general).
 </Danger>
@@ -41729,6 +42280,9 @@ Comprehensive guides for running, maintaining, and optimizing Sei network nodes.
 
     ##### Install Go
 
+    Only needed if you build `seid` from source — the prebuilt binary and Docker
+    install paths in the next step don't require Go.
+
     Suggested Version: Go 1.24.x (required for seid v6.3+)
 
     ###### Installation Steps
@@ -41751,49 +42305,91 @@ Comprehensive guides for running, maintaining, and optimizing Sei network nodes.
   </Step>
 
   <Step title="Install Sei">
-    ##### Install Sei Binary
+    ##### Install the `seid` binary
 
-    ```bash theme={"dark"}
-    # Clone repository and install
-    git clone https://github.com/sei-protocol/sei-chain.git
-    cd sei-chain
-    git checkout <version-tag>  # Replace with specific version
-    make install
+    See the Network Versions table above for the current recommended version.
 
-    # Verify installation
-    seid version
-    ```
+    <Tabs>
+      <Tab title="Prebuilt binary (recommended)">
+        Each release attaches a statically linked `seid` build for `linux/amd64` with no
+        runtime dependencies: no Go toolchain and no shared libraries to install.
 
-    See Network Versions table above for current recommended version.
+        ```bash theme={"dark"}
+        VERSION=<version-tag>  # e.g. v6.6.1 — see the Network Versions table above
+        FILE=sei-chain_${VERSION#v}_linux_x86_64.tar.gz  # asset filenames omit the leading v
 
-    <Accordion title="Alternative: Docker Image">
-      Official Docker images are available at GitHub Container Registry.
+        curl -fLO https://github.com/sei-protocol/sei-chain/releases/download/${VERSION}/${FILE}
+        curl -fLO https://github.com/sei-protocol/sei-chain/releases/download/${VERSION}/checksums.txt
 
-      ```bash theme={"dark"}
-      # Pull the latest version
-      docker pull ghcr.io/sei-protocol/sei:latest
+        # Verify integrity before trusting the binary; extract and install only if it passes
+        sha256sum -c checksums.txt --ignore-missing \
+          && tar -xzf ${FILE} seid \
+          && sudo install -m 0755 seid /usr/local/bin/seid
 
-      # Or pull a specific version (recommended)
-      docker pull ghcr.io/sei-protocol/sei:v6.3.1
-      ```
+        # Verify installation
+        seid version
+        ```
 
-      Available architectures: linux/amd64 and linux/arm64.
-    </Accordion>
+        <Info>
+          Prebuilt binaries are attached from `v6.6.1` onward — for earlier versions, build
+          from source or use Docker. They are `linux/amd64` only, omit hardware Ledger
+          support, and don't include the optional
+          [RocksDB state-store backend](/node/rocksdb-backend). On other architectures, or
+          if you sign with a Ledger device, build from source or use Docker; a
+          RocksDB-enabled `seid` must be built from source.
+        </Info>
 
-    <Info>
-      If you encounter an error like `command not found: seid`, you may need to set your GOPATH environment variable.
+        <Note>
+          Switching from a previous `make install` build? Remove the old copy
+          (`rm -f "$(go env GOPATH)/bin/seid"`) or make sure your service unit points at
+          `/usr/local/bin/seid` — `which -a seid` lists every copy on your `PATH`.
+        </Note>
+      </Tab>
 
-      Add the following to your `~/.bashrc` or `~/.zshrc`:
+      <Tab title="Build from source">
+        Requires Go and a C toolchain (see the Environment Setup step above).
 
-      ```bash theme={"dark"}
-      export GOPATH=$(go env GOPATH)
-      export PATH=$PATH:$GOPATH/bin
-      ```
+        ```bash theme={"dark"}
+        # Clone repository and install
+        git clone https://github.com/sei-protocol/sei-chain.git
+        cd sei-chain
+        git checkout <version-tag>  # Replace with specific version
+        make install
 
-      Then reload your shell with `source ~/.bashrc` or `source ~/.zshrc`.
+        # Verify installation
+        seid version
+        ```
 
-      For more information see [here](https://pkg.go.dev/cmd/go#hdr-GOPATH_environment_variable).
-    </Info>
+        <Info>
+          If you encounter an error like `command not found: seid`, you may need to set your GOPATH environment variable.
+
+          Add the following to your `~/.bashrc` or `~/.zshrc`:
+
+          ```bash theme={"dark"}
+          export GOPATH=$(go env GOPATH)
+          export PATH=$PATH:$GOPATH/bin
+          ```
+
+          Then reload your shell with `source ~/.bashrc` or `source ~/.zshrc`.
+
+          For more information see [here](https://pkg.go.dev/cmd/go#hdr-GOPATH_environment_variable).
+        </Info>
+      </Tab>
+
+      <Tab title="Docker">
+        Official Docker images are available at GitHub Container Registry.
+
+        ```bash theme={"dark"}
+        # Pull the latest version
+        docker pull ghcr.io/sei-protocol/sei:latest
+
+        # Or pull a specific version (recommended)
+        docker pull ghcr.io/sei-protocol/sei:v6.3.1
+        ```
+
+        Available architectures: linux/amd64 and linux/arm64.
+      </Tab>
+    </Tabs>
 
     ##### Initialize Chain Files
 
@@ -43570,23 +44166,55 @@ EOF
 
 ## Update Procedures
 
+<Info>
+  Upgrade with the same method you originally installed with: `make install`
+  writes `seid` to `$(go env GOPATH)/bin`, while the prebuilt-binary flow
+  installs to `/usr/local/bin`. Mixing the two leaves separate binaries on your
+  `PATH`, and your service unit may keep running the old version —
+  `which -a seid` lists every copy.
+</Info>
+
 ### Minor Updates
 
 For minor updates that are non-consensus-breaking:
 
-```bash theme={"dark"}
-# Stop node
-sudo systemctl stop seid
+<Tabs>
+  <Tab title="Prebuilt binary">
+    ```bash theme={"dark"}
+    # Stop node
+    sudo systemctl stop seid
 
-# Update binary
-cd sei-chain
-git fetch --all
-git checkout [new-version]
-make install
+    # Download and verify the new release binary
+    VERSION=<new-version>  # the new release tag, e.g. v6.6.1
+    FILE=sei-chain_${VERSION#v}_linux_x86_64.tar.gz  # asset filenames omit the leading v
 
-# Restart node
-sudo systemctl restart seid
-```
+    curl -fLO https://github.com/sei-protocol/sei-chain/releases/download/${VERSION}/${FILE}
+    curl -fLO https://github.com/sei-protocol/sei-chain/releases/download/${VERSION}/checksums.txt
+    sha256sum -c checksums.txt --ignore-missing \
+      && tar -xzf ${FILE} seid \
+      && sudo install -m 0755 seid /usr/local/bin/seid
+
+    # Restart node
+    sudo systemctl restart seid
+    ```
+  </Tab>
+
+  <Tab title="Build from source">
+    ```bash theme={"dark"}
+    # Stop node
+    sudo systemctl stop seid
+
+    # Update binary
+    cd sei-chain
+    git fetch --all
+    git checkout <new-version>
+    make install
+
+    # Restart node
+    sudo systemctl restart seid
+    ```
+  </Tab>
+</Tabs>
 
 ### Major Updates
 
@@ -43598,18 +44226,38 @@ For major upgrades that introduce state-breaking changes:
 3. Update/replace the binary
 4. Restart the node.
 
-```bash theme={"dark"}
-# After node halts
-cd sei-chain
-git pull
-git checkout [new-version]
-make install
-sudo systemctl restart seid
-```
+<Tabs>
+  <Tab title="Prebuilt binary">
+    ```bash theme={"dark"}
+    # After node halts
+    VERSION=<new-version>  # the new release tag, e.g. v6.6.1
+    FILE=sei-chain_${VERSION#v}_linux_x86_64.tar.gz
+
+    curl -fLO https://github.com/sei-protocol/sei-chain/releases/download/${VERSION}/${FILE}
+    curl -fLO https://github.com/sei-protocol/sei-chain/releases/download/${VERSION}/checksums.txt
+    sha256sum -c checksums.txt --ignore-missing \
+      && tar -xzf ${FILE} seid \
+      && sudo install -m 0755 seid /usr/local/bin/seid
+
+    sudo systemctl restart seid
+    ```
+  </Tab>
+
+  <Tab title="Build from source">
+    ```bash theme={"dark"}
+    # After node halts
+    cd sei-chain
+    git pull
+    git checkout <new-version>
+    make install
+    sudo systemctl restart seid
+    ```
+  </Tab>
+</Tabs>
 
 <Tip>
-  Build the upgrade before the halt-height so you can quickly replace it
-  with minimal downtime.
+  Download the release archive (or build the new binary) ahead of the
+  halt-height so the swap takes seconds at upgrade time.
 </Tip>
 
 ## Performance Optimization
