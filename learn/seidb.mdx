@@ -107,6 +107,25 @@ Key optimization techniques include:
 
 - **Configurable Persistence**: The database offers adjustable durability guarantees based on node type and network requirements, from fully synchronous writes to asynchronous persistence with periodic checkpoints. The configuration system allows operators to make explicit tradeoffs between performance and durability based on their specific node's role in the network.
 
+
+### Descending-Version MVCC Encoding (State Store)
+
+SeiDB's PebbleDB-backed state store uses multi-version concurrency control (MVCC) to keep every historical version of a key. Each logical key is stored on disk with its version appended, so a single key may have many versioned entries. The order in which those versions are laid out on disk directly affects how quickly the store can serve the most common query: reading the latest version of a key.
+
+**Descending-version encoding for fresh databases.** Newly created state stores now encode the version component of each MVCC key in *descending* byte order, so that newer versions of a logical key sort *before* older ones on disk. Because the newest visible version sits first, a latest-version read lands directly on the target entry via a single forward seek (`First()` / `SeekGE`) instead of scanning past older versions. This is the fast path and delivers faster latest-version reads for validators and API nodes that overwhelmingly query recent state.
+
+**Transparent compatibility with legacy databases.** State stores written by the previous build used *ascending*-version encoding, where older versions sort first. To avoid forcing a migration, SeiDB detects the on-disk encoding when a database is opened and reads legacy stores using the ascending-version path automatically — no error is raised and no data conversion occurs. Encoding mode is fixed for the lifetime of an open database.
+
+**How detection works.** Fresh databases are stamped with an on-disk sentinel key (`s/_mvcc_descending`) the first time they are opened, marking them as descending. On subsequent opens:
+
+- If the sentinel is present, the database opens in descending (fast-path) mode.
+- If the sentinel is absent but the database already contains data (a legacy database written by the previous ascending-version build), it opens in ascending (legacy) mode and is intentionally left unmarked.
+- If both the sentinel and existing data are absent, the database is treated as fresh: the sentinel is written and descending mode is used.
+
+**Migration guidance for node operators.** Operators upgrading with an existing PebbleDB state store will continue to run in legacy ascending mode; this is safe and requires no action. However, legacy databases stay unmarked and cannot benefit from the descending fast path unless the state store is recreated or migrated (for example, by resyncing the state store). Archive nodes that cannot practically migrate their historical state will continue to operate correctly on the legacy ascending path.
+
+**`UseDefaultComparer` and iteration.** The `UseDefaultComparer` field of the state store configuration influences how the descending-mode iterator advances to the next logical key. When enabled, the iterator falls back to a scan-based approach to locate the next logical key rather than using the MVCC comparer's key-successor logic. This affects iterator advancement behavior only in descending mode.
+
 ## Performance Characteristics
 
 SeiDB is designed to deliver substantial performance improvements compared to traditional EVM state implementations. The architecture focuses on enhancing both throughput and latency across various operation types.
