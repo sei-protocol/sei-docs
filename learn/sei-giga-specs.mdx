@@ -70,7 +70,9 @@ The specifications are organized to clearly distinguish between what is currentl
 
 When a node runs with Autobahn (Sei Giga) consensus enabled, the block producer builds payloads by reaping transactions directly from the shared mempool, subject to hard on-chain block size constraints that are enforced during payload construction.
 
-The block gas limit is no longer a configurable Autobahn field. The producer's `MaxGasPerBlock` is derived directly from the genesis `consensus_params.block.max_gas` value — the same gas limit the EVM runtime reads via `ctx.ConsensusParams().Block.MaxGas`. This ensures `eth_getBlockByNumber`'s reported `gasLimit` matches the `GASLIMIT` opcode value seen during execution. The `max_gas_per_block` field has been removed from the Autobahn config file, so it should be omitted from existing configs.
+The block gas limit is no longer a single configurable Autobahn field. The producer now tracks two separate per-block gas dimensions: gas wanted and gas estimated. Each block payload records `total_gas_wanted` and `total_gas_estimated` (replacing the previous single `total_gas` field), and both are enforced against `MaxGasWantedPerBlock` and `MaxGasEstimatedPerBlock` limits during payload construction.
+
+These limits are derived from the genesis `consensus_params.block` values: `MaxGasWantedPerBlock` comes from `max_gas_wanted` and `MaxGasEstimatedPerBlock` comes from `max_gas` — the same gas limit the EVM runtime reads via `ctx.ConsensusParams().Block.MaxGas`. Under Autobahn, `BlockResults`'s `ConsensusParamUpdates.Block.MaxGas` reflects `MaxGasEstimatedPerBlock`. The `max_gas_per_block` field has been removed from the Autobahn config file, so it should be omitted from existing configs.
 
 <Note>Genesis `consensus_params.block.max_gas` must be a positive value. If it is missing or non-positive, node startup fails with `ErrGenesisMaxGasInvalid` (`genesis consensus_params.block.max_gas must be > 0`).</Note>
 
@@ -81,12 +83,15 @@ The block gas limit is no longer a configurable Autobahn field. The producer's `
       | --- | --- |
       | Max transactions per block | 2000 (`MaxTxsPerBlock`) |
       | Max total tx bytes per block | ~2 MB (`MaxTxsBytesPerBlock` = 2000 × 1024) |
-      | Max gas per block | Derived from genesis `consensus_params.block.max_gas` (`MaxGasPerBlock`) |
+      | Max gas wanted per block | Derived from genesis `consensus_params.block.max_gas_wanted` (`MaxGasWantedPerBlock`) |
+      | Max gas estimated per block | Derived from genesis `consensus_params.block.max_gas` (`MaxGasEstimatedPerBlock`) |
       | Block proto size bound | Derived from `MaxTxsPerBlock` and `MaxTxsBytesPerBlock` (`MaxBlockProtoSize`) |
     </Card>
     <Card horizontal title="Enforcement">
       - Total tx bytes may be split arbitrarily across transactions (one large tx or many small ones), up to the `MaxTxsPerBlock` limit.
-      - The block gas limit is sourced from genesis `consensus_params.block.max_gas`; genesis must set this to a value greater than zero or the node will refuse to start.
+      - Each block payload tracks `total_gas_wanted` and `total_gas_estimated`; a transaction is rejected if adding it would push either total past `MaxGasWantedPerBlock` or `MaxGasEstimatedPerBlock`.
+      - The gas limits are sourced from genesis `consensus_params.block`; `max_gas` (used for gas estimated) must be greater than zero or the node will refuse to start.
+      - Under Autobahn, `BlockResults` reports `ConsensusParamUpdates.Block.MaxGas` as `MaxGasEstimatedPerBlock`.
       - Limits are validated when the payload is built; payloads exceeding the transaction count or total byte limit are rejected.
       - The block proto size bound derives an upper limit on the encoded block used to size networking message windows.
     </Card>
