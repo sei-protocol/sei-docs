@@ -218,3 +218,42 @@ SeiDB's architecture supports various deployment configurations optimized for di
 - **Light clients** benefit from optimized state proof generation with compact inclusion proofs for partial state verification
 
 Each configuration tunes the SeiDB components to match specific requirements while maintaining protocol compatibility. The configuration framework provides fine-grained control over cache sizes, worker pools, I/O policies, and persistence strategies to match the operational needs of different node types.
+
+
+
+## Profiling State Access with `trace-profile-report`
+
+The `seidb` tool includes an offline `trace-profile-report` command for analyzing where time is spent while executing historical transactions. It runs the `debug_traceTransactionProfile` JSON-RPC method against a running node across a range of blocks and produces detailed timing and store-access reports. This is useful for identifying transactions and modules that dominate execution time or that generate heavy historical database lookups.
+
+For each transaction in the requested block range, the command captures a full trace along with a profile that breaks down total execution time into per-phase timings (transaction lookup, block loading, historical transaction replay, block-context construction, transaction preparation, execution, and trace-result assembly) and per-module KVStore access statistics (Get/Has/Set/Delete counts and durations, plus iterator samples).
+
+### Usage
+
+```bash
+seidb trace-profile-report \
+  --endpoint http://localhost:8545 \
+  --start-block <START> \
+  --end-block <END> \
+  --output-dir ./profile-out
+```
+
+### Flags
+
+| Flag | Alias | Default | Description |
+| --- | --- | --- | --- |
+| `--endpoint` | | | RPC endpoint to query, e.g. `http://localhost:8545`. Required. |
+| `--start-block` | | | Starting block number (must be positive). Required. |
+| `--end-block` | | | Ending block number (must be `>= --start-block`). Required. |
+| `--output-dir` | `-o` | | Directory where `raw_profiles.jsonl` and `summary.json` are written. Required. |
+| `--concurrency` | `-c` | `4` | Number of concurrent `debug_traceTransactionProfile` requests. |
+| `--trace-config-json` | | `{}` | JSON object passed as the trace config for each request. |
+| `--max-transactions` | | `0` | Optional cap on the number of transactions processed (`0` means no cap). |
+
+### Output
+
+The command writes two files to the output directory:
+
+- **`raw_profiles.jsonl`** — one JSON line per transaction, containing the block number, block hash, transaction hash, and either the full trace-profile result or an error.
+- **`summary.json`** — an aggregated report including total/success/error counts, average and P50/P95 latencies for total and historical-database-lookup time, per-phase totals, per-module store-access totals, and the top transactions and blocks by total execution time.
+
+<Info>Because `trace-profile-report` replays historical transactions, point it at a node (such as an archive node) that retains the historical state for the block range you want to profile.</Info>

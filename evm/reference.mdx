@@ -1233,6 +1233,37 @@ The `filter` object applies only to `logs` subscriptions. For `newHeads`, pass t
 }
 ```
 
+
+
+#### `debug_traceTransactionProfile`
+
+**Limited.** Sei extension that replays a transaction by hash and returns its execution trace alongside a detailed timing and store-access profile.
+
+**Sei-specific behavior:** Sei-specific extension (not part of upstream go-ethereum's debug namespace). HTTP-only (the debug namespace is not registered on the WebSocket server) and subject to historical-debug-trace/archive availability guards for the target height. The response is an object with two fields: `trace` (the standard trace produced by the configured tracer, identical to `debug_traceTransaction`) and `profile` (timing and KVStore access instrumentation collected while replaying the tx). The `profile` object reports `totalNanos` (end-to-end profiling time), `historicalDbLookupNanos` (time spent in historical DB reads — the sum of `get`/`has`/`iterator`/`iteratorNext` store latencies), `otherNanos` (remaining time), a `phases` object with per-phase timings (`lookupTransactionNanos`, `loadBlockNanos`, `replayHistoricalTxsNanos`, `buildBlockContextNanos`, `prepareTxNanos`, `executionNanos`, `traceResultNanos`), and a `store` object with per-module access statistics under `store.modules.<module>.stats` (each op maps to `{count, totalNanos}`) plus per-module `iterators` samples (bounds, direction, surfaced keys, `nextCount`, and cumulative timing). Iterator and key samples are capped per module to bound response size. To batch-run this method across a block range, see the `seidb trace-profile-report` command.
+
+**Parameters:**
+
+| # | Name | Type | Description |
+| :- | :- | :- | :- |
+| 1 | `hash` | DATA, 32 bytes | Transaction hash to trace and profile. |
+| 2 | `config` | object | Optional tracer config (tracer name, tracerConfig, timeout, reexec, disableStorage/Stack/Memory). |
+
+**Example request:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "debug_traceTransactionProfile",
+  "params": [
+    "0x5c504ed432cb51138bcf09aa5e8a410dd4a1e204ef84bfed1be16dfba1b22060",
+    {
+      "timeout": "60s"
+    }
+  ]
+}
+```
+
 </Accordion>
 
 ## Sei Custom Endpoints
