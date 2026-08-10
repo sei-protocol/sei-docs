@@ -365,6 +365,35 @@ In addition to the configurable `max_gas_per_block` and `max_txs_per_block` fiel
   The effective per-block transaction count is the smaller of the configured `max_txs_per_block` and the hard limit of 2000. If you configure a larger value, the 2000-tx cap still applies. The block proto size upper bound used for p2p message sizing is derived from these limits.
 </Note>
 
+
+#### Committee Size Ceiling
+
+Autobahn enforces a hard upper bound of **100 validators** per committee. Committee construction (`NewCommittee`) rejects any validator set larger than this ceiling, returning an error rather than starting consensus. This `MaxValidators = 100` limit is a protocol-level invariant and applies regardless of how many entries appear in the `validators` list of the Autobahn config file.
+
+<Warning>
+  A validator set exceeding 100 members will cause committee creation to fail. Ensure the `validators` list in your Autobahn config file contains no more than 100 members.
+</Warning>
+
+#### Wire-Format Message Limits
+
+Autobahn also enforces structural size and count limits on its protobuf messages during deserialization. These bounds are checked while scanning the raw wire bytes — *before* a message is fully decoded — so that oversized or malformed payloads are rejected without allocating unbounded memory. A message that violates any of these limits is dropped and the sending peer is disconnected.
+
+The enforced field limits include:
+
+| Field | Limit | Description |
+| --- | --- | --- |
+| ed25519 public key | 32 bytes | `PublicKey.ed25519` is bounded to a fixed 32-byte length. |
+| Signature bytes | 64 bytes | `Signature.sig` is bounded to a fixed 64-byte length. |
+| Block / payload / parent / app hashes | 32 bytes | Hash fields (e.g. `parent_hash`, `payload_hash`, `last_hash`, `app_hash`) are bounded to 32 bytes each. |
+| Payload transaction count | 2000 | `Payload.txs` may contain at most 2000 transactions. |
+| Payload total transaction size | ~2 MB (2,048,000 bytes) | The combined byte size of all transactions in a payload may not exceed 2,048,000 bytes. |
+| QC signature lists | 100 | Signature lists on quorum certificates (`PrepareQC`, `CommitQC`, `AppQC`, `LaneQC`) and vote lists on `TimeoutQC` and `FullProposal.lane_qcs` are each capped at 100 entries, matching the 100-validator committee ceiling. |
+
+<Note>
+  These wire-format bounds are applied to every Autobahn consensus and data-layer message on receipt. They are protocol-level invariants and are not configurable. Because they are enforced during message scanning rather than after decoding, they protect nodes from resource-exhaustion attacks that rely on the decoded representation being far larger than the encoded bytes.
+</Note>
+
+
 ## Network Parameters
 
 
