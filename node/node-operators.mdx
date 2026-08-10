@@ -274,7 +274,7 @@ gen-autobahn-config` command:
 seid tendermint gen-autobahn-config [node-dirs...] --output <path>
 ```
 
-Each `node-dir` argument must contain three files describing that committee
+Each `node-dir` argument must contain four files describing that committee
 member:
 
 - `validator_pubkey.txt` — the validator public key in `validator:<pubkey>`
@@ -282,6 +282,10 @@ member:
 - `node_pubkey.txt` — the p2p node public key in `node:ed25519:public:<hex>`
   format
 - `autobahn_address.txt` — the node's network address in `host:port` format
+- `evmrpc_url.txt` — the node's EVM RPC HTTP URL (for example
+  `http://<node-ip>:8545`, using the EVM RPC HTTP port from the `[evm]`
+  section of `app.toml`). This is used to proxy EVM RPC requests to the
+  validator that owns the sender's EVM address shard.
 
 The command reads these files from each directory, assembles the `validators`
 list, and writes a complete Autobahn JSON config (with default consensus and
@@ -292,9 +296,21 @@ The `validator_pubkey.txt` and `node_pubkey.txt` files are produced
 automatically: whenever `seid` saves the validator private key
 (`priv_validator_key.json`) it also writes `validator_pubkey.txt`, and whenever
 it saves the node key (`node_key.json`) it also writes `node_pubkey.txt`, both
-in the same directory as the key file. You only need to supply
-`autobahn_address.txt` yourself. Point `autobahn-config-file` at the generated
-file to enable Autobahn.
+in the same directory as the key file. You need to supply
+`autobahn_address.txt` and `evmrpc_url.txt` yourself. Point
+`autobahn-config-file` at the generated file to enable Autobahn.
+
+#### EVM RPC request proxying
+
+Each validator is assigned a shard of the EVM address space. When a node
+receives an `eth_sendRawTransaction` request, or an `eth_getTransactionCount`
+request for the pending block, it forwards (proxies) the request to the EVM
+RPC endpoint of the validator that owns the sender's shard, using the `evmrpc`
+URL from that validator's config entry. Requests whose sender maps to the
+local validator are handled locally. Proxied requests are counted by the
+`evmrpc_redirected_requests_total` telemetry metric (labeled with the
+endpoint and connection type). This is why every committee member must publish
+an `evmrpc` URL via `evmrpc_url.txt`.
 
 
 
