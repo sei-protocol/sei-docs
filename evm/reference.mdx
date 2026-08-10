@@ -487,12 +487,14 @@ Every method below is also browsable interactively in the explorer above; this s
 
 **Sei-specific behavior:** Sei stores state in an IAVL tree, not an Ethereum Merkle-Patricia trie. The result is a Sei-specific ProofResult&#123;address, hexValues, storageProof&#125; where storageProof entries are CometBFT/IAVL crypto.ProofOps, NOT eth-style MPT proof nodes. There is no accountProof, balance, codeHash, nonce, or storageHash field (Sei has no per-account state root); standard eth_getProof verifiers will not work. The EVM store is resolved by unwrapping any wrapping KVStore layers (cachekv, Giga cache, tracekv, and prefix stores) to reach the underlying proof-capable queryable store, so proofs succeed across more node/store configurations (classic IAVL, store/v2 memiavl, and future proof-capable roots) rather than only the classic IAVL store.
 
+**Storage key validation:** Each entry in `storageKeys` must be a valid hex-encoded value (0x-prefixed); it is decoded and left-padded to 32 bytes. Raw non-hex byte strings are no longer accepted — a malformed key is rejected with an `invalid storage key` error. A request may include at most 1024 storage keys (`MaxStorageKeysPerProof`); exceeding this returns a `too many storage keys` error.
+
 **Parameters:**
 
 | # | Name | Type | Description |
 | :- | :- | :- | :- |
 | 1 | `address` | DATA, 20 bytes | Account address. |
-| 2 | `storageKeys` | array of DATA, 32 bytes | Storage slot keys to prove (bounded by MaxStorageKeysPerProof). |
+| 2 | `storageKeys` | array of DATA, 32 bytes | Hex-encoded storage slot keys to prove; each is decoded and left-padded to 32 bytes. Malformed (non-hex) keys are rejected with `invalid storage key`. At most 1024 keys per request (`MaxStorageKeysPerProof`); exceeding returns `too many storage keys`. |
 | 3 | `blockNrOrHash` | BLOCKNUMBER or DATA | Block number, tag, or hash. |
 
 **Example request:**
