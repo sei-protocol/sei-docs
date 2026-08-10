@@ -209,6 +209,38 @@ Example configuration file:
 
 The node validates this file on startup and refuses to start if any required field is missing, if the `validators` list is empty, if a `validator_key` or `node_key` is duplicated, or if the node's own validator and node keys are not present as a matching entry in the `validators` list.
 
+
+
+**Generating the config with `gen-autobahn-config`**
+
+Rather than hand-authoring the JSON file, you can generate it from per-node pubkey files using the `seid tendermint gen-autobahn-config` command:
+
+```bash
+seid tendermint gen-autobahn-config [node-dirs...] --output <path>
+```
+
+The command reads three files from each node directory passed as an argument and assembles one `validators` entry per directory:
+
+- `validator_pubkey.txt` — the Autobahn validator public key, in `validator:<pubkey>` format
+- `node_pubkey.txt` — the p2p node public key, in `node:ed25519:public:<hex>` format
+- `autobahn_address.txt` — the node's network address in `host:port` format
+
+The `--output` (or `-o`) flag is required and specifies where the generated JSON config is written. The generated file uses default consensus parameters (for example, a 400ms block interval and a 1.5s view timeout), which you can adjust afterward if needed.
+
+The `validator_pubkey.txt` and `node_pubkey.txt` files are written automatically alongside the validator private key and node key whenever those keys are saved (for example, during `seid init`), so each node's config directory already contains the pubkey files needed for generation. You still need to create the `autobahn_address.txt` file with the node's reachable `host:port` address.
+
+Example generating a config across three node directories:
+
+```bash
+seid tendermint gen-autobahn-config \
+  build/generated/node_0 \
+  build/generated/node_1 \
+  build/generated/node_2 \
+  --output ~/.sei/config/autobahn.json
+```
+
+Once generated, point `autobahn-config-file` in `config.toml` at the resulting file to enable Autobahn.
+
 ### 3. Advanced Parallel Execution
 
 The parallel execution architecture extends beyond current OCC capabilities to include:
