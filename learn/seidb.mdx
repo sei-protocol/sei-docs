@@ -319,3 +319,64 @@ FlatKV analysis is strictly additive: if the FlatKV directory is missing or the 
 | `--db-dir` | `-d` | | memIAVL database directory. |
 | `--flatkv-dir` | | auto-detect `<db-dir>/../flatkv` | FlatKV data directory. When unset, a sibling `flatkv/` directory next to `--db-dir` is auto-detected. |
 
+
+
+## Reading the Latest memIAVL Version with `memiavl-latest-version`
+
+The `memiavl-latest-version` command prints the latest committed memIAVL version of a stopped node. It is the read-only companion to `import-flatkv-from-memiavl`: an orchestration script can read each validator's version after stopping `seid`, pick a single common height across a multi-validator cluster, and use that as the import height.
+
+<Warning>Run this command against a stopped node. It reads the on-disk memIAVL state directly and is intended for offline use.</Warning>
+
+### Usage
+
+```bash
+seidb memiavl-latest-version --data-dir /path/to/.sei/data
+```
+
+### Flags
+
+| Flag | Default | Description |
+| --- | --- | --- |
+| `--home` | `$HOME/.sei` | Sei home directory. |
+| `--data-dir` | | Sei data directory or home directory. If the basename is `data`, its parent is used as the home directory. |
+
+The command prints a single integer — the latest memIAVL version — to standard output.
+
+## Importing memIAVL Modules into FlatKV with `import-flatkv-from-memiavl`
+
+The `import-flatkv-from-memiavl` command performs an offline import of selected memIAVL modules into FlatKV. It is used when migrating the EVM module's state-commit (SC) layer from memIAVL to FlatKV storage. The command reads the selected module data from memIAVL at a target height, translates it into FlatKV's on-disk layout, and bulk-imports it into the FlatKV store.
+
+<Warning>This is a restore-style import: it **resets** the FlatKV directory before loading the imported rows. If FlatKV already contains committed data, the command refuses to run unless `--force` is supplied.</Warning>
+
+**EVM-only initial scope.** The initial production scope is intentionally narrow — only the `evm` module is accepted. Non-EVM modules remain in memIAVL and are not copied into FlatKV; passing any other module name is rejected at the CLI boundary.
+
+### Usage
+
+```bash
+seidb import-flatkv-from-memiavl \
+  --modules evm \
+  --data-dir /path/to/.sei/data \
+  --height <H> \
+  [--force]
+```
+
+### Flags
+
+| Flag | Default | Description |
+| --- | --- | --- |
+| `--home` | `$HOME/.sei` | Sei home directory. |
+| `--data-dir` | | Sei data directory or home directory. If the basename is `data`, its parent is used as the home directory. |
+| `--modules` | `evm` | Comma-separated module names to import. Initial production scope supports only `evm`. |
+| `--height` | `0` | memIAVL version to import. `0` selects the latest available version. |
+| `--force` | `false` | Overwrite existing committed FlatKV data. Required when FlatKV already has a committed version. |
+
+### Height constraints
+
+The import must be run at the memIAVL **latest** height. The command refuses to import at a height `H` below the memIAVL latest version, because a subsequent `GIGA_STORAGE` startup would call `reconcileVersions` and silently roll memIAVL back to `H`, truncating every cosmos block in `(H, latest]`. Operators who genuinely want a non-latest height must first roll memIAVL back to that height themselves — this command deliberately does not perform a destructive cosmos rollback on their behalf. A height ahead of the memIAVL latest version is likewise rejected.
+
+<Info>If the import is interrupted (for example by context cancellation or an exporter/translator failure), the in-progress import is aborted rather than finalized: the FlatKV directory is left at its pre-import committed version, so the operation can be retried without `--force`.</Info>
+
+### Migration configuration constraints
+
+When restarting a node after the import, keep `evm-ss-split = false` and `sc-enable-lattice-hash = false` across the import boundary. The import moves only the EVM module's SC-layer data into FlatKV; the EVM state-store history stays in the existing combined cosmos store, so enabling `evm-ss-split` would trigger a startup panic. Turning `sc-enable-lattice-hash` on would fold the FlatKV LtHash into the AppHash for blocks that were committed before the import (whose persisted AppHash was memiavl-only), causing the replay check at startup to fail with an AppHash mismatch.
+

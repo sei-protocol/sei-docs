@@ -76,6 +76,101 @@ requires a non-`nil` `memiavl` handle for every mode except `FlatKVOnly`, and a
 non-`nil` `flatKV` handle for every mode except `MemiavlOnly`.
 </Note>
 
+
+## Offline FlatKV EVM import (MigrateEVM)
+
+The `seidb` tool ships an offline import path that moves the `evm/` module's
+SC-layer data out of `memiavl` and into FlatKV without running the in-process
+migration state machine. This is the operational entrypoint for the
+`MigrateEVM` (V0 → V1) transition on a stopped node.
+
+<Warning>
+This is an **offline** operation. The node must be fully stopped before
+running the import — the tool opens both the `memiavl` and FlatKV directories
+directly and will conflict with a running `seid`.
+</Warning>
+
+### Reading the latest memiavl version
+
+Before importing, read the latest committed `memiavl` version from a stopped
+node's data directory. In a multi-validator cluster, run this on every node
+and pick the minimum so the import height is uniform across the cluster:
+
+```bash copy
+seidb memiavl-latest-version --data-dir <data_dir>
+```
+
+`--data-dir` may point at either the `data/` directory or the Sei home
+directory; if the basename is `data`, its parent is treated as home. You can
+also pass `--home <sei_home>` instead.
+
+### Running the import
+
+```bash copy
+seidb import-flatkv-from-memiavl \
+  --modules=evm \
+  --data-dir <data_dir> \
+  --height <h> \
+  [--force]
+```
+
+| Flag | Meaning |
+|---|---|
+| `--home` | Sei home directory. Defaults to `$HOME/.sei`. |
+| `--data-dir` | Sei data directory or home directory. If the basename is `data`, its parent is used as home. |
+| `--modules` | Comma-separated module names to import. Initial production scope is **evm-only**; any other module name is rejected. |
+| `--height` | The `memiavl` version to import. `0` means latest. |
+| `--force` | Overwrite existing committed FlatKV data. |
+
+The import resets FlatKV before loading the selected `memiavl` rows and
+**refuses to overwrite committed FlatKV data unless `--force` is supplied**. If
+an external error interrupts the import (context cancellation, exporter or
+translator failure), the import is aborted rather than finalized — FlatKV is
+left at its pre-import committed version, so the operation can be retried
+without `--force`.
+
+<Warning>
+The import **must run at the memiavl latest version**. Importing FlatKV at a
+height `H` lower than the latest `memiavl` version is rejected: on the next
+`GIGA_STORAGE` startup the composite commit store's `reconcileVersions` step
+would silently roll `memiavl` back to `H`, truncating every cosmos block in
+`(H, latest]`. If you genuinely need a non-latest height, roll `memiavl` back
+to that height yourself first (for example with `seid rollback`), then re-run
+the import. The CLI deliberately does **not** roll `memiavl` back on your
+behalf. A height ahead of the latest `memiavl` version is likewise rejected.
+</Warning>
+
+### Configuration constraints across the import boundary
+
+The import moves only the SC-layer EVM data into FlatKV. When restarting the
+node after the import, two settings **must stay off** across the import
+boundary or the node will panic on startup:
+
+- **`evm-ss-split = false`.** SS history for EVM remains in the existing
+  combined cosmos SS database; the import does not populate a separate EVM SS
+  directory. Flipping `evm-ss-split` to `true` triggers the rootmulti startup
+  panic *"EVM SS directory ... does not exist but Cosmos SS already has
+  history"*. Moving the SS layer to split mode is a separate state-sync
+  workflow (see [Step 2](#step-2%3A-state-sync-into-the-new-layout)) and is out
+  of scope for the offline SC import.
+- **`sc-enable-lattice-hash = false`.** Before the import the chain ran without
+  FlatKV, so tendermint persisted app hashes computed from `memiavl` alone for
+  every block up to the import height. Enabling the lattice hash now would fold
+  the FlatKV LtHash into the app hash, and the replay check at startup would
+  fail with *"state.AppHash does not match AppHash after replay"*. Note that
+  `dual_write` does not require the lattice hash — only `split_write` does.
+
+A production rollout coordinates these transitions via a chain upgrade at an
+agreed height rather than flipping them mid-life.
+
+<Info>
+For the full operational failure-mode catalog and recovery/tooling roadmap for
+MigrateEVM, see
+[`sei-db/state_db/sc/migration/OPERATIONS.md`](https://github.com/sei-protocol/sei-chain/blob/main/sei-db/state_db/sc/migration/OPERATIONS.md)
+in `sei-chain`.
+</Info>
+
+
 <Info>This guide tracks the canonical procedure in [`docs/migration/giga_store_migration.md`](https://github.com/sei-protocol/sei-chain/blob/main/docs/migration/giga_store_migration.md) inside `sei-chain`. Open an issue there if anything here drifts.</Info>
 
 ## Prerequisites
