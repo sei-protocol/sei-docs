@@ -722,6 +722,45 @@ The duration histograms use the following explicit bucket boundaries (in seconds
 
 
 
+## Consensus Validation Metrics
+
+Sei nodes emit an OpenTelemetry-based counter through the process-wide `MeterProvider` (for example, a Prometheus exporter) that tracks halting consensus validation failures swallowed by non-default `ConsensusPolicy` builds.
+
+| Metric | Type | Attributes | Description |
+| --- | --- | --- | --- |
+| `sei_unsafe_validation_skipped_total` | counter | `kind` | Number of halting consensus validation failures that were swallowed (counted and continued instead of halting the chain) by a non-default `ConsensusPolicy`. The `kind` attribute identifies the specific validation failure that was skipped. |
+
+<Warning>
+  In production (default) builds this counter is **always zero** — every validation failure halts the node as expected. A non-zero value is only ever emitted by special-purpose binaries built with the `mock_block_validation` or `mock_chain_validation` build tags (published as `sei-chain:mock_chain_validation-*` and `sei-chain:mock_chain_validation-nightly-*` Docker images). These binaries intentionally bypass halting validation and must never be run on mainnet or any node whose state you trust; they exist for forked-state replays and similar diagnostic scenarios.
+</Warning>
+
+Build-tag behavior:
+
+- **default (production)** — no failures are swallowed; the counter stays at zero and every validation failure halts.
+- **`mock_block_validation`** — swallows only `app_hash` and `data_hash` failures, preserving that tag's long-standing behavior; all other failures still halt.
+- **`mock_chain_validation`** — swallows every swallow-eligible failure except `last_commit_verify` (which is excluded to avoid a downstream panic and therefore still halts). Intended for forked-state replays.
+
+### `sei_unsafe_validation_skipped_total` `kind` values
+
+| `kind` | Swallowed validation failure |
+| --- | --- |
+| `app_hash` | Block `AppHash` did not match the expected application hash. |
+| `data_hash` | Block `DataHash` did not match the hash of the block data. |
+| `last_results_hash` | Block `LastResultsHash` did not match the expected value. |
+| `last_block_id` | Block `LastBlockID` did not match the expected previous block ID. |
+| `consensus_hash` | Block `ConsensusHash` did not match the hash of the consensus params. |
+| `validators_hash` | Block `ValidatorsHash` did not match the current validator set hash. |
+| `next_validators_hash` | Block `NextValidatorsHash` did not match the next validator set hash. |
+| `last_commit_verify` | `LastCommit` verification failed. Never swallowed by `mock_chain_validation` (excluded from the swallow set) — always halts. |
+| `proposer_not_in_validator_set` | Block proposer address is not a member of the validator set. |
+| `evidence_overflow` | Block evidence exceeded the maximum allowed byte size. |
+| `last_commit_hash` | Block `LastCommitHash` did not match the expected value. |
+| `evidence_hash` | Block `EvidenceHash` did not match the hash of the block evidence. |
+| `per_evidence_validate_basic` | An individual evidence item failed `ValidateBasic`. |
+
+
+
+
 ## Backup Management
 
 <Accordion title="Complete Automated Backup Script">

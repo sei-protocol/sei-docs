@@ -103,14 +103,27 @@ See Network Versions table above for current recommended version.
 
 
 <Warning>
-  **Mock block validation builds are for testing/mock environments only — never run them in production.** Building with the `mock_block_validation` Go build tag produces a `seid` binary that bypasses `AppHash` and `DataHash` validation during block execution and validation. Default (production) builds always enforce every consensus check.
+  **Mock validation builds are for testing/mock environments only — never run them in production.** These builds use a build-tag-selected `ConsensusPolicy` whose `HandleError` mechanism swallows specific halting validation failures (incrementing the `sei_unsafe_validation_skipped_total{kind=...}` counter instead of halting) rather than enforcing them. Default (production) builds always enforce every consensus check, and this counter is always zero.
+
+  **`mock_block_validation`** — swallows only `AppHash` and `DataHash` validation failures during block execution and validation; every other consensus check still halts.
 
   ```bash
-  # Build a seid binary that skips AppHash/DataHash validation (testing only)
+  # Build a seid binary that swallows AppHash/DataHash validation failures (testing only)
   GO_BUILD_TAGS=mock_block_validation make install
   ```
 
-  A dedicated Docker image is published for this build in ECR, tagged `sei/sei-chain:mock_block_validation-<tag/ref/sha>` (built with `GO_BUILD_TAGS=mock_block_validation`). Because these binaries skip integrity checks that guard against divergent or malformed state, they must not be used on mainnet, testnets, or any network carrying real value.
+  A dedicated Docker image is published for this build in ECR, tagged `sei/sei-chain:mock_block_validation-<tag/ref/sha>` (built with `GO_BUILD_TAGS=mock_block_validation`).
+
+  **`mock_chain_validation`** — intended for forked-state replays; swallows every swallow-eligible halting validation failure except `ErrLastCommitVerify` (which still halts to avoid a downstream panic). It is built together with `mock_balances`.
+
+  ```bash
+  # Build a seid binary for forked-state replays (testing only)
+  GO_BUILD_TAGS="mock_balances mock_chain_validation" make install
+  ```
+
+  A dedicated Docker image is published for this build in ECR, tagged `sei/sei-chain:mock_chain_validation-<tag/ref/sha>` (and `sei/sei-chain:mock_chain_validation-nightly-*` for nightly builds).
+
+  Because these binaries skip integrity checks that guard against divergent or malformed state, they must not be used on mainnet, testnets, or any network carrying real value.
 </Warning>
 
 <Accordion title="Alternative: Docker Image">

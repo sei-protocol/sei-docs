@@ -362,9 +362,17 @@ In addition to the configurable `max_gas_per_block` and `max_txs_per_block` fiel
 
 The `seid` binary can be compiled with optional Go build tags that alter consensus behavior. Build tags are passed via the `GO_BUILD_TAGS` build argument.
 
+The `seid` binary decides how to react to a halting validation failure at compile time via the `ConsensusPolicy` type. Each build variant compiles in exactly one policy through its `ConsensusPolicy.HandleError(err)` method, so there is no runtime branch:
+
+- **Default (production):** `HandleError` returns the error for every validation-failure kind, so production halting semantics are unchanged.
+- **`mock_block_validation`:** `HandleError` swallows only `ErrAppHash` and `ErrDataHash` failures (the same effective set the tag has always relaxed) and halts on everything else.
+- **`mock_chain_validation`:** `HandleError` swallows every swallow-eligible halting validation failure except `ErrLastCommitVerify` (excluded to avoid a downstream panic in `buildLastCommitInfo`).
+
+When a non-default policy swallows a failure, it increments the `sei_unsafe_validation_skipped_total` counter (labeled with the failure `kind`) instead of halting. This metric is always zero in production builds.
+
 #### `mock_block_validation`
 
-Building with `GO_BUILD_TAGS=mock_block_validation` produces a `seid` binary that bypasses `AppHash` and `DataHash` block validation checks during block execution and validation. This is controlled at compile time by the `ConsensusPolicy` type: production (default) builds enforce every check, while `mock_block_validation` builds have `ConsensusPolicy.SkipAppHashValidation()` and `ConsensusPolicy.SkipDataHashValidation()` return `true` unconditionally.
+Building with `GO_BUILD_TAGS=mock_block_validation` produces a `seid` binary whose `ConsensusPolicy.HandleError` swallows `AppHash` and `DataHash` block validation failures during block execution and validation, incrementing `sei_unsafe_validation_skipped_total` for each swallowed failure instead of halting. All other validation-failure kinds halt as in production.
 
 <Warning>
   The `mock_block_validation` build is intended for testing and mock environments only. It disables cryptographic block-content validation and must never be used for a production or mainnet node.
@@ -377,6 +385,23 @@ sei/sei-chain:mock_block_validation-<tag/ref/sha>
 ```
 
 This image is built with `GO_BUILD_TAGS=mock_block_validation` and is distinct from the standard `sei/sei-chain` image tags.
+
+#### `mock_chain_validation`
+
+Building with `GO_BUILD_TAGS=mock_balances mock_chain_validation` produces a `seid` binary whose `ConsensusPolicy.HandleError` swallows every swallow-eligible halting validation failure except `ErrLastCommitVerify`. The chain still computes every check authentically; a swallowed failure increments `sei_unsafe_validation_skipped_total{kind=...}` and continues instead of halting. `ErrLastCommitVerify` is the exception — it always halts and is not counted, because swallowing it would trigger a downstream panic in `buildLastCommitInfo`. This variant is intended for forked-state replays.
+
+<Warning>
+  The `mock_chain_validation` build is intended for testing and forked-state replay environments only. It swallows nearly all halting consensus validation failures and must never be used for a production or mainnet node.
+</Warning>
+
+Corresponding Docker images are published to ECR for this build:
+
+```text
+sei/sei-chain:mock_chain_validation-<tag/ref/sha>
+sei/sei-chain:mock_chain_validation-nightly-<date>-<sha7>
+```
+
+These images are built with `GO_BUILD_TAGS=mock_balances mock_chain_validation` and are distinct from the standard `sei/sei-chain` image tags.
 
 
 Understanding network parameters helps you operate your node effectively.
