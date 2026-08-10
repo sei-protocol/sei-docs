@@ -257,3 +257,46 @@ The command writes two files to the output directory:
 - **`summary.json`** — an aggregated report including total/success/error counts, average and P50/P95 latencies for total and historical-database-lookup time, per-phase totals, per-module store-access totals, and the top transactions and blocks by total execution time.
 
 <Info>Because `trace-profile-report` replays historical transactions, point it at a node (such as an archive node) that retains the historical state for the block range you want to profile.</Info>
+
+
+
+## Dumping FlatKV State with `dump-flatkv`
+
+The `seidb` tool includes a `dump-flatkv` command that iterates a FlatKV store and dumps every physical `(key, value)` pair into per-bucket files. FlatKV physical keys are grouped into four logical buckets — `account`, `code`, `storage`, and `legacy` — and each bucket is written to its own file inside the output directory. The output is formatted to match `dump-iavl` so the same diff tooling works on both dumps.
+
+Each output file begins with a header line (`Bucket <name> at version <V>`) followed by one `Key: <HEX>, Value: <HEX>` line per physical row. Physical keys are emitted verbatim, including their `<module>/` and type-prefix header. The FlatKV metadata rows are intentionally excluded, as they are internal bookkeeping.
+
+Under the hood, the tool clones the selected FlatKV snapshot and changelog into a temporary directory and opens that isolated copy, so it never contends for the FlatKV writer lock on a live node.
+
+### Usage
+
+```bash
+seidb dump-flatkv \
+  --db-dir /path/to/flatkv \
+  --output-dir ./flatkv-dump \
+  --height 0 \
+  --bucket storage
+```
+
+### Flags
+
+| Flag | Alias | Default | Description |
+| --- | --- | --- | --- |
+| `--db-dir` | `-d` | | FlatKV database directory. Required. |
+| `--output-dir` | `-o` | | Output directory; one file is written per bucket. Required. |
+| `--height` | | `0` | FlatKV target version; `0` selects the latest available version. |
+| `--bucket` | `-b` | | Restrict the dump to a single bucket (`account`, `code`, `storage`, or `legacy`). When omitted, all buckets are dumped. |
+
+## Analyzing FlatKV with `state-size`
+
+The `state-size` command now folds an optional FlatKV analysis into its output alongside the existing memIAVL module breakdown. When a FlatKV directory is present and `--module` is empty or `evm`, the tool scans FlatKV, reports a per-DB size breakdown (`account`, `code`, `storage`, `legacy`) and a table of the top EVM contracts by storage size, and — when exporting — includes the FlatKV row in the same DynamoDB batch as the memIAVL module rows.
+
+Use the new `--flatkv-dir` flag to point at the FlatKV data directory. When it is not set, the tool auto-detects a sibling `flatkv/` directory next to `--db-dir` (for example, `<home>/data/committer.db` → `<home>/data/flatkv`), which is the standard layout on a Sei node. If no such directory exists, FlatKV analysis is skipped and only the memIAVL modules are reported.
+
+FlatKV analysis is strictly additive: if the FlatKV directory is missing or the store cannot be opened, the tool logs the reason and continues with the memIAVL analysis.
+
+| Flag | Alias | Default | Description |
+| --- | --- | --- | --- |
+| `--db-dir` | `-d` | | memIAVL database directory. |
+| `--flatkv-dir` | | auto-detect `<db-dir>/../flatkv` | FlatKV data directory. When unset, a sibling `flatkv/` directory next to `--db-dir` is auto-detected. |
+
