@@ -646,6 +646,72 @@ The `type` attribute identifies the execution path: `synchronous`, `synchronous_
 
 
 
+
+## Module & Governance Metrics
+
+Sei nodes emit OpenTelemetry-based metrics for the SDK module lifecycle (mid-block, begin-blocker, and end-blocker execution) and for validator slash events through the process-wide `MeterProvider` (for example, a Prometheus exporter). These `module_*`, per-module `*_blocker_duration`, and `validator_slashed` metrics let operators observe where per-block module execution time is spent and track slashing activity.
+
+<Note>
+  These OpenTelemetry metrics are emitted alongside the existing legacy telemetry counterparts, which are retained pending verification (PLT-414). When building or updating dashboards and alerts, prefer these OpenTelemetry metrics over their legacy counterparts.
+</Note>
+
+### Mid-block duration metrics
+
+Each of these is a histogram reported in seconds (unit `s`), measuring the duration of module mid-block execution.
+
+| Metric | Type | Attributes | Description |
+| --- | --- | --- | --- |
+| `module_total_mid_block_duration` | histogram | — | Total duration of all modules' mid-block execution in seconds. |
+| `module_mid_block_duration` | histogram | `module` | Duration of per-module mid-block execution in seconds, labeled by module name. |
+
+### Per-module begin/end-blocker duration metrics
+
+Each of these is a histogram reported in seconds (unit `s`), measuring the duration of the corresponding module's begin-blocker or end-blocker execution.
+
+| Metric | Type | Description |
+| --- | --- | --- |
+| `capability_begin_blocker_duration` | histogram | Duration of capability begin-blocker execution in seconds. |
+| `crisis_end_blocker_duration` | histogram | Duration of crisis end-blocker execution in seconds. |
+| `crisis_init_genesis_unmarshal_duration` | histogram | Duration of crisis `InitGenesis` JSON unmarshal in seconds. |
+| `distribution_begin_blocker_duration` | histogram | Duration of distribution begin-blocker execution in seconds. |
+| `evidence_begin_blocker_duration` | histogram | Duration of evidence begin-blocker execution in seconds. |
+| `gov_end_blocker_duration` | histogram | Duration of gov end-blocker execution in seconds. |
+| `slashing_begin_blocker_duration` | histogram | Duration of slashing begin-blocker execution in seconds. |
+| `staking_begin_blocker_duration` | histogram | Duration of staking begin-blocker execution in seconds. |
+| `staking_end_blocker_duration` | histogram | Duration of staking end-blocker execution in seconds. |
+
+### Validator slash counter
+
+| Metric | Type | Attributes | Description |
+| --- | --- | --- | --- |
+| `validator_slashed` | counter | `type`, `validator` | Number of validator slash events, labeled by slash reason (`type` is `missing_signature` or `double_sign`) and the consensus address of the slashed validator. |
+
+### Staking keeper metrics
+
+The staking keeper delegation metrics are emitted with a `staking_keeper_` prefix to avoid collisions with other metric namespaces.
+
+| Metric | Type | Description |
+| --- | --- | --- |
+| `staking_keeper_delegate` | counter | Number of delegation transactions. |
+| `staking_keeper_last_delegate_amount` | gauge | Amount delegated in the last delegation transaction (in `usei`). |
+| `staking_keeper_redelegate` | counter | Number of redelegation transactions. |
+| `staking_keeper_last_redelegate_amount` | gauge | Amount redelegated in the last redelegation transaction (in `usei`). |
+| `staking_keeper_undelegate` | counter | Number of undelegation transactions. |
+| `staking_keeper_last_undelegate_amount` | gauge | Amount undelegated in the last undelegation transaction (in `usei`). |
+
+<Note>
+  The staking keeper metrics were previously emitted without the `staking_keeper_` prefix (for example, `delegate`, `last_delegate_amount`). Update any dashboards or alerts that reference the old unprefixed names.
+</Note>
+
+The duration histograms use the following explicit bucket boundaries (in seconds):
+
+```
+0.000025, 0.000050, 0.0001, 0.0005, 0.001, 0.0025, 0.005, 0.010, 0.020, 0.050, 0.075, 0.1, 0.25, 0.5, 1, 10
+```
+
+
+
+
 ## Backup Management
 
 <Accordion title="Complete Automated Backup Script">
