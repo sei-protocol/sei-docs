@@ -31,7 +31,7 @@ this migration.
   values: `memiavl_only`, `migrate_evm`, `evm_migrated`, `migrate_all_but_bank`,
   `all_migrated_but_bank`, `migrate_bank`, `flatkv_only`, `test_only_dual_write`.
   An invalid value fails at config parse time with a clear error.
-- `keys-to-migrate-per-block` — the number of keys migrated from `memiavl` to
+- `sc-keys-to-migrate-per-block` — the number of keys migrated from `memiavl` to
   `flatKV` per block while in a migration mode. Defaults to `1024` and must be
   greater than `0`; ignored outside of a migration mode.
 
@@ -54,7 +54,7 @@ progresses through a linear sequence of on-disk **migration versions**:
 | WriteMode | Migration version | Behavior |
 |---|---|---|
 | `MemiavlOnly` (`memiavl_only`) | 0 | Pre-migration baseline: every module routes to `memiavl`; `flatKV` is not in the data path (bootstrap passes `nil` for `flatKV`). |
-| `MigrateEVM` (`migrate_evm`) | 0 → 1 | Migrates the `evm/` module from `memiavl` to `flatKV` in batches; un-migrated EVM keys still read from `memiavl`. |
+| `MigrateEVM` (`migrate_evm`) | 0 → 1 | Migrates the `evm/` module from `memiavl` to `flatKV` in batches. Reads for un-migrated keys are served from `memiavl` first and fall back to `flatKV` for brand-new keys created after the migration started; brand-new writes are routed to `flatKV` so the migration boundary can reach completion instead of chasing an ever-growing key tail. Iteration is forwarded to the `memiavl` iterator while the migration is `NotStarted`/`InProgress` (with the caveat that already-migrated keys are no longer visible there, so results may be incomplete mid-flight) and is refused once the migration is `Complete`. |
 | `EVMMigrated` (`evm_migrated`) | 1 | Steady state: `evm/` lives in `flatKV`, every other module in `memiavl`; no migration manager in the path. |
 | `MigrateAllButBank` (`migrate_all_but_bank`) | 1 → 2 | Migrates every module except `bank/` (and the already-migrated `evm/`) from `memiavl` to `flatKV`. |
 | `AllMigratedButBank` (`all_migrated_but_bank`) | 2 | Steady state: everything except `bank/` lives in `flatKV`; `bank/` remains in `memiavl`. |

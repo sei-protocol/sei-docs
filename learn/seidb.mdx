@@ -382,3 +382,56 @@ When restarting a node after the import, keep `evm-ss-split = false` across the 
 
 <Info>There is no longer any `sc-enable-lattice-hash` setting to manage. That configuration field has been removed; whether the FlatKV lattice hash participates in the AppHash is now derived automatically from the node's write mode and migration state, so operators do not need to toggle it across the import boundary.</Info>
 
+
+
+## Polling FlatKV EVM Migration Status with `migrate-evm-status`
+
+The `migrate-evm-status` command reports the on-disk FlatKV EVM migration state of a FlatKV directory as JSON. It exists so an orchestration script driving the in-flight `migrate_evm` migration can poll "is the migration done yet?" against each validator's data directory from the host — without adding a custom RPC handler or grepping through node logs.
+
+The command reads two reserved keys from the FlatKV migration store:
+
+- **`migration-version`** — an 8-byte big-endian `uint64` written exactly once per migration lifecycle, on the block that finalizes the migration. Absent or zero means the EVM migration has not yet completed.
+- **`migration-boundary`** — the in-flight cursor encoding the `(module, key)` pair the next batch should resume from. It is present only while the migration is strictly between not-started and complete.
+
+To stay aligned with the other `seidb` tools, the read goes through the same read-only path used by `dump-flatkv`: the tool hardlink-clones the latest snapshot and copies the WAL into a temporary directory before opening. This avoids contending with a live node for the FlatKV writer lock and yields a stable view even if the live writer rolls snapshots mid-run, so the command can be run against a running validator.
+
+### Usage
+
+```bash
+seidb migrate-evm-status \
+  --db-dir /path/to/flatkv \
+  [--height <H>]
+```
+
+### Flags
+
+| Flag | Alias | Default | Description |
+| --- | --- | --- | --- |
+| `--db-dir` | `-d` | | FlatKV database directory. Required. |
+| `--height` | | `0` | FlatKV target version; `0` selects the latest available version. |
+
+### Output
+
+The command prints a single JSON object to standard output:
+
+```json
+{
+  "version_at": 12345,
+  "migration_version": 1,
+  "migrate_evm_complete": true,
+  "boundary_present": false,
+  "version_raw_hex": "0000000000000001"
+}
+```
+
+| Field | Description |
+| --- | --- |
+| `version_at` | The FlatKV version that was opened. |
+| `migration_version` | The on-disk migration version (`0` = memiavl-only, `1` = EVM migrated). |
+| `migrate_evm_complete` | `true` once `migration_version` has reached the EVM-migrated version. |
+| `boundary_present` | `true` while the migration is in flight (the boundary cursor is present). |
+| `boundary_hex` | Hex encoding of the in-flight boundary cursor; omitted when absent. |
+| `version_raw_hex` | Hex encoding of the raw `migration-version` bytes; omitted when absent. |
+
+<Info>A migration is complete when `migrate_evm_complete` is `true` and `boundary_present` is `false`. Poll every validator until all report completion before flipping `sc-write-mode` from `migrate_evm` to `evm_migrated`.</Info>
+
