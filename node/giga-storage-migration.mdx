@@ -42,6 +42,40 @@ If you configure the SC layer to use `split_write` mode
 panics on creation with `lattice hash must be enabled when using split_write mode`.
 </Note>
 
+
+<Note>
+The `sc-write-mode` / `sc-read-mode` fields above configure EVM routing in the
+legacy composite commit store and are **distinct** from the internal
+`memiavl → flatKV` **migration state machine** used when converting the SC
+layer's state DB from `memiavl` to `flatKV`. That migration is driven by its
+own `WriteMode` enum inside the state-migration package, not by
+`sc-write-mode`. Node operators encounter these modes as the migration
+progresses through a linear sequence of on-disk **migration versions**:
+
+| WriteMode | Migration version | Behavior |
+|---|---|---|
+| `MemiavlOnly` (`memiavl_only`) | 0 | Pre-migration baseline: every module routes to `memiavl`; `flatKV` is not in the data path (bootstrap passes `nil` for `flatKV`). |
+| `MigrateEVM` (`migrate_evm`) | 0 → 1 | Migrates the `evm/` module from `memiavl` to `flatKV` in batches; un-migrated EVM keys still read from `memiavl`. |
+| `EVMMigrated` (`evm_migrated`) | 1 | Steady state: `evm/` lives in `flatKV`, every other module in `memiavl`; no migration manager in the path. |
+| `MigrateAllButBank` (`migrate_all_but_bank`) | 1 → 2 | Migrates every module except `bank/` (and the already-migrated `evm/`) from `memiavl` to `flatKV`. |
+| `AllMigratedButBank` (`all_migrated_but_bank`) | 2 | Steady state: everything except `bank/` lives in `flatKV`; `bank/` remains in `memiavl`. |
+| `MigrateBank` (`migrate_bank`) | 2 → 3 | Migrates the final `bank/` module from `memiavl` to `flatKV`. |
+| `FlatKVOnly` (`flatkv_only`) | 3 | Terminal state: every module routes to `flatKV`; `memiavl` is not in the data path (bootstrap passes `nil` for `memiavl`). |
+| `TestOnlyDualWrite` (`test_only_dual_write`) | — | Test-only mode that dual-writes `evm/` traffic to both `memiavl` and `flatKV` while routing all other modules to `memiavl`; reads, proofs, and iteration are served exclusively by `memiavl`. |
+
+<Warning>
+`TestOnlyDualWrite` exists only to preserve parity with legacy
+composite-store dual-write tests and **must never be deployed to production
+machines**.
+</Warning>
+
+The appropriate router for a given `WriteMode` is constructed by the
+state-migration package's `BuildRouter` entrypoint, which returns the
+steady-state or in-flight migration router for that mode. Router construction
+requires a non-`nil` `memiavl` handle for every mode except `FlatKVOnly`, and a
+non-`nil` `flatKV` handle for every mode except `MemiavlOnly`.
+</Note>
+
 <Info>This guide tracks the canonical procedure in [`docs/migration/giga_store_migration.md`](https://github.com/sei-protocol/sei-chain/blob/main/docs/migration/giga_store_migration.md) inside `sei-chain`. Open an issue there if anything here drifts.</Info>
 
 ## Prerequisites
