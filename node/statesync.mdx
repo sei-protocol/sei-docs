@@ -96,6 +96,26 @@ cp -r $HOME/.sei/wasm $HOME/.sei_backup/ 2>/dev/null || true  # ignore error if 
 mkdir -p /home/ubuntu/statesync-temp
 sed -i 's|temp-dir = ""|temp-dir = "/home/ubuntu/statesync-temp"|' ~/.sei/config/config.toml
 
+
+<Warning>
+Recent versions of the chain no longer emit the advanced state-sync tuning knobs (`temp-dir`, `backfill-blocks`, `backfill-duration`, `discovery-time`, `chunk-request-timeout`, `fetchers`, `verify-light-block-timeout`, `blacklist-ttl`) in the generated `config.toml`. These fields are still parsed and honored if you add them manually, otherwise sensible defaults are used.
+
+Because `temp-dir = ""` may no longer be present in a freshly generated `config.toml`, the `sed` command above can silently do nothing. If you need a custom temp directory for snapshot chunk staging, add the field explicitly under the `[statesync]` section instead:
+
+```bash
+mkdir -p /home/ubuntu/statesync-temp
+# Append temp-dir under the [statesync] section only if it is not already present
+if ! grep -qE '^\s*temp-dir\s*=' $HOME/.sei/config/config.toml; then
+  sed -i '/^\[statesync\]/a temp-dir = "/home/ubuntu/statesync-temp"' $HOME/.sei/config/config.toml
+else
+  sed -i 's|^temp-dir = .*|temp-dir = "/home/ubuntu/statesync-temp"|' $HOME/.sei/config/config.toml
+fi
+```
+
+Setting a custom `temp-dir` is optional; if omitted, state sync stages chunks in the system default temporary directory.
+</Warning>
+
+
 # Fetch the latest block height from the State Sync RPC endpoint
 LATEST_HEIGHT=$(curl -s $STATE_SYNC_RPC/block | jq -r .block.header.height)
 # Calculate the trust height (rounded down to the nearest 100,000)
