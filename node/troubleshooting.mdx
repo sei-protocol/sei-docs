@@ -57,6 +57,27 @@ Commands:
 
 ### Database Errors
 
+
+### Mempool Errors
+
+```text
+Error: "tx already exists in cache" (ErrTxInCache) when re-submitting a previously failed tx
+Solution: This is expected behavior for txs that repeatedly fail during block execution
+```
+
+The mempool tracks transactions that fail during block execution to prevent infinite re-entry. A tx that fails while being included in a block is allowed **one** retry — it is removed from the cache so it can be re-submitted. If it fails a **second** time during block execution, it is left in the cache and subsequent `CheckTx` calls return `ErrTxInCache`, rejecting re-submission.
+
+This prevents transactions that consistently fail before fee charging (for example, out-of-gas failures) from being resubmitted indefinitely and repeatedly consuming block execution resources.
+
+The failure tracker is reset when the transaction is successfully included in a block. After a successful inclusion, the tx is treated as fresh again and would once more be granted a single retry on any future failure.
+
+**What to check if you see this:**
+
+- Confirm the transaction is one that has failed block execution at least twice (e.g. persistent out-of-gas or other pre-fee failures).
+- If the failure is caused by a fixable condition (such as insufficient gas), rebuild and re-sign the transaction with corrected parameters — a new tx hash is admitted normally.
+- A different transaction (different hash) is unaffected and will be admitted as usual.
+
+
 Database corruption can require immediate attention:
 
 ```text

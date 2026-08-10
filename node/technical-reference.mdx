@@ -112,6 +112,23 @@ size = 5000
 max-txs-bytes = 1073741824
 cache-size = 10000
 
+
+
+#### Block-Failed Transaction Re-Entry Protection
+
+The mempool tracks transactions that fail during block execution to prevent them from re-entering the mempool indefinitely. Some transactions consistently fail before fee charging in `DeliverTx`, which historically let them be re-submitted without limit and waste block and proxy-app resources.
+
+The mempool now applies the following policy on top of the existing `keep-invalid-txs-in-cache` setting:
+
+- When a committed transaction succeeds (`Code == OK`), it is kept in the cache and its entry in the block-failure tracker is cleared.
+- When a committed transaction fails and `keep-invalid-txs-in-cache` is `false`:
+  - **First block failure:** the transaction is removed from the cache, allowing it to be re-submitted and retried once.
+  - **Second (and subsequent) block failure:** the transaction is left in the cache. Any attempt to re-submit it is rejected by `CheckTx` with `ErrTxInCache`, preventing infinite re-entry.
+- A successful block inclusion resets the failure tracker, so a transaction that later succeeds regains its first-failure grace period.
+
+The block-failure tracker uses an LRU cache sized to match the mempool `cache-size`. When `cache-size` is `0`, tracking is disabled. This behavior is automatic and requires no additional configuration.
+
+
 # State commit configuration (SeiDB). State-commit is mandatory:
 # the node will panic on startup if sc-enable is false.
 [state-commit]
