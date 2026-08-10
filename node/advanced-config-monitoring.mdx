@@ -521,6 +521,54 @@ The histogram uses the following explicit bucket boundaries (in seconds):
 
 The legacy `sei_*` RPC metrics — including `sei_rpc_request_latency_ms` and `sei_websocket_connect` — are still emitted alongside the new `evmrpc_*` metrics for backward compatibility, but they are deprecated and scheduled for removal (PLT-326) once dashboards migrate to the OpenTelemetry `evmrpc_*` metrics. When building or updating dashboards and alerts, prefer the `evmrpc_request_latency_seconds` histogram and `evmrpc_websocket_connects_total` counter over their legacy counterparts.
 
+
+
+## FlatKV State DB Metrics
+
+Sei nodes emit OpenTelemetry-based metrics for the FlatKV state database through the process-wide `MeterProvider` (for example, a Prometheus exporter). These `flatkv_*` metrics let operators observe FlatKV performance and progress across commits, catchup, snapshots, rollbacks, and snapshot imports.
+
+### Latency metrics
+
+Each latency metric is a histogram reported in seconds (unit `s`). Unless otherwise noted, they carry a `success` boolean label indicating whether the operation completed without error.
+
+| Metric | Type | Labels | Description |
+| --- | --- | --- | --- |
+| `flatkv_open_latency` | histogram | `success`, `read_only` | Time taken to open the FlatKV store (`LoadVersion`). |
+| `flatkv_apply_changesets_latency` | histogram | `success` | Time taken to apply changesets to FlatKV. |
+| `flatkv_commit_latency` | histogram | `success` | Time taken to commit FlatKV changes. |
+| `flatkv_commit_batch_latency` | histogram | `success`, `db` | Time taken to commit a per-DB PebbleDB batch. |
+| `flatkv_batch_read_old_values_latency` | histogram | `success` | Time taken to batch read old FlatKV values. |
+| `flatkv_catchup_latency` | histogram | `success` | Time taken to replay FlatKV WAL entries during catchup. |
+| `flatkv_snapshot_write_latency` | histogram | `success` | Time taken to write a FlatKV snapshot. |
+| `flatkv_snapshot_prune_latency` | histogram | — | Time taken to prune old FlatKV snapshots. |
+| `flatkv_rollback_latency` | histogram | `success` | Time taken to roll back FlatKV state. |
+| `flatkv_import_latency` | histogram | `success` | Time taken to import FlatKV snapshot data. |
+| `flatkv_import_worker_flush_latency` | histogram | `success`, `db` | Time taken to flush a FlatKV import worker batch. |
+| `flatkv_flush_latency` | histogram | `success`, `db` | Time taken to flush a per-DB data DB. |
+
+### Counter metrics
+
+| Metric | Type | Labels | Description |
+| --- | --- | --- | --- |
+| `flatkv_num_kv_pairs` | counter | `db` | Number of key-value pairs applied to FlatKV. |
+| `flatkv_catchup_replay_num_blocks` | counter | — | Number of FlatKV WAL entries replayed during catchup. |
+| `flatkv_snapshot_prune_attempts` | counter | `success` | Total number of FlatKV snapshot prune attempts. |
+| `flatkv_import_kv_pairs` | counter | `db` | Number of key-value pairs imported into FlatKV. |
+
+### Gauge metrics
+
+| Metric | Type | Labels | Description |
+| --- | --- | --- | --- |
+| `flatkv_pending_writes` | gauge | `db` | Current number of pending FlatKV writes per data DB. |
+| `flatkv_current_version` | gauge | — | Current committed FlatKV version. |
+| `flatkv_current_snapshot_height` | gauge | — | Current FlatKV snapshot height. |
+
+The `db` label identifies the underlying data DB (for example, the account, storage, code, or legacy data directory), letting operators break down applied writes, pending writes, batch commits, and flush latency per DB.
+
+<Note>
+  Emission of Pebble's own internal metrics is controlled separately by the FlatKV-level `EnablePebbleMetrics` configuration knob. When set, it overrides the per-DB `EnableMetrics` settings for all data DBs (account, code, storage, legacy, and metadata), so Pebble internal metrics are toggled uniformly rather than individually per DB.
+</Note>
+
 <Note>
   Prometheus gauges are held in memory, so after a process restart these gauges reset to zero until the next emission at the following multiple of 1024 heights (up to roughly 8.5 minutes of stale or zero data). This is expected for a monitoring signal that is only consulted in response to incidents.
 </Note>
