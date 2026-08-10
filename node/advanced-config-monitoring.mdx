@@ -574,6 +574,70 @@ The `db` label identifies the underlying data DB (for example, the account, stor
 </Note>
 
 
+
+## App (ABCI) Metrics
+
+Sei nodes emit OpenTelemetry-based metrics for the application (ABCI) layer through the process-wide `MeterProvider` (for example, a Prometheus exporter). These `app_*` metrics let operators observe ABCI phase durations, transaction throughput and gas usage, block processing, and light invariance checks. They are the recommended source for application-level observability.
+
+<Note>
+  A set of legacy telemetry metrics (for example, the `abci`/`tx`/`sei_lightinvariance_supply` series) are still emitted alongside the new `app_*` metrics for backward compatibility, but they are deprecated and scheduled for removal (PLT-327) once dashboards migrate to the OpenTelemetry `app_*` metrics. When building or updating dashboards and alerts, prefer the `app_*` metrics over their legacy counterparts.
+</Note>
+
+### ABCI phase duration metrics
+
+Each of these is a histogram reported in seconds (unit `s`), measuring the duration of the corresponding ABCI phase.
+
+| Metric | Type | Description |
+| --- | --- | --- |
+| `app_abci_begin_block_duration_seconds` | histogram | Duration of ABCI `BeginBlock`. |
+| `app_abci_end_block_duration_seconds` | histogram | Duration of ABCI `EndBlock`. |
+| `app_abci_module_end_block_duration_seconds` | histogram | Duration of module `EndBlock` calls within ABCI `EndBlock`. |
+| `app_abci_check_tx_duration_seconds` | histogram | Duration of ABCI `CheckTx`. |
+| `app_abci_deliver_tx_duration_seconds` | histogram | Duration of ABCI `DeliverTx`. |
+| `app_abci_deliver_batch_tx_duration_seconds` | histogram | Duration of ABCI `DeliverTxBatch`. |
+| `app_abci_commit_duration_seconds` | histogram | Duration of ABCI `Commit` (state write to disk). |
+
+### Block processing metric
+
+| Metric | Type | Attributes | Description |
+| --- | --- | --- | --- |
+| `app_block_process_duration_seconds` | histogram | `type` | Duration of block transaction processing by execution type. |
+
+The `type` attribute identifies the execution path: `synchronous`, `synchronous_giga`, `optimistic_concurrency`, or `occ_giga`.
+
+### Transaction counter metrics
+
+| Metric | Type | Attributes | Description |
+| --- | --- | --- | --- |
+| `app_tx_count_total` | counter | `result` | Number of transactions delivered, labeled by result (for example, `successful`). |
+| `app_tx_process_type_total` | counter | `type` | Transactions processed by execution type (`synchronous`, `synchronous_giga`, `optimistic_concurrency`, `occ_giga`). |
+| `app_tx_gas_total` | counter | `type` | Cumulative transaction gas, where `type` is `gas_used` or `gas_wanted`. |
+
+### App flow counter metrics
+
+| Metric | Type | Attributes | Description |
+| --- | --- | --- | --- |
+| `app_optimistic_processing_total` | counter | `enabled` | Optimistic processing attempts; `enabled:true` means the optimistic result was used, `false` means it was discarded. |
+| `app_failed_total_gas_wanted_check_total` | counter | `proposer` | Proposals rejected because total block gas wanted exceeded the maximum; `proposer` is the hex-encoded proposer address. |
+| `app_giga_fallback_to_v2_total` | counter | — | Number of times the giga executor fell back to V2 processing. |
+| `app_pending_nonce_total` | counter | `event` | Pending nonce events, where `event` is `added`, `expired`, `rejected`, or `accepted`. |
+
+### Light invariance metrics
+
+| Metric | Type | Attributes | Description |
+| --- | --- | --- | --- |
+| `app_lightinvariance_supply_duration_seconds` | histogram | — | Duration of the light invariance total supply check. |
+| `app_lightinvariance_supply_invalid_key_total` | counter | `type` | Invalid changed-pair keys detected during the invariance check (`type` is `sei` or `wei`). |
+| `app_lightinvariance_supply_unmarshal_failure_total` | counter | `type`, `step` | Unmarshal failures during the invariance supply check (`type` is `usei`, `wei`, or `total_supply`; `step` is `pre_block` or `post_block`). |
+
+### Build info metric
+
+| Metric | Type | Attributes | Description |
+| --- | --- | --- | --- |
+| `app_build_info` | gauge | `seid_version`, `commit` | Running binary build info; the value is always `1`, with the running version and commit exposed as attributes. This observable gauge is populated by a scrape callback, so it reflects the currently running binary on every scrape. |
+
+
+
 ## Backup Management
 
 <Accordion title="Complete Automated Backup Script">
