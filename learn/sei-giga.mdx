@@ -149,6 +149,66 @@ The protocol operates through two complementary layers:
 - Two-phase BFT agreement with fast and slow paths
 - Pipelined slots for minimal latency
 
+
+
+#### Enabling Autobahn on a Node
+
+<Info>**Node Operators**: Autobahn (GigaRouter) can now be enabled experimentally on a node by pointing the `autobahn-config-file` field in `config.toml` to a JSON configuration file. Leave the field empty to keep Autobahn disabled.</Info>
+
+To enable Autobahn, set the following in your node's `config.toml`:
+
+```toml
+# Path to a JSON file containing the Autobahn (GigaRouter) configuration.
+# Leave empty to disable Autobahn.
+autobahn-config-file = "/path/to/autobahn.json"
+```
+
+The node must be a committee member: its own validator public key and node public key must appear in the `validators` list of the referenced config file.
+
+<Warning>**Remote signers are not supported**: When `autobahn-config-file` is set, the node fails to start if `priv-validator.laddr` is also configured. A local validator key is required — non-validator (observer) nodes are not yet supported.</Warning>
+
+**Autobahn JSON Configuration Schema**
+
+The file referenced by `autobahn-config-file` is a JSON document with the following fields:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `validators` | array | The committee. Each entry is an object with `validator_key` (Autobahn validator public key), `node_key` (p2p node public key), and `address` (network `host:port`). |
+| `max_gas_per_block` | number | Maximum gas allowed per block. Must be greater than 0. |
+| `max_txs_per_block` | number | Maximum transactions per block. Must be greater than 0. |
+| `max_txs_per_second` | number \| null | Optional cap on transactions per second. Omit or set null for no limit. |
+| `mempool_size` | number | Maximum mempool size. Must be greater than 0. |
+| `block_interval` | duration | Target interval between blocks. Must be greater than 0. |
+| `allow_empty_blocks` | boolean | Whether empty blocks may be produced. |
+| `view_timeout` | duration | Consensus view timeout. Must be greater than 0. |
+| `persistent_state_dir` | string \| null | Optional directory for persisting consensus state. |
+| `dial_interval` | duration | Interval at which peers are dialed. Must be greater than 0. |
+
+Example configuration file:
+
+```json
+{
+  "validators": [
+    {
+      "validator_key": "ed25519:public:...",
+      "node_key": "node:ed25519:public:...",
+      "address": "peer1.example.com:26660"
+    }
+  ],
+  "max_gas_per_block": 50000000,
+  "max_txs_per_block": 5000,
+  "max_txs_per_second": 1000,
+  "mempool_size": 20000,
+  "block_interval": "200ms",
+  "allow_empty_blocks": false,
+  "view_timeout": "1.5s",
+  "persistent_state_dir": "/tmp/autobahn-state",
+  "dial_interval": "10s"
+}
+```
+
+The node validates this file on startup and refuses to start if any required field is missing, if the `validators` list is empty, if a `validator_key` or `node_key` is duplicated, or if the node's own validator and node keys are not present as a matching entry in the `validators` list.
+
 ### 3. Advanced Parallel Execution
 
 The parallel execution architecture extends beyond current OCC capabilities to include:

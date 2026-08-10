@@ -117,6 +117,70 @@ ss-keep-recent = 100000
 rs-backend = "pebbledb"
 ```
 
+
+#### Autobahn / GigaRouter (config.toml)
+
+Autobahn (the GigaRouter consensus path) is enabled by pointing the
+`autobahn-config-file` field at a JSON file describing the validator
+committee and the consensus/producer parameters. Leave it empty (the
+default) to disable Autobahn entirely.
+
+```toml
+# Path to a JSON file containing the Autobahn (GigaRouter) configuration.
+# Leave empty to disable Autobahn.
+autobahn-config-file = ""
+```
+
+When `autobahn-config-file` is set the node loads its committee membership
+and block-production parameters from the referenced JSON file. The node must
+be a committee member: its own validator key and node key must appear in the
+`validators` list, otherwise startup fails.
+
+<Warning>
+  Autobahn does **not** support remote validator signers. If
+  `autobahn-config-file` is set together with `priv-validator.laddr` (a remote
+  signer listen address), the node fails to start. A local validator key is
+  required — non-validator (observer) nodes are not yet supported under
+  Autobahn.
+</Warning>
+
+The referenced JSON file supports the following fields:
+
+```json
+{
+  "validators": [
+    {
+      "validator_key": "ed25519:public:...",
+      "node_key": "node:ed25519:public:...",
+      "address": "host:port"
+    }
+  ],
+  "max_gas_per_block": 50000000,
+  "max_txs_per_block": 5000,
+  "max_txs_per_second": 1000,
+  "mempool_size": 20000,
+  "block_interval": "400ms",
+  "allow_empty_blocks": false,
+  "view_timeout": "1500ms",
+  "persistent_state_dir": "/path/to/state",
+  "dial_interval": "10s"
+}
+```
+
+| Field | Description |
+| --- | --- |
+| `validators` | Committee membership. Each entry is `{ validator_key, node_key, address }`. Validator keys and node keys must be unique across the list, and the node's own keys must be present. |
+| `max_gas_per_block` | Maximum gas per produced block. Must be `> 0`. |
+| `max_txs_per_block` | Maximum transactions per produced block. Must be `> 0`. |
+| `max_txs_per_second` | Optional cap on transactions per second (omit to leave unset). |
+| `mempool_size` | Producer mempool capacity. Must be `> 0`. |
+| `block_interval` | Target interval between blocks. Must be `> 0`. |
+| `allow_empty_blocks` | Whether to produce blocks when there are no transactions. |
+| `view_timeout` | Consensus view timeout. Must be `> 0`. |
+| `persistent_state_dir` | Optional directory for persistent consensus state. |
+| `dial_interval` | Interval between dial attempts to committee peers. Must be `> 0`. |
+
+
 ### Default Configurations
 
 The full unmodified `app.toml`, `config.toml`, and `client.toml` produced by
