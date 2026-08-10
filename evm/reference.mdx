@@ -736,6 +736,18 @@ Every method below is also browsable interactively in the explorer above; this s
 
 **Parameters:** none.
 
+
+
+#### `status` (CometBFT RPC)
+
+**Supported.** The underlying CometBFT `/status` RPC endpoint returns node info, validator info, and a `sync_info` object describing block-sync state. It is exposed on the Tendermint RPC port (not the EVM JSON-RPC endpoint).
+
+**Sei-specific behavior:** The `sync_info` object now includes an additional field, `last_committed_block_height` — the height of the last block finalized by consensus, serialized as a JSON string-encoded `int64`. Under standard CometBFT consensus this always equals `latest_block_height`, because a block's commit and app-apply happen in a single step. Under Autobahn consensus the two can briefly differ: consensus finalizes a block (advancing `last_committed_block_height`, derived from the latest `CommitQC`) before the app executes it, so the invariant is `last_committed_block_height >= latest_block_height`.
+
+<Note>
+**Autobahn `/status` behavior.** When a node runs under Autobahn (i.e. `AutobahnConfigFile` is set), the CometBFT block store is not populated, so `/status` derives `latest_block_height` and `latest_app_hash` from the app layer (via `ABCIInfo`) instead of the block store. Several other `sync_info` fields remain unpopulated under Autobahn and should not be relied on: `latest_block_hash`, `latest_block_time`, the `earliest_*` fields, and `max_peer_block_height`; `catching_up` is currently hardcoded to `true`. Additionally, block-data endpoints such as `/block`, `/block_results`, `/commit`, and the EVM endpoints that walk through them (e.g. `eth_getBlockByNumber`) still fail under Autobahn because the block store height reports `0`.
+</Note>
+
 #### `web3_clientVersion`
 
 **Supported.** Returns the client version string.

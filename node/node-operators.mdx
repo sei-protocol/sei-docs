@@ -187,6 +187,48 @@ The referenced JSON file supports the following fields:
   caps of 2000 transactions and ~2 MB of total transaction bytes in addition to
   the `max_gas_per_block` and `max_txs_per_block` limits from the config file.
 </Note>
+
+
+
+#### Monitoring under Autobahn
+
+Enabling Autobahn changes what several CometBFT RPC endpoints report, because
+the CometBFT block store and consensus reactor are not fed on the GigaRouter
+path. Operators relying on status and monitoring endpoints should be aware of
+the following.
+
+**`/status` additions**
+
+The `SyncInfo` object returned by `/status` now includes a
+`last_committed_block_height` field (a JSON string-encoded integer) reporting
+the last block finalized by consensus:
+
+- Under CometBFT, commit and app-apply happen in a single step, so
+  `last_committed_block_height` always equals `latest_block_height`.
+- Under Autobahn, the value is derived from the latest `CommitQC`. Consensus
+  finalizes a block before the app executes it, so
+  `last_committed_block_height` can briefly lead `latest_block_height`
+  (the invariant is `last_committed_block_height >= latest_block_height`).
+
+Under Autobahn, `/status` derives `latest_block_height` and `latest_app_hash`
+from the app layer (via `ABCIInfo`) rather than from the CometBFT block store,
+so these fields report live values instead of `0`.
+
+**Fields that remain unpopulated under Autobahn**
+
+Because the CometBFT block store and consensus reactor are not fed, the
+following `SyncInfo` fields are not currently populated under Autobahn:
+`latest_block_hash`, `latest_block_time`, all `earliest_*` fields, and
+`max_peer_block_height`. `catching_up` is hardcoded to `true`.
+
+<Warning>
+  Block-data RPC endpoints remain unavailable under Autobahn. Because the
+  CometBFT block store height stays at `0`, `/block`, `/block_results`,
+  `/commit`, and the EVM RPC endpoints that walk through them (for example
+  `eth_getBlockByNumber` and `eth_gasPrice`) still fail on Autobahn nodes.
+  Plan your monitoring and tooling accordingly until block-data reads are
+  routed through an Autobahn-aware path.
+</Warning>
 | `block_interval` | Target interval between blocks. Must be `> 0`. |
 | `allow_empty_blocks` | Whether to produce blocks when there are no transactions. |
 | `view_timeout` | Consensus view timeout. Must be `> 0`. |

@@ -299,6 +299,17 @@ When Autobahn is enabled, block production and network wiring change significant
 - **Shared mempool as the block source:** The Autobahn producer builds blocks by reaping transactions directly from the shared `TxMempool` (the same mempool used for `CheckTx`), rather than from a separate producer mempool channel. Transactions that are included in a block are popped from the shared mempool.
 - **Disabled reactors:** Because Autobahn drives consensus and block dissemination itself, the node skips starting the mempool gossip reactor, the consensus reactor, statesync, and blocksync when Autobahn is enabled. As a result, transactions are not gossiped over the standard mempool p2p channel, and the node does not perform block sync or state sync.
 
+
+#### RPC Behavior Under Autobahn
+
+Because the CometBFT block store and consensus reactor are not fed under Autobahn, some RPC responses behave differently:
+
+- **`/status` derives height and app hash from the app layer:** With Autobahn enabled the CometBFT block store height stays at 0, so the `/status` handler pulls `SyncInfo.latest_block_height` and `SyncInfo.latest_app_hash` from the application layer (via `ABCIInfo`) instead of the block store. This reports the last height the app committed in `FinalizeBlock` and its matching app hash.
+- **New `last_committed_block_height` field:** The `SyncInfo` object in the `/status` response now includes a `last_committed_block_height` field (JSON string-encoded int64) reporting the last block finalized by consensus. Under CometBFT this always equals `latest_block_height` (commit and app-apply happen in one step). Under Autobahn it is derived from the latest CommitQC and may briefly lead `latest_block_height`, since consensus finalizes a block before the app executes it.
+- **Unpopulated `/status` fields:** Several `SyncInfo` fields remain unpopulated under Autobahn: `latest_block_hash`, `latest_block_time`, the `earliest_*` fields, and `max_peer_block_height`. `catching_up` is currently hardcoded to `true` because the consensus reactor is nil.
+- **Block-data endpoints still fail:** Endpoints that read from the CometBFT block store — including `/block`, `/block_results`, `/commit`, and the EVM RPC endpoints that walk through them (`eth_getBlockByNumber`, `eth_gasPrice`, etc.) — still fail under Autobahn because the block store height is 0.
+
+
 #### Hard Per-Block Limits
 
 In addition to the configurable `max_gas_per_block` and `max_txs_per_block` fields, Autobahn enforces on-chain hard limits when building a block's payload. These are protocol-level caps and always apply, regardless of the values set in the config file:
