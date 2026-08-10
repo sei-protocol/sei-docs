@@ -369,6 +369,26 @@ In addition to the configurable `max_gas_per_block` and `max_txs_per_block` fiel
 
 
 
+### Query Pagination Limits
+
+Queries that support pagination now enforce hard caps to protect nodes from unbounded store walks. Requests that exceed any of these bounds are rejected with an `InvalidArgument` gRPC error.
+
+| Parameter | Value | Description |
+| --- | --- | --- |
+| `MaxLimit` | 1000 | Maximum page size. A `limit` above this returns an `exceeds maximum allowed limit` error. |
+| `MaxOffset` | 10000 | Maximum offset allowed in a `PageRequest`. An `offset` above this returns an `exceeds maximum allowed offset` error. |
+| `MaxScanLimit` | 10000 | Maximum number of store entries offset-based (lazy) pagination will scan past the page end. Exceeding it returns a `scanned more than 10000 entries` error suggesting key-based pagination. |
+
+<Note>
+  For datasets larger than a single page, use **key-based pagination** (`pagination.key`) rather than offset-based pagination. With offset-based pagination over a sparse filter, the scan limit may be reached before the page fills, in which case the returned `next_key` can be `nil` even when more results exist.
+</Note>
+
+<Warning>
+  `count_total` is no longer automatically enabled when `limit` is omitted or set to zero. Previously an empty or zero-limit page request would populate the `total` field; now `total` is `0` unless you explicitly set `pagination.count_total = true`. Requesting `count_total` on a large dataset can also hit the `MaxScanLimit` and fail — prefer key-based pagination for full traversals.
+</Warning>
+
+
+
 ### Build Tags
 
 The `seid` binary can be compiled with optional Go build tags that alter consensus behavior. Build tags are passed via the `GO_BUILD_TAGS` build argument.
