@@ -171,9 +171,18 @@ The referenced JSON file supports the following fields:
 | --- | --- |
 | `validators` | Committee membership. Each entry is `{ validator_key, node_key, address }`. Validator keys and node keys must be unique across the list, and the node's own keys must be present. |
 | `max_gas_per_block` | Maximum gas per produced block. Must be `> 0`. |
-| `max_txs_per_block` | Maximum transactions per produced block. Must be `> 0`. |
+| `max_txs_per_block` | Maximum transactions per produced block. Must be `> 0`. Note that Autobahn also enforces hard on-chain per-block caps of **2000 transactions** and roughly **2 MB** of total transaction bytes; `max_txs_per_block` is effectively clamped to the 2000-tx limit, so setting it higher has no effect. |
 | `max_txs_per_second` | Optional cap on transactions per second (omit to leave unset). |
-| `mempool_size` | Producer mempool capacity. Must be `> 0`. |
+| `mempool_size` | Retained for compatibility. Must be `> 0`. Note that the Autobahn producer no longer maintains a separate producer mempool channel — blocks are now built by reaping transactions directly from the shared node `TxMempool` (configured under the `[mempool]` section of `config.toml`). |
+
+<Note>
+  When Autobahn is enabled, the node builds blocks directly from the shared
+  `TxMempool` and disables the mempool gossip reactor, the consensus reactor,
+  state sync, and block sync — those subsystems are not compatible with the
+  GigaRouter consensus path. Each produced block is bounded by the on-chain
+  caps of 2000 transactions and ~2 MB of total transaction bytes in addition to
+  the `max_gas_per_block` and `max_txs_per_block` limits from the config file.
+</Note>
 | `block_interval` | Target interval between blocks. Must be `> 0`. |
 | `allow_empty_blocks` | Whether to produce blocks when there are no transactions. |
 | `view_timeout` | Consensus view timeout. Must be `> 0`. |

@@ -288,6 +288,26 @@ When Autobahn is enabled, the referenced JSON file supports the following fields
   When Autobahn is enabled, remote validator signers are not supported: the node fails to start if `priv-validator.laddr` is set. A local validator key is required — non-validator (observer) nodes are not yet supported. The node must be a committee member, so its own validator key and node key must appear in the `validators` list.
 </Warning>
 
+#### Block Production and Disabled Reactors
+
+When Autobahn is enabled, block production and network wiring change significantly:
+
+- **Shared mempool as the block source:** The Autobahn producer builds blocks by reaping transactions directly from the shared `TxMempool` (the same mempool used for `CheckTx`), rather than from a separate producer mempool channel. Transactions that are included in a block are popped from the shared mempool.
+- **Disabled reactors:** Because Autobahn drives consensus and block dissemination itself, the node skips starting the mempool gossip reactor, the consensus reactor, statesync, and blocksync when Autobahn is enabled. As a result, transactions are not gossiped over the standard mempool p2p channel, and the node does not perform block sync or state sync.
+
+#### Hard Per-Block Limits
+
+In addition to the configurable `max_gas_per_block` and `max_txs_per_block` fields, Autobahn enforces on-chain hard limits when building a block's payload. These are protocol-level caps and always apply, regardless of the values set in the config file:
+
+| Limit | Value | Description |
+| --- | --- | --- |
+| Maximum transactions per block | 2000 | No more than 2000 transactions may be included in a single Autobahn block. |
+| Maximum total transaction bytes | ~2 MB (2000 × 1024 bytes) | The combined size of all transactions in a block may not exceed roughly 2 MB. This budget can be distributed arbitrarily across transactions (e.g. one large tx or many small ones) up to the transaction-count limit. |
+
+<Note>
+  The effective per-block transaction count is the smaller of the configured `max_txs_per_block` and the hard limit of 2000. If you configure a larger value, the 2000-tx cap still applies. The block proto size upper bound used for p2p message sizing is derived from these limits.
+</Note>
+
 ## Network Parameters
 
 Understanding network parameters helps you operate your node effectively.

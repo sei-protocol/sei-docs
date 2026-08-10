@@ -241,6 +241,23 @@ seid tendermint gen-autobahn-config \
 
 Once generated, point `autobahn-config-file` in `config.toml` at the resulting file to enable Autobahn.
 
+
+
+**Reactor changes when Autobahn is enabled**
+
+<Warning>**Behavior change**: When a node runs with `autobahn-config-file` set, several standard reactors are disabled because they are incompatible with Autobahn's block production model.</Warning>
+
+Enabling Autobahn changes how the node builds and synchronizes blocks:
+
+- **Mempool gossip reactor disabled**: Transaction gossip across the standard mempool reactor is turned off. The shared `TxMempool` still accepts and stores transactions, but they are no longer broadcast peer-to-peer through the legacy mempool channel.
+- **Consensus reactor disabled**: The Tendermint consensus reactor is not started; block ordering is handled entirely by the Autobahn (GigaRouter) protocol.
+- **State sync and block sync disabled**: Both the statesync and blocksync reactors are skipped, so a node cannot catch up through those paths while Autobahn is active.
+- **Direct reaping from the shared mempool**: The block producer no longer uses a separate producer mempool channel. Instead, it reaps transactions directly from the shared `TxMempool` when assembling each block's payload.
+
+Because of these changes, an Autobahn-enabled node relies solely on the Autobahn data-dissemination and consensus layers for ordering and propagation, rather than the legacy gossip, consensus, and sync reactors.
+
+<Info>**Block limits**: Autobahn blocks are bounded by hard on-chain limits — at most 2000 transactions per block and roughly 2 MB of total transaction bytes — in addition to the `max_gas_per_block` and `max_txs_per_block` values in the config file. These limits are enforced while the payload is built.</Info>
+
 ### 3. Advanced Parallel Execution
 
 The parallel execution architecture extends beyond current OCC capabilities to include:
