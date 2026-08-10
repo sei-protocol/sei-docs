@@ -173,18 +173,20 @@ ss-prune-interval = 600
 
 # Receipt store configuration
 [state-store.receipt-store]
-# TxIndexBackend selects the tx-hash index implementation for the parquet
-# receipt store. Set to "pebbledb" (the default) to maintain a Pebble-backed
-# tx_hash -> block_number index alongside the parquet files so receipt-by-hash
-# lookups can target a single file instead of scanning all files. The index is
-# kept in sync on writes, rebuilt during WAL replay, and pruned alongside the
-# parquet files. Set to "" to disable the index. When the index is disabled, a
-# receipt-by-tx-hash lookup that misses the in-memory cache fails fast and
-# returns not-found instead of performing a full parquet scan (which would be
-# prohibitively expensive at production scale). Operators who rely on tx-hash
-# receipt lookups for historical receipts that are no longer cached must keep
-# the index enabled. This field is ignored unless rs-backend = "parquet".
-tx-index-backend = "pebbledb"
+# Backend defines the receipt store backend.
+# The only supported backend is pebbledb (aka pebble), which is also the
+# default. The parquet/DuckDB backend has been removed; setting rs-backend to
+# "parquet" now returns an error.
+rs-backend = "pebbledb"
+
+# AsyncWriteBuffer defines the async queue length for commits applied to the
+# receipt store. Applies only when rs-backend = "pebbledb". Set <= 0 for
+# synchronous writes. Defaults to 100.
+async-write-buffer = 100
+
+# Interval in seconds to trigger pruning. Receipt retention is controlled by
+# the global min-retain-blocks flag. Defaults to 600 seconds.
+prune-interval-seconds = 600
 ```
 
 <Warning>
