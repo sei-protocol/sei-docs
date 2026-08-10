@@ -751,7 +751,9 @@ Block-data endpoints are now served under Autobahn by routing through the GigaRo
 
 - `/block` returns the translated finalized block at the requested height (`BlockID.Hash`, `ChainID`, `Height`, `Time`, and `Data.Txs` are populated; fields such as `AppHash`, `ProposerAddress`, and `LastCommit` stay at zero values).
 - `/block_by_hash` resolves by hash for heights within the retain window; hashes below the pruning watermark or otherwise unknown return an empty block (`{Block: nil}`) with no error, matching CometBFT semantics.
-- `/block_results` returns the requested height with `ConsensusParamUpdates.Block.MaxGas` populated from the producer config, but `TxsResults` is intentionally empty because `FinalizeBlock` responses are not persisted under Autobahn (no per-tx `ExecTxResult` details).
+- `/block_results` returns the requested height with `ConsensusParamUpdates.Block.MaxGas` populated from the genesis `consensus_params.block.max_gas` (the same gas-limit value the producer's `MaxGasPerBlock` is derived from), but `TxsResults` is intentionally empty because `FinalizeBlock` responses are not persisted under Autobahn (no per-tx `ExecTxResult` details).
+
+Note: `eth_getBlockByNumber`'s `gasLimit` field is sourced from the active consensus params in the SDK context (`ctx.ConsensusParams().Block.MaxGas`) rather than from `blockRes.ConsensusParamUpdates`. This means the reported `gasLimit` matches the value the EVM runtime returns for the `GASLIMIT` opcode, and stays consistent under Autobahn where `/block_results` only synthesizes a placeholder.
 - `/validators` returns the genesis committee for any retained height, with `block_height` matching the requested height (fixing the prior behavior where it could report a stale/stuck height).
 
 EVM endpoints that walk through these (e.g. `eth_getBlockByNumber`) therefore work under Autobahn, rendering the block envelope correctly — just without per-tx result details from `/block_results`. `/commit` remains unpopulated under Autobahn.
