@@ -178,6 +178,34 @@ The referenced JSON file supports the following fields:
 | `max_txs_per_second` | Optional cap on transactions per second (omit to leave unset). |
 | `mempool_size` | Retained for compatibility. Must be `> 0`. Note that the Autobahn producer no longer maintains a separate producer mempool channel — blocks are now built by reaping transactions directly from the shared node `TxMempool` (configured under the `[mempool]` section of `config.toml`). |
 
+#### Mempool transaction TTL (config.toml)
+
+Under the `[mempool]` section of `config.toml`, the transaction TTL settings
+control how long a transaction is allowed to remain in the mempool before it is
+purged. Both settings are now optional, and a value of `0` explicitly disables
+the corresponding TTL.
+
+```toml
+[mempool]
+# Maximum amount of time a transaction may remain in the mempool before it is
+# purged. Set to "0s" to disable time-based TTL purging. Default: 5s.
+ttl-duration = "5s"
+# Maximum number of blocks a transaction may remain in the mempool before it is
+# purged. Set to 0 to disable block-based TTL purging. Default: 10.
+ttl-num-blocks = 10
+```
+
+Previously a non-zero value enabled the corresponding TTL; now `ttl-duration = 0`
+and `ttl-num-blocks = 0` explicitly disable time-based and block-based TTL
+purging respectively. The defaults remain `5s` and `10` blocks.
+
+<Note>
+  Expiration behavior differs between READY and PENDING transactions.
+  `remove-expired-txs-from-queue` now governs whether expired **READY**
+  transactions are pruned from the mempool queue. Expired **PENDING**
+  transactions are always removed regardless of this setting.
+</Note>
+
 <Note>
   When Autobahn is enabled, the node builds blocks directly from the shared
   `TxMempool` and disables the mempool gossip reactor, the consensus reactor,
