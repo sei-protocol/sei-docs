@@ -745,7 +745,16 @@ Every method below is also browsable interactively in the explorer above; this s
 **Sei-specific behavior:** The `sync_info` object now includes an additional field, `last_committed_block_height` — the height of the last block finalized by consensus, serialized as a JSON string-encoded `int64`. Under standard CometBFT consensus this always equals `latest_block_height`, because a block's commit and app-apply happen in a single step. Under Autobahn consensus the two can briefly differ: consensus finalizes a block (advancing `last_committed_block_height`, derived from the latest `CommitQC`) before the app executes it, so the invariant is `last_committed_block_height >= latest_block_height`.
 
 <Note>
-**Autobahn `/status` behavior.** When a node runs under Autobahn (i.e. `AutobahnConfigFile` is set), the CometBFT block store is not populated, so `/status` derives `latest_block_height` and `latest_app_hash` from the app layer (via `ABCIInfo`) instead of the block store. Several other `sync_info` fields remain unpopulated under Autobahn and should not be relied on: `latest_block_hash`, `latest_block_time`, the `earliest_*` fields, and `max_peer_block_height`; `catching_up` is currently hardcoded to `true`. Additionally, block-data endpoints such as `/block`, `/block_results`, `/commit`, and the EVM endpoints that walk through them (e.g. `eth_getBlockByNumber`) still fail under Autobahn because the block store height reports `0`.
+**Autobahn `/status` behavior.** When a node runs under Autobahn (i.e. `AutobahnConfigFile` is set), the CometBFT block store is not populated, so `/status` derives `latest_block_height` and `latest_app_hash` from the app layer (via `ABCIInfo`) instead of the block store. Several other `sync_info` fields remain unpopulated under Autobahn and should not be relied on: `latest_block_hash`, `latest_block_time`, the `earliest_*` fields, and `max_peer_block_height`; `catching_up` is currently hardcoded to `true`.
+
+Block-data endpoints are now served under Autobahn by routing through the GigaRouter's in-memory state (data.State) instead of the unpopulated CometBFT block store, though with some limitations:
+
+- `/block` returns the translated finalized block at the requested height (`BlockID.Hash`, `ChainID`, `Height`, `Time`, and `Data.Txs` are populated; fields such as `AppHash`, `ProposerAddress`, and `LastCommit` stay at zero values).
+- `/block_by_hash` resolves by hash for heights within the retain window; hashes below the pruning watermark or otherwise unknown return an empty block (`{Block: nil}`) with no error, matching CometBFT semantics.
+- `/block_results` returns the requested height with `ConsensusParamUpdates.Block.MaxGas` populated from the producer config, but `TxsResults` is intentionally empty because `FinalizeBlock` responses are not persisted under Autobahn (no per-tx `ExecTxResult` details).
+- `/validators` returns the genesis committee for any retained height, with `block_height` matching the requested height (fixing the prior behavior where it could report a stale/stuck height).
+
+EVM endpoints that walk through these (e.g. `eth_getBlockByNumber`) therefore work under Autobahn, rendering the block envelope correctly — just without per-tx result details from `/block_results`. `/commit` remains unpopulated under Autobahn.
 </Note>
 
 #### `web3_clientVersion`

@@ -221,14 +221,43 @@ following `SyncInfo` fields are not currently populated under Autobahn:
 `latest_block_hash`, `latest_block_time`, all `earliest_*` fields, and
 `max_peer_block_height`. `catching_up` is hardcoded to `true`.
 
-<Warning>
-  Block-data RPC endpoints remain unavailable under Autobahn. Because the
-  CometBFT block store height stays at `0`, `/block`, `/block_results`,
-  `/commit`, and the EVM RPC endpoints that walk through them (for example
-  `eth_getBlockByNumber` and `eth_gasPrice`) still fail on Autobahn nodes.
-  Plan your monitoring and tooling accordingly until block-data reads are
-  routed through an Autobahn-aware path.
-</Warning>
+**Block-data RPC endpoints under Autobahn**
+
+The CometBFT block store and state store are not populated under Autobahn.
+Instead, `/block`, `/block_by_hash`, `/block_results`, and `/validators` are
+now served by routing through the GigaRouter's in-memory finalized state, so
+these endpoints return real data on Autobahn nodes (previously they returned
+nil/empty because the block store height stayed at `0`). Downstream consumers
+such as the EVM RPC endpoints (for example `eth_getBlockByNumber`) that walk
+through these endpoints keep working as a result.
+
+Be aware of the following Autobahn-specific limitations:
+
+- **`/block`** returns the finalized block translated from Autobahn's
+  in-memory state at the requested height. Only a subset of the CometBFT
+  block fields are populated (block ID hash, chain ID, height, time, and the
+  transaction list); fields such as `AppHash`, `ProposerAddress`, and
+  `LastCommit` stay at their zero values.
+- **`/block_by_hash`** resolves a block by its header hash via an in-memory
+  hash index that tracks the same retain window as `/block`. Unknown hashes,
+  or hashes below the pruning watermark, return an empty block
+  (`{"block": null}`) with no error, matching CometBFT semantics.
+- **`/block_results`** returns a valid-but-empty result at the requested
+  height: `TxsResults` is intentionally empty because `FinalizeBlock`
+  responses are not persisted under Autobahn, but
+  `ConsensusParamUpdates.Block.MaxGas` is populated from the producer's
+  `max_gas_per_block` config so consumers relying on the gas limit keep
+  working. Per-transaction execution details are not available.
+- **`/validators`** returns the genesis committee for any retained height,
+  with `block_height` matching the requested height. (This fixes the prior
+  behavior where the height could get stuck at `1` due to the unpopulated
+  state store.)
+
+<Note>
+  Requesting a height that has already been pruned out of Autobahn's retain
+  window returns an `ErrHeightNotAvailable`-class error, mirroring the
+  CometBFT path so external tooling sees consistent error shapes.
+</Note>
 | `block_interval` | Target interval between blocks. Must be `> 0`. |
 | `allow_empty_blocks` | Whether to produce blocks when there are no transactions. |
 | `view_timeout` | Consensus view timeout. Must be `> 0`. |
