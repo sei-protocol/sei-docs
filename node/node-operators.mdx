@@ -484,8 +484,16 @@ prune-interval-seconds = 600
 # TxIndexBackend selects the tx-hash index implementation for parquet receipts.
 # Set to "pebbledb" to maintain a Pebble-backed tx_hash -> block_number index
 # alongside parquet files so receipt-by-hash lookups can target a single file
-# instead of scanning all files. Set to "" to disable the index and fall back
-# to a full DuckDB scan.
+# instead of scanning all files. Set to "" to disable the index.
+#
+# WARNING: with the index disabled, a receipt-by-tx-hash lookup (e.g.
+# eth_getTransactionReceipt) that misses the in-memory cache fails fast and
+# returns a not-found result instead of falling back to a full parquet scan
+# (a full scan reads every file on disk and is prohibitively expensive at
+# production scale). Operators that must serve historical receipts by tx hash
+# should keep the index enabled; otherwise receipts that are no longer cached
+# will appear as not-found. Block-range queries such as log filtering are
+# unaffected since they do not use the tx hash index.
 # Ignored unless rs-backend = "parquet".
 # defaults to "pebbledb"
 tx-index-backend = "pebbledb"
