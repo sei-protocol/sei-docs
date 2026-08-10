@@ -447,6 +447,54 @@ seid query slashing signing-info $(seid tendermint show-validator)
 seid query staking delegations-to $(seid keys show -a $VALIDATOR_KEY)
 ```
 
+
+### ProposerPriority Divergence Detection
+
+Sei nodes export two Prometheus gauges that let operators detect when a validator's `ProposerPriority` state diverges from the rest of the network. Divergence indicates corrupted consensus state and should be investigated immediately.
+
+| Metric | Type | Description |
+| --- | --- | --- |
+| `tendermint_state_proposer_priority_hash` | gauge | Encodes the first 8 bytes of the hash of the current validator set's proposer priorities, packed as a big-endian `uint64` and cast to a `float64`. |
+| `tendermint_state_proposer_priority_hash_height` | gauge | The block height at which the most recent `tendermint_state_proposer_priority_hash` was computed. |
+
+Both metrics are emitted together every 1024 heights (roughly every few minutes at Sei block times). Emitting the hash as a numeric value instead of a Prometheus label keeps series cardinality constant at one series per node, rather than creating a new time series on every priority change.
+
+#### How to use these metrics
+
+Compare `tendermint_state_proposer_priority_hash` across your validators, but **only compare samples taken at the same `tendermint_state_proposer_priority_hash_height`**. Since the hash is only meaningful at a shared height, always pair it with the height gauge before comparing:
+
+- If every node reports the **same** hash value at the same height, their `ProposerPriority` state agrees.
+- If a node reports a **different** hash value at the same height, its `ProposerPriority` state has diverged and likely indicates corrupted state on that node.
+
+Example alert rule that flags divergence across scraped nodes at a shared height:
+
+```yaml
+groups:
+  - name: proposer_priority_alerts
+    rules:
+      - alert: ProposerPriorityDivergence
+        expr: >
+          count(
+            count by (tendermint_state_proposer_priority_hash) (
+              tendermint_state_proposer_priority_hash
+              * on(instance) group_left
+              (tendermint_state_proposer_priority_hash_height == scalar(max(tendermint_state_proposer_priority_hash_height)))
+            )
+          ) > 1
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'ProposerPriority has diverged between validators'
+```
+
+Each checkpoint also writes a `proposer priority hash checkpoint` log line containing the full 32-byte hash and the packed value, which can be used for grep-based comparison across nodes.
+
+<Note>
+  Prometheus gauges are held in memory, so after a process restart these gauges reset to zero until the next emission at the following multiple of 1024 heights (up to roughly 8.5 minutes of stale or zero data). This is expected for a monitoring signal that is only consulted in response to incidents.
+</Note>
+
+
 ## Backup Management
 
 <Accordion title="Complete Automated Backup Script">
