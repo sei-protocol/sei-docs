@@ -490,6 +490,37 @@ groups:
 
 Each checkpoint also writes a `proposer priority hash checkpoint` log line containing the full 32-byte hash and the packed value, which can be used for grep-based comparison across nodes.
 
+
+
+## EVM RPC Metrics
+
+Sei nodes emit OpenTelemetry-based metrics for the EVM JSON-RPC layer through the process-wide `MeterProvider` (for example, a Prometheus exporter). These `evmrpc_*` metrics are the recommended source for monitoring RPC performance and websocket activity.
+
+| Metric | Type | Description |
+| --- | --- | --- |
+| `evmrpc_request_latency_seconds` | histogram | RPC request latency in seconds, labeled by endpoint, connection, success, error class, and JSON-RPC code bucket. |
+| `evmrpc_websocket_connects_total` | counter | Number of new websocket connections. |
+
+### `evmrpc_request_latency_seconds` labels
+
+| Label | Description |
+| --- | --- |
+| `endpoint` | The RPC method being served (e.g. `eth_call`, `eth_getBalance`). |
+| `connection` | The connection type serving the request (e.g. `http`, `websocket`). |
+| `success` | Boolean indicating whether the request completed without error or panic. |
+| `error_class` | Low-cardinality classification of the failure. Empty for successful requests. Possible values: `panic`, `execution_reverted`, `evm_not_supported`, `sei_legacy_disabled`, `association_missing`, `jsonrpc_error`, `unknown`. |
+| `jsonrpc_code` | Bucketed JSON-RPC error code. Empty when there is no code (success or an untyped error). Possible values: `spec` (predefined codes `-32700`..`-32600`), `server` (server-defined codes `-32099`..`-32000`), and `other`. |
+
+The histogram uses the following explicit bucket boundaries (in seconds):
+
+```
+0.0005, 0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30
+```
+
+### Legacy metric deprecation
+
+The legacy `sei_*` RPC metrics — including `sei_rpc_request_latency_ms` and `sei_websocket_connect` — are still emitted alongside the new `evmrpc_*` metrics for backward compatibility, but they are deprecated and scheduled for removal (PLT-326) once dashboards migrate to the OpenTelemetry `evmrpc_*` metrics. When building or updating dashboards and alerts, prefer the `evmrpc_request_latency_seconds` histogram and `evmrpc_websocket_connects_total` counter over their legacy counterparts.
+
 <Note>
   Prometheus gauges are held in memory, so after a process restart these gauges reset to zero until the next emission at the following multiple of 1024 heights (up to roughly 8.5 minutes of stale or zero data). This is expected for a monitoring signal that is only consulted in response to incidents.
 </Note>
