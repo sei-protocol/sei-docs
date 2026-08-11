@@ -26,14 +26,6 @@ By contrast, **RocksDB** supports native user-defined timestamps and optimized c
 
 In Sei’s benchmarks, RocksDB achieved up to **10–30× faster traceBlock iteration times** compared to PebbleDB, with even greater benefits observed on archive nodes.
 
-
-
-### PebbleDB descending-version encoding
-
-Recent PebbleDB builds partly narrow this gap for latest-version reads. Because PebbleDB has no native MVCC, Sei encodes the version into each key. Freshly created PebbleDB state stores now use a **descending-version MVCC encoding**, which sorts newer versions before older ones for the same logical key. This lets latest-version reads land directly on the newest visible version instead of scanning through older versions, improving read performance on the fast path. Fresh stores are marked on disk with a sentinel key (`s/_mvcc_descending`) so the mode is detected automatically on open.
-
-Legacy PebbleDB stores written by earlier builds use the older **ascending-version encoding**. These are detected automatically on open and read using the legacy ascending path—no error is raised—but they stay unmarked and cannot benefit from the descending fast path unless the store is recreated or migrated. This mirrors the migration constraint on RocksDB: archive nodes that cannot recreate their state store will continue running on the slower legacy path. Note that even with descending encoding, PebbleDB still lacks native MVCC and column-family support, so RocksDB remains the recommended backend for iteration-heavy archive and long-history RPC workloads.
-
 ## Example: TraceBlock Latency Comparison
 
 The following chart compares iteration (trace time) performance between **PebbleDB** and **RocksDB** over a 3 million block history:
