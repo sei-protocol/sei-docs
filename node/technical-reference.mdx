@@ -70,6 +70,8 @@ When a node is started in Giga mode — that is, when `autobahn-config-file` is 
 - **Consensus reactor, state sync, and block sync are disabled.** In Giga mode these reactors are skipped entirely, and both state sync and block sync are forced off regardless of other configuration.
 - **The Autobahn block producer sources transactions directly from the mempool.** Instead of relying on a separate transaction channel, the producer reaps transactions straight from the local mempool when building each block payload.
 
+- **Mempool `Update` runs with recheck disabled after each block.** When the Autobahn block producer executes a block, it updates the mempool with rechecking turned off. Re-running `CheckTx` on every remaining transaction after each block would cause the EVM antehandler to mark any still-ahead-of-nonce transaction as pending, which in turn evicts these perfectly valid queued transactions. With recheck disabled, valid out-of-order EVM nonce transactions from a sender remain in the priority index and can all be mined in subsequent blocks. Leaving recheck enabled would stall throughput to roughly one transaction per block per sender when a sender submits many sequential nonces out of order. This also matches CometBFT's default of `false` for `ConsensusParams.ABCI.RecheckTx`, since state-dependent invalidation is already caught during proposal processing and block execution.
+
 Each Autobahn block payload is subject to fixed per-block limits enforced by the block producer:
 
 - **Maximum transactions per block:** 2,000 transactions.
