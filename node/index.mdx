@@ -63,20 +63,34 @@ timedatectl
 
 ##### Install Go
 
-Only needed if you build `seid` from source — the prebuilt binary and Docker
-install paths in the next step don't require Go.
+You need Go only if you build `seid` from source. The prebuilt binary and Docker
+install paths in the next step do not require it.
 
-Suggested Version: Go 1.24.x (required for seid v6.3+)
+Current `seid` releases require Go 1.25.6 or later. Check the `go.mod` at the release tag
+you check out
+(e.g. [`v6.6.1`](https://github.com/sei-protocol/sei-chain/blob/v6.6.1/go.mod)) for its
+exact requirement.
 
 ###### Installation Steps
 
 ```bash
-# Check for existing Go installation
+# Check for existing Go installations — more than one entry means another copy
+# may still win on your PATH after this install
+which -a go
 go version
 
-# Download and install Go 1.24.x
-wget https://go.dev/dl/go1.24.5.linux-amd64.tar.gz
-sudo tar -C /usr/local -xzf go1.24.5.linux-amd64.tar.gz
+# Bumping Go? Change these two lines only
+GO_TARBALL=go1.25.6.linux-amd64.tar.gz
+GO_SHA256=f022b6aad78e362bcba9b0b94d09ad58c5a70c6ba3b7582905fababf5fe0181a
+
+curl -fLO https://go.dev/dl/${GO_TARBALL}
+
+# Verify integrity before trusting the archive (go.dev/dl publishes a SHA256 per file
+# at ${GO_TARBALL}.sha256), then replace any previous installation — extracting over
+# one leaves stale files behind
+echo "${GO_SHA256}  ${GO_TARBALL}" | sha256sum -c - \
+  && sudo rm -rf /usr/local/go \
+  && sudo tar -C /usr/local -xzf ${GO_TARBALL}
 
 # Add Go to your environment variables
 echo 'export PATH=$PATH:/usr/local/go/bin' >> $HOME/.bashrc
@@ -85,6 +99,16 @@ source $HOME/.bashrc
 # Verify installation
 go version
 ```
+
+<Note>
+  `sudo rm -rf /usr/local/go` is the replacement step [Go's install
+  docs](https://go.dev/doc/install) prescribe, but it only clears a tarball install. A
+  package-manager Go (`/usr/lib/go-*`, Homebrew) survives it and can still shadow
+  `/usr/local/go/bin/go` — if the final `go version` reports the old release,
+  `which -a go` lists every copy on your `PATH`. If the extraction itself fails, the
+  verified tarball is still in your working directory: re-run the `sudo tar` command
+  rather than starting over.
+</Note>
 </Step>
 
 <Step title="Install Sei">
