@@ -61,6 +61,23 @@ The `validator_pubkey.txt` and `node_pubkey.txt` files are written automatically
 The generated `autobahn.json` file describes the validator set along with gas and transaction limits, mempool size, block interval, view timeout, and dial interval. To have a node consume it, reference the file from `config.toml` using the `autobahn-config-file` key.
 
 
+
+#### Giga Mode Behavior and Per-Block Limits
+
+When a node is started in Giga mode — that is, when `autobahn-config-file` is set in `config.toml` — the block production and networking behavior differs significantly from standard Tendermint consensus:
+
+- **Mempool gossip reactor is disabled.** Mempool gossiping is not compatible with Giga, so transactions are not broadcast over the standard mempool p2p channel. The mempool itself still runs and accepts transactions locally.
+- **Consensus reactor, state sync, and block sync are disabled.** In Giga mode these reactors are skipped entirely, and both state sync and block sync are forced off regardless of other configuration.
+- **The Autobahn block producer sources transactions directly from the mempool.** Instead of relying on a separate transaction channel, the producer reaps transactions straight from the local mempool when building each block payload.
+
+Each Autobahn block payload is subject to fixed per-block limits enforced by the block producer:
+
+- **Maximum transactions per block:** 2,000 transactions.
+- **Maximum total transaction bytes per block:** approximately 2 MB (2,000 × 1,024 bytes). This total can be distributed arbitrarily across transactions (for example, one large transaction, or up to 2,000 smaller ones), so long as neither the transaction count nor the total byte limit is exceeded.
+
+These limits are in addition to the gas limits configured in `autobahn.json`. When building a block, the producer stops reaping transactions once any of the transaction-count, byte, or gas limits is reached. Payload construction fails if either the transaction count or total byte limit would be exceeded.
+
+
 ### Key Management
 
 Proper key management is crucial for security. These commands help you manage
