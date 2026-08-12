@@ -84,6 +84,25 @@ Under Autobahn (`AutobahnConfigFile` set) the CometBFT block store is not popula
 </Note>
 
 
+
+### Tendermint block and validator endpoints under Autobahn
+
+Under Autobahn (`AutobahnConfigFile` set) the CometBFT `BlockStore` and `StateStore` are not populated. Rather than returning empty or failing responses, the `/block`, `/block_by_hash`, `/block_results`, and `/validators` Tendermint RPC endpoints route through the GigaRouter's in-memory state (the finalized global blocks retained by the Autobahn data layer). This keeps downstream consumers — including evmrpc, block explorers, and monitoring tooling — working without individually branching on the consensus engine.
+
+Responses are served only for heights still inside Autobahn's retained window (heights pruned per `RetainHeight` are no longer available). Requests are validated against the current ABCI head, so out-of-range heights return the same `ErrHeightNotAvailable`/`ErrHeightExceedsChainHead`-class errors as the CometBFT path.
+
+| Endpoint | Autobahn behavior |
+| :- | :- |
+| `/block` | Returns the fully-populated translated block at the requested height: `BlockID.Hash` (the Autobahn header hash), the header (`ChainID`, `Height`, `Time`), and `Data.Txs`. Other header fields (`AppHash`, `ProposerAddress`, `LastCommit`, …) stay at zero values. |
+| `/block_by_hash` | Resolves the block by its Autobahn header hash via an in-memory hash index. An unknown or wrong-size hash returns `{Block: nil}` with no error, matching CometBFT semantics for a missing block. |
+| `/block_results` | Returns a valid-but-empty `ResultBlockResults` at the requested height. `ConsensusParamUpdates.Block.MaxGas` is populated from the producer config; `TxsResults` (per-tx `ExecTxResult` details) is intentionally empty because `FinalizeBlock` responses are not persisted under Autobahn. Populating these is a separate follow-up. |
+| `/validators` | Returns the genesis committee at any retained height — the committee is fixed at genesis under Autobahn (no validator-updates path). `block_height` matches the requested height, and pagination (`page`/`per_page`) behaves the same as the CometBFT path. |
+
+<Note>
+Because `FinalizeBlock` responses are not stored on disk under Autobahn, `/block_results` cannot surface per-transaction execution results (`TxsResults` is empty). For per-transaction EVM data, use the EVM JSON-RPC methods (`eth_getTransactionReceipt`, `eth_getBlockReceipts`) instead.
+</Note>
+
+
 ### Filter and subscription limits
 
 <Info>
