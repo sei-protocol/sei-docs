@@ -310,6 +310,18 @@ EVM transactions must not carry any Cosmos SDK wrapper fields. A transaction is 
 Additionally, the transaction decoder now rejects "bloated" transaction bodies whose raw wire encoding is larger than the canonical re-marshaled form (for example, padded fields or oversized `Any.Value` entries). Non-canonical encodings that previously decoded successfully will now fail with a decode error, so tooling should always emit canonical protobuf encodings.
 
 
+### Receipts for nonce-bumping failed transactions
+
+Some EVM transactions pass basic validation and bump the sender's nonce, yet still fail during state transition — for example, a transaction whose gas limit clears the intrinsic-gas check but falls short of the EIP-7623 floor-data-gas requirement (which can occur in normal operation after Pectra). Because these transactions bump the nonce, they are considered to have happened and therefore produce a receipt.
+
+For such failures, Sei writes a `status=0` (failed) receipt with `gasUsed` equal to the transaction's gas limit and a `VmError` describing the state-transition reason. `eth_getTransactionReceipt` returns this failed-tx receipt instead of `null`.
+
+<Info>
+  Previously, a nonce-bumping transaction that failed during state transition could return `null` from `eth_getTransactionReceipt` indefinitely, causing clients that poll for a receipt to hang. Clients should now expect a `status=0` receipt for these transactions and treat it as a normal failed-transaction result.
+</Info>
+
+
+
 ## Additional Resources
 
 <CardGroup cols={3}>
