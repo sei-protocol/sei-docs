@@ -121,6 +121,24 @@ Each Autobahn block payload is bounded by the following limits, enforced by the 
 
 When filling a block the producer seals the current block and starts a new one as soon as adding the next transaction would exceed any of the transaction-count, byte, wanted-gas, or estimated-gas limits.
 
+
+
+#### Autobahn Committee and Network Message Limits
+
+Beyond the per-block payload limits, Giga mode enforces structural limits on the validator committee and on incoming consensus network messages:
+
+- **Maximum validators per committee:** the Autobahn committee is capped at a hard limit of 100 validators (`MaxValidators`). Committee creation rejects any validator set exceeding this limit — building a committee from more than 100 validators fails with a `too many validators` error rather than being silently truncated.
+- **Bounded consensus network messages.** Autobahn consensus protobuf messages carry declared size and count constraints that are checked against the raw wire bytes before the message is decoded. Payloads that violate these constraints are rejected during decoding, before any allocation, which protects nodes from oversized or malformed inputs that could otherwise decode into much larger in-memory structures.
+
+The enforced message constraints include:
+
+- **Per-field maximum sizes** on fixed-width fields such as hashes, signatures, and public keys.
+- **Maximum repeated-field counts** on validator-related lists — signature and quorum-certificate lists are capped at 100 entries (matching the 100-validator committee cap).
+- **Transaction payload caps:** a block payload may carry at most 2000 transactions, with a combined transaction byte budget of roughly 2 MB across all transactions in the payload.
+
+Any message whose fields exceed these limits is rejected at decode time, so an oversized network payload never reaches the consensus logic.
+
+
 <Note>
   Because Giga replaces the CometBFT mempool, the `unsafe_flush_mempool` RPC endpoint is not supported under Giga and returns `unsafe_flush_mempool is not supported with autobahn mempool`.
 </Note>
