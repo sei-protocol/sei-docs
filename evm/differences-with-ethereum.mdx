@@ -137,6 +137,35 @@ updated by both native Cosmos bank send transactions and EVM send transactions.
 As a result, if certain offchain applications only parse EVM transactions, they
 may find certain state changes unattributable to any EVM transaction.
 
+
+
+## EVM Transaction Envelope Restrictions
+
+On Sei, EVM transactions are carried inside a Cosmos transaction envelope, but that envelope must remain empty of Cosmos-specific fields. This introduces two Sei-specific divergences from a plain Ethereum transaction that tooling constructing raw transactions should be aware of:
+
+### No Cosmos wrapper fields on EVM transactions
+
+An EVM transaction must not populate any of the Cosmos wrapper fields. If any of the following are set, the transaction is rejected:
+
+- `memo`
+- `timeout_height`
+- extension options (`extension_options` / `non_critical_extension_options`)
+- `signer_infos`
+- fee amount, fee `payer`, and fee `granter`
+- top-level `signatures`
+
+The EVM transaction's own signature (`v`, `r`, `s`) lives inside the EVM payload itself, so none of these Cosmos-level fields are needed. This check is applied uniformly to all EVM transactions.
+
+### Rejection of bloated (non-canonical) transaction bodies
+
+The transaction decoder now rejects "bloated" transaction bodies — those whose raw protobuf wire encoding is larger than the canonical re-marshal of the decoded body. Non-canonical encodings (for example, padded fields or an oversized `Any.Value`) that were previously silently canonicalized and accepted are now rejected on decode with a decode error.
+
+<Warning>
+
+These are consensus-level validation changes. Transactions that were previously accepted may now be rejected if they carry Cosmos wrapper fields or use a non-canonical protobuf encoding. Ensure your transaction-signing tooling produces a minimal, canonical envelope with no Cosmos wrapper fields populated.
+
+</Warning>
+
 ## Finality
 
 Sei has instant finality — a transaction is final as soon as its block is

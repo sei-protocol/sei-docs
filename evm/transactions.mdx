@@ -285,6 +285,31 @@ EVM transactions in Sei follow the Ethereum transaction format with standard pro
 | Out of Gas | Gas limit too low for the operation | Use `eth_estimateGas` to set appropriate limit |
 | Contract Execution Failed | Contract function reverted | Test with `eth_call` before sending transaction |
 
+
+## Transaction Validation
+
+Before an EVM transaction is accepted, Sei performs strict semantic validation of the transaction's fields. Transactions that are malformed at the encoding level are rejected during basic validation, even if they were accepted by older node versions. If you construct and sign transactions manually, make sure they are well-formed to avoid rejection.
+
+The following checks are enforced:
+
+| Field | Requirement |
+| --- | --- |
+| Signature values (`v`, `r`, `s`) | Each value must not exceed its maximum byte length (32 bytes for `r`/`s`) and must not contain a leading zero byte. |
+| `accessList` addresses | Each access-list address must be a valid, correctly-sized hex-encoded address. |
+| `accessList` storage keys | Each storage key must be a valid, correctly-sized hex-encoded 32-byte hash. |
+| Authorization list (EIP-7702 `setCode` txs) | Each entry must include a non-nil chain ID, a valid hex address, and well-formed `v`/`r`/`s` signature values. |
+
+<Warning>
+  Transactions with malformed signature values, access-list entries, or authorization-list entries that previously passed validation may now be rejected. Ensure your signing tooling produces canonical, correctly-encoded values.
+</Warning>
+
+### Cosmos wrapper fields
+
+EVM transactions must not carry any Cosmos SDK wrapper fields. A transaction is rejected if it populates a memo, timeout height, extension options, signer infos, fee amount/payer/granter, or Cosmos-level signatures. This validation is applied uniformly across the transaction pipeline.
+
+Additionally, the transaction decoder now rejects "bloated" transaction bodies whose raw wire encoding is larger than the canonical re-marshaled form (for example, padded fields or oversized `Any.Value` entries). Non-canonical encodings that previously decoded successfully will now fail with a decode error, so tooling should always emit canonical protobuf encodings.
+
+
 ## Additional Resources
 
 <CardGroup cols={3}>
