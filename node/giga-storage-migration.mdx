@@ -241,6 +241,24 @@ memiavl is the sole SC backend and FlatKV is not allocated) to `migrate_evm`
 migration completes, operators flip `sc-write-mode` again to `evm_migrated` so
 subsequent restarts don't spin up the migration manager.
 
+
+
+Beyond `evm_migrated`, `flatkv_only` is the fully-supported **terminal**
+steady-state write mode: FlatKV is the sole SC backend and `memiavl` is not
+allocated at all. In this mode every module's SC state is served from FlatKV,
+and state-sync snapshot export/restore plus app-hash parity work correctly, so
+a node can boot directly into the post-migration shape without ever running the
+migration manager. Use `flatkv_only` when you want a node to come up already in
+the post-migration steady state rather than draining keys out of memiavl at
+runtime.
+
+<Note>A correctness bug in the WAL replay path — where empty (zero-length)
+values written with no delete flag were dropped on replay (catchup, read-only
+clone, snapshot export, and state-sync restore), diverging the FlatKV state and
+the consensus AppHash from the live chain — is fixed. Empty-value writes are now
+preserved across a WAL round-trip and state-sync, which is what makes
+`flatkv_only` state-sync reliable.</Note>
+
 While in a migration mode:
 
 - Caller reads of not-yet-migrated keys fall back to FlatKV for brand-new keys
