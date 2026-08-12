@@ -1233,6 +1233,45 @@ The `filter` object applies only to `logs` subscriptions. For `newHeads`, pass t
 }
 ```
 
+
+
+#### `debug_traceTransactionProfile`
+
+**Limited.** Sei extension that replays a transaction by hash and returns its execution trace alongside a detailed timing and store-access profile.
+
+**Sei-specific behavior:** Sei-specific extension (not part of upstream go-ethereum's debug namespace). HTTP-only and subject to historical-debug-trace availability guards. In addition to the standard trace result, it returns a `profile` object breaking down where time was spent — total wall time, historical DB lookup time, and per-phase timings (transaction lookup, block load, historical tx replay, block-context build, tx prepare, execution, and trace-result assembly) — plus a per-module `store` access trace (reads, iterators with the keys they surfaced, and per-operation `stats` roll-ups). Per-tx caps bound the trace size: at most 16 iterators and 64 keys per iterator are retained per module, with overflow flagged via `truncated`. To run this method across a whole block range and generate aggregate reports, use the `seidb trace-profile-report` command.
+
+**Parameters:**
+
+| # | Name | Type | Description |
+| :- | :- | :- | :- |
+| 1 | `hash` | DATA, 32 bytes | Transaction hash to trace and profile. |
+| 2 | `config` | object | Optional tracer config (tracer name, tracerConfig, timeout, reexec, disableStorage/Stack/Memory). |
+
+The response `result` contains a `trace` field (the standard tracer output) and a `profile` object shaped as follows:
+
+- `totalNanos` — total wall-clock nanoseconds for the profiled trace.
+- `historicalDbLookupNanos` — nanoseconds spent in historical store lookups (get/has/iterator/iteratorNext).
+- `otherNanos` — remaining time not attributed to historical lookups or execution.
+- `phases` — per-phase timings: `lookupTransactionNanos`, `loadBlockNanos`, `replayHistoricalTxsNanos`, `buildBlockContextNanos`, `prepareTxNanos`, `executionNanos`, `traceResultNanos`.
+- `store` — per-module store access trace: `modules` (each with `reads`, `has`, `iterators`, and per-op `stats`) and top-level `stats`.
+
+**Example request:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "debug_traceTransactionProfile",
+  "params": [
+    "0x5c504ed432cb51138bcf09aa5e8a410dd4a1e204ef84bfed1be16dfba1b22060",
+    {
+      "timeout": "60s"
+    }
+  ]
+}
+```
+
 </Accordion>
 
 ## Sei Custom Endpoints
