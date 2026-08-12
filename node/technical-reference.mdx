@@ -38,6 +38,39 @@ seid query node info
 ```
 
 
+
+### seidb Tooling Commands
+
+The `seidb` binary provides low-level tooling for inspecting and maintaining a node's on-disk state.
+
+#### Reporting FlatKV EVM Migration Status
+
+The `migrate-evm-status` subcommand reads the on-disk FlatKV EVM migration state from a FlatKV data directory and prints a JSON summary. It is primarily intended for integration and operator tooling that polls each validator to determine whether the FlatKV EVM migration has completed, without needing a custom RPC handler or having to grep through node logs.
+
+```bash
+# Report FlatKV EVM migration status at the latest available version
+seidb migrate-evm-status --db-dir <flatkv-dir>
+
+# The --db-dir flag may be abbreviated as -d
+seidb migrate-evm-status -d /root/.sei/data/state_commit/flatkv
+
+# Report status at a specific FlatKV version (0 selects the latest)
+seidb migrate-evm-status --db-dir <flatkv-dir> --height <n>
+```
+
+The command opens FlatKV read-only — it hardlink-clones the latest snapshot and copies the WAL into a temporary directory before opening — so it can be run safely against a directory that a live node is still writing to.
+
+The emitted JSON contains the following fields:
+
+- `version_at` — the FlatKV version that was read.
+- `migration_version` — the on-disk migration version (`0` means the FlatKV EVM migration has not yet completed).
+- `migrate_evm_complete` — `true` once the migration version has reached the FlatKV EVM (v1) target.
+- `boundary_present` — `true` while the migration is in flight (the in-progress resume cursor is still present).
+- `boundary_hex` — hex-encoded migration boundary cursor, included only when a boundary is present.
+- `version_raw_hex` — hex-encoded raw migration-version bytes, included only when a migration version is present.
+
+
+
 ### Autobahn (GigaRouter) Config Generation
 
 When running with the Autobahn (GigaRouter) networking layer, you can generate the Autobahn JSON config from a set of node directories. Each directory must contain `validator_pubkey.txt`, `node_pubkey.txt`, `autobahn_address.txt`, and `evmrpc_url.txt`.
