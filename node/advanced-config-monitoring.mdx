@@ -504,6 +504,41 @@ scrape_configs:
       - targets: ['localhost:9100']
 ```
 
+
+
+## EVM RPC OpenTelemetry Metrics
+
+The EVM RPC layer emits OpenTelemetry metrics through the process-wide `MeterProvider` (for example, a Prometheus exporter). These are emitted in parallel with the legacy `sei_*` metrics so you can migrate dashboards incrementally.
+
+### Available Metrics
+
+| Metric | Type | Description |
+| --- | --- | --- |
+| `evmrpc_request_latency_seconds` | Histogram | EVM RPC request latency in seconds. |
+| `evmrpc_websocket_connects_total` | Counter | Number of new websocket connections. |
+
+The `evmrpc_request_latency_seconds` histogram carries the following labels:
+
+| Label | Description |
+| --- | --- |
+| `endpoint` | The RPC method being served (for example, `eth_getBalance`). |
+| `connection` | The connection type serving the request (for example, `http` or `websocket`). |
+| `success` | Boolean indicating whether the request succeeded. |
+| `error_class` | A low-cardinality classification of the failure. An empty string denotes success. Possible values include `panic`, `execution_reverted`, `evm_not_supported`, `sei_legacy_disabled`, `association_missing`, `jsonrpc_error`, and `unknown`. |
+| `jsonrpc_code` | A low-cardinality bucket for the JSON-RPC error code: `spec` (predefined range `-32700..-32600`), `server` (server-defined range `-32099..-32000`), or `other`. An empty string denotes no code (success or an untyped error). |
+
+### Migrating from Legacy Metrics
+
+The following legacy `sei_*` metrics remain available today but are deprecated and scheduled for removal once dashboards migrate to the `evmrpc_*` OpenTelemetry metrics:
+
+| Legacy metric | Replacement |
+| --- | --- |
+| `sei_rpc_request_latency_ms` | `evmrpc_request_latency_seconds` |
+| `sei_websocket_connect` | `evmrpc_websocket_connects_total` |
+| `sei_rpc_request` | `evmrpc_request_latency_seconds` (use the histogram count with the `success` and `error_class` labels) |
+
+Update your Prometheus and Grafana dashboards to consume the `evmrpc_*` metrics before the legacy metrics are removed. Note that latency changed units from milliseconds (`sei_rpc_request_latency_ms`) to seconds (`evmrpc_request_latency_seconds`), so adjust any thresholds and panel formatting accordingly.
+
 ## Performance Testing
 
 <Accordion title="Example Benchmark Script using `eth_getLogs`">
