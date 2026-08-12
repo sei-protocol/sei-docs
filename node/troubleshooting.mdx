@@ -100,6 +100,29 @@ systemctl restart seid
 ```
 
 
+On Giga Storage nodes, EVM state lives in a FlatKV store rather than in the memIAVL trees, so an AppHash comparison there requires dumping the FlatKV state as well. Use the `dump-flatkv` command to iterate and dump the physical `(key, value)` pairs into per-bucket files (formatted to match `dump-iavl` so the same diff tooling works on both):
+
+```bash
+# For FlatKV (Giga Storage nodes hold EVM state in FlatKV):
+systemctl stop seid
+seidb dump-flatkv --db-dir $HOME/.sei/data/flatkv --output-dir /home/ubuntu/flatkv-dump
+systemctl restart seid
+```
+
+The `dump-flatkv` command accepts the following flags:
+
+- `--db-dir` / `-d`: FlatKV database directory.
+- `--output-dir` / `-o`: output directory; one file is written per bucket.
+- `--height`: FlatKV target version; `0` (the default) selects the latest available version.
+- `--bucket` / `-b`: restrict the dump to a single bucket (`account`, `code`, `storage`, or `legacy`). Defaults to all buckets.
+
+For example, to dump only the `storage` bucket at a specific version:
+
+```bash
+seidb dump-flatkv --db-dir $HOME/.sei/data/flatkv --output-dir /home/ubuntu/flatkv-dump --height 12345678 --bucket storage
+```
+
+
 <Warning>
 **The legacy IAVL backend has been fully removed and SeiDB State Commit (SC) is now mandatory.** SC must be enabled via `sc-enable = true` in the `[state-commit]` section of `app.toml`. If SC is not enabled, the node no longer falls back to IAVL — it panics at startup with:
 
