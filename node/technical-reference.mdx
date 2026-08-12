@@ -71,6 +71,48 @@ The emitted JSON contains the following fields:
 
 
 
+#### Comparing EVM State Across Backends
+
+The `evm-logical-digest` subcommand computes a backend-independent digest of the EVM logical state (the account, code, and storage buckets) so that a memIAVL node and a FlatKV node can be compared at the same chain height. Because a freshly migrated FlatKV node stamps a per-key `blockHeight` into each value that differs from the memIAVL leaf versions, a raw byte-for-byte digest would diverge even when the underlying EVM state is identical. This command strips the serialization-version and `blockHeight` header on both sides and digests only the height-independent logical payload (storage word, bytecode, or balance+nonce+codehash), producing a comparable `FINAL_DIGEST` per backend.
+
+```bash
+# FlatKV digest at a height (WAL-replays to it). Prints per-bucket
+# bucket_digest values and one FINAL_DIGEST line for backend comparison.
+seidb evm-logical-digest --backend flatkv \
+    --db-dir /root/.sei/data/state_commit/flatkv --height 213200000
+
+# memIAVL digest at the same height (0 = current symlink), using the default
+# semantic normalization. memiavl resolves snapshot-<height>/evm or current/evm
+# and does not replay WAL in this tool.
+seidb evm-logical-digest --backend memiavl \
+    --db-dir /root/.sei/data/state_commit/memiavl --height 213200000
+
+# Translator-based memIAVL digest, which feeds each leaf through the current
+# migration mapping (flatkv.ImportTranslator).
+seidb evm-logical-digest --backend memiavl \
+    --db-dir /root/.sei/data/state_commit/memiavl --height 213200000 \
+    --memiavl-normalization translator
+```
+
+Two backends match when the FlatKV `FINAL_DIGEST` equals the memIAVL `FINAL_DIGEST`. FlatKV also writes an internal migration-version marker row that a memiavl-only node never owns, so the command omits that row from the final comparison automatically.
+
+The command accepts the following flags:
+
+- `--backend` — backend to read: `flatkv` or `memiavl`.
+- `--db-dir` (`-d`) — for FlatKV, the FlatKV data directory; for memIAVL, the memIAVL root directory containing `current/` and `snapshot-*`.
+- `--height` — target version. FlatKV WAL-replays to it; memIAVL resolves `snapshot-<height>/evm` (`0` selects the `current` symlink).
+- `--memiavl-normalization` — memIAVL normalization mode: `semantic`/`independent` (raw EVM key/value decoder, the default `semantic`) or `translator` (current migration mapping).
+- `--inspect-bucket` — inspect one normalized bucket (`account`, `code`, `storage`, or `legacy`) instead of printing the global digest.
+- `--key-offset` — inspect mode: byte offset into the physical key before applying `--key-prefix` or sharding.
+- `--key-prefix` — inspect mode: hex prefix, relative to `--key-offset`, used to filter physical keys.
+- `--shard-next-bytes` — inspect mode: group matching keys by this many bytes after `--key-prefix`.
+- `--list` — inspect mode: list matching key/logical-value pairs instead of shard `bucket_digest` values.
+- `--list-limit` — inspect mode: maximum pairs to print with `--list` (default `1000`; a value `<= 0` means unlimited).
+- `--details` — inspect list mode: include backend-specific version metadata.
+- `--find-hash` — optional 32-byte hex per-entry hash to hunt for. When two `bucket_digest` values differ by exactly one entry, their XOR is that entry's hash; this prints every matching entry so a single diverging row can be located.
+
+
+
 ### Autobahn (GigaRouter) Config Generation
 
 When running with the Autobahn (GigaRouter) networking layer, you can generate the Autobahn JSON config from a set of node directories. Each directory must contain `validator_pubkey.txt`, `node_pubkey.txt`, `autobahn_address.txt`, and `evmrpc_url.txt`.

@@ -123,6 +123,54 @@ seidb dump-flatkv --db-dir $HOME/.sei/data/flatkv --output-dir /home/ubuntu/flat
 ```
 
 
+
+### Comparing EVM State Between memIAVL and FlatKV
+
+When debugging an AppHash mismatch that involves EVM state, a byte-for-byte physical dump can diverge between backends even when the underlying state is identical. This is because every FlatKV value embeds a per-key block-height stamp (the height the key was last written or migrated), which differs from the memIAVL leaf versions on a freshly migrated node.
+
+The `evm-logical-digest` command works around this by computing a backend-independent digest of the EVM *logical* state — it strips the serialization-version and block-height header on both sides and digests only the logical payload (account balance/nonce/code hash, bytecode, and storage words). This lets a memIAVL node and a FlatKV node be compared at the same chain height:
+
+```bash
+# FlatKV digest at a height (WAL-replays to it):
+seidb evm-logical-digest --backend flatkv \
+    --db-dir $HOME/.sei/data/state_commit/flatkv --height 213200000
+
+# memIAVL digest at the same height (0 = current symlink):
+seidb evm-logical-digest --backend memiavl \
+    --db-dir $HOME/.sei/data/state_commit/memiavl --height 213200000
+```
+
+Each run prints per-bucket `bucket_digest` values and a single `FINAL_DIGEST` line covering the `account`, `code`, `storage`, and `legacy` buckets. Compare the `FINAL_DIGEST` lines from both backends at the same height — they should match. Because FlatKV can contain a FlatKV-only migration-version marker that a memIAVL-only node never owns, that row is automatically omitted from the FlatKV final result so the comparison is apples-to-apples.
+
+The `evm-logical-digest` command accepts the following flags:
+
+- `--backend`: backend to read (`flatkv` or `memiavl`).
+- `--db-dir` / `-d`: for FlatKV, the FlatKV data directory; for memIAVL, the memIAVL root directory (containing `current/` and `snapshot-*`).
+- `--height`: target version. FlatKV WAL-replays to it; memIAVL resolves `snapshot-<height>/evm` (`0` selects the `current` symlink).
+- `--memiavl-normalization`: memIAVL normalization mode — `semantic`/`independent` (raw EVM key/value decoder, the default) or `translator` (routes each leaf through the current migration mapping).
+
+For targeted debugging, the command also supports inspecting a single normalized bucket instead of printing the global digest:
+
+- `--inspect-bucket`: inspect one bucket (`account`, `code`, `storage`, or `legacy`) instead of the global digest.
+- `--key-offset`: byte offset into the physical key before applying `--key-prefix` and sharding.
+- `--key-prefix`: hex prefix, relative to `--key-offset`, used to filter physical keys.
+- `--shard-next-bytes`: group matching keys by this many bytes after `--key-prefix`.
+- `--list`: list matching key/logical-value pairs instead of shard digests.
+- `--list-limit`: maximum pairs to print with `--list` (default `1000`; `<=0` means unlimited).
+- `--details`: include backend-specific version metadata in list mode.
+- `--find-hash`: a 32-byte hex per-entry hash to hunt for. When two `bucket_digest` values differ by exactly one entry, their XOR is that entry's hash; passing it prints every matching entry as a `FOUND-HASH` line.
+
+For example, to list the first 50 `account` rows with version metadata, or to shard the `storage` bucket under a key prefix by the next 2 bytes:
+
+```bash
+seidb evm-logical-digest --backend flatkv -d $HOME/.sei/data/state_commit/flatkv --height 213200000 \
+    --inspect-bucket account --list --list-limit 50 --details
+
+seidb evm-logical-digest --backend flatkv -d $HOME/.sei/data/state_commit/flatkv --height 213200000 \
+    --inspect-bucket storage --key-prefix 03 --shard-next-bytes 2
+```
+
+
 <Warning>
 **The legacy IAVL backend has been fully removed and SeiDB State Commit (SC) is now mandatory.** SC must be enabled via `sc-enable = true` in the `[state-commit]` section of `app.toml`. If SC is not enabled, the node no longer falls back to IAVL — it panics at startup with:
 
