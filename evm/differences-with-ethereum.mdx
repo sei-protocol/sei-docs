@@ -156,6 +156,20 @@ An EVM transaction must not populate any of the Cosmos wrapper fields. If any of
 
 The EVM transaction's own signature (`v`, `r`, `s`) lives inside the EVM payload itself, so none of these Cosmos-level fields are needed. This check is applied uniformly to all EVM transactions.
 
+
+
+### Whole-block rejection on transaction decode failure
+
+During proposal processing, Sei decodes every transaction in a proposed block. If any transaction fails to decode — or panics during decode — the **entire block proposal is rejected** rather than the offending transaction being silently skipped (treated as nil) while the rest of the block proceeds.
+
+This also affects block gas accounting: a transaction that could not be decoded no longer contributes zero gas and gets skipped; instead its presence causes the block proposal to be rejected outright.
+
+<Warning>
+
+This is a consensus-level behavior change. Tooling that produces malformed or non-canonical transactions can no longer rely on such transactions being individually dropped from an otherwise-valid block — a single undecodable transaction now invalidates the whole proposal. Ensure your signing and broadcast tooling only submits transactions that decode cleanly.
+
+</Warning>
+
 ### Rejection of bloated (non-canonical) transaction bodies
 
 The transaction decoder now rejects "bloated" transaction bodies — those whose raw protobuf wire encoding is larger than the canonical re-marshal of the decoded body. Non-canonical encodings (for example, padded fields or an oversized `Any.Value`) that were previously silently canonicalized and accepted are now rejected on decode with a decode error.
