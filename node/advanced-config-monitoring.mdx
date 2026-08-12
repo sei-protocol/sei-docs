@@ -633,6 +633,64 @@ Metric names, units, and shape changed with the OpenTelemetry migration, so exis
 - The per-cache series that were previously separate metric names (for example `chunk_read_cache_*` and `chunk_write_cache_*`) are now the shared `litt_chunk_cache_*` metrics distinguished by the `cache` attribute.
 - The `MetricsNamespace` and `MetricsRegistry` config fields no longer exist. Metric names are fixed, and metrics are always backed by the global OTel provider; supply the scrape port via `MetricsPort`.
 
+
+
+## IBC OpenTelemetry Metrics
+
+The IBC modules emit OpenTelemetry metrics through the process-wide `MeterProvider` (for example, a Prometheus exporter). These are emitted in parallel with the legacy `ibc_*` and `tx_msg_*` telemetry counters so you can migrate dashboards incrementally. The metrics are grouped by meter, one per IBC module.
+
+### Transfer Metrics (`ibc_transfer_keeper` meter)
+
+| Metric | Type | Description |
+| --- | --- | --- |
+| `ibc_transfer_tx_msg` | Gauge | Last amount of tokens transferred via IBC per denom class. |
+| `ibc_transfer_packet_receive` | Gauge | Last amount of tokens received in an IBC packet per denom class. |
+| `ibc_transfer_send` | Counter | Total number of IBC transfers sent. |
+| `ibc_transfer_receive` | Counter | Total number of IBC transfers received. |
+
+The transfer gauges carry a `denom_class` attribute. `ibc_transfer_send` carries `destination_port`, `destination_channel`, and a boolean `source` attribute indicating whether the sending chain is the token source. `ibc_transfer_receive` carries `source_port`, `source_channel`, and the boolean `source` attribute.
+
+### Core Client Metrics (`ibc_core_client_keeper` meter)
+
+| Metric | Type | Description |
+| --- | --- | --- |
+| `ibc_client_create` | Counter | Total number of IBC client creates. |
+| `ibc_client_update` | Counter | Total number of IBC client updates. |
+| `ibc_client_upgrade` | Counter | Total number of IBC client upgrades. |
+| `ibc_client_misbehaviour` | Counter | Total number of IBC client misbehaviour events. |
+
+These metrics carry a `client_type` attribute. `ibc_client_update`, `ibc_client_upgrade`, and `ibc_client_misbehaviour` also carry a `client_id` attribute. `ibc_client_update` additionally carries an `update_type` attribute (`msg` or `proposal`).
+
+### Connection Metrics (`ibc_connection` meter)
+
+| Metric | Type | Description |
+| --- | --- | --- |
+| `ibc_connection_open_init` | Counter | Total number of IBC connection open-init handshakes. |
+| `ibc_connection_open_try` | Counter | Total number of IBC connection open-try handshakes. |
+| `ibc_connection_open_ack` | Counter | Total number of IBC connection open-ack handshakes. |
+| `ibc_connection_open_confirm` | Counter | Total number of IBC connection open-confirm handshakes. |
+
+### Channel Metrics (`ibc_channel` meter)
+
+| Metric | Type | Description |
+| --- | --- | --- |
+| `ibc_channel_open_init` | Counter | Total number of IBC channel open-init handshakes. |
+| `ibc_channel_open_try` | Counter | Total number of IBC channel open-try handshakes. |
+| `ibc_channel_open_ack` | Counter | Total number of IBC channel open-ack handshakes. |
+| `ibc_channel_open_confirm` | Counter | Total number of IBC channel open-confirm handshakes. |
+| `ibc_channel_close_init` | Counter | Total number of IBC channel close-init handshakes. |
+| `ibc_channel_close_confirm` | Counter | Total number of IBC channel close-confirm handshakes. |
+
+### Core Packet Metrics (`ibc_core` meter)
+
+| Metric | Type | Description |
+| --- | --- | --- |
+| `ibc_core_tx_msg_recv_packet` | Counter | Total number of IBC recv packet messages. |
+| `ibc_core_timeout_packet` | Counter | Total number of IBC timeout packets. |
+| `ibc_core_tx_msg_acknowledge_packet` | Counter | Total number of IBC acknowledge packet messages. |
+
+These packet metrics carry `source_port`, `source_channel`, `destination_port`, and `destination_channel` attributes. `ibc_core_timeout_packet` additionally carries a `timeout_type` attribute (`height` or `channel-closed`).
+
 ## Performance Testing
 
 <Accordion title="Example Benchmark Script using `eth_getLogs`">
