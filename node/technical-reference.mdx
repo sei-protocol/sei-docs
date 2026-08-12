@@ -99,7 +99,7 @@ The command reads the following files from each node directory:
 
 The `validator_pubkey.txt` and `node_pubkey.txt` files are written automatically alongside `priv_validator_key.json` and `node_key.json` whenever those keys are saved, so they are typically already present in each node's config directory.
 
-The generated `autobahn.json` file describes the validator set along with gas and transaction limits, mempool size, block interval, view timeout, and dial interval. To have a node consume it, reference the file from `config.toml` using the `autobahn-config-file` key.
+The generated `autobahn.json` file describes the validator set along with gas and transaction limits, block interval, view timeout, and dial interval. To have a node consume it, reference the file from `config.toml` using the `autobahn-config-file` key.
 
 
 
@@ -107,18 +107,23 @@ The generated `autobahn.json` file describes the validator set along with gas an
 
 When a node is started in Giga mode — that is, when `autobahn-config-file` is set in `config.toml` — the block production and networking behavior differs significantly from standard Tendermint consensus:
 
-- **Mempool gossip reactor is disabled.** Mempool gossiping is not compatible with Giga, so transactions are not broadcast over the standard mempool p2p channel. The mempool itself still runs and accepts transactions locally.
+- **The CometBFT `TxMempool` is not used.** Under Giga the standard mempool (and its gossip reactor) is disabled entirely. Transactions instead route through the Autobahn producer-backed mempool.
 - **Consensus reactor, state sync, and block sync are disabled.** In Giga mode these reactors are skipped entirely, and both state sync and block sync are forced off regardless of other configuration.
-- **The Autobahn block producer sources transactions directly from the mempool.** Instead of relying on a separate transaction channel, the producer reaps transactions straight from the local mempool when building each block payload.
+- **Transactions are admitted through the producer mempool.** The RPC broadcast endpoints call the producer's `InsertTx`/`TryInsertTx` rather than the CometBFT mempool's `CheckTx`. `BroadcastTx` uses `InsertTx`, which blocks while the mempool is full; the async path uses `TryInsertTx`, which returns a `mempool is full` error instead of blocking.
+- **Sequential EVM nonce ordering is enforced.** For EVM transactions, the producer mempool admits transactions strictly in nonce order per sender. A transaction whose nonce does not match the next expected nonce is rejected with a `bad nonce` error. Because admission is sequential, the mempool can track pending nonces (`EvmNextPendingNonce`) as callers submit them.
 
-- **Mempool `Update` runs with recheck disabled after each block.** When the Autobahn block producer executes a block, it updates the mempool with rechecking turned off. Re-running `CheckTx` on every remaining transaction after each block would cause the EVM antehandler to mark any still-ahead-of-nonce transaction as pending, which in turn evicts these perfectly valid queued transactions. With recheck disabled, valid out-of-order EVM nonce transactions from a sender remain in the priority index and can all be mined in subsequent blocks. Leaving recheck enabled would stall throughput to roughly one transaction per block per sender when a sender submits many sequential nonces out of order. This also matches CometBFT's default of `false` for `ConsensusParams.ABCI.RecheckTx`, since state-dependent invalidation is already caught during proposal processing and block execution.
+Each Autobahn block payload is bounded by the following limits, enforced by the producer as it fills a block:
 
-Each Autobahn block payload is subject to fixed per-block limits enforced by the block producer:
+- **Maximum transactions per block:** the lower of the configured `max_txs_per_block` and the built-in maximum.
+- **Maximum total transaction bytes per block:** a fixed per-block byte cap; a single transaction larger than this cap is rejected with a `transaction too large` error.
+- **Wanted gas per block (`MaxGasWantedPerBlock`):** derived from the genesis `MaxGasWanted` block param. A transaction whose `GasWanted` exceeds this per-block limit is rejected as too large.
+- **Estimated gas per block (`MaxGasEstimatedPerBlock`):** derived from the genesis `MaxGas` block param. A transaction whose (normalized) estimated gas exceeds this per-block limit is rejected as too large.
 
-- **Maximum transactions per block:** 2,000 transactions.
-- **Maximum total transaction bytes per block:** approximately 2 MB (2,000 × 1,024 bytes). This total can be distributed arbitrarily across transactions (for example, one large transaction, or up to 2,000 smaller ones), so long as neither the transaction count nor the total byte limit is exceeded.
+When filling a block the producer seals the current block and starts a new one as soon as adding the next transaction would exceed any of the transaction-count, byte, wanted-gas, or estimated-gas limits.
 
-These limits are in addition to the gas limits configured in `autobahn.json`. When building a block, the producer stops reaping transactions once any of the transaction-count, byte, or gas limits is reached. Payload construction fails if either the transaction count or total byte limit would be exceeded.
+<Note>
+  Because Giga replaces the CometBFT mempool, the `unsafe_flush_mempool` RPC endpoint is not supported under Giga and returns `unsafe_flush_mempool is not supported with autobahn mempool`.
+</Note>
 
 
 ### Key Management
