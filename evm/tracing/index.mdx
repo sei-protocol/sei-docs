@@ -425,12 +425,12 @@ When enabled, a background worker re-executes each committed block with the conf
 
 The `*ExcludeTraceFail` endpoints (for example `sei_getTransactionReceiptExcludeTraceFail` and the `ExcludeTraceFail` block-trace variants) filter out transactions whose trace would be empty or meaningless — specifically, transactions that were included in a block but never actually executed in the VM. Two classes are excluded:
 
-- **Ante-rejected transactions**: txs rejected before reaching the VM (for example nonce mismatch or insufficient funds). These are identified from the receipt store — an ante-deferred receipt carries `EffectiveGasPrice = 0`.
+- **Ante-deferred stub transactions**: txs that passed the nonce check but failed a later ante step (for example insufficient funds or insufficient fee) and so never reached the VM. The chain writes a stub receipt for these, identified by `EffectiveGasPrice == 0 && GasUsed == 0` (both fields unset because the tx never executed).
 - **Chain-generated synthetic transactions**: txs with the internal `ShellEVMTxType`, which have no real EVM execution.
 
-Everything that ran in the VM is **included**, even if it failed. Reverted and out-of-gas (OOG) transactions have `Status == 0` but `EffectiveGasPrice > 0` and produce a real trace (the `REVERT` or OOG condition simply appears inside that trace), so they are returned rather than filtered out.
+Everything that ran in the VM is **included**, even if it failed. Reverted and out-of-gas (OOG) transactions have `Status == 0` but `EffectiveGasPrice > 0` and `GasUsed > 0`, and produce a real trace (the `REVERT` or OOG condition simply appears inside that trace), so they are returned rather than filtered out.
 
-<Info>Earlier behavior excluded any receipt with `Status == 0`, which over-filtered reverts and OOG failures that actually produced traces. The current logic excludes only ante-error and synthetic txs.</Info>
+<Info>This filter applies to both the block endpoints (`sei_getBlockByNumberExcludeTraceFail` and `sei_getBlockByHashExcludeTraceFail`) and the block-trace endpoints (`sei_traceBlockByNumberExcludeTraceFail` and `sei_traceBlockByHashExcludeTraceFail`): both now drop these ante-deferred stub transactions. The regular `eth_getBlockBy*` endpoints continue to **include** them, so a tx that appears in a normal block response may be absent from the `*ExcludeTraceFail` variant. The trace-side filter also catches stubs whose tracer embeds the error in the returned JSON while leaving the trace's `Error` field empty — it checks the underlying receipt shape rather than relying on `Error` alone.</Info>
 
 ### When the cache is used
 
