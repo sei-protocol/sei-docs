@@ -421,6 +421,17 @@ When enabled, a background worker re-executes each committed block with the conf
 - `debug_traceBlockByNumber` and `debug_traceBlockByHash`
 - The `*ExcludeTraceFail` variants of the block-trace methods
 
+### `*ExcludeTraceFail` filtering semantics
+
+The `*ExcludeTraceFail` endpoints (for example `sei_getTransactionReceiptExcludeTraceFail` and the `ExcludeTraceFail` block-trace variants) filter out transactions whose trace would be empty or meaningless — specifically, transactions that were included in a block but never actually executed in the VM. Two classes are excluded:
+
+- **Ante-rejected transactions**: txs rejected before reaching the VM (for example nonce mismatch or insufficient funds). These are identified from the receipt store — an ante-deferred receipt carries `EffectiveGasPrice = 0`.
+- **Chain-generated synthetic transactions**: txs with the internal `ShellEVMTxType`, which have no real EVM execution.
+
+Everything that ran in the VM is **included**, even if it failed. Reverted and out-of-gas (OOG) transactions have `Status == 0` but `EffectiveGasPrice > 0` and produce a real trace (the `REVERT` or OOG condition simply appears inside that trace), so they are returned rather than filtered out.
+
+<Info>Earlier behavior excluded any receipt with `Status == 0`, which over-filtered reverts and OOG failures that actually produced traces. The current logic excludes only ante-error and synthetic txs.</Info>
+
 ### When the cache is used
 
 A request is only served from cache when trace baking is enabled **and** the request uses a *bakeable* tracer configuration:
