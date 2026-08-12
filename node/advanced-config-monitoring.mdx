@@ -584,6 +584,54 @@ FlatKV metrics carry the following labels where applicable:
 
 Pebble's internal (per-DB) metrics are governed by a single FlatKV-level knob, `EnablePebbleMetrics`. When set, this value is propagated to every data DB (account, code, storage, legacy, and metadata) during initialization and overrides any per-DB `EnableMetrics` settings, so configure Pebble metrics through `EnablePebbleMetrics` rather than the individual per-DB knobs.
 
+
+
+## LittDB OpenTelemetry Metrics
+
+LittDB now emits its metrics through the process-wide OpenTelemetry `MeterProvider` instead of a private Prometheus client. When `MetricsEnabled` is set, LittDB configures a Prometheus exporter on the global provider and serves `/metrics` on `MetricsPort` (default `9101`). The previous `MetricsNamespace` and `MetricsRegistry` config fields have been removed; all metric names now use a fixed `litt_` prefix.
+
+### Available Metrics
+
+| Metric | Type | Unit | Description |
+| --- | --- | --- | --- |
+| `litt_table_size_bytes` | Gauge | bytes | The size of individual tables in the database. |
+| `litt_table_key_count` | Gauge | count | The number of keys in individual tables in the database. |
+| `litt_bytes_read` | Counter | bytes | The number of bytes read from disk since startup. |
+| `litt_keys_read` | Counter | count | The number of keys read from disk since startup. |
+| `litt_cache_hits` | Counter | count | The number of cache hits since startup. |
+| `litt_cache_misses` | Counter | count | The number of cache misses since startup. |
+| `litt_read_latency_seconds` | Histogram | seconds | Read latency of the database, including both cache hits and cache misses. |
+| `litt_cache_miss_latency_seconds` | Histogram | seconds | Read latency measured only when a cache miss occurs. |
+| `litt_bytes_written` | Counter | bytes | The number of bytes written to disk since startup (values only, not metadata). |
+| `litt_keys_written` | Counter | count | The number of keys written to disk since startup. |
+| `litt_write_latency_seconds` | Histogram | seconds | Write latency of the database. |
+| `litt_flush_count` | Counter | count | The number of times a flush operation has been performed. |
+| `litt_flush_latency_seconds` | Histogram | seconds | Latency of a flush operation. |
+| `litt_segment_flush_latency_seconds` | Histogram | seconds | Segment flush latency; a subset of the time spent during a flush operation. |
+| `litt_keymap_flush_latency_seconds` | Histogram | seconds | Keymap flush latency; a subset of the time spent during a flush operation. |
+| `litt_garbage_collection_latency_seconds` | Histogram | seconds | Latency of garbage collection operations. |
+| `litt_chunk_cache_key_count` | Gauge | count | The number of keys in the chunk cache. |
+| `litt_chunk_cache_weight_bytes` | Gauge | bytes | The weight of the chunk cache in bytes. |
+| `litt_chunk_cache_keys_added` | Counter | count | The number of keys added to the chunk cache. |
+| `litt_chunk_cache_weight_added_bytes` | Counter | bytes | The weight of the entries added to the chunk cache. |
+| `litt_chunk_cache_eviction_latency_seconds` | Histogram | seconds | Eviction latency of the chunk cache. |
+
+### Attributes
+
+| Attribute | Description |
+| --- | --- |
+| `table` | The table the observation applies to. Present on per-table metrics such as `litt_bytes_read`, `litt_read_latency_seconds`, `litt_table_size_bytes`, and the flush/GC latency histograms. |
+| `cache` | The cache instance the observation applies to (`chunk_read` or `chunk_write`). Present on the `litt_chunk_cache_*` metrics, which distinguish read and write caches by this attribute rather than by separate metric names. |
+
+### Migrating from Legacy Metrics
+
+Metric names, units, and shape changed with the OpenTelemetry migration, so existing Prometheus and Grafana dashboards must be updated:
+
+- Latency metrics moved from millisecond summaries (for example `{namespace}_read_latency_ms`) to second histograms (`litt_read_latency_seconds`). Adjust thresholds and panel formatting from milliseconds to seconds accordingly.
+- Counters and gauges gained a fixed `litt_` prefix and explicit units, for example `bytes_read` became `litt_bytes_read` and the cache weight gauge became `litt_chunk_cache_weight_bytes`.
+- The per-cache series that were previously separate metric names (for example `chunk_read_cache_*` and `chunk_write_cache_*`) are now the shared `litt_chunk_cache_*` metrics distinguished by the `cache` attribute.
+- The `MetricsNamespace` and `MetricsRegistry` config fields no longer exist. Metric names are fixed, and metrics are always backed by the global OTel provider; supply the scrape port via `MetricsPort`.
+
 ## Performance Testing
 
 <Accordion title="Example Benchmark Script using `eth_getLogs`">
