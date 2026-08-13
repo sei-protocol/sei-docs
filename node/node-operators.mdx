@@ -89,6 +89,7 @@ sc-enable = true
 [state-store]
 # Historical SS layer for queries. Required for any node serving RPC.
 ss-enable = true
+# State-store backend. Use PebbleDB; RocksDB support will be removed.
 ss-backend = "pebbledb"
 # 0 = keep everything; 100,000 is roughly 28 hours of pacific-1 history.
 ss-keep-recent = 100000
@@ -104,7 +105,7 @@ The full unmodified `app.toml`, `config.toml`, and `client.toml` produced by
 `seid init` against the latest tagged `seid` release. Use these as the
 canonical reference for every available knob and its default value.
 
-<Warning>The generated `app.toml` below mirrors the latest tagged release and may still list RocksDB as a state-store option. Do not use RocksDB for new or resynced nodes. RocksDB support for the SeiDB state store will be deprecated and removed in upcoming Sei releases.</Warning>
+<Warning>The generated `app.toml` below mirrors the latest tagged release and may still list RocksDB as a state-store option. Do not use RocksDB for new or resynced nodes. RocksDB support for the SeiDB state store will be removed. No target release has been published.</Warning>
 
 <Tabs>
   <Tab title="app.toml">
@@ -1369,10 +1370,12 @@ legacy single-database IAVL store with separate hot- and historical-data tiers:
    modes is set to a non-default value.
 2. **State Store (SS)** — versioned raw key/value pairs used for historical
    queries. Required for any node that serves RPC. The default backend is
-   **PebbleDB**. RocksDB support for this layer will be deprecated and removed
-   in upcoming Sei releases. Use PebbleDB for new nodes. Before upgrading,
-   resync any node that uses RocksDB onto PebbleDB through
-   [state sync](/node/statesync) or a [PebbleDB snapshot](/node/snapshot).
+   **PebbleDB**. RocksDB support for this layer will be removed. No target
+   release has been published. Check the
+   [Sei release notes](https://github.com/sei-protocol/sei-chain/releases)
+   before each upgrade. Use PebbleDB for new nodes. Before upgrading, resync
+   any node that uses RocksDB onto PebbleDB through [state sync](/node/statesync)
+   or a [PebbleDB snapshot](/node/snapshot).
 
 The legacy IAVL backend is still selectable via `sc-enable = false` but is
 deprecated and slated for removal — new deployments and existing nodes
@@ -1424,7 +1427,7 @@ snapshot-keep-recent = 2
 # serving RPC must keep it on.
 ss-enable = true
 
-# Use the default PebbleDB backend.
+# Use PebbleDB. RocksDB support will be removed.
 ss-backend = "pebbledb"
 
 ss-async-write-buffer = 100
@@ -1447,6 +1450,21 @@ rs-backend = "pebbledb"
 async-write-buffer = 100
 prune-interval-seconds = 600
 ```
+
+#### PebbleDB version encoding
+
+Fresh PebbleDB state stores use descending-version MVCC encoding. Sei includes
+the version in each key and sorts newer versions first. This lets
+latest-version reads reach the newest visible value without scanning older
+versions. The store records this format with the `s/_mvcc_descending` sentinel
+key, which `seid` detects automatically when it opens the database.
+
+PebbleDB state stores created by older builds use ascending-version encoding.
+`seid` detects these stores and opens them in compatibility mode without an
+error. They remain on the slower ascending read path. Rebuild the state store
+through [state sync](/node/statesync) with a current `seid` release to adopt
+descending encoding. A filesystem snapshot preserves the source store's
+encoding, so confirm its encoding with the snapshot provider.
 
 Setting small (more frequent) pruning intervals may collide with
 snapshot creation. Too-large (less frequent) intervals mean pruning takes

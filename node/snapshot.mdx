@@ -12,7 +12,7 @@ Follow this guide to join an existing network through **snapshot sync**. To quic
 
 Snapshot sync allows a new node to join a network by downloading a recent, compressed copy of the entire application state and extracting it directly into the data directory. This reduces the initial sync time from days to minutes.
 
-<Warning>RocksDB support for the SeiDB state store will be deprecated and removed in upcoming Sei releases. Use a PebbleDB snapshot for new or resynced nodes, and keep `ss-backend = "pebbledb"` in `app.toml`. If your node currently uses RocksDB, resync it onto PebbleDB before upgrading to a release without RocksDB support.</Warning>
+<Warning>RocksDB support for the SeiDB state store will be removed. No target release has been published. For new or resynced nodes, use a snapshot only after confirming that its state store uses PebbleDB. Keep `ss-backend = "pebbledb"` in `app.toml`.</Warning>
 
 ## Snapshot Providers
 
@@ -24,6 +24,10 @@ You can select from various providers for downloading snapshots:
 - kjnodes
 
 <iframe src="https://seistream.app/labs?page=snapshots" width="100%" height="600" style={{ border: 'none', borderRadius: '8px' }} title="Sei Snapshot Providers" />
+
+Snapshot providers do not consistently label the state-store backend. Follow
+the verification step below before you extract a snapshot. If you cannot
+identify the backend from the archive, ask the provider to confirm it.
 
 ## Clean Up & Preparation
 
@@ -81,20 +85,36 @@ sudo apt install curl lz4 wget aria2 pv -y
    SNAPSHOT_URL="<PASTE_SNAPSHOT_URL_HERE>"
    ```
 
-2. **Download and Extract**
-   Most providers compress the `data` and `wasm` directory directly. The following command streams the download and extracts it into `$HOME/.sei`.
+2. **Download, verify, and extract**
+   Most providers compress the `data` and `wasm` directories directly. Download the archive so you can inspect its state-store path before extraction:
 
    ```bash
-   curl -L $SNAPSHOT_URL | lz4 -c -d | tar -x -C $HOME/.sei
+   curl -L "$SNAPSHOT_URL" -o snapshot.tar.lz4
+
+   lz4 -c -d snapshot.tar.lz4 | tar -tf - | \
+     awk '/(^|\/)data\/(state_store\/cosmos\/)?(pebbledb|rocksdb)\// { print; exit }'
    ```
 
-   **Alternative: Parallel Download with aria2**
+   The printed path must contain either `data/pebbledb/` or
+   `data/state_store/cosmos/pebbledb/`. Do not extract the archive if the path
+   contains `rocksdb` or the command prints no state-store path.
+
+   Extract the verified archive, then remove it:
+
+   ```bash
+   lz4 -c -d snapshot.tar.lz4 | tar -x -C $HOME/.sei
+   rm snapshot.tar.lz4
+   ```
+
+   **Alternative: parallel download with aria2**
 
    For faster downloads, especially with large snapshots, you can use `aria2c` which supports parallel connections:
 
    ```bash
    # Download with 16 parallel connections
    aria2c -x 16 -s 16 -o snapshot.tar.lz4 $SNAPSHOT_URL
+
+   # Run the backend verification command above before extraction
 
    # Extract after download completes
    lz4 -c -d snapshot.tar.lz4 | tar -x -C $HOME/.sei
@@ -123,8 +143,13 @@ sudo apt install curl lz4 wget aria2 pv -y
    Make sure SeiDB is enabled and the state-store backend is PebbleDB:
 
    ```bash
-   sed -i.bak -E "/^\[state-commit\]/,/^\[.*\]/ s|^(sc-enable[[:space:]]*=[[:space:]]*).*$|\1true| ; /^\[state-store\]/,/^\[.*\]/ s|^(ss-enable[[:space:]]*=[[:space:]]*).*$|\1true| ; /^\[state-store\]/,/^\[.*\]/ s|^(ss-backend[[:space:]]*=[[:space:]]*).*$|\1\"pebbledb\"|" $HOME/.sei/config/app.toml
+   sed -i.bak -E "/^\[state-commit\]/,/^\[.*\]/ s|^[#[:space:]]*(sc-enable[[:space:]]*=[[:space:]]*).*$|\1true| ; /^\[state-store\]/,/^\[.*\]/ s|^[#[:space:]]*(ss-enable[[:space:]]*=[[:space:]]*).*$|\1true| ; /^\[state-store\]/,/^\[.*\]/ s|^[#[:space:]]*(ss-backend[[:space:]]*=[[:space:]]*).*$|\1\"pebbledb\"|" $HOME/.sei/config/app.toml
+
+   sed -n '/^\[state-store\]/,/^\[.*\]/p' $HOME/.sei/config/app.toml
    ```
+
+   Confirm that the output includes `ss-backend = "pebbledb"`. If the key is
+   absent, add it directly below `[state-store]` before you restart the node.
 
 5. **Restart the Node**
 
