@@ -2,7 +2,7 @@
 title: 'Giga SS Store Migration Guide'
 sidebarTitle: 'Giga SS Store Migration'
 description: 'Migrate a Sei RPC node to Giga SS Store: split EVM state into a dedicated state-store backend so non-EVM modules stop paying EVM write amplification.'
-keywords: ['sei node', 'giga storage', 'seidb', 'state sync', 'evm ss', 'flatkv', 'rpc node', 'pebbledb', 'rocksdb']
+keywords: ['sei node', 'giga storage', 'seidb', 'state sync', 'evm ss', 'flatkv', 'rpc node', 'pebbledb']
 ---
 
 Giga SS Store is the next step in Sei's storage evolution on top of [SeiDB](/node/node-operators#architecture).
@@ -15,7 +15,7 @@ After migration the SS layer is repartitioned into two cooperating stores:
 | Layer | Cosmos backend | EVM backend |
 |---|---|---|
 | **SC** (State Commit, app hash) | `memiavl` | FlatKV |
-| **SS** (State Store, historical queries) | single MVCC DB (PebbleDB or RocksDB) | dedicated EVM SS MVCC DB(s) under `data/evm_ss/` |
+| **SS** (State Store, historical queries) | single PebbleDB MVCC database | dedicated EVM SS MVCC databases under `data/evm_ss/` |
 
 Only the **SS** layer changes for this migration. SC layer config is untouched
 and `memiavl` remains the authoritative source for the app hash, so this is
@@ -43,9 +43,6 @@ local data directory and imports a fresh snapshot into the new layout.
 
 - EVM reads are served exclusively from a dedicated EVM SS database.
 - Non-EVM modules no longer pay write amplification for EVM state.
-- A backend change (PebbleDB ↔ RocksDB) can be combined with the same state
-  sync, since `ss-backend` drives both the Cosmos SS MVCC DB and every EVM SS
-  sub-DB.
 
 ## What's different about EVM SS
 
@@ -69,8 +66,7 @@ sc-enable = true
 [state-store]
 ss-enable = true
 
-# DBBackend for the Cosmos SS MVCC DB and for every EVM SS sub-DB.
-# Supported: pebbledb, rocksdb. Default pebbledb.
+# Use PebbleDB for the Cosmos SS MVCC DB and every EVM SS sub-DB.
 ss-backend = "pebbledb"
 
 # Route EVM state to the dedicated EVM SS backend.
@@ -80,14 +76,7 @@ ss-backend = "pebbledb"
 evm-ss-split = true
 ```
 
-If you want to switch SS backend in the same step:
-
-- **PebbleDB → RocksDB**: set `ss-backend = "rocksdb"`, build `seid` with
-  `-tags rocksdbBackend`, and install RocksDB per the
-  [RocksDB Backend Guide](/node/rocksdb-backend). `ss-backend` drives both the
-  Cosmos SS MVCC DB and every EVM SS sub-DB, so a single setting flips both.
-- No data migration tool is needed across backends — the state sync populates
-  the new layout.
+<Warning>Keep `ss-backend = "pebbledb"` during this migration. RocksDB support for the state store will be deprecated and removed in upcoming Sei releases.</Warning>
 
 ### Step 2: State sync into the new layout
 
