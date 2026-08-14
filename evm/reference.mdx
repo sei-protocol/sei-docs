@@ -87,9 +87,9 @@ Under Autobahn (`AutobahnConfigFile` set) the CometBFT block store is not popula
 
 ### Tendermint block and validator endpoints under Autobahn
 
-Under Autobahn (`AutobahnConfigFile` set) the CometBFT `BlockStore` and `StateStore` are not populated. Rather than returning empty or failing responses, the `/block`, `/block_by_hash`, `/block_results`, and `/validators` Tendermint RPC endpoints route through the GigaRouter's in-memory state (the finalized global blocks retained by the Autobahn data layer). This keeps downstream consumers — including evmrpc, block explorers, and monitoring tooling — working without individually branching on the consensus engine.
+Under Autobahn (`AutobahnConfigFile` set) the CometBFT `BlockStore` and `StateStore` are not populated. Rather than returning empty or failing responses, the `/block` and `/block_by_hash` Tendermint RPC endpoints route through the GigaRouter's in-memory state (the finalized global blocks retained by the Autobahn data layer), while `/block_results` and `/validators` synthesize their responses (an empty result set and the genesis committee, respectively). This keeps downstream consumers — including evmrpc, block explorers, and monitoring tooling — working without individually branching on the consensus engine.
 
-Responses are served only for heights still inside Autobahn's retained window (heights pruned per `RetainHeight` are no longer available). Requests are validated against the current ABCI head, so out-of-range heights return the same `ErrHeightNotAvailable`/`ErrHeightExceedsChainHead`-class errors as the CometBFT path.
+For `/block` and `/block_by_hash`, responses are served only for heights still inside Autobahn's retained window (heights pruned per `RetainHeight` are no longer available); `/block_results` and `/validators` do not read the retained block data and respond for any height up to the current ABCI head. Requests are validated against the current ABCI head, so heights above it return the same `ErrHeightExceedsChainHead`-class errors as the CometBFT path, and pruned heights on `/block` return `ErrHeightNotAvailable`.
 
 | Endpoint | Autobahn behavior |
 | :- | :- |
@@ -123,9 +123,9 @@ Every method below is also browsable interactively in the explorer above; this s
 
 **Supported.** Submits a signed, RLP-encoded raw EVM transaction to the network and returns its hash.
 
-**Sei-specific behavior:** Decodes to an ethtypes.Transaction, wraps it in a Cosmos MsgEVMTransaction, and broadcasts via CometBFT (async BroadcastTx by default; slow mode uses BroadcastTxCommit). Non-zero CheckTx codes surface as ABCI errors, not geth mempool errors. Legacy (non-1559) txs must set gasPrice at or above the governance minimum (currently 50 gwei on mainnet); blob (EIP-4844) txs are not enabled. Supports per-sender EvmProxy forwarding.
+**Sei-specific behavior:** Decodes to an ethtypes.Transaction, wraps it in a Cosmos MsgEVMTransaction, and broadcasts via CometBFT (CheckTx-level BroadcastTx, i.e. `broadcast_tx_sync`, by default; slow mode uses BroadcastTxCommit). Non-zero CheckTx codes surface as ABCI errors, not geth mempool errors. Legacy (non-1559) txs must set gasPrice at or above the governance minimum (currently 50 gwei on mainnet); blob (EIP-4844) txs are not enabled. Supports per-sender EvmProxy forwarding.
 
-**Under Autobahn (`AutobahnConfigFile` set):** transaction broadcast routes through Autobahn's producer-backed mempool instead of CometBFT's `TxMempool`. This mempool admits EVM transactions strictly in sequential per-sender nonce order: a transaction whose nonce does not match the sender's next expected nonce is rejected with a bad-nonce error, so senders must submit nonces contiguously. Synchronous broadcast (`broadcast_tx` / `BroadcastTx`) blocks while the mempool is full and only returns once capacity is available, whereas the async path may drop the transaction if the mempool is full. The `unsafe_flush_mempool` Tendermint RPC endpoint is not supported under Autobahn and returns `unsafe_flush_mempool is not supported with autobahn mempool`.
+**Under Autobahn (`AutobahnConfigFile` set):** transaction broadcast routes through Autobahn's producer-backed mempool instead of CometBFT's `TxMempool`. This mempool admits EVM transactions strictly in sequential per-sender nonce order: a transaction whose nonce does not match the sender's next expected nonce is rejected with a bad-nonce error, so senders must submit nonces contiguously. CheckTx-synchronous broadcast (`broadcast_tx` / `BroadcastTx`) blocks while the mempool is full and only returns once capacity is available, whereas the async path may drop the transaction if the mempool is full. The `unsafe_flush_mempool` Tendermint RPC endpoint is not supported under Autobahn and returns `unsafe_flush_mempool is not supported with autobahn mempool`.
 
 **Parameters:**
 
@@ -266,7 +266,7 @@ Every method below is also browsable interactively in the explorer above; this s
 
 **Supported.** Returns the receipt of a transaction by hash, or null if not found.
 
-**Sei-specific behavior:** Receipt is reconstructed from keeper.GetReceipt + CometBFT block data rather than from a native MPT receipt trie; status/logs are standard Ethereum format. An EVM transaction that bumps the sender's nonce but then fails during state transition — for example an EIP-7623 floor-data-gas shortfall (post-Pectra), which fails inside go-ethereum's `Execute()` before any opcode runs — now returns a `status=0` failed-tx receipt (with `gasUsed` equal to the tx's `gasLimit` and a populated `VmError` reason) under the Giga executor, rather than returning null indefinitely and hanging clients that poll for it. If a receipt exists but its block height is above the safe-latest watermark (for example when Tendermint status momentarily lags the receipt store), the method returns JSON null rather than an error — the Ethereum JSON-RPC 'not yet mined' signal — so clients simply poll again, matching `eth_getBlockByNumber` behavior.
+**Sei-specific behavior:** Receipt is reconstructed from keeper.GetReceipt + CometBFT block data rather than from a native MPT receipt trie; status/logs are standard Ethereum format. An EVM transaction that bumps the sender's nonce but then fails during state transition — for example an EIP-7623 floor-data-gas shortfall (post-Pectra), which fails inside go-ethereum's `Execute()` before any opcode runs — now returns a `status=0` failed-tx receipt (a synthetic receipt written at EndBlock, with `gasUsed` of 0; the `VmError` reason is not part of the `eth_getTransactionReceipt` response but is retrievable via `sei_getVMError`) under the Giga executor, rather than returning null indefinitely and hanging clients that poll for it. If a receipt exists but its block height is above the safe-latest watermark (for example when Tendermint status momentarily lags the receipt store), the method returns JSON null rather than an error — the Ethereum JSON-RPC 'not yet mined' signal — so clients simply poll again, matching `eth_getBlockByNumber` behavior.
 
 **Parameters:**
 
@@ -627,7 +627,7 @@ Every method below is also browsable interactively in the explorer above; this s
 
 **Supported.** Returns the number of EVM transactions in a block by number, as a hex quantity.
 
-**Sei-specific behavior:** Counts the same transactions that appear in `eth_getBlockByNumber`'s transaction list: EVM transactions are counted only when a receipt exists for them, and `MsgExecuteContract` (wasm execute-contract) and `MsgSend` (bank send) messages are also included. Genesis returns 0x0; non-existent/future blocks return null. Because the receipt store can be configured with a smaller `KeepRecent` than the block/state stores, this method now verifies that the requested block's receipts have not been pruned before counting: if they have, it returns an error of the form `requested height N receipts have been pruned; earliest available is M` rather than a count. This means the call can fail for older blocks even when the block data itself is still available.
+**Sei-specific behavior:** Counts the same transactions that appear in `eth_getBlockByNumber`'s transaction list: EVM transactions are counted only when a receipt exists for them, and synthetic (wasm `MsgExecuteContract`) and bank-transfer (`MsgSend`) txs remain excluded under the eth namespace — they are only included in the `sei_`/`sei2_` count variants. Genesis returns 0x0; non-existent/future blocks return null. Because the receipt store can be configured with a smaller `KeepRecent` than the block/state stores, this method now verifies that the requested block's receipts have not been pruned before counting: if they have, it returns an error of the form `requested height N receipts have been pruned; earliest available is M` rather than a count. This means the call can fail for older blocks even when the block data itself is still available.
 
 **Parameters:**
 
@@ -1372,7 +1372,7 @@ To enable additional legacy methods, add them to this array. All other `sei_*` a
 | `sei_getTransactionByHash` | Get transaction by hash (includes synthetic txs) |
 | `sei_getTransactionCount` | Get account transaction count |
 | `sei_getTransactionReceipt` | Get transaction receipt (includes synthetic txs) |
-| `sei_getTransactionReceiptExcludeTraceFail` | Get transaction receipt, excluding only txs that never executed. Ante-rejected txs (rejected before reaching the VM, identified by `EffectiveGasPrice=0`) and chain-generated synthetic txs (`ShellEVMTxType`) are filtered out; reverted and out-of-gas transactions are now included, because they ran in the VM and produce real traces. (Previously any receipt with `status=0` was excluded, which over-filtered reverts and OOG failures.) The `*ExcludeTraceFail` trace variants (e.g. `debug_traceBlockByHash`/`debug_traceBlockByNumber` exclude-trace-fail forms) apply the same filtering. |
+| `sei_getTransactionReceiptExcludeTraceFail` | Get transaction receipt, excluding only txs that never executed. Ante-rejected txs (rejected before reaching the VM, identified by `EffectiveGasPrice == 0` and `GasUsed == 0`) and chain-generated synthetic txs (`ShellEVMTxType`) are filtered out; reverted and out-of-gas transactions are now included, because they ran in the VM and produce real traces. (Previously any receipt with `status=0` was excluded, which over-filtered reverts and OOG failures.) The former `sei_traceBlockByHashExcludeTraceFail`/`sei_traceBlockByNumberExcludeTraceFail` trace endpoints were removed in v6.6.0 (#3618); use the standard `debug_traceBlockByHash`/`debug_traceBlockByNumber` instead. |
 | `sei_getFilterLogs` | Get filter logs (includes synthetic logs) |
 | `sei_getLogs` | Get logs (includes synthetic logs) |
 | `sei_getFilterChanges` | Get filter changes (includes synthetic events) |
@@ -1382,8 +1382,8 @@ To enable additional legacy methods, add them to this array. All other `sei_*` a
 | `sei_getBlockByHashExcludeTraceFail` | Get block by hash excluding failed traces |
 | `sei_getBlockByNumberExcludeTraceFail` | Get block by number excluding failed traces |
 | `sei_getTransactionReceiptExcludeTraceFail` | Get receipt excluding failed traces |
-| `sei_traceBlockByHashExcludeTraceFail` | Trace block by hash excluding failed traces |
-| `sei_traceBlockByNumberExcludeTraceFail` | Trace block by number excluding failed traces |
+
+<Note>`sei_traceBlockByHashExcludeTraceFail` and `sei_traceBlockByNumberExcludeTraceFail` were removed in v6.6.0 (#3618) and no longer appear in the gated method list; adding them to `enabled_legacy_sei_apis` has no effect. Use `debug_traceBlockByHash`/`debug_traceBlockByNumber` instead.</Note>
 
 **`sei2_*` methods** (block queries with bank transfers included):
 

@@ -205,16 +205,6 @@ To fully reclaim the disk used by EVM SS, stop the node and delete
 
 <Warning>Cleanly rolling back to `evm-ss-split = false` requires another state sync. Under `evm-ss-split = true`, EVM writes go only to the EVM SS DB, so Cosmos SS will not have those writes. Restarting with `evm-ss-split = false` stops opening the EVM SS DB, but EVM-state queries will miss anything written after the Giga state sync until you re-state-sync without the split.</Warning>
 
-## FAQ
-
-### Where do the data files live after migrating?
-
-As of Sei v6.6, new nodes use a structured subdirectory layout. Existing nodes
-with legacy flat paths automatically keep using them (the legacy path takes
-precedence when present).
-
-
-
 ## FlatKV EVM SC migration flow
 
 Everything above concerns the **SS** (State Store) layer. The **SC** (State
@@ -243,14 +233,22 @@ subsequent restarts don't spin up the migration manager.
 
 
 
-Beyond `evm_migrated`, `flatkv_only` is the fully-supported **terminal**
-steady-state write mode: FlatKV is the sole SC backend and `memiavl` is not
-allocated at all. In this mode every module's SC state is served from FlatKV,
-and state-sync snapshot export/restore plus app-hash parity work correctly, so
-a node can boot directly into the post-migration shape without ever running the
-migration manager. Use `flatkv_only` when you want a node to come up already in
-the post-migration steady state rather than draining keys out of memiavl at
-runtime.
+`evm_migrated` is not the last stop. Three further modes sit between it and
+the terminal mode: `migrate_all_but_bank` (drains every remaining module
+except `bank/` from memiavl into FlatKV), `all_migrated_but_bank` (the steady
+state once that drain completes), and `migrate_bank` (drains the final
+`bank/` module).
+
+`flatkv_only` is the fully-supported **terminal** steady-state write mode:
+FlatKV is the sole SC backend and `memiavl` is not allocated at all. In this
+mode every module's SC state is served from FlatKV, and state-sync snapshot
+export/restore plus app-hash parity work correctly, so a node can boot directly
+into the post-migration shape without ever running the migration manager.
+`flatkv_only` is only valid for a node that boots or state-syncs directly into
+the fully-migrated shape — it is not a flip target for an `evm_migrated` node,
+which still holds `bank/` and every other non-EVM module in memiavl. Use
+`flatkv_only` when you want a node to come up already in the post-migration
+steady state rather than draining keys out of memiavl at runtime.
 
 <Note>A correctness bug in the WAL replay path — where empty (zero-length)
 values written with no delete flag were dropped on replay (catchup, read-only
@@ -263,9 +261,9 @@ While in a migration mode:
 
 - Caller reads of not-yet-migrated keys fall back to FlatKV for brand-new keys
   written after the migration started, and to memiavl otherwise.
-- Iteration is forwarded to memiavl (with a completeness caveat: keys already
-  migrated out of memiavl are skipped). This is only safe for best-effort
-  callers.
+- Iteration is served by a merging iterator over both backends (memiavl
+  queried first, FlatKV winning on ties), so range scans see the complete key
+  set during a migration.
 - The migration boundary advances at most once per block.
 
 ### Operator-facing knobs
@@ -313,6 +311,14 @@ before flipping `sc-write-mode` to `evm_migrated`.
 When the migration finishes, each node also emits a `migration complete` summary
 log line and a set of `seidb_migration_*` OpenTelemetry counters covering keys
 and bytes migrated.
+
+## FAQ
+
+### Where do the data files live after migrating?
+
+As of Sei v6.6, new nodes use a structured subdirectory layout. Existing nodes
+with legacy flat paths automatically keep using them (the legacy path takes
+precedence when present).
 
 - Cosmos SS data lives under `data/state_store/cosmos/{backend}` on new nodes
   (e.g. `data/state_store/cosmos/pebbledb` for the default `pebbledb` backend).
@@ -367,4 +373,4 @@ over the default.
 `pebbledb` (aka `pebble`) is now the only supported receipt-store backend. The
 former `parquet` option has been removed: setting `RECEIPT_BACKEND=parquet` (or
 `rs-backend = "parquet"` in `app.toml`) is rejected with an error
-(`unsupported receipt-store backend; supported: pebbledb`).
+(`unsupported receipt-store backend "parquet"; supported: pebbledb`).

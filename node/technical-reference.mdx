@@ -138,10 +138,11 @@ The command reads the following files from each node directory:
 - `validator_pubkey.txt` — the validator public key in `validator:<pubkey>` format.
 - `node_pubkey.txt` — the p2p node public key in `node:ed25519:public:<hex>` format.
 - `autobahn_address.txt` — the network address (`host:port`) the node advertises to peers.
+- `evmrpc_url.txt` — the node's EVM RPC URL, written into the validator's `evmrpc` field for cross-shard transaction proxying.
 
 The `validator_pubkey.txt` and `node_pubkey.txt` files are written automatically alongside `priv_validator_key.json` and `node_key.json` whenever those keys are saved, so they are typically already present in each node's config directory.
 
-The generated `autobahn.json` file describes the validator set along with gas and transaction limits, block interval, view timeout, and dial interval. To have a node consume it, reference the file from `config.toml` using the `autobahn-config-file` key.
+The generated `autobahn.json` file describes the validator set along with transaction limits, block interval, view timeout, and dial interval; gas limits are not part of this file and come from the genesis block parameters instead. To have a node consume it, reference the file from `config.toml` using the `autobahn-config-file` key.
 
 
 
@@ -150,8 +151,8 @@ The generated `autobahn.json` file describes the validator set along with gas an
 When a node is started in Giga mode — that is, when `autobahn-config-file` is set in `config.toml` — the block production and networking behavior differs significantly from standard Tendermint consensus:
 
 - **The CometBFT `TxMempool` is not used.** Under Giga the standard mempool (and its gossip reactor) is disabled entirely. Transactions instead route through the Autobahn producer-backed mempool.
-- **Consensus reactor, state sync, and block sync are disabled.** In Giga mode these reactors are skipped entirely, and both state sync and block sync are forced off regardless of other configuration.
-- **Transactions are admitted through the producer mempool.** The RPC broadcast endpoints call the producer's `InsertTx`/`TryInsertTx` rather than the CometBFT mempool's `CheckTx`. `BroadcastTx` uses `InsertTx`, which blocks while the mempool is full; the async path uses `TryInsertTx`, which returns a `mempool is full` error instead of blocking.
+- **Consensus reactor, state sync, and block sync are disabled.** In Giga mode the consensus and state-sync reactors are skipped entirely, while the block-sync reactor still runs without a syncer; both state sync and block sync are forced off regardless of other configuration.
+- **Transactions are admitted through the producer mempool.** The RPC broadcast endpoints call the producer's `InsertTx`/`TryInsertTx` rather than the CometBFT mempool's `CheckTx`. `BroadcastTx` uses `InsertTx`, which blocks while the mempool is full; the async path calls `TryInsertTx` in the background and returns immediately, so when the mempool is full the transaction is silently dropped — the `mempool is full` error from `TryInsertTx` is never surfaced to async callers.
 - **Sequential EVM nonce ordering is enforced.** For EVM transactions, the producer mempool admits transactions strictly in nonce order per sender. A transaction whose nonce does not match the next expected nonce is rejected with a `bad nonce` error. Because admission is sequential, the mempool can track pending nonces (`EvmNextPendingNonce`) as callers submit them.
 
 Each Autobahn block payload is bounded by the following limits, enforced by the producer as it fills a block:
@@ -255,18 +256,6 @@ max-open-connections = 1000
 snapshot-interval = 1000
 snapshot-keep-recent = 2
 
-# Memory management
-[mempool]
-size = 5000
-max-txs-bytes = 1073741824
-cache-size = 10000
-# ttl-duration and ttl-num-blocks now treat zero (or unset) as "TTL purging disabled".
-# A non-zero value defines the time / number of blocks after which a transaction
-# is removed from the mempool; leaving them unset or set to zero disables TTL-based
-# purging entirely.
-ttl-duration = "0s"
-ttl-num-blocks = 0
-
 # State store configuration
 [state-store]
 ss-enable = true
@@ -287,38 +276,47 @@ The config.toml file controls the core consensus engine and networking:
 [p2p]
 laddr = "tcp://0.0.0.0:26656"
 external-address = ""
-seeds = ""
-persistent_peers = ""
+bootstrap-peers = ""
+persistent-peers = ""
 upnp = false
 max-connections = 100
 max-outbound-connections = 20
-max_packet_msg_payload_size = 10240
-handshake_timeout = "20s"
-dial_timeout = "3s"
+max-packet-msg-payload-size = 10240
+handshake-timeout = "20s"
+dial-timeout = "3s"
 
 # RPC Configuration
 [rpc]
 laddr = "tcp://0.0.0.0:26657"
-cors_allowed_origins = []
-cors_allowed_methods = ["HEAD", "GET", "POST"]
-cors_allowed_headers = ["Origin", "Accept", "Content-Type", "X-Requested-With", "X-Server-Time"]
-max_open_connections = 900
-# timeout_broadcast_tx_commit is now enforced by the BroadcastTxCommit RPC: when set
+cors-allowed-origins = []
+cors-allowed-methods = ["HEAD", "GET", "POST"]
+cors-allowed-headers = ["Origin", "Accept", "Content-Type", "X-Requested-With", "X-Server-Time"]
+max-open-connections = 900
+# timeout-broadcast-tx-commit is now enforced by the BroadcastTxCommit RPC: when set
 # greater than 0 it is applied as a context timeout on the request, so a
 # BroadcastTxCommit call will be cancelled if it does not complete within this duration.
-timeout_broadcast_tx_commit = "10s"
+timeout-broadcast-tx-commit = "10s"
+
+# Mempool Configuration
+[mempool]
+size = 5000
+max-txs-bytes = 1073741824
+cache-size = 10000
+# ttl-duration and ttl-num-blocks now treat zero (or unset) as "TTL purging disabled".
+# A non-zero value defines the time / number of blocks after which a transaction
+# is removed from the mempool; leaving them unset or set to zero disables TTL-based
+# purging entirely.
+ttl-duration = "5s"
+ttl-num-blocks = 10
 
 # Consensus Configuration
 [consensus]
-wal_file = "data/cs.wal/wal"
-timeout_propose = "3s"
-timeout_propose_delta = "500ms"
-timeout_prevote = "1s"
-timeout_prevote_delta = "500ms"
-timeout_precommit = "1s"
-timeout_precommit_delta = "500ms"
-timeout_commit = "1s"
-double_sign_check_height = 0
+wal-file = "data/tendermint/cs.wal/wal"
+# Consensus timeouts are governed by on-chain ConsensusParams; the old
+# timeout-* keys were removed and produce a startup error if present.
+# Local overrides are only possible via the unsafe-*-timeout-override
+# keys, which take effect only when unsafe-overrides-enabled = true.
+double-sign-check-height = 0
 ```
 
 </Accordion>
@@ -334,7 +332,7 @@ double_sign_check_height = 0
 
   - The `seid start` flags `--address` and `--transport` are **deprecated and ignored**.
   - The Tendermint node flags `--proxy-app` and `--abci` are **deprecated and ignored**.
-  - The `proxy-app` and `abci` fields in `config.toml` have been removed and no longer have any effect. Node operators upgrading should delete these lines from their `config.toml` if present.
+  - The `proxy-app` and `abci` fields in `config.toml` are **deprecated and ignored**, and are no longer written to newly generated `config.toml` files. Node operators upgrading should delete these lines from their `config.toml` if present.
 </Warning>
 
 ## Network Parameters

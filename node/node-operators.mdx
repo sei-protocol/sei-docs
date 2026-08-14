@@ -103,7 +103,7 @@ rs-backend = "pebbledb"
 <Note>
 `pebbledb` (aka `pebble`) is the only supported receipt-store backend. Setting
 `rs-backend = "parquet"` (or `RECEIPT_BACKEND=parquet`) is rejected with the
-error `unsupported receipt-store backend; supported: pebbledb`. Enabling Giga
+error `unsupported receipt-store backend "parquet"; supported: pebbledb`. Enabling Giga
 Storage (`GIGA_STORAGE=true`) in the localnode and rpcnode configuration scripts
 defaults the receipt backend to `pebble` when `RECEIPT_BACKEND` is not set. The
 former `receipt-store.tx-index-backend` config field has been removed.
@@ -138,8 +138,6 @@ minimum-gas-prices = "0.01usei"
 # MinRetainBlocks defines the minimum block height offset from the current block
 # for pruning Tendermint blocks. Set to 0 to disable pruning. This only affects
 # Tendermint block pruning, not application state (see "pruning-*" configs).
-# This value also drives receipt store retention: the receipt store's KeepRecent
-# is derived from min-retain-blocks (0 means keep everything / no pruning).
 min-retain-blocks = 100000
 
 # ConcurrencyWorkers defines how many workers to run for concurrent transaction execution.
@@ -244,6 +242,19 @@ sc-snapshot-prefetch-threshold = 0.8
 # Maximum snapshot write rate in MB/s (global across all trees). 0 = unlimited. Default 100.
 sc-snapshot-write-rate-mbps = 100
 
+# WriteMode defines the write routing mode for EVM data in the SC layer.
+# Valid values: memiavl_only, migrate_evm, evm_migrated, migrate_all_but_bank,
+# all_migrated_but_bank, migrate_bank, flatkv_only, test_only_dual_write
+sc-write-mode = "memiavl_only"
+
+# KeysToMigratePerBlock controls how many EVM keys the in-flight migration
+# (sc-write-mode = migrate_evm / migrate_bank / migrate_all_but_bank) drains
+# from memiavl into flatkv per block. Default 1024 is appropriate for
+# production drains; lower it (e.g. 256) to spread the migration across more
+# blocks for test runs that need to observe the resume / hybrid-read path.
+# Must be > 0; ignored entirely when not in a migration mode.
+sc-keys-to-migrate-per-block = 1024
+
 ###############################################################################
 ###                        FlatKV (EVM) Configuration                       ###
 ###############################################################################
@@ -305,7 +316,7 @@ ss-prune-interval = 600
 ss-import-num-workers = 1
 
 # EVMDBDirectory defines the directory for the optional EVM state-store DB(s).
-# If unset, defaults to <home>/data/state_store/evm/{backend} when EVM SS is enabled.
+# If unset, defaults to <home>/data/evm_ss when EVM SS is enabled.
 evm-ss-db-directory = ""
 
 # EVMSplit controls whether EVM data is routed to a dedicated SS backend.
@@ -738,6 +749,15 @@ supply_enabled = true
 
 {/* AUTO-GENERATED:APP_TOML:END */}
 
+<Note>
+Two behaviors are not spelled out in the generated comments above.
+`min-retain-blocks` also drives receipt store retention: the receipt store's
+`KeepRecent` is derived from `min-retain-blocks`, and `0` means keep
+everything. When `evm-ss-db-directory` is unset, nodes with an existing
+`<home>/data/evm_ss` directory keep using that legacy path; new nodes default
+to `<home>/data/state_store/evm/{backend}`.
+</Note>
+
   </Tab>
 
   <Tab title="config.toml">
@@ -812,12 +832,6 @@ genesis-file = "config/genesis.json"
 
 # Path to the JSON file containing the private key to use for node authentication in the p2p protocol
 node-key-file = "config/node_key.json"
-
-# NOTE: Out-of-process ABCI support has been removed. The full node now runs
-# only with Tendermint in-process, so the legacy `proxy-app` and `abci` base
-# config fields no longer appear in the generated template and have no effect.
-# When upgrading, remove any `proxy-app` and `abci` lines from your existing
-# config.toml.
 
 #######################################################################
 ###                 Advanced Configuration Options                  ###
@@ -970,18 +984,6 @@ upnp = false
 # Maximum number of connections (inbound and outbound).
 max-connections = 100
 
-# Maximum number of outbound connections to regular (non-persistent) peers.
-# Inbound and outbound connections are now managed in separate pools, so this
-# field caps the outbound pool while the inbound pool is derived as
-# max-connections - max-outbound-connections. Persistent and unconditional
-# peers bypass both limits.
-#
-# This field is optional: when it is left unset, max-outbound-connections
-# defaults to 20, or to half of max-connections (rounded up) when
-# max-connections is below 40. When it is set explicitly, the effective value
-# is min(max-connections, max-outbound-connections).
-# max-outbound-connections = 20
-
 # Rate limits the number of incoming connection attempts per IP address.
 max-incoming-connection-attempts = 100
 
@@ -1059,32 +1061,20 @@ max-tx-bytes = 1048576
 # XXX: Unused due to https://github.com/tendermint/tendermint/issues/5796
 max-batch-bytes = 0
 
-# ttl-duration defines the maximum amount of time a transaction can exist in
-# the mempool. A zero value now disables time-based TTL purging entirely
-# (the field is treated as an optional/disabled setting when unset or zero).
+# ttl-duration, if non-zero, defines the maximum amount of time a transaction
+# can exist for in the mempool.
 #
 # Note, if ttl-num-blocks is also defined, a transaction will be removed if it
-# has existed in the mempool at least ttl-num-blocks number of blocks or if its
+# has existed in the mempool at least ttl-num-blocks number of blocks or if it's
 # insertion time into the mempool is beyond ttl-duration.
 ttl-duration = "5s"
 
-# ttl-num-blocks defines the maximum number of blocks a transaction can exist
-# for in the mempool. A zero value now disables block-based TTL purging entirely
-# (the field is treated as an optional/disabled setting when unset or zero).
+# ttl-num-blocks, if non-zero, defines the maximum number of blocks a transaction
+# can exist for in the mempool.
 #
 # Note, if ttl-duration is also defined, a transaction will be removed if it
 # has existed in the mempool at least ttl-num-blocks number of blocks or if
-# its insertion time into the mempool is beyond ttl-duration.
-#
-# Expiration behavior: expired PENDING transactions are always pruned. Expired
-# READY transactions are pruned only when keep-invalid-txs-in-cache-related
-# removal is enabled via the mempool's RemoveExpiredTxsFromQueue setting.
-#
-# NOTE: The Tendermint mempool was substantially rewritten. Transaction
-# admission, ordering, eviction, and gossip are now driven by a unified
-# transaction store with inclusion-ordering, soft/hard size limits, and
-# cache-based deduplication. After upgrading, node operators may observe
-# different mempool ordering, eviction, and gossip behavior than before.
+# it's insertion time into the mempool is beyond ttl-duration.
 ttl-num-blocks = 10
 
 tx-notify-threshold = 0
@@ -1097,12 +1087,8 @@ pending-size = 5000
 
 max-pending-txs-bytes = 1073741824
 
-# Deprecated: pending-ttl-duration is no longer used and this field has no
-# effect. Pending transactions are no longer purged based on a time-based TTL.
 pending-ttl-duration = "0s"
 
-# Deprecated: pending-ttl-num-blocks is no longer used and this field has no
-# effect. Pending transactions are no longer purged based on a block-count TTL.
 pending-ttl-num-blocks = 0
 
 # Defines the percentage of transactions with the lowest priority hint
@@ -1216,22 +1202,9 @@ peer-query-maj23-sleep-duration = "2s"
 # For additional information, see ADR-74:
 # https://github.com/tendermint/tendermint/blob/master/docs/architecture/adr-074-timeout-params.md
 
-# If false, all of the Unsafe*TimeoutOverride fields below are ignored.
-# Defaults to false.
-#
-# As of v6.6.0, the timeout overrides below only take effect when this field is
-# set to true, OR when the onchain timeout params still equal the legacy
-# pacific-1 "badParams" values (a backward-compatibility carve-out during
-# migration). When unsafe-overrides-enabled is false and the onchain timeout
-# params differ from those legacy values, the overrides are ignored and the
-# onchain (or default) timeout params are used instead.
-unsafe-overrides-enabled = false
-
 # This field provides an unsafe override of the Propose timeout consensus parameter.
 # This field configures how long the consensus engine will wait for a proposal block before prevoting nil.
-# The override is applied only when unsafe-overrides-enabled = true (or the onchain
-# timeout params still equal the legacy badParams values) and this field is set to a
-# value greater than 0.
+# If this field is set to a value greater than 0, it will take effect.
 unsafe-propose-timeout-override = "0s"
 
 # This field provides an unsafe override of the ProposeDelta timeout consensus parameter.
@@ -1363,6 +1336,48 @@ autobahn-config-file = ""
 
 {/* AUTO-GENERATED:CONFIG_TOML:END */}
 
+<Note>
+Out-of-process Application Blockchain Interface (ABCI) support has been
+removed: the node runs only with Tendermint in-process, so the legacy
+`proxy-app` and `abci` base config fields no longer appear in the generated
+file and have no effect. When upgrading, remove any `proxy-app` and `abci`
+lines from your existing `config.toml`.
+</Note>
+
+<Note>
+The `[p2p]` section also accepts `max-outbound-connections`, which `seid init`
+does not emit. Inbound and outbound connections are managed in separate pools:
+this field caps the outbound pool, and the inbound pool is derived as
+`max-connections - max-outbound-connections`. Persistent and unconditional
+peers bypass both limits. When left unset, it defaults to 20, or to half of
+`max-connections` (rounded up) when `max-connections` is below 40. When set
+explicitly, the effective value is
+`min(max-connections, max-outbound-connections)`.
+</Note>
+
+<Note>
+The Tendermint mempool was substantially rewritten. Transaction admission,
+ordering, eviction, and gossip are now driven by a unified transaction store
+with inclusion-ordering, soft/hard size limits, and cache-based deduplication,
+so node operators may observe different ordering, eviction, and gossip
+behavior after upgrading. A zero `ttl-duration` or `ttl-num-blocks` disables
+that form of TTL purging entirely. Expired PENDING transactions are always
+pruned; expired READY transactions are pruned when
+`remove-expired-txs-from-queue` is `true` (the default). The
+`pending-ttl-duration` and `pending-ttl-num-blocks` fields are deprecated and
+have no effect — pending transactions are no longer purged based on their own
+TTL.
+</Note>
+
+<Note>
+The `[consensus]` section also accepts `unsafe-overrides-enabled` (default
+`false`), which `seid init` does not emit. The `unsafe-*-override` timeout
+fields take effect only when `unsafe-overrides-enabled` is `true`, or when the
+onchain timeout params still equal the legacy pacific-1 values (a
+backward-compatibility carve-out during migration). Otherwise the overrides
+are ignored and the onchain (or default) timeout params are used.
+</Note>
+
   </Tab>
 
   <Tab title="client.toml">
@@ -1409,18 +1424,18 @@ legacy single-database IAVL store with separate hot- and historical-data tiers:
    memory-mapped Merkle tree (`memiavl`) ported from Cronos. EVM state can
    additionally be routed through **FlatKV**, an EVM-tuned PebbleDB store
    with per-type sub-databases (`account`, `code`, `storage`, `legacy`,
-   `metadata`). Routing is controlled by `sc-write-mode` / `sc-read-mode`
-   and defaults to memiavl-only — FlatKV is only opened when one of those
-   modes is set to a non-default value.
+   `metadata`). Routing is controlled by `sc-write-mode` and defaults to
+   `memiavl_only` — FlatKV is only used when `sc-write-mode` is set to a
+   migration mode or `flatkv_only`.
 2. **State Store (SS)** — versioned raw key/value pairs used for historical
    queries. Required for any node that serves RPC. The default backend is
    **PebbleDB**; **RocksDB** is available for iteration-heavy workloads such
    as archive nodes or RPC nodes that run a lot of `debug_trace*` (see the
    [RocksDB Backend Guide](/node/rocksdb-backend) for build instructions).
 
-The legacy IAVL backend is still selectable via `sc-enable = false` but is
-deprecated and slated for removal — new deployments and existing nodes
-should run on SeiDB.
+The legacy IAVL backend has been fully removed. Setting `sc-enable = false`
+makes the node panic at startup with `SeiDB state-commit (SC) must be
+enabled; IAVL backend has been fully deprecated` — every node runs on SeiDB.
 
 ### SeiDB Configuration
 
@@ -1430,7 +1445,7 @@ covers the values most node operators tune in practice.
 
 ```toml
 [state-commit]
-# Enable SeiDB. Disable to fall back to legacy IAVL.
+# SeiDB state-commit is mandatory; setting this to false panics at startup.
 sc-enable = true
 
 # Async commit queue. Larger values improve catch-up; 0 = synchronous.
@@ -1447,17 +1462,21 @@ sc-snapshot-min-time-interval = 3600
 sc-snapshot-write-rate-mbps = 100
 
 # EVM data routing between the Cosmos memiavl tree and FlatKV.
-# Default: cosmos_only / cosmos_only — all EVM state lives in memiavl. See
-# the Giga Storage section below for the dual_write + split_read setup.
-sc-write-mode = "cosmos_only"
-sc-read-mode = "cosmos_only"
-sc-enable-lattice-hash = false
+# Default: memiavl_only — all EVM state lives in memiavl. Valid values:
+# memiavl_only, migrate_evm, evm_migrated, migrate_all_but_bank,
+# all_migrated_but_bank, migrate_bank, flatkv_only, test_only_dual_write.
+sc-write-mode = "memiavl_only"
+
+# How many EVM keys the in-flight migration (sc-write-mode = migrate_evm /
+# migrate_bank / migrate_all_but_bank) drains from memiavl into FlatKV per
+# block. Must be > 0; ignored when not in a migration mode.
+sc-keys-to-migrate-per-block = 1024
 
 [state-commit.flatkv]
-# FlatKV is the EVM-optimized commit store (PebbleDB). It is only opened
-# when sc-write-mode is dual_write or split_write — otherwise these
-# settings have no effect. WAL crash recovery is idempotent, so fsync
-# stays off by default.
+# FlatKV is the EVM-optimized commit store (PebbleDB). With the default
+# sc-write-mode = "memiavl_only" it is not used and these settings have
+# no effect. WAL crash recovery is idempotent, so fsync stays off by
+# default.
 fsync = false
 async-write-buffer = 0
 snapshot-interval = 10000
@@ -1478,15 +1497,15 @@ ss-keep-recent = 100000
 # snapshot creation.
 ss-prune-interval = 600
 
-# Optional EVM SS routing — same semantics as the SC modes above. Leave on
-# cosmos_only unless you have completed the Giga SS Store migration.
-evm-ss-write-mode = "cosmos_only"
-evm-ss-read-mode = "cosmos_only"
+# Optional EVM SS routing — when true, EVM data is routed exclusively to a
+# dedicated EVM SS backend (no fallback between backends). Leave false
+# unless you have completed the Giga SS Store migration.
+evm-ss-split = false
 evm-ss-separate-dbs = false
 
 [receipt-store]
-# pebbledb (default) or parquet. Receipts are pruned together with blocks
-# according to min-retain-blocks above.
+# pebbledb is the only supported backend (parquet was removed in v6.6.0).
+# Receipts are pruned together with blocks according to min-retain-blocks above.
 rs-backend = "pebbledb"
 async-write-buffer = 100
 prune-interval-seconds = 600
@@ -1510,18 +1529,19 @@ write amplification.
 
 
 ```toml
-[state-commit]
-sc-write-mode = "dual_write"   # write EVM data to memiavl AND FlatKV
-sc-read-mode = "split_read"    # read EVM data from FlatKV
-sc-enable-lattice-hash = true  # required for split-mode app-hash equality
-
 [state-store]
-evm-ss-write-mode = "split_write"
-evm-ss-read-mode = "split_read"
+# Route EVM data to a dedicated EVM SS backend (Giga SS Store migration).
+evm-ss-split = true
+
+[state-commit]
+# SC-layer FlatKV migration: start the background drain, then flip to
+# "evm_migrated" once `seidb migrate-evm-status` reports completion.
+sc-write-mode = "migrate_evm"
+sc-keys-to-migrate-per-block = 1024
 ```
 
-Enabling Giga Storage requires a fresh state sync — flipping the EVM SS
-modes on a node with existing data fails the startup safety checks because
+Enabling Giga Storage requires a fresh state sync — flipping `evm-ss-split`
+on a node with existing data fails the startup safety checks because
 the new EVM SS DB starts empty while Cosmos SS already has history. The
 full procedure is in the
 [Giga SS Store Migration Guide](/node/giga-storage-migration) and is
