@@ -2,7 +2,7 @@
 title: 'Sei Node Operations Guide'
 sidebarTitle: 'Overview'
 description: 'Detailed guide for running and maintaining Sei nodes. Learn about configuration management, database maintenance, service management, and update procedures.'
-keywords: ['sei node', 'blockchain node', 'node configuration', 'seidb', 'node maintenance', 'system operations']
+keywords: ['sei node', 'blockchain node', 'node configuration', 'seidb', 'node maintenance', 'system operations', 'rocksdb']
 ---
 
 This guide covers the detailed operational aspects of running a Sei node,
@@ -24,6 +24,15 @@ $HOME/.sei/config/
 ├── node_key.json     # Unique node identity key for peer-to-peer (P2P) networking
 └── priv_validator_key.json  # Validator private signing key (if running as a validator)
 ```
+
+The state-store databases live outside the config directory:
+
+- Cosmos SS uses `$HOME/.sei/data/{backend}` in the legacy layout and
+  `$HOME/.sei/data/state_store/cosmos/{backend}` in the current layout.
+- EVM SS uses `$HOME/.sei/data/evm_ss` in the legacy layout and
+  `$HOME/.sei/data/state_store/evm/{backend}` in the current layout.
+- Non-empty `ss-db-directory` and `evm-ss-db-directory` settings override
+  those locations.
 
 The snippets below are opinionated tuning recommendations layered on top of
 the defaults. For the *full* unmodified `app.toml`, `config.toml`, and
@@ -89,6 +98,8 @@ sc-enable = true
 [state-store]
 # Historical SS layer for queries. Required for any node serving RPC.
 ss-enable = true
+# State-store backend. Use PebbleDB; RocksDB support will be removed.
+ss-backend = "pebbledb"
 # 0 = keep everything; 100,000 is roughly 28 hours of pacific-1 history.
 ss-keep-recent = 100000
 
@@ -102,6 +113,8 @@ rs-backend = "pebbledb"
 The full unmodified `app.toml`, `config.toml`, and `client.toml` produced by
 `seid init` against the latest tagged `seid` release. Use these as the
 canonical reference for every available knob and its default value.
+
+<Warning>The generated `app.toml` below mirrors the latest tagged release and may still list RocksDB as a state-store option. Do not use RocksDB for new or resynced nodes. RocksDB support for the SeiDB state store will be removed. No target release has been published.</Warning>
 
 <Tabs>
   <Tab title="app.toml">
@@ -1366,9 +1379,8 @@ legacy single-database IAVL store with separate hot- and historical-data tiers:
    modes is set to a non-default value.
 2. **State Store (SS)** — versioned raw key/value pairs used for historical
    queries. Required for any node that serves RPC. The default backend is
-   **PebbleDB**; **RocksDB** is available for iteration-heavy workloads such
-   as archive nodes or RPC nodes that run a lot of `debug_trace*` (see the
-   [RocksDB Backend Guide](/node/rocksdb-backend) for build instructions).
+   **PebbleDB**. Do not use RocksDB for new nodes. If you already use RocksDB,
+   follow [Move off RocksDB](#move-off-rocksdb) before support is removed.
 
 The legacy IAVL backend is still selectable via `sc-enable = false` but is
 deprecated and slated for removal — new deployments and existing nodes
@@ -1420,7 +1432,7 @@ snapshot-keep-recent = 2
 # serving RPC must keep it on.
 ss-enable = true
 
-# pebbledb (default) or rocksdb (faster iteration, archive-friendly).
+# Use PebbleDB. RocksDB support will be removed.
 ss-backend = "pebbledb"
 
 ss-async-write-buffer = 100
@@ -1447,6 +1459,59 @@ prune-interval-seconds = 600
 Setting small (more frequent) pruning intervals may collide with
 snapshot creation. Too-large (less frequent) intervals mean pruning takes
 longer overall, which can cause missed blocks and excessive resync time.
+
+#### PebbleDB version encoding
+
+Fresh PebbleDB state stores use descending-version MVCC encoding. Sei includes
+the version in each key and sorts newer versions first. This lets
+latest-version reads reach the newest visible value without scanning older
+versions. The store records this format with the `s/_mvcc_descending` sentinel
+key, which `seid` detects automatically when it opens the database.
+
+PebbleDB state stores created by older builds use ascending-version encoding.
+`seid` detects these stores and opens them in compatibility mode without an
+error. They remain on the slower ascending read path. Rebuild the state store
+through [state sync](/node/statesync) with a current `seid` release to adopt
+descending encoding. A filesystem snapshot preserves the source store's
+encoding, so confirm its encoding with the snapshot provider.
+
+### Move off RocksDB
+
+<Warning>RocksDB support for the SeiDB state store will be removed. No target release has been published. Check the [Sei release notes](https://github.com/sei-protocol/sei-chain/releases) before every upgrade.</Warning>
+
+RocksDB and PebbleDB use different on-disk formats. Changing
+`ss-backend = "rocksdb"` to `ss-backend = "pebbledb"` against the same data
+does not convert the store. Rebuild the state store instead.
+
+For a non-archive node:
+
+1. Stop `seid` and back up the validator key, validator state, node key,
+   configuration, and genesis file that you need to preserve.
+2. Check `ss-db-directory` and `evm-ss-db-directory` in `app.toml`. An empty
+   value uses a path under `$HOME/.sei/data`. If either setting points
+   elsewhere, move the old RocksDB data out of the active path and keep it
+   with the backup. Clearing `$HOME/.sei/data` does not clear a custom
+   directory.
+3. Set `ss-backend = "pebbledb"`, then rebuild through
+   [state sync](/node/statesync) or a provider-confirmed
+   [PebbleDB snapshot](/node/snapshot).
+4. Confirm the startup log reports `"SeiDB SS is enabled"` with the PebbleDB
+   backend. Test the RPC methods your node serves before you delete the old
+   RocksDB backup.
+
+<Danger>Do not use state sync or a pruned snapshot to migrate an archive node. Both start from a recent height and discard the earlier state-store versions that an archive node must retain.</Danger>
+
+There is no documented in-place migration for a RocksDB archive node. Build a
+separate replacement from a trusted full-history PebbleDB source. Keep the
+RocksDB node on a compatible `seid` release until the replacement has caught
+up and you have tested historical queries at old heights. If you cannot obtain
+a full-history PebbleDB source, do not wipe the existing archive data. Contact
+the [Sei Tech Chat](https://t.me/+KZdhZ1eE-G01NmZk) before you upgrade.
+
+PebbleDB can be slower for iteration-heavy historical queries, including
+`debug_trace*` requests. Descending-version encoding improves recent reads,
+but it does not remove the cost of long-history iteration. Benchmark the
+replacement under your trace workload before you cut over.
 
 ### Giga Storage and Giga Executor
 
