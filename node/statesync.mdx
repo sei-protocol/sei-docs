@@ -10,7 +10,9 @@ Follow this guide to join an existing network through statesync. To quickly spin
 
 State sync allows a new node to join a network by fetching a snapshot of the application state at a recent height instead of fetching and replaying all historical blocks. This can reduce the time needed to sync with the network from days to minutes.
 
-<Warning>RocksDB support for the SeiDB state store will be removed. No target release has been published. Set `ss-backend = "pebbledb"` before you start state sync, especially when rebuilding a node that previously used RocksDB.</Warning>
+<Warning>RocksDB support for the SeiDB state store will be removed. No target release has been published. Set `ss-backend = "pebbledb"` before you start state sync, especially when rebuilding a node that previously used RocksDB. See [Move off RocksDB](/node/node-operators#move-off-rocksdb) for the full migration checklist.</Warning>
+
+<Danger>Do not use state sync to migrate an archive node. State sync starts from a recent height and does not preserve the earlier state-store versions. Follow the archive-node guidance in [Move off RocksDB](/node/node-operators#move-off-rocksdb).</Danger>
 
 ## Clean Up
 
@@ -32,6 +34,17 @@ seid tendermint unsafe-reset-all --home $HOME/.sei
 ```
 
 Finally, remove the existing data and wasm folders and restore the `priv_validator_state.json`:
+
+First, print the state-store section from `app.toml`:
+
+```bash
+sed -n '/^\[state-store\]/,/^\[.*\]/p' $HOME/.sei/config/app.toml
+```
+
+If `ss-db-directory` or `evm-ss-db-directory` points outside
+`$HOME/.sei/data`, back up anything you need and clear the old state-store
+data there as well. The commands below do not remove custom directories. A
+PebbleDB state sync must not reuse RocksDB data.
 
 ```bash
 rm -rf $HOME/.sei/data/*

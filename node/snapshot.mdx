@@ -12,7 +12,9 @@ Follow this guide to join an existing network through **snapshot sync**. To quic
 
 Snapshot sync allows a new node to join a network by downloading a recent, compressed copy of the entire application state and extracting it directly into the data directory. This reduces the initial sync time from days to minutes.
 
-<Warning>RocksDB support for the SeiDB state store will be removed. No target release has been published. For new or resynced nodes, use a snapshot only after confirming that its state store uses PebbleDB. Keep `ss-backend = "pebbledb"` in `app.toml`.</Warning>
+<Warning>RocksDB support for the SeiDB state store will be removed. No target release has been published. For new or resynced nodes, use a snapshot only after its provider confirms that the state store uses PebbleDB. Keep `ss-backend = "pebbledb"` in `app.toml`. See [Move off RocksDB](/node/node-operators#move-off-rocksdb) if you are replacing an existing RocksDB node.</Warning>
+
+<Danger>Do not restore a pruned snapshot onto an archive node. It does not contain the earlier state-store versions that the archive node must retain. Use only a provider-confirmed full-history PebbleDB archive snapshot, or follow the archive-node guidance in [Move off RocksDB](/node/node-operators#move-off-rocksdb).</Danger>
 
 ## Snapshot Providers
 
@@ -25,9 +27,11 @@ You can select from various providers for downloading snapshots:
 
 <iframe src="https://seistream.app/labs?page=snapshots" width="100%" height="600" style={{ border: 'none', borderRadius: '8px' }} title="Sei Snapshot Providers" />
 
-Snapshot providers do not consistently label the state-store backend. Follow
-the verification step below before you extract a snapshot. If you cannot
-identify the backend from the archive, ask the provider to confirm it.
+Snapshot providers do not consistently label the state-store backend. Ask the
+provider to confirm that the snapshot uses PebbleDB before you restore it. The
+post-extraction check below is a second guard against archives that contain an
+obvious RocksDB path. It does not replace provider confirmation because some
+legacy and custom directory names do not identify their backend.
 
 ## Clean Up & Preparation
 
@@ -55,7 +59,22 @@ If you are **not** starting a node from fresh, perform the following backups and
    seid tendermint unsafe-reset-all --home $HOME/.sei
    ```
 
-4. **Remove Data and Wasm**
+4. **Check custom state-store paths**
+   Print the state-store section from `app.toml`:
+
+   ```bash
+   sed -n '/^\[state-store\]/,/^\[.*\]/p' $HOME/.sei/config/app.toml
+   ```
+
+   If `ss-db-directory` or `evm-ss-db-directory` is not empty, the state store
+   may live outside `$HOME/.sei/data`. Back up anything you need, then move or
+   remove the old state-store data before you restore the snapshot. The generic
+   commands below expect both settings to be empty so the snapshot's default
+   paths are used. Follow your provider's placement instructions if you keep
+   custom paths. Do not reuse a RocksDB directory with
+   `ss-backend = "pebbledb"`.
+
+5. **Remove data and Wasm**
    ```bash
    rm -rf $HOME/.sei/data
    rm -rf $HOME/.sei/wasm
@@ -85,61 +104,112 @@ sudo apt install curl lz4 wget aria2 pv -y
    SNAPSHOT_URL="<PASTE_SNAPSHOT_URL_HERE>"
    ```
 
-2. **Download, verify, and extract**
-   Most providers compress the `data` and `wasm` directories directly. Download the archive so you can inspect its state-store path before extraction:
+2. **Extract the snapshot**
+   Most providers compress the `data` and `wasm` directories directly. Stream
+   the archive to avoid storing a second compressed copy:
 
    ```bash
-   curl -L "$SNAPSHOT_URL" -o snapshot.tar.lz4
-
-   lz4 -c -d snapshot.tar.lz4 | tar -tf - | \
-     awk '/(^|\/)data\/(state_store\/cosmos\/)?(pebbledb|rocksdb)\// { print; exit }'
-   ```
-
-   The printed path must contain either `data/pebbledb/` or
-   `data/state_store/cosmos/pebbledb/`. Do not extract the archive if the path
-   contains `rocksdb` or the command prints no state-store path.
-
-   Extract the verified archive, then remove it:
-
-   ```bash
-   lz4 -c -d snapshot.tar.lz4 | tar -x -C $HOME/.sei
-   rm snapshot.tar.lz4
+   set -o pipefail
+   curl --fail -L "$SNAPSHOT_URL" | lz4 -c -d | tar -x -C "$HOME/.sei"
    ```
 
    **Alternative: parallel download with aria2**
 
-   For faster downloads, especially with large snapshots, you can use `aria2c` which supports parallel connections:
+   `aria2c` supports parallel connections but keeps the compressed archive
+   beside the extracted data. Put the archive on a data disk with enough free
+   space for both:
 
    ```bash
-   # Download with 16 parallel connections
-   aria2c -x 16 -s 16 -o snapshot.tar.lz4 $SNAPSHOT_URL
-
-   # Run the backend verification command above before extraction
-
-   # Extract after download completes
-   lz4 -c -d snapshot.tar.lz4 | tar -x -C $HOME/.sei
-
-   # Clean up the downloaded file
-   rm snapshot.tar.lz4
-   ```
-
-   You can also use `pv` to monitor extraction progress:
-
-   ```bash
-   pv snapshot.tar.lz4 | lz4 -c -d | tar -x -C $HOME/.sei
+   set -o pipefail
+   SNAPSHOT_FILE="/path/on-data-disk/snapshot.tar.lz4"
+   aria2c -x 16 -s 16 \
+     -d "$(dirname "$SNAPSHOT_FILE")" \
+     -o "$(basename "$SNAPSHOT_FILE")" \
+     "$SNAPSHOT_URL" && \
+     pv "$SNAPSHOT_FILE" | lz4 -c -d | tar -x -C "$HOME/.sei"
    ```
 
    <Info>The `-x 16` flag sets the maximum connections per server, and `-s 16` splits the file into 16 segments for parallel downloading. You can adjust these values based on your network conditions.</Info>
 
-   <Warning>**Variation Warning**: Some providers might wrap the data in a folder or use different compression. - If the snapshot is a `.tar.gz`, use `tar -xzf`. - If the snapshot contains a root folder (e.g. `sei/data`), you might need to adjust the `-C` target or use `--strip-components`. - Always check the provider's specific page for exact commands.</Warning>
+   If extraction fails, remove the partially extracted `data` and `wasm`
+   directories before you retry. Do not continue to verification.
 
-3. **Restore Validator State**
+   <Warning>Some providers wrap the data in another directory or use a different compression format. For a `.tar.gz` snapshot, use the provider's `tar -xzf` command. If the archive contains a root directory such as `sei/data`, adjust the extraction target or `--strip-components`. Run the backend check below after any extraction method.</Warning>
+
+3. **Verify every extracted state-store path**
+   The check below scans every backend-labelled default state-store path
+   instead of stopping at the first result. It catches archives that contain
+   both PebbleDB and RocksDB:
+
+   ```bash
+   verify_snapshot_backend() {
+     local state_store_config backend_dirs backend path
+
+     if [ ! -f "$HOME/.sei/config/app.toml" ]; then
+       echo "UNVERIFIED: app.toml not found. Do not start seid." >&2
+       return 1
+     fi
+
+     state_store_config="$(
+       sed -n '/^\[state-store\]/,/^\[.*\]/p' \
+         "$HOME/.sei/config/app.toml"
+     )"
+
+     if printf '%s\n' "$state_store_config" | \
+       grep -Eq "^[[:space:]]*(ss-db-directory|evm-ss-db-directory)[[:space:]]*=[[:space:]]*(\"[^\"]+\"|'[^']+')"; then
+       echo "UNVERIFIED: custom state-store directory configured." >&2
+       echo "Use the provider-specific placement and verification steps." >&2
+       return 1
+     fi
+
+     backend_dirs="$(
+       for backend in pebbledb rocksdb; do
+         for path in \
+           "$HOME/.sei/data/$backend" \
+           "$HOME/.sei/data/state_store/cosmos/$backend" \
+           "$HOME/.sei/data/state_store/evm/$backend"; do
+           if [ -d "$path" ]; then
+             printf '%s\n' "$path"
+           fi
+         done
+       done
+     )"
+
+     printf '%s\n' "$backend_dirs"
+
+     if printf '%s\n' "$backend_dirs" | grep -Eq '(^|/)rocksdb$'; then
+       echo "FAIL: RocksDB data found. Do not start seid." >&2
+       return 1
+     fi
+
+     if ! printf '%s\n' "$backend_dirs" | grep -Eq '(^|/)pebbledb$'; then
+       echo "UNVERIFIED: no PebbleDB state-store directory found." >&2
+       return 1
+     fi
+
+     echo "PASS: PebbleDB found and no RocksDB directory found."
+   }
+
+   verify_snapshot_backend
+   ```
+
+   The function returns a nonzero status for `FAIL` and `UNVERIFIED`. Continue
+   only if the provider confirmed PebbleDB and the command prints `PASS`. A
+   legacy EVM store at `data/evm_ss/` does not identify its backend in the
+   directory name, which is why provider confirmation is still required. If
+   you used `aria2c`, remove the downloaded archive after this check passes:
+
+   ```bash
+   rm "$SNAPSHOT_FILE"
+   ```
+
+4. **Restore validator state**
 
    ```bash
    cp $HOME/priv_validator_state.json $HOME/.sei/data/priv_validator_state.json
    ```
 
-4. **Enable SeiDB and configure PebbleDB**
+5. **Enable SeiDB and configure PebbleDB**
    Make sure SeiDB is enabled and the state-store backend is PebbleDB:
 
    ```bash
@@ -151,13 +221,13 @@ sudo apt install curl lz4 wget aria2 pv -y
    Confirm that the output includes `ss-backend = "pebbledb"`. If the key is
    absent, add it directly below `[state-store]` before you restart the node.
 
-5. **Restart the Node**
+6. **Restart the node**
 
    ```bash
    sudo systemctl start seid
    ```
 
-6. **Monitor Logs**
+7. **Monitor logs**
    ```bash
    sudo journalctl -fu seid
    ```

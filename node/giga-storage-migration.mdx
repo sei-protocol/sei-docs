@@ -2,7 +2,7 @@
 title: 'Giga SS Store Migration Guide'
 sidebarTitle: 'Giga SS Store Migration'
 description: 'Migrate a Sei RPC node to Giga SS Store: split EVM state into a dedicated state-store backend so non-EVM modules stop paying EVM write amplification.'
-keywords: ['sei node', 'giga storage', 'seidb', 'state sync', 'evm ss', 'flatkv', 'rpc node', 'pebbledb']
+keywords: ['sei node', 'giga storage', 'seidb', 'state sync', 'evm ss', 'flatkv', 'rpc node', 'pebbledb', 'rocksdb']
 ---
 
 Giga SS Store is the next step in Sei's storage evolution on top of [SeiDB](/node/node-operators#architecture).
@@ -15,7 +15,7 @@ After migration the SS layer is repartitioned into two cooperating stores:
 | Layer | Cosmos backend | EVM backend |
 |---|---|---|
 | **SC** (State Commit, app hash) | `memiavl` | FlatKV |
-| **SS** (State Store, historical queries) | single PebbleDB MVCC database | dedicated EVM SS MVCC databases under `data/evm_ss/` |
+| **SS** (State Store, historical queries) | single PebbleDB MVCC database | dedicated EVM SS MVCC databases in the configured EVM SS directory |
 
 Only the **SS** layer changes for this migration. SC layer config is untouched
 and `memiavl` remains the authoritative source for the app hash, so this is
@@ -76,7 +76,7 @@ ss-backend = "pebbledb"
 evm-ss-split = true
 ```
 
-<Warning>Keep `ss-backend = "pebbledb"` during this migration. RocksDB support for the state store will be removed. No target release has been published.</Warning>
+<Warning>Keep `ss-backend = "pebbledb"` during this migration. RocksDB support for the state store will be removed. No target release has been published. If the node already uses RocksDB, follow [Move off RocksDB](/node/node-operators#move-off-rocksdb).</Warning>
 
 ### Step 2: State sync into the new layout
 
@@ -164,10 +164,9 @@ flipping `evm-ss-split` from `false` to `true` without state syncing.
 
 1. **EVM SS directory missing or empty** (before the EVM SS is opened). When
    `evm-ss-split = true`, the composite state store refuses to proceed if
-   Cosmos SS already has committed history but the EVM SS directory
-   (`data/evm_ss/` by default) does not exist or is empty. Failing before
-   the sub-DBs are opened means a rejected config does not leave a confusing
-   empty `data/evm_ss/` behind.
+   Cosmos SS already has committed history but the configured EVM SS directory
+   does not exist or is empty. Failing before the sub-DBs are opened means a
+   rejected config does not leave a confusing empty directory behind.
 2. **EVM SS DB empty post-open, pre-recovery.** Belt-and-suspenders for (1)
    when the directory exists but its DBs are empty. The WAL only covers the
    last `KeepRecent` blocks, so replay cannot rebuild a fresh EVM SS from
@@ -179,18 +178,19 @@ flipping `evm-ss-split` from `false` to `true` without state syncing.
 
 If any check fires, the correct fix is either (a) complete the state sync
 described above, or (b) set `evm-ss-split = false` and restart. If
-`data/evm_ss/` is stale from a failed attempt, remove it before state syncing.
+the configured EVM SS directory is stale from a failed attempt, remove it
+before state syncing.
 
 ## Rollback
 
 To roll back:
 
 1. Set `evm-ss-split = false` in `app.toml`.
-2. Restart the node. The EVM SS DB under `data/evm_ss/` is no longer opened
-   but stays on disk until manually removed.
+2. Restart the node. The EVM SS DB is no longer opened but stays on disk until
+   you remove it.
 
 To fully reclaim the disk used by EVM SS, stop the node and delete
-`data/evm_ss/` after reverting the setting.
+the configured EVM SS directory after reverting the setting.
 
 <Warning>Cleanly rolling back to `evm-ss-split = false` requires another state sync. Under `evm-ss-split = true`, EVM writes go only to the EVM SS DB, so Cosmos SS will not have those writes. Restarting with `evm-ss-split = false` stops opening the EVM SS DB, but EVM-state queries will miss anything written after the Giga state sync until you re-state-sync without the split.</Warning>
 
@@ -198,9 +198,12 @@ To fully reclaim the disk used by EVM SS, stop the node and delete
 
 ### Where do the data files live after migrating?
 
-- Cosmos SS data lives under the same directory as before, typically
-  `data/pebbledb/` for the default `pebbledb` backend.
-- EVM SS data lives under `data/evm_ss/`.
+- Cosmos SS data uses `data/pebbledb/` in the legacy layout and
+  `data/state_store/cosmos/pebbledb/` in the current layout.
+- EVM SS data uses `data/evm_ss/` in the legacy layout and
+  `data/state_store/evm/pebbledb/` in the current layout.
+- A non-empty `ss-db-directory` or `evm-ss-db-directory` overrides the
+  corresponding default path.
 - SC data (`memiavl` + FlatKV) is untouched by this migration.
 
 ### Does Giga SS Store change the app hash or consensus?
