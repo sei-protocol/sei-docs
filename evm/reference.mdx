@@ -266,7 +266,7 @@ Every method below is also browsable interactively in the explorer above; this s
 
 **Supported.** Returns the receipt of a transaction by hash, or null if not found.
 
-**Sei-specific behavior:** Receipt is reconstructed from keeper.GetReceipt + CometBFT block data rather than from a native MPT receipt trie; status/logs are standard Ethereum format. An EVM transaction that bumps the sender's nonce but then fails during state transition — for example an EIP-7623 floor-data-gas shortfall (post-Pectra), which fails inside go-ethereum's `Execute()` before any opcode runs — now returns a `status=0` failed-tx receipt (a synthetic receipt written at EndBlock, with `gasUsed` of 0; the `VmError` reason is not part of the `eth_getTransactionReceipt` response but is retrievable via `sei_getVMError`) under the Giga executor, rather than returning null indefinitely and hanging clients that poll for it. If a receipt exists but its block height is above the safe-latest watermark (for example when Tendermint status momentarily lags the receipt store), the method returns JSON null rather than an error — the Ethereum JSON-RPC 'not yet mined' signal — so clients simply poll again, matching `eth_getBlockByNumber` behavior.
+**Sei-specific behavior:** Receipt is reconstructed from keeper.GetReceipt + CometBFT block data rather than from a native MPT receipt trie; status/logs are standard Ethereum format. An EVM transaction that bumps the sender's nonce but then fails during state transition — for example an EIP-7623 floor-data-gas shortfall (post-Pectra), which fails inside go-ethereum's `Execute()` before any opcode runs — now returns a `status=0` failed-tx receipt (a synthetic receipt written at EndBlock, with `gasUsed` of 0; the `VmError` reason is not part of the `eth_getTransactionReceipt` response but is retrievable via the non-standard `eth_getVMError` method) under the Giga executor, rather than returning null indefinitely and hanging clients that poll for it. If a receipt exists but its block height is above the safe-latest watermark (for example when Tendermint status momentarily lags the receipt store), the method returns JSON null rather than an error — the Ethereum JSON-RPC 'not yet mined' signal — so clients simply poll again, matching `eth_getBlockByNumber` behavior.
 
 **Parameters:**
 
@@ -745,7 +745,7 @@ Every method below is also browsable interactively in the explorer above; this s
 
 **Supported.** Returns base fees, gas-used ratios, and reward percentile data over a range of blocks.
 
-**Sei-specific behavior:** Base fees and rewards reflect Sei's x/evm fee market (GetNextBaseFee), not an Ethereum EIP-1559 mempool, and Sei does not burn the base fee. Watermark-aware: pruned/historical blocks may not be available as far back as on Ethereum archive nodes. Matching go-ethereum/execution-apis semantics, `baseFeePerGas` contains one more element than `gasUsedRatio` (`len(baseFeePerGas) == len(gasUsedRatio) + 1`): the trailing element is the projected base fee for the child of the newest block in the range. Each block's base fee uses header base fee semantics (the same value reported in the block header — `GetNextBaseFee` at the parent's committed height) with a `DefaultMinFeePerGas` fallback for early blocks. Note that when some heights in the range have pruned/partial base-fee data, `baseFeePerGas` may still be shorter than `gasUsedRatio + 1` for those rows.
+**Sei-specific behavior:** Base fees and rewards reflect Sei's x/evm fee market (GetNextBaseFee), not an Ethereum EIP-1559 mempool, and Sei does not burn the base fee. Watermark-aware: pruned/historical blocks may not be available as far back as on Ethereum archive nodes. Matching go-ethereum/execution-apis semantics, on ranges where every block has base-fee data, `baseFeePerGas` contains one more element than `gasUsedRatio`: the trailing element is the projected base fee for the child of the newest block in the range, appended only when the newest block's own header base fee was available. Heights with pruned or partial base-fee data are skipped from `baseFeePerGas` while still contributing a `gasUsedRatio` row (0.0 fallback), so the two arrays can diverge from that `+1` relationship on ranges with pruned history. Each block's base fee uses header base fee semantics (the same value reported in the block header — `GetNextBaseFee` at the parent's committed height) with a `DefaultMinFeePerGas` fallback for early blocks.
 
 **Parameters:**
 
@@ -1379,9 +1379,6 @@ To enable additional legacy methods, add them to this array. All other `sei_*` a
 | `sei_newFilter` | Create a new log filter |
 | `sei_newBlockFilter` | Create a new block filter |
 | `sei_uninstallFilter` | Remove a filter |
-| `sei_getBlockByHashExcludeTraceFail` | Get block by hash excluding failed traces |
-| `sei_getBlockByNumberExcludeTraceFail` | Get block by number excluding failed traces |
-| `sei_getTransactionReceiptExcludeTraceFail` | Get receipt excluding failed traces |
 
 <Note>`sei_traceBlockByHashExcludeTraceFail` and `sei_traceBlockByNumberExcludeTraceFail` were removed in v6.6.0 (#3618) and no longer appear in the gated method list; adding them to `enabled_legacy_sei_apis` has no effect. Use `debug_traceBlockByHash`/`debug_traceBlockByNumber` instead.</Note>
 
