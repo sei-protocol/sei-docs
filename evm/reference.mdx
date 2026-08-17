@@ -7,7 +7,7 @@ keywords: ['json-rpc', 'api reference', 'evm endpoints', 'blockchain api', 'sei 
 
 import { RPCMethodsViewer } from '/snippets/rpc-methods-viewer.jsx';
 
-Sei fully supports the standard Ethereum JSON-RPC API, so existing EVM tooling (ethers.js, viem, Hardhat, Foundry, etc.) works out of the box. Use the explorer below to browse every method Sei exposes, inspect parameters, run requests against a live endpoint, and copy ready-to-use snippets in a range of popular languages. The authoritative prose for the request format, the deprecated `sei_*`/`sei2_*` extensions, and address resolution follows underneath.
+Sei fully supports the standard Ethereum JSON-RPC API, so existing EVM tooling (ethers.js, viem, Hardhat, Foundry, etc.) works out of the box. Use the explorer below to browse every method Sei exposes, inspect parameters, run requests against a live endpoint, and copy ready-to-use snippets in a range of popular languages. The authoritative prose for the request format, the remaining deprecated `sei_*` extensions, and address resolution follows underneath.
 
 <RPCMethodsViewer />
 
@@ -18,7 +18,7 @@ By default the explorer lists only the available, current methods. Each is label
 - **Limited** — callable, but returns a static value or has a Sei-specific caveat (shown in the method's **Sei-specific behavior** note). Examples: `eth_coinbase` returns the fee-collector address and `eth_getProof` returns an IAVL proof.
 - **Unavailable** — not registered, explicitly errors, or not applicable to Sei's architecture. This includes blob methods (`eth_blobBaseFee`), proof-of-work and uncle methods, and the `admin`/`miner`/`clique`/`engine`/`les`/`personal` namespaces.
 
-The deprecated `sei_*`/`sei2_*` extensions and the unavailable methods are hidden by default — enable **Show deprecated & unavailable methods** to browse them. The deprecated extensions are also documented under [Sei custom endpoints](#sei-custom-endpoints).
+The remaining deprecated `sei_*` extensions and the unavailable methods are hidden by default. Enable **Show deprecated & unavailable methods** to browse them. The deprecated extensions are also documented under [Sei custom endpoints](#sei-custom-endpoints).
 </Note>
 
 ## Overview
@@ -113,7 +113,7 @@ Real-time subscriptions (`eth_subscribe` for `newHeads` and `logs`) are availabl
 
 ## Standard Ethereum endpoints
 
-Every method below is also browsable interactively in the explorer above; this section is the static, copy-friendly reference. Methods are grouped by purpose and labelled with their Sei support status. Block parameters accept a hex number or one of the tags `latest`, `earliest`, `pending`, `safe`, or `finalized` — on Sei, `safe`, `finalized`, and `latest` all resolve to the latest committed block due to [instant finality](/evm/differences-with-ethereum#finality). The deprecated `sei_*`/`sei2_*` extensions are documented separately under [Sei custom endpoints](#sei-custom-endpoints).
+Every method below is also browsable interactively in the explorer above; this section is the static, copy-friendly reference. Methods are grouped by purpose and labelled with their Sei support status. Block parameters accept a hex number or one of the tags `latest`, `earliest`, `pending`, `safe`, or `finalized`. On Sei, `safe`, `finalized`, and `latest` all resolve to the latest committed block due to [instant finality](/evm/differences-with-ethereum#finality). The remaining deprecated `sei_*` extensions are documented separately under [Sei custom endpoints](#sei-custom-endpoints).
 
 <Accordion title="Send transactions">
 #### `eth_sendRawTransaction`
@@ -238,7 +238,7 @@ Every method below is also browsable interactively in the explorer above; this s
 
 **Supported.** Returns the EVM transaction matching the given hash, or null if not found.
 
-**Sei-specific behavior:** Sees EVM transactions only; if the hash resolves to a non-EVM Cosmos tx it errors. Pending lookups resolve the transaction directly from the CometBFT mempool via an EVM-hash index (rather than a geth txpool), so a pending EVM tx is found by its hash without scanning through unconfirmed-transaction pages. Use the legacy sei_getTransactionByHash to also surface Cosmos txs with synthetic representations.
+**Sei-specific behavior:** Sees EVM transactions only; if the hash resolves to a non-EVM Cosmos tx it errors. Pending lookups resolve the transaction directly from the CometBFT mempool via an EVM-hash index (rather than a geth txpool), so a pending EVM tx is found by its hash without scanning through unconfirmed-transaction pages.
 
 **Parameters:**
 
@@ -624,7 +624,7 @@ Every method below is also browsable interactively in the explorer above; this s
 
 **Supported.** Returns the number of EVM transactions in a block by number, as a hex quantity.
 
-**Sei-specific behavior:** Counts the same transactions that appear in `eth_getBlockByNumber`'s transaction list: EVM transactions are counted only when a receipt exists for them, and synthetic (wasm `MsgExecuteContract`) and bank-transfer (`MsgSend`) txs remain excluded under the eth namespace — they are only included in the `sei_`/`sei2_` count variants. Genesis returns 0x0; non-existent/future blocks return null. Because the receipt store can be configured with a smaller `KeepRecent` than the block/state stores, this method now verifies that the requested block's receipts have not been pruned before counting: if they have, it returns an error of the form `requested height N receipts have been pruned; earliest available is M` rather than a count. This means the call can fail for older blocks even when the block data itself is still available.
+**Sei-specific behavior:** Counts the same transactions that appear in `eth_getBlockByNumber`'s transaction list. EVM transactions are counted only when a receipt exists for them, while synthetic (wasm `MsgExecuteContract`) and bank-transfer (`MsgSend`) transactions remain excluded. Genesis returns 0x0; non-existent/future blocks return null. Because the receipt store can be configured with a smaller `KeepRecent` than the block/state stores, this method now verifies that the requested block's receipts have not been pruned before counting: if they have, it returns an error of the form `requested height N receipts have been pruned; earliest available is M` rather than a count. This means the call can fail for older blocks even when the block data itself is still available.
 
 **Parameters:**
 
@@ -879,7 +879,7 @@ Every method below is also browsable interactively in the explorer above; this s
 
 **Supported.** Returns logs matching the given filter criteria.
 
-**Sei-specific behavior:** Returns EVM logs only. Hard limits: max 2,000 blocks per close-ended query and up to 10,000 logs per response; exceeding the range errors with 'block range too large'. Large queries are globally rate-limited. Use the legacy sei_getLogs to include synthetic logs from Cosmos activity.
+**Sei-specific behavior:** Returns EVM logs only. Hard limits: max 2,000 blocks per close-ended query and up to 10,000 logs per response; exceeding the range errors with 'block range too large'. Large queries are globally rate-limited.
 
 **Parameters:**
 
@@ -1341,25 +1341,27 @@ The response `result` contains a `trace` field (the standard tracer output) and 
 
 </Accordion>
 
-## Sei Custom Endpoints
+## Sei custom endpoints
 
-Sei extends the standard Ethereum JSON-RPC API with custom endpoints that enhance functionality for developers. These extensions enable better handling of cross-VM interactions, synthetic transactions, improved error reporting, and other Sei-specific features.
+Sei keeps four legacy custom endpoints for address resolution, cross-VM transaction lookup, and synthetic receipts.
 
 <Warning>
-**Deprecation Notice:** All `sei_*` and `sei2_*` JSON-RPC methods are deprecated and scheduled for removal. Do not build new integrations on these endpoints. Use standard `eth_*` and `debug_*` methods instead.
+The `sei2_*` namespace has been removed. Most legacy `sei_*` methods have also been removed, including block, filter, log, signing, association, and transaction lookup methods. The `sei_*` cleanup is tracked in [sei-chain PR #3927](https://github.com/sei-protocol/sei-chain/pull/3927).
+
+The four remaining `sei_*` methods are deprecated and scheduled for removal. Use standard `eth_*` and `debug_*` methods for new integrations.
+</Warning>
+
+<Note>There is no remaining block or filter method for discovering synthetic logs from Cosmos-originated transactions. If you already know a synthetic transaction hash, enable `sei_getTransactionReceipt` to retrieve its receipt and logs.</Note>
 
 Access is controlled by the `enabled_legacy_sei_apis` setting under `[evm]` in `app.toml`. Only methods explicitly listed in this allowlist are available. Disabled methods return a standard JSON-RPC error (code `-32601`, data `"legacy_sei_deprecated"`). Allowed single-object calls pass through unchanged, with an optional `Sei-Legacy-RPC-Deprecation` HTTP response header signaling deprecation.
 
-**Batch requests:** JSON-RPC batches (a top-level JSON array) are handled by the gate rather than passed through wholesale. Only the allowed methods in the batch are forwarded to the inner handler as a filtered subset, and the inner responses are then merged back by matching each response's JSON-RPC `id`. Disallowed methods yield the usual `-32601` legacy deprecation error in their slot, and any batch element that is not a JSON object returns a JSON-RPC `-32600` `"Invalid Request"` error in its slot — a malformed element no longer causes the whole batch body to bypass the gate and reach the inner handler.
+JSON-RPC batches are handled by the gate rather than passed through wholesale. Only allowed methods are forwarded to the inner handler. The handler then merges responses by matching each response's JSON-RPC `id`. Disallowed methods return the usual `-32601` legacy deprecation error in their slot. A batch element that is not a JSON object returns a JSON-RPC `-32600` `"Invalid Request"` error in its slot.
 
-Per JSON-RPC 2.0, **notifications** — requests that fully omit the `id` member — do not produce a response entry, including within a batch. A request that includes `"id": null` is **not** a notification: `null` is a valid id, so the request receives a response like any other id. Only requests with no `id` member at all are treated as notifications and omitted from the batch response. As a result, the merged response array is **not** 1:1 with the request batch when notifications are present — it is ordered like the batch minus the notification slots. If a batch would produce no response objects at all (for example, an all-notification batch, or an empty result), the gateway returns an **empty HTTP body** with HTTP 200 rather than an empty JSON array (`[]`).
-</Warning>
+Per JSON-RPC 2.0, requests that omit the `id` member are notifications and do not produce a response entry, including within a batch. A request with `"id": null` is not a notification and receives a response. If a batch produces no response objects, the gateway returns an empty HTTP body with HTTP 200 rather than an empty JSON array (`[]`).
 
-### Legacy API Configuration
+### Legacy API configuration
 
-The `enabled_legacy_sei_apis` setting in `app.toml` controls which `sei_*` and `sei2_*` methods are accessible on the EVM HTTP endpoint.
-
-**Default allowlist** (enabled on `seid init`):
+The `enabled_legacy_sei_apis` setting controls which remaining `sei_*` methods are accessible on the EVM HTTP endpoint. `seid init` enables the three address and cross-VM lookup helpers by default:
 
 ```toml
 [evm]
@@ -1367,57 +1369,22 @@ enabled_legacy_sei_apis = [
   "sei_getSeiAddress",
   "sei_getEVMAddress",
   "sei_getCosmosTx",
+
+  # Optional: enable synthetic receipt lookup.
+  # "sei_getTransactionReceipt",
 ]
 ```
 
-To enable additional legacy methods, add them to this array. All other `sei_*` and `sei2_*` methods (including all `sei2_*` block methods) are disabled by default and must be explicitly enabled.
-
-<Accordion title="View all available legacy methods">
-**`sei_*` methods:**
+Only these four methods are available:
 
 | Method | Description |
 | ------ | ----------- |
-| `sei_getCosmosTx` | Get Cosmos transaction by EVM tx hash |
-| `sei_getEvmTx` | Get EVM transaction by Cosmos tx hash |
-| `sei_getTransactionErrorByHash` | Get error message for a failed transaction |
-| `sei_getVMError` | Get VM error details for a transaction |
-| `sei_getBlockByHash` | Get block by hash (includes synthetic txs) |
-| `sei_getBlockByHashExcludeTraceFail` | Get block by hash, excluding untraceable txs — synthetic txs **and** ante-deferred stub transactions (correct-nonce ante failures such as insufficient funds/fee, whose stub receipts carry `EffectiveGasPrice == 0` and `GasUsed == 0`). Note this differs from the regular `eth_getBlockByHash`, which still includes these ante-failure stubs. |
-| `sei_getBlockByNumber` | Get block by number (includes synthetic txs) |
-| `sei_getBlockByNumberExcludeTraceFail` | Get block by number, excluding untraceable txs — synthetic txs **and** ante-deferred stub transactions (correct-nonce ante failures such as insufficient funds/fee, whose stub receipts carry `EffectiveGasPrice == 0` and `GasUsed == 0`). Note this differs from the regular `eth_getBlockByNumber`, which still includes these ante-failure stubs. |
-| `sei_getBlockReceipts` | Get block receipts (includes synthetic txs) |
-| `sei_getBlockTransactionCountByHash` | Get tx count by block hash (includes synthetic txs) |
-| `sei_getBlockTransactionCountByNumber` | Get tx count by block number (includes synthetic txs) |
-| `sei_getTransactionByBlockHashAndIndex` | Get tx by block hash and index (includes synthetic txs) |
-| `sei_getTransactionByBlockNumberAndIndex` | Get tx by block number and index (includes synthetic txs) |
-| `sei_getTransactionByHash` | Get transaction by hash (includes synthetic txs) |
-| `sei_getTransactionCount` | Get account transaction count |
-| `sei_getTransactionReceipt` | Get transaction receipt (includes synthetic txs) |
-| `sei_getTransactionReceiptExcludeTraceFail` | Get transaction receipt, excluding txs that never executed opcodes in the VM. The filter keys off the receipt shape (`EffectiveGasPrice == 0` and `GasUsed == 0`), which covers ante-rejected txs, nonce-bumping state-transition failures (for example EIP-7623 floor-data-gas shortfalls, whose synthetic EndBlock receipts carry the same shape), and chain-generated synthetic txs (`ShellEVMTxType`); reverted and out-of-gas transactions are included, because they ran in the VM and produce real traces. (Previously any receipt with `status=0` was excluded, which over-filtered reverts and OOG failures.) The former `sei_traceBlockByHashExcludeTraceFail`/`sei_traceBlockByNumberExcludeTraceFail` trace endpoints were removed in v6.6.0 (#3618); use the standard `debug_traceBlockByHash`/`debug_traceBlockByNumber` instead. |
-| `sei_getFilterLogs` | Get filter logs (includes synthetic logs) |
-| `sei_getLogs` | Get logs (includes synthetic logs) |
-| `sei_getFilterChanges` | Get filter changes (includes synthetic events) |
-| `sei_newFilter` | Create a new log filter |
-| `sei_newBlockFilter` | Create a new block filter |
-| `sei_uninstallFilter` | Remove a filter |
+| `sei_getSeiAddress` | Get the Sei address associated with an EVM address. |
+| `sei_getEVMAddress` | Get the EVM address associated with a Sei address. |
+| `sei_getCosmosTx` | Get the wrapping Cosmos transaction hash as uppercase hexadecimal without a `0x` prefix. |
+| `sei_getTransactionReceipt` | Get a receipt, including a synthetic receipt when its transaction hash is known. |
 
-<Note>`sei_traceBlockByHashExcludeTraceFail` and `sei_traceBlockByNumberExcludeTraceFail` were removed in v6.6.0 (#3618) and no longer appear in the gated method list; adding them to `enabled_legacy_sei_apis` has no effect. Use `debug_traceBlockByHash`/`debug_traceBlockByNumber` instead.</Note>
-
-**`sei2_*` methods** (block queries with bank transfers included):
-
-| Method | Description |
-| ------ | ----------- |
-| `sei2_getBlockByHash` | Get block by hash (includes bank transfers) |
-| `sei2_getBlockByNumber` | Get block by number (includes bank transfers) |
-| `sei2_getBlockReceipts` | Get block receipts (includes bank transfers) |
-| `sei2_getBlockTransactionCountByHash` | Get tx count by block hash (includes bank transfers) |
-| `sei2_getBlockTransactionCountByNumber` | Get tx count by block number (includes bank transfers) |
-| `sei2_getBlockByHashExcludeTraceFail` | Get block by hash excluding failed traces (includes bank transfers) |
-| `sei2_getBlockByNumberExcludeTraceFail` | Get block by number excluding failed traces (includes bank transfers) |
-
-</Accordion>
-
-### Address Resolution
+### Address resolution
 
 For resolving the EVM (`0x…`) ↔ Sei (`sei1…`) address pair, use the **`addr` precompile at `0x0000000000000000000000000000000000001004`** via a standard `eth_call`. The precompile is universally available on every Sei RPC, is not part of the deprecated `sei_*` namespace, and is the canonical resolution path going forward.
 
@@ -1465,26 +1432,26 @@ The call reverts when the input address is not yet associated. See [Accounts](/l
 
 <Note>The legacy JSON-RPC helpers `sei_getSeiAddress` and `sei_getEVMAddress` historically served this role and are still enabled by default on nodes today, but they belong to the deprecated `sei_*` namespace and may be removed in a future release. New integrations should call the precompile.</Note>
 
-### Cross-VM Transaction Lookup
+### Cross-VM transaction lookup
 
-`sei_getCosmosTx` resolves the underlying Cosmos transaction hash for a given EVM transaction. It does not yet have a precompile equivalent and is enabled by default on Sei nodes.
+`sei_getCosmosTx` resolves the underlying Cosmos transaction hash for a given EVM transaction. It returns the hash as uppercase hexadecimal without a `0x` prefix. The method does not yet have a precompile equivalent and is enabled by default on Sei nodes.
 
 <Accordion title="View Cross-VM Lookup Endpoints">
 #### sei_getCosmosTx
 
-Returns the Cosmos transaction details for a given EVM transaction hash.
+Returns the wrapping Cosmos transaction hash for a given EVM transaction hash.
 
 - **Parameters**:
 
-| Type     | Description                |
-| :------- | :------------------------- |
-| `string` | The EVM transaction hash.  |
+| Type | Description |
+| :--- | :---------- |
+| `DATA, 32 bytes` | The `0x`-prefixed EVM transaction hash. |
 
 - **Result**:
 
-| Type     | Description                        |
-| :------- | :--------------------------------- |
-| `object` | The Cosmos transaction object.     |
+| Type | Description |
+| :--- | :---------- |
+| `string` | The Cosmos transaction hash as uppercase hexadecimal without a `0x` prefix. |
 
 **Example Request**
 
@@ -1492,16 +1459,16 @@ Returns the Cosmos transaction details for a given EVM transaction hash.
 {
   "jsonrpc": "2.0",
   "method": "sei_getCosmosTx",
-  "params": ["0xabc123..."],
+  "params": ["0x828c91592453fe7c5bf743204495a35bf02b67b579b8f59ee7eea8af031d7c14"],
   "id": 1
 }
 ```
 
 </Accordion>
 
-### Legacy Deprecation Error
+### Legacy deprecation error
 
-When a `sei_*` or `sei2_*` method is called but not listed in `enabled_legacy_sei_apis`, the node returns:
+When a remaining `sei_*` method is called but not listed in `enabled_legacy_sei_apis`, the node returns:
 
 ```json
 {
@@ -1509,18 +1476,18 @@ When a `sei_*` or `sei2_*` method is called but not listed in `enabled_legacy_se
   "id": 1,
   "error": {
     "code": -32601,
-    "message": "sei_getBlockByNumber is not enabled on this node. The sei_* and sei2_* JSON-RPC surfaces are deprecated, scheduled for removal, and should not be used for new integrations - prefer standard eth_* (and debug_*) methods and official migration guidance. To allow this legacy method, add it to enabled_legacy_sei_apis under [evm] in app.toml.",
+    "message": "sei_getTransactionReceipt is not enabled on this node. The sei_* JSON-RPC surface is deprecated, scheduled for removal, and should not be used for new integrations - prefer standard eth_* (and debug_*) methods and official migration guidance. To allow this legacy method, add it to enabled_legacy_sei_apis under [evm] in app.toml.",
     "data": "legacy_sei_deprecated"
   }
 }
 ```
 
-### Deprecation HTTP Header
+### Deprecation HTTP header
 
-When an allowlisted `sei_*` or `sei2_*` method is successfully called, the response includes an optional HTTP header signaling deprecation:
+When an allowlisted `sei_*` method is successfully called, the response includes an optional HTTP header signaling deprecation:
 
 ```
-Sei-Legacy-RPC-Deprecation: All sei_* and sei2_* JSON-RPC methods are deprecated and scheduled for removal; migrate to eth_* and supported APIs.
+Sei-Legacy-RPC-Deprecation: All sei_* JSON-RPC methods are deprecated and scheduled for removal; migrate to eth_* and supported APIs.
 ```
 
 Clients can use this header to detect legacy API usage and plan migration.
