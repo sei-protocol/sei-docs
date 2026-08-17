@@ -171,7 +171,6 @@ Sei supports full nodes (recent state, consensus relay), archive nodes (complete
 - [Swagger API Documentation](https://docs.sei.io/node/swagger): Learn how to enable and access Swagger API documentation for your Sei node. Configure the swagger endpoint in app.toml and view interactive API docs.
 - [Sei Validator Operations Guide](https://docs.sei.io/node/validators): Learn how to set up and maintain a validator node on Sei Network, including hardware security configuration, key management, monitoring practices, and governance participation requirements.
 - [Sei Node Advanced Configuration & Monitoring](https://docs.sei.io/node/advanced-config-monitoring): Optimize your Sei node's performance with advanced system configurations, monitoring setup with Prometheus and Grafana, and effective alerting strategies for maintaining reliable node operations.
-- [RocksDB Backend Setup & Performance](https://docs.sei.io/node/rocksdb-backend): Build and enable the RocksDB backend for seid to significantly improve iteration-heavy operations and traceBlock latency, especially on long-history RPC and archive nodes.
 - [Giga SS Store Migration Guide](https://docs.sei.io/node/giga-storage-migration): Migrate a Sei RPC node to Giga SS Store: split EVM state into a dedicated state-store backend so non-EVM modules stop paying EVM write amplification.
 - [Sei Technical Reference](https://docs.sei.io/node/technical-reference): Access detailed command syntax, configuration parameters, and troubleshooting procedures for node operators and validators running Sei network infrastructure.
 
@@ -1836,7 +1835,7 @@ The key to achieving sub-second finality lies in aggressively optimizing and par
 
 This optimized flow involves several key enhancements:
 
-1. **Aggressive Timeout Configuration:** Sei utilizes heavily tuned Tendermint consensus parameters. Configuration settings (e.g., `UnsafeProposeTimeoutOverride`, `UnsafeCommitTimeoutOverride`) enforce much shorter durations for block proposal, voting, and commit rounds compared to standard Tendermint configurations, directly contributing to the sub-second target block time. Faster gossip propagation for consensus messages further reduces communication latency between validators.
+1. **Aggressive Timeout Configuration:** Sei utilizes heavily tuned Tendermint consensus parameters. Configuration settings (e.g., `UnsafeProposeTimeoutOverride`, `UnsafeCommitTimeoutOverride`) can enforce much shorter durations for block proposal, voting, and commit rounds compared to standard Tendermint configurations, directly contributing to the sub-second target block time. These `Unsafe*TimeoutOverride` fields are gated by the `unsafe-overrides-enabled` flag under the `[consensus]` section of the node config. This flag defaults to `false`, meaning the overrides are ignored and the on-chain timeout consensus parameters are used instead. The overrides are only applied when `unsafe-overrides-enabled` is set to `true` (or, during the transition period, while the on-chain timeout params still match the legacy values). In practice, timeout tuning should be governed by the on-chain consensus parameters rather than these unsafe per-node overrides. Faster gossip propagation for consensus messages further reduces communication latency between validators.
 2. **Intelligent Mempool Management & Transaction Preparation:** Even before a block proposal is formally initiated for height `H`, validators can begin processing transactions intended for that block. This involves collecting transactions from the network, decoding them concurrently (`DecodeTransactionsConcurrently`), analyzing potential state dependencies (`GenerateEstimatedWritesets`), and potentially pre-fetching required state data from SeiDB. This "pre-consensus" preparation minimizes the work needed once the actual proposal for height `H` arrives.
 3. **Optimized BFT Rounds with Parallel Execution Integration:** The critical optimization is the deep integration with Sei's parallelization engine. When a validator receives a block proposal for height `H`, it doesn't necessarily wait for the prevote/precommit rounds to complete before starting execution. Instead:
    * The block's transactions are dispatched to the parallel execution engine (`ProcessTXsWithOCC`, `DeliverTxBatch`).
@@ -6229,13 +6228,13 @@ Standard EVM tooling — viem, wagmi, ethers, Foundry, Hardhat — works on Sei 
 
 ## Account and State
 
-| Feature                           | Sei status              | Notes                                                                                                                                                                       |
-| --------------------------------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `eth_getBalance`                  | Supported               |                                                                                                                                                                             |
-| `eth_getTransactionCount` (nonce) | Supported               |                                                                                                                                                                             |
-| `eth_getCode`                     | Supported               |                                                                                                                                                                             |
-| `eth_getStorageAt`                | Supported — differences | SSTORE cost is governance-adjustable; do not hard-code gas assumptions. [See Gas and Fees.](/evm/evm-parity/gas-and-fees)                                                   |
-| `eth_getProof`                    | Supported — differences | Returns IAVL proof data rather than Ethereum Merkle Patricia Trie proofs. Proof verification logic must account for this. [See State Proofs.](/evm/evm-parity/state-proofs) |
+| Feature                           | Sei status              | Notes                                                                                                                                                                                                                                                                                                                                                                     |
+| --------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `eth_getBalance`                  | Supported               |                                                                                                                                                                                                                                                                                                                                                                           |
+| `eth_getTransactionCount` (nonce) | Supported               |                                                                                                                                                                                                                                                                                                                                                                           |
+| `eth_getCode`                     | Supported               |                                                                                                                                                                                                                                                                                                                                                                           |
+| `eth_getStorageAt`                | Supported — differences | SSTORE cost is governance-adjustable; do not hard-code gas assumptions. [See Gas and Fees.](/evm/evm-parity/gas-and-fees)                                                                                                                                                                                                                                                 |
+| `eth_getProof`                    | Supported — differences | Returns IAVL proof data rather than Ethereum Merkle Patricia Trie proofs. Proof verification logic must account for this. Proofs resolve across supported store backends (classic IAVL, store/v2 memiavl, and other proof-capable queryable stores), so the method works across a broader range of node configurations. [See State Proofs.](/evm/evm-parity/state-proofs) |
 
 ## Blocks and Finality
 
@@ -6472,6 +6471,12 @@ This does not affect how you construct or send transactions — `maxFeePerGas` a
   ```
 </CodeGroup>
 
+### Effective Gas Price on Receipts
+
+For dynamic-fee (type 2) transactions, the transaction receipt's `effectiveGasPrice` field reports the **actual price charged** — `min(baseFee + maxPriorityFeePerGas, maxFeePerGas)` — not the fee cap. This matches standard EIP-1559 semantics, so clients such as ethers and hardhat see the same `effectiveGasPrice` behavior they expect from Ethereum.
+
+In practice, when your priority tip plus the base fee stays below `maxFeePerGas`, the receipt reports `baseFee + maxPriorityFeePerGas` rather than `maxFeePerGas`. Use the receipt's `effectiveGasPrice` (not `maxFeePerGas`) when computing what a transaction actually paid.
+
 ## SSTORE Cost
 
 The gas cost of `SSTORE` (writing to contract storage) is governance-adjustable on Sei. It is currently **72,000 gas** — the same on mainnet and testnet (see [Divergence from Ethereum](/evm/differences-with-ethereum#sstore-gas-cost)) — but treat that as the current value, not a constant: do not hard-code storage write estimates in your application.
@@ -6530,6 +6535,12 @@ Sei supports most Ethereum transaction types. The one notable exception is blob 
 | 1    | EIP-2930 | Access list | Supported                                            |
 | 2    | EIP-1559 | Fee market  | Supported — base fee is not burned                   |
 | 4    | EIP-7702 | Set code    | Supported                                            |
+
+### Set Code (EIP-7702) Auth List Requirement
+
+Type 4 (EIP-7702) SetCode transactions must include a non-empty authorization list. A transaction with an empty or nil auth list is rejected during validation with the error `auth list cannot be empty`.
+
+Each authorization entry must also carry a valid (non-nil) chain ID. If you are constructing SetCode transactions directly, ensure at least one authorization is present before submitting.
 
 ## Not Supported
 
@@ -6606,6 +6617,13 @@ Most applications do not call `eth_getProof` directly. It is primarily used by:
 If you are doing standard contract reads, event queries, or transaction lookups, this difference does not affect you.
 
 ## Calling eth\_getProof
+
+### Storage key requirements
+
+Before calling `eth_getProof`, note two requirements Sei enforces on the `storageKeys` argument:
+
+* **Keys must be hex-encoded.** Each storage key must be a valid hex-encoded value (for example `0x0000000000000000000000000000000000000000000000000000000000000001`). Keys are decoded and left-padded to 32 bytes. A malformed, non-hex key is rejected with an `invalid storage key` error. Raw byte strings, which were previously accepted, no longer work.
+* **At most 1024 keys per request.** A single proof request may include a maximum of 1024 storage keys. Requesting more returns a `too many storage keys` error. Split larger sets across multiple requests.
 
 The call works through standard libraries:
 
@@ -6759,6 +6777,20 @@ const unwatch = client.watchEvent({
 
 * Sei's instant finality means every block emitted over WebSocket is already final — no need to wait for additional confirmations before acting on an event.
 * Pending transaction subscriptions (`newPendingTransactions`) are supported at the RPC level but Sei does not guarantee Ethereum-style pending state visibility.
+
+## `newHeads` Under Autobahn Consensus
+
+When a node runs under Autobahn consensus, `eth_subscribe("newHeads")` notifications are delivered from an in-process notifier that publishes committed-block headers directly, rather than from the legacy consensus event bus. Subscribers still only observe headers for fully committed blocks, but the header payload differs from the legacy path in a few ways:
+
+* **`parentHash`, `receiptsRoot`, and `transactionsRoot` are returned as zero hashes** (`0x0000…0000`). The Autobahn block-execution path does not build a Tendermint-style hash chain, so there is no meaningful value to surface for these fields.
+* **`stateRoot`** is sourced from the finalized block's `AppHash` (the post-execution application hash), rather than from a pre-execution header field.
+* **`hash`** is the Autobahn block-header hash — the same value reported as `blockHash` by `eth_getBlockByNumber` and the receipt APIs, keeping `newHeads` consistent with the rest of the EVM RPC surface.
+* **`gasUsed`** is an approximation (summed from per-transaction results) to keep the notification cheap.
+
+Because of these differences:
+
+* Subscribers that chain-validate the head stream by linking `parentHash` values cannot rely on `newHeads` under Autobahn and need a different mechanism.
+* If you need exact `gasUsed` or the omitted hash fields, fetch the block explicitly with `eth_getBlockByNumber`.
 
 ---
 
@@ -8321,7 +8353,7 @@ The `seid` CLI is the command-line tool for interacting with the Sei blockchain.
 
 ## Prerequisites
 
-* Go 1.23+ (build from source only): Installation instructions are available [here](https://go.dev/doc/install). The prebuilt binary has no prerequisites.
+* [Go 1.25.6 or later](https://go.dev/doc/install) is required only when building from source. Check the `go.mod` at the release tag you check out below (e.g. [`v6.6.1`](https://github.com/sei-protocol/sei-chain/blob/v6.6.1/go.mod)) for its exact requirement. Prebuilt binaries have no prerequisites.
 
 ## Installation
 
@@ -20076,6 +20108,8 @@ The JSON precompile has specific limitations for different data types:
 | extractAsBytes     | Strings, Objects, Arrays  | Returns raw bytes - needs conversion       |
 | extractAsUint256   | Integers only             | No decimals, booleans, or negative numbers |
 | extractAsBytesList | Arrays of strings/objects | Each element returned as bytes             |
+
+<Warning>**Value Length Limit:** `extractAsUint256` rejects value strings longer than 100 characters. If the numeric string extracted for the given key exceeds 100 characters, the call fails with `value string too long`. Ensure the numeric values you pass stay within this limit.</Warning>
 
 ### Data Type Conversion Strategies
 
@@ -37119,7 +37153,7 @@ EVM transactions in Sei follow the Ethereum transaction format with standard pro
         "logs": [],
         "status": "0x1",
         "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-        "effectiveGasPrice": "0x1234",
+        "effectiveGasPrice": "0x77359400",
         "type": "0x2"
       }
     }
@@ -42280,20 +42314,34 @@ Comprehensive guides for running, maintaining, and optimizing Sei network nodes.
 
     ##### Install Go
 
-    Only needed if you build `seid` from source — the prebuilt binary and Docker
-    install paths in the next step don't require Go.
+    You need Go only if you build `seid` from source. The prebuilt binary and Docker
+    install paths in the next step do not require it.
 
-    Suggested Version: Go 1.24.x (required for seid v6.3+)
+    Current `seid` releases require Go 1.25.6 or later. Check the `go.mod` at the release tag
+    you check out
+    (e.g. [`v6.6.1`](https://github.com/sei-protocol/sei-chain/blob/v6.6.1/go.mod)) for its
+    exact requirement.
 
     ###### Installation Steps
 
     ```bash theme={"dark"}
-    # Check for existing Go installation
+    # Check for existing Go installations — more than one entry means another copy
+    # may still win on your PATH after this install
+    which -a go
     go version
 
-    # Download and install Go 1.24.x
-    wget https://go.dev/dl/go1.24.5.linux-amd64.tar.gz
-    sudo tar -C /usr/local -xzf go1.24.5.linux-amd64.tar.gz
+    # Bumping Go? Change these two lines only
+    GO_TARBALL=go1.25.6.linux-amd64.tar.gz
+    GO_SHA256=f022b6aad78e362bcba9b0b94d09ad58c5a70c6ba3b7582905fababf5fe0181a
+
+    curl -fLO https://go.dev/dl/${GO_TARBALL}
+
+    # Verify integrity before trusting the archive (go.dev/dl publishes a SHA256 per file
+    # at ${GO_TARBALL}.sha256), then replace any previous installation — extracting over
+    # one leaves stale files behind
+    echo "${GO_SHA256}  ${GO_TARBALL}" | sha256sum -c - \
+      && sudo rm -rf /usr/local/go \
+      && sudo tar -C /usr/local -xzf ${GO_TARBALL}
 
     # Add Go to your environment variables
     echo 'export PATH=$PATH:/usr/local/go/bin' >> $HOME/.bashrc
@@ -42302,6 +42350,16 @@ Comprehensive guides for running, maintaining, and optimizing Sei network nodes.
     # Verify installation
     go version
     ```
+
+    <Note>
+      `sudo rm -rf /usr/local/go` is the replacement step [Go's install
+      docs](https://go.dev/doc/install) prescribe, but it only clears a tarball install. A
+      package-manager Go (`/usr/lib/go-*`, Homebrew) survives it and can still shadow
+      `/usr/local/go/bin/go` — if the final `go version` reports the old release,
+      `which -a go` lists every copy on your `PATH`. If the extraction itself fails, the
+      verified tarball is still in your working directory: re-run the `sudo tar` command
+      rather than starting over.
+    </Note>
   </Step>
 
   <Step title="Install Sei">
@@ -42331,12 +42389,10 @@ Comprehensive guides for running, maintaining, and optimizing Sei network nodes.
         ```
 
         <Info>
-          Prebuilt binaries are attached from `v6.6.1` onward — for earlier versions, build
-          from source or use Docker. They are `linux/amd64` only, omit hardware Ledger
-          support, and don't include the optional
-          [RocksDB state-store backend](/node/rocksdb-backend). On other architectures, or
-          if you sign with a Ledger device, build from source or use Docker; a
-          RocksDB-enabled `seid` must be built from source.
+          Prebuilt binaries are attached from `v6.6.1` onward. For earlier versions,
+          build from source or use Docker. They are `linux/amd64` only and omit hardware
+          Ledger support. On other architectures, or if you sign with a Ledger device,
+          build from source or use Docker.
         </Info>
 
         <Note>
@@ -42610,8 +42666,8 @@ Comprehensive guides for running, maintaining, and optimizing Sei network nodes.
     Optimize your node's performance with advanced settings and monitoring tools.
   </Card>
 
-  <Card horizontal title="RocksDB Backend" icon="database" href="/node/rocksdb-backend">
-    Run with RocksDB instead of the default backend.
+  <Card horizontal title="Giga SS Store Migration" icon="database" href="/node/giga-storage-migration">
+    Move EVM historical state into dedicated state-store databases on supported RPC nodes.
   </Card>
 
   <Card horizontal title="Technical Reference" icon="terminal" href="/node/technical-reference">
@@ -42646,6 +42702,15 @@ $HOME/.sei/config/
 ├── node_key.json     # Unique node identity key for peer-to-peer (P2P) networking
 └── priv_validator_key.json  # Validator private signing key (if running as a validator)
 ```
+
+The state-store databases live outside the config directory:
+
+* Cosmos SS uses `$HOME/.sei/data/{backend}` in the legacy layout and
+  `$HOME/.sei/data/state_store/cosmos/{backend}` in the current layout.
+* EVM SS uses `$HOME/.sei/data/evm_ss` in the legacy layout and
+  `$HOME/.sei/data/state_store/evm/{backend}` in the current layout.
+* Non-empty `ss-db-directory` and `evm-ss-db-directory` settings override
+  those locations.
 
 The snippets below are opinionated tuning recommendations layered on top of
 the defaults. For the *full* unmodified `app.toml`, `config.toml`, and
@@ -42711,6 +42776,8 @@ sc-enable = true
 [state-store]
 # Historical SS layer for queries. Required for any node serving RPC.
 ss-enable = true
+# State-store backend. Use PebbleDB; RocksDB support will be removed.
+ss-backend = "pebbledb"
 # 0 = keep everything; 100,000 is roughly 28 hours of pacific-1 history.
 ss-keep-recent = 100000
 
@@ -42724,6 +42791,8 @@ rs-backend = "pebbledb"
 The full unmodified `app.toml`, `config.toml`, and `client.toml` produced by
 `seid init` against the latest tagged `seid` release. Use these as the
 canonical reference for every available knob and its default value.
+
+<Warning>The generated `app.toml` below mirrors the latest tagged release and may still list RocksDB as a state-store option. Do not use RocksDB for new or resynced nodes. RocksDB support for the SeiDB state store will be removed. No target release has been published.</Warning>
 
 <Tabs>
   <Tab title="app.toml">
@@ -43970,9 +44039,8 @@ legacy single-database IAVL store with separate hot- and historical-data tiers:
    modes is set to a non-default value.
 2. **State Store (SS)** — versioned raw key/value pairs used for historical
    queries. Required for any node that serves RPC. The default backend is
-   **PebbleDB**; **RocksDB** is available for iteration-heavy workloads such
-   as archive nodes or RPC nodes that run a lot of `debug_trace*` (see the
-   [RocksDB Backend Guide](/node/rocksdb-backend) for build instructions).
+   **PebbleDB**. Do not use RocksDB for new nodes. If you already use RocksDB,
+   follow [Move off RocksDB](#move-off-rocksdb) before support is removed.
 
 The legacy IAVL backend is still selectable via `sc-enable = false` but is
 deprecated and slated for removal — new deployments and existing nodes
@@ -44024,7 +44092,7 @@ snapshot-keep-recent = 2
 # serving RPC must keep it on.
 ss-enable = true
 
-# pebbledb (default) or rocksdb (faster iteration, archive-friendly).
+# Use PebbleDB. RocksDB support will be removed.
 ss-backend = "pebbledb"
 
 ss-async-write-buffer = 100
@@ -44051,6 +44119,59 @@ prune-interval-seconds = 600
 Setting small (more frequent) pruning intervals may collide with
 snapshot creation. Too-large (less frequent) intervals mean pruning takes
 longer overall, which can cause missed blocks and excessive resync time.
+
+#### PebbleDB version encoding
+
+Fresh PebbleDB state stores use descending-version MVCC encoding. Sei includes
+the version in each key and sorts newer versions first. This lets
+latest-version reads reach the newest visible value without scanning older
+versions. The store records this format with the `s/_mvcc_descending` sentinel
+key, which `seid` detects automatically when it opens the database.
+
+PebbleDB state stores created by older builds use ascending-version encoding.
+`seid` detects these stores and opens them in compatibility mode without an
+error. They remain on the slower ascending read path. Rebuild the state store
+through [state sync](/node/statesync) with a current `seid` release to adopt
+descending encoding. A filesystem snapshot preserves the source store's
+encoding, so confirm its encoding with the snapshot provider.
+
+### Move off RocksDB
+
+<Warning>RocksDB support for the SeiDB state store will be removed. No target release has been published. Check the [Sei release notes](https://github.com/sei-protocol/sei-chain/releases) before every upgrade.</Warning>
+
+RocksDB and PebbleDB use different on-disk formats. Changing
+`ss-backend = "rocksdb"` to `ss-backend = "pebbledb"` against the same data
+does not convert the store. Rebuild the state store instead.
+
+For a non-archive node:
+
+1. Stop `seid` and back up the validator key, validator state, node key,
+   configuration, and genesis file that you need to preserve.
+2. Check `ss-db-directory` and `evm-ss-db-directory` in `app.toml`. An empty
+   value uses a path under `$HOME/.sei/data`. If either setting points
+   elsewhere, move the old RocksDB data out of the active path and keep it
+   with the backup. Clearing `$HOME/.sei/data` does not clear a custom
+   directory.
+3. Set `ss-backend = "pebbledb"`, then rebuild through
+   [state sync](/node/statesync) or a provider-confirmed
+   [PebbleDB snapshot](/node/snapshot).
+4. Confirm the startup log reports `"SeiDB SS is enabled"` with the PebbleDB
+   backend. Test the RPC methods your node serves before you delete the old
+   RocksDB backup.
+
+<Danger>Do not use state sync or a pruned snapshot to migrate an archive node. Both start from a recent height and discard the earlier state-store versions that an archive node must retain.</Danger>
+
+There is no documented in-place migration for a RocksDB archive node. Build a
+separate replacement from a trusted full-history PebbleDB source. Keep the
+RocksDB node on a compatible `seid` release until the replacement has caught
+up and you have tested historical queries at old heights. If you cannot obtain
+a full-history PebbleDB source, do not wipe the existing archive data. Contact
+the [Sei Tech Chat](https://t.me/+KZdhZ1eE-G01NmZk) before you upgrade.
+
+PebbleDB can be slower for iteration-heavy historical queries, including
+`debug_trace*` requests. Descending-version encoding improves recent reads,
+but it does not remove the cost of long-history iteration. Benchmark the
+replacement under your trace workload before you cut over.
 
 ### Giga Storage and Giga Executor
 
@@ -44459,7 +44580,15 @@ If you prefer to build from source or need a specific configuration:
 
 #### Prerequisites
 
-* Go 1.24.5 or higher
+* [Go 1.26.0 or later](https://go.dev/doc/install). The commands below build `main`, whose requirement is set in [`go.mod`](https://github.com/sei-protocol/seictl/blob/main/go.mod).
+
+<Note>
+  This is newer than the Go version needed to build `seid` (1.25.6), so the toolchain from
+  the [node setup guide](/node) is a minor version behind. Under the default
+  `GOTOOLCHAIN=auto` that still builds: the go command downloads the toolchain `go.mod`
+  asks for. If you've set `GOTOOLCHAIN=local` or build without network access, install Go
+  1.26.0 or later, or use a prebuilt binary above.
+</Note>
 
 #### Build
 
@@ -44618,7 +44747,7 @@ Client-level configuration including:
 
 Node-level configuration including:
 
-* Proxy app and database settings
+* Database settings
 * Logging configuration
 * RPC and P2P settings
 * Mempool and consensus parameters
@@ -44779,6 +44908,10 @@ Follow this guide to join an existing network through statesync. To quickly spin
 
 State sync allows a new node to join a network by fetching a snapshot of the application state at a recent height instead of fetching and replaying all historical blocks. This can reduce the time needed to sync with the network from days to minutes.
 
+<Warning>RocksDB support for the SeiDB state store will be removed. No target release has been published. Set `ss-backend = "pebbledb"` before you start state sync, especially when rebuilding a node that previously used RocksDB. See [Move off RocksDB](/node/node-operators#move-off-rocksdb) for the full migration checklist.</Warning>
+
+<Danger>Do not use state sync to migrate an archive node. State sync starts from a recent height and does not preserve the earlier state-store versions. Follow the archive-node guidance in [Move off RocksDB](/node/node-operators#move-off-rocksdb).</Danger>
+
 ## Clean Up
 
 If you are not starting a node from fresh, then you need to do some backups and clean ups.
@@ -44799,6 +44932,17 @@ seid tendermint unsafe-reset-all --home $HOME/.sei
 ```
 
 Finally, remove the existing data and wasm folders and restore the `priv_validator_state.json`:
+
+First, print the state-store section from `app.toml`:
+
+```bash theme={"dark"}
+sed -n '/^\[state-store\]/,/^\[.*\]/p' $HOME/.sei/config/app.toml
+```
+
+If `ss-db-directory` or `evm-ss-db-directory` points outside
+`$HOME/.sei/data`, back up anything you need and clear the old state-store
+data there as well. The commands below do not remove custom directories. A
+PebbleDB state sync must not reuse RocksDB data.
 
 ```bash theme={"dark"}
 rm -rf $HOME/.sei/data/*
@@ -44881,7 +45025,17 @@ s|^(trust-hash[[:space:]]+=[[:space:]]+).*$|\1\"$TRUST_HASH\"|" $HOME/.sei/confi
 # Set the persistent peers in the config.toml file to the specified State Sync Peer
 sed -i.bak -e "s|^persistent-peers *=.*|persistent-peers = \"$STATE_SYNC_PEER\"|" \
   $HOME/.sei/config/config.toml
+
+# Use PebbleDB for the SeiDB state store
+sed -i.bak -E '/^\[state-store\]/,/^\[.*\]/ s|^[#[:space:]]*(ss-backend[[:space:]]*=[[:space:]]*).*$|\1"pebbledb"|' \
+  $HOME/.sei/config/app.toml
+
+# Print the state-store section so you can verify the backend
+sed -n '/^\[state-store\]/,/^\[.*\]/p' $HOME/.sei/config/app.toml
 ```
+
+Confirm that the script output includes `ss-backend = "pebbledb"`. If the key
+is absent, add it directly below `[state-store]` before you start `seid`.
 
 Finally start the daemon:
 
@@ -44919,6 +45073,10 @@ Follow this guide to join an existing network through **snapshot sync**. To quic
 
 Snapshot sync allows a new node to join a network by downloading a recent, compressed copy of the entire application state and extracting it directly into the data directory. This reduces the initial sync time from days to minutes.
 
+<Warning>RocksDB support for the SeiDB state store will be removed. No target release has been published. For new or resynced nodes, use a snapshot only after its provider confirms that the state store uses PebbleDB. Keep `ss-backend = "pebbledb"` in `app.toml`. See [Move off RocksDB](/node/node-operators#move-off-rocksdb) if you are replacing an existing RocksDB node.</Warning>
+
+<Danger>Do not restore a pruned snapshot onto an archive node. It does not contain the earlier state-store versions that the archive node must retain. Use only a provider-confirmed full-history PebbleDB archive snapshot, or follow the archive-node guidance in [Move off RocksDB](/node/node-operators#move-off-rocksdb).</Danger>
+
 ## Snapshot Providers
 
 You can select from various providers for downloading snapshots:
@@ -44929,6 +45087,12 @@ You can select from various providers for downloading snapshots:
 * kjnodes
 
 <iframe src="https://seistream.app/labs?page=snapshots" width="100%" height="600" style={{ border: 'none', borderRadius: '8px' }} title="Sei Snapshot Providers" />
+
+Snapshot providers do not consistently label the state-store backend. Ask the
+provider to confirm that the snapshot uses PebbleDB before you restore it. The
+post-extraction check below is a second guard against archives that contain an
+obvious RocksDB path. It does not replace provider confirmation because some
+legacy and custom directory names do not identify their backend.
 
 ## Clean Up & Preparation
 
@@ -44956,7 +45120,22 @@ If you are **not** starting a node from fresh, perform the following backups and
    seid tendermint unsafe-reset-all --home $HOME/.sei
    ```
 
-4. **Remove Data and Wasm**
+4. **Check custom state-store paths**
+   Print the state-store section from `app.toml`:
+
+   ```bash theme={"dark"}
+   sed -n '/^\[state-store\]/,/^\[.*\]/p' $HOME/.sei/config/app.toml
+   ```
+
+   If `ss-db-directory` or `evm-ss-db-directory` is not empty, the state store
+   may live outside `$HOME/.sei/data`. Back up anything you need, then move or
+   remove the old state-store data before you restore the snapshot. The generic
+   commands below expect both settings to be empty so the snapshot's default
+   paths are used. Follow your provider's placement instructions if you keep
+   custom paths. Do not reuse a RocksDB directory with
+   `ss-backend = "pebbledb"`.
+
+5. **Remove data and Wasm**
    ```bash theme={"dark"}
    rm -rf $HOME/.sei/data
    rm -rf $HOME/.sei/wasm
@@ -44986,58 +45165,130 @@ sudo apt install curl lz4 wget aria2 pv -y
    SNAPSHOT_URL="<PASTE_SNAPSHOT_URL_HERE>"
    ```
 
-2. **Download and Extract**
-   Most providers compress the `data` and `wasm` directory directly. The following command streams the download and extracts it into `$HOME/.sei`.
+2. **Extract the snapshot**
+   Most providers compress the `data` and `wasm` directories directly. Stream
+   the archive to avoid storing a second compressed copy:
 
    ```bash theme={"dark"}
-   curl -L $SNAPSHOT_URL | lz4 -c -d | tar -x -C $HOME/.sei
+   set -o pipefail
+   curl --fail -L "$SNAPSHOT_URL" | lz4 -c -d | tar -x -C "$HOME/.sei"
    ```
 
-   **Alternative: Parallel Download with aria2**
+   **Alternative: parallel download with aria2**
 
-   For faster downloads, especially with large snapshots, you can use `aria2c` which supports parallel connections:
-
-   ```bash theme={"dark"}
-   # Download with 16 parallel connections
-   aria2c -x 16 -s 16 -o snapshot.tar.lz4 $SNAPSHOT_URL
-
-   # Extract after download completes
-   lz4 -c -d snapshot.tar.lz4 | tar -x -C $HOME/.sei
-
-   # Clean up the downloaded file
-   rm snapshot.tar.lz4
-   ```
-
-   You can also use `pv` to monitor extraction progress:
+   `aria2c` supports parallel connections but keeps the compressed archive
+   beside the extracted data. Put the archive on a data disk with enough free
+   space for both:
 
    ```bash theme={"dark"}
-   pv snapshot.tar.lz4 | lz4 -c -d | tar -x -C $HOME/.sei
+   set -o pipefail
+   SNAPSHOT_FILE="/path/on-data-disk/snapshot.tar.lz4"
+   aria2c -x 16 -s 16 \
+     -d "$(dirname "$SNAPSHOT_FILE")" \
+     -o "$(basename "$SNAPSHOT_FILE")" \
+     "$SNAPSHOT_URL" && \
+     pv "$SNAPSHOT_FILE" | lz4 -c -d | tar -x -C "$HOME/.sei"
    ```
 
    <Info>The `-x 16` flag sets the maximum connections per server, and `-s 16` splits the file into 16 segments for parallel downloading. You can adjust these values based on your network conditions.</Info>
 
-   <Warning>**Variation Warning**: Some providers might wrap the data in a folder or use different compression. - If the snapshot is a `.tar.gz`, use `tar -xzf`. - If the snapshot contains a root folder (e.g. `sei/data`), you might need to adjust the `-C` target or use `--strip-components`. - Always check the provider's specific page for exact commands.</Warning>
+   If extraction fails, remove the partially extracted `data` and `wasm`
+   directories before you retry. Do not continue to verification.
 
-3. **Restore Validator State**
+   <Warning>Some providers wrap the data in another directory or use a different compression format. For a `.tar.gz` snapshot, use the provider's `tar -xzf` command. If the archive contains a root directory such as `sei/data`, adjust the extraction target or `--strip-components`. Run the backend check below after any extraction method.</Warning>
+
+3. **Verify every extracted state-store path**
+   The check below scans every backend-labelled default state-store path
+   instead of stopping at the first result. It catches archives that contain
+   both PebbleDB and RocksDB:
+
+   ```bash theme={"dark"}
+   verify_snapshot_backend() {
+     local state_store_config backend_dirs backend path
+
+     if [ ! -f "$HOME/.sei/config/app.toml" ]; then
+       echo "UNVERIFIED: app.toml not found. Do not start seid." >&2
+       return 1
+     fi
+
+     state_store_config="$(
+       sed -n '/^\[state-store\]/,/^\[.*\]/p' \
+         "$HOME/.sei/config/app.toml"
+     )"
+
+     if printf '%s\n' "$state_store_config" | \
+       grep -Eq "^[[:space:]]*(ss-db-directory|evm-ss-db-directory)[[:space:]]*=[[:space:]]*(\"[^\"]+\"|'[^']+')"; then
+       echo "UNVERIFIED: custom state-store directory configured." >&2
+       echo "Use the provider-specific placement and verification steps." >&2
+       return 1
+     fi
+
+     backend_dirs="$(
+       for backend in pebbledb rocksdb; do
+         for path in \
+           "$HOME/.sei/data/$backend" \
+           "$HOME/.sei/data/state_store/cosmos/$backend" \
+           "$HOME/.sei/data/state_store/evm/$backend"; do
+           if [ -d "$path" ]; then
+             printf '%s\n' "$path"
+           fi
+         done
+       done
+     )"
+
+     printf '%s\n' "$backend_dirs"
+
+     if printf '%s\n' "$backend_dirs" | grep -Eq '(^|/)rocksdb$'; then
+       echo "FAIL: RocksDB data found. Do not start seid." >&2
+       return 1
+     fi
+
+     if ! printf '%s\n' "$backend_dirs" | grep -Eq '(^|/)pebbledb$'; then
+       echo "UNVERIFIED: no PebbleDB state-store directory found." >&2
+       return 1
+     fi
+
+     echo "PASS: PebbleDB found and no RocksDB directory found."
+   }
+
+   verify_snapshot_backend
+   ```
+
+   The function returns a nonzero status for `FAIL` and `UNVERIFIED`. Continue
+   only if the provider confirmed PebbleDB and the command prints `PASS`. A
+   legacy EVM store at `data/evm_ss/` does not identify its backend in the
+   directory name, which is why provider confirmation is still required. If
+   you used `aria2c`, remove the downloaded archive after this check passes:
+
+   ```bash theme={"dark"}
+   rm "$SNAPSHOT_FILE"
+   ```
+
+4. **Restore validator state**
 
    ```bash theme={"dark"}
    cp $HOME/priv_validator_state.json $HOME/.sei/data/priv_validator_state.json
    ```
 
-4. **Enable SeiDB**
-   Make sure to enable `sei-db` in your config if it's not already enabled:
+5. **Enable SeiDB and configure PebbleDB**
+   Make sure SeiDB is enabled and the state-store backend is PebbleDB:
 
    ```bash theme={"dark"}
-   sed -i.bak -E "/^\[state-commit\]/,/^\[.*\]/ s|^(sc-enable[[:space:]]*=[[:space:]]*).*$|\1true| ; /^\[state-store\]/,/^\[.*\]/ s|^(ss-enable[[:space:]]*=[[:space:]]*).*$|\1true|" $HOME/.sei/config/app.toml
+   sed -i.bak -E "/^\[state-commit\]/,/^\[.*\]/ s|^[#[:space:]]*(sc-enable[[:space:]]*=[[:space:]]*).*$|\1true| ; /^\[state-store\]/,/^\[.*\]/ s|^[#[:space:]]*(ss-enable[[:space:]]*=[[:space:]]*).*$|\1true| ; /^\[state-store\]/,/^\[.*\]/ s|^[#[:space:]]*(ss-backend[[:space:]]*=[[:space:]]*).*$|\1\"pebbledb\"|" $HOME/.sei/config/app.toml
+
+   sed -n '/^\[state-store\]/,/^\[.*\]/p' $HOME/.sei/config/app.toml
    ```
 
-5. **Restart the Node**
+   Confirm that the output includes `ss-backend = "pebbledb"`. If the key is
+   absent, add it directly below `[state-store]` before you restart the node.
+
+6. **Restart the node**
 
    ```bash theme={"dark"}
    sudo systemctl start seid
    ```
 
-6. **Monitor Logs**
+7. **Monitor logs**
    ```bash theme={"dark"}
    sudo journalctl -fu seid
    ```
@@ -46504,124 +46755,6 @@ technical communities in [Telegram](https://t.me/+ZN-NcvOWStQwMzk0) or
 
 ---
 
-URL: https://docs.sei.io/node/rocksdb-backend
-
-# RocksDB Backend Setup & Performance
-
-> Build and enable the RocksDB backend for seid to significantly improve iteration-heavy operations and traceBlock latency, especially on long-history RPC and archive nodes.
-
-## Overview
-
-As Sei nodes accumulate more history and state data, iteration-heavy operations—like those performed during `traceBlock` calls—can become significantly slower. This is especially true for archive or RPC nodes where the state store contains millions of versions.
-
-To address this, Sei supports **RocksDB** as an alternative backend to PebbleDB. RocksDB provides native **multi-version concurrency control (MVCC)** and **column family support**, which leads to substantial iteration performance improvements as history grows.
-
-## Why RocksDB?
-
-PebbleDB lacks native MVCC support, meaning Sei must manually encode versions into keys. This retrofit approach causes iteration time to grow linearly with the amount of stored history. As a result:
-
-* Archive nodes with large state stores experience **slower debug trace latency**.
-* Each key lookup may require scanning multiple key versions.
-* Iterations (e.g., over Oracle or EVM module keys) become increasingly expensive over time.
-
-By contrast, **RocksDB** supports native user-defined timestamps and optimized column families for versioned data access. This means:
-
-* Iterations over keys at a single version are **much faster**.
-* Historical data growth has **minimal effect on iteration cost**.
-* The performance advantage **amplifies with larger node history**.
-
-In Sei’s benchmarks, RocksDB achieved up to **10–30× faster traceBlock iteration times** compared to PebbleDB, with even greater benefits observed on archive nodes.
-
-## Example: TraceBlock Latency Comparison
-
-The following chart compares iteration (trace time) performance between **PebbleDB** and **RocksDB** over a 3 million block history:
-
-<img src="https://mintcdn.com/seilabs/szEAtr1JphlH_mVc/assets/pebbledb-vs-rocksdb.png?fit=max&auto=format&n=szEAtr1JphlH_mVc&q=85&s=dc793f31c52e9b1d9baea5e406351fb2" alt="PebbleDB vs RocksDB Trace Times" width="738" height="372" data-path="assets/pebbledb-vs-rocksdb.png" />
-
-*Trace Times: Pebble vs Rocks (3M history): RocksDB shows a significantly flatter latency curve as state grows, while PebbleDB’s iteration times increase sharply for older blocks.*
-
-## Setup Instructions
-
-RocksDB only needs to be built once. After that, you can install `seid` with RocksDB support directly.
-
-### Prerequisites
-
-Ensure your system includes the following packages:
-
-```bash theme={"dark"}
-sudo apt-get update
-sudo apt-get install -y build-essential pkg-config cmake git zlib1g-dev \
-    libbz2-dev libsnappy-dev liblz4-dev libzstd-dev libjemalloc-dev \
-    libgflags-dev liburing-dev
-```
-
-### Build & Install
-
-Refer to the Sei `Makefile` [here](https://github.com/sei-protocol/sei-chain/blob/main/Makefile#L116) for the official targets.
-
-```bash theme={"dark"}
-# Step 1: Build RocksDB (one-time setup)
-make build-rocksdb
-
-# Step 2: Install seid with RocksDB backend
-make install-rocksdb
-```
-
-Once installed, your `seid` binary will be built with RocksDB backend support:
-
-```bash theme={"dark"}
-seid version
-# should include "rocksdbBackend" build tag
-```
-
-### Configuration
-
-After installation, update your configuration file to enable the RocksDB backend:
-
-```bash theme={"dark"}
-~/.sei/config/app.toml
-```
-
-Set
-
-```toml theme={"dark"}
-ss-backend = "rocksdb"
-```
-
-### Node Setup Notes
-
-* RPC Nodes — must perform a state sync when spinning up a new node configured with RocksDB.
-* Archive Nodes — currently, RocksDB is not supported for existing data unless syncing from genesis. A migration route from PebbleDB to RocksDB is being developed and will be shared soon.
-
-## Summary
-
-| Feature                       | PebbleDB           | RocksDB                               |
-| ----------------------------- | ------------------ | ------------------------------------- |
-| MVCC Support                  | No                 | ✅ Native via user-defined timestamps  |
-| Column Families               | No                 | ✅ Yes                                 |
-| Iteration Speed (Large State) | Slows with history | ✅ Up to 30× faster                    |
-| Installation                  | Default            | One-time build (`make build-rocksdb`) |
-
-## TL;DR
-
-* RocksDB backend drastically improves trace iteration and historical query performance.
-* Install once, then run:
-
-```bash theme={"dark"}
-make install-rocksdb
-```
-
-* Update \~/.sei/config/app.toml to use RocksDB:
-
-```toml theme={"dark"}
-ss-backend = "rocksdb"
-```
-
-* RPC nodes require state sync; archive nodes must currently sync from genesis
-* Expect **10–30× faster** trace latencies, especially on archive nodes or long-history setups.
-
----
-
 URL: https://docs.sei.io/node/giga-storage-migration
 
 # Giga SS Store Migration Guide
@@ -46635,10 +46768,10 @@ non-EVM modules stop paying write amplification for EVM state.
 
 After migration the SS layer is repartitioned into two cooperating stores:
 
-| Layer                                    | Cosmos backend                       | EVM backend                                      |
-| ---------------------------------------- | ------------------------------------ | ------------------------------------------------ |
-| **SC** (State Commit, app hash)          | `memiavl`                            | FlatKV                                           |
-| **SS** (State Store, historical queries) | single MVCC DB (PebbleDB or RocksDB) | dedicated EVM SS MVCC DB(s) under `data/evm_ss/` |
+| Layer                                    | Cosmos backend                | EVM backend                                                        |
+| ---------------------------------------- | ----------------------------- | ------------------------------------------------------------------ |
+| **SC** (State Commit, app hash)          | `memiavl`                     | FlatKV                                                             |
+| **SS** (State Store, historical queries) | single PebbleDB MVCC database | dedicated EVM SS MVCC databases in the configured EVM SS directory |
 
 Only the **SS** layer changes for this migration. SC layer config is untouched
 and `memiavl` remains the authoritative source for the app hash, so this is
@@ -46666,9 +46799,6 @@ local data directory and imports a fresh snapshot into the new layout.
 
 * EVM reads are served exclusively from a dedicated EVM SS database.
 * Non-EVM modules no longer pay write amplification for EVM state.
-* A backend change (PebbleDB ↔ RocksDB) can be combined with the same state
-  sync, since `ss-backend` drives both the Cosmos SS MVCC DB and every EVM SS
-  sub-DB.
 
 ## What's different about EVM SS
 
@@ -46692,8 +46822,7 @@ sc-enable = true
 [state-store]
 ss-enable = true
 
-# DBBackend for the Cosmos SS MVCC DB and for every EVM SS sub-DB.
-# Supported: pebbledb, rocksdb. Default pebbledb.
+# Use PebbleDB for the Cosmos SS MVCC DB and every EVM SS sub-DB.
 ss-backend = "pebbledb"
 
 # Route EVM state to the dedicated EVM SS backend.
@@ -46703,14 +46832,7 @@ ss-backend = "pebbledb"
 evm-ss-split = true
 ```
 
-If you want to switch SS backend in the same step:
-
-* **PebbleDB → RocksDB**: set `ss-backend = "rocksdb"`, build `seid` with
-  `-tags rocksdbBackend`, and install RocksDB per the
-  [RocksDB Backend Guide](/node/rocksdb-backend). `ss-backend` drives both the
-  Cosmos SS MVCC DB and every EVM SS sub-DB, so a single setting flips both.
-* No data migration tool is needed across backends — the state sync populates
-  the new layout.
+<Warning>Keep `ss-backend = "pebbledb"` during this migration. RocksDB support for the state store will be removed. No target release has been published. If the node already uses RocksDB, follow [Move off RocksDB](/node/node-operators#move-off-rocksdb).</Warning>
 
 ### Step 2: State sync into the new layout
 
@@ -46798,10 +46920,9 @@ flipping `evm-ss-split` from `false` to `true` without state syncing.
 
 1. **EVM SS directory missing or empty** (before the EVM SS is opened). When
    `evm-ss-split = true`, the composite state store refuses to proceed if
-   Cosmos SS already has committed history but the EVM SS directory
-   (`data/evm_ss/` by default) does not exist or is empty. Failing before
-   the sub-DBs are opened means a rejected config does not leave a confusing
-   empty `data/evm_ss/` behind.
+   Cosmos SS already has committed history but the configured EVM SS directory
+   does not exist or is empty. Failing before the sub-DBs are opened means a
+   rejected config does not leave a confusing empty directory behind.
 2. **EVM SS DB empty post-open, pre-recovery.** Belt-and-suspenders for (1)
    when the directory exists but its DBs are empty. The WAL only covers the
    last `KeepRecent` blocks, so replay cannot rebuild a fresh EVM SS from
@@ -46813,18 +46934,19 @@ flipping `evm-ss-split` from `false` to `true` without state syncing.
 
 If any check fires, the correct fix is either (a) complete the state sync
 described above, or (b) set `evm-ss-split = false` and restart. If
-`data/evm_ss/` is stale from a failed attempt, remove it before state syncing.
+the configured EVM SS directory is stale from a failed attempt, remove it
+before state syncing.
 
 ## Rollback
 
 To roll back:
 
 1. Set `evm-ss-split = false` in `app.toml`.
-2. Restart the node. The EVM SS DB under `data/evm_ss/` is no longer opened
-   but stays on disk until manually removed.
+2. Restart the node. The EVM SS DB is no longer opened but stays on disk until
+   you remove it.
 
 To fully reclaim the disk used by EVM SS, stop the node and delete
-`data/evm_ss/` after reverting the setting.
+the configured EVM SS directory after reverting the setting.
 
 <Warning>Cleanly rolling back to `evm-ss-split = false` requires another state sync. Under `evm-ss-split = true`, EVM writes go only to the EVM SS DB, so Cosmos SS will not have those writes. Restarting with `evm-ss-split = false` stops opening the EVM SS DB, but EVM-state queries will miss anything written after the Giga state sync until you re-state-sync without the split.</Warning>
 
@@ -46832,9 +46954,12 @@ To fully reclaim the disk used by EVM SS, stop the node and delete
 
 ### Where do the data files live after migrating?
 
-* Cosmos SS data lives under the same directory as before, typically
-  `data/pebbledb/` for the default `pebbledb` backend.
-* EVM SS data lives under `data/evm_ss/`.
+* Cosmos SS data uses `data/pebbledb/` in the legacy layout and
+  `data/state_store/cosmos/pebbledb/` in the current layout.
+* EVM SS data uses `data/evm_ss/` in the legacy layout and
+  `data/state_store/evm/pebbledb/` in the current layout.
+* A non-empty `ss-db-directory` or `evm-ss-db-directory` overrides the
+  corresponding default path.
 * SC data (`memiavl` + FlatKV) is untouched by this migration.
 
 ### Does Giga SS Store change the app hash or consensus?
