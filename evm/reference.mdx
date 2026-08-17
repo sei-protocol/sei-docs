@@ -122,7 +122,7 @@ Every method below is also browsable interactively in the explorer above; this s
 
 **Sei-specific behavior:** Decodes to an ethtypes.Transaction, wraps it in a Cosmos MsgEVMTransaction, and broadcasts via CometBFT (CheckTx-level BroadcastTx, i.e. `broadcast_tx_sync`, by default; slow mode uses BroadcastTxCommit). Non-zero CheckTx codes surface as ABCI errors, not geth mempool errors. Legacy (non-1559) txs must set gasPrice at or above the governance minimum (currently 50 gwei on mainnet); blob (EIP-4844) txs are not enabled. Supports per-sender EvmProxy forwarding.
 
-**Under Autobahn (`AutobahnConfigFile` set):** transaction broadcast routes through Autobahn's producer-backed mempool instead of CometBFT's `TxMempool`. This mempool admits EVM transactions strictly in sequential per-sender nonce order: a transaction whose nonce does not match the sender's next expected nonce is rejected with a bad-nonce error, so senders must submit nonces contiguously. CheckTx-synchronous broadcast (`broadcast_tx` / `BroadcastTx`) blocks while the mempool is full and only returns once capacity is available, whereas the async path may drop the transaction if the mempool is full. The `unsafe_flush_mempool` Tendermint RPC endpoint is not supported under Autobahn and returns `unsafe_flush_mempool is not supported with autobahn mempool`.
+**Under Autobahn (`AutobahnConfigFile` set):** transaction broadcast routes through Autobahn's producer-backed mempool instead of CometBFT's `TxMempool`. This mempool admits EVM transactions strictly in sequential per-sender nonce order: a transaction whose nonce does not match the sender's next expected nonce is rejected with a bad-nonce error, so senders must submit nonces contiguously. The default CheckTx-synchronous broadcast (`broadcast_tx_sync`, the same path named above) blocks while the mempool is full and only returns once capacity is available — meaning a default `eth_sendRawTransaction` under Autobahn can stall for as long as the mempool stays full — whereas the async path (`broadcast_tx_async`) may silently drop the transaction instead. The `unsafe_flush_mempool` Tendermint RPC endpoint is not supported under Autobahn and returns `unsafe_flush_mempool is not supported with autobahn mempool`.
 
 **Parameters:**
 
@@ -1163,7 +1163,7 @@ The `filter` object applies only to `logs` subscriptions. For `newHeads`, pass t
 
 **Supported.** Traces all transactions in a block by number and returns per-transaction execution traces.
 
-**Sei-specific behavior:** HTTP-only. safe/finalized/latest are equivalent due to instant finality.
+**Sei-specific behavior:** HTTP-only. safe/finalized/latest are equivalent due to instant finality. Subject to the `max_trace_lookback_blocks` historical guard (see `debug_traceTransaction`).
 
 **Parameters:**
 
@@ -1192,7 +1192,7 @@ The `filter` object applies only to `logs` subscriptions. For `newHeads`, pass t
 
 **Supported.** Traces all transactions in a block by hash and returns per-transaction execution traces.
 
-**Sei-specific behavior:** HTTP-only.
+**Sei-specific behavior:** HTTP-only. Subject to the `max_trace_lookback_blocks` historical guard (see `debug_traceTransaction`).
 
 **Parameters:**
 
@@ -1221,7 +1221,7 @@ The `filter` object applies only to `logs` subscriptions. For `newHeads`, pass t
 
 **Supported.** Executes and traces a call against a block's state without creating a transaction.
 
-**Sei-specific behavior:** HTTP-only. Arbitrary geth tracer names pass through. Tracing on the pending block is not supported.
+**Sei-specific behavior:** HTTP-only. Arbitrary geth tracer names pass through. Tracing on the pending block is not supported. Subject to the `max_trace_lookback_blocks` historical guard (see `debug_traceTransaction`).
 
 **Parameters:**
 
@@ -1255,7 +1255,7 @@ The `filter` object applies only to `logs` subscriptions. For `newHeads`, pass t
 
 **Limited.** Sei extension that replays a transaction and returns its app/tendermint/receipt state-access traces.
 
-**Sei-specific behavior:** Sei-specific extension (not part of upstream go-ethereum's debug namespace). HTTP-only and subject to historical-debug-trace availability guards.
+**Sei-specific behavior:** Sei-specific extension (not part of upstream go-ethereum's debug namespace). HTTP-only and subject to historical-debug-trace availability guards. Subject to the `max_trace_lookback_blocks` historical guard (see `debug_traceTransaction`).
 
 **Parameters:**
 
@@ -1280,7 +1280,7 @@ The `filter` object applies only to `logs` subscriptions. For `newHeads`, pass t
 
 **Limited.** Sei extension that replays a transaction by hash and returns its execution trace alongside a detailed timing and store-access profile.
 
-**Sei-specific behavior:** Sei-specific extension (not part of upstream go-ethereum's debug namespace). HTTP-only and subject to historical-debug-trace availability guards. In addition to the standard trace result, it returns a `profile` object breaking down where time was spent — total wall time, historical DB lookup time, and per-phase timings (transaction lookup, block load, historical tx replay, block-context build, tx prepare, execution, and trace-result assembly) — plus a per-module `store` access trace (reads, iterators with the keys they surfaced, and per-operation `stats` roll-ups). Per-tx caps bound the trace size: at most 16 iterators and 64 keys per iterator are retained per module, with overflow flagged via `truncated`. To run this method across a whole block range and generate aggregate reports, use the `seidb trace-profile-report` command.
+**Sei-specific behavior:** Sei-specific extension (not part of upstream go-ethereum's debug namespace). HTTP-only and subject to historical-debug-trace availability guards. In addition to the standard trace result, it returns a `profile` object breaking down where time was spent — total wall time, historical DB lookup time, and per-phase timings (transaction lookup, block load, historical tx replay, block-context build, tx prepare, execution, and trace-result assembly) — plus a per-module `store` access trace (reads, iterators with the keys they surfaced, and per-operation `stats` roll-ups). Per-tx caps bound the trace size: at most 16 iterators and 64 keys per iterator are retained per module, with overflow flagged via `truncated`. To run this method across a whole block range and generate aggregate reports, use the `seidb trace-profile-report` command. Subject to the `max_trace_lookback_blocks` historical guard (see `debug_traceTransaction`).
 
 **Parameters:**
 
@@ -1310,6 +1310,32 @@ The response `result` contains a `trace` field (the standard tracer output) and 
       "timeout": "60s"
     }
   ]
+}
+```
+
+**Example response (trimmed):**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "trace": { "...": "standard tracer output" },
+    "profile": {
+      "totalNanos": 18422119,
+      "historicalDbLookupNanos": 10021554,
+      "otherNanos": 8400565,
+      "phases": {
+        "lookupTransactionNanos": 310221,
+        "loadBlockNanos": 902114,
+        "replayHistoricalTxsNanos": 6114203,
+        "buildBlockContextNanos": 421900,
+        "prepareTxNanos": 188212,
+        "executionNanos": 9873341,
+        "traceResultNanos": 612128
+      }
+    }
+  }
 }
 ```
 
