@@ -11,6 +11,8 @@ keywords: ['cosmwasm precompile', 'ethers.js', 'wasm execution', 'cross-chain co
 
   Per [governance Proposal 115](https://seistream.app/proposals/115), CosmWasm code uploads (`MsgStoreCode`) and contract instantiations (`MsgInstantiateContract`) are disabled chain-wide. The `instantiate()` function on this precompile **will revert** for all callers. Only `execute()`, `execute_batch()`, and `query()` against pre-existing CosmWasm contracts remain functional, and all CosmWasm functionality is deprecated in favor of EVM-only per [SIP-3](https://github.com/sei-protocol/sips/blob/main/sips/sip-3.md).
 
+  The examples on this page attach only native SEI. Do not use the `coins` field to build IBC or tokenfactory integrations. IBC is disabled in both directions, and tokenfactory is not a supported development path.
+
   For new smart contract development, use the EVM directly. See [Deploy a Smart Contract](/evm/evm-general).
 </Danger>
 
@@ -47,7 +49,7 @@ The CosmWasm precompile exposes the following functions:
 /// Executes some message on a CosmWasm contract.
 /// @param contractAddress The Sei address of the contract to execute.
 /// @param msg The msg to send for execution. The format is specified by the contract code.
-/// @param coins Any non-sei denominations that the contract requires for execution.
+/// @param coins A JSON-encoded coin list required by the legacy ABI.
 /// @return response The execution response from the CosmWasm contract.
 function execute(
     string memory contractAddress,
@@ -153,10 +155,10 @@ The CosmWasm precompile requires **JSON-encoded messages** that conform to each 
 - `execute()` - accepts execution message as JSON bytes
 - `query()` - accepts query message as JSON bytes
 
-**Native Token Handling:**
+**Native SEI handling:**
 
 - Use `msg.value` for SEI amounts
-- Use `coins` parameter for other denominations (encoded as JSON bytes)
+- Pass an empty JSON array for `coins` when the call does not require Bank Module funds
 
 ### Best Practice: Message Encoding Helpers
 
@@ -173,12 +175,6 @@ class CosmWasmMessageEncoder {
   // Encode query message
   static encodeQueryMsg(msg: object): Uint8Array {
     return ethers.toUtf8Bytes(JSON.stringify(msg));
-  }
-
-  // Encode coins for non-SEI denominations
-  static encodeCoins(coins: Array<{ denom: string; amount: string }>): Uint8Array {
-    if (coins.length === 0) return new Uint8Array();
-    return ethers.toUtf8Bytes(JSON.stringify(coins));
   }
 
   // Decode response bytes to JSON
@@ -218,12 +214,9 @@ class CosmWasmHelper {
     return ethers.toUtf8Bytes(JSON.stringify(msgObject));
   }
 
-  // Create coins array for non-SEI denominations
-  static createCoins(coins: Array<{ denom: string; amount: string }>): Uint8Array {
-    if (!coins || coins.length === 0) {
-      return ethers.toUtf8Bytes('[]');
-    }
-    return ethers.toUtf8Bytes(JSON.stringify(coins));
+  // Create the empty coin list used by these examples
+  static emptyCoins(): Uint8Array {
+    return ethers.toUtf8Bytes('[]');
   }
 
   // Parse response from CosmWasm contract
@@ -246,7 +239,7 @@ const executeMsg = CosmWasmHelper.createExecuteMsg({
   }
 });
 
-const coins = CosmWasmHelper.createCoins([{ denom: 'uusdc', amount: '1000000' }]);
+const coins = CosmWasmHelper.emptyCoins();
 ```
 
 ## Step-by-Step Guide: Using the CosmWasm Precompile
@@ -269,7 +262,7 @@ const executeMsg = CosmWasmHelper.createExecuteMsg({
 });
 
 // No additional coins needed for this execution
-const coins = CosmWasmHelper.createCoins([]);
+const coins = CosmWasmHelper.emptyCoins();
 
 const tx = await cosmwasm.execute(contractAddress, executeMsg, coins);
 
@@ -339,12 +332,12 @@ const executeMsgs = [
   {
     contractAddress: contract1,
     msg: executeMsg1,
-    coins: CosmWasmHelper.createCoins([])
+    coins: CosmWasmHelper.emptyCoins()
   },
   {
     contractAddress: contract2,
     msg: executeMsg2,
-    coins: CosmWasmHelper.createCoins([])
+    coins: CosmWasmHelper.emptyCoins()
   }
 ];
 
@@ -467,7 +460,7 @@ async function crossRuntimeDeFiOperation(cosmwasmDexContract: string, evmTokenCo
       }
     });
 
-    const swapTx = await cosmwasm.execute(cosmwasmDexContract, swapMsg, CosmWasmHelper.createCoins([]), { value: ethers.parseEther(amount) });
+    const swapTx = await cosmwasm.execute(cosmwasmDexContract, swapMsg, CosmWasmHelper.emptyCoins(), { value: ethers.parseEther(amount) });
 
     await swapTx.wait();
     console.log('CosmWasm swap completed');
@@ -518,7 +511,7 @@ async function cosmwasmExample() {
       }
     });
 
-    const mintTx = await cosmwasm.execute(contractAddress, mintMsg, CosmWasmHelper.createCoins([]));
+    const mintTx = await cosmwasm.execute(contractAddress, mintMsg, CosmWasmHelper.emptyCoins());
     await mintTx.wait();
     console.log('Tokens minted successfully');
 
@@ -555,7 +548,7 @@ async function cosmwasmExample() {
             amount: '100000000' // 100 tokens
           }
         }),
-        coins: CosmWasmHelper.createCoins([])
+        coins: CosmWasmHelper.emptyCoins()
       },
       {
         contractAddress: contractAddress,
@@ -565,7 +558,7 @@ async function cosmwasmExample() {
             amount: '200000000' // 200 tokens
           }
         }),
-        coins: CosmWasmHelper.createCoins([])
+        coins: CosmWasmHelper.emptyCoins()
       }
     ];
 
@@ -780,7 +773,7 @@ const incorrectMsg = ethers.toUtf8Bytes('invalid json');
 - **State Isolation:** CosmWasm and EVM contracts have separate state
 - **Gas Estimation:** CosmWasm operations may require different gas calculations
 - **Error Handling:** Failed CosmWasm operations revert the entire EVM transaction
-- **Native Token Handling:** Use `msg.value` for SEI, `coins` for other denominations
+- **Native SEI Handling:** Use `msg.value` for SEI and leave the `coins` list empty
 - **Batch Limitations:** Large batches may hit gas limits
 
 ### Best Practices

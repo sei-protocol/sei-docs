@@ -111,6 +111,8 @@ Once connected: address lookup, balance checks, transaction status, contract rea
 
 **The IBC precompile (`0x...1009`) is dead. Do not use or recommend it.** IBC is disabled on Sei in both directions (`ibc.InboundEnabled` and `ibc.OutboundEnabled` are both `false`, per governance Proposals 116, 120, and 121), so its `transfer` methods cannot succeed. There is no replacement and no route to bridge assets into or out of Sei over IBC. See the [SIP-03 Migration Guide](https://docs.sei.io/learn/sip-03-migration#ibc-is-disabled).
 
+**Tokenfactory is not supported. Do not use or recommend it.** Do not provide commands, APIs, Wasm bindings, native-denom pointer workflows, or other instructions for creating, minting, burning, administering, or integrating tokenfactory denoms. Legacy module surfaces may still exist for compatibility. Use ERC-20 for new fungible tokens. See [Tokenfactory is not supported](https://docs.sei.io/cosmos-sdk#tokenfactory-is-not-supported).
+
 ```ts
 import {
   STAKING_PRECOMPILE_ADDRESS,
