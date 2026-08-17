@@ -220,8 +220,6 @@ memiavl is the sole SC backend and FlatKV is not allocated) to `migrate_evm`
 migration completes, operators flip `sc-write-mode` again to `evm_migrated` so
 subsequent restarts don't spin up the migration manager.
 
-
-
 `evm_migrated` is not the last stop. Three further modes sit between it and
 the terminal mode: `migrate_all_but_bank` (drains every remaining module
 except `bank/` from memiavl into FlatKV), `all_migrated_but_bank` (the steady
@@ -233,11 +231,14 @@ FlatKV is the sole SC backend and `memiavl` is not allocated at all. In this
 mode every module's SC state is served from FlatKV, and state-sync snapshot
 export/restore plus app-hash parity work correctly, so a node can boot directly
 into the post-migration shape without ever running the migration manager.
-`flatkv_only` is only valid for a node that boots or state-syncs directly into
-the fully-migrated shape — it is not a flip target for an `evm_migrated` node,
-which still holds `bank/` and every other non-EVM module in memiavl. Use
-`flatkv_only` when you want a node to come up already in the post-migration
-steady state rather than draining keys out of memiavl at runtime.
+`flatkv_only` is only valid for a node whose modules have all been drained out
+of memiavl — it is not a flip target for an `evm_migrated` node, which still
+holds `bank/` and every other non-EVM module in memiavl. It becomes the valid
+flip target once `migrate_bank` reports complete on the node (migration
+version 3, all modules in FlatKV): restart with `sc-write-mode = "flatkv_only"`
+to reach the terminal steady state. It is also the mode for a node that boots
+or state-syncs directly into the post-migration shape without ever running the
+migration manager.
 
 <Note>A correctness bug in the WAL replay path — where empty (zero-length)
 values written with no delete flag were dropped on replay (catchup, read-only
@@ -347,8 +348,6 @@ block this scenario at startup.
 
 No, same as SeiDB. SS stores raw KVs and does not reconstruct IAVL-style
 proofs.
-
-
 
 ### Does enabling Giga Storage change the receipt backend?
 

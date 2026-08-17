@@ -37,8 +37,6 @@ seid tendermint show-validator
 seid query node info
 ```
 
-
-
 ### seidb Tooling Commands
 
 The `seidb` binary provides low-level tooling for inspecting and maintaining a node's on-disk state.
@@ -52,7 +50,7 @@ The `migrate-evm-status` subcommand reads the on-disk FlatKV EVM migration state
 seidb migrate-evm-status --db-dir <flatkv-dir>
 
 # The --db-dir flag may be abbreviated as -d
-seidb migrate-evm-status -d /root/.sei/data/state_commit/flatkv
+seidb migrate-evm-status -d $HOME/.sei/data/state_commit/flatkv
 
 # Report status at a specific FlatKV version (0 selects the latest)
 seidb migrate-evm-status --db-dir <flatkv-dir> --height <n>
@@ -69,8 +67,6 @@ The emitted JSON contains the following fields:
 - `boundary_hex` — hex-encoded migration boundary cursor, included only when a boundary is present.
 - `version_raw_hex` — hex-encoded raw migration-version bytes, included only when a migration version is present.
 
-
-
 #### Comparing EVM State Across Backends
 
 The `evm-logical-digest` subcommand computes a backend-independent digest of the EVM logical state (the account, code, and storage buckets) so that a memIAVL node and a FlatKV node can be compared at the same chain height. Because a freshly migrated FlatKV node stamps a per-key `blockHeight` into each value that differs from the memIAVL leaf versions, a raw byte-for-byte digest would diverge even when the underlying EVM state is identical. This command strips the serialization-version and `blockHeight` header on both sides and digests only the height-independent logical payload (storage word, bytecode, or balance+nonce+codehash), producing a comparable `FINAL_DIGEST` per backend.
@@ -79,18 +75,18 @@ The `evm-logical-digest` subcommand computes a backend-independent digest of the
 # FlatKV digest at a height (WAL-replays to it). Prints per-bucket
 # bucket_digest values and one FINAL_DIGEST line for backend comparison.
 seidb evm-logical-digest --backend flatkv \
-    --db-dir /root/.sei/data/state_commit/flatkv --height 213200000
+    --db-dir $HOME/.sei/data/state_commit/flatkv --height 213200000
 
 # memIAVL digest at the same height (0 = current symlink), using the default
 # semantic normalization. memiavl resolves snapshot-<height>/evm or current/evm
 # and does not replay WAL in this tool.
 seidb evm-logical-digest --backend memiavl \
-    --db-dir /root/.sei/data/state_commit/memiavl --height 213200000
+    --db-dir $HOME/.sei/data/state_commit/memiavl --height 213200000
 
 # Translator-based memIAVL digest, which feeds each leaf through the current
 # migration mapping (flatkv.ImportTranslator).
 seidb evm-logical-digest --backend memiavl \
-    --db-dir /root/.sei/data/state_commit/memiavl --height 213200000 \
+    --db-dir $HOME/.sei/data/state_commit/memiavl --height 213200000 \
     --memiavl-normalization translator
 ```
 
@@ -110,8 +106,6 @@ The command accepts the following flags:
 - `--list-limit` — inspect mode: maximum pairs to print with `--list` (default `1000`; a value `<= 0` means unlimited).
 - `--details` — inspect list mode: include backend-specific version metadata.
 - `--find-hash` — optional 32-byte hex per-entry hash to hunt for. When two `bucket_digest` values differ by exactly one entry, their XOR is that entry's hash; this prints every matching entry so a single diverging row can be located.
-
-
 
 ### Autobahn (GigaRouter) Config Generation
 
@@ -144,8 +138,6 @@ The `validator_pubkey.txt` and `node_pubkey.txt` files are written automatically
 
 The generated `autobahn.json` file describes the validator set along with transaction limits, block interval, view timeout, and dial interval; gas limits are not part of this file and come from the genesis block parameters instead. To have a node consume it, reference the file from `config.toml` using the `autobahn-config-file` key.
 
-
-
 #### Giga Mode Behavior and Per-Block Limits
 
 When a node is started in Giga mode — that is, when `autobahn-config-file` is set in `config.toml` — the block production and networking behavior differs significantly from standard Tendermint consensus:
@@ -157,14 +149,12 @@ When a node is started in Giga mode — that is, when `autobahn-config-file` is 
 
 Each Autobahn block payload is bounded by the following limits, enforced by the producer as it fills a block:
 
-- **Maximum transactions per block:** the lower of the configured `max_txs_per_block` and the built-in maximum.
+- **Maximum transactions per block:** the lower of the configured `max_txs_per_block` and the built-in maximum of 2,000 (see the transaction payload caps below).
 - **Maximum total transaction bytes per block:** a fixed per-block byte cap; a single transaction larger than this cap is rejected with a `transaction too large` error.
 - **Wanted gas per block (`MaxGasWantedPerBlock`):** derived from the genesis `MaxGasWanted` block param. A transaction whose `GasWanted` exceeds this per-block limit is rejected as too large.
 - **Estimated gas per block (`MaxGasEstimatedPerBlock`):** derived from the genesis `MaxGas` block param. A transaction whose (normalized) estimated gas exceeds this per-block limit is rejected as too large.
 
 When filling a block the producer seals the current block and starts a new one as soon as adding the next transaction would exceed any of the transaction-count, byte, wanted-gas, or estimated-gas limits.
-
-
 
 #### Autobahn Committee and Network Message Limits
 
@@ -177,15 +167,13 @@ The enforced message constraints include:
 
 - **Per-field maximum sizes** on fixed-width fields such as hashes, signatures, and public keys.
 - **Maximum repeated-field counts** on validator-related lists — signature and quorum-certificate lists are capped at 100 entries (matching the 100-validator committee cap).
-- **Transaction payload caps:** a block payload may carry at most 2000 transactions, with a combined transaction byte budget of roughly 2 MB across all transactions in the payload.
+- **Transaction payload caps:** a block payload may carry at most 2,000 transactions, with a combined transaction byte budget of exactly 2,048,000 bytes (2,000 × 1,024) that may be split arbitrarily across the transactions in the payload — these are the built-in maxima referenced by the per-block limits above.
 
 Any message whose fields exceed these limits is rejected at decode time, so an oversized network payload never reaches the consensus logic.
-
 
 <Note>
   Because Giga replaces the CometBFT mempool, the `unsafe_flush_mempool` RPC endpoint is not supported under Giga and returns `unsafe_flush_mempool is not supported with autobahn mempool`.
 </Note>
-
 
 ### Key Management
 
@@ -320,8 +308,6 @@ double-sign-check-height = 0
 ```
 
 </Accordion>
-
-
 
 <Note>
   The `[consensus]` section may still parse a `stateless-leader-election` field, but it is **deprecated and ignored**. Stateless (seed-based) leader election is now always enabled regardless of the value set, so this field no longer has any effect. It is retained only for config-parsing compatibility and can be safely omitted.

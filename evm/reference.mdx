@@ -11,7 +11,6 @@ Sei fully supports the standard Ethereum JSON-RPC API, so existing EVM tooling (
 
 <RPCMethodsViewer />
 
-
 <Note>
 By default the explorer lists only the available, current methods. Each is labelled with one of three statuses:
 
@@ -59,7 +58,6 @@ All endpoints follow the standard JSON-RPC format:
 
 For additional public and commercial endpoints, see [RPC providers](/learn/rpc-providers) and [Chains & endpoints](/learn/dev-chains).
 
-
 ### Tendermint `/status` endpoint
 
 Alongside the EVM JSON-RPC surface, Sei nodes expose the underlying Tendermint/CometBFT RPC, including the `/status` endpoint. Its `SyncInfo` object reports a `last_committed_block_height` field: the height of the last block finalized by consensus.
@@ -83,8 +81,6 @@ The field is JSON-serialized as a string (`last_committed_block_height`), matchi
 Under Autobahn (`AutobahnConfigFile` set) the CometBFT block store is not populated, so `/status` derives `latest_block_height` and `latest_app_hash` from the app layer (`ABCIInfo`) instead of the block store. Several other `SyncInfo` fields (block hash/time, earliest-block metadata, `catching_up`, and peer-height fields) remain unpopulated in this mode.
 </Note>
 
-
-
 ### Tendermint block and validator endpoints under Autobahn
 
 Under Autobahn (`AutobahnConfigFile` set) the CometBFT `BlockStore` and `StateStore` are not populated. Rather than returning empty or failing responses, the `/block` and `/block_by_hash` Tendermint RPC endpoints route through the GigaRouter's in-memory state (the finalized global blocks retained by the Autobahn data layer), while `/block_results` and `/validators` synthesize their responses (an empty result set and the genesis committee, respectively). This keeps downstream consumers — including evmrpc, block explorers, and monitoring tooling — working without individually branching on the consensus engine.
@@ -96,12 +92,11 @@ For `/block` and `/block_by_hash`, responses are served only for heights still i
 | `/block` | Returns the fully-populated translated block at the requested height: `BlockID.Hash` (the Autobahn header hash), the header (`ChainID`, `Height`, `Time`), and `Data.Txs`. Other header fields (`AppHash`, `ProposerAddress`, `LastCommit`, …) stay at zero values. |
 | `/block_by_hash` | Resolves the block by its Autobahn header hash via an in-memory hash index. An unknown or wrong-size hash returns `{Block: nil}` with no error, matching CometBFT semantics for a missing block. |
 | `/block_results` | Returns a valid-but-empty `ResultBlockResults` at the requested height. `ConsensusParamUpdates.Block.MaxGas` is populated from the producer config; `TxsResults` (per-tx `ExecTxResult` details) is intentionally empty because `FinalizeBlock` responses are not persisted under Autobahn. Populating these is a separate follow-up. |
-| `/validators` | Returns the genesis committee at any retained height — the committee is fixed at genesis under Autobahn (no validator-updates path). `block_height` matches the requested height, and pagination (`page`/`per_page`) behaves the same as the CometBFT path. |
+| `/validators` | Returns the genesis committee for any height up to the current ABCI head — the committee is fixed at genesis under Autobahn (no validator-updates path), and the endpoint does not read the retained block data, so pruned heights still answer. `block_height` matches the requested height, and pagination (`page`/`per_page`) behaves the same as the CometBFT path. |
 
 <Note>
 Because `FinalizeBlock` responses are not stored on disk under Autobahn, `/block_results` cannot surface per-transaction execution results (`TxsResults` is empty). For per-transaction EVM data, use the EVM JSON-RPC methods (`eth_getTransactionReceipt`, `eth_getBlockReceipts`) instead.
 </Note>
-
 
 ### Filter and subscription limits
 
@@ -600,7 +595,7 @@ Every method below is also browsable interactively in the explorer above; this s
 
 **Supported.** Returns block information by block hash, with full transactions when fullTx is true.
 
-**Sei-specific behavior:** Block hashes are CometBFT block hashes (computed from the Tendermint header), so they differ from Ethereum block hashes and are not interchangeable across chains. Under the eth namespace synthetic txs and bank transfers are excluded. The genesis block hash (`0xF9D3845DF25B43B1C6926F3CEDA6845C17F5624E12212FD8847D0BA01DA1AB9E`) is recognized and returns the encoded genesis block directly, keeping hash-based lookups consistent with `eth_getBlockByNumber("0x0")`; other unknown/zero hashes return null. Uncles array is always empty.
+**Sei-specific behavior:** Block hashes are CometBFT block hashes (computed from the Tendermint header), so they differ from Ethereum block hashes and are not interchangeable across chains. Under the eth namespace synthetic txs and bank transfers are excluded. The genesis block hash (`0xF9D3845DF25B43B1C6926F3CEDA6845C17F5624E12212FD8847D0BA01DA1AB9E`, a synthetic constant identical on every Sei network, returned by the node in this uppercase form; lookups are case-insensitive) is recognized and returns the encoded genesis block directly, keeping hash-based lookups consistent with `eth_getBlockByNumber("0x0")`; other unknown/zero hashes return null. Uncles array is always empty.
 
 **Parameters:**
 
@@ -1279,8 +1274,6 @@ The `filter` object applies only to `logs` subscriptions. For `newHeads`, pass t
 }
 ```
 
-
-
 #### `debug_traceTransactionProfile`
 
 **Limited.** Sei extension that replays a transaction by hash and returns its execution trace alongside a detailed timing and store-access profile.
@@ -1478,7 +1471,6 @@ Returns the Cosmos transaction details for a given EVM transaction hash.
 
 </Accordion>
 
-
 ### Legacy Deprecation Error
 
 When a `sei_*` or `sei2_*` method is called but not listed in `enabled_legacy_sei_apis`, the node returns:
@@ -1504,8 +1496,6 @@ Sei-Legacy-RPC-Deprecation: All sei_* and sei2_* JSON-RPC methods are deprecated
 ```
 
 Clients can use this header to detect legacy API usage and plan migration.
-
-
 
 ## Tendermint RPC status response
 
