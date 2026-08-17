@@ -77,6 +77,8 @@ The field is JSON-serialized as a string (`last_committed_block_height`), matchi
 - **Under CometBFT** — commit and app-apply happen in a single step, so `last_committed_block_height` is guaranteed to equal `latest_block_height`.
 - **Under Autobahn** — the value is derived from the latest `CommitQC`. Because consensus finalizes a block before the app executes it, the invariant is `last_committed_block_height >= latest_block_height`; the two can briefly differ while the app catches up.
 
+**`validator_info` shape.** The `/status` response's `validator_info` object always includes both a `pub_key` and an `address` field. On nodes that are not validators, `pub_key` is a zero (empty) public key with `address` derived from it and `voting_power` is `0`, rather than the fields being omitted — a stable response shape so clients like CosmJS can parse `/status` without special-casing non-validator nodes. On validator nodes, `pub_key` and `voting_power` carry the real values.
+
 <Note>
 Under Autobahn (`AutobahnConfigFile` set) the CometBFT block store is not populated, so `/status` derives `latest_block_height` and `latest_app_hash` from the app layer (`ABCIInfo`) instead of the block store. Several other `SyncInfo` fields (block hash/time, earliest-block metadata, `catching_up`, and peer-height fields) remain unpopulated in this mode.
 </Note>
@@ -91,7 +93,7 @@ For `/block` and `/block_by_hash`, responses are served only for heights still i
 | :- | :- |
 | `/block` | Returns the fully-populated translated block at the requested height: `BlockID.Hash` (the Autobahn header hash), the header (`ChainID`, `Height`, `Time`), and `Data.Txs`. Other header fields (`AppHash`, `ProposerAddress`, `LastCommit`, …) stay at zero values. |
 | `/block_by_hash` | Resolves the block by its Autobahn header hash via an in-memory hash index. An unknown or wrong-size hash returns `{Block: nil}` with no error, matching CometBFT semantics for a missing block. |
-| `/block_results` | Returns a valid-but-empty `ResultBlockResults` at the requested height. `ConsensusParamUpdates.Block.MaxGas` is populated from the producer config; `TxsResults` (per-tx `ExecTxResult` details) is intentionally empty because `FinalizeBlock` responses are not persisted under Autobahn. Populating these is a separate follow-up. |
+| `/block_results` | Returns a valid-but-empty `ResultBlockResults` at the requested height. `ConsensusParamUpdates.Block.MaxGas` is populated from the producer config; `TxsResults` (per-tx `ExecTxResult` details) is intentionally empty because `FinalizeBlock` responses are not persisted under Autobahn. |
 | `/validators` | Returns the genesis committee for any height up to the current ABCI head — the committee is fixed at genesis under Autobahn (no validator-updates path), and the endpoint does not read the retained block data, so pruned heights still answer. `block_height` matches the requested height, and pagination (`page`/`per_page`) behaves the same as the CometBFT path. |
 
 <Note>
@@ -261,7 +263,7 @@ Every method below is also browsable interactively in the explorer above; this s
 
 **Supported.** Returns the receipt of a transaction by hash, or null if not found.
 
-**Sei-specific behavior:** Receipt is reconstructed from keeper.GetReceipt + CometBFT block data rather than from a native MPT receipt trie; status/logs are standard Ethereum format. An EVM transaction that bumps the sender's nonce but then fails during state transition — for example an EIP-7623 floor-data-gas shortfall (post-Pectra), which fails inside go-ethereum's `Execute()` before any opcode runs — now returns a `status=0` failed-tx receipt (a synthetic receipt written at EndBlock, with `gasUsed` and `effectiveGasPrice` of 0; the `VmError` reason is not part of the `eth_getTransactionReceipt` response but is retrievable via the non-standard `eth_getVMError` method) under the Giga executor, rather than returning null indefinitely and hanging clients that poll for it. If a receipt exists but its block height is above the safe-latest watermark (for example when Tendermint status momentarily lags the receipt store), the method returns JSON null rather than an error — the Ethereum JSON-RPC 'not yet mined' signal — so clients simply poll again, matching `eth_getBlockByNumber` behavior.
+**Sei-specific behavior:** Receipt is reconstructed from keeper.GetReceipt + CometBFT block data rather than from a native MPT receipt trie; status/logs are standard Ethereum format. Under the Giga executor, an EVM transaction that bumps the sender's nonce but then fails during state transition now returns a `status=0` failed-tx receipt, rather than returning null indefinitely and hanging clients that poll for it. The known natural case is an EIP-7623 floor-data-gas shortfall (post-Pectra), which fails inside go-ethereum's `Execute()` before any opcode runs. The receipt is a synthetic one written at EndBlock, with `gasUsed` and `effectiveGasPrice` of 0. The `VmError` reason is not part of the `eth_getTransactionReceipt` response; retrieve it with the non-standard `eth_getVMError` method. If a receipt exists but its block height is above the safe-latest watermark (for example when Tendermint status momentarily lags the receipt store), the method returns JSON null rather than an error — the Ethereum JSON-RPC 'not yet mined' signal — so clients simply poll again, matching `eth_getBlockByNumber` behavior.
 
 **Parameters:**
 
@@ -1365,7 +1367,7 @@ To enable additional legacy methods, add them to this array. All other `sei_*` a
 | `sei_getTransactionByHash` | Get transaction by hash (includes synthetic txs) |
 | `sei_getTransactionCount` | Get account transaction count |
 | `sei_getTransactionReceipt` | Get transaction receipt (includes synthetic txs) |
-| `sei_getTransactionReceiptExcludeTraceFail` | Get transaction receipt, excluding only txs that never executed. Ante-rejected txs (rejected before reaching the VM, identified by `EffectiveGasPrice == 0` and `GasUsed == 0`) and chain-generated synthetic txs (`ShellEVMTxType`) are filtered out; reverted and out-of-gas transactions are now included, because they ran in the VM and produce real traces. (Previously any receipt with `status=0` was excluded, which over-filtered reverts and OOG failures.) The former `sei_traceBlockByHashExcludeTraceFail`/`sei_traceBlockByNumberExcludeTraceFail` trace endpoints were removed in v6.6.0 (#3618); use the standard `debug_traceBlockByHash`/`debug_traceBlockByNumber` instead. |
+| `sei_getTransactionReceiptExcludeTraceFail` | Get transaction receipt, excluding txs that never executed opcodes in the VM. The filter keys off the receipt shape (`EffectiveGasPrice == 0` and `GasUsed == 0`), which covers ante-rejected txs, nonce-bumping state-transition failures (for example EIP-7623 floor-data-gas shortfalls, whose synthetic EndBlock receipts carry the same shape), and chain-generated synthetic txs (`ShellEVMTxType`); reverted and out-of-gas transactions are included, because they ran in the VM and produce real traces. (Previously any receipt with `status=0` was excluded, which over-filtered reverts and OOG failures.) The former `sei_traceBlockByHashExcludeTraceFail`/`sei_traceBlockByNumberExcludeTraceFail` trace endpoints were removed in v6.6.0 (#3618); use the standard `debug_traceBlockByHash`/`debug_traceBlockByNumber` instead. |
 | `sei_getFilterLogs` | Get filter logs (includes synthetic logs) |
 | `sei_getLogs` | Get logs (includes synthetic logs) |
 | `sei_getFilterChanges` | Get filter changes (includes synthetic events) |
@@ -1496,30 +1498,3 @@ Sei-Legacy-RPC-Deprecation: All sei_* and sei2_* JSON-RPC methods are deprecated
 ```
 
 Clients can use this header to detect legacy API usage and plan migration.
-
-## Tendermint RPC status response
-
-The underlying Tendermint (CometBFT) RPC also exposes a `/status` endpoint whose response includes a `validator_info` object. This is separate from the EVM JSON-RPC surface but is often consumed by tooling such as CosmJS.
-
-The `validator_info` object always includes both a `pub_key` and an `address` field. For nodes that are not validators, `pub_key` is returned as a zero (empty) public key and `address` is derived from it, rather than the fields being omitted. This guarantees a stable response shape so that clients like CosmJS can parse the `/status` response without special-casing non-validator nodes.
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "result": {
-    "validator_info": {
-      "address": "...",
-      "pub_key": {
-        "type": "tendermint/PubKeyEd25519",
-        "value": "..."
-      },
-      "voting_power": "0"
-    }
-  }
-}
-```
-
-<Note>
-On validator nodes, `pub_key` contains the node's actual validator public key and `voting_power` reflects its voting power. On non-validator nodes, `pub_key` carries a zero public key and `voting_power` is `0`.
-</Note>
