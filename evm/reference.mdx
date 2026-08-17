@@ -11,7 +11,6 @@ Sei fully supports the standard Ethereum JSON-RPC API, so existing EVM tooling (
 
 <RPCMethodsViewer />
 
-
 <Note>
 By default the explorer lists only the available, current methods. Each is labelled with one of three statuses:
 
@@ -59,6 +58,48 @@ All endpoints follow the standard JSON-RPC format:
 
 For additional public and commercial endpoints, see [RPC providers](/learn/rpc-providers) and [Chains & endpoints](/learn/dev-chains).
 
+### Tendermint `/status` endpoint
+
+Alongside the EVM JSON-RPC surface, Sei nodes expose the underlying Tendermint/CometBFT RPC, including the `/status` endpoint. Its `SyncInfo` object reports a `last_committed_block_height` field: the height of the last block finalized by consensus.
+
+```bash
+curl -s $SEI_TENDERMINT_RPC/status | jq '.result.sync_info.last_committed_block_height'
+```
+
+The field is JSON-serialized as a string (`last_committed_block_height`), matching the other height fields in `SyncInfo`.
+
+| Field | JSON | Description |
+| :- | :- | :- |
+| `last_committed_block_height` | string | Height of the last block finalized by consensus. |
+
+**Consensus-engine behavior:**
+
+- **Under CometBFT** — commit and app-apply happen in a single step, so `last_committed_block_height` is guaranteed to equal `latest_block_height`.
+- **Under Autobahn** — the value is derived from the latest `CommitQC`. Because consensus finalizes a block before the app executes it, the invariant is `last_committed_block_height >= latest_block_height`; the two can briefly differ while the app catches up.
+
+**`validator_info` shape.** The `/status` response's `validator_info` object always includes both a `pub_key` and an `address` field. On nodes that are not validators, `pub_key` is a zero (empty) public key with `address` derived from it and `voting_power` is `0`, rather than the fields being omitted — a stable response shape so clients like CosmJS can parse `/status` without special-casing non-validator nodes. On validator nodes, `pub_key` and `voting_power` carry the real values.
+
+<Note>
+Under Autobahn (`AutobahnConfigFile` set) the CometBFT block store is not populated, so `/status` derives `latest_block_height` and `latest_app_hash` from the app layer (`ABCIInfo`) instead of the block store. Several other `SyncInfo` fields (block hash/time, earliest-block metadata, `catching_up`, and peer-height fields) remain unpopulated in this mode.
+</Note>
+
+### Tendermint block and validator endpoints under Autobahn
+
+Under Autobahn (`AutobahnConfigFile` set) the CometBFT `BlockStore` and `StateStore` are not populated. Rather than returning empty or failing responses, the `/block` and `/block_by_hash` Tendermint RPC endpoints route through the GigaRouter's in-memory state (the finalized global blocks retained by the Autobahn data layer), while `/block_results` and `/validators` synthesize their responses (an empty result set and the genesis committee, respectively). This keeps downstream consumers — including evmrpc, block explorers, and monitoring tooling — working without individually branching on the consensus engine.
+
+For `/block` and `/block_by_hash`, responses are served only for heights still inside Autobahn's retained window (heights pruned per `RetainHeight` are no longer available); `/block_results` and `/validators` do not read the retained block data and respond for any height up to the current ABCI head. Requests are validated against the current ABCI head, so heights above it return the same `ErrHeightExceedsChainHead`-class errors as the CometBFT path, and pruned heights on `/block` return `ErrHeightNotAvailable`.
+
+| Endpoint | Autobahn behavior |
+| :- | :- |
+| `/block` | Returns the fully-populated translated block at the requested height: `BlockID.Hash` (the Autobahn header hash), the header (`ChainID`, `Height`, `Time`), and `Data.Txs`. Other header fields (`AppHash`, `ProposerAddress`, `LastCommit`, …) stay at zero values. |
+| `/block_by_hash` | Resolves the block by its Autobahn header hash via an in-memory hash index. An unknown or wrong-size hash returns `{Block: nil}` with no error, matching CometBFT semantics for a missing block. |
+| `/block_results` | Returns a valid-but-empty `ResultBlockResults` at the requested height. `ConsensusParamUpdates.Block.MaxGas` is populated from the producer config; `TxsResults` (per-tx `ExecTxResult` details) is intentionally empty because `FinalizeBlock` responses are not persisted under Autobahn. |
+| `/validators` | Returns the genesis committee for any height up to the current ABCI head — the committee is fixed at genesis under Autobahn (no validator-updates path), and the endpoint does not read the retained block data, so pruned heights still answer. `block_height` matches the requested height, and pagination (`page`/`per_page`) behaves the same as the CometBFT path. |
+
+<Note>
+Because `FinalizeBlock` responses are not stored on disk under Autobahn, `/block_results` cannot surface per-transaction execution results (`TxsResults` is empty). For per-transaction EVM data, use the EVM JSON-RPC methods (`eth_getTransactionReceipt`, `eth_getBlockReceipts`) instead.
+</Note>
+
 ### Filter and subscription limits
 
 <Info>
@@ -79,7 +120,9 @@ Every method below is also browsable interactively in the explorer above; this s
 
 **Supported.** Submits a signed, RLP-encoded raw EVM transaction to the network and returns its hash.
 
-**Sei-specific behavior:** Decodes to an ethtypes.Transaction, wraps it in a Cosmos MsgEVMTransaction, and broadcasts via CometBFT (async BroadcastTx by default; slow mode uses BroadcastTxCommit). Non-zero CheckTx codes surface as ABCI errors, not geth mempool errors. Legacy (non-1559) txs must set gasPrice at or above the governance minimum (currently 50 gwei on mainnet); blob (EIP-4844) txs are not enabled. Supports per-sender EvmProxy forwarding.
+**Sei-specific behavior:** Decodes to an ethtypes.Transaction, wraps it in a Cosmos MsgEVMTransaction, and broadcasts via CometBFT (CheckTx-level BroadcastTx, i.e. `broadcast_tx_sync`, by default; slow mode uses BroadcastTxCommit). Non-zero CheckTx codes surface as ABCI errors, not geth mempool errors. Legacy (non-1559) txs must set gasPrice at or above the governance minimum (currently 50 gwei on mainnet); blob (EIP-4844) txs are not enabled. Supports per-sender EvmProxy forwarding.
+
+**Under Autobahn (`AutobahnConfigFile` set):** transaction broadcast routes through Autobahn's producer-backed mempool instead of CometBFT's `TxMempool`. This mempool admits EVM transactions strictly in sequential per-sender nonce order: a transaction whose nonce does not match the sender's next expected nonce is rejected with a bad-nonce error, so senders must submit nonces contiguously. The default CheckTx-synchronous broadcast (`broadcast_tx_sync`, the same path named above) blocks while the mempool is full and only returns once capacity is available — meaning a default `eth_sendRawTransaction` under Autobahn can stall for as long as the mempool stays full — whereas the async path (`broadcast_tx_async`) may silently drop the transaction instead. The `unsafe_flush_mempool` Tendermint RPC endpoint is not supported under Autobahn and returns `unsafe_flush_mempool is not supported with autobahn mempool`.
 
 **Parameters:**
 
@@ -195,7 +238,7 @@ Every method below is also browsable interactively in the explorer above; this s
 
 **Supported.** Returns the EVM transaction matching the given hash, or null if not found.
 
-**Sei-specific behavior:** Sees EVM transactions only; if the hash resolves to a non-EVM Cosmos tx it errors. Pending lookups read from the CometBFT mempool, not a geth txpool. Use the legacy sei_getTransactionByHash to also surface Cosmos txs with synthetic representations.
+**Sei-specific behavior:** Sees EVM transactions only; if the hash resolves to a non-EVM Cosmos tx it errors. Pending lookups resolve the transaction directly from the CometBFT mempool via an EVM-hash index (rather than a geth txpool), so a pending EVM tx is found by its hash without scanning through unconfirmed-transaction pages. Use the legacy sei_getTransactionByHash to also surface Cosmos txs with synthetic representations.
 
 **Parameters:**
 
@@ -220,7 +263,7 @@ Every method below is also browsable interactively in the explorer above; this s
 
 **Supported.** Returns the receipt of a transaction by hash, or null if not found.
 
-**Sei-specific behavior:** Receipt is reconstructed from keeper.GetReceipt + CometBFT block data rather than from a native MPT receipt trie; status/logs are standard Ethereum format.
+**Sei-specific behavior:** Receipt is reconstructed from keeper.GetReceipt + CometBFT block data rather than from a native MPT receipt trie; status/logs are standard Ethereum format. Under the Giga executor, an EVM transaction that bumps the sender's nonce but then fails during state transition now returns a `status=0` failed-tx receipt, rather than returning null indefinitely and hanging clients that poll for it. The known natural case is an EIP-7623 floor-data-gas shortfall (post-Pectra), which fails inside go-ethereum's `Execute()` before any opcode runs. The receipt is a synthetic one written at EndBlock, with `gasUsed` and `effectiveGasPrice` of 0. The `VmError` reason is not part of the `eth_getTransactionReceipt` response; retrieve it with the non-standard `eth_getVMError` method. If a receipt exists but its block height is above the safe-latest watermark (for example when Tendermint status momentarily lags the receipt store), the method returns JSON null rather than an error — the Ethereum JSON-RPC 'not yet mined' signal — so clients simply poll again, matching `eth_getBlockByNumber` behavior.
 
 **Parameters:**
 
@@ -485,7 +528,7 @@ Every method below is also browsable interactively in the explorer above; this s
 
 **Limited.** Returns a Merkle proof for an account and the requested storage slots.
 
-**Sei-specific behavior:** Sei stores state in an IAVL tree, not an Ethereum Merkle-Patricia trie. The result is a Sei-specific ProofResult&#123;address, hexValues, storageProof&#125; where storageProof entries are CometBFT/IAVL crypto.ProofOps, NOT eth-style MPT proof nodes. There is no accountProof, balance, codeHash, nonce, or storageHash field (Sei has no per-account state root); standard eth_getProof verifiers will not work.
+**Sei-specific behavior:** Sei stores state in an IAVL-style tree, not an Ethereum Merkle-Patricia trie. The handler unwraps the EVM store through any intervening wrappers (cache, tracing, Giga cache, prefix stores) until it reaches an underlying proof-capable queryable store — classic IAVL, a store/v2 memiavl commitment, or any other proof-capable root — so proofs work across these backends rather than only classic IAVL. If no proof-capable queryable store can be reached it returns `cannot find a proof-capable queryable KV store`. The result is a Sei-specific ProofResult&#123;address, hexValues, storageProof&#125; where storageProof entries are CometBFT/IAVL crypto.ProofOps, NOT eth-style MPT proof nodes. There is no accountProof, balance, codeHash, nonce, or storageHash field (Sei has no per-account state root); standard eth_getProof verifiers will not work.
 
 **Parameters:**
 
@@ -554,7 +597,7 @@ Every method below is also browsable interactively in the explorer above; this s
 
 **Supported.** Returns block information by block hash, with full transactions when fullTx is true.
 
-**Sei-specific behavior:** Block hashes are CometBFT block hashes (computed from the Tendermint header), so they differ from Ethereum block hashes and are not interchangeable across chains. Under the eth namespace synthetic txs and bank transfers are excluded. The genesis hash returns a synthetic genesis block; unknown/zero hash returns null. Uncles array is always empty.
+**Sei-specific behavior:** Block hashes are CometBFT block hashes (computed from the Tendermint header), so they differ from Ethereum block hashes and are not interchangeable across chains. Under the eth namespace synthetic txs and bank transfers are excluded. The genesis block hash (`0xF9D3845DF25B43B1C6926F3CEDA6845C17F5624E12212FD8847D0BA01DA1AB9E`, a synthetic constant identical on every Sei network, returned by the node in this uppercase form; lookups are case-insensitive) is recognized and returns the encoded genesis block directly, keeping hash-based lookups consistent with `eth_getBlockByNumber("0x0")`; other unknown/zero hashes return null. Uncles array is always empty.
 
 **Parameters:**
 
@@ -581,7 +624,7 @@ Every method below is also browsable interactively in the explorer above; this s
 
 **Supported.** Returns the number of EVM transactions in a block by number, as a hex quantity.
 
-**Sei-specific behavior:** Counts EVM transactions only (via getEvmTxCount); synthetic/bank-transfer txs are excluded. Genesis returns 0x0; non-existent/future blocks return null.
+**Sei-specific behavior:** Counts the same transactions that appear in `eth_getBlockByNumber`'s transaction list: EVM transactions are counted only when a receipt exists for them, and synthetic (wasm `MsgExecuteContract`) and bank-transfer (`MsgSend`) txs remain excluded under the eth namespace — they are only included in the `sei_`/`sei2_` count variants. Genesis returns 0x0; non-existent/future blocks return null. Because the receipt store can be configured with a smaller `KeepRecent` than the block/state stores, this method now verifies that the requested block's receipts have not been pruned before counting: if they have, it returns an error of the form `requested height N receipts have been pruned; earliest available is M` rather than a count. This means the call can fail for older blocks even when the block data itself is still available.
 
 **Parameters:**
 
@@ -606,7 +649,7 @@ Every method below is also browsable interactively in the explorer above; this s
 
 **Supported.** Returns the number of EVM transactions in a block by hash, as a hex quantity.
 
-**Sei-specific behavior:** Counts EVM transactions only; synthetic/bank-transfer txs are excluded. Genesis hash returns 0x0; unknown hash returns null.
+**Sei-specific behavior:** Counts EVM transactions only; synthetic/bank-transfer txs are excluded. Genesis hash returns 0x0; unknown hash returns null. Like `eth_getBlockTransactionCountByNumber`, returns a "receipts have been pruned" error when the requested block's receipts have been pruned from the receipt store.
 
 **Parameters:**
 
@@ -631,7 +674,7 @@ Every method below is also browsable interactively in the explorer above; this s
 
 **Supported.** Returns all EVM transaction receipts for a given block.
 
-**Sei-specific behavior:** Under the eth namespace synthetic/shell receipts are excluded (includeShellReceipts=false). Genesis returns an empty array; zero hash returns null. transactionIndex is recomputed sequentially over the compacted receipt list.
+**Sei-specific behavior:** Under the eth namespace synthetic/shell receipts are excluded (includeShellReceipts=false). Genesis returns an empty array. An empty (zero) or non-existent/unknown block hash returns `result: null` rather than an error, matching the Ethereum RPC spec. transactionIndex is recomputed sequentially over the compacted receipt list.
 
 **Parameters:**
 
@@ -699,7 +742,7 @@ Every method below is also browsable interactively in the explorer above; this s
 
 **Supported.** Returns base fees, gas-used ratios, and reward percentile data over a range of blocks.
 
-**Sei-specific behavior:** Base fees and rewards reflect Sei's x/evm fee market (GetNextBaseFee), not an Ethereum EIP-1559 mempool, and Sei does not burn the base fee. Watermark-aware: pruned/historical blocks may not be available as far back as on Ethereum archive nodes.
+**Sei-specific behavior:** Base fees and rewards reflect Sei's x/evm fee market (GetNextBaseFee), not an Ethereum EIP-1559 mempool, and Sei does not burn the base fee. Watermark-aware: pruned/historical blocks may not be available as far back as on Ethereum archive nodes. Matching go-ethereum/execution-apis semantics, on ranges where every block has base-fee data, `baseFeePerGas` contains one more element than `gasUsedRatio`: the trailing element is the projected base fee for the child of the newest block in the range, appended only when the newest block's own header base fee was available. Heights with pruned or partial base-fee data are skipped from `baseFeePerGas` while still contributing a `gasUsedRatio` row (0.0 fallback), so the two arrays can diverge from that `+1` relationship on ranges with pruned history. Each block's base fee uses header base fee semantics (the same value reported in the block header — `GetNextBaseFee` at the parent's committed height) with a `DefaultMinFeePerGas` fallback for early blocks.
 
 **Parameters:**
 
@@ -785,6 +828,8 @@ Every method below is also browsable interactively in the explorer above; this s
 #### `eth_getFilterChanges`
 
 **Supported.** Polls a filter and returns new logs (log filters) or block hashes (block filters) since the last poll.
+
+**Sei-specific behavior:** For log filters, returns an empty array (`[]`) rather than `null` when no logs match or a bounded filter's block range has been fully consumed, in line with the Ethereum JSON-RPC spec.
 
 **Parameters:**
 
@@ -1089,7 +1134,7 @@ The `filter` object applies only to `logs` subscriptions. For `newHeads`, pass t
 
 **Supported.** Replays a transaction by hash and returns an execution trace using the configured tracer.
 
-**Sei-specific behavior:** HTTP-only (the debug namespace is not registered on the WebSocket server). Supports geth tracers (callTracer, prestateTracer, flatCallTracer, struct/opcode logger); callTracer/prestateTracer/flatCallTracer results are pre-baked/cached via TraceBaker. Requires trace-enabled/archive state for the target height.
+**Sei-specific behavior:** HTTP-only (the debug namespace is not registered on the WebSocket server). Supports geth tracers (callTracer, prestateTracer, flatCallTracer, struct/opcode logger); callTracer/prestateTracer/flatCallTracer results are pre-baked/cached via TraceBaker. Requires trace-enabled/archive state for the target height. Subject to the max block lookback guard (`max_trace_lookback_blocks`): a request whose target block is older than the configured lookback is rejected with an error of the form `block number X is beyond max lookback of Y`. This guard now applies consistently across all `debug_trace*` endpoints, and such attempts increment the `evmrpc_historical_debug_trace_attempts_total` metric.
 
 **Parameters:**
 
@@ -1118,7 +1163,7 @@ The `filter` object applies only to `logs` subscriptions. For `newHeads`, pass t
 
 **Supported.** Traces all transactions in a block by number and returns per-transaction execution traces.
 
-**Sei-specific behavior:** HTTP-only. safe/finalized/latest are equivalent due to instant finality.
+**Sei-specific behavior:** HTTP-only. safe/finalized/latest are equivalent due to instant finality. Subject to the `max_trace_lookback_blocks` historical guard (see `debug_traceTransaction`).
 
 **Parameters:**
 
@@ -1147,7 +1192,7 @@ The `filter` object applies only to `logs` subscriptions. For `newHeads`, pass t
 
 **Supported.** Traces all transactions in a block by hash and returns per-transaction execution traces.
 
-**Sei-specific behavior:** HTTP-only.
+**Sei-specific behavior:** HTTP-only. Subject to the `max_trace_lookback_blocks` historical guard (see `debug_traceTransaction`).
 
 **Parameters:**
 
@@ -1176,7 +1221,7 @@ The `filter` object applies only to `logs` subscriptions. For `newHeads`, pass t
 
 **Supported.** Executes and traces a call against a block's state without creating a transaction.
 
-**Sei-specific behavior:** HTTP-only. Arbitrary geth tracer names pass through. Tracing on the pending block is not supported.
+**Sei-specific behavior:** HTTP-only. Arbitrary geth tracer names pass through. Tracing on the pending block is not supported. Subject to the `max_trace_lookback_blocks` historical guard (see `debug_traceTransaction`).
 
 **Parameters:**
 
@@ -1210,7 +1255,7 @@ The `filter` object applies only to `logs` subscriptions. For `newHeads`, pass t
 
 **Limited.** Sei extension that replays a transaction and returns its app/tendermint/receipt state-access traces.
 
-**Sei-specific behavior:** Sei-specific extension (not part of upstream go-ethereum's debug namespace). HTTP-only and subject to historical-debug-trace availability guards.
+**Sei-specific behavior:** Sei-specific extension (not part of upstream go-ethereum's debug namespace). HTTP-only and subject to historical-debug-trace availability guards. Subject to the `max_trace_lookback_blocks` historical guard (see `debug_traceTransaction`).
 
 **Parameters:**
 
@@ -1231,6 +1276,69 @@ The `filter` object applies only to `logs` subscriptions. For `newHeads`, pass t
 }
 ```
 
+#### `debug_traceTransactionProfile`
+
+**Limited.** Sei extension that replays a transaction by hash and returns its execution trace alongside a detailed timing and store-access profile.
+
+**Sei-specific behavior:** Sei-specific extension (not part of upstream go-ethereum's debug namespace). HTTP-only and subject to historical-debug-trace availability guards. In addition to the standard trace result, it returns a `profile` object breaking down where time was spent — total wall time, historical DB lookup time, and per-phase timings (transaction lookup, block load, historical tx replay, block-context build, tx prepare, execution, and trace-result assembly) — plus a per-module `store` access trace (reads, iterators with the keys they surfaced, and per-operation `stats` roll-ups). Per-tx caps bound the trace size: at most 16 iterators and 64 keys per iterator are retained per module, with overflow flagged via `truncated`. To run this method across a whole block range and generate aggregate reports, use the `seidb trace-profile-report` command. Subject to the `max_trace_lookback_blocks` historical guard (see `debug_traceTransaction`).
+
+**Parameters:**
+
+| # | Name | Type | Description |
+| :- | :- | :- | :- |
+| 1 | `hash` | DATA, 32 bytes | Transaction hash to trace and profile. |
+| 2 | `config` | object | Optional tracer config (tracer name, tracerConfig, timeout, reexec, disableStorage/Stack/Memory). |
+
+The response `result` contains a `trace` field (the standard tracer output) and a `profile` object shaped as follows:
+
+- `totalNanos` — total wall-clock nanoseconds for the profiled trace.
+- `historicalDbLookupNanos` — nanoseconds spent in historical store lookups (get/has/iterator/iteratorNext).
+- `otherNanos` — remaining time not attributed to historical lookups or execution.
+- `phases` — per-phase timings: `lookupTransactionNanos`, `loadBlockNanos`, `replayHistoricalTxsNanos`, `buildBlockContextNanos`, `prepareTxNanos`, `executionNanos`, `traceResultNanos`.
+- `store` — per-module store access trace: `modules` (each with `reads`, `has`, `iterators`, and per-op `stats`) and top-level `stats`.
+
+**Example request:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "debug_traceTransactionProfile",
+  "params": [
+    "0x5c504ed432cb51138bcf09aa5e8a410dd4a1e204ef84bfed1be16dfba1b22060",
+    {
+      "timeout": "60s"
+    }
+  ]
+}
+```
+
+**Example response (trimmed):**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "trace": { "...": "standard tracer output" },
+    "profile": {
+      "totalNanos": 18422119,
+      "historicalDbLookupNanos": 10021554,
+      "otherNanos": 8400565,
+      "phases": {
+        "lookupTransactionNanos": 310221,
+        "loadBlockNanos": 902114,
+        "replayHistoricalTxsNanos": 6114203,
+        "buildBlockContextNanos": 421900,
+        "prepareTxNanos": 188212,
+        "executionNanos": 9873341,
+        "traceResultNanos": 612128
+      }
+    }
+  }
+}
+```
+
 </Accordion>
 
 ## Sei Custom Endpoints
@@ -1240,7 +1348,11 @@ Sei extends the standard Ethereum JSON-RPC API with custom endpoints that enhanc
 <Warning>
 **Deprecation Notice:** All `sei_*` and `sei2_*` JSON-RPC methods are deprecated and scheduled for removal. Do not build new integrations on these endpoints. Use standard `eth_*` and `debug_*` methods instead.
 
-Access is controlled by the `enabled_legacy_sei_apis` setting under `[evm]` in `app.toml`. Only methods explicitly listed in this allowlist are available. Disabled methods return a standard JSON-RPC error (code `-32601`, data `"legacy_sei_deprecated"`). Allowed methods pass through unchanged, with an optional `Sei-Legacy-RPC-Deprecation` HTTP response header signaling deprecation.
+Access is controlled by the `enabled_legacy_sei_apis` setting under `[evm]` in `app.toml`. Only methods explicitly listed in this allowlist are available. Disabled methods return a standard JSON-RPC error (code `-32601`, data `"legacy_sei_deprecated"`). Allowed single-object calls pass through unchanged, with an optional `Sei-Legacy-RPC-Deprecation` HTTP response header signaling deprecation.
+
+**Batch requests:** JSON-RPC batches (a top-level JSON array) are handled by the gate rather than passed through wholesale. Only the allowed methods in the batch are forwarded to the inner handler as a filtered subset, and the inner responses are then merged back by matching each response's JSON-RPC `id`. Disallowed methods yield the usual `-32601` legacy deprecation error in their slot, and any batch element that is not a JSON object returns a JSON-RPC `-32600` `"Invalid Request"` error in its slot — a malformed element no longer causes the whole batch body to bypass the gate and reach the inner handler.
+
+Per JSON-RPC 2.0, **notifications** — requests that fully omit the `id` member — do not produce a response entry, including within a batch. A request that includes `"id": null` is **not** a notification: `null` is a valid id, so the request receives a response like any other id. Only requests with no `id` member at all are treated as notifications and omitted from the batch response. As a result, the merged response array is **not** 1:1 with the request batch when notifications are present — it is ordered like the batch minus the notification slots. If a batch would produce no response objects at all (for example, an all-notification batch, or an empty result), the gateway returns an **empty HTTP body** with HTTP 200 rather than an empty JSON array (`[]`).
 </Warning>
 
 ### Legacy API Configuration
@@ -1270,7 +1382,9 @@ To enable additional legacy methods, add them to this array. All other `sei_*` a
 | `sei_getTransactionErrorByHash` | Get error message for a failed transaction |
 | `sei_getVMError` | Get VM error details for a transaction |
 | `sei_getBlockByHash` | Get block by hash (includes synthetic txs) |
+| `sei_getBlockByHashExcludeTraceFail` | Get block by hash, excluding untraceable txs — synthetic txs **and** ante-deferred stub transactions (correct-nonce ante failures such as insufficient funds/fee, whose stub receipts carry `EffectiveGasPrice == 0` and `GasUsed == 0`). Note this differs from the regular `eth_getBlockByHash`, which still includes these ante-failure stubs. |
 | `sei_getBlockByNumber` | Get block by number (includes synthetic txs) |
+| `sei_getBlockByNumberExcludeTraceFail` | Get block by number, excluding untraceable txs — synthetic txs **and** ante-deferred stub transactions (correct-nonce ante failures such as insufficient funds/fee, whose stub receipts carry `EffectiveGasPrice == 0` and `GasUsed == 0`). Note this differs from the regular `eth_getBlockByNumber`, which still includes these ante-failure stubs. |
 | `sei_getBlockReceipts` | Get block receipts (includes synthetic txs) |
 | `sei_getBlockTransactionCountByHash` | Get tx count by block hash (includes synthetic txs) |
 | `sei_getBlockTransactionCountByNumber` | Get tx count by block number (includes synthetic txs) |
@@ -1279,17 +1393,15 @@ To enable additional legacy methods, add them to this array. All other `sei_*` a
 | `sei_getTransactionByHash` | Get transaction by hash (includes synthetic txs) |
 | `sei_getTransactionCount` | Get account transaction count |
 | `sei_getTransactionReceipt` | Get transaction receipt (includes synthetic txs) |
+| `sei_getTransactionReceiptExcludeTraceFail` | Get transaction receipt, excluding txs that never executed opcodes in the VM. The filter keys off the receipt shape (`EffectiveGasPrice == 0` and `GasUsed == 0`), which covers ante-rejected txs, nonce-bumping state-transition failures (for example EIP-7623 floor-data-gas shortfalls, whose synthetic EndBlock receipts carry the same shape), and chain-generated synthetic txs (`ShellEVMTxType`); reverted and out-of-gas transactions are included, because they ran in the VM and produce real traces. (Previously any receipt with `status=0` was excluded, which over-filtered reverts and OOG failures.) The former `sei_traceBlockByHashExcludeTraceFail`/`sei_traceBlockByNumberExcludeTraceFail` trace endpoints were removed in v6.6.0 (#3618); use the standard `debug_traceBlockByHash`/`debug_traceBlockByNumber` instead. |
 | `sei_getFilterLogs` | Get filter logs (includes synthetic logs) |
 | `sei_getLogs` | Get logs (includes synthetic logs) |
 | `sei_getFilterChanges` | Get filter changes (includes synthetic events) |
 | `sei_newFilter` | Create a new log filter |
 | `sei_newBlockFilter` | Create a new block filter |
 | `sei_uninstallFilter` | Remove a filter |
-| `sei_getBlockByHashExcludeTraceFail` | Get block by hash excluding failed traces |
-| `sei_getBlockByNumberExcludeTraceFail` | Get block by number excluding failed traces |
-| `sei_getTransactionReceiptExcludeTraceFail` | Get receipt excluding failed traces |
-| `sei_traceBlockByHashExcludeTraceFail` | Trace block by hash excluding failed traces |
-| `sei_traceBlockByNumberExcludeTraceFail` | Trace block by number excluding failed traces |
+
+<Note>`sei_traceBlockByHashExcludeTraceFail` and `sei_traceBlockByNumberExcludeTraceFail` were removed in v6.6.0 (#3618) and no longer appear in the gated method list; adding them to `enabled_legacy_sei_apis` has no effect. Use `debug_traceBlockByHash`/`debug_traceBlockByNumber` instead.</Note>
 
 **`sei2_*` methods** (block queries with bank transfers included):
 
@@ -1386,7 +1498,6 @@ Returns the Cosmos transaction details for a given EVM transaction hash.
 ```
 
 </Accordion>
-
 
 ### Legacy Deprecation Error
 

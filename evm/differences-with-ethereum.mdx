@@ -26,7 +26,6 @@ Sei's EVM and Ethereum itself:
 | State Storage | AVL-tree (global root) | Merkle Patricia Trie (MPT) |
 | SSTORE Gas Cost | 72k (on-chain param, governance-adjustable) | 20k (fixed) |
 
-
 - Sei uses the Pectra (Prague + Electra) version of EVM, excluding blob transactions. Ethereum has since upgraded to Fusaka (December 2025), which introduced PeerDAS for enhanced data availability.
 - Sei's gas limit is 12.5 M as opposed to Ethereum's 60 M (increased from 45 M in the Fusaka upgrade via EIP-7935). Sei also has a byte size limit of 21MB.
 - Sei has instant finality — a transaction is final as soon as its block is committed (~400 ms). This means the various commitment levels typical for Ethereum (i.e., safe, latest, justified) do not apply on Sei.
@@ -76,7 +75,6 @@ Sei EVM was originally deployed at the following block heights and versions:
 | TIMESTAMP | Tendermint block time | Proposer-chosen block time | Same semantics; do not use as randomness. |
 | DIFFICULTY | Alias of PREVRANDAO | Alias of PREVRANDAO (EIP‑4399) | Returns the same value as PREVRANDAO. |
 | Blob‑related opcodes | Not supported (Pectra without blobs) | Supported post‑Cancun (EIP‑4844) | Blob transactions are not enabled on Sei. |
-
 
 ### PREVRANDAO
 
@@ -136,6 +134,45 @@ EVM transactions. The simplest example would be bank balances, which may be
 updated by both native Cosmos bank send transactions and EVM send transactions.
 As a result, if certain offchain applications only parse EVM transactions, they
 may find certain state changes unattributable to any EVM transaction.
+
+## EVM Transaction Envelope Restrictions
+
+On Sei, EVM transactions are carried inside a Cosmos transaction envelope, but that envelope must remain empty of Cosmos-specific fields. This introduces the following Sei-specific divergences from a plain Ethereum transaction that tooling constructing raw transactions should be aware of:
+
+### No Cosmos wrapper fields on EVM transactions
+
+An EVM transaction must not populate any of the Cosmos wrapper fields. If any of the following are set, the transaction is rejected:
+
+- `memo`
+- `timeout_height`
+- extension options (`extension_options` / `non_critical_extension_options`)
+- `signer_infos`
+- fee amount, fee `payer`, and fee `granter`
+- top-level `signatures`
+
+The EVM transaction's own signature (`v`, `r`, `s`) lives inside the EVM payload itself, so none of these Cosmos-level fields are needed. This check is applied uniformly to all EVM transactions.
+
+### Whole-block rejection on transaction decode failure
+
+During proposal processing, Sei decodes every transaction in a proposed block. If any transaction fails to decode — or panics during decode — the **entire block proposal is rejected** rather than the offending transaction being silently skipped (treated as nil) while the rest of the block proceeds.
+
+This also affects block gas accounting: a transaction that could not be decoded no longer contributes zero gas and gets skipped; instead its presence causes the block proposal to be rejected outright.
+
+<Warning>
+
+This is a consensus-level behavior change. Tooling that produces malformed or non-canonical transactions can no longer rely on such transactions being individually dropped from an otherwise-valid block — a single undecodable transaction now invalidates the whole proposal. Ensure your signing and broadcast tooling only submits transactions that decode cleanly.
+
+</Warning>
+
+### Rejection of bloated (non-canonical) transaction bodies
+
+The transaction decoder rejects "bloated" transaction bodies — those whose raw protobuf wire encoding is larger than the canonical re-marshal of the decoded body. Non-canonical encodings (for example, padded fields or an oversized `Any.Value`) are rejected on decode with a decode error. This check has been enforced since v6.5.0.
+
+<Warning>
+
+Ensure your transaction-signing tooling produces a minimal, canonical envelope with no Cosmos wrapper fields populated.
+
+</Warning>
 
 ## Finality
 

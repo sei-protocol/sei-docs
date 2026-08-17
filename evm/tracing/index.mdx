@@ -56,6 +56,7 @@ Debug tracing is your primary tool for understanding EVM transaction execution o
 | `debug_traceBlockByNumber` | Trace entire block         | Block-level analysis          |
 | `debug_traceCall`          | Simulate and trace         | Testing before execution      |
 | `debug_traceStateAccess`   | State access patterns      | Performance optimization      |
+| `debug_traceTransactionProfile` | Trace plus timing/store-access profiling | Latency breakdown and DB-access analysis |
 
 ## Transaction Analysis Example
 
@@ -407,6 +408,52 @@ debug_traceStateAccess(hash)
 - **`callTracer`**: Contract call hierarchy
 - **`opcodeTracer`**: Opcode-level execution
 - **Custom JS**: Custom analysis logic
+
+## Pre-Baked Trace Cache
+
+RPC nodes can optionally pre-compute and cache `debug_trace*` results in the background so that trace requests are served from a local on-disk cache instead of re-executing the block live on every call. This is an opt-in feature configured through new `[evm]` fields in `app.toml` and is recommended for RPC nodes only.
+
+When enabled, a background worker re-executes each committed block with the configured tracers and stores the results in a Pebble database at `<home>/data/trace_db`. The following methods serve from this cache on hit, and otherwise fall through to live re-execution:
+
+- `debug_traceTransaction`
+- `debug_traceBlockByNumber` and `debug_traceBlockByHash`
+
+### When the cache is used
+
+A request is only served from cache when trace baking is enabled **and** the request uses a *bakeable* tracer configuration:
+
+- The tracer is one of `callTracer`, `prestateTracer`, or `flatCallTracer`.
+- No custom `tracerConfig` is supplied. A per-call `tracerConfig` (for example `{"withLog": true}`) is not part of the cache key, so any custom tracer config makes the request un-bakeable and it falls through to live re-execution.
+
+Requests that use the struct logger (no tracer), a JavaScript tracer, or any other named tracer are always executed live.
+
+### Configuration
+
+Trace baking is controlled by these `[evm]` fields in `app.toml`:
+
+| Field | Default | Description |
+| ----- | ------- | ----------- |
+| `trace_bake_enabled` | `false` | Enables the background trace-baking worker that caches results at `<home>/data/trace_db`. RPC nodes only. |
+| `trace_bake_workers` | `1` | Number of re-execution worker goroutines. |
+| `trace_bake_queue_size` | `4096` | Bounds the in-flight height queue. Heights are dropped when the queue is full so consensus never blocks; dropped blocks fall through to live re-execution. |
+| `trace_bake_tracers` | `["callTracer"]` | Which tracers to bake per block. Eligible values: `callTracer`, `prestateTracer`, `flatCallTracer`. |
+| `trace_bake_window_blocks` | `0` | Rolling prune window: blocks older than `(latest - window)` are pruned. `0` disables pruning, so the cache grows forever. |
+| `trace_bake_use_snapshot` | `false` | Uses in-memory memiavl snapshots as the state backend for trace baking when the store backend supports snapshots. |
+| `trace_bake_snapshot_window` | `64` | Number of recent memiavl snapshots to retain for trace baking. |
+
+<Warning>Enabling trace baking adds a persistent on-disk store at `<home>/data/trace_db` and increases disk usage. The store's write-ahead log is flushed when the node shuts down cleanly.</Warning>
+
+## `*ExcludeTraceFail` filtering semantics
+
+The `*ExcludeTraceFail` endpoints (`sei_getTransactionReceiptExcludeTraceFail`, `sei_getBlockByNumberExcludeTraceFail`, and `sei_getBlockByHashExcludeTraceFail`) filter out transactions whose trace would be empty or meaningless — specifically, transactions that were included in a block but never actually executed in the VM. These are deprecated legacy endpoints and are disabled by default: each method must be enabled through `enabled_legacy_sei_apis` in the `[evm]` section of `app.toml`. The filter keys off the receipt shape — any receipt with `EffectiveGasPrice == 0 && GasUsed == 0`, plus chain-generated synthetics — which excludes three classes:
+
+- **Ante-deferred stub transactions**: txs that passed the nonce check but failed a later ante step (for example insufficient funds or insufficient fee) and so never reached the VM. The chain writes a stub receipt for these with both fields unset.
+- **Nonce-bumping state-transition failures**: txs that fail inside go-ethereum's `Execute()` before any opcode runs (for example an EIP-7623 floor-data-gas shortfall). Their synthetic EndBlock receipt carries the same `EffectiveGasPrice == 0 && GasUsed == 0` shape, so it is filtered identically.
+- **Chain-generated synthetic transactions**: txs with the internal `ShellEVMTxType`, which have no real EVM execution.
+
+Everything that executed opcodes in the VM is **included**, even if it failed. Reverted and out-of-gas (OOG) transactions have `Status == 0` but `GasUsed > 0` (intrinsic gas at minimum) and, on chains with a positive minimum gas price, `EffectiveGasPrice > 0`, and produce a real trace (the `REVERT` or OOG condition simply appears inside that trace), so they are returned rather than filtered out.
+
+<Info>This filter applies to the block endpoints (`sei_getBlockByNumberExcludeTraceFail` and `sei_getBlockByHashExcludeTraceFail`, plus their `sei2_` equivalents) and the receipt endpoint (`sei_getTransactionReceiptExcludeTraceFail`): all of them drop these ante-deferred stub transactions. The former `sei_traceBlockByNumberExcludeTraceFail` and `sei_traceBlockByHashExcludeTraceFail` endpoints were removed in v6.6.0 — use `debug_traceBlockByNumber` or `debug_traceBlockByHash` for block tracing. The regular `eth_getBlockBy*` endpoints continue to **include** them, so a tx that appears in a normal block response may be absent from the `*ExcludeTraceFail` variant. The filter checks the underlying receipt shape (`EffectiveGasPrice` and `GasUsed`) rather than any tracer-reported error field.</Info>
 
 ## Next Steps
 

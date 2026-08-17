@@ -90,17 +90,78 @@ top -p $(pgrep seid)
 If you encounter an AppHash mismatch, you'll need to capture the state for comparison with a known good version:
 
 ```bash
-# For SeiDB (most non-archive nodes):
+# For SeiDB (all supported nodes):
 git clone https://github.com/sei-protocol/sei-db.git
 cd sei-db/tools
 make install
 systemctl stop seid
 seidb dump-iavl -d $HOME/.sei/data/committer.db -o /home/ubuntu/iavl-dump
 systemctl restart seid
-
-# For Legacy IAVL DB:
-seid debug dump-iavl <latest height>
 ```
+
+<Note>As with FlatKV, the memIAVL store has two possible locations: nodes created before the layout change keep the legacy `$HOME/.sei/data/committer.db` shown above (it takes precedence when present), while new nodes use `$HOME/.sei/data/state_commit/memiavl`. Point `-d` at whichever exists on your node.</Note>
+
+On Giga Storage nodes, EVM state lives in a FlatKV store rather than in the memIAVL trees, so an AppHash comparison there requires dumping the FlatKV state as well. Use the `dump-flatkv` command to iterate and dump the physical `(key, value)` pairs into per-bucket files (formatted to match `dump-iavl` so the same diff tooling works on both):
+
+```bash
+# For FlatKV (Giga Storage nodes hold EVM state in FlatKV):
+systemctl stop seid
+seidb dump-flatkv --db-dir $HOME/.sei/data/state_commit/flatkv --output-dir /home/ubuntu/flatkv-dump
+systemctl restart seid
+```
+
+<Note>Nodes created before the storage layout change keep the FlatKV store at the legacy path `$HOME/.sei/data/flatkv` instead of `$HOME/.sei/data/state_commit/flatkv`. Pass whichever directory exists on your node to `--db-dir`.</Note>
+
+The `dump-flatkv` command accepts the following flags:
+
+- `--db-dir` / `-d`: FlatKV database directory.
+- `--output-dir` / `-o`: output directory; one file is written per bucket.
+- `--height`: FlatKV target version; `0` (the default) selects the latest available version.
+- `--bucket` / `-b`: restrict the dump to a single bucket (`account`, `code`, `storage`, or `legacy`). Defaults to all buckets.
+
+For example, to dump only the `storage` bucket at a specific version:
+
+```bash
+seidb dump-flatkv --db-dir $HOME/.sei/data/state_commit/flatkv --output-dir /home/ubuntu/flatkv-dump --height 12345678 --bucket storage
+```
+
+### Comparing EVM State Between memIAVL and FlatKV
+
+When debugging an AppHash mismatch that involves EVM state, a byte-for-byte physical dump can diverge between backends even when the underlying state is identical. This is because every FlatKV value embeds a per-key block-height stamp (the height the key was last written or migrated), which differs from the memIAVL leaf versions on a freshly migrated node.
+
+The `evm-logical-digest` command works around this by computing a backend-independent digest of the EVM *logical* state — it strips the serialization-version and block-height header on both sides and digests only the logical payload (account balance/nonce/code hash, bytecode, and storage words). This lets a memIAVL node and a FlatKV node be compared at the same chain height:
+
+```bash
+# FlatKV digest at a height (WAL-replays to it):
+seidb evm-logical-digest --backend flatkv \
+    --db-dir $HOME/.sei/data/state_commit/flatkv --height 213200000
+
+# memIAVL digest at the same height (0 = current symlink):
+seidb evm-logical-digest --backend memiavl \
+    --db-dir $HOME/.sei/data/state_commit/memiavl --height 213200000
+```
+
+Each run prints per-bucket `bucket_digest` values and a single `FINAL_DIGEST` line covering the `account`, `code`, `storage`, and `legacy` buckets. Compare the `FINAL_DIGEST` lines from both backends at the same height — they should match. Because FlatKV can contain a FlatKV-only migration-version marker that a memIAVL-only node never owns, that row is automatically omitted from the FlatKV final result so the comparison is apples-to-apples.
+
+For targeted debugging, the command also supports inspecting a single normalized bucket instead of printing the global digest. The full flag reference (inspect mode, sharding, `--find-hash`) lives in the [seidb tooling section of the technical reference](/node/technical-reference#comparing-evm-state-across-backends). For example, to list the first 50 `account` rows with version metadata, or to shard the `storage` bucket under a key prefix by the next 2 bytes:
+
+```bash
+seidb evm-logical-digest --backend flatkv -d $HOME/.sei/data/state_commit/flatkv --height 213200000 \
+    --inspect-bucket account --list --list-limit 50 --details
+
+seidb evm-logical-digest --backend flatkv -d $HOME/.sei/data/state_commit/flatkv --height 213200000 \
+    --inspect-bucket storage --key-prefix 03 --shard-next-bytes 2
+```
+
+<Warning>
+**The legacy IAVL backend has been fully removed and SeiDB State Commit (SC) is now mandatory.** SC must be enabled via `sc-enable = true` in the `[state-commit]` section of `app.toml`. If SC is not enabled, the node no longer falls back to IAVL — it panics at startup with:
+
+```text
+SeiDB state-commit (SC) must be enabled; IAVL backend has been fully deprecated
+```
+
+The `seid debug dump-iavl` command has also been removed along with the IAVL backend. To inspect state, use the `seidb dump-iavl` tool shown above.
+</Warning>
 
 Always include the app hash, commit hash, and block height from your logs when reporting issues.
 
