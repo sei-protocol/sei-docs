@@ -68,7 +68,7 @@ For the full list of community + paid RPC providers and failover patterns, see [
 | Smart contracts | **Foundry** (preferred) or Hardhat |
 | Frontend | **Wagmi + Viem** (React) or Ethers.js v6 |
 | Wallet | **Sei Global Wallet** (`@sei-js/sei-global-wallet`) + MetaMask fallback |
-| Chain config | `@sei-js/precompiles` — `sei`, `seiTestnet`, precompile ABIs |
+| Chain config | `@sei-js/precompiles`: `sei`, `seiTestnet`, precompile ABIs |
 | Verification | Seiscan via Sourcify (`forge verify-contract --verifier sourcify`) |
 | Testing | Foundry unit + fork tests against testnet |
 
@@ -85,8 +85,7 @@ claude mcp add sei-mcp-server npx @sei-js/mcp-server
   "mcpServers": {
     "sei": {
       "command": "npx",
-      "args": ["-y", "@sei-js/mcp-server"],
-      "env": { "PRIVATE_KEY": "your_key_here" }
+      "args": ["-y", "@sei-js/mcp-server"]
     }
   }
 }
@@ -103,11 +102,12 @@ Once connected: address lookup, balance checks, transaction status, contract rea
 | Staking | `0x0000000000000000000000000000000000001005` |
 | Governance | `0x0000000000000000000000000000000000001006` |
 | Distribution | `0x0000000000000000000000000000000000001007` |
-| Oracle | `0x0000000000000000000000000000000000001008` |
 | PointerView | `0x000000000000000000000000000000000000100A` |
 | Pointer | `0x000000000000000000000000000000000000100B` |
 | JSON | `0x0000000000000000000000000000000000001003` |
 | P256 | `0x0000000000000000000000000000000000001011` |
+
+**The Oracle precompile (`0x...1008`) is retired. Do not use or recommend it.** Every native Oracle query reverts. Use an active third-party oracle provider instead. See [Oracle Precompile (Retired)](https://docs.sei.io/evm/precompiles/oracle).
 
 **The IBC precompile (`0x...1009`) is dead. Do not use or recommend it.** IBC is disabled on Sei in both directions (`ibc.InboundEnabled` and `ibc.OutboundEnabled` are both `false`, per governance Proposals 116, 120, and 121), so its `transfer` methods cannot succeed. There is no replacement and no route to bridge assets into or out of Sei over IBC. See the [SIP-03 Migration Guide](https://docs.sei.io/learn/sip-03-migration#ibc-is-disabled).
 
@@ -131,7 +131,7 @@ curl -L https://foundry.paradigm.xyz | bash && foundryup
 forge init my-project
 
 # Or scaffold a frontend
-npx @sei-js/create-sei my-sei-app
+npx @sei-js/create-sei app --name my-sei-app
 ```
 
 ```toml
@@ -146,7 +146,7 @@ evm_version = "cancun"
 sei_testnet = "https://evm-rpc-testnet.sei-apis.com"
 sei_mainnet = "https://evm-rpc.sei-apis.com"
 
-# Verification uses Sourcify — no [etherscan] block needed
+# Verification uses Sourcify. No [etherscan] block is needed.
 # forge verify-contract --verifier sourcify --chain-id 1329 <address> src/MyContract.sol:MyContract
 ```
 

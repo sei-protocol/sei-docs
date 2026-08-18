@@ -13,12 +13,21 @@ Sei precompiles are special smart contracts deployed at fixed addresses that exp
 | Precompile | Address | Description |
 | --- | --- | --- |
 | Bank | `0x1001` | Query the native SEI bank balance |
+| CosmWasm | `0x1002` | Query or execute existing CosmWasm contracts |
 | JSON | `0x1003` | Parse JSON data within contracts |
+| Address | `0x1004` | Convert and associate EVM and Sei addresses |
 | Staking | `0x1005` | Delegation and staking operations |
 | Governance | `0x1006` | Proposal voting |
 | Distribution | `0x1007` | Claim staking rewards |
+| Pointer view | `0x100A` | Look up pointer contract addresses |
+| Pointer | `0x100B` | Register pointer contracts |
+| Solo | `0x100C` | Access Solo migration functions |
 | P256 | `0x1011` | Verify P-256 elliptic curve signatures |
 </Info>
+
+<Warning>The IBC and Oracle precompiles are not exported by `@sei-js/precompiles`. IBC is disabled in both directions, and native Oracle queries are retired. Calls to either precompile cannot succeed on live Sei. See [IBC is disabled](/learn/sip-03-migration#ibc-is-disabled) and [Oracle Precompile (Retired)](/evm/precompiles/oracle).</Warning>
+
+<Note>Import the raw `*_PRECOMPILE_ABI` constants for both Viem and Ethers.js. The package does not expose the old `VIEM_*_PRECOMPILE_ABI` aliases.</Note>
 
 ## Setup
 
@@ -30,7 +39,7 @@ npm install viem ethers @sei-js/precompiles
 
 ```ts viem
 import { createPublicClient, createWalletClient, http, custom } from 'viem';
-import { sei } from 'viem/chains';
+import { sei } from '@sei-js/precompiles';
 
 // Read-only
 const client = createPublicClient({ chain: sei, transport: http() });
@@ -109,7 +118,7 @@ const delegation = await client.readContract({
   args: [account, 'seivaloper1...'],
 });
 
-// Undelegate 5 SEI — amount is in 6-decimal usei (1 SEI = 1_000_000 usei), not wei
+// Undelegate 5 SEI. The amount uses 6-decimal usei (1 SEI = 1_000_000 usei), not wei.
 const undelegateHash = await walletClient.writeContract({
   address: STAKING_PRECOMPILE_ADDRESS,
   abi: STAKING_PRECOMPILE_ABI,
@@ -132,7 +141,7 @@ await tx.wait();
 const delegation = await readStaking.delegation(await signer.getAddress(), 'seivaloper1...');
 console.log('Delegated:', delegation.balance.amount.toString());
 
-// Undelegate 5 SEI — amount is in 6-decimal usei (1 SEI = 1_000_000 usei), not wei
+// Undelegate 5 SEI. The amount uses 6-decimal usei (1 SEI = 1_000_000 usei), not wei.
 const undelegateTx = await staking.undelegate('seivaloper1...', ethers.parseUnits('5', 6));
 await undelegateTx.wait();
 ```
@@ -203,7 +212,7 @@ await tx.wait();
 
 ## JSON Precompile
 
-Parse JSON data within EVM contracts or dApps — useful for processing oracle responses, NFT metadata, and structured payloads:
+Parse JSON data within EVM contracts or dApps. This is useful for processing oracle responses, NFT metadata, and structured payloads:
 
 <CodeGroup>
 

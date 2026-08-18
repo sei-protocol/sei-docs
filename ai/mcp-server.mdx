@@ -50,10 +50,7 @@ Click **"Add new Global MCP server"** and add this configuration to `mcp.json`:
   "mcpServers": {
     "sei-mcp-server": {
       "command": "npx",
-      "args": ["-y", "@sei-js/mcp-server"],
-      "env": {
-        "PRIVATE_KEY": "your_private_key_here"
-      }
+      "args": ["-y", "@sei-js/mcp-server"]
     }
   }
 }
@@ -85,10 +82,7 @@ Add the Sei MCP Server to your configuration:
   "mcpServers": {
     "sei": {
       "command": "npx",
-      "args": ["-y", "@sei-js/mcp-server"],
-      "env": {
-        "PRIVATE_KEY": "your_private_key_here"
-      }
+      "args": ["-y", "@sei-js/mcp-server"]
     }
   }
 }
@@ -120,10 +114,7 @@ Open **Settings** → **Developer** → **Edit Config** and add:
   "mcpServers": {
     "sei": {
       "command": "npx",
-      "args": ["-y", "@sei-js/mcp-server"],
-      "env": {
-        "PRIVATE_KEY": "your_private_key_here"
-      }
+      "args": ["-y", "@sei-js/mcp-server"]
     }
   }
 }
@@ -168,9 +159,18 @@ The Sei MCP Server activates automatically in your session.
 </Tab>
 </Tabs>
 
-## Private Key Setup
+## Private key setup
 
-<Warning>**Security Notice**: Generate a dedicated wallet for MCP operations. Never use your main wallet's private key.</Warning>
+The server starts in read-only mode. To enable wallet tools over the default stdio transport, add both variables to the server's `env` configuration:
+
+```json
+{
+  "WALLET_MODE": "private-key",
+  "PRIVATE_KEY": "0x_your_private_key_here"
+}
+```
+
+<Warning>Generate a dedicated wallet for MCP operations. Never use your main wallet's private key. Wallet mode is blocked when you use an HTTP transport.</Warning>
 
 Export your private key from your wallet:
 
@@ -188,13 +188,7 @@ The Sei MCP Server enables your AI assistant to:
 - Execute token transfers
 - Interact with smart contracts
 - Monitor network status
-
-### Coming Soon
-
-- Documentation search and explanation
-- @sei-js library integration
-- Boilerplate generation
-- DeFi protocol interactions
+- Search the official Sei docs, including `@sei-js` references
 
 ## Available Tools
 
@@ -202,6 +196,8 @@ The Sei MCP Server enables your AI assistant to:
 
 | Tool | Purpose | Example |
 | --- | --- | --- |
+| `search_docs` | Search the official Sei docs | "How do I use the staking precompile?" |
+| `get_supported_networks` | List supported networks | "Which Sei networks are available?" |
 | `get_address_from_private_key` | Retrieve wallet address | "What's my wallet address?" |
 | `get_balance` | Check SEI balance | "Check balance of 0x123..." |
 | `transfer_sei` | Send SEI tokens | "Send 1 SEI to 0x456..." |
@@ -299,7 +295,6 @@ evm://sei/block/12345
 
 # Transactions
 evm://sei/tx/0xabc123...
-evm://sei/tx/0xabc123.../receipt
 
 # Token data
 evm://sei/token/0x3894085ef7ff0f0aedf52e2a2704928d1ec074f1
@@ -312,28 +307,34 @@ evm://sei/nft/0xNFT_ADDRESS/123/isOwnedBy/0x742d...
 
 ## Configuration
 
-### Environment Setup
+### Environment setup
 
 ```bash
 # .env file
-PRIVATE_KEY=0x_your_private_key_here
+WALLET_MODE=disabled
 
-# Optional (coming soon)
-CUSTOM_RPC_URL=https://your-rpc.com
-CUSTOM_CHAIN_ID=1329
+# Optional RPC overrides
+MAINNET_RPC_URL=https://your-mainnet-rpc.example
+TESTNET_RPC_URL=https://your-testnet-rpc.example
+
+# Optional wallet tools for stdio transport only
+# WALLET_MODE=private-key
+# PRIVATE_KEY=0x_your_private_key_here
 ```
 
-### HTTP Server Mode
+### HTTP server mode
 
-For web applications:
+Use the Streamable HTTP transport for an HTTP client:
 
 ```bash
-# Start HTTP server
-npx @sei-js/mcp-server --http
-
-# Connect from web app
-const eventSource = new EventSource('http://localhost:3001/sse');
+SERVER_TRANSPORT=streamable-http \
+SERVER_PORT=8080 \
+npx -y @sei-js/mcp-server
 ```
+
+Connect to `http://localhost:8080/mcp`. You can change the endpoint with `SERVER_HOST`, `SERVER_PORT`, and `SERVER_PATH`.
+
+<Warning>HTTP transports reject wallet mode. Use the default stdio transport for tools that sign transactions.</Warning>
 
 ## Security Guidelines
 
@@ -356,9 +357,9 @@ const eventSource = new EventSource('http://localhost:3001/sse');
 
 ## Troubleshooting
 
-**Connection issues**: Verify Node.js 18+ is installed and restart your AI assistant.
+**Connection issues**: Verify Node.js 20 or later is installed and restart your AI assistant.
 
-**Private key errors**: Ensure key format starts with `0x` and wallet has sufficient funds.
+**Private key errors**: Set `WALLET_MODE=private-key`, ensure the key starts with `0x`, and use the default stdio transport.
 
 **Cursor: The model returned an error. Try disabling the MCP servers, or switch models**: Disable "Auto" in the model
 menu and select a specific model e.g. `claude-4-sonnet`
