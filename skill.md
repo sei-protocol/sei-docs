@@ -68,7 +68,8 @@ For the full list of community + paid RPC providers and failover patterns, see [
 | Smart contracts | **Foundry** (preferred) or Hardhat |
 | Frontend | **Wagmi + Viem** (React) or Ethers.js v6 |
 | Wallet | **Sei Global Wallet** (`@sei-js/sei-global-wallet`) + MetaMask fallback |
-| Chain config | `@sei-js/precompiles`: `sei`, `seiTestnet`, precompile ABIs |
+| Chain config | `viem/chains`: `sei`, `seiTestnet` |
+| Sei precompiles | `@sei-js/precompiles`: addresses and ABIs |
 | Verification | Seiscan via Sourcify (`forge verify-contract --verifier sourcify`) |
 | Testing | Foundry unit + fork tests against testnet |
 
@@ -98,6 +99,7 @@ Once connected: address lookup, balance checks, transaction status, contract rea
 | Precompile | Address |
 |---|---|
 | Bank | `0x0000000000000000000000000000000000001001` |
+| CosmWasm | `0x0000000000000000000000000000000000001002` |
 | Addr | `0x0000000000000000000000000000000000001004` |
 | Staking | `0x0000000000000000000000000000000000001005` |
 | Governance | `0x0000000000000000000000000000000000001006` |
