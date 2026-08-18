@@ -443,17 +443,9 @@ Trace baking is controlled by these `[evm]` fields in `app.toml`:
 
 <Warning>Enabling trace baking adds a persistent on-disk store at `<home>/data/trace_db` and increases disk usage. The store's write-ahead log is flushed when the node shuts down cleanly.</Warning>
 
-## `*ExcludeTraceFail` filtering semantics
+## Removed legacy trace filters
 
-The `*ExcludeTraceFail` endpoints (`sei_getTransactionReceiptExcludeTraceFail`, `sei_getBlockByNumberExcludeTraceFail`, and `sei_getBlockByHashExcludeTraceFail`) filter out transactions whose trace would be empty or meaningless — specifically, transactions that were included in a block but never actually executed in the VM. These are deprecated legacy endpoints and are disabled by default: each method must be enabled through `enabled_legacy_sei_apis` in the `[evm]` section of `app.toml`. The filter keys off the receipt shape — any receipt with `EffectiveGasPrice == 0 && GasUsed == 0`, plus chain-generated synthetics — which excludes three classes:
-
-- **Ante-deferred stub transactions**: txs that passed the nonce check but failed a later ante step (for example insufficient funds or insufficient fee) and so never reached the VM. The chain writes a stub receipt for these with both fields unset.
-- **Nonce-bumping state-transition failures**: txs that fail inside go-ethereum's `Execute()` before any opcode runs (for example an EIP-7623 floor-data-gas shortfall). Their synthetic EndBlock receipt carries the same `EffectiveGasPrice == 0 && GasUsed == 0` shape, so it is filtered identically.
-- **Chain-generated synthetic transactions**: txs with the internal `ShellEVMTxType`, which have no real EVM execution.
-
-Everything that executed opcodes in the VM is **included**, even if it failed. Reverted and out-of-gas (OOG) transactions have `Status == 0` but `GasUsed > 0` (intrinsic gas at minimum) and, on chains with a positive minimum gas price, `EffectiveGasPrice > 0`, and produce a real trace (the `REVERT` or OOG condition simply appears inside that trace), so they are returned rather than filtered out.
-
-<Info>This filter applies to the block endpoints (`sei_getBlockByNumberExcludeTraceFail` and `sei_getBlockByHashExcludeTraceFail`, plus their `sei2_` equivalents) and the receipt endpoint (`sei_getTransactionReceiptExcludeTraceFail`): all of them drop these ante-deferred stub transactions. The former `sei_traceBlockByNumberExcludeTraceFail` and `sei_traceBlockByHashExcludeTraceFail` endpoints were removed in v6.6.0 — use `debug_traceBlockByNumber` or `debug_traceBlockByHash` for block tracing. The regular `eth_getBlockBy*` endpoints continue to **include** them, so a tx that appears in a normal block response may be absent from the `*ExcludeTraceFail` variant. The filter checks the underlying receipt shape (`EffectiveGasPrice` and `GasUsed`) rather than any tracer-reported error field.</Info>
+<Note>The legacy `*ExcludeTraceFail` endpoints have been removed. Use `debug_traceBlockByNumber` or `debug_traceBlockByHash` for block tracing and `eth_getTransactionReceipt` for EVM receipts. There is no block or filter method for discovering synthetic logs from Cosmos-originated transactions. If you already know a synthetic transaction hash, enable `sei_getTransactionReceipt` to retrieve its receipt and logs.</Note>
 
 ## Next Steps
 
