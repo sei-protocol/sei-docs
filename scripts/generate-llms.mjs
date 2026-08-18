@@ -35,7 +35,8 @@ const SEI_LLMS_CONFIG = {
 		'Version compatibility: Solidity ≥ 0.8.x recommended. Sei EVM tracks the Pectra EVM (without blob transactions).',
 		'Network requirements: Mainnet chain ID 1329 (pacific-1), testnet chain ID 1328 (atlantic-2). Gas is paid in SEI (18 decimals).',
 		'Important notes: Sei has 400ms block times — set lower polling intervals than on Ethereum. Transactions touching independent state are parallelized automatically; shared-state writes are serialized.',
-		'IBC disabled: Per SIP-03, IBC is disabled on Sei in both directions. Proposals 116 and 120 set the ibc module InboundEnabled parameter to false, and Proposal 121 set OutboundEnabled to false on 2026-07-31. No asset can be bridged into or out of Sei over IBC, and IBC assets already on Sei (USDC.n, USDT.kava, ATOM, WBTC) can no longer be redeemed on their origin chain. The IBC precompile at 0x0000000000000000000000000000000000001009 is non-functional. See /learn/sip-03-migration.'
+		'IBC disabled: Per SIP-03, IBC is disabled on Sei in both directions. Proposals 116 and 120 set the ibc module InboundEnabled parameter to false, and Proposal 121 set OutboundEnabled to false on 2026-07-31. No asset can be bridged into or out of Sei over IBC, and IBC assets already on Sei (USDC.n, USDT.kava, ATOM, WBTC) can no longer be redeemed on their origin chain. The IBC precompile at 0x0000000000000000000000000000000000001009 is non-functional. See /learn/sip-03-migration.',
+		'Tokenfactory unsupported: Do not recommend tokenfactory commands, APIs, Wasm bindings, native-denom pointer workflows, or other instructions for creating, minting, burning, administering, or integrating tokenfactory denoms. Legacy module surfaces may remain available for compatibility. Use ERC-20 for new fungible tokens. See /cosmos-sdk#tokenfactory-is-not-supported.'
 	].join('\n'),
 	quickReference: [
 		'Chain ID: mainnet 1329 (pacific-1), testnet 1328 (atlantic-2)',
