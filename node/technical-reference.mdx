@@ -37,6 +37,144 @@ seid tendermint show-validator
 seid query node info
 ```
 
+### seidb Tooling Commands
+
+The `seidb` binary provides low-level tooling for inspecting and maintaining a node's on-disk state.
+
+#### Reporting FlatKV EVM Migration Status
+
+The `migrate-evm-status` subcommand reads the on-disk FlatKV EVM migration state from a FlatKV data directory and prints a JSON summary. It is primarily intended for integration and operator tooling that polls each validator to determine whether the FlatKV EVM migration has completed, without needing a custom RPC handler or having to grep through node logs.
+
+```bash
+# Report FlatKV EVM migration status at the latest available version
+seidb migrate-evm-status --db-dir <flatkv-dir>
+
+# The --db-dir flag may be abbreviated as -d
+seidb migrate-evm-status -d $HOME/.sei/data/state_commit/flatkv
+
+# Report status at a specific FlatKV version (0 selects the latest)
+seidb migrate-evm-status --db-dir <flatkv-dir> --height <n>
+```
+
+The command opens FlatKV read-only — it hardlink-clones the latest snapshot and copies the WAL into a temporary directory before opening — so it can be run safely against a directory that a live node is still writing to.
+
+The emitted JSON contains the following fields:
+
+- `version_at` — the FlatKV version that was read.
+- `migration_version` — the on-disk migration version (`0` means the FlatKV EVM migration has not yet completed).
+- `migrate_evm_complete` — `true` once the migration version has reached the FlatKV EVM (v1) target.
+- `boundary_present` — `true` while the migration is in flight (the in-progress resume cursor is still present).
+- `boundary_hex` — hex-encoded migration boundary cursor, included only when a boundary is present.
+- `version_raw_hex` — hex-encoded raw migration-version bytes, included only when a migration version is present.
+
+#### Comparing EVM State Across Backends
+
+The `evm-logical-digest` subcommand computes a backend-independent digest of the EVM logical state (the account, code, and storage buckets) so that a memIAVL node and a FlatKV node can be compared at the same chain height. Because a freshly migrated FlatKV node stamps a per-key `blockHeight` into each value that differs from the memIAVL leaf versions, a raw byte-for-byte digest would diverge even when the underlying EVM state is identical. This command strips the serialization-version and `blockHeight` header on both sides and digests only the height-independent logical payload (storage word, bytecode, or balance+nonce+codehash), producing a comparable `FINAL_DIGEST` per backend.
+
+```bash
+# FlatKV digest at a height (WAL-replays to it). Prints per-bucket
+# bucket_digest values and one FINAL_DIGEST line for backend comparison.
+seidb evm-logical-digest --backend flatkv \
+    --db-dir $HOME/.sei/data/state_commit/flatkv --height 213200000
+
+# memIAVL digest at the same height (0 = current symlink), using the default
+# semantic normalization. memiavl resolves snapshot-<height>/evm or current/evm
+# and does not replay WAL in this tool.
+seidb evm-logical-digest --backend memiavl \
+    --db-dir $HOME/.sei/data/state_commit/memiavl --height 213200000
+
+# Translator-based memIAVL digest, which feeds each leaf through the current
+# migration mapping (flatkv.ImportTranslator).
+seidb evm-logical-digest --backend memiavl \
+    --db-dir $HOME/.sei/data/state_commit/memiavl --height 213200000 \
+    --memiavl-normalization translator
+```
+
+Two backends match when the FlatKV `FINAL_DIGEST` equals the memIAVL `FINAL_DIGEST`. FlatKV also writes an internal migration-version marker row that a memiavl-only node never owns, so the command omits that row from the final comparison automatically.
+
+The command accepts the following flags:
+
+- `--backend` — backend to read: `flatkv` or `memiavl`.
+- `--db-dir` (`-d`) — for FlatKV, the FlatKV data directory; for memIAVL, the memIAVL root directory containing `current/` and `snapshot-*`.
+- `--height` — target version. FlatKV WAL-replays to it; memIAVL resolves `snapshot-<height>/evm` (`0` selects the `current` symlink).
+- `--memiavl-normalization` — memIAVL normalization mode: `semantic`/`independent` (raw EVM key/value decoder, the default `semantic`) or `translator` (current migration mapping).
+- `--inspect-bucket` — inspect one normalized bucket (`account`, `code`, `storage`, or `legacy`) instead of printing the global digest.
+- `--key-offset` — inspect mode: byte offset into the physical key before applying `--key-prefix` or sharding.
+- `--key-prefix` — inspect mode: hex prefix, relative to `--key-offset`, used to filter physical keys.
+- `--shard-next-bytes` — inspect mode: group matching keys by this many bytes after `--key-prefix`.
+- `--list` — inspect mode: list matching key/logical-value pairs instead of shard `bucket_digest` values.
+- `--list-limit` — inspect mode: maximum pairs to print with `--list` (default `1000`; a value `<= 0` means unlimited).
+- `--details` — inspect list mode: include backend-specific version metadata.
+- `--find-hash` — optional 32-byte hex per-entry hash to hunt for. When two `bucket_digest` values differ by exactly one entry, their XOR is that entry's hash; this prints every matching entry so a single diverging row can be located.
+
+### Autobahn (GigaRouter) Config Generation
+
+When running with the Autobahn (GigaRouter) networking layer, you can generate the Autobahn JSON config from a set of node directories. Each directory must contain `validator_pubkey.txt`, `node_pubkey.txt`, `autobahn_address.txt`, and `evmrpc_url.txt`. Unlike the key files, `evmrpc_url.txt` is not written automatically — operators must create it by hand with the node's EVM RPC URL, and the command fails with an error if it is missing. The `mempool_size` field is no longer part of `autobahn.json`; remove it from existing config files.
+
+```bash
+# Generate an autobahn JSON config from one or more node directories
+seid tendermint gen-autobahn-config [node-dirs...] --output <path>
+
+# The --output flag may be abbreviated as -o
+seid tendermint gen-autobahn-config ./node0 ./node1 ./node2 -o autobahn.json
+
+# Choose where autobahn consensus and data WALs are persisted (default: data/autobahn)
+seid tendermint gen-autobahn-config ./node0 ./node1 --output autobahn.json --persistent-state-dir data/autobahn
+
+# Pass an empty value to disable persistence and run in-memory only
+seid tendermint gen-autobahn-config ./node0 ./node1 --output autobahn.json --persistent-state-dir=
+```
+
+The `--persistent-state-dir` flag controls where autobahn persists its consensus and data write-ahead logs (WALs) across restarts. It defaults to `data/autobahn`, so persistence is enabled by default without any operator action; the consensus and data layers write to distinct subdirectories under this shared on-disk root. A relative path is resolved against the node's `--home` directory at config load time, while absolute paths are used as-is. Passing an empty value (`--persistent-state-dir=`) disables persistence entirely, running both the consensus and data layers in-memory only. When set, the flag populates the `PersistentStateDir` field in the generated config.
+
+The command reads the following files from each node directory:
+
+- `validator_pubkey.txt` — the validator public key in `validator:<pubkey>` format.
+- `node_pubkey.txt` — the p2p node public key in `node:ed25519:public:<hex>` format.
+- `autobahn_address.txt` — the network address (`host:port`) the node advertises to peers.
+- `evmrpc_url.txt` — the node's EVM RPC URL, written into the validator's `evmrpc` field for cross-shard transaction proxying.
+
+The `validator_pubkey.txt` and `node_pubkey.txt` files are written automatically alongside `priv_validator_key.json` and `node_key.json` whenever those keys are saved, so they are typically already present in each node's config directory.
+
+The generated `autobahn.json` file describes the validator set along with transaction limits, block interval, view timeout, and dial interval; gas limits are not part of this file and come from the genesis block parameters instead. To have a node consume it, reference the file from `config.toml` using the `autobahn-config-file` key.
+
+#### Giga Mode Behavior and Per-Block Limits
+
+When a node is started in Giga mode — that is, when `autobahn-config-file` is set in `config.toml` — the block production and networking behavior differs significantly from standard Tendermint consensus:
+
+- **The CometBFT `TxMempool` is not used.** Under Giga the standard mempool (and its gossip reactor) is disabled entirely. Transactions instead route through the Autobahn producer-backed mempool.
+- **Consensus reactor, state sync, and block sync are disabled.** In Giga mode the consensus and state-sync reactors are skipped entirely, while the block-sync reactor still runs without a syncer; both state sync and block sync are forced off regardless of other configuration.
+- **Transactions are admitted through the producer mempool.** The RPC broadcast endpoints call the producer's `InsertTx`/`TryInsertTx` rather than the CometBFT mempool's `CheckTx`. `BroadcastTx` uses `InsertTx`, which blocks while the mempool is full; the async path calls `TryInsertTx` in the background and returns immediately, so when the mempool is full the transaction is silently dropped — the `mempool is full` error from `TryInsertTx` is never surfaced to async callers.
+- **Sequential EVM nonce ordering is enforced.** For EVM transactions, the producer mempool admits transactions strictly in nonce order per sender. A transaction whose nonce does not match the next expected nonce is rejected with a `bad nonce` error. Because admission is sequential, the mempool can track pending nonces (`EvmNextPendingNonce`) as callers submit them.
+
+Each Autobahn block payload is bounded by the following limits, enforced by the producer as it fills a block:
+
+- **Maximum transactions per block:** the lower of the configured `max_txs_per_block` and the built-in maximum of 2,000 (see the transaction payload caps below).
+- **Maximum total transaction bytes per block:** a fixed per-block byte cap; a single transaction larger than this cap is rejected with a `transaction too large` error.
+- **Wanted gas per block (`MaxGasWantedPerBlock`):** derived from the genesis `MaxGasWanted` block param. A transaction whose `GasWanted` exceeds this per-block limit is rejected as too large.
+- **Estimated gas per block (`MaxGasEstimatedPerBlock`):** derived from the genesis `MaxGas` block param. A transaction whose (normalized) estimated gas exceeds this per-block limit is rejected as too large.
+
+When filling a block the producer seals the current block and starts a new one as soon as adding the next transaction would exceed any of the transaction-count, byte, wanted-gas, or estimated-gas limits.
+
+#### Autobahn Committee and Network Message Limits
+
+Beyond the per-block payload limits, Giga mode enforces structural limits on the validator committee and on incoming consensus network messages:
+
+- **Maximum validators per committee:** the Autobahn committee is capped at a hard limit of 100 validators (`MaxValidators`). Committee creation rejects any validator set exceeding this limit — building a committee from more than 100 validators fails with a `too many validators` error rather than being silently truncated.
+- **Bounded consensus network messages.** Autobahn consensus protobuf messages carry declared size and count constraints that are checked against the raw wire bytes before the message is decoded. Payloads that violate these constraints are rejected during decoding, before any allocation, which protects nodes from oversized or malformed inputs that could otherwise decode into much larger in-memory structures.
+
+The enforced message constraints include:
+
+- **Per-field maximum sizes** on fixed-width fields such as hashes, signatures, and public keys.
+- **Maximum repeated-field counts** on validator-related lists — signature and quorum-certificate lists are capped at 100 entries (matching the 100-validator committee cap).
+- **Transaction payload caps:** a block payload may carry at most 2,000 transactions, with a combined transaction byte budget of exactly 2,048,000 bytes (2,000 × 1,024) that may be split arbitrarily across the transactions in the payload — these are the built-in maxima referenced by the per-block limits above.
+
+Any message whose fields exceed these limits is rejected at decode time, so an oversized network payload never reaches the consensus logic.
+
+<Note>
+  Because Giga replaces the CometBFT mempool, the `unsafe_flush_mempool` RPC endpoint is not supported under Giga and returns `unsafe_flush_mempool is not supported with autobahn mempool`.
+</Note>
+
 ### Key Management
 
 Proper key management is crucial for security. These commands help you manage
@@ -106,12 +244,6 @@ max-open-connections = 1000
 snapshot-interval = 1000
 snapshot-keep-recent = 2
 
-# Memory management
-[mempool]
-size = 5000
-max-txs-bytes = 1073741824
-cache-size = 10000
-
 # State store configuration
 [state-store]
 ss-enable = true
@@ -132,39 +264,62 @@ The config.toml file controls the core consensus engine and networking:
 [p2p]
 laddr = "tcp://0.0.0.0:26656"
 external-address = ""
-seeds = ""
-persistent_peers = ""
+bootstrap-peers = ""
+persistent-peers = ""
 upnp = false
-max_num_inbound_peers = 40
-max_num_outbound_peers = 10
-allowed_pools = ""
-max_packet_msg_payload_size = 10240
-handshake_timeout = "20s"
-dial_timeout = "3s"
+max-connections = 100
+max-outbound-connections = 20
+max-packet-msg-payload-size = 10240
+handshake-timeout = "20s"
+dial-timeout = "3s"
 
 # RPC Configuration
 [rpc]
 laddr = "tcp://0.0.0.0:26657"
-cors_allowed_origins = []
-cors_allowed_methods = ["HEAD", "GET", "POST"]
-cors_allowed_headers = ["Origin", "Accept", "Content-Type", "X-Requested-With", "X-Server-Time"]
-max_open_connections = 900
-timeout_broadcast_tx_commit = "10s"
+cors-allowed-origins = []
+cors-allowed-methods = ["HEAD", "GET", "POST"]
+cors-allowed-headers = ["Origin", "Accept", "Content-Type", "X-Requested-With", "X-Server-Time"]
+max-open-connections = 900
+# timeout-broadcast-tx-commit is now enforced by the BroadcastTxCommit RPC: when set
+# greater than 0 it is applied as a context timeout on the request, so a
+# BroadcastTxCommit call will be cancelled if it does not complete within this duration.
+timeout-broadcast-tx-commit = "10s"
+
+# Mempool Configuration
+[mempool]
+size = 5000
+max-txs-bytes = 1073741824
+cache-size = 10000
+# ttl-duration and ttl-num-blocks now treat zero (or unset) as "TTL purging disabled".
+# A non-zero value defines the time / number of blocks after which a transaction
+# is removed from the mempool; leaving them unset or set to zero disables TTL-based
+# purging entirely.
+ttl-duration = "5s"
+ttl-num-blocks = 10
 
 # Consensus Configuration
 [consensus]
-wal_file = "data/cs.wal/wal"
-timeout_propose = "3s"
-timeout_propose_delta = "500ms"
-timeout_prevote = "1s"
-timeout_prevote_delta = "500ms"
-timeout_precommit = "1s"
-timeout_precommit_delta = "500ms"
-timeout_commit = "1s"
-double_sign_check_height = 0
+wal-file = "data/tendermint/cs.wal/wal"
+# Consensus timeouts are governed by on-chain ConsensusParams; the old
+# timeout-* keys were removed and produce a startup error if present.
+# Local overrides are only possible via the unsafe-*-timeout-override
+# keys, which take effect only when unsafe-overrides-enabled = true.
+double-sign-check-height = 0
 ```
 
 </Accordion>
+
+<Note>
+  The `[consensus]` section may still parse a `stateless-leader-election` field, but it is **deprecated and ignored**. Stateless (seed-based) leader election is now always enabled regardless of the value set, so this field no longer has any effect. It is retained only for config-parsing compatibility and can be safely omitted.
+</Note>
+
+<Warning>
+  Out-of-process ABCI support has been removed. The full node now runs only with Tendermint in-process; external stand-alone ABCI processes (socket or gRPC) are no longer supported. As a result:
+
+  - The `seid start` flags `--address` and `--transport` are **deprecated and ignored**.
+  - The Tendermint node flags `--proxy-app` and `--abci` are **deprecated and ignored**.
+  - The `proxy-app` and `abci` fields in `config.toml` are **deprecated and ignored**, and are no longer written to newly generated `config.toml` files. Node operators upgrading should delete these lines from their `config.toml` if present.
+</Warning>
 
 ## Network Parameters
 
@@ -187,6 +342,11 @@ Slashing Parameters:
   - slash_fraction_downtime:     0%   (no stake slash; jail only)
   - slash_fraction_double_sign:  0%   (no stake slash; double-signing still triggers
                                        permanent tombstoning)
+
+Oracle Parameters:
+  - min_valid_per_window:        0%   (default changed from 5% now that the Oracle
+                                       Price Feeder is retired; distinct from the
+                                       slashing module's min_signed_per_window above)
 ```
 
 <Info>
@@ -206,16 +366,24 @@ $HOME/.sei/
 │   ├── config.toml      # Tendermint configuration
 │   ├── genesis.json     # Chain genesis file
 │   ├── node_key.json    # Node identity key
-│   └── priv_validator_key.json  # Validator signing key
+│   ├── node_pubkey.txt  # Node public key in autobahn format ("node:ed25519:public:<hex>"), written when the node key is saved
+│   ├── priv_validator_key.json  # Validator signing key
+│   └── validator_pubkey.txt  # Validator public key in autobahn format ("validator:<pubkey>"), written when the validator key is saved
 ├── data/
 │   ├── application.db   # Application state
-│   ├── blockstore.db    # Block data
-│   ├── cs.wal/         # Consensus write-ahead logs
-│   ├── evidence.db     # Evidence of misbehavior
-│   ├── state.db        # Tendermint state
-│   └── tx_index.db     # Transaction index
+│   └── tendermint/     # Tendermint consensus DBs (new subdirectory layout)
+│       ├── blockstore.db    # Block data
+│       ├── cs.wal/          # Consensus write-ahead logs
+│       ├── evidence.db      # Evidence of misbehavior
+│       ├── peerstore.db     # Peer store
+│       ├── state.db         # Tendermint state
+│       └── tx_index.db      # Transaction index
 └── keyring-file/       # Local key storage
 ```
+
+<Note>
+  New nodes place the Tendermint consensus databases (blockstore, state, tx_index, evidence, peerstore, and cs.wal) under `data/tendermint/`. Existing nodes that already have these databases in the legacy flat layout directly under `data/` (e.g. `data/blockstore.db`, `data/cs.wal/`) continue using those legacy paths automatically — the legacy location takes precedence when present, so no migration is required.
+</Note>
 
 This reference guide provides essential technical information for operating Sei
 nodes and validators. For API documentation and other detailed specifications,

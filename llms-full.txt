@@ -9,7 +9,7 @@ Authentication: No API key is required for public RPC endpoints. Rate limits app
 Version compatibility: Solidity ≥ 0.8.x recommended. Sei EVM tracks the Pectra EVM (without blob transactions).
 Network requirements: Mainnet chain ID 1329 (pacific-1), testnet chain ID 1328 (atlantic-2). Gas is paid in SEI (18 decimals).
 Important notes: Sei has 400ms block times — set lower polling intervals than on Ethereum. Transactions touching independent state are parallelized automatically; shared-state writes are serialized.
-IBC deprecation: Per SIP-03, inbound/outbound IBC transfers are being disabled. Holders of IBC assets (USDC.n, USDT.kava, Wormhole-bridged tokens) must migrate before the governance proposal activates — see /learn/sip-03-migration.
+IBC disabled: Per SIP-03, IBC is disabled on Sei in both directions. Proposals 116 and 120 set the ibc module InboundEnabled parameter to false, and Proposal 121 set OutboundEnabled to false on 2026-07-31. No asset can be bridged into or out of Sei over IBC, and IBC assets already on Sei (USDC.n, USDT.kava, ATOM, WBTC) can no longer be redeemed on their origin chain. The IBC precompile at 0x0000000000000000000000000000000000001009 is non-functional. See /learn/sip-03-migration.
 
 ## Quick Reference
 
@@ -31,7 +31,7 @@ Sei Giga, the next major upgrade, is designed to be the first Multi-Proposer EVM
 
 Mainnet (pacific-1): chain ID 1329. Testnet (atlantic-2): chain ID 1328.
 
-SIP-03 migration: inbound/outbound IBC transfers are being disabled. Holders of IBC assets must swap, migrate, or bridge out before the governance proposal activates.
+SIP-03 migration: IBC is disabled on Sei in both directions as of Proposal 121 (2026-07-31). IBC assets already on Sei can no longer be bridged out or redeemed on their origin chain, though the balances remain transferable within Sei.
 
 - [Learn About Sei](https://docs.sei.io/learn): Discover Sei Network's architecture, performance features, and ecosystem, with detailed resources on consensus, tokenomics, governance, and development frameworks.
 - [Getting Started with Sei Network: User Quick Start Guide](https://docs.sei.io/learn/user-quickstart): Comprehensive guide to Getting Started with Sei Network: User Quick Start Guide on Sei. Learn key concepts, commands, and best practices.
@@ -52,6 +52,7 @@ SIP-03 migration: inbound/outbound IBC transfers are being disabled. Holders of 
 - [Oracle Providers on Sei](https://docs.sei.io/learn/oracles): Directory of oracle providers for Sei blockchain. Access reliable price feeds and off-chain data for DeFi applications, smart contracts, and dApps.
 - [General Governance](https://docs.sei.io/learn/general-governance): Learn about Sei's governance system and how to participate in the decision-making process
 - [Proposals](https://docs.sei.io/learn/proposals): Complete guide to Sei governance proposals. Learn about different proposal types and how to submit them.
+- [Sei Improvement Proposals](https://docs.sei.io/learn/sips): Browse every Sei Improvement Proposal (SIP) with status, type, authorship, and section outlines pulled live from the sei-protocol/sips repository.
 - [Sei Blockchain Staking Guide](https://docs.sei.io/learn/general-staking): Participate in Sei's proof-of-stake consensus by staking tokens with validators, with detailed explanations of delegation, rewards, slashing risks, and the unbonding process.
 - [Sei Network Interoperability Framework](https://docs.sei.io/learn/dev-interoperability): Understand how Sei enables seamless interaction between EVM and Cosmos ecosystems through its dual address system and precompiles.
 - [Sei Pointer Contracts: Bridging EVM and Cosmos Environments](https://docs.sei.io/learn/pointers): Understand how Sei's pointer contract system enables seamless asset movement between EVM and Cosmos environments, with implementation patterns for various token types.
@@ -66,7 +67,7 @@ SIP-03 migration: inbound/outbound IBC transfers are being disabled. Holders of 
 
 Sei's EVM is fully compatible with Ethereum. Standard Solidity contracts deploy without modification. All Ethereum tooling (Hardhat, Foundry, wagmi, ethers.js, viem, RainbowKit) works as-is. Transactions touching independent state execute concurrently.
 
-Precompiled contracts at fixed addresses expose native Sei functionality (staking, governance, IBC, JSON, oracle, p256) to EVM.
+Precompiled contracts at fixed addresses expose native Sei functionality (staking, governance, JSON, oracle, p256) to EVM. The IBC precompile is non-functional because IBC is disabled.
 
 Native USDC: mainnet 0xe15fC38F6D8c56aF07bbCBe3BAf5708A2Bf42392, testnet 0x4fCF1784B31630811181f670Aea7A7bEF803eaED (6 decimals).
 
@@ -170,7 +171,6 @@ Sei supports full nodes (recent state, consensus relay), archive nodes (complete
 - [Swagger API Documentation](https://docs.sei.io/node/swagger): Learn how to enable and access Swagger API documentation for your Sei node. Configure the swagger endpoint in app.toml and view interactive API docs.
 - [Sei Validator Operations Guide](https://docs.sei.io/node/validators): Learn how to set up and maintain a validator node on Sei Network, including hardware security configuration, key management, monitoring practices, and governance participation requirements.
 - [Sei Node Advanced Configuration & Monitoring](https://docs.sei.io/node/advanced-config-monitoring): Optimize your Sei node's performance with advanced system configurations, monitoring setup with Prometheus and Grafana, and effective alerting strategies for maintaining reliable node operations.
-- [RocksDB Backend Setup & Performance](https://docs.sei.io/node/rocksdb-backend): Build and enable the RocksDB backend for seid to significantly improve iteration-heavy operations and traceBlock latency, especially on long-history RPC and archive nodes.
 - [Giga SS Store Migration Guide](https://docs.sei.io/node/giga-storage-migration): Migrate a Sei RPC node to Giga SS Store: split EVM state into a dedicated state-store backend so non-EVM modules stop paying EVM write amplification.
 - [Sei Technical Reference](https://docs.sei.io/node/technical-reference): Access detailed command syntax, configuration parameters, and troubleshooting procedures for node operators and validators running Sei network infrastructure.
 
@@ -233,7 +233,6 @@ export const config = createConfig({
 ## Resources
 
 - [GitHub](https://github.com/sei-protocol): Open source repositories including sei-chain, sei-js, and MCP server
-- [Developer Hub](https://www.sei.io/developers): Curated entry points, ecosystem programs, and grant info
 - [Ecosystem](https://www.sei.io/ecosystem): Directory of projects building on Sei
 - [Blog](https://blog.sei.io): Announcements and technical deep dives
 - [Dashboard](https://dashboard.sei.io): Transfer, bridge, and stake on Sei
@@ -631,7 +630,7 @@ URL: https://docs.sei.io/learn/dev-token-standards
 > Explore the different token types on Sei including native SEI, smart contract tokens (ERC20/CW20), and NFTs, with implementation guidance for each standard.
 
 <Info>
-  **Use ERC20 / ERC721 / ERC1155 for new tokens.** Per [Proposal 115](https://www.mintscan.io/sei/proposals/115), CosmWasm code uploads and contract instantiations are disabled on Sei, so no new CW20 / CW721 / CW1155 tokens can be deployed. The CW standards described below are documented for users and developers interacting with already-deployed legacy contracts.
+  **Use ERC20 / ERC721 / ERC1155 for new tokens.** Per [Proposal 115](https://seistream.app/proposals/115), CosmWasm code uploads and contract instantiations are disabled on Sei, so no new CW20 / CW721 / CW1155 tokens can be deployed. The CW standards described below are documented for users and developers interacting with already-deployed legacy contracts.
 </Info>
 
 In this section, we delve into the various token standards supported on Sei.
@@ -680,7 +679,7 @@ are not unique. Sei supports both ERC20 and CW20 fungible token standards.
   approved, and queried using standard functions. **Use ERC20 for any new
   fungible token on Sei.**
 * **CW20** (legacy only): The Cosmos-side fungible token standard. Per
-  [Prop 115](https://www.mintscan.io/sei/proposals/115), no new CW20 contracts
+  [Prop 115](https://seistream.app/proposals/115), no new CW20 contracts
   can be deployed. Existing CW20 tokens continue to function and can still have
   pointer contracts created for them.
 * **Interoperability and Pointer Contracts**:
@@ -704,7 +703,7 @@ standards for new NFT collections, along with legacy CW721 / CW1155 contracts.
   semi-fungible tokens. **Use these for any new NFT collection on Sei.**
 * **ERC2981**: Defines a royalty mechanism for NFTs, ensuring creators receive
   a percentage of sales.
-* **CW721 / CW1155** (legacy only): Per [Prop 115](https://www.mintscan.io/sei/proposals/115),
+* **CW721 / CW1155** (legacy only): Per [Prop 115](https://seistream.app/proposals/115),
   no new CW721 / CW1155 contracts can be deployed. Existing collections continue
   to function and can be surfaced on the EVM via pointer contracts.
 * **Interoperability**: Similar to fungible tokens, legacy CW NFT collections
@@ -756,11 +755,11 @@ refunded in full or in part, so avoid setting gas limits far above what a
 transaction actually needs. See
 [Sei EVM vs Ethereum](/evm/differences-with-ethereum) for details.
 
-To help developers and users estimate fees on Sei, please reference
-[Sei Gas](https://seigas.com) and the associated
-[APIs](https://docs.blocknative.com/gas-prediction/gas-platform) provided by
-Blocknative. Their estimates are based on real-time SEI data and advanced ML
-modeling to accurately and consistently estimate SEI transaction fees.
+To estimate fees on Sei, query the network directly using the standard EVM
+JSON-RPC methods `eth_gasPrice`, `eth_maxPriorityFeePerGas`, and
+`eth_feeHistory`. These return real-time gas pricing straight from the chain
+with no third-party service required. See
+[Estimating gas prices](#estimating-gas-prices) below for examples.
 
 ### Maximum Gas
 
@@ -825,12 +824,38 @@ Optimizing gas prices involves efficient smart contract coding practices:
 * Use fixed-size data structures where possible.
 * Avoid unnecessary computations.
 
-## Using Blocknative's Gas API
+## Estimating Gas Prices
 
-To leverage Blocknative's Gas API, you will need an [API Key](https://docs.blocknative.com/gas-prediction/gas-platform#authentication). This API is free, but heavily rate limited, so it is recommended you get an API key. Once you have your key, you can request fee estimation for SEI:
+Sei's EVM RPC exposes the standard Ethereum JSON-RPC methods for gas estimation, so you can read real-time pricing directly from the network without relying on a third-party service:
 
+* `eth_gasPrice` — current recommended gas price for legacy transactions.
+* `eth_maxPriorityFeePerGas` — suggested priority fee (tip) for EIP-1559 transactions.
+* `eth_feeHistory` — recent base fees and priority-fee percentiles, useful for building custom fee strategies.
+
+Query the current gas price on mainnet (`pacific-1`) directly:
+
+```sh theme={"dark"}
+curl -sS https://evm-rpc.sei-apis.com \
+  -H "Content-Type: application/json" \
+  --data '{"jsonrpc":"2.0","method":"eth_gasPrice","params":[],"id":1}'
 ```
-curl -H "Authorization: your-apikey-here" https://api.blocknative.com/gasprices/blockprices?chainid=1329
+
+Most EVM libraries wrap these methods for you. For example, with viem:
+
+```ts theme={"dark"}
+import { createPublicClient, http } from 'viem';
+import { sei } from 'viem/chains';
+
+const client = createPublicClient({
+  chain: sei,
+  transport: http('https://evm-rpc.sei-apis.com')
+});
+
+// Legacy gas price
+const gasPrice = await client.getGasPrice();
+
+// EIP-1559 fee suggestion
+const { maxFeePerGas, maxPriorityFeePerGas } = await client.estimateFeesPerGas();
 ```
 
 ---
@@ -1452,13 +1477,13 @@ URL: https://docs.sei.io/learn/sip-03-migration
 > Practical steps and resources for users and exchanges migrating during SIP-03, including asset transfer, USDC, and exchange migration guidance.
 
 <Danger>
-  **Action required: IBC assets on Sei will become inaccessible**
+  **IBC is now disabled on Sei in both directions. IBC assets can no longer be bridged off Sei.**
 
-  If you hold [USDC.n](https://seiscan.io/address/0x3894085Ef7Ff0f0aeDf52E2A2704928d1Ec074F1) (USDC via Noble), [USDT.kava](https://seiscan.io/address/0xb75d0b03c06a926e488e2659df1a861f860bd3d1) (Kava USDT), Wormhole-bridged tokens, or any other IBC asset on Sei, you **must** swap, migrate, or bridge out **before [Proposal #116](https://www.mintscan.io/sei/proposals/116) (disables inbound IBC transfers) passes and is activated** to avoid permanent loss of access. After this, Sei will no longer support IBC bridging of assets from Cosmos-based chains to and from Sei Network.
+  [Proposal #121](https://seistream.app/proposals/121) passed on July 31, 2026 and set the `ibc` module's `OutboundEnabled` parameter to `false`. Inbound IBC was already disabled by [Proposal #116](https://seistream.app/proposals/116) and [Proposal #120](https://seistream.app/proposals/120). Both directions are now closed.
 
-  Consult the [IBC Asset Migration Table](#ibc-asset-migration-table) below for the full list of affected assets, required actions, and supported routes.
+  If you hold [USDC.n](https://seiscan.io/address/0x3894085Ef7Ff0f0aeDf52E2A2704928d1Ec074F1) (USDC via Noble), [USDT.kava](https://seiscan.io/address/0xb75d0b03c06a926e488e2659df1a861f860bd3d1) (Kava USDT), ATOM, WBTC, or any other IBC asset on Sei, **there is no longer a route to redeem or bridge it back to its origin chain**. The bridge-out and IBC-based migration routes that were previously available no longer function.
 
-  For USDC.n specifically, see: [Holders of USDC.n Need to Swap or Migrate](https://blog.sei.io/announcements/holders-of-usdcn-need-to-swap-or-migrate/).
+  These balances still exist on Sei and can still be transferred between Sei addresses, but they can no longer be redeemed for the underlying asset. See [IBC is disabled](#ibc-is-disabled) for the current state and [Affected IBC assets](#affected-ibc-assets) for the status of each one.
 </Danger>
 
 This page consolidates the most important, practical actions for the SIP-03 migration and links to the official resources.
@@ -1468,11 +1493,15 @@ This page consolidates the most important, practical actions for the SIP-03 migr
 
   * The [official SIP-03](https://github.com/sei-protocol/sips/blob/main/sips/sip-3.md)
 
-  * Governance [Proposal #99](https://www.mintscan.io/sei/proposals/99) — initiated the migration
+  * Governance [Proposal #99](https://seistream.app/proposals/99) — initiated the migration
 
-  * Governance [Proposal #115](https://www.mintscan.io/sei/proposals/115) — disables CosmWasm code uploads and contract instantiations. After this passes, no new CosmWasm contracts can be deployed on Sei.
+  * Governance [Proposal #115](https://seistream.app/proposals/115) — disabled CosmWasm code uploads and contract instantiations. No new CosmWasm contracts can be deployed on Sei.
 
-  * Governance [Proposal #116](https://www.mintscan.io/sei/proposals/116) — disables inbound IBC transfers. After this passes and is activated, IBC assets bridged from Cosmos chains can no longer arrive on Sei.
+  * Governance [Proposal #116](https://seistream.app/proposals/116) — disabled inbound IBC transfers by setting the `ibc` module's `InboundEnabled` parameter to `false`. IBC assets bridged from Cosmos chains can no longer arrive on Sei.
+
+  * Governance [Proposal #120](https://seistream.app/proposals/120) — re-set `InboundEnabled` to `false`, leaving outbound IBC unchanged at the time. Follows up on Proposal #116.
+
+  * Governance [Proposal #121](https://seistream.app/proposals/121) — disabled outbound IBC transfers by setting the `ibc` module's `OutboundEnabled` parameter to `false`. IBC assets can no longer leave Sei. Passed July 31, 2026.
 </Info>
 
 ## What most users need to do
@@ -1480,23 +1509,69 @@ This page consolidates the most important, practical actions for the SIP-03 migr
 * If you use Keplr or Leap (Cosmos-style wallets) and hold assets on the native address (sei1...), you should move assets to an EVM-compatible address (0x...). Use the Asset Transfer tool linked below.
 * If you use Compass or another EVM wallet already, you’re good — continue as normal.
 
-## IBC Asset Migration Table
+## IBC is disabled
 
-If you hold any of the following IBC assets on Sei, take action before [Proposal #116](https://www.mintscan.io/sei/proposals/116) (disables inbound IBC transfers) passes and is activated.
+IBC (Inter-Blockchain Communication) is the Cosmos protocol that moved tokens between Sei and other Cosmos-SDK chains such as Noble, Kava, and Cosmos Hub. Assets that arrived this way exist on Sei as vouchers: an `ibc/...` denom in the bank module, backed by the real asset escrowed on the origin chain, redeemable only by sending the voucher back over the same channel it came in on.
 
-\[We’ll update this table as more resources are made available]
+Both directions are now closed. Two parameters on Sei's `ibc` module control this, and both are `false`:
 
-| Asset                            | Token contract                                                                                                                                                                                         | Action(s)                               | Possible route(s)                                                                                                                                                                                                                  | Support                                                                                                                                                                                            |
-| :------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **USDC.n (USDC via Noble)**      | [seiscan](https://seiscan.io/address/0x3894085ef7ff0f0aedf52e2a2704928d1ec074f1) [mintscan](https://www.mintscan.io/sei/assets/ibc%2FCA6FBFAF399474A06263E10D0CE5AEBBE15189D6D4B2DD9ADE61007E68EB9DB0) | Swap to native USDC or migrate via CCTP | [Saphyre](https://saphyre.xyz/swap?inputCurrency=0x3894085Ef7Ff0f0aeDf52E2A2704928d1Ec074F1\&outputCurrency=0xe15fC38F6D8c56aF07bbCBe3BAf5708A2Bf42392), [Symphony](https://symph.ag/), or [CCTP Exchange](https://cctp.exchange/) | [Sei blog](https://blog.sei.io/announcements/holders-of-usdcn-need-to-swap-or-migrate/) [Sei Tech Chat](https://t.me/+KZdhZ1eE-G01NmZk)  [Discord](https://discord.com/invite/sei?ref=blog.sei.io) |
-| **USDT.kava (USDT via Kava)**    | [seiscan](https://seiscan.io/token/0xb75d0b03c06a926e488e2659df1a861f860bd3d1) [mintscan](https://www.mintscan.io/sei/assets/ibc%2F6C00E4AA0CC7618370F81F7378638AE6C48EFF8C9203CE1C2357012B440EBDB7)   | Swap to a native asset via Symphony     | [Symphony](https://symph.ag/)                                                                                                                                                                                                      | [Sei Tech Chat](https://t.me/+KZdhZ1eE-G01NmZk)  [Discord](https://discord.com/invite/sei)                                                                                                         |
-| **USDCso (Wormhole, Solana)**    | [mintscan](https://www.mintscan.io/sei/assets/factory%2Fsei189adguawugk3e55zn63z8r9ll29xrjwca636ra7v7gxuzn98sxyqwzt47l%2F9fELvUhFo6yWL34ZaLgPbCPzdk9MD1tAzMycgH45qShH)                                 | Bridge out to Solana via Wormhole       | [Portal Bridge (legacy)](https://legacy.portalbridge.com/#/transfer)                                                                                                                                                               | [Sei Tech Chat](https://t.me/+KZdhZ1eE-G01NmZk) [Discord](https://discord.com/invite/sei)                                                                                                          |
-| **Wormhole-bridged WETH**        | [mintscan](https://www.mintscan.io/sei/assets/factory%2Fsei189adguawugk3e55zn63z8r9ll29xrjwca636ra7v7gxuzn98sxyqwzt47l%2F4tLQqCLaoKKfNFuPjA9o39YbKUwhR1F8N29Tz3hEbfP2)                                 | Bridge out to Ethereum via Wormhole     | [Portal Bridge (legacy)](https://legacy.portalbridge.com/#/transfer)                                                                                                                                                               | [Sei Tech Chat](https://t.me/+KZdhZ1eE-G01NmZk)  [Discord](https://discord.com/invite/sei)                                                                                                         |
-| **USDCet (Wormhole, Ethereum)**  | [mintscan](https://www.mintscan.io/sei/assets/factory%2Fsei189adguawugk3e55zn63z8r9ll29xrjwca636ra7v7gxuzn98sxyqwzt47l%2FHq4tuDzhRBnxw3tFA5n6M52NVMVcC19XggbyDiJKCD6H)                                 | Bridge out to Ethereum via Wormhole     | [Portal Bridge (legacy)](https://legacy.portalbridge.com/#/transfer)                                                                                                                                                               | [Sei Tech Chat](https://t.me/+KZdhZ1eE-G01NmZk)  [Discord](https://discord.com/invite/sei)                                                                                                         |
-| **USDCop (Wormhole, Optimism)**  | [mintscan](https://www.mintscan.io/sei/assets/factory%2Fsei189adguawugk3e55zn63z8r9ll29xrjwca636ra7v7gxuzn98sxyqwzt47l%2F3VKKYtbQ9iq8f9CaZfgR6Cr3TUj6ypXPAn6kco6wjcAu)                                 | Bridge out to Optimism via Wormhole     | [Portal Bridge (legacy)](https://legacy.portalbridge.com/#/transfer)                                                                                                                                                               | [Sei Tech Chat](https://t.me/+KZdhZ1eE-G01NmZk)  [Discord](https://discord.com/invite/sei)                                                                                                         |
-| **USDTbs (Wormhole, BSC Chain)** | [mintscan](https://www.mintscan.io/sei/assets/factory%2Fsei189adguawugk3e55zn63z8r9ll29xrjwca636ra7v7gxuzn98sxyqwzt47l%2F871jbn9unTavWsAe83f2Ma9GJWSv6BKsyWYLiQ6z3Pva)                                 | Bridge out to BSC Chain via Wormhole    | [Portal Bridge (legacy)](https://legacy.portalbridge.com/#/transfer)                                                                                                                                                               | [Sei Tech Chat](https://t.me/+KZdhZ1eE-G01NmZk)  [Discord](https://discord.com/invite/sei)                                                                                                         |
-| **ATOM**                         | [mintscan](https://www.mintscan.io/sei/assets/ibc%2FC4CFF46FD6DE35CA4CF4CE031E643C8FDC9BA4B99AE598E9B0ED98FE3A2319F9)                                                                                  | Bridge out to Cosmos Hub                | Skip:Go                                                                                                                                                                                                                            | [Sei Tech Chat](https://t.me/+KZdhZ1eE-G01NmZk) [Discord](https://discord.com/invite/sei)                                                                                                          |
-| **WBTC**                         | [mintscan](https://www.mintscan.io/sei/assets/factory%2Fsei189adguawugk3e55zn63z8r9ll29xrjwca636ra7v7gxuzn98sxyqwzt47l%2F7omXa4gryZ5NiBmLep7JsTtTtANCVKXwT9vbN91aS1br)                                 | Bridge out to origin chain              | Skip:Go                                                                                                                                                                                                                            | [Sei Tech Chat](https://t.me/+KZdhZ1eE-G01NmZk)  [Discord](https://discord.com/invite/sei)                                                                                                         |
+| Parameter         | Gates                         | Current value |
+| :---------------- | :---------------------------- | :------------ |
+| `InboundEnabled`  | IBC transfers arriving on Sei | `false`       |
+| `OutboundEnabled` | IBC transfers leaving Sei     | `false`       |
+
+Each was set by a governance parameter change, which takes effect when the proposal executes. There is no separate upgrade or activation step. Inbound was closed first, by Proposals #116 and #120; outbound closed on July 31, 2026 with Proposal #121.
+
+| Proposal                                    | Change                                                      | Effect                                    |
+| :------------------------------------------ | :---------------------------------------------------------- | :---------------------------------------- |
+| [#115](https://seistream.app/proposals/115) | `wasm.uploadAccess` and `wasm.instantiateAccess` → `Nobody` | No new CosmWasm contracts can be deployed |
+| [#116](https://seistream.app/proposals/116) | `ibc.InboundEnabled` → `false`                              | IBC assets can no longer arrive on Sei    |
+| [#120](https://seistream.app/proposals/120) | `ibc.InboundEnabled` → `false`                              | Re-applied the inbound block              |
+| [#121](https://seistream.app/proposals/121) | `ibc.OutboundEnabled` → `false`                             | IBC assets can no longer leave Sei        |
+
+### What this means in practice
+
+**No longer possible:**
+
+* Bridging any asset onto Sei over IBC.
+* Bridging any asset off Sei over IBC, including sending a voucher back to its origin chain to redeem the underlying asset.
+* IBC-based migration routes, such as sending USDC.n back to Noble to convert it to native USDC, or routing ATOM and WBTC out through Skip:Go.
+* The **IBC precompile** at `0x0000000000000000000000000000000000001009`. Its transfer methods cannot succeed and there is no replacement. Do not build against it.
+
+**Unaffected:**
+
+* Native SEI transfers, staking, delegations, and rewards.
+* The Sei EVM, ERC-20 tokens, and native and CW pointer contracts.
+* Existing `ibc/...` balances in the bank module. They remain queryable and transferable between Sei addresses, including through their ERC-20 pointers. Only the redemption path off Sei is gone.
+* Already-deployed CosmWasm contracts, which can still be executed and queried. [Proposal #115](https://seistream.app/proposals/115) blocked only uploads and instantiations and is a separate change from the IBC parameters.
+
+<Note>
+  If you have an IBC transfer that was submitted but never completed, contact [Sei Tech Chat](https://t.me/+KZdhZ1eE-G01NmZk) or [Discord](https://discord.com/invite/sei). Do not assume a pending transfer will settle or refund on its own now that both directions are closed.
+</Note>
+
+## Affected IBC assets
+
+The assets below reached Sei over a bridge that is now closed. None of them has a route back to its origin chain.
+
+| Asset                            | Token contract                                                                                                                                                         | Arrived via      | Route off Sei                  |
+| :------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------- | :----------------------------- |
+| **USDC.n (USDC via Noble)**      | [seiscan](https://seiscan.io/address/0x3894085ef7ff0f0aedf52e2a2704928d1ec074f1) [seistream](https://seistream.app/address/0x3894085Ef7Ff0f0aeDf52E2A2704928d1Ec074F1) | IBC (Noble)      | None (outbound IBC disabled)   |
+| **USDT.kava (USDT via Kava)**    | [seiscan](https://seiscan.io/token/0xb75d0b03c06a926e488e2659df1a861f860bd3d1) [seistream](https://seistream.app/address/0xB75D0B03c06A926e488e2659DF1A861F860bD3d1)   | IBC (Kava)       | None (outbound IBC disabled)   |
+| **ATOM**                         | [seistream](https://seistream.app/address/0xaF5fd7Df92B103B40b9Ed8D0d002696a5436E4D8)                                                                                  | IBC (Cosmos Hub) | None (outbound IBC disabled)   |
+| **WBTC**                         | [seistream](https://seistream.app/address/0xe369ddC65Ec947FCB10262AA0E08C3fB9823001a)                                                                                  | IBC              | None (outbound IBC disabled)   |
+| **USDCso (Wormhole, Solana)**    | [seistream](https://seistream.app/address/0x8eEDF32a4FC6fB78DDF231Cd3CcF6b7B8dF9D99d)                                                                                  | Wormhole         | None (Portal Bridge withdrawn) |
+| **Wormhole-bridged WETH**        | [mintscan](https://www.mintscan.io/sei/assets/factory%2Fsei189adguawugk3e55zn63z8r9ll29xrjwca636ra7v7gxuzn98sxyqwzt47l%2F4tLQqCLaoKKfNFuPjA9o39YbKUwhR1F8N29Tz3hEbfP2) | Wormhole         | None (Portal Bridge withdrawn) |
+| **USDCet (Wormhole, Ethereum)**  | [seistream](https://seistream.app/address/0xa272ee55434655970f7226c95eF0068a22994B84)                                                                                  | Wormhole         | None (Portal Bridge withdrawn) |
+| **USDCop (Wormhole, Optimism)**  | [seistream](https://seistream.app/address/0xC489C59b1131D379Cbc3A42AD154bBD6f1050F7c)                                                                                  | Wormhole         | None (Portal Bridge withdrawn) |
+| **USDTbs (Wormhole, BSC Chain)** | [seistream](https://seistream.app/address/0x0bf5F17f0a71cf2bC014DD875e35E4B02311b8F1)                                                                                  | Wormhole         | None (Portal Bridge withdrawn) |
+
+The Wormhole-bridged assets are not IBC vouchers and were not affected by Proposals #116, #120, or #121. They are listed here because Portal Bridge (legacy) is no longer available as a route off Sei.
+
+### What you can still do
+
+* **Transfer within Sei.** These balances move normally between Sei addresses and through their ERC-20 pointer contracts.
+* **Swap on a Sei DEX.** Swaps do not use IBC and still execute. These tokens can no longer be redeemed for the underlying asset, so the liquidity available for them is limited and may decline further. Check the quote before you trade.
+* **Contact support.** For anything else, including incomplete transfers and assets not listed above, reach out via [Sei Tech Chat](https://t.me/+KZdhZ1eE-G01NmZk) or [Discord](https://discord.com/invite/sei).
 
 The mention of third-party platforms does not constitute an endorsement. Users should do their own research before using any third-party service.
 
@@ -1518,23 +1593,21 @@ Native USDC and Circle's CCTP V2 are now supported on Sei. USDC from Noble (USDC
 * QuickStart: [USDC on Sei](/evm/usdc-on-sei)
 * Background: [USDC & CCTP v2 announcement](https://www.circle.com/blog/native-usdc-and-cctp-v2-are-coming-to-sei)
 
-#### How to swap or migrate USDC.n
+#### If you still hold USDC.n
 
-**Swap (smaller amounts):**
+<Warning>
+  The route that sent USDC.n back to Noble to be reissued as native USDC required outbound IBC and **no longer works** as of [Proposal #121](https://seistream.app/proposals/121). USDC.n can no longer be redeemed through Noble or through Circle's CCTP.
+</Warning>
 
-* [DragonSwap](https://dragonswap.app/) or [Symphony](https://symph.ag/?tokenIn=0x3894085ef7ff0f0aedf52e2a2704928d1ec074f1\&tokenOut=0xe15fc38f6d8c56af07bbcbe3baf5708a2bf42392) — slippage may vary depending on market conditions and liquidity.
+The only remaining option on Sei is an on-chain swap, which does not use IBC:
 
-**Migrate (larger amounts):**
-
-USDC.n reached Sei over IBC from Noble, so larger balances are best migrated to native USDC by routing back through Noble — this avoids the slippage of a direct DEX swap.
-
-* IBC-transfer your USDC.n from Sei back to Noble, where it becomes native Noble USDC, then use Circle's CCTP to mint native USDC on Sei. [CCTP Exchange](https://cctp.exchange/) is a useful frontend for the CCTP leg.
-
-Complete this **before** the SIP-03 upgrade, while IBC routing through Noble is still available.
+* [DragonSwap](https://dragonswap.app/) or [Symphony](https://symph.ag/?tokenIn=0x3894085ef7ff0f0aedf52e2a2704928d1ec074f1\&tokenOut=0xe15fc38f6d8c56af07bbcbe3baf5708a2bf42392). Slippage depends on whatever liquidity remains for USDC.n.
 
 **For DeFi suppliers of USDC.n (Yei, Takara Lend, etc.):**
 
-* Wind down and withdraw your positions **before** migrating to native USDC. Failure to do so before the SIP-03 upgrade may result in inability to access your supplied assets.
+* Wind down and withdraw your positions if you have not already. Supplied USDC.n cannot be redeemed off Sei.
+
+If you are holding a balance you cannot resolve this way, contact [Sei Tech Chat](https://t.me/+KZdhZ1eE-G01NmZk) or [Discord](https://discord.com/invite/sei).
 
 ### 3) Address Association (Seistream)
 
@@ -1551,7 +1624,7 @@ What the tool does:
 This is a streamlined alternative to the manual association flow in [Migrating a hardware or mnemonic-only wallet](#migrating-a-hardware-or-mnemonic-only-wallet).
 
 <Warning>
-  Seistream handles association for the **native SEI token only**. For USDC, USDT, ATOM, WBTC, and other IBC-bridged assets, use the [IBC Asset Migration Table](#ibc-asset-migration-table). Seistream is a third-party tool; its inclusion here is not an endorsement, and you should do your own research before connecting a wallet.
+  Seistream handles association for the **native SEI token only**. It does nothing for USDC.n, USDT.kava, ATOM, WBTC, or other IBC-bridged assets. See [Affected IBC assets](#affected-ibc-assets) for their status. Seistream is a third-party tool; its inclusion here is not an endorsement, and you should do your own research before connecting a wallet.
 </Warning>
 
 ## Migrating a hardware or mnemonic-only wallet
@@ -1647,9 +1720,19 @@ To check whether your addresses are linked, see [Query Linked Addresses](/learn/
   **Do not confuse address linking with staking migration.** Even though `sei1...` and `0x...` addresses point to the same underlying account once associated, the chain can only recognize this link after explicit association. Without association, your staked SEI will not be accessible via EVM after the upgrade, and you will have no way to unbond or claim rewards.
 </Warning>
 
+### Can I still bridge assets into or out of Sei over IBC?
+
+No. Inbound IBC was disabled by [Proposal #116](https://seistream.app/proposals/116) and [Proposal #120](https://seistream.app/proposals/120), and outbound IBC was disabled by [Proposal #121](https://seistream.app/proposals/121) on July 31, 2026. Both the `InboundEnabled` and `OutboundEnabled` parameters on the `ibc` module are now `false`, so no IBC transfer in either direction will be accepted. See [IBC is disabled](#ibc-is-disabled).
+
+### I hold an IBC asset on Sei — is it gone?
+
+The balance is not gone. It still exists in the bank module, is still visible in explorers and wallets, and can still be transferred between Sei addresses and through its ERC-20 pointer. What is gone is the ability to send it back over IBC to redeem the underlying asset on its origin chain. See [What you can still do](#what-you-can-still-do).
+
 ### I hold USDC.n (USDC via Noble) — what should I do?
 
-You must swap or migrate your USDC.n to native USDC before the SIP-03 deprecation of Cosmos, CosmWasm and IBC related functionality, slated for **June 15, 2026**. After the upgrade, USDC.n may become inaccessible or lose its value on Sei. See the [USDC on Sei](#2-usdc-on-sei) section above for swap and migration options, or read the full announcement: [Holders of USDC.n Need to Swap or Migrate](https://blog.sei.io/announcements/holders-of-usdcn-need-to-swap-or-migrate/).
+USDC.n can no longer be redeemed. The migration route (sending it back to Noble over IBC and reissuing native USDC through Circle's CCTP) required outbound IBC, which [Proposal #121](https://seistream.app/proposals/121) disabled on July 31, 2026.
+
+An on-chain swap to native USDC on a Sei DEX does not use IBC and still executes, subject to whatever liquidity remains. See [If you still hold USDC.n](#if-you-still-hold-usdc-n) above, or read the original announcement for background: [Holders of USDC.n Need to Swap or Migrate](https://blog.sei.io/announcements/holders-of-usdcn-need-to-swap-or-migrate/).
 
 ---
 
@@ -1660,6 +1743,12 @@ URL: https://docs.sei.io/learn/sip-03-exchange-migration
 > Practical steps and resources for users and exchanges migrating during SIP-03, including asset transfer, USDC, and exchange migration guidance.
 
 This section is for exchanges, custodians, and other service providers that currently support SEI token deposits and withdrawals using native (`sei1...`) addresses. It explains what SIP-03 changes, the options available for migrating customer holdings to EVM (`0x...`) addresses, and the timeline by which migration must be complete.
+
+<Warning>
+  **IBC is already disabled in both directions.** Proposals [#116](https://seistream.app/proposals/116) and [#120](https://seistream.app/proposals/120) disabled inbound IBC, and [#121](https://seistream.app/proposals/121) disabled outbound IBC on July 31, 2026. No asset can be bridged into or out of Sei over IBC, so IBC is not available as a route for moving customer funds off Sei, and IBC-bridged assets held on Sei can no longer be redeemed on their origin chain. See [IBC is disabled](/learn/sip-03-migration#ibc-is-disabled).
+
+  The migration options below move funds between the native and EVM sides of Sei. They are intra-chain and are not affected by the IBC parameters.
+</Warning>
 
 ### What SIP-03 changes
 
@@ -1717,7 +1806,7 @@ Key properties:
 
 ### Migration milestone
 
-Address association must be completed prior to deprecation of all Cosmos, CosmWasm and IBC related functionality, slated for **June 15, 2026**. After deprecation:
+IBC has already been disabled, in both directions, by Proposals [#116](https://seistream.app/proposals/116), [#120](https://seistream.app/proposals/120), and [#121](https://seistream.app/proposals/121). Address association must still be completed prior to deprecation of the remaining Cosmos and CosmWasm functionality, slated for **June 15, 2026**. After deprecation:
 
 * Exchanges and their users will not be able to access or transfer funds.
 * Cosmos-native transaction interfaces will no longer be available. Exchanges will not be able to broadcast Cosmos-format transactions, sign with Cosmos key derivations against the live chain, or interact with the chain through Cosmos RPC endpoints.
@@ -1746,7 +1835,7 @@ The key to achieving sub-second finality lies in aggressively optimizing and par
 
 This optimized flow involves several key enhancements:
 
-1. **Aggressive Timeout Configuration:** Sei utilizes heavily tuned Tendermint consensus parameters. Configuration settings (e.g., `UnsafeProposeTimeoutOverride`, `UnsafeCommitTimeoutOverride`) enforce much shorter durations for block proposal, voting, and commit rounds compared to standard Tendermint configurations, directly contributing to the sub-second target block time. Faster gossip propagation for consensus messages further reduces communication latency between validators.
+1. **Aggressive Timeout Configuration:** Sei utilizes heavily tuned Tendermint consensus parameters. Configuration settings (e.g., `UnsafeProposeTimeoutOverride`, `UnsafeCommitTimeoutOverride`) can enforce much shorter durations for block proposal, voting, and commit rounds compared to standard Tendermint configurations, directly contributing to the sub-second target block time. These `Unsafe*TimeoutOverride` fields are gated by the `unsafe-overrides-enabled` flag under the `[consensus]` section of the node config. This flag defaults to `false`, meaning the overrides are ignored and the on-chain timeout consensus parameters are used instead. The overrides are only applied when `unsafe-overrides-enabled` is set to `true` (or, during the transition period, while the on-chain timeout params still match the legacy values). In practice, timeout tuning should be governed by the on-chain consensus parameters rather than these unsafe per-node overrides. Faster gossip propagation for consensus messages further reduces communication latency between validators.
 2. **Intelligent Mempool Management & Transaction Preparation:** Even before a block proposal is formally initiated for height `H`, validators can begin processing transactions intended for that block. This involves collecting transactions from the network, decoding them concurrently (`DecodeTransactionsConcurrently`), analyzing potential state dependencies (`GenerateEstimatedWritesets`), and potentially pre-fetching required state data from SeiDB. This "pre-consensus" preparation minimizes the work needed once the actual proposal for height `H` arrives.
 3. **Optimized BFT Rounds with Parallel Execution Integration:** The critical optimization is the deep integration with Sei's parallelization engine. When a validator receives a block proposal for height `H`, it doesn't necessarily wait for the prevote/precommit rounds to complete before starting execution. Instead:
    * The block's transactions are dispatched to the parallel execution engine (`ProcessTXsWithOCC`, `DeliverTxBatch`).
@@ -2774,7 +2863,6 @@ with the network including:
 <Tabs>
   <Tab title="mainnet (pacific-1)">
     * [Seiscan](https://seiscan.io) — A user-friendly block explorer for the Sei Pacific-1 mainnet.
-    * [Mintscan](https://www.mintscan.io/sei) — Comprehensive blockchain explorer and analytics platform for Sei mainnet.
     * [Seistream](https://seistream.app/) — Real-time transaction streaming and monitoring tool for Sei mainnet.
     * [NG Explorer](https://sei.explorers.guru) — Comprehensive blockchain explorer provided by Nodes Guru for Sei mainnet.
   </Tab>
@@ -3468,6 +3556,526 @@ seid tx gov deposit 42 1000000000usei \
 
 ---
 
+URL: https://docs.sei.io/learn/sips
+
+# Sei Improvement Proposals
+
+> Browse every Sei Improvement Proposal (SIP) with status, type, authorship, and section outlines pulled live from the sei-protocol/sips repository.
+
+export const SipIndex = () => {
+  const REPO = 'sei-protocol/sips';
+  const BRANCH = 'main';
+  const LIST_URL = `https://api.github.com/repos/${REPO}/contents/sips?ref=${BRANCH}`;
+  const CACHE_KEY = 'sei-sip-index-v1';
+  const CACHE_TTL = 3600000;
+  const MAX_PROBE = 40;
+  const rawUrl = file => `https://raw.githubusercontent.com/${REPO}/${BRANCH}/sips/${file}`;
+  const blobUrl = file => `https://github.com/${REPO}/blob/${BRANCH}/sips/${file}`;
+  const normKey = key => key.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const pick = (meta, ...keys) => {
+    for (const key of keys) {
+      const value = meta[normKey(key)];
+      if (value) return value;
+    }
+    return '';
+  };
+  const toPlainText = value => value.replace(/<br\s*\/?>/gi, ', ').replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').replace(/\\([[\]])/g, '$1').replace(/\[[^\]]*@[^\]]*\]/g, '').replace(/`/g, '').replace(/\s+/g, ' ').replace(/\s+,/g, ',').replace(/[,\s]+$/, '').trim();
+  const firstUrl = value => {
+    const match = value.match(/https?:\/\/[^\s)|]+/);
+    return match ? match[0] : '';
+  };
+  const slugify = text => text.toLowerCase().replace(/[^\p{L}\p{N}_\s-]/gu, '').trim().replace(/\s/g, '-');
+  const headingText = markdown => markdown.replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').replace(/\*\*/g, '').replace(/\*/g, '').replace(/`/g, '').trim();
+  const parseSip = (file, raw) => {
+    const number = Number((file.match(/sip-(\d+)\.md$/i) || [])[1]);
+    const meta = Object.create(null);
+    const header = raw.split(/^##\s/m)[0];
+    for (const line of header.split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith('|')) continue;
+      const cells = trimmed.slice(1).split('|');
+      if (cells.length && cells[cells.length - 1].trim() === '') cells.pop();
+      if (cells.length < 2) continue;
+      const key = cells[0].trim();
+      const value = cells.slice(1).join('|').trim();
+      if ((/^:?-{2,}:?$/).test(key)) continue;
+      if (!key || meta[normKey(key)]) continue;
+      meta[normKey(key)] = value;
+    }
+    const headline = (header.match(/^\s*\*\*SIP[-\s]?\d+:\s*(.+?)\*\*/m) || [])[1];
+    const title = toPlainText(headline || pick(meta, 'Title') || file);
+    const seen = Object.create(null);
+    const sections = [];
+    const prose = raw.replace(/^```[\s\S]*?^```/gm, '');
+    const headingPattern = /^(#{2,4})\s+(.+?)\s*$/gm;
+    let match;
+    while ((match = headingPattern.exec(prose)) !== null) {
+      const text = headingText(match[2]);
+      if (!text) continue;
+      let anchor = slugify(text);
+      if (seen[anchor] !== undefined) {
+        seen[anchor] += 1;
+        anchor = `${anchor}-${seen[anchor]}`;
+      } else {
+        seen[anchor] = 0;
+      }
+      sections.push({
+        level: match[1].length,
+        text,
+        anchor
+      });
+    }
+    const type = toPlainText(pick(meta, 'Type'));
+    const category = toPlainText(pick(meta, 'Category'));
+    return {
+      number,
+      file,
+      title,
+      description: toPlainText(pick(meta, 'Description')),
+      type: type && category && !type.includes(category) ? `${type} (${category})` : type || category,
+      status: toPlainText(pick(meta, 'Status')) || 'Unknown',
+      author: toPlainText(pick(meta, 'Author', 'Authors')),
+      reviewer: toPlainText(pick(meta, 'Reviewer', 'Editor')),
+      created: toPlainText(pick(meta, 'Created')),
+      discussion: firstUrl(pick(meta, 'Comments', 'Comments-URI', 'CommentsURI')),
+      sections
+    };
+  };
+  const [sips, setSips] = useState([]);
+  const [state, setState] = useState('loading');
+  useEffect(() => {
+    let cancelled = false;
+    const readCache = () => {
+      try {
+        const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
+        if (cached && Date.now() - cached.time < CACHE_TTL && Array.isArray(cached.sips)) {
+          return cached.sips;
+        }
+      } catch {}
+      return null;
+    };
+    const readSip = async file => {
+      try {
+        const res = await fetch(rawUrl(file));
+        if (!res.ok) return null;
+        return parseSip(file, await res.text());
+      } catch {
+        return null;
+      }
+    };
+    const loadFromApi = async () => {
+      const res = await fetch(LIST_URL, {
+        headers: {
+          Accept: 'application/vnd.github+json'
+        }
+      });
+      if (!res.ok) throw new Error(`GitHub API ${res.status}`);
+      const files = (await res.json()).filter(entry => entry.type === 'file' && (/^sip-\d+\.md$/i).test(entry.name)).map(entry => entry.name);
+      if (!files.length) throw new Error('No SIP files listed');
+      const fetched = await Promise.all(files.map(readSip));
+      const parsed = fetched.filter(Boolean);
+      if (!parsed.length) throw new Error('No SIP files could be read');
+      return parsed;
+    };
+    const loadByProbing = async () => {
+      const numbers = Array.from({
+        length: MAX_PROBE
+      }, (_, i) => i + 1);
+      const fetched = await Promise.all(numbers.map(n => readSip(`sip-${n}.md`)));
+      const found = fetched.filter(Boolean);
+      if (!found.length) throw new Error('No SIPs reachable');
+      return found;
+    };
+    const cached = readCache();
+    if (cached) {
+      setSips(cached);
+      setState('ready');
+      return;
+    }
+    loadFromApi().catch(loadByProbing).then(parsed => {
+      if (cancelled) return;
+      const ordered = parsed.sort((a, b) => a.number - b.number);
+      setSips(ordered);
+      setState('ready');
+      try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify({
+          time: Date.now(),
+          sips: ordered
+        }));
+      } catch {}
+    }).catch(() => {
+      if (cancelled) return;
+      setState('error');
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const [isDark, setIsDark] = useState(false);
+  useEffect(() => {
+    const root = document.documentElement;
+    const sync = () => setIsDark(root.classList.contains('dark'));
+    sync();
+    const observer = new MutationObserver(sync);
+    observer.observe(root, {
+      attributes: true,
+      attributeFilter: ['class']
+    });
+    return () => observer.disconnect();
+  }, []);
+  const byMode = (light, dark) => isDark ? dark : light;
+  const theme = {
+    cardBg: byMode('var(--sei-card-bg-light)', 'var(--sei-card-bg-dark)'),
+    border: byMode('var(--sei-card-border-light)', 'var(--sei-card-border-dark)'),
+    strong: byMode('var(--sei-grey-600)', 'var(--sei-white)'),
+    body: byMode('var(--sei-grey-300)', 'var(--sei-grey-50)'),
+    muted: byMode('var(--sei-grey-200)', 'var(--sei-grey-75)'),
+    label: byMode('var(--sei-gold-100)', 'var(--sei-gold-25)'),
+    accent: byMode('var(--sei-maroon-100)', 'var(--sei-maroon-25)'),
+    hoverBg: byMode('rgba(96, 0, 20, 0.02)', 'rgba(96, 0, 20, 0.08)'),
+    hoverBorder: byMode('rgba(96, 0, 20, 0.35)', 'rgba(185, 155, 161, 0.25)')
+  };
+  const TONES = {
+    live: byMode('#1a7a00', '#38df00'),
+    error: byMode('#c20a00', '#fa0c00'),
+    gold: byMode('#966f22', '#d6c9ac'),
+    maroon: byMode('#600014', '#b99ba1'),
+    grey: byMode('#666666', '#999999')
+  };
+  const STATUS_TONES = {
+    idea: 'grey',
+    draft: 'gold',
+    review: 'gold',
+    'fast track': 'gold',
+    'last call': 'gold',
+    final: 'live',
+    implemented: 'live',
+    activated: 'live',
+    living: 'maroon',
+    stagnant: 'grey',
+    withdrawn: 'error'
+  };
+  const channels = hex => {
+    const n = parseInt(hex.slice(1), 16);
+    return `${n >> 16 & 255}, ${n >> 8 & 255}, ${n & 255}`;
+  };
+  const eyebrow = {
+    fontFamily: 'var(--sei-font-mono)',
+    fontSize: '10px',
+    letterSpacing: '0.04em',
+    textTransform: 'uppercase'
+  };
+  const statusStyle = status => {
+    const hex = TONES[STATUS_TONES[status.toLowerCase()] || 'grey'];
+    const rgb = channels(hex);
+    return {
+      ...eyebrow,
+      color: hex,
+      backgroundColor: `rgba(${rgb}, ${byMode(0.09, 0.14)})`,
+      border: `1px solid rgba(${rgb}, ${byMode(0.28, 0.32)})`,
+      borderRadius: 'var(--sei-radius-sm)',
+      padding: '3px 6px',
+      whiteSpace: 'nowrap'
+    };
+  };
+  const cardStyle = {
+    background: theme.cardBg,
+    border: `1px solid ${theme.border}`,
+    borderRadius: 'var(--sei-radius-sm)',
+    padding: '20px'
+  };
+  const buttonStyle = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+    padding: '6px 12px',
+    fontFamily: 'var(--sei-font-mono)',
+    fontSize: '12px',
+    letterSpacing: '0.02em',
+    color: theme.strong,
+    background: 'transparent',
+    border: `1px solid ${theme.border}`,
+    borderRadius: 'var(--sei-radius-sm)',
+    textDecoration: 'none',
+    transition: 'background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease'
+  };
+  const hoverSwap = hovering => event => {
+    event.currentTarget.style.backgroundColor = hovering ? theme.hoverBg : 'transparent';
+    event.currentTarget.style.borderColor = hovering ? theme.hoverBorder : theme.border;
+    event.currentTarget.style.color = hovering ? theme.accent : theme.strong;
+  };
+  const tintSwap = hovering => event => {
+    event.currentTarget.style.color = hovering ? theme.accent : theme.body;
+  };
+  const ExternalLinkIcon = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+			<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+			<path d="M15 3h6v6" />
+			<path d="M10 14 21 3" />
+		</svg>;
+  const Field = ({label, value}) => value ? <div>
+				<div style={{
+    ...eyebrow,
+    color: theme.label,
+    marginBottom: '3px'
+  }}>{label}</div>
+				<div style={{
+    fontSize: '14px',
+    color: theme.body
+  }}>{value}</div>
+			</div> : null;
+  const statusMessage = {
+    ...cardStyle,
+    fontSize: '14px',
+    color: theme.body
+  };
+  if (state === 'loading') {
+    return <div className="not-prose" style={statusMessage}>
+				Loading proposals from <code style={{
+      fontFamily: 'var(--sei-font-mono)'
+    }}>{REPO}</code>…
+			</div>;
+  }
+  if (state === 'error') {
+    return <div className="not-prose" style={statusMessage}>
+				Could not reach the SIPs repository. Browse the proposals directly at{' '}
+				<a href={`https://github.com/${REPO}/tree/${BRANCH}/sips`} target="_blank" rel="noopener noreferrer" style={{
+      color: theme.accent
+    }}>
+					github.com/{REPO}
+				</a>
+				.
+			</div>;
+  }
+  return <div className="not-prose" style={{
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '16px'
+  }}>
+			{sips.map(sip => <div key={sip.number} style={cardStyle}>
+					<div style={{
+    display: 'flex',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: '8px'
+  }}>
+						<span style={{
+    ...eyebrow,
+    fontSize: '11px',
+    color: 'var(--sei-white)',
+    backgroundColor: 'var(--sei-maroon-100)',
+    borderRadius: 'var(--sei-radius-sm)',
+    padding: '3px 7px'
+  }}>
+							SIP-{sip.number}
+						</span>
+						<span style={statusStyle(sip.status)}>{sip.status}</span>
+						{sip.type ? <span style={{
+    fontSize: '12px',
+    color: theme.muted
+  }}>{sip.type}</span> : null}
+					</div>
+
+					<h3 style={{
+    fontFamily: 'var(--sei-font-display)',
+    fontSize: '18px',
+    fontWeight: 600,
+    letterSpacing: '-0.01em',
+    color: theme.strong,
+    margin: '14px 0 0'
+  }}>
+						{sip.title}
+					</h3>
+
+					{sip.description ? <p style={{
+    fontSize: '14px',
+    lineHeight: 1.6,
+    color: theme.body,
+    margin: '6px 0 0'
+  }}>{sip.description}</p> : null}
+
+					<div style={{
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+    gap: '12px',
+    marginTop: '16px'
+  }}>
+						<Field label="Author" value={sip.author} />
+						<Field label="Reviewer" value={sip.reviewer} />
+						<Field label="Created" value={sip.created} />
+					</div>
+
+					{}
+					{sip.sections.length ? <details style={{
+    marginTop: '16px'
+  }}>
+							<summary style={{
+    fontSize: '13px',
+    color: theme.body
+  }}>
+								Contents ({sip.sections.length} sections)
+							</summary>
+							<ul style={{
+    listStyle: 'none',
+    margin: 0,
+    padding: '0 16px 12px'
+  }}>
+								{sip.sections.map(section => <li key={section.anchor} style={{
+    paddingLeft: `${(section.level - 2) * 16}px`,
+    margin: '4px 0'
+  }}>
+										<a href={`${blobUrl(sip.file)}#${section.anchor}`} target="_blank" rel="noopener noreferrer" style={{
+    fontSize: '13px',
+    color: theme.body,
+    textDecoration: 'none',
+    transition: 'color 0.15s ease'
+  }} onMouseEnter={tintSwap(true)} onMouseLeave={tintSwap(false)}>
+											{section.text}
+										</a>
+									</li>)}
+							</ul>
+						</details> : null}
+
+					<div style={{
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '8px',
+    marginTop: '16px'
+  }}>
+						<a href={blobUrl(sip.file)} target="_blank" rel="noopener noreferrer" style={buttonStyle} onMouseEnter={hoverSwap(true)} onMouseLeave={hoverSwap(false)}>
+							Read SIP-{sip.number} <ExternalLinkIcon />
+						</a>
+						{sip.discussion ? <a href={sip.discussion} target="_blank" rel="noopener noreferrer" style={buttonStyle} onMouseEnter={hoverSwap(true)} onMouseLeave={hoverSwap(false)}>
+								Discussion <ExternalLinkIcon />
+							</a> : null}
+					</div>
+				</div>)}
+
+			<p style={{
+    fontSize: '12px',
+    color: theme.muted,
+    margin: 0
+  }}>
+				Pulled live from{' '}
+				<a href={`https://github.com/${REPO}/tree/${BRANCH}/sips`} target="_blank" rel="noopener noreferrer" style={{
+    color: theme.accent
+  }}>
+					{REPO}
+				</a>
+				. Statuses and metadata reflect the {BRANCH} branch.
+			</p>
+		</div>;
+};
+
+A Sei Improvement Proposal (SIP) is a design document for a change to Sei. It might cover a new protocol feature, a change to how the project runs, or a convention for the wider ecosystem. Writing one is how you put an idea in front of the community, and how the reasoning behind a decision gets recorded.
+
+Every SIP lives in the [sei-protocol/sips](https://github.com/sei-protocol/sips) repository, and the list below reads from it directly. Titles, statuses, authors, and section outlines come from the source files rather than a copy that can fall behind.
+
+<Info>
+  A SIP is not the same as an on-chain governance proposal. The SIP holds the design and the reasoning; the on-chain proposal is the vote that enacts it. One SIP can take several governance proposals to carry out, as SIP-3 did. For the on-chain process, see [Governance](/learn/general-governance) and [Proposals](/learn/proposals).
+</Info>
+
+## All proposals
+
+<SipIndex />
+
+## Proposal types
+
+Every SIP declares a type, and the type decides how much community consensus it needs. [SIP-1](https://github.com/sei-protocol/sips/blob/main/sips/sip-1.md#sip-type) defines all three.
+
+| Type                                                                                        | Scope                                                                                                                                                                 | Needs consensus |
+| ------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
+| [Standard](https://github.com/sei-protocol/sips/blob/main/sips/sip-1.md#standard)           | Changes that affect most implementations of Sei, such as consensus, networking, RPC, EVM and CosmWasm behavior, and contract standards. Must also declare a category. | Yes             |
+| [Process](https://github.com/sei-protocol/sips/blob/main/sips/sip-1.md#process)             | Changes around Sei rather than inside it, such as developer tooling, node and validator procedures, and the SIP process itself.                                       | Yes             |
+| [Informational](https://github.com/sei-protocol/sips/blob/main/sips/sip-1.md#informational) | Guidelines or information for the community, with no change to the protocol or development environment.                                                               | No              |
+
+### Categories
+
+A Standard SIP must also declare one of five [categories](https://github.com/sei-protocol/sips/blob/main/sips/sip-1.md#sip-category).
+
+| Category    | Covers                                                                         |
+| ----------- | ------------------------------------------------------------------------------ |
+| Core        | Consensus, execution, storage, and account signatures                          |
+| Networking  | Mempool and network protocols                                                  |
+| Interface   | RPC specifications and lower-level naming conventions                          |
+| Framework   | EVM and CosmWasm contracts and primitives included in the Sei codebase         |
+| Application | New EVM or CosmWasm standards and primitives that sit outside the Sei codebase |
+
+## Status lifecycle
+
+A successful SIP usually moves through Draft, Review, Last Call, Final, Implemented, and Activated. Each card above shows the status recorded in that proposal's own source file.
+
+| Status                                                                                  | What it means                                                                                                                   |
+| --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| [Idea](https://github.com/sei-protocol/sips/blob/main/sips/sip-1.md#idea)               | Written, but not yet admitted to the process and not yet numbered.                                                              |
+| [Draft](https://github.com/sei-protocol/sips/blob/main/sips/sip-1.md#draft)             | An editor has accepted the formatting and assigned a number. The author now gathers community feedback.                         |
+| [Review](https://github.com/sei-protocol/sips/blob/main/sips/sip-1.md#review)           | The author has worked through early feedback. Assigned reviewers now give a formal review, and it takes at least three of them. |
+| [Fast Track](https://github.com/sei-protocol/sips/blob/main/sips/sip-1.md#fast-track)   | For proposals that already reached consensus outside the SIP process. Runs the same way as Review.                              |
+| [Last Call](https://github.com/sei-protocol/sips/blob/main/sips/sip-1.md#last-call)     | A final window for objections, usually at least one week.                                                                       |
+| [Final](https://github.com/sei-protocol/sips/blob/main/sips/sip-1.md#final)             | Accepted, and the specification is now frozen.                                                                                  |
+| [Implemented](https://github.com/sei-protocol/sips/blob/main/sips/sip-1.md#implemented) | Development is complete, but the feature is not yet live on mainnet.                                                            |
+| [Activated](https://github.com/sei-protocol/sips/blob/main/sips/sip-1.md#activated)     | Live on Sei mainnet.                                                                                                            |
+| [Stagnant](https://github.com/sei-protocol/sips/blob/main/sips/sip-1.md#stagnant)       | Inactive for four weeks while in Draft, Review, or Last Call.                                                                   |
+| [Withdrawn](https://github.com/sei-protocol/sips/blob/main/sips/sip-1.md#withdrawn)     | The author has withdrawn the proposal.                                                                                          |
+| [Living](https://github.com/sei-protocol/sips/blob/main/sips/sip-1.md#living)           | A continuously updated proposal that never reaches Final, such as SIP-1 itself.                                                 |
+
+<Note>
+  Once a SIP reaches Final, nobody can withdraw or edit it. To change an accepted specification, submit a new SIP that extends or replaces the original.
+</Note>
+
+## Guides for specific proposals
+
+SIP-3 and SIP-4 both affect how you use and build on Sei. These pages cover what they mean in practice.
+
+<CardGroup cols={2}>
+  <Card title="SIP-3 migration guide" icon="arrow-right-arrow-left" href="/learn/sip-03-migration">
+    What SIP-3 changes for asset holders, and how to move off Cosmos-native addresses.
+  </Card>
+
+  <Card title="SIP-3 for exchanges" icon="building-columns" href="/learn/sip-03-exchange-migration">
+    Integration changes for exchanges and custodians supporting Sei deposits and withdrawals.
+  </Card>
+
+  <Card title="Gas and transaction fees" icon="gas-pump" href="/learn/dev-gas">
+    How Sei's EIP-1559 implementation works, including the parameters SIP-4 revises.
+  </Card>
+
+  <Card title="Cosmos-SDK deprecation" icon="triangle-exclamation" href="/cosmos-sdk">
+    Legacy Cosmos SDK and CosmWasm documentation, deprecated under SIP-3.
+  </Card>
+</CardGroup>
+
+## Submit a proposal
+
+Anyone can author a SIP. Talk the idea over with the community before you write it, so you can gauge whether the proposal is needed at all.
+
+<Steps>
+  <Step title="Read SIP-1">
+    [SIP-1](https://github.com/sei-protocol/sips/blob/main/sips/sip-1.md) defines the process, the header fields your file needs, and what authors and editors are each responsible for.
+  </Step>
+
+  <Step title="Raise the idea with the community">
+    Open a thread in [GitHub Discussions](https://github.com/sei-protocol/sips/discussions) to collect early feedback, especially from the people who would implement the change.
+  </Step>
+
+  <Step title="Fork the repository and add your file">
+    Fork [sei-protocol/sips](https://github.com/sei-protocol/sips) and create your proposal at `sips/sip-temporary_title.md`. Put any images in `assets/sip-temporary_title/`.
+  </Step>
+
+  <Step title="Match the required format">
+    Start the file with the two-column header table and follow the section structure described in [SIP format](https://github.com/sei-protocol/sips/blob/main/sips/sip-1.md#sip-format). Keep the title under 64 characters and don't end it with a period.
+  </Step>
+
+  <Step title="Open a pull request">
+    Submit the pull request from your fork. A [SIP editor](https://github.com/sei-protocol/sips/blob/main/sips/sip-1.md#sip-editor) reviews the formatting, assigns a number, moves the status to Draft, and opens the official comments thread.
+  </Step>
+</Steps>
+
+<Tip>
+  From Draft onward, keeping the proposal moving is your job. An editor will help you find the right people to talk to, but won't chase the process for you.
+</Tip>
+
+---
+
 URL: https://docs.sei.io/learn/general-staking
 
 # Sei Blockchain Staking Guide
@@ -3586,7 +4194,7 @@ URL: https://docs.sei.io/learn/dev-interoperability
 > Understand how Sei enables seamless interaction between EVM and Cosmos ecosystems through its dual address system and precompiles.
 
 <Info>
-  **CosmWasm deployments are frozen, and inbound IBC is being disabled.** Per [Proposal 115](https://www.mintscan.io/sei/proposals/115), no new CosmWasm contracts can be uploaded or instantiated on Sei. [Proposal 116](https://www.mintscan.io/sei/proposals/116) additionally disables inbound IBC transfers, so IBC assets bridged from Cosmos chains can no longer arrive on Sei. The interoperability features described on this page apply to **already-deployed** CosmWasm contracts, native Bank Module assets, and Cosmos-SDK modules accessed via precompiles. For new smart contract development, build directly on the EVM. See [SIP-3](https://github.com/sei-protocol/sips/blob/main/sips/sip-3.md) for the full migration context.
+  **CosmWasm deployments are frozen, and IBC is disabled in both directions.** Per [Proposal 115](https://seistream.app/proposals/115), no new CosmWasm contracts can be uploaded or instantiated on Sei. Proposals [116](https://seistream.app/proposals/116), [120](https://seistream.app/proposals/120), and [121](https://seistream.app/proposals/121) disabled inbound and then outbound IBC transfers, so no asset can be bridged into or out of Sei over IBC. The interoperability features described on this page apply to **already-deployed** CosmWasm contracts, native Bank Module assets, and Cosmos-SDK modules accessed via precompiles. For new smart contract development, build directly on the EVM. See [SIP-3](https://github.com/sei-protocol/sips/blob/main/sips/sip-3.md) and the [SIP-03 Migration Guide](/learn/sip-03-migration) for the full migration context.
 </Info>
 
 ## Dual Address Support
@@ -3638,7 +4246,7 @@ URL: https://docs.sei.io/learn/pointers
 > Understand how Sei's pointer contract system enables seamless asset movement between EVM and Cosmos environments, with implementation patterns for various token types.
 
 <Info>
-  **Pointer contracts are now primarily a legacy / migration tool.** Per [Proposal 115](https://www.mintscan.io/sei/proposals/115), no new CosmWasm contracts can be uploaded or instantiated on Sei, so the CW20 / CW721 / CW1155 → ERC20 / ERC721 / ERC1155 pointer flow only applies to already-deployed CosmWasm contracts. Native (Bank Module) pointers continue to work normally. For new tokens or NFTs, deploy ERC20 / ERC721 / ERC1155 contracts directly on the EVM.
+  **Pointer contracts are now primarily a legacy / migration tool.** Per [Proposal 115](https://seistream.app/proposals/115), no new CosmWasm contracts can be uploaded or instantiated on Sei, so the CW20 / CW721 / CW1155 → ERC20 / ERC721 / ERC1155 pointer flow only applies to already-deployed CosmWasm contracts. Native (Bank Module) pointers continue to work normally. For new tokens or NFTs, deploy ERC20 / ERC721 / ERC1155 contracts directly on the EVM.
 </Info>
 
 Pointer Contracts enable tokens to be used interoperably in both EVM and
@@ -4385,9 +4993,9 @@ such as MetaMask.
 
 <Note>
   The legacy flow that used the Cosmos app with a Cosmos RPC endpoint is
-  deprecated: per [SIP-03](/learn/sip-03-migration), Cosmos-native interfaces are
-  slated for deprecation on June 15, 2026. If you still hold funds on a Ledger
-  Cosmos-app (`sei1...`) account, see
+  deprecated: per [SIP-03](/learn/sip-03-migration), Cosmos-native interfaces
+  were slated for deprecation on June 15, 2026. If you still hold funds on a
+  Ledger Cosmos-app (`sei1...`) account, see
   [Migrating a hardware or mnemonic-only wallet](/learn/sip-03-migration#migrating-a-hardware-or-mnemonic-only-wallet).
 </Note>
 
@@ -5382,7 +5990,7 @@ export const SstoreGasLive = ({network = 'mainnet'}) => {
           SstoreGasProbe
         </a>{' '}
         contract. Governance-adjustable — set by{' '}
-        <a href="https://www.mintscan.io/sei/proposals/109" target="_blank" rel="noopener noreferrer" className="underline">
+        <a href="https://seistream.app/proposals/109" target="_blank" rel="noopener noreferrer" className="underline">
           Proposal #109
         </a>
         .
@@ -5416,11 +6024,9 @@ Sei's EVM and Ethereum itself:
 <Danger>
   **Deprecation Notice**
 
-  Cosmos SDK and CosmWasm functionality is being deprecated in favor of EVM-only. For more details, see [SIP-3](https://github.com/sei-protocol/sips/blob/main/sips/sip-3.md) and [Proposal 99](https://www.mintscan.io/sei/proposals/99).
+  Cosmos SDK and CosmWasm functionality is being deprecated in favor of EVM-only. For more details, see [SIP-3](https://github.com/sei-protocol/sips/blob/main/sips/sip-3.md) and [Proposal 99](https://seistream.app/proposals/99).
 
-  [Proposal 115](https://www.mintscan.io/sei/proposals/115) further disables CosmWasm code uploads and contract instantiations chain-wide — no new CosmWasm contracts can be deployed. Only `execute` and `query` against pre-existing CosmWasm contracts remain available.
-
-  [Proposal 116](https://www.mintscan.io/sei/proposals/116) additionally disables inbound IBC transfers — IBC assets bridged from Cosmos chains can no longer arrive on Sei after this passes and is activated. See the [SIP-03 Migration Guide](/learn/sip-03-migration) for affected assets and migration routes.
+  [Proposal 115](https://seistream.app/proposals/115) further disables CosmWasm code uploads and contract instantiations chain-wide — no new CosmWasm contracts can be deployed. Only `execute` and `query` against pre-existing CosmWasm contracts remain available.
 </Danger>
 
 * **Sei is a dual-execution environment (EVM and Cosmos-SDK).** This means:
@@ -5559,7 +6165,7 @@ Transaction Fee = Gas Used × Gas Price
 
 On Sei, the `SSTORE` opcode gas cost is configurable as an on-chain parameter, meaning it can be adjusted via governance proposal without requiring a chain upgrade. This provides flexibility to tune storage costs based on EVM state size and network conditions.
 
-Currently, the `SSTORE` gas cost is set to the non-standard value of **72,000 gas**. This value is the same on both mainnet (`pacific-1`) and testnet (`atlantic-2`). It was set by governance [Proposal #109](https://www.mintscan.io/sei/proposals/109) ("Update EVM SSTORE set gas to 72000"), which changed the `evm` module parameter `KeySeiSstoreSetGasEIP2200` to `72000`.
+Currently, the `SSTORE` gas cost is set to the non-standard value of **72,000 gas**. This value is the same on both mainnet (`pacific-1`) and testnet (`atlantic-2`). It was set by governance [Proposal #109](https://seistream.app/proposals/109) ("Update EVM SSTORE set gas to 72000"), which changed the `evm` module parameter `KeySeiSstoreSetGasEIP2200` to `72000`.
 
 The values below are read **live** from the Sei EVM:
 
@@ -5622,13 +6228,13 @@ Standard EVM tooling — viem, wagmi, ethers, Foundry, Hardhat — works on Sei 
 
 ## Account and State
 
-| Feature                           | Sei status              | Notes                                                                                                                                                                       |
-| --------------------------------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `eth_getBalance`                  | Supported               |                                                                                                                                                                             |
-| `eth_getTransactionCount` (nonce) | Supported               |                                                                                                                                                                             |
-| `eth_getCode`                     | Supported               |                                                                                                                                                                             |
-| `eth_getStorageAt`                | Supported — differences | SSTORE cost is governance-adjustable; do not hard-code gas assumptions. [See Gas and Fees.](/evm/evm-parity/gas-and-fees)                                                   |
-| `eth_getProof`                    | Supported — differences | Returns IAVL proof data rather than Ethereum Merkle Patricia Trie proofs. Proof verification logic must account for this. [See State Proofs.](/evm/evm-parity/state-proofs) |
+| Feature                           | Sei status              | Notes                                                                                                                                                                                                                                                                                                                                                                     |
+| --------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `eth_getBalance`                  | Supported               |                                                                                                                                                                                                                                                                                                                                                                           |
+| `eth_getTransactionCount` (nonce) | Supported               |                                                                                                                                                                                                                                                                                                                                                                           |
+| `eth_getCode`                     | Supported               |                                                                                                                                                                                                                                                                                                                                                                           |
+| `eth_getStorageAt`                | Supported — differences | SSTORE cost is governance-adjustable; do not hard-code gas assumptions. [See Gas and Fees.](/evm/evm-parity/gas-and-fees)                                                                                                                                                                                                                                                 |
+| `eth_getProof`                    | Supported — differences | Returns IAVL proof data rather than Ethereum Merkle Patricia Trie proofs. Proof verification logic must account for this. Proofs resolve across supported store backends (classic IAVL, store/v2 memiavl, and other proof-capable queryable stores), so the method works across a broader range of node configurations. [See State Proofs.](/evm/evm-parity/state-proofs) |
 
 ## Blocks and Finality
 
@@ -5694,7 +6300,6 @@ These capabilities are Sei-specific and have no standard Ethereum equivalent. Th
 | Sei precompiles (staking, governance, distribution, oracle, P256, JSON, CosmWasm bridge) | EVM contracts at deterministic addresses. ABIs and contract addresses are exported from `@sei-js/precompiles` for use with any standard EVM library. |
 | Pointer contracts (CW20 ↔ ERC-20, CW721 ↔ ERC-721)                                       | Bridge between CosmWasm and EVM token standards. Standard ERC interfaces work against pointer contracts.                                             |
 | Native address association (EVM ↔ Cosmos address)                                        | Links an EVM address and a Cosmos address for the same account. Required before some Sei-native flows.                                               |
-| TokenFactory native token creation                                                       | Create native Sei tokens that are usable across EVM and CosmWasm without a wrapper contract.                                                         |
 
 ## Unsupported RPC Methods
 
@@ -5866,6 +6471,12 @@ This does not affect how you construct or send transactions — `maxFeePerGas` a
   ```
 </CodeGroup>
 
+### Effective Gas Price on Receipts
+
+For dynamic-fee (type 2) transactions, the transaction receipt's `effectiveGasPrice` field reports the **actual price charged** — `min(baseFee + maxPriorityFeePerGas, maxFeePerGas)` — not the fee cap. This matches standard EIP-1559 semantics, so clients such as ethers and hardhat see the same `effectiveGasPrice` behavior they expect from Ethereum.
+
+In practice, when your priority tip plus the base fee stays below `maxFeePerGas`, the receipt reports `baseFee + maxPriorityFeePerGas` rather than `maxFeePerGas`. Use the receipt's `effectiveGasPrice` (not `maxFeePerGas`) when computing what a transaction actually paid.
+
 ## SSTORE Cost
 
 The gas cost of `SSTORE` (writing to contract storage) is governance-adjustable on Sei. It is currently **72,000 gas** — the same on mainnet and testnet (see [Divergence from Ethereum](/evm/differences-with-ethereum#sstore-gas-cost)) — but treat that as the current value, not a constant: do not hard-code storage write estimates in your application.
@@ -5924,6 +6535,12 @@ Sei supports most Ethereum transaction types. The one notable exception is blob 
 | 1    | EIP-2930 | Access list | Supported                                            |
 | 2    | EIP-1559 | Fee market  | Supported — base fee is not burned                   |
 | 4    | EIP-7702 | Set code    | Supported                                            |
+
+### Set Code (EIP-7702) Auth List Requirement
+
+Type 4 (EIP-7702) SetCode transactions must include a non-empty authorization list. A transaction with an empty or nil auth list is rejected during validation with the error `auth list cannot be empty`.
+
+Each authorization entry must also carry a valid (non-nil) chain ID. If you are constructing SetCode transactions directly, ensure at least one authorization is present before submitting.
 
 ## Not Supported
 
@@ -6000,6 +6617,13 @@ Most applications do not call `eth_getProof` directly. It is primarily used by:
 If you are doing standard contract reads, event queries, or transaction lookups, this difference does not affect you.
 
 ## Calling eth\_getProof
+
+### Storage key requirements
+
+Before calling `eth_getProof`, note two requirements Sei enforces on the `storageKeys` argument:
+
+* **Keys must be hex-encoded.** Each storage key must be a valid hex-encoded value (for example `0x0000000000000000000000000000000000000000000000000000000000000001`). Keys are decoded and left-padded to 32 bytes. A malformed, non-hex key is rejected with an `invalid storage key` error. Raw byte strings, which were previously accepted, no longer work.
+* **At most 1024 keys per request.** A single proof request may include a maximum of 1024 storage keys. Requesting more returns a `too many storage keys` error. Split larger sets across multiple requests.
 
 The call works through standard libraries:
 
@@ -6153,6 +6777,20 @@ const unwatch = client.watchEvent({
 
 * Sei's instant finality means every block emitted over WebSocket is already final — no need to wait for additional confirmations before acting on an event.
 * Pending transaction subscriptions (`newPendingTransactions`) are supported at the RPC level but Sei does not guarantee Ethereum-style pending state visibility.
+
+## `newHeads` Under Autobahn Consensus
+
+When a node runs under Autobahn consensus, `eth_subscribe("newHeads")` notifications are delivered from an in-process notifier that publishes committed-block headers directly, rather than from the legacy consensus event bus. Subscribers still only observe headers for fully committed blocks, but the header payload differs from the legacy path in a few ways:
+
+* **`parentHash`, `receiptsRoot`, and `transactionsRoot` are returned as zero hashes** (`0x0000…0000`). The Autobahn block-execution path does not build a Tendermint-style hash chain, so there is no meaningful value to surface for these fields.
+* **`stateRoot`** is sourced from the finalized block's `AppHash` (the post-execution application hash), rather than from a pre-execution header field.
+* **`hash`** is the Autobahn block-header hash — the same value reported as `blockHash` by `eth_getBlockByNumber` and the receipt APIs, keeping `newHeads` consistent with the rest of the EVM RPC surface.
+* **`gasUsed`** is an approximation (summed from per-transaction results) to keep the notification cheap.
+
+Because of these differences:
+
+* Subscribers that chain-validate the head stream by linking `parentHash` values cannot rely on `newHeads` under Autobahn and need a different mechanism.
+* If you need exact `gasUsed` or the omitted hash fields, fetch the block explicitly with `eth_getBlockByNumber`.
 
 ---
 
@@ -7715,24 +8353,56 @@ The `seid` CLI is the command-line tool for interacting with the Sei blockchain.
 
 ## Prerequisites
 
-* Go 1.23+: Installation instructions are available [here](https://go.dev/doc/install).
+* [Go 1.25.6 or later](https://go.dev/doc/install) is required only when building from source. Check the `go.mod` at the release tag you check out below (e.g. [`v6.6.1`](https://github.com/sei-protocol/sei-chain/blob/v6.6.1/go.mod)) for its exact requirement. Prebuilt binaries have no prerequisites.
 
 ## Installation
 
-To install seid, locate the version you wish to use on the [sei-chain releases page](https://github.com/sei-protocol/sei-chain/releases). A list of the currently used versions on mainnet and testnet are displayed right below.
+To install `seid`, locate the version you wish to use on the [sei-chain releases page](https://github.com/sei-protocol/sei-chain/releases). A list of the currently used versions on mainnet and testnet are displayed right below.
 
 <VersionTable />
 
-Then, execute the following commands with the version that you picked:
+<Tabs>
+  <Tab title="Prebuilt binary (recommended)">
+    Each release attaches a statically linked `seid` build for `linux/amd64` with no
+    runtime dependencies:
 
-```bash theme={"dark"}
-git clone https://github.com/sei-protocol/sei-chain
-cd sei-chain
-git checkout [VERSION]
-make install
-```
+    ```bash theme={"dark"}
+    VERSION=<version-tag>  # e.g. v6.6.1 — see the version table above
+    FILE=sei-chain_${VERSION#v}_linux_x86_64.tar.gz  # asset filenames omit the leading v
 
-You can verify that seid was installed correctly by running:
+    curl -fLO https://github.com/sei-protocol/sei-chain/releases/download/${VERSION}/${FILE}
+    curl -fLO https://github.com/sei-protocol/sei-chain/releases/download/${VERSION}/checksums.txt
+
+    # Verify integrity before trusting the binary; extract and install only if it passes
+    sha256sum -c checksums.txt --ignore-missing \
+      && tar -xzf ${FILE} seid \
+      && sudo install -m 0755 seid /usr/local/bin/seid
+    ```
+
+    <Info>
+      Prebuilt binaries are attached from `v6.6.1` onward — for earlier versions, build
+      from source. They are `linux/amd64` only and omit hardware Ledger support. On
+      other architectures, or if you sign with a Ledger device, build from source.
+    </Info>
+
+    <Note>
+      Previously installed with `make install`? An older copy in `$(go env GOPATH)/bin`
+      can shadow `/usr/local/bin/seid` depending on your `PATH` order — `which -a seid`
+      lists every copy.
+    </Note>
+  </Tab>
+
+  <Tab title="Build from source">
+    ```bash theme={"dark"}
+    git clone https://github.com/sei-protocol/sei-chain
+    cd sei-chain
+    git checkout <version-tag>
+    make install
+    ```
+  </Tab>
+</Tabs>
+
+You can verify that `seid` was installed correctly by running:
 
 ```bash theme={"dark"}
 seid version
@@ -7740,7 +8410,7 @@ seid version
 
 ## Troubleshooting Installation
 
-<Warning>If you encounter an error like `command not found: seid`, you may need to set your GOPATH environment variable.</Warning>
+<Warning>If you built from source and encounter an error like `command not found: seid`, you may need to set your GOPATH environment variable.</Warning>
 
 * Use `go env GOPATH` to find your GOPATH
 * Add the following lines to your `~/.bashrc` or `~/.zshrc`:
@@ -7971,9 +8641,13 @@ This will remove the specified wallet from your local keyring. Be cautious, as t
 
 ## Uninstalling seid
 
-If you need to remove `seid` from your system, you can delete the binary from your `$GOPATH/bin` directory:
+If you need to remove `seid` from your system, delete the binary from wherever it was installed:
 
 ```bash theme={"dark"}
+# Prebuilt binary install
+sudo rm /usr/local/bin/seid
+
+# Build-from-source install
 rm $(go env GOPATH)/bin/seid
 ```
 
@@ -19435,6 +20109,8 @@ The JSON precompile has specific limitations for different data types:
 | extractAsUint256   | Integers only             | No decimals, booleans, or negative numbers |
 | extractAsBytesList | Arrays of strings/objects | Each element returned as bytes             |
 
+<Warning>**Value Length Limit:** `extractAsUint256` rejects value strings longer than 100 characters. If the numeric string extracted for the given key exceeds 100 characters, the call fails with `value string too long`. Ensure the numeric values you pass stay within this limit.</Warning>
+
 ### Data Type Conversion Strategies
 
 ```typescript theme={"dark"}
@@ -21905,7 +22581,7 @@ URL: https://docs.sei.io/evm/precompiles/cosmwasm-precompiles/example-usage
 > Learn how to interact with Sei precompiles using ethers.js to query and execute CosmWasm contracts from the EVM.
 
 <Info>
-  Per [Proposal 115](https://www.mintscan.io/sei/proposals/115), no new CosmWasm contracts can be deployed on Sei. The examples below apply to **pre-existing CosmWasm contracts** only — `instantiate()` will revert. Separately, [Proposal 116](https://www.mintscan.io/sei/proposals/116) disables inbound IBC transfers as part of the [SIP-03](/learn/sip-03-migration) migration.
+  Per [Proposal 115](https://seistream.app/proposals/115), no new CosmWasm contracts can be deployed on Sei. The examples below apply to **pre-existing CosmWasm contracts** only — `instantiate()` will revert.
 </Info>
 
 The Sei precompiles can be used like any standard smart contract on the EVM. For
@@ -22775,9 +23451,9 @@ The bank precompile at address `0x0000000000000000000000000000000000001001` expo
 
 * **Direct Integration:** EVM contracts and dApps can call banking functions like any other smart contract method.
 * **Native Execution:** Operations are executed at the Cosmos SDK level for maximum efficiency and security.
-* **Cross-Chain Assets:** Manage both native SEI tokens and IBC assets seamlessly from EVM contracts.
+* **Any native denom:** Manage native SEI and other bank module denominations from EVM contracts.
 
-**When to use `send` vs `sendNative`:** `send` moves an arbitrary `denom` (any IBC or factory token) between two EVM addresses (`0x...`) by reading the balance directly from the bank module — no `msg.value` is attached. It is gated to the registered ERC20 native pointer for that denom, so it is typically invoked from the auto-deployed pointer contract rather than from arbitrary user code. `sendNative` is for sending native SEI (the attached `msg.value`) from the EVM caller to a Cosmos bech32 (`sei1...`) destination, which is useful for crossing the EVM→Cosmos boundary when the recipient has no associated EVM address (for example, paying a Cosmos-only contract or account).
+**When to use `send` vs `sendNative`:** `send` moves an arbitrary `denom` between two EVM addresses (`0x...`) by reading the balance directly from the bank module — no `msg.value` is attached. It is gated to the registered ERC20 native pointer for that denom, so it is typically invoked from the auto-deployed pointer contract rather than from arbitrary user code. `sendNative` is for sending native SEI (the attached `msg.value`) from the EVM caller to a Cosmos bech32 (`sei1...`) destination, which is useful for crossing the EVM→Cosmos boundary when the recipient has no associated EVM address (for example, paying a Cosmos-only contract or account).
 
 ## Use Cases
 
@@ -23953,11 +24629,9 @@ URL: https://docs.sei.io/evm/precompiles/cosmwasm-precompiles/cosmwasm
 **Address:** `0x0000000000000000000000000000000000001002`
 
 <Danger>
-  **Deprecation Notice — Prop 115 & Prop 116**
+  **Deprecation Notice — Prop 115**
 
-  Per [governance Proposal 115](https://www.mintscan.io/sei/proposals/115), CosmWasm code uploads (`MsgStoreCode`) and contract instantiations (`MsgInstantiateContract`) are disabled chain-wide. The `instantiate()` function on this precompile **will revert** for all callers. Only `execute()`, `execute_batch()`, and `query()` against pre-existing CosmWasm contracts remain functional, and all CosmWasm functionality is deprecated in favor of EVM-only per [SIP-3](https://github.com/sei-protocol/sips/blob/main/sips/sip-3.md).
-
-  In addition, [Proposal 116](https://www.mintscan.io/sei/proposals/116) disables inbound IBC transfers — IBC assets bridged from Cosmos chains can no longer arrive on Sei after this passes and is activated. See the [SIP-03 Migration Guide](/learn/sip-03-migration) for affected assets and migration routes.
+  Per [governance Proposal 115](https://seistream.app/proposals/115), CosmWasm code uploads (`MsgStoreCode`) and contract instantiations (`MsgInstantiateContract`) are disabled chain-wide. The `instantiate()` function on this precompile **will revert** for all callers. Only `execute()`, `execute_batch()`, and `query()` against pre-existing CosmWasm contracts remain functional, and all CosmWasm functionality is deprecated in favor of EVM-only per [SIP-3](https://github.com/sei-protocol/sips/blob/main/sips/sip-3.md).
 
   For new smart contract development, use the EVM directly. See [Deploy a Smart Contract](/evm/evm-general).
 </Danger>
@@ -23989,7 +24663,7 @@ The CosmWasm precompile exposes the following functions:
 
 ### Transaction Functions
 
-<Warning>The `instantiate()` function has been disabled by [Prop 115](https://www.mintscan.io/sei/proposals/115) and will revert. It is omitted from this reference. The ABI in `@sei-js/precompiles` may still expose it for backwards compatibility, but calling it on-chain will fail.</Warning>
+<Warning>The `instantiate()` function has been disabled by [Prop 115](https://seistream.app/proposals/115) and will revert. It is omitted from this reference. The ABI in `@sei-js/precompiles` may still expose it for backwards compatibility, but calling it on-chain will fail.</Warning>
 
 ```solidity theme={"dark"}
 /// Executes some message on a CosmWasm contract.
@@ -36479,7 +37153,7 @@ EVM transactions in Sei follow the Ethereum transaction format with standard pro
         "logs": [],
         "status": "0x1",
         "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-        "effectiveGasPrice": "0x1234",
+        "effectiveGasPrice": "0x77359400",
         "type": "0x2"
       }
     }
@@ -41173,13 +41847,6 @@ export const EcosystemContracts = () => {
       behavior: 'smooth'
     });
   }, [pendingScrollId]);
-  const seiScanStyle = isDark ? {
-    color: 'var(--sei-maroon-25)',
-    backgroundColor: 'rgba(96, 0, 20, 0.2)'
-  } : {
-    color: 'var(--sei-maroon-100)',
-    backgroundColor: 'var(--sei-grey-25)'
-  };
   const focusRingColor = 'var(--sei-maroon-100)';
   const rowGridStyle = {
     display: 'grid',
@@ -41647,17 +42314,34 @@ Comprehensive guides for running, maintaining, and optimizing Sei network nodes.
 
     ##### Install Go
 
-    Suggested Version: Go 1.24.x (required for seid v6.3+)
+    You need Go only if you build `seid` from source. The prebuilt binary and Docker
+    install paths in the next step do not require it.
+
+    Current `seid` releases require Go 1.25.6 or later. Check the `go.mod` at the release tag
+    you check out
+    (e.g. [`v6.6.1`](https://github.com/sei-protocol/sei-chain/blob/v6.6.1/go.mod)) for its
+    exact requirement.
 
     ###### Installation Steps
 
     ```bash theme={"dark"}
-    # Check for existing Go installation
+    # Check for existing Go installations — more than one entry means another copy
+    # may still win on your PATH after this install
+    which -a go
     go version
 
-    # Download and install Go 1.24.x
-    wget https://go.dev/dl/go1.24.5.linux-amd64.tar.gz
-    sudo tar -C /usr/local -xzf go1.24.5.linux-amd64.tar.gz
+    # Bumping Go? Change these two lines only
+    GO_TARBALL=go1.25.6.linux-amd64.tar.gz
+    GO_SHA256=f022b6aad78e362bcba9b0b94d09ad58c5a70c6ba3b7582905fababf5fe0181a
+
+    curl -fLO https://go.dev/dl/${GO_TARBALL}
+
+    # Verify integrity before trusting the archive (go.dev/dl publishes a SHA256 per file
+    # at ${GO_TARBALL}.sha256), then replace any previous installation — extracting over
+    # one leaves stale files behind
+    echo "${GO_SHA256}  ${GO_TARBALL}" | sha256sum -c - \
+      && sudo rm -rf /usr/local/go \
+      && sudo tar -C /usr/local -xzf ${GO_TARBALL}
 
     # Add Go to your environment variables
     echo 'export PATH=$PATH:/usr/local/go/bin' >> $HOME/.bashrc
@@ -41666,52 +42350,102 @@ Comprehensive guides for running, maintaining, and optimizing Sei network nodes.
     # Verify installation
     go version
     ```
+
+    <Note>
+      `sudo rm -rf /usr/local/go` is the replacement step [Go's install
+      docs](https://go.dev/doc/install) prescribe, but it only clears a tarball install. A
+      package-manager Go (`/usr/lib/go-*`, Homebrew) survives it and can still shadow
+      `/usr/local/go/bin/go` — if the final `go version` reports the old release,
+      `which -a go` lists every copy on your `PATH`. If the extraction itself fails, the
+      verified tarball is still in your working directory: re-run the `sudo tar` command
+      rather than starting over.
+    </Note>
   </Step>
 
   <Step title="Install Sei">
-    ##### Install Sei Binary
+    ##### Install the `seid` binary
 
-    ```bash theme={"dark"}
-    # Clone repository and install
-    git clone https://github.com/sei-protocol/sei-chain.git
-    cd sei-chain
-    git checkout <version-tag>  # Replace with specific version
-    make install
+    See the Network Versions table above for the current recommended version.
 
-    # Verify installation
-    seid version
-    ```
+    <Tabs>
+      <Tab title="Prebuilt binary (recommended)">
+        Each release attaches a statically linked `seid` build for `linux/amd64` with no
+        runtime dependencies: no Go toolchain and no shared libraries to install.
 
-    See Network Versions table above for current recommended version.
+        ```bash theme={"dark"}
+        VERSION=<version-tag>  # e.g. v6.6.1 — see the Network Versions table above
+        FILE=sei-chain_${VERSION#v}_linux_x86_64.tar.gz  # asset filenames omit the leading v
 
-    <Accordion title="Alternative: Docker Image">
-      Official Docker images are available at GitHub Container Registry.
+        curl -fLO https://github.com/sei-protocol/sei-chain/releases/download/${VERSION}/${FILE}
+        curl -fLO https://github.com/sei-protocol/sei-chain/releases/download/${VERSION}/checksums.txt
 
-      ```bash theme={"dark"}
-      # Pull the latest version
-      docker pull ghcr.io/sei-protocol/sei:latest
+        # Verify integrity before trusting the binary; extract and install only if it passes
+        sha256sum -c checksums.txt --ignore-missing \
+          && tar -xzf ${FILE} seid \
+          && sudo install -m 0755 seid /usr/local/bin/seid
 
-      # Or pull a specific version (recommended)
-      docker pull ghcr.io/sei-protocol/sei:v6.3.1
-      ```
+        # Verify installation
+        seid version
+        ```
 
-      Available architectures: linux/amd64 and linux/arm64.
-    </Accordion>
+        <Info>
+          Prebuilt binaries are attached from `v6.6.1` onward. For earlier versions,
+          build from source or use Docker. They are `linux/amd64` only and omit hardware
+          Ledger support. On other architectures, or if you sign with a Ledger device,
+          build from source or use Docker.
+        </Info>
 
-    <Info>
-      If you encounter an error like `command not found: seid`, you may need to set your GOPATH environment variable.
+        <Note>
+          Switching from a previous `make install` build? Remove the old copy
+          (`rm -f "$(go env GOPATH)/bin/seid"`) or make sure your service unit points at
+          `/usr/local/bin/seid` — `which -a seid` lists every copy on your `PATH`.
+        </Note>
+      </Tab>
 
-      Add the following to your `~/.bashrc` or `~/.zshrc`:
+      <Tab title="Build from source">
+        Requires Go and a C toolchain (see the Environment Setup step above).
 
-      ```bash theme={"dark"}
-      export GOPATH=$(go env GOPATH)
-      export PATH=$PATH:$GOPATH/bin
-      ```
+        ```bash theme={"dark"}
+        # Clone repository and install
+        git clone https://github.com/sei-protocol/sei-chain.git
+        cd sei-chain
+        git checkout <version-tag>  # Replace with specific version
+        make install
 
-      Then reload your shell with `source ~/.bashrc` or `source ~/.zshrc`.
+        # Verify installation
+        seid version
+        ```
 
-      For more information see [here](https://pkg.go.dev/cmd/go#hdr-GOPATH_environment_variable).
-    </Info>
+        <Info>
+          If you encounter an error like `command not found: seid`, you may need to set your GOPATH environment variable.
+
+          Add the following to your `~/.bashrc` or `~/.zshrc`:
+
+          ```bash theme={"dark"}
+          export GOPATH=$(go env GOPATH)
+          export PATH=$PATH:$GOPATH/bin
+          ```
+
+          Then reload your shell with `source ~/.bashrc` or `source ~/.zshrc`.
+
+          For more information see [here](https://pkg.go.dev/cmd/go#hdr-GOPATH_environment_variable).
+        </Info>
+      </Tab>
+
+      <Tab title="Docker">
+        Official Docker images are available at GitHub Container Registry.
+
+        ```bash theme={"dark"}
+        # Pull the latest version
+        docker pull ghcr.io/sei-protocol/sei:latest
+
+        # Or pull a specific version (recommended)
+        docker pull ghcr.io/sei-protocol/sei:v6.3.1
+        ```
+
+        Available architectures: linux/amd64 and linux/arm64.
+      </Tab>
+    </Tabs>
 
     ##### Initialize Chain Files
 
@@ -41932,8 +42666,8 @@ Comprehensive guides for running, maintaining, and optimizing Sei network nodes.
     Optimize your node's performance with advanced settings and monitoring tools.
   </Card>
 
-  <Card horizontal title="RocksDB Backend" icon="database" href="/node/rocksdb-backend">
-    Run with RocksDB instead of the default backend.
+  <Card horizontal title="Giga SS Store Migration" icon="database" href="/node/giga-storage-migration">
+    Move EVM historical state into dedicated state-store databases on supported RPC nodes.
   </Card>
 
   <Card horizontal title="Technical Reference" icon="terminal" href="/node/technical-reference">
@@ -41968,6 +42702,15 @@ $HOME/.sei/config/
 ├── node_key.json     # Unique node identity key for peer-to-peer (P2P) networking
 └── priv_validator_key.json  # Validator private signing key (if running as a validator)
 ```
+
+The state-store databases live outside the config directory:
+
+* Cosmos SS uses `$HOME/.sei/data/{backend}` in the legacy layout and
+  `$HOME/.sei/data/state_store/cosmos/{backend}` in the current layout.
+* EVM SS uses `$HOME/.sei/data/evm_ss` in the legacy layout and
+  `$HOME/.sei/data/state_store/evm/{backend}` in the current layout.
+* Non-empty `ss-db-directory` and `evm-ss-db-directory` settings override
+  those locations.
 
 The snippets below are opinionated tuning recommendations layered on top of
 the defaults. For the *full* unmodified `app.toml`, `config.toml`, and
@@ -42033,6 +42776,8 @@ sc-enable = true
 [state-store]
 # Historical SS layer for queries. Required for any node serving RPC.
 ss-enable = true
+# State-store backend. Use PebbleDB; RocksDB support will be removed.
+ss-backend = "pebbledb"
 # 0 = keep everything; 100,000 is roughly 28 hours of pacific-1 history.
 ss-keep-recent = 100000
 
@@ -42046,6 +42791,8 @@ rs-backend = "pebbledb"
 The full unmodified `app.toml`, `config.toml`, and `client.toml` produced by
 `seid init` against the latest tagged `seid` release. Use these as the
 canonical reference for every available knob and its default value.
+
+<Warning>The generated `app.toml` below mirrors the latest tagged release and may still list RocksDB as a state-store option. Do not use RocksDB for new or resynced nodes. RocksDB support for the SeiDB state store will be removed. No target release has been published.</Warning>
 
 <Tabs>
   <Tab title="app.toml">
@@ -42099,30 +42846,10 @@ canonical reference for every available knob and its default value.
     # ["message.sender", "message.recipient"]
     index-events = []
 
-    # IAVLDisableFastNode enables or disables the fast node feature of IAVL.
-    # Default is true.
-    iavl-disable-fastnode = true
-
     # CompactionInterval sets (in seconds) the interval between forced levelDB
     # compaction. A value of 0 means no forced levelDB.
     # Default is 0.
     compaction-interval = 0
-
-    # deprecated
-    no-versioning = false
-
-    # Whether to store orphan data (to-be-deleted data pointers) outside the main
-    # application LevelDB
-    separate-orphan-storage = false
-
-    # if separate-orphan-storage is true, how many versions of orphan data to keep
-    separate-orphan-versions-to-keep = 0
-
-    # if separate-orphan-storage is true, how many orphans to store in each file
-    num-orphan-per-file = 0
-
-    # if separate-orphan-storage is true, where to store orphan data
-    orphan-dir = ""
 
     ###############################################################################
     ###                        State Sync Configuration                         ###
@@ -42148,25 +42875,11 @@ canonical reference for every available knob and its default value.
     ###############################################################################
 
     [state-commit]
-    # Enable defines if the SeiDB should be enabled to override existing IAVL db backend.
+    # Enable defines if the SeiDB state-commit should be enabled.
     sc-enable = true
 
     # Defines the SC store directory, if not explicitly set, default to application home directory
     sc-directory = ""
-
-    # WriteMode defines how EVM data writes are routed between backends.
-    # Valid values: cosmos_only, dual_write, split_write, evm_only
-    # defaults to cosmos_only
-    sc-write-mode = "cosmos_only"
-
-    # ReadMode defines how EVM data reads are routed between backends.
-    # Valid values: cosmos_only, evm_first, split_read
-    # defaults to cosmos_only
-    sc-read-mode = "cosmos_only"
-
-    # EnableLatticeHash controls whether the FlatKV lattice hash participates
-    # in the final app hash. Default: false.
-    sc-enable-lattice-hash = false
 
     # Max concurrent historical proof queries (RPC /store path)
     sc-historical-proof-max-inflight = 1
@@ -42204,6 +42917,19 @@ canonical reference for every available knob and its default value.
 
     # Maximum snapshot write rate in MB/s (global across all trees). 0 = unlimited. Default 100.
     sc-snapshot-write-rate-mbps = 100
+
+    # WriteMode defines the write routing mode for EVM data in the SC layer.
+    # Valid values: memiavl_only, migrate_evm, evm_migrated, migrate_all_but_bank,
+    # all_migrated_but_bank, migrate_bank, flatkv_only, test_only_dual_write
+    sc-write-mode = "memiavl_only"
+
+    # KeysToMigratePerBlock controls how many EVM keys the in-flight migration
+    # (sc-write-mode = migrate_evm / migrate_bank / migrate_all_but_bank) drains
+    # from memiavl into flatkv per block. Default 1024 is appropriate for
+    # production drains; lower it (e.g. 256) to spread the migration across more
+    # blocks for test runs that need to observe the resume / hybrid-read path.
+    # Must be > 0; ignored entirely when not in a migration mode.
+    sc-keys-to-migrate-per-block = 1024
 
     ###############################################################################
     ###                        FlatKV (EVM) Configuration                       ###
@@ -42286,15 +43012,15 @@ canonical reference for every available knob and its default value.
 
     [receipt-store]
     # Backend defines the receipt store backend.
-    # Supported backends: pebble (aka pebbledb), parquet
+    # Supported backends: pebble (aka pebbledb)
     # defaults to pebbledb
     rs-backend = "pebbledb"
 
-    # Defines the receipt store directory. If unset, defaults to <home>/data/receipt.db
+    # Defines the receipt store directory. If unset, defaults to <home>/data/ledger/receipt/{backend}
     db-directory = ""
 
     # AsyncWriteBuffer defines the async queue length for commits to be applied to receipt store.
-    # Applies only when rs-backend = "pebbledb"; parquet ignores this setting.
+    # Applies only when rs-backend = "pebbledb".
     # Set <= 0 for synchronous writes.
     # defaults to 100
     async-write-buffer = 100
@@ -42408,8 +43134,6 @@ canonical reference for every available knob and its default value.
       # "sei_newBlockFilter",
       # "sei_newFilter",
       # "sei_sign",
-      # "sei_traceBlockByHashExcludeTraceFail",
-      # "sei_traceBlockByNumberExcludeTraceFail",
       # "sei_uninstallFilter",
       #
       # Optional sei2_* block namespace (bank transfers in blocks; HTTP only):
@@ -42454,20 +43178,60 @@ canonical reference for every available knob and its default value.
     # Default: 1000 tasks. Set to 0 to use the default.
     worker_queue_size = 1000
 
+    # TraceBakeEnabled, when true, runs a background worker that re-executes
+    # each committed block with the configured tracers and stores the result
+    # to <home>/data/trace_db. debug_traceTransaction with a bakeable
+    # tracer config (callTracer / prestateTracer / flatCallTracer) returns
+    # from cache on hit. Recommended for RPC nodes only; default false.
+    trace_bake_enabled = false
+
+    # Number of re-execution worker goroutines (default 1).
+    trace_bake_workers = 1
+
+    # Bounded in-flight height queue. Drops on full so consensus never blocks.
+    trace_bake_queue_size = 4096
+
+    # Which tracers to bake per block; only standard named tracers are eligible.
+    trace_bake_tracers = ["callTracer"]
+
+    # Rolling cache window: prune blocks older than (latest - this).
+    # 0 disables pruning (cache grows forever).
+    trace_bake_window_blocks = 0
+
+    # TraceBakeUseSnapshot, when true, uses in-memory memiavl snapshots as the
+    # state backend for trace baking when the store backend supports snapshots.
+    # Watch these metrics when enabling on a high-throughput node:
+    #   - memiavl_mem_node_total_size / memiavl_num_of_mem_node: rise if held
+    #     snapshots are pinning too many COW nodes; lower the window or drop the
+    #     memiavl snapshot interval.
+    #   - trace baker dropped/baked counters: dropped > 0 or baked lagging chain
+    #     tip means the baker is falling behind.
+    trace_bake_use_snapshot = false
+
+    # Number of recent memiavl snapshots to retain for trace baking.
+    trace_bake_snapshot_window = 64
+
+    # ip_rate_limit_rps is the per-IP sustained request rate in requests/second.
+    # Set to 0 to disable per-IP rate limiting (all requests pass through).
+    ip_rate_limit_rps = 200
+
+    # ip_rate_limit_burst is the maximum per-IP burst above the sustained rate.
+    ip_rate_limit_burst = 400
+
+
     ###############################################################################
     ###                       Giga Executor Configuration                       ###
     ###############################################################################
 
     [giga_executor]
-    # enabled controls whether to use the Giga executor (evmone-based) instead of geth's interpreter.
-    # This is an experimental feature for improved EVM throughput.
-    # Default: false
-    enabled = false
+    # enabled controls whether to use the Giga executor for improved EVM throughput.
+    # Default: true
+    enabled = true
 
     # occ_enabled controls whether to use OCC (Optimistic Concurrency Control) with the Giga executor.
     # When true, transactions are executed in parallel with conflict detection and retry.
-    # Default: false
-    occ_enabled = false
+    # Default: true
+    occ_enabled = true
 
     ###############################################################################
     ###                       Admin Configuration (Auto-managed)                ###
@@ -42614,23 +43378,6 @@ canonical reference for every available knob and its default value.
     # genesis-stream-file specifies the path of the genesis json file to stream from.
     genesis-stream-file = ""
 
-    ###############################################################################
-    ###                    Legacy IAVL Settings (Auto-managed)                  ###
-    ###############################################################################
-
-    [iavl]
-    # Pruning Strategies:
-    # - default: Keep the recent 362880 blocks and prune is triggered every 10 blocks
-    # - nothing: all historic states will be saved, nothing will be deleted (i.e. archiving node)
-    # - everything: all saved states will be deleted, storing only the recent 2 blocks; pruning at every block
-    # - custom: allow pruning options to be manually specified through 'pruning-keep-recent' and 'pruning-interval'
-    # Pruning strategy is completely ignored when seidb is enabled
-    pruning = "nothing"
-
-    # These are applied if and only if the pruning strategy is custom, and seidb is not enabled
-    pruning-keep-recent = "0"
-    pruning-keep-every = "0"
-    pruning-interval = "0"
 
     ###############################################################################
     ###                        WASM Configuration (Auto-managed)                ###
@@ -42694,10 +43441,6 @@ canonical reference for every available knob and its default value.
     ###                   Main Base Config Options                      ###
     #######################################################################
 
-    # TCP or UNIX socket address of the ABCI application,
-    # or the name of an ABCI application compiled in with the Tendermint binary
-    proxy-app = "tcp://127.0.0.1:26658"
-
     # A custom human readable name for this node
     moniker = "docs-example"
 
@@ -42750,13 +43493,6 @@ canonical reference for every available knob and its default value.
 
     # Path to the JSON file containing the private key to use for node authentication in the p2p protocol
     node-key-file = "config/node_key.json"
-
-    # Mechanism to connect to the ABCI application: socket | grpc
-    abci = "socket"
-
-    # If true, query the ABCI app on connecting to a new peer
-    # so the app can decide if we should keep the connection or not
-    filter-peers = false
 
     #######################################################################
     ###                 Advanced Configuration Options                  ###
@@ -42861,6 +43597,18 @@ canonical reference for every available knob and its default value.
 
     # timeout for any read request
     timeout-read = "10s"
+
+    # timeout to read HTTP request headers; mitigates slowloris attacks.
+    # Set to "0s" to disable (not recommended).
+    timeout-read-header = "10s"
+
+    # HTTP write timeout; acts as a hard backstop for all handlers.
+    # Set to "0s" to disable (not recommended).
+    timeout-write = "30s"
+
+    # Maximum number of results returned by tx_search and block_search.
+    # Set to 0 to disable the cap (not recommended on public nodes).
+    max-tx-search-results = 10000
 
     #######################################################################
     ###           P2P Configuration Options                             ###
@@ -43068,45 +43816,25 @@ canonical reference for every available knob and its default value.
     # period should suffice.
     trust-period = "168h0m0s"
 
-    # Backfill sequentially fetches after state sync completes, verifies and stores light blocks in reverse order.
-    # backfill-blocks means it will keep reverse fetching up to backfill-blocks number of blocks behind state sync position
-    # backfill-duration means it will keep fetching up to backfill-duration old time
-    # The actual backfill process will take at backfill-blocks as priority:
-    # - If backfill-blocks is set, use backfill-blocks to backfill
-    # - If backfill-blocks is not set to be greater than 0, use backfill-duration to backfill
-    backfill-blocks = "0"
-    backfill-duration = "0s"
-
-    # Time to spend discovering snapshots before initiating a restore.
-    discovery-time = "15s"
-
-    # Temporary directory for state sync snapshot chunks, defaults to os.TempDir().
-    # The synchronizer will create a new, randomly named directory within this directory
-    # and remove it when the sync is complete.
-    temp-dir = ""
-
     # Whether to use local snapshot only for state sync or not.
     # If this is true, then state sync will look for existing snapshots
     # which are located in the snapshot-dir configured in app.toml (default to [home-dir]/data/snapshots)
     use-local-snapshot = false
 
-    # The timeout duration before re-requesting a chunk, possibly from a different
-    # peer (default: 15 seconds).
-    chunk-request-timeout = "15s"
-
-    # The number of concurrent chunk and block fetchers to run (default: 4).
-    fetchers = "2"
-
-    verify-light-block-timeout = "1m0s"
-
-    blacklist-ttl = "5m0s"
+    # Advanced state-sync tuning knobs are intentionally omitted from this template:
+    #   - backfill-blocks, backfill-duration: post-sync historical light-block backfill
+    #   - discovery-time, temp-dir: snapshot discovery and chunk staging
+    #   - chunk-request-timeout, fetchers: chunk transfer behavior
+    #   - verify-light-block-timeout, blacklist-ttl: light client verification
+    # They are still parsed if set explicitly here; see the Sei docs for the full list
+    # and recommended values.
 
     #######################################################################
     ###         Consensus Configuration Options                         ###
     #######################################################################
     [consensus]
 
-    wal-file = "data/cs.wal/wal"
+    wal-file = "data/tendermint/cs.wal/wal"
 
     # How many blocks to look back to check existence of the node's consensus votes before joining consensus
     # When non-zero, the node will panic upon restart
@@ -43261,6 +43989,10 @@ canonical reference for every available knob and its default value.
 
     # Cooldown between each restart
     restart-cooldown-seconds = 600
+
+    # Path to a JSON file containing the Autobahn (GigaRouter) configuration.
+    # Leave empty to disable Autobahn.
+    autobahn-config-file = ""
     ```
   </Tab>
 
@@ -43307,9 +44039,8 @@ legacy single-database IAVL store with separate hot- and historical-data tiers:
    modes is set to a non-default value.
 2. **State Store (SS)** — versioned raw key/value pairs used for historical
    queries. Required for any node that serves RPC. The default backend is
-   **PebbleDB**; **RocksDB** is available for iteration-heavy workloads such
-   as archive nodes or RPC nodes that run a lot of `debug_trace*` (see the
-   [RocksDB Backend Guide](/node/rocksdb-backend) for build instructions).
+   **PebbleDB**. Do not use RocksDB for new nodes. If you already use RocksDB,
+   follow [Move off RocksDB](#move-off-rocksdb) before support is removed.
 
 The legacy IAVL backend is still selectable via `sc-enable = false` but is
 deprecated and slated for removal — new deployments and existing nodes
@@ -43328,11 +44059,6 @@ sc-enable = true
 
 # Async commit queue. Larger values improve catch-up; 0 = synchronous.
 sc-async-commit-buffer = 100
-
-# How many memiavl snapshots to keep besides the latest one.
-# 0 = current snapshot only. Set to 1 if you serve IBC light-client queries
-# so relayers can verify against an older snapshot height.
-sc-keep-recent = 1
 
 # Take a state-commit snapshot every N blocks.
 sc-snapshot-interval = 10000
@@ -43366,7 +44092,7 @@ snapshot-keep-recent = 2
 # serving RPC must keep it on.
 ss-enable = true
 
-# pebbledb (default) or rocksdb (faster iteration, archive-friendly).
+# Use PebbleDB. RocksDB support will be removed.
 ss-backend = "pebbledb"
 
 ss-async-write-buffer = 100
@@ -43393,6 +44119,59 @@ prune-interval-seconds = 600
 Setting small (more frequent) pruning intervals may collide with
 snapshot creation. Too-large (less frequent) intervals mean pruning takes
 longer overall, which can cause missed blocks and excessive resync time.
+
+#### PebbleDB version encoding
+
+Fresh PebbleDB state stores use descending-version MVCC encoding. Sei includes
+the version in each key and sorts newer versions first. This lets
+latest-version reads reach the newest visible value without scanning older
+versions. The store records this format with the `s/_mvcc_descending` sentinel
+key, which `seid` detects automatically when it opens the database.
+
+PebbleDB state stores created by older builds use ascending-version encoding.
+`seid` detects these stores and opens them in compatibility mode without an
+error. They remain on the slower ascending read path. Rebuild the state store
+through [state sync](/node/statesync) with a current `seid` release to adopt
+descending encoding. A filesystem snapshot preserves the source store's
+encoding, so confirm its encoding with the snapshot provider.
+
+### Move off RocksDB
+
+<Warning>RocksDB support for the SeiDB state store will be removed. No target release has been published. Check the [Sei release notes](https://github.com/sei-protocol/sei-chain/releases) before every upgrade.</Warning>
+
+RocksDB and PebbleDB use different on-disk formats. Changing
+`ss-backend = "rocksdb"` to `ss-backend = "pebbledb"` against the same data
+does not convert the store. Rebuild the state store instead.
+
+For a non-archive node:
+
+1. Stop `seid` and back up the validator key, validator state, node key,
+   configuration, and genesis file that you need to preserve.
+2. Check `ss-db-directory` and `evm-ss-db-directory` in `app.toml`. An empty
+   value uses a path under `$HOME/.sei/data`. If either setting points
+   elsewhere, move the old RocksDB data out of the active path and keep it
+   with the backup. Clearing `$HOME/.sei/data` does not clear a custom
+   directory.
+3. Set `ss-backend = "pebbledb"`, then rebuild through
+   [state sync](/node/statesync) or a provider-confirmed
+   [PebbleDB snapshot](/node/snapshot).
+4. Confirm the startup log reports `"SeiDB SS is enabled"` with the PebbleDB
+   backend. Test the RPC methods your node serves before you delete the old
+   RocksDB backup.
+
+<Danger>Do not use state sync or a pruned snapshot to migrate an archive node. Both start from a recent height and discard the earlier state-store versions that an archive node must retain.</Danger>
+
+There is no documented in-place migration for a RocksDB archive node. Build a
+separate replacement from a trusted full-history PebbleDB source. Keep the
+RocksDB node on a compatible `seid` release until the replacement has caught
+up and you have tested historical queries at old heights. If you cannot obtain
+a full-history PebbleDB source, do not wipe the existing archive data. Contact
+the [Sei Tech Chat](https://t.me/+KZdhZ1eE-G01NmZk) before you upgrade.
+
+PebbleDB can be slower for iteration-heavy historical queries, including
+`debug_trace*` requests. Descending-version encoding improves recent reads,
+but it does not remove the cost of long-history iteration. Benchmark the
+replacement under your trace workload before you cut over.
 
 ### Giga Storage and Giga Executor
 
@@ -43508,23 +44287,55 @@ EOF
 
 ## Update Procedures
 
+<Info>
+  Upgrade with the same method you originally installed with: `make install`
+  writes `seid` to `$(go env GOPATH)/bin`, while the prebuilt-binary flow
+  installs to `/usr/local/bin`. Mixing the two leaves separate binaries on your
+  `PATH`, and your service unit may keep running the old version —
+  `which -a seid` lists every copy.
+</Info>
+
 ### Minor Updates
 
 For minor updates that are non-consensus-breaking:
 
-```bash theme={"dark"}
-# Stop node
-sudo systemctl stop seid
+<Tabs>
+  <Tab title="Prebuilt binary">
+    ```bash theme={"dark"}
+    # Stop node
+    sudo systemctl stop seid
 
-# Update binary
-cd sei-chain
-git fetch --all
-git checkout [new-version]
-make install
+    # Download and verify the new release binary
+    VERSION=<new-version>  # the new release tag, e.g. v6.6.1
+    FILE=sei-chain_${VERSION#v}_linux_x86_64.tar.gz  # asset filenames omit the leading v
 
-# Restart node
-sudo systemctl restart seid
-```
+    curl -fLO https://github.com/sei-protocol/sei-chain/releases/download/${VERSION}/${FILE}
+    curl -fLO https://github.com/sei-protocol/sei-chain/releases/download/${VERSION}/checksums.txt
+    sha256sum -c checksums.txt --ignore-missing \
+      && tar -xzf ${FILE} seid \
+      && sudo install -m 0755 seid /usr/local/bin/seid
+
+    # Restart node
+    sudo systemctl restart seid
+    ```
+  </Tab>
+
+  <Tab title="Build from source">
+    ```bash theme={"dark"}
+    # Stop node
+    sudo systemctl stop seid
+
+    # Update binary
+    cd sei-chain
+    git fetch --all
+    git checkout <new-version>
+    make install
+
+    # Restart node
+    sudo systemctl restart seid
+    ```
+  </Tab>
+</Tabs>
 
 ### Major Updates
 
@@ -43536,18 +44347,38 @@ For major upgrades that introduce state-breaking changes:
 3. Update/replace the binary
 4. Restart the node.
 
-```bash theme={"dark"}
-# After node halts
-cd sei-chain
-git pull
-git checkout [new-version]
-make install
-sudo systemctl restart seid
-```
+<Tabs>
+  <Tab title="Prebuilt binary">
+    ```bash theme={"dark"}
+    # After node halts
+    VERSION=<new-version>  # the new release tag, e.g. v6.6.1
+    FILE=sei-chain_${VERSION#v}_linux_x86_64.tar.gz
+
+    curl -fLO https://github.com/sei-protocol/sei-chain/releases/download/${VERSION}/${FILE}
+    curl -fLO https://github.com/sei-protocol/sei-chain/releases/download/${VERSION}/checksums.txt
+    sha256sum -c checksums.txt --ignore-missing \
+      && tar -xzf ${FILE} seid \
+      && sudo install -m 0755 seid /usr/local/bin/seid
+
+    sudo systemctl restart seid
+    ```
+  </Tab>
+
+  <Tab title="Build from source">
+    ```bash theme={"dark"}
+    # After node halts
+    cd sei-chain
+    git pull
+    git checkout <new-version>
+    make install
+    sudo systemctl restart seid
+    ```
+  </Tab>
+</Tabs>
 
 <Tip>
-  Build the upgrade before the halt-height so you can quickly replace it
-  with minimal downtime.
+  Download the release archive (or build the new binary) ahead of the
+  halt-height so the swap takes seconds at upgrade time.
 </Tip>
 
 ## Performance Optimization
@@ -43749,7 +44580,15 @@ If you prefer to build from source or need a specific configuration:
 
 #### Prerequisites
 
-* Go 1.24.5 or higher
+* [Go 1.26.0 or later](https://go.dev/doc/install). The commands below build `main`, whose requirement is set in [`go.mod`](https://github.com/sei-protocol/seictl/blob/main/go.mod).
+
+<Note>
+  This is newer than the Go version needed to build `seid` (1.25.6), so the toolchain from
+  the [node setup guide](/node) is a minor version behind. Under the default
+  `GOTOOLCHAIN=auto` that still builds: the go command downloads the toolchain `go.mod`
+  asks for. If you've set `GOTOOLCHAIN=local` or build without network access, install Go
+  1.26.0 or later, or use a prebuilt binary above.
+</Note>
 
 #### Build
 
@@ -43908,7 +44747,7 @@ Client-level configuration including:
 
 Node-level configuration including:
 
-* Proxy app and database settings
+* Database settings
 * Logging configuration
 * RPC and P2P settings
 * Mempool and consensus parameters
@@ -44069,6 +44908,10 @@ Follow this guide to join an existing network through statesync. To quickly spin
 
 State sync allows a new node to join a network by fetching a snapshot of the application state at a recent height instead of fetching and replaying all historical blocks. This can reduce the time needed to sync with the network from days to minutes.
 
+<Warning>RocksDB support for the SeiDB state store will be removed. No target release has been published. Set `ss-backend = "pebbledb"` before you start state sync, especially when rebuilding a node that previously used RocksDB. See [Move off RocksDB](/node/node-operators#move-off-rocksdb) for the full migration checklist.</Warning>
+
+<Danger>Do not use state sync to migrate an archive node. State sync starts from a recent height and does not preserve the earlier state-store versions. Follow the archive-node guidance in [Move off RocksDB](/node/node-operators#move-off-rocksdb).</Danger>
+
 ## Clean Up
 
 If you are not starting a node from fresh, then you need to do some backups and clean ups.
@@ -44089,6 +44932,17 @@ seid tendermint unsafe-reset-all --home $HOME/.sei
 ```
 
 Finally, remove the existing data and wasm folders and restore the `priv_validator_state.json`:
+
+First, print the state-store section from `app.toml`:
+
+```bash theme={"dark"}
+sed -n '/^\[state-store\]/,/^\[.*\]/p' $HOME/.sei/config/app.toml
+```
+
+If `ss-db-directory` or `evm-ss-db-directory` points outside
+`$HOME/.sei/data`, back up anything you need and clear the old state-store
+data there as well. The commands below do not remove custom directories. A
+PebbleDB state sync must not reuse RocksDB data.
 
 ```bash theme={"dark"}
 rm -rf $HOME/.sei/data/*
@@ -44171,7 +45025,17 @@ s|^(trust-hash[[:space:]]+=[[:space:]]+).*$|\1\"$TRUST_HASH\"|" $HOME/.sei/confi
 # Set the persistent peers in the config.toml file to the specified State Sync Peer
 sed -i.bak -e "s|^persistent-peers *=.*|persistent-peers = \"$STATE_SYNC_PEER\"|" \
   $HOME/.sei/config/config.toml
+
+# Use PebbleDB for the SeiDB state store
+sed -i.bak -E '/^\[state-store\]/,/^\[.*\]/ s|^[#[:space:]]*(ss-backend[[:space:]]*=[[:space:]]*).*$|\1"pebbledb"|' \
+  $HOME/.sei/config/app.toml
+
+# Print the state-store section so you can verify the backend
+sed -n '/^\[state-store\]/,/^\[.*\]/p' $HOME/.sei/config/app.toml
 ```
+
+Confirm that the script output includes `ss-backend = "pebbledb"`. If the key
+is absent, add it directly below `[state-store]` before you start `seid`.
 
 Finally start the daemon:
 
@@ -44209,6 +45073,10 @@ Follow this guide to join an existing network through **snapshot sync**. To quic
 
 Snapshot sync allows a new node to join a network by downloading a recent, compressed copy of the entire application state and extracting it directly into the data directory. This reduces the initial sync time from days to minutes.
 
+<Warning>RocksDB support for the SeiDB state store will be removed. No target release has been published. For new or resynced nodes, use a snapshot only after its provider confirms that the state store uses PebbleDB. Keep `ss-backend = "pebbledb"` in `app.toml`. See [Move off RocksDB](/node/node-operators#move-off-rocksdb) if you are replacing an existing RocksDB node.</Warning>
+
+<Danger>Do not restore a pruned snapshot onto an archive node. It does not contain the earlier state-store versions that the archive node must retain. Use only a provider-confirmed full-history PebbleDB archive snapshot, or follow the archive-node guidance in [Move off RocksDB](/node/node-operators#move-off-rocksdb).</Danger>
+
 ## Snapshot Providers
 
 You can select from various providers for downloading snapshots:
@@ -44219,6 +45087,12 @@ You can select from various providers for downloading snapshots:
 * kjnodes
 
 <iframe src="https://seistream.app/labs?page=snapshots" width="100%" height="600" style={{ border: 'none', borderRadius: '8px' }} title="Sei Snapshot Providers" />
+
+Snapshot providers do not consistently label the state-store backend. Ask the
+provider to confirm that the snapshot uses PebbleDB before you restore it. The
+post-extraction check below is a second guard against archives that contain an
+obvious RocksDB path. It does not replace provider confirmation because some
+legacy and custom directory names do not identify their backend.
 
 ## Clean Up & Preparation
 
@@ -44246,7 +45120,22 @@ If you are **not** starting a node from fresh, perform the following backups and
    seid tendermint unsafe-reset-all --home $HOME/.sei
    ```
 
-4. **Remove Data and Wasm**
+4. **Check custom state-store paths**
+   Print the state-store section from `app.toml`:
+
+   ```bash theme={"dark"}
+   sed -n '/^\[state-store\]/,/^\[.*\]/p' $HOME/.sei/config/app.toml
+   ```
+
+   If `ss-db-directory` or `evm-ss-db-directory` is not empty, the state store
+   may live outside `$HOME/.sei/data`. Back up anything you need, then move or
+   remove the old state-store data before you restore the snapshot. The generic
+   commands below expect both settings to be empty so the snapshot's default
+   paths are used. Follow your provider's placement instructions if you keep
+   custom paths. Do not reuse a RocksDB directory with
+   `ss-backend = "pebbledb"`.
+
+5. **Remove data and Wasm**
    ```bash theme={"dark"}
    rm -rf $HOME/.sei/data
    rm -rf $HOME/.sei/wasm
@@ -44276,58 +45165,130 @@ sudo apt install curl lz4 wget aria2 pv -y
    SNAPSHOT_URL="<PASTE_SNAPSHOT_URL_HERE>"
    ```
 
-2. **Download and Extract**
-   Most providers compress the `data` and `wasm` directory directly. The following command streams the download and extracts it into `$HOME/.sei`.
+2. **Extract the snapshot**
+   Most providers compress the `data` and `wasm` directories directly. Stream
+   the archive to avoid storing a second compressed copy:
 
    ```bash theme={"dark"}
-   curl -L $SNAPSHOT_URL | lz4 -c -d | tar -x -C $HOME/.sei
+   set -o pipefail
+   curl --fail -L "$SNAPSHOT_URL" | lz4 -c -d | tar -x -C "$HOME/.sei"
    ```
 
-   **Alternative: Parallel Download with aria2**
+   **Alternative: parallel download with aria2**
 
-   For faster downloads, especially with large snapshots, you can use `aria2c` which supports parallel connections:
-
-   ```bash theme={"dark"}
-   # Download with 16 parallel connections
-   aria2c -x 16 -s 16 -o snapshot.tar.lz4 $SNAPSHOT_URL
-
-   # Extract after download completes
-   lz4 -c -d snapshot.tar.lz4 | tar -x -C $HOME/.sei
-
-   # Clean up the downloaded file
-   rm snapshot.tar.lz4
-   ```
-
-   You can also use `pv` to monitor extraction progress:
+   `aria2c` supports parallel connections but keeps the compressed archive
+   beside the extracted data. Put the archive on a data disk with enough free
+   space for both:
 
    ```bash theme={"dark"}
-   pv snapshot.tar.lz4 | lz4 -c -d | tar -x -C $HOME/.sei
+   set -o pipefail
+   SNAPSHOT_FILE="/path/on-data-disk/snapshot.tar.lz4"
+   aria2c -x 16 -s 16 \
+     -d "$(dirname "$SNAPSHOT_FILE")" \
+     -o "$(basename "$SNAPSHOT_FILE")" \
+     "$SNAPSHOT_URL" && \
+     pv "$SNAPSHOT_FILE" | lz4 -c -d | tar -x -C "$HOME/.sei"
    ```
 
    <Info>The `-x 16` flag sets the maximum connections per server, and `-s 16` splits the file into 16 segments for parallel downloading. You can adjust these values based on your network conditions.</Info>
 
-   <Warning>**Variation Warning**: Some providers might wrap the data in a folder or use different compression. - If the snapshot is a `.tar.gz`, use `tar -xzf`. - If the snapshot contains a root folder (e.g. `sei/data`), you might need to adjust the `-C` target or use `--strip-components`. - Always check the provider's specific page for exact commands.</Warning>
+   If extraction fails, remove the partially extracted `data` and `wasm`
+   directories before you retry. Do not continue to verification.
 
-3. **Restore Validator State**
+   <Warning>Some providers wrap the data in another directory or use a different compression format. For a `.tar.gz` snapshot, use the provider's `tar -xzf` command. If the archive contains a root directory such as `sei/data`, adjust the extraction target or `--strip-components`. Run the backend check below after any extraction method.</Warning>
+
+3. **Verify every extracted state-store path**
+   The check below scans every backend-labelled default state-store path
+   instead of stopping at the first result. It catches archives that contain
+   both PebbleDB and RocksDB:
+
+   ```bash theme={"dark"}
+   verify_snapshot_backend() {
+     local state_store_config backend_dirs backend path
+
+     if [ ! -f "$HOME/.sei/config/app.toml" ]; then
+       echo "UNVERIFIED: app.toml not found. Do not start seid." >&2
+       return 1
+     fi
+
+     state_store_config="$(
+       sed -n '/^\[state-store\]/,/^\[.*\]/p' \
+         "$HOME/.sei/config/app.toml"
+     )"
+
+     if printf '%s\n' "$state_store_config" | \
+       grep -Eq "^[[:space:]]*(ss-db-directory|evm-ss-db-directory)[[:space:]]*=[[:space:]]*(\"[^\"]+\"|'[^']+')"; then
+       echo "UNVERIFIED: custom state-store directory configured." >&2
+       echo "Use the provider-specific placement and verification steps." >&2
+       return 1
+     fi
+
+     backend_dirs="$(
+       for backend in pebbledb rocksdb; do
+         for path in \
+           "$HOME/.sei/data/$backend" \
+           "$HOME/.sei/data/state_store/cosmos/$backend" \
+           "$HOME/.sei/data/state_store/evm/$backend"; do
+           if [ -d "$path" ]; then
+             printf '%s\n' "$path"
+           fi
+         done
+       done
+     )"
+
+     printf '%s\n' "$backend_dirs"
+
+     if printf '%s\n' "$backend_dirs" | grep -Eq '(^|/)rocksdb$'; then
+       echo "FAIL: RocksDB data found. Do not start seid." >&2
+       return 1
+     fi
+
+     if ! printf '%s\n' "$backend_dirs" | grep -Eq '(^|/)pebbledb$'; then
+       echo "UNVERIFIED: no PebbleDB state-store directory found." >&2
+       return 1
+     fi
+
+     echo "PASS: PebbleDB found and no RocksDB directory found."
+   }
+
+   verify_snapshot_backend
+   ```
+
+   The function returns a nonzero status for `FAIL` and `UNVERIFIED`. Continue
+   only if the provider confirmed PebbleDB and the command prints `PASS`. A
+   legacy EVM store at `data/evm_ss/` does not identify its backend in the
+   directory name, which is why provider confirmation is still required. If
+   you used `aria2c`, remove the downloaded archive after this check passes:
+
+   ```bash theme={"dark"}
+   rm "$SNAPSHOT_FILE"
+   ```
+
+4. **Restore validator state**
 
    ```bash theme={"dark"}
    cp $HOME/priv_validator_state.json $HOME/.sei/data/priv_validator_state.json
    ```
 
-4. **Enable SeiDB**
-   Make sure to enable `sei-db` in your config if it's not already enabled:
+5. **Enable SeiDB and configure PebbleDB**
+   Make sure SeiDB is enabled and the state-store backend is PebbleDB:
 
    ```bash theme={"dark"}
-   sed -i.bak -E "/^\[state-commit\]/,/^\[.*\]/ s|^(sc-enable[[:space:]]*=[[:space:]]*).*$|\1true| ; /^\[state-store\]/,/^\[.*\]/ s|^(ss-enable[[:space:]]*=[[:space:]]*).*$|\1true|" $HOME/.sei/config/app.toml
+   sed -i.bak -E "/^\[state-commit\]/,/^\[.*\]/ s|^[#[:space:]]*(sc-enable[[:space:]]*=[[:space:]]*).*$|\1true| ; /^\[state-store\]/,/^\[.*\]/ s|^[#[:space:]]*(ss-enable[[:space:]]*=[[:space:]]*).*$|\1true| ; /^\[state-store\]/,/^\[.*\]/ s|^[#[:space:]]*(ss-backend[[:space:]]*=[[:space:]]*).*$|\1\"pebbledb\"|" $HOME/.sei/config/app.toml
+
+   sed -n '/^\[state-store\]/,/^\[.*\]/p' $HOME/.sei/config/app.toml
    ```
 
-5. **Restart the Node**
+   Confirm that the output includes `ss-backend = "pebbledb"`. If the key is
+   absent, add it directly below `[state-store]` before you restart the node.
+
+6. **Restart the node**
 
    ```bash theme={"dark"}
    sudo systemctl start seid
    ```
 
-6. **Monitor Logs**
+7. **Monitor logs**
    ```bash theme={"dark"}
    sudo journalctl -fu seid
    ```
@@ -45794,124 +46755,6 @@ technical communities in [Telegram](https://t.me/+ZN-NcvOWStQwMzk0) or
 
 ---
 
-URL: https://docs.sei.io/node/rocksdb-backend
-
-# RocksDB Backend Setup & Performance
-
-> Build and enable the RocksDB backend for seid to significantly improve iteration-heavy operations and traceBlock latency, especially on long-history RPC and archive nodes.
-
-## Overview
-
-As Sei nodes accumulate more history and state data, iteration-heavy operations—like those performed during `traceBlock` calls—can become significantly slower. This is especially true for archive or RPC nodes where the state store contains millions of versions.
-
-To address this, Sei supports **RocksDB** as an alternative backend to PebbleDB. RocksDB provides native **multi-version concurrency control (MVCC)** and **column family support**, which leads to substantial iteration performance improvements as history grows.
-
-## Why RocksDB?
-
-PebbleDB lacks native MVCC support, meaning Sei must manually encode versions into keys. This retrofit approach causes iteration time to grow linearly with the amount of stored history. As a result:
-
-* Archive nodes with large state stores experience **slower debug trace latency**.
-* Each key lookup may require scanning multiple key versions.
-* Iterations (e.g., over Oracle or EVM module keys) become increasingly expensive over time.
-
-By contrast, **RocksDB** supports native user-defined timestamps and optimized column families for versioned data access. This means:
-
-* Iterations over keys at a single version are **much faster**.
-* Historical data growth has **minimal effect on iteration cost**.
-* The performance advantage **amplifies with larger node history**.
-
-In Sei’s benchmarks, RocksDB achieved up to **10–30× faster traceBlock iteration times** compared to PebbleDB, with even greater benefits observed on archive nodes.
-
-## Example: TraceBlock Latency Comparison
-
-The following chart compares iteration (trace time) performance between **PebbleDB** and **RocksDB** over a 3 million block history:
-
-<img src="https://mintcdn.com/seilabs/szEAtr1JphlH_mVc/assets/pebbledb-vs-rocksdb.png?fit=max&auto=format&n=szEAtr1JphlH_mVc&q=85&s=dc793f31c52e9b1d9baea5e406351fb2" alt="PebbleDB vs RocksDB Trace Times" width="738" height="372" data-path="assets/pebbledb-vs-rocksdb.png" />
-
-*Trace Times: Pebble vs Rocks (3M history): RocksDB shows a significantly flatter latency curve as state grows, while PebbleDB’s iteration times increase sharply for older blocks.*
-
-## Setup Instructions
-
-RocksDB only needs to be built once. After that, you can install `seid` with RocksDB support directly.
-
-### Prerequisites
-
-Ensure your system includes the following packages:
-
-```bash theme={"dark"}
-sudo apt-get update
-sudo apt-get install -y build-essential pkg-config cmake git zlib1g-dev \
-    libbz2-dev libsnappy-dev liblz4-dev libzstd-dev libjemalloc-dev \
-    libgflags-dev liburing-dev
-```
-
-### Build & Install
-
-Refer to the Sei `Makefile` [here](https://github.com/sei-protocol/sei-chain/blob/main/Makefile#L116) for the official targets.
-
-```bash theme={"dark"}
-# Step 1: Build RocksDB (one-time setup)
-make build-rocksdb
-
-# Step 2: Install seid with RocksDB backend
-make install-rocksdb
-```
-
-Once installed, your `seid` binary will be built with RocksDB backend support:
-
-```bash theme={"dark"}
-seid version
-# should include "rocksdbBackend" build tag
-```
-
-### Configuration
-
-After installation, update your configuration file to enable the RocksDB backend:
-
-```bash theme={"dark"}
-~/.sei/config/app.toml
-```
-
-Set
-
-```toml theme={"dark"}
-ss-backend = "rocksdb"
-```
-
-### Node Setup Notes
-
-* RPC Nodes — must perform a state sync when spinning up a new node configured with RocksDB.
-* Archive Nodes — currently, RocksDB is not supported for existing data unless syncing from genesis. A migration route from PebbleDB to RocksDB is being developed and will be shared soon.
-
-## Summary
-
-| Feature                       | PebbleDB           | RocksDB                               |
-| ----------------------------- | ------------------ | ------------------------------------- |
-| MVCC Support                  | No                 | ✅ Native via user-defined timestamps  |
-| Column Families               | No                 | ✅ Yes                                 |
-| Iteration Speed (Large State) | Slows with history | ✅ Up to 30× faster                    |
-| Installation                  | Default            | One-time build (`make build-rocksdb`) |
-
-## TL;DR
-
-* RocksDB backend drastically improves trace iteration and historical query performance.
-* Install once, then run:
-
-```bash theme={"dark"}
-make install-rocksdb
-```
-
-* Update \~/.sei/config/app.toml to use RocksDB:
-
-```toml theme={"dark"}
-ss-backend = "rocksdb"
-```
-
-* RPC nodes require state sync; archive nodes must currently sync from genesis
-* Expect **10–30× faster** trace latencies, especially on archive nodes or long-history setups.
-
----
-
 URL: https://docs.sei.io/node/giga-storage-migration
 
 # Giga SS Store Migration Guide
@@ -45925,10 +46768,10 @@ non-EVM modules stop paying write amplification for EVM state.
 
 After migration the SS layer is repartitioned into two cooperating stores:
 
-| Layer                                    | Cosmos backend                       | EVM backend                                      |
-| ---------------------------------------- | ------------------------------------ | ------------------------------------------------ |
-| **SC** (State Commit, app hash)          | `memiavl`                            | FlatKV                                           |
-| **SS** (State Store, historical queries) | single MVCC DB (PebbleDB or RocksDB) | dedicated EVM SS MVCC DB(s) under `data/evm_ss/` |
+| Layer                                    | Cosmos backend                | EVM backend                                                        |
+| ---------------------------------------- | ----------------------------- | ------------------------------------------------------------------ |
+| **SC** (State Commit, app hash)          | `memiavl`                     | FlatKV                                                             |
+| **SS** (State Store, historical queries) | single PebbleDB MVCC database | dedicated EVM SS MVCC databases in the configured EVM SS directory |
 
 Only the **SS** layer changes for this migration. SC layer config is untouched
 and `memiavl` remains the authoritative source for the app hash, so this is
@@ -45956,9 +46799,6 @@ local data directory and imports a fresh snapshot into the new layout.
 
 * EVM reads are served exclusively from a dedicated EVM SS database.
 * Non-EVM modules no longer pay write amplification for EVM state.
-* A backend change (PebbleDB ↔ RocksDB) can be combined with the same state
-  sync, since `ss-backend` drives both the Cosmos SS MVCC DB and every EVM SS
-  sub-DB.
 
 ## What's different about EVM SS
 
@@ -45982,8 +46822,7 @@ sc-enable = true
 [state-store]
 ss-enable = true
 
-# DBBackend for the Cosmos SS MVCC DB and for every EVM SS sub-DB.
-# Supported: pebbledb, rocksdb. Default pebbledb.
+# Use PebbleDB for the Cosmos SS MVCC DB and every EVM SS sub-DB.
 ss-backend = "pebbledb"
 
 # Route EVM state to the dedicated EVM SS backend.
@@ -45993,14 +46832,7 @@ ss-backend = "pebbledb"
 evm-ss-split = true
 ```
 
-If you want to switch SS backend in the same step:
-
-* **PebbleDB → RocksDB**: set `ss-backend = "rocksdb"`, build `seid` with
-  `-tags rocksdbBackend`, and install RocksDB per the
-  [RocksDB Backend Guide](/node/rocksdb-backend). `ss-backend` drives both the
-  Cosmos SS MVCC DB and every EVM SS sub-DB, so a single setting flips both.
-* No data migration tool is needed across backends — the state sync populates
-  the new layout.
+<Warning>Keep `ss-backend = "pebbledb"` during this migration. RocksDB support for the state store will be removed. No target release has been published. If the node already uses RocksDB, follow [Move off RocksDB](/node/node-operators#move-off-rocksdb).</Warning>
 
 ### Step 2: State sync into the new layout
 
@@ -46088,10 +46920,9 @@ flipping `evm-ss-split` from `false` to `true` without state syncing.
 
 1. **EVM SS directory missing or empty** (before the EVM SS is opened). When
    `evm-ss-split = true`, the composite state store refuses to proceed if
-   Cosmos SS already has committed history but the EVM SS directory
-   (`data/evm_ss/` by default) does not exist or is empty. Failing before
-   the sub-DBs are opened means a rejected config does not leave a confusing
-   empty `data/evm_ss/` behind.
+   Cosmos SS already has committed history but the configured EVM SS directory
+   does not exist or is empty. Failing before the sub-DBs are opened means a
+   rejected config does not leave a confusing empty directory behind.
 2. **EVM SS DB empty post-open, pre-recovery.** Belt-and-suspenders for (1)
    when the directory exists but its DBs are empty. The WAL only covers the
    last `KeepRecent` blocks, so replay cannot rebuild a fresh EVM SS from
@@ -46103,18 +46934,19 @@ flipping `evm-ss-split` from `false` to `true` without state syncing.
 
 If any check fires, the correct fix is either (a) complete the state sync
 described above, or (b) set `evm-ss-split = false` and restart. If
-`data/evm_ss/` is stale from a failed attempt, remove it before state syncing.
+the configured EVM SS directory is stale from a failed attempt, remove it
+before state syncing.
 
 ## Rollback
 
 To roll back:
 
 1. Set `evm-ss-split = false` in `app.toml`.
-2. Restart the node. The EVM SS DB under `data/evm_ss/` is no longer opened
-   but stays on disk until manually removed.
+2. Restart the node. The EVM SS DB is no longer opened but stays on disk until
+   you remove it.
 
 To fully reclaim the disk used by EVM SS, stop the node and delete
-`data/evm_ss/` after reverting the setting.
+the configured EVM SS directory after reverting the setting.
 
 <Warning>Cleanly rolling back to `evm-ss-split = false` requires another state sync. Under `evm-ss-split = true`, EVM writes go only to the EVM SS DB, so Cosmos SS will not have those writes. Restarting with `evm-ss-split = false` stops opening the EVM SS DB, but EVM-state queries will miss anything written after the Giga state sync until you re-state-sync without the split.</Warning>
 
@@ -46122,9 +46954,12 @@ To fully reclaim the disk used by EVM SS, stop the node and delete
 
 ### Where do the data files live after migrating?
 
-* Cosmos SS data lives under the same directory as before, typically
-  `data/pebbledb/` for the default `pebbledb` backend.
-* EVM SS data lives under `data/evm_ss/`.
+* Cosmos SS data uses `data/pebbledb/` in the legacy layout and
+  `data/state_store/cosmos/pebbledb/` in the current layout.
+* EVM SS data uses `data/evm_ss/` in the legacy layout and
+  `data/state_store/evm/pebbledb/` in the current layout.
+* A non-empty `ss-db-directory` or `evm-ss-db-directory` overrides the
+  corresponding default path.
 * SC data (`memiavl` + FlatKV) is untouched by this migration.
 
 ### Does Giga SS Store change the app hash or consensus?

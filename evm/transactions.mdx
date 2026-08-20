@@ -285,6 +285,23 @@ EVM transactions in Sei follow the Ethereum transaction format with standard pro
 | Out of Gas | Gas limit too low for the operation | Use `eth_estimateGas` to set appropriate limit |
 | Contract Execution Failed | Contract function reverted | Test with `eth_call` before sending transaction |
 
+## Transaction Validation
+
+Before an EVM transaction is accepted, Sei performs strict semantic validation of its fields, enforced since v6.5.0. If you construct and sign transactions manually, make sure they are well-formed to avoid rejection.
+
+- The canonical field-level reference (signature-value byte caps and zero-padding rules, access-list entries, EIP-7702 authorization lists) lives in [Transaction Types](/evm/evm-parity/transaction-types#access-list-and-auth-list-entry-validation).
+- Envelope-level restrictions (no Cosmos wrapper fields, canonical protobuf encoding, whole-block rejection on decode failure) are covered in [Differences with Ethereum](/evm/differences-with-ethereum#evm-transaction-envelope-restrictions).
+
+### Receipts for nonce-bumping failed transactions
+
+Some EVM transactions pass basic validation and bump the sender's nonce, yet still fail during state transition — for example, a transaction whose gas limit clears the intrinsic-gas check but falls short of the EIP-7623 floor-data-gas requirement (which can occur in normal operation after Pectra). Because these transactions bump the nonce, they are considered to have happened and therefore produce a receipt.
+
+For such failures, Sei writes a synthetic `status=0` (failed) receipt at the end of the block. The receipt reports a `gasUsed` of 0 and an `effectiveGasPrice` of 0, and carries a `VmError` describing the state-transition reason. `eth_getTransactionReceipt` returns this failed-tx receipt instead of `null`. The `VmError` is stored on Sei's internal receipt record and is not included in the `eth_getTransactionReceipt` JSON response; retrieve it with the non-standard `eth_getVMError` method.
+
+<Info>
+  Previously, a nonce-bumping transaction that failed during state transition could return `null` from `eth_getTransactionReceipt` indefinitely, causing clients that poll for a receipt to hang. Clients should now expect a `status=0` receipt for these transactions and treat it as a normal failed-transaction result.
+</Info>
+
 ## Additional Resources
 
 <CardGroup cols={3}>

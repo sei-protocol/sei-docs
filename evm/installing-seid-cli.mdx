@@ -12,24 +12,56 @@ The `seid` CLI is the command-line tool for interacting with the Sei blockchain.
 
 ## Prerequisites
 
-- Go 1.23+: Installation instructions are available [here](https://go.dev/doc/install).
+- [Go 1.25.6 or later](https://go.dev/doc/install) is required only when building from source. Check the `go.mod` at the release tag you check out below (e.g. [`v6.6.1`](https://github.com/sei-protocol/sei-chain/blob/v6.6.1/go.mod)) for its exact requirement. Prebuilt binaries have no prerequisites.
 
 ## Installation
 
-To install seid, locate the version you wish to use on the [sei-chain releases page](https://github.com/sei-protocol/sei-chain/releases). A list of the currently used versions on mainnet and testnet are displayed right below.
+To install `seid`, locate the version you wish to use on the [sei-chain releases page](https://github.com/sei-protocol/sei-chain/releases). A list of the currently used versions on mainnet and testnet are displayed right below.
 
 <VersionTable />
 
-Then, execute the following commands with the version that you picked:
+<Tabs>
+  <Tab title="Prebuilt binary (recommended)">
+    Each release attaches a statically linked `seid` build for `linux/amd64` with no
+    runtime dependencies:
 
-```bash
-git clone https://github.com/sei-protocol/sei-chain
-cd sei-chain
-git checkout [VERSION]
-make install
-```
+    ```bash
+    VERSION=<version-tag>  # e.g. v6.6.1 — see the version table above
+    FILE=sei-chain_${VERSION#v}_linux_x86_64.tar.gz  # asset filenames omit the leading v
 
-You can verify that seid was installed correctly by running:
+    curl -fLO https://github.com/sei-protocol/sei-chain/releases/download/${VERSION}/${FILE}
+    curl -fLO https://github.com/sei-protocol/sei-chain/releases/download/${VERSION}/checksums.txt
+
+    # Verify integrity before trusting the binary; extract and install only if it passes
+    sha256sum -c checksums.txt --ignore-missing \
+      && tar -xzf ${FILE} seid \
+      && sudo install -m 0755 seid /usr/local/bin/seid
+    ```
+
+    <Info>
+      Prebuilt binaries are attached from `v6.6.1` onward — for earlier versions, build
+      from source. They are `linux/amd64` only and omit hardware Ledger support. On
+      other architectures, or if you sign with a Ledger device, build from source.
+    </Info>
+
+    <Note>
+      Previously installed with `make install`? An older copy in `$(go env GOPATH)/bin`
+      can shadow `/usr/local/bin/seid` depending on your `PATH` order — `which -a seid`
+      lists every copy.
+    </Note>
+  </Tab>
+
+  <Tab title="Build from source">
+    ```bash
+    git clone https://github.com/sei-protocol/sei-chain
+    cd sei-chain
+    git checkout <version-tag>
+    make install
+    ```
+  </Tab>
+</Tabs>
+
+You can verify that `seid` was installed correctly by running:
 
 ```bash
 seid version
@@ -37,7 +69,7 @@ seid version
 
 ## Troubleshooting Installation
 
-<Warning>If you encounter an error like `command not found: seid`, you may need to set your GOPATH environment variable.</Warning>
+<Warning>If you built from source and encounter an error like `command not found: seid`, you may need to set your GOPATH environment variable.</Warning>
 
 - Use `go env GOPATH` to find your GOPATH
 - Add the following lines to your `~/.bashrc` or `~/.zshrc`:
@@ -65,7 +97,6 @@ Available Commands:
   add-wasm-genesis-message Wasm genesis subcommands
   blocktest                run EF blocktest
   collect-gentxs           Collect genesis txs and output a genesis.json file
-  compact                  Compact the application DB fully (only if it is a levelDB)
   config                   Create or query an application CLI configuration file
   debug                    Tool for helping with debugging your application
   ethreplay                replay EVM transactions
@@ -74,11 +105,11 @@ Available Commands:
   help                     Help about any command
   init                     Initialize private validator, p2p, genesis, and application configuration files
   keys                     Manage your application's keys
-  latest_version           Prints the latest version of the app DB
+  log                      Runtime log management
   migrate                  Migrate genesis to a specified target version
-  prune                    Prune app history states by keeping the recent heights and deleting old heights
   query                    Querying subcommands
   rollback                 rollback cosmos-sdk and tendermint state by one height
+  snapshot                 Create a snapshot using the snapshot manager
   start                    Run the full node
   status                   Query remote node for status
   tendermint               Tendermint subcommands
@@ -96,6 +127,8 @@ Flags:
 
 Use "seid [command] --help" for more information about a command.
 ```
+
+<Note>The `compact`, `latest_version`, and `prune` maintenance commands were removed in v6.6.0. To read the latest memIAVL version (the former `latest_version`), use `seidb memiavl-latest-version`. Historical-data retention is managed through `min-retain-blocks` in the base `app.toml` and `ss-keep-recent` under `[state-store]`.</Note>
 
 ## Adding a Wallet
 
@@ -268,8 +301,12 @@ This will remove the specified wallet from your local keyring. Be cautious, as t
 
 ## Uninstalling seid
 
-If you need to remove `seid` from your system, you can delete the binary from your `$GOPATH/bin` directory:
+If you need to remove `seid` from your system, delete the binary from wherever it was installed:
 
 ```bash
+# Prebuilt binary install
+sudo rm /usr/local/bin/seid
+
+# Build-from-source install
 rm $(go env GOPATH)/bin/seid
 ```

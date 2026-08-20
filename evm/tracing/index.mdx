@@ -56,6 +56,7 @@ Debug tracing is your primary tool for understanding EVM transaction execution o
 | `debug_traceBlockByNumber` | Trace entire block         | Block-level analysis          |
 | `debug_traceCall`          | Simulate and trace         | Testing before execution      |
 | `debug_traceStateAccess`   | State access patterns      | Performance optimization      |
+| `debug_traceTransactionProfile` | Trace plus timing/store-access profiling | Latency breakdown and DB-access analysis |
 
 ## Transaction Analysis Example
 
@@ -407,6 +408,44 @@ debug_traceStateAccess(hash)
 - **`callTracer`**: Contract call hierarchy
 - **`opcodeTracer`**: Opcode-level execution
 - **Custom JS**: Custom analysis logic
+
+## Pre-Baked Trace Cache
+
+RPC nodes can optionally pre-compute and cache `debug_trace*` results in the background so that trace requests are served from a local on-disk cache instead of re-executing the block live on every call. This is an opt-in feature configured through new `[evm]` fields in `app.toml` and is recommended for RPC nodes only.
+
+When enabled, a background worker re-executes each committed block with the configured tracers and stores the results in a Pebble database at `<home>/data/trace_db`. The following methods serve from this cache on hit, and otherwise fall through to live re-execution:
+
+- `debug_traceTransaction`
+- `debug_traceBlockByNumber` and `debug_traceBlockByHash`
+
+### When the cache is used
+
+A request is only served from cache when trace baking is enabled **and** the request uses a *bakeable* tracer configuration:
+
+- The tracer is one of `callTracer`, `prestateTracer`, or `flatCallTracer`.
+- No custom `tracerConfig` is supplied. A per-call `tracerConfig` (for example `{"withLog": true}`) is not part of the cache key, so any custom tracer config makes the request un-bakeable and it falls through to live re-execution.
+
+Requests that use the struct logger (no tracer), a JavaScript tracer, or any other named tracer are always executed live.
+
+### Configuration
+
+Trace baking is controlled by these `[evm]` fields in `app.toml`:
+
+| Field | Default | Description |
+| ----- | ------- | ----------- |
+| `trace_bake_enabled` | `false` | Enables the background trace-baking worker that caches results at `<home>/data/trace_db`. RPC nodes only. |
+| `trace_bake_workers` | `1` | Number of re-execution worker goroutines. |
+| `trace_bake_queue_size` | `4096` | Bounds the in-flight height queue. Heights are dropped when the queue is full so consensus never blocks; dropped blocks fall through to live re-execution. |
+| `trace_bake_tracers` | `["callTracer"]` | Which tracers to bake per block. Eligible values: `callTracer`, `prestateTracer`, `flatCallTracer`. |
+| `trace_bake_window_blocks` | `0` | Rolling prune window: blocks older than `(latest - window)` are pruned. `0` disables pruning, so the cache grows forever. |
+| `trace_bake_use_snapshot` | `false` | Uses in-memory memiavl snapshots as the state backend for trace baking when the store backend supports snapshots. |
+| `trace_bake_snapshot_window` | `64` | Number of recent memiavl snapshots to retain for trace baking. |
+
+<Warning>Enabling trace baking adds a persistent on-disk store at `<home>/data/trace_db` and increases disk usage. The store's write-ahead log is flushed when the node shuts down cleanly.</Warning>
+
+## Removed legacy trace filters
+
+<Note>The legacy `*ExcludeTraceFail` endpoints have been removed. Use `debug_traceBlockByNumber` or `debug_traceBlockByHash` for block tracing and `eth_getTransactionReceipt` for EVM receipts. There is no block or filter method for discovering synthetic logs from Cosmos-originated transactions. If you already know a synthetic transaction hash, enable `sei_getTransactionReceipt` to retrieve its receipt and logs.</Note>
 
 ## Next Steps
 

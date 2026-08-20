@@ -66,7 +66,7 @@ The EVM section is the primary developer resource for building on Sei. It covers
 
 ### Cosmos-SDK (Deprecated)
 
-> ⚠️ **Deprecation Notice**: Cosmos SDK and CosmWasm functionality is being deprecated in favor of EVM-only. For more details, see [SIP-3](https://github.com/sei-protocol/sips/blob/main/sips/sip-3.md) and [Proposal 99](https://www.mintscan.io/sei/proposals/99).
+> ⚠️ **Deprecation Notice**: Cosmos SDK and CosmWasm functionality is being deprecated in favor of EVM-only. For more details, see [SIP-3](https://github.com/sei-protocol/sips/blob/main/sips/sip-3.md) and [Proposal 99](https://seistream.app/proposals/99).
 
 This section contains legacy documentation for Cosmos SDK functionality. New development should focus on the EVM.
 
@@ -77,7 +77,7 @@ The Operate section covers topics related to running Sei infrastructure. This is
 **Contents include:**
 
 - **Node Operations**: Overview, Seictl setup, statesync, snapshot sync, node types, troubleshooting, API configuration, validators, oracle price feeder
-- **Advanced Operations**: Configuration & monitoring, RocksDB backend, technical reference
+- **Advanced Operations**: Configuration & monitoring, Giga SS Store migration, technical reference
 
 ## Style Guidelines
 

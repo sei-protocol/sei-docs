@@ -129,7 +129,7 @@ export const SstoreGasLive = ({ network = 'mainnet' }) => {
           SstoreGasProbe
         </a>{' '}
         contract. Governance-adjustable — set by{' '}
-        <a href="https://www.mintscan.io/sei/proposals/109" target="_blank" rel="noopener noreferrer" className="underline">
+        <a href="https://seistream.app/proposals/109" target="_blank" rel="noopener noreferrer" className="underline">
           Proposal #109
         </a>
         .

@@ -16,6 +16,24 @@ Sei supports most Ethereum transaction types. The one notable exception is blob 
 | 2 | EIP-1559 | Fee market | Supported — base fee is not burned |
 | 4 | EIP-7702 | Set code | Supported |
 
+### Set Code (EIP-7702) Auth List Requirement
+
+Type 4 (EIP-7702) SetCode transactions must include a non-empty authorization list. A transaction with an empty or nil auth list is rejected during validation with the error `auth list cannot be empty`.
+
+Each authorization entry must also carry a valid (non-nil) chain ID. If you are constructing SetCode transactions directly, ensure at least one authorization is present before submitting.
+
+### Access List and Auth List Entry Validation
+
+EVM transactions undergo stricter semantic validation during `ValidateBasic`, enforced since v6.5.0. Malformed transactions that older node versions accepted are rejected.
+
+**Access list entries (type 1 and type 2):** Each access list tuple is validated for well-formed hex encoding. Every address must be a canonical hex address of the correct length, and every storage key must be a canonical hex hash of the correct length. Entries with wrong-length or non-hex values are rejected.
+
+**Auth list entries (type 4):** In addition to the non-empty auth list and non-nil chain ID requirements above, each authorization entry is validated for a canonical hex address and well-formed signature values.
+
+**Signature values:** The transaction-level `v`, `r`, and `s` values must each fit in 32 bytes; auth list entries (type 4) cap `v` at 1 byte and `r`/`s` at 32 bytes. In both cases, values must not be zero-padded (no leading zero bytes in multi-byte values); zero-padded signature encodings are rejected.
+
+This section is the canonical reference for field-level EVM transaction validation on Sei. Envelope-level restrictions (Cosmos wrapper fields, canonical protobuf encoding, whole-block rejection on decode failure) are covered in [Differences with Ethereum](/evm/differences-with-ethereum#evm-transaction-envelope-restrictions).
+
 ## Not Supported
 
 | Type | EIP | Name | Notes |

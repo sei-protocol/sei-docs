@@ -23,7 +23,6 @@
  * top level and will fail to parse the page.
  */
 
-import { execSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';

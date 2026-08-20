@@ -13,6 +13,16 @@ Ethereum stores state in a Merkle Patricia Trie (MPT) and `eth_getProof` returns
 
 The RPC method exists and responds correctly, but the proof data structure is not compatible with Ethereum MPT proof verifiers.
 
+### Store backends
+
+`eth_getProof` resolves the underlying account store by unwrapping known KVStore wrappers until it reaches a proof-capable queryable store. This means proofs are served across a broader range of node configurations, not just a classic IAVL store. Supported roots include:
+
+- Classic IAVL stores
+- store/v2 memiavl commitment stores
+- Any other proof-capable (queryable) store reached through cache, `tracekv`, Giga cache, or prefix store wrappers
+
+If none of these can be reached, the call returns a `cannot find a proof-capable queryable KV store` error. In all cases the returned proof data is IAVL-format, not Ethereum MPT.
+
 ## What This Affects
 
 Most applications do not call `eth_getProof` directly. It is primarily used by:
@@ -24,6 +34,13 @@ Most applications do not call `eth_getProof` directly. It is primarily used by:
 If you are doing standard contract reads, event queries, or transaction lookups, this difference does not affect you.
 
 ## Calling eth_getProof
+
+### Storage key requirements
+
+Before calling `eth_getProof`, note two requirements Sei enforces on the `storageKeys` argument:
+
+- **Keys must be hex-encoded.** Each storage key must be a valid hex-encoded value (for example `0x0000000000000000000000000000000000000000000000000000000000000001`). Keys are decoded and left-padded to 32 bytes. A malformed, non-hex key is rejected with an `invalid storage key` error. Raw byte strings, which were previously accepted, no longer work.
+- **At most 1024 keys per request.** A single proof request may include a maximum of 1024 storage keys. Requesting more returns a `too many storage keys` error. Split larger sets across multiple requests.
 
 The call works through standard libraries:
 

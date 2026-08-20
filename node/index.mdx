@@ -10,7 +10,7 @@ import { RandomPeers } from '/snippets/random-peers.jsx';
 
 **Power the Sei Network Infrastructure**
 
-Comprehensive guides for running, maintaining, and optimizing Sei network nodes. Whether you're setting up a validator, an RPC node, or a relayer, you'll find detailed instructions and best practices to ensure optimal performance and security.
+Comprehensive guides for running, maintaining, and optimizing Sei network nodes. Whether you're setting up a validator, an RPC node, or an archive node, you'll find detailed instructions and best practices to ensure optimal performance and security.
 
 <CardGroup cols={4}>
   <Card horizontal title="RPC/API Nodes" icon="network-wired" />
@@ -63,17 +63,34 @@ timedatectl
 
 ##### Install Go
 
-Suggested Version: Go 1.24.x (required for seid v6.3+)
+You need Go only if you build `seid` from source. The prebuilt binary and Docker
+install paths in the next step do not require it.
+
+Current `seid` releases require Go 1.25.6 or later. Check the `go.mod` at the release tag
+you check out
+(e.g. [`v6.6.1`](https://github.com/sei-protocol/sei-chain/blob/v6.6.1/go.mod)) for its
+exact requirement.
 
 ###### Installation Steps
 
 ```bash
-# Check for existing Go installation
+# Check for existing Go installations — more than one entry means another copy
+# may still win on your PATH after this install
+which -a go
 go version
 
-# Download and install Go 1.24.x
-wget https://go.dev/dl/go1.24.5.linux-amd64.tar.gz
-sudo tar -C /usr/local -xzf go1.24.5.linux-amd64.tar.gz
+# Bumping Go? Change these two lines only
+GO_TARBALL=go1.25.6.linux-amd64.tar.gz
+GO_SHA256=f022b6aad78e362bcba9b0b94d09ad58c5a70c6ba3b7582905fababf5fe0181a
+
+curl -fLO https://go.dev/dl/${GO_TARBALL}
+
+# Verify integrity before trusting the archive (go.dev/dl publishes a SHA256 per file
+# at ${GO_TARBALL}.sha256), then replace any previous installation — extracting over
+# one leaves stale files behind
+echo "${GO_SHA256}  ${GO_TARBALL}" | sha256sum -c - \
+  && sudo rm -rf /usr/local/go \
+  && sudo tar -C /usr/local -xzf ${GO_TARBALL}
 
 # Add Go to your environment variables
 echo 'export PATH=$PATH:/usr/local/go/bin' >> $HOME/.bashrc
@@ -82,52 +99,112 @@ source $HOME/.bashrc
 # Verify installation
 go version
 ```
+
+<Note>
+  `sudo rm -rf /usr/local/go` is the replacement step [Go's install
+  docs](https://go.dev/doc/install) prescribe, but it only clears a tarball install. A
+  package-manager Go (`/usr/lib/go-*`, Homebrew) survives it and can still shadow
+  `/usr/local/go/bin/go` — if the final `go version` reports the old release,
+  `which -a go` lists every copy on your `PATH`. If the extraction itself fails, the
+  verified tarball is still in your working directory: re-run the `sudo tar` command
+  rather than starting over.
+</Note>
 </Step>
 
 <Step title="Install Sei">
-##### Install Sei Binary
+##### Install the `seid` binary
 
-```bash
-# Clone repository and install
-git clone https://github.com/sei-protocol/sei-chain.git
-cd sei-chain
-git checkout <version-tag>  # Replace with specific version
-make install
+See the Network Versions table above for the current recommended version.
 
-# Verify installation
-seid version
-```
+<Tabs>
+  <Tab title="Prebuilt binary (recommended)">
+    Each release attaches a statically linked `seid` build for `linux/amd64` with no
+    runtime dependencies: no Go toolchain and no shared libraries to install.
 
-See Network Versions table above for current recommended version.
+    ```bash
+    VERSION=<version-tag>  # e.g. v6.6.1 — see the Network Versions table above
+    FILE=sei-chain_${VERSION#v}_linux_x86_64.tar.gz  # asset filenames omit the leading v
 
-<Accordion title="Alternative: Docker Image">
-  Official Docker images are available at GitHub Container Registry.
+    curl -fLO https://github.com/sei-protocol/sei-chain/releases/download/${VERSION}/${FILE}
+    curl -fLO https://github.com/sei-protocol/sei-chain/releases/download/${VERSION}/checksums.txt
 
-  ```bash
-  # Pull the latest version
-  docker pull ghcr.io/sei-protocol/sei:latest
+    # Verify integrity before trusting the binary; extract and install only if it passes
+    sha256sum -c checksums.txt --ignore-missing \
+      && tar -xzf ${FILE} seid \
+      && sudo install -m 0755 seid /usr/local/bin/seid
 
-  # Or pull a specific version (recommended)
-  docker pull ghcr.io/sei-protocol/sei:v6.3.1
-  ```
+    # Verify installation
+    seid version
+    ```
 
-  Available architectures: linux/amd64 and linux/arm64.
-</Accordion>
+    <Info>
+      Prebuilt binaries are attached from `v6.6.1` onward. For earlier versions,
+      build from source or use Docker. They are `linux/amd64` only and omit hardware
+      Ledger support. On other architectures, or if you sign with a Ledger device,
+      build from source or use Docker.
+    </Info>
 
-<Info>
-  If you encounter an error like `command not found: seid`, you may need to set your GOPATH environment variable.
+    <Note>
+      Switching from a previous `make install` build? Remove the old copy
+      (`rm -f "$(go env GOPATH)/bin/seid"`) or make sure your service unit points at
+      `/usr/local/bin/seid` — `which -a seid` lists every copy on your `PATH`.
+    </Note>
+  </Tab>
 
-  Add the following to your `~/.bashrc` or `~/.zshrc`:
+  <Tab title="Build from source">
+    Requires Go and a C toolchain (see the Environment Setup step above).
 
-  ```bash
-  export GOPATH=$(go env GOPATH)
-  export PATH=$PATH:$GOPATH/bin
-  ```
+    ```bash
+    # Clone repository and install
+    git clone https://github.com/sei-protocol/sei-chain.git
+    cd sei-chain
+    git checkout <version-tag>  # Replace with specific version
+    make install
 
-  Then reload your shell with `source ~/.bashrc` or `source ~/.zshrc`.
+    # Verify installation
+    seid version
+    ```
 
-  For more information see [here](https://pkg.go.dev/cmd/go#hdr-GOPATH_environment_variable).
-</Info>
+    <Info>
+      If you encounter an error like `command not found: seid`, you may need to set your GOPATH environment variable.
+
+      Add the following to your `~/.bashrc` or `~/.zshrc`:
+
+      ```bash
+      export GOPATH=$(go env GOPATH)
+      export PATH=$PATH:$GOPATH/bin
+      ```
+
+      Then reload your shell with `source ~/.bashrc` or `source ~/.zshrc`.
+
+      For more information see [here](https://pkg.go.dev/cmd/go#hdr-GOPATH_environment_variable).
+    </Info>
+  </Tab>
+
+  <Tab title="Docker">
+    Official Docker images are available at GitHub Container Registry.
+
+    ```bash
+    # Pull the latest version
+    docker pull ghcr.io/sei-protocol/sei:latest
+
+    # Or pull a specific version (recommended)
+    docker pull ghcr.io/sei-protocol/sei:v6.3.1
+    ```
+
+    Available architectures: linux/amd64 and linux/arm64.
+
+    <Warning>
+      Sei's continuous integration (CI) pipelines publish testing-only image variants to an internal registry — they are not available on `ghcr.io`. These must **never** be used in production and are compiled with special Go build tags:
+
+      - `mock-*` — built with the `mock_balances` build tag; mocks account balances.
+      - `mock_block_validation-*` — bypasses `AppHash` and `DataHash` block validation.
+      - `mock_chain_validation-*` — swallows most halting consensus validation failures (every swallow-eligible check except `ErrLastCommitVerify`), computing each check authentically but continuing instead of halting. Built with both the `mock_balances` and `mock_chain_validation` Go build tags. Nodes running these non-default consensus policies emit a `sei_unsafe_validation_skipped_total` counter (attribute `validation_error`) each time a failure is swallowed; on production policies it never increments.
+
+      Production images are built with full validation enabled. The `mock_block_validation` and `mock_chain_validation` variants are intended solely for testing environments where relaxing validation checks is required; running either on a production network is unsafe.
+    </Warning>
+  </Tab>
+</Tabs>
 
 ##### Initialize Chain Files
 
@@ -220,7 +297,7 @@ broadcast = true
 size = 5000
 
 # Limit the total size of all txs in the mempool.
-max-txs-bytes = 10737418240
+max-txs-bytes = 1073741824
 
 # Size of the cache (used to filter duplicate transactions)
 cache-size = 10000
@@ -234,11 +311,13 @@ max-tx-bytes = 2048576
 # Maximum size of a batch of transactions to send to a peer
 max-batch-bytes = 0
 
-# Maximum length of time a transaction can remain in the mempool
-ttl-duration = "3s"
+# Maximum length of time a transaction can remain in the mempool.
+# Zero (or unset) disables TTL purging entirely — see the mempool TTL
+# note in Node Operators before changing these.
+ttl-duration = "5s"
 
 # Maximum number of blocks a transaction can remain in the mempool
-ttl-num-blocks = 5
+ttl-num-blocks = 10
 
 tx-notify-threshold = 0
 
@@ -250,10 +329,14 @@ pending-size = 5000
 
 max-pending-txs-bytes = 1073741824
 
-pending-ttl-duration = "3s"
-
-pending-ttl-num-blocks = 5
+# Deprecated: these fields no longer have any effect and are ignored.
+pending-ttl-duration = "0s"
+pending-ttl-num-blocks = 0
 ```
+
+<Info>
+  `pending-ttl-duration` and `pending-ttl-num-blocks` are deprecated and now have no effect. They are ignored regardless of the value you set.
+</Info>
 
 </Accordion>
 </Step>
@@ -347,11 +430,10 @@ seid query staking validator $(seid keys show <your_key> --bech val -a)
   <Card horizontal title="Configuration & Monitoring" icon="gauge-simple-high" href="/node/advanced-config-monitoring">
     Optimize your node's performance with advanced settings and monitoring tools.
   </Card>
-  <Card horizontal title="RocksDB Backend" icon="database" href="/node/rocksdb-backend">
-    Run with RocksDB instead of the default backend.
+  <Card horizontal title="Giga SS Store Migration" icon="database" href="/node/giga-storage-migration">
+    Move EVM historical state into dedicated state-store databases on supported RPC nodes.
   </Card>
   <Card horizontal title="Technical Reference" icon="terminal" href="/node/technical-reference">
     Detailed technical specifications, API endpoints, and commands for node operators.
   </Card>
 </CardGroup>
-
