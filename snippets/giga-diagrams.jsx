@@ -64,7 +64,7 @@ export const GigaProposerComparison = () => {
           <text x={765} y={138} fontSize="11" textAnchor="middle" fill={ink}>cut of tips</text>
           <text x={765} y={155} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.65">one consensus slot</text>
           <text x={765} y={169} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.65">commits all lanes</text>
-          <text x={655} y={278} fontSize="10.5" fill={ink} fillOpacity="0.6" textAnchor="middle">bandwidth scales with the validator count</text>
+          <text x={655} y={278} fontSize="10.5" fill={ink} fillOpacity="0.6" textAnchor="middle">designed to use aggregate validator bandwidth</text>
         </svg>
       </div>
       <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">One leader per height versus every validator proposing concurrently. In Giga, consensus will commit a cut of all lane tips, so a single decision will finalize many blocks of data.</div>
@@ -109,7 +109,7 @@ export const GigaAsyncPipeline = () => {
             </g>
           ))}
           <rect x={630} y={170} width={186} height={26} rx={5} fill={gold} fillOpacity="0.2" stroke={gold} strokeWidth="1" />
-          <text x={723} y={187} fontSize="10.5" textAnchor="middle" fill={ink}>attest n: 2/3 sign digest D_n</text>
+          <text x={723} y={187} fontSize="10.5" textAnchor="middle" fill={ink}>attest n: 2/3 voting power signs D_n</text>
 
           <line x1={244} y1={54} x2={244} y2={204} stroke={accent} strokeWidth="1.4" strokeDasharray="4 3" />
           <text x={244} y={46} fontSize="10" textAnchor="middle" fill={accent} fontWeight="600">ordering finality for n</text>
@@ -134,10 +134,10 @@ export const GigaTxJourney = () => {
   const steps = [
     { t: 'submit', s: 'to any RPC node' },
     { t: 'lane', s: 'validator includes it' },
-    { t: 'PoA', s: 'f+1 availability votes' },
+    { t: 'PoA', s: 'availability threshold' },
     { t: 'ordered', s: 'cut committed' },
     { t: 'executed', s: 'merged, run in parallel' },
-    { t: 'attested', s: 'digest signed by 2/3' }
+    { t: 'attested', s: '2/3 voting-power digest' }
   ];
   return (
     <div className="not-prose w-full my-5">
@@ -167,7 +167,7 @@ export const GigaTxJourney = () => {
           <line x1={826} y1={46} x2={826} y2={62} stroke={gold} strokeWidth="1.6" strokeDasharray="3 3" />
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">The six stops of a Giga transaction. With no traditional public mempool, step 2 will happen immediately, and step 4 will fix the order irrevocably.</div>
+      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">The initial Autobahn transaction flow before Sedna. An RPC node routes the complete signed transaction to a lane, consensus fixes its order, execution produces the receipt, and attestation follows.</div>
     </div>
   );
 };
@@ -213,12 +213,12 @@ export const GigaRoadmapTrack = () => {
           <rect x={296} y={140} width={9} height={9} rx={2} fill={done} />
           <text x={311} y={148.5} fontSize="10" fill={ink} fillOpacity="0.7">complete</text>
           <rect x={386} y={140} width={9} height={9} rx={2} fill={prog} fillOpacity="0.9" />
-          <text x={401} y={148.5} fontSize="10" fill={ink} fillOpacity="0.7">in progress (July 2026)</text>
+          <text x={401} y={148.5} fontSize="10" fill={ink} fillOpacity="0.7">in progress (August 2026)</text>
           <rect x={536} y={140} width={9} height={9} rx={2} fill="none" stroke={ink} strokeOpacity="0.5" />
           <text x={551} y={148.5} fontSize="10" fill={ink} fillOpacity="0.7">coming soon</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">The eleven roadmap milestones from giga.seilabs.io. Eidos, Ares, and SIP-3 are live workstreams on the network today; the Autobahn testnet is next.</div>
+      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">The eleven roadmap milestones from giga.seilabs.io. Ares is the default execution path on upgraded v6.6 nodes, Eidos migration remains phased, and the Autobahn testnet is next.</div>
     </div>
   );
 };
@@ -261,8 +261,8 @@ export const GigaLanesAndCuts = () => {
 
           <g>
             <rect x={520} y={62} width={128} height={58} rx={8} fill={ink} fillOpacity="0.05" stroke={ink} strokeOpacity="0.4" />
-            <text x={584} y={84} fontSize="10.5" textAnchor="middle" fill={ink}>f + 1 votes</text>
-            <text x={584} y={100} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.65">Proof of Availability</text>
+            <text x={584} y={84} fontSize="10.5" textAnchor="middle" fill={ink}>paper: f + 1 replicas</text>
+            <text x={584} y={100} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.65">stake-weighted in implementation</text>
             <line x1={520} y1={91} x2={500} y2={91} stroke={ink} strokeOpacity="0.5" strokeWidth="1.1" markerEnd="url(#glc-a)" />
           </g>
 
@@ -277,7 +277,7 @@ export const GigaLanesAndCuts = () => {
           <text x={684} y={239} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.7">off the critical path</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Each validator will chain batches into its own lane and certify them with f + 1 availability votes. Consensus will only ever order the vector of lane tips.</div>
+      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Each validator will chain batches into its own lane. The whitepaper uses f + 1 replica votes for availability; the implementation applies stake-weighted thresholds.</div>
     </div>
   );
 };
@@ -315,10 +315,10 @@ export const GigaSlotPipeline = () => {
           <text x={235} y={212} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.7">1 round trip</text>
           <line x1={340} y1={196} x2={445} y2={196} stroke={accent} strokeWidth="1.4" markerEnd="url(#gsp-a)" />
           <text x={392} y={212} fontSize="9.5" textAnchor="middle" fill={accent} fontWeight="600">+0.5 effective</text>
-          <text x={630} y={208} fontSize="10.5" textAnchor="middle" fill={ink} fillOpacity="0.8">steady state: 1.5 round trips per cut</text>
+          <text x={630} y={208} fontSize="10.5" textAnchor="middle" fill={ink} fillOpacity="0.8">steady state: one cut per 1.5 round trips</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Slots will overlap: replicas will begin slot s+1 as soon as they see the Prepare message for slot s, so the steady-state cost will be 1.5 network round trips per committed cut.</div>
+      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Slots will overlap: replicas will begin slot s+1 as soon as they see the Prepare message for slot s, targeting an effective steady-state cadence of one committed cut per 1.5 network round trips. This is not per-transaction latency.</div>
     </div>
   );
 };
@@ -367,12 +367,12 @@ export const GigaAttestationFlow = () => {
           <text x={760} y={144} fontSize="10.5" textAnchor="middle" fill={ink}>digest D_n</text>
           <text x={760} y={160} fontSize="9" textAnchor="middle" fill={ink} fillOpacity="0.65">compact commitment</text>
           <path d="M 760 122 Q 762 96 736 88" fill="none" stroke={gold} strokeWidth="1.4" strokeDasharray="4 3" markerEnd="url(#gaf-b)" />
-          <text x={810} y={100} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.75">2/3-signed, included</text>
+          <text x={810} y={100} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.75">2/3 voting power, included</text>
           <text x={810} y={113} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.75">in block n+x</text>
 
           <rect x={96} y={210} width={728} height={52} rx={8} fill={ink} fillOpacity="0.03" stroke={ink} strokeOpacity="0.25" strokeDasharray="4 3" />
           <text x={460} y={231} fontSize="10" textAnchor="middle" fill={ink} fillOpacity="0.75">signing two different digests for the same block is slashable equivocation;</text>
-          <text x={460} y={247} fontSize="10" textAnchor="middle" fill={ink} fillOpacity="0.75">divergence under 1/3 of validators isolates the fault, divergence over 1/3 halts the chain</text>
+          <text x={460} y={247} fontSize="10" textAnchor="middle" fill={ink} fillOpacity="0.75">divergence under 1/3 of voting power can be isolated; over 1/3 is designed to halt the chain</text>
         </svg>
       </div>
       <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Execution results will be committed as a lattice-hash digest rather than a state root, and validators will attest to that digest a bounded number of blocks later.</div>
@@ -471,13 +471,13 @@ export const GigaStorageArchitecture = () => {
           <text x={690} y={145} fontSize="9" textAnchor="middle" fill={ink} fillOpacity="0.6">incremental, order-independent</text>
           <line x1={690} y1={154} x2={690} y2={176} stroke={ink} strokeOpacity="0.45" strokeWidth="1.1" markerEnd="url(#gsa-a)" />
           <rect x={580} y={180} width={220} height={40} rx={7} fill={gold} fillOpacity="0.16" stroke={gold} strokeWidth="1.1" />
-          <text x={690} y={205} fontSize="10.5" textAnchor="middle" fill={ink}>D_n attested by 2/3 quorum</text>
+          <text x={690} y={205} fontSize="10.5" textAnchor="middle" fill={ink}>D_n attested by 2/3 voting power</text>
           <rect x={580} y={246} width={220} height={40} rx={7} fill={ink} fillOpacity="0.03" stroke={ink} strokeOpacity="0.3" strokeDasharray="4 3" />
           <text x={690} y={262} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.75">disputes: compare chunk digests,</text>
           <text x={690} y={276} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.75">bisect, replay one range</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">The write path will never touch a Merkle tree: state will live in a RAM-first flat store with an append-only WAL, while commitments will come from a homomorphic lattice hash over each block's write log.</div>
+      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">In the proposed architecture, the write path avoids Merkle-tree updates. State lives in a RAM-first flat store with an append-only WAL, while commitments come from a homomorphic lattice hash over each block's write log.</div>
     </div>
   );
 };
@@ -509,7 +509,7 @@ export const GigaBudWindow = () => {
           <line x1={356} y1={84} x2={392} y2={84} stroke={ink} strokeOpacity="0.5" strokeWidth="1.1" markerEnd="url(#gbw-a)" />
           <rect x={396} y={62} width={170} height={44} rx={7} fill={gold} fillOpacity="0.16" stroke={gold} strokeWidth="1.1" />
           <text x={481} y={81} fontSize="10" textAnchor="middle" fill={ink}>attested with D_n</text>
-          <text x={481} y={97} fontSize="9" textAnchor="middle" fill={ink} fillOpacity="0.65">same 2/3 quorum schedule</text>
+          <text x={481} y={97} fontSize="9" textAnchor="middle" fill={ink} fillOpacity="0.65">same 2/3 voting-power schedule</text>
           <rect x={598} y={54} width={222} height={60} rx={7} fill={ink} fillOpacity="0.04" stroke={ink} strokeOpacity="0.35" strokeDasharray="4 3" />
           <text x={709} y={76} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.8">proof = Merkle path to attested U_n;</text>
           <text x={709} y={91} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.8">two proofs bracket an unmodified span</text>
@@ -610,7 +610,7 @@ export const GigaFinalitySignals = () => {
   return (
     <div className="not-prose w-full my-5">
       <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/40 p-4 text-neutral-800 dark:text-neutral-200">
-        <svg viewBox="0 0 860 232" role="img" aria-label="Which finality signal to wait for" style={{ width: '100%', minWidth: 620, height: 'auto', display: 'block' }}>
+        <svg viewBox="0 0 860 232" role="img" aria-label="Ordering finality, execution receipt, and state attestation stages" style={{ width: '100%', minWidth: 620, height: 'auto', display: 'block' }}>
           <defs>
             <marker id="gfs-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
               <path d="M 0 1 L 9 5 L 0 9 z" fill={ink} fillOpacity="0.6" />
@@ -623,25 +623,25 @@ export const GigaFinalitySignals = () => {
           <line x1={206} y1={104} x2={280} y2={70} stroke={ink} strokeOpacity="0.5" strokeWidth="1.1" markerEnd="url(#gfs-a)" />
           <rect x={284} y={44} width={218} height={52} rx={8} fill={accent} fillOpacity="0.1" stroke={accent} strokeWidth="1.2" />
           <text x={393} y={65} fontSize="10.5" textAnchor="middle" fontWeight="600" fill={ink}>ordering finality</text>
-          <text x={393} y={82} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.7">receipt available; no reorgs</text>
+          <text x={393} y={82} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.7">order fixed; execution pending</text>
           <line x1={502} y1={70} x2={560} y2={70} stroke={ink} strokeOpacity="0.5" strokeWidth="1.1" markerEnd="url(#gfs-a)" />
           <rect x={564} y={44} width={250} height={52} rx={8} fill={ink} fillOpacity="0.04" stroke={ink} strokeOpacity="0.4" />
-          <text x={689} y={65} fontSize="10" textAnchor="middle" fill={ink}>trading UX, games, payments,</text>
-          <text x={689} y={81} fontSize="10" textAnchor="middle" fill={ink}>most dApp flows</text>
+          <text x={689} y={65} fontSize="10" textAnchor="middle" fill={ink}>execution produces receipt;</text>
+          <text x={689} y={81} fontSize="10" textAnchor="middle" fill={ink}>interactive flows evaluate risk</text>
 
-          <line x1={206} y1={128} x2={280} y2={162} stroke={ink} strokeOpacity="0.5" strokeWidth="1.1" strokeDasharray="4 3" markerEnd="url(#gfs-a)" />
+          <path d="M 689 96 Q 689 126 506 158" fill="none" stroke={ink} strokeOpacity="0.5" strokeWidth="1.1" strokeDasharray="4 3" markerEnd="url(#gfs-a)" />
           <rect x={284} y={136} width={218} height={52} rx={8} fill={gold} fillOpacity="0.14" stroke={gold} strokeWidth="1.2" />
           <text x={393} y={157} fontSize="10.5" textAnchor="middle" fontWeight="600" fill={ink}>state attestation finality</text>
-          <text x={393} y={174} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.7">2/3-signed digest, x blocks later</text>
+          <text x={393} y={174} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.7">2/3 voting-power digest, x blocks later</text>
           <line x1={502} y1={162} x2={560} y2={162} stroke={ink} strokeOpacity="0.5" strokeWidth="1.1" markerEnd="url(#gfs-a)" />
           <rect x={564} y={136} width={250} height={52} rx={8} fill={ink} fillOpacity="0.04" stroke={ink} strokeOpacity="0.4" />
           <text x={689} y={157} fontSize="10" textAnchor="middle" fill={ink}>exchange deposits, bridges,</text>
           <text x={689} y={173} fontSize="10" textAnchor="middle" fill={ink}>high-value settlement, BUD proofs</text>
 
-          <text x={393} y={216} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.6">the outcome is already decided at ordering finality; attestation adds a signed confirmation of it</text>
+          <text x={393} y={216} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.6">ordering fixes position; execution yields the result; attestation adds a signed quorum confirmation</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Two confirmation signals, two audiences: act on the receipt for interactive flows, and wait for the attested digest when third-party value moves on the result.</div>
+      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Ordering finality fixes position but has no receipt yet. After execution, applications may use the receipt according to their risk policy; high-value and cross-chain flows should wait for the attested digest.</div>
     </div>
   );
 };
@@ -723,7 +723,7 @@ export const GigaFeeSplit = () => {
             );
           })}
           <text x={60} y={30} fontSize="11.5" fontWeight="600" fill={ink}>one transaction, three priced things</text>
-          <text x={430} y={166} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.6">tipping a specific proposer buys nothing: the pool pays validators by stake and measured liveness</text>
+          <text x={430} y={166} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.6">the protocol pools tips and does not pay the carrying proposer directly</text>
         </svg>
       </div>
       <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Execution, ordering, and duplicate distribution will be priced separately. The tip will be strictly enforced for ordering and then socialised across the validator set.</div>
