@@ -1,13 +1,15 @@
 ---
 title: '@sei-js/registry'
 sidebarTitle: '@sei-js/registry'
-description: 'Chain constants, RPC endpoints, token metadata, and wallet info for Sei Network'
+description: 'Typed chain constants, RPC endpoints, token metadata, and wallet information for Sei'
 keywords: ['sei-js', 'registry', 'chain constants', 'rpc endpoints', 'token list', 'sei network']
 ---
 
-`@sei-js/registry` is a typed reference package for Sei chain metadata — RPC endpoints, token lists, gas parameters, wallet info, and more. It pulls from the official [sei-protocol/chain-registry](https://github.com/sei-protocol/chain-registry) and is kept in sync as a git submodule.
+`@sei-js/registry` exports typed chain IDs, endpoints, token metadata, and wallet information for Pacific-1 and Atlantic-2. Network and wallet data comes from the official [sei-protocol/chain-registry](https://github.com/sei-protocol/chain-registry). Token metadata comes from the community-maintained [Seitrace asset list](https://github.com/Seitrace/sei-assetlist).
 
-## Install
+<Note>The package does not export Arctic-1 configuration, `GAS_INFO`, or IBC registry data. Arctic-1 can still appear elsewhere in the docs when it is configured directly.</Note>
+
+## Installation
 
 ```bash
 npm install @sei-js/registry
@@ -22,7 +24,6 @@ import { CHAIN_IDS } from '@sei-js/registry';
 
 CHAIN_IDS.mainnet  // 'pacific-1'
 CHAIN_IDS.testnet  // 'atlantic-2'
-CHAIN_IDS.devnet   // 'arctic-1'
 ```
 
 Use these constants anywhere you reference a Sei network by chain ID to avoid hardcoding strings.
@@ -32,8 +33,9 @@ Use these constants anywhere you reference a Sei network by chain ID to avoid ha
 RPC, REST, gRPC, EVM RPC, WebSocket, and explorer endpoints for each network:
 
 ```ts
-import { NETWORKS } from '@sei-js/registry';
+import { NETWORKS, type Network } from '@sei-js/registry';
 
+// Network is the 'pacific-1' | 'atlantic-2' chain ID union
 const mainnet = NETWORKS['pacific-1'];
 
 // Pick the first available EVM RPC endpoint
@@ -46,10 +48,10 @@ const evmWs = mainnet.evm_ws?.[0].url;
 const rest = mainnet.rest[0].url;
 ```
 
-Each entry has `provider` (name) and `url` fields. Multiple providers are listed per category — iterate to implement fallback logic:
+Each endpoint has `provider` and `url` fields. You can iterate through the available providers to implement fallback logic:
 
 ```ts
-async function getWorkingRpc(network: 'pacific-1' | 'atlantic-2' | 'arctic-1') {
+async function getWorkingRpc(network: Network) {
   const endpoints = NETWORKS[network].evm_rpc ?? [];
   for (const endpoint of endpoints) {
     try {
@@ -65,12 +67,14 @@ async function getWorkingRpc(network: 'pacific-1' | 'atlantic-2' | 'arctic-1') {
 }
 ```
 
+<Info>`@sei-js/registry` no longer exports gas metadata. For EVM transactions, use `eth_gasPrice` and `eth_estimateGas`. See [Gas and fees](/evm/evm-parity/gas-and-fees).</Info>
+
 ## TOKEN_LIST
 
-Token registry per network — name, symbol, base denom, decimal exponents, images, and CoinGecko IDs:
+Token metadata per network includes names, symbols, base denominations, decimal exponents, images, and CoinGecko IDs:
 
 <Warning>
-The registry may retain legacy IBC or tokenfactory entries for display and compatibility. Their presence does not mean they are supported integration targets. IBC is disabled in both directions, and tokenfactory is not supported for new development.
+`TOKEN_LIST` filters assets whose base or denomination starts with `ibc/`, along with assets marked as ICS-20. The community asset list may still contain legacy tokenfactory entries for display or compatibility. Do not treat those entries as supported integration targets. Tokenfactory is not supported for new development.
 </Warning>
 
 ```ts
@@ -80,47 +84,25 @@ import { TOKEN_LIST } from '@sei-js/registry';
 const tokens = TOKEN_LIST['pacific-1'];
 
 // Find SEI
-const sei = tokens.find(t => t.symbol === 'SEI');
-// { base: 'usei', display: 'sei', denom_units: [{ denom: 'usei', exponent: 0 }, { denom: 'sei', exponent: 6 }] }
+const sei = tokens.find(token => token.base === 'usei');
 
-// Convert a raw usei amount to display amount
-function toDisplayAmount(usei: bigint, token: typeof sei): string {
-  const exp = token.denom_units.find(u => u.denom === token.display)?.exponent ?? 6;
-  return (Number(usei) / 10 ** exp).toString();
-}
+console.log(sei?.display); // 'sei'
+console.log(sei?.denom_units);
 ```
 
 Each token includes an `images` object with `png` and `svg` URLs suitable for display in wallet UIs or token pickers.
 
-## GAS_INFO
-
-Minimum gas price and module-specific adjustments per network:
-
-```ts
-import { GAS_INFO } from '@sei-js/registry';
-
-const { denom, min_gas_price } = GAS_INFO['pacific-1'];
-// denom: 'usei', min_gas_price: 0.02
-
-// Calculate the minimum fee for a given gas limit
-function minFee(gasLimit: number): string {
-  const { min_gas_price, denom } = GAS_INFO['pacific-1'];
-  return `${Math.ceil(gasLimit * min_gas_price)}${denom}`;
-}
-```
-
-<Info>The `min_gas_price` here is the Cosmos-side gas floor. For EVM transactions, always use `eth_gasPrice` or `eth_estimateGas` — the on-chain EVM gas floor is governed separately and can change. See [Gas and Fees](/evm/evm-parity/gas-and-fees).</Info>
-
 ## CHAIN_INFO
 
-Basic chain metadata: daemon name, Bech32 prefix, HD path coin type, and supported wallets:
+`CHAIN_INFO` contains mainnet metadata such as the `seid` binary name, Bech32 prefix, fee token, SLIP-44 coin type, and supported native wallets:
 
 ```ts
 import { CHAIN_INFO } from '@sei-js/registry';
 
 CHAIN_INFO.bech32_prefix     // 'sei'
 CHAIN_INFO.slip44            // 118  (HD wallet coin type)
-CHAIN_INFO.supported_wallets // ['fin', 'compass', 'leap', 'keplr']
+CHAIN_INFO.fee_token         // 'usei'
+CHAIN_INFO.supported_wallets // ['keplr', 'coin98']
 
 // Validate a Cosmos-side Sei address format
 function isSeiAddress(address: string): boolean {
@@ -131,9 +113,11 @@ function isSeiAddress(address: string): boolean {
 const path = `m/44'/${CHAIN_INFO.slip44}'/0'/0/0`;
 ```
 
+`supported_wallets` reflects the upstream chain registry. It is not an exhaustive list of wallets that can connect to Sei.
+
 ## WALLETS
 
-Wallet metadata including icons, URLs, and EVM/native capability flags:
+Wallet metadata includes icons, URLs, and EVM or native capability flags:
 
 ```ts
 import { WALLETS } from '@sei-js/registry';
@@ -142,17 +126,17 @@ import { WALLETS } from '@sei-js/registry';
 const evmWallets = WALLETS.filter(w => w.capabilities.includes('evm'));
 
 // Find a specific wallet for displaying its icon
-const compass = WALLETS.find(w => w.identifier === 'compass');
-// { name: 'Compass Wallet', icon: 'https://...jpeg', url: 'https://compasswallet.io/', capabilities: ['native', 'evm'] }
+const keplr = WALLETS.find(w => w.identifier === 'keplr');
+// { name: 'Keplr Wallet', url: 'https://www.keplr.app', capabilities: ['native', 'evm'], ... }
 ```
 
 Useful for building wallet selector UIs that show icons and filter by capability.
 
-## Network Reference
+## Supported networks
 
-| Constant | `pacific-1` (mainnet) | `atlantic-2` (testnet) | `arctic-1` (devnet) |
-| --- | --- | --- | --- |
-| Chain ID | `pacific-1` | `atlantic-2` | `arctic-1` |
-| EVM Chain ID | 1329 | 1328 | 713715 |
-| EVM RPC | `NETWORKS['pacific-1'].evm_rpc` | `NETWORKS['atlantic-2'].evm_rpc` | `NETWORKS['arctic-1'].evm_rpc` |
-| EVM WS | `NETWORKS['pacific-1'].evm_ws` | `NETWORKS['atlantic-2'].evm_ws` | `NETWORKS['arctic-1'].evm_ws` |
+| Value | Pacific-1 (mainnet) | Atlantic-2 (testnet) |
+| --- | --- | --- |
+| Chain ID | `pacific-1` | `atlantic-2` |
+| EVM chain ID | 1329 | 1328 |
+| EVM RPC | `NETWORKS['pacific-1'].evm_rpc` | `NETWORKS['atlantic-2'].evm_rpc` |
+| EVM WebSocket | `NETWORKS['pacific-1'].evm_ws` | `NETWORKS['atlantic-2'].evm_ws` |
