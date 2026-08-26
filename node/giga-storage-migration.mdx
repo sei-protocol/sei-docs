@@ -14,7 +14,7 @@ After migration the SS layer is repartitioned into two cooperating stores:
 
 | Layer | Cosmos backend | EVM backend |
 |---|---|---|
-| **SC** (State Commit, app hash) | `memiavl` | FlatKV |
+| **SC** (State Commit, app hash) | `memiavl` | FlatKV (optional, off by default) |
 | **SS** (State Store, historical queries) | single PebbleDB MVCC database | dedicated EVM SS MVCC databases in the configured EVM SS directory |
 
 Only the **SS** layer changes for this migration. SC layer config is untouched
@@ -25,7 +25,7 @@ invisible to the network.
 
 ## Prerequisites
 
-<Warning>This migration is supported on **RPC nodes only**. Validator nodes and archive nodes are not supported by this flow yet — do not run it against either.</Warning>
+<Warning>This migration is supported on **RPC nodes only**. Validator nodes and archive nodes are not supported by this flow yet. Do not run it against either.</Warning>
 
 - A `seid` build with the `evm-ss-split` flag wired in (Sei v6.5 or later). Older
   releases used per-key `evm-ss-write-mode` / `evm-ss-read-mode` toggles; if your
@@ -36,13 +36,17 @@ invisible to the network.
   during migration both the old and the new layouts may briefly coexist on disk.
 
 The migration **requires a full state sync**. There is no in-place migration
-path and no live "dual-write then split" workflow — the state sync wipes the
+path and no live "dual-write then split" workflow. The state sync wipes the
 local data directory and imports a fresh snapshot into the new layout.
 
 ## Benefits
 
 - EVM reads are served exclusively from a dedicated EVM SS database.
 - Non-EVM modules no longer pay write amplification for EVM state.
+- If the node still uses RocksDB for the state store, you can move to PebbleDB
+  in this same state sync. `ss-backend` drives both the Cosmos SS MVCC
+  database and the EVM SS sub-databases. Set `ss-backend = "pebbledb"` before
+  you start. Do not switch to RocksDB.
 
 ## What's different about EVM SS
 
@@ -52,9 +56,10 @@ is tuned for direct key lookups, and cross-bucket scans would defeat the
 per-type sub-DB layout. Any EVM read that needs iteration must stay on the
 Cosmos SS side.
 
-## Migration Steps
+## Migration steps
 
-### Step 1: Update `app.toml`
+<Steps>
+<Step title="Update app.toml">
 
 Apply the following settings in `~/.sei/config/app.toml`:
 
@@ -76,9 +81,10 @@ ss-backend = "pebbledb"
 evm-ss-split = true
 ```
 
-<Warning>Keep `ss-backend = "pebbledb"` during this migration. RocksDB support for the state store will be removed. No target release has been published. If the node already uses RocksDB, follow [Move off RocksDB](/node/node-operators#move-off-rocksdb).</Warning>
+<Warning>Keep `ss-backend = "pebbledb"` during this migration. RocksDB support for the state store will be removed. No target release has been published. If the node already uses RocksDB, follow [Move off RocksDB](/node/node-operators#move-off-rocksdb) and set `evm-ss-split = true` before the same state sync.</Warning>
 
-### Step 2: State sync into the new layout
+</Step>
+<Step title="State sync into the new layout">
 
 Giga SS Store is fully compatible with the existing state-snapshot format. On
 import, the composite state store routes each snapshot node based on the
@@ -115,7 +121,7 @@ rm -rf $SEID_HOME/config/priv_validator_key.json
 rm -rf $SEID_HOME/config/genesis.json
 rm -rf $SEID_HOME/config/config.toml
 
-# 3. Re-init, re-apply config.toml and app.toml (set Step 1 values again)
+# 3. Re-init, then re-apply config.toml and app.toml (set Step 1 values again)
 seid init --chain-id "$CHAIN_ID" "$MONIKER"
 
 # 4. Resolve trust height/hash and persistent peers against PRIMARY_ENDPOINT,
@@ -130,14 +136,19 @@ cp /tmp/genesis.json              $SEID_HOME/config/genesis.json
 sudo systemctl restart seid
 ```
 
-<Warning>Make sure `priv_validator_key.json` is in safe storage before deleting it from the config directory. Loss of this key is unrecoverable for a validator and is not relevant to RPC-only nodes — but if you're following this from the wrong checklist you'll find out the hard way.</Warning>
+<Info>
+`seid init` rewrites `app.toml` and `config.toml`. After init, set `evm-ss-split = true` and `ss-backend = "pebbledb"` again, then follow the [Statesync guide](/node/statesync) to fill in trust height, trust hash, and persistent peers.
+</Info>
 
-### Step 3: Verify the new layout
+<Warning>Keep `priv_validator_key.json` in safe storage before deleting it from the config directory. Loss of this key is unrecoverable for a validator. This migration is RPC-only, so that key should not be in play, but do not follow this checklist on a validator.</Warning>
+
+</Step>
+<Step title="Verify the new layout">
 
 Once the state sync completes and the node starts producing blocks, confirm
 Giga SS Store is active in two places.
 
-**Startup logs.** All three lines should appear:
+Check the startup logs for all three of these lines:
 
 ```text
 "SeiDB SS is enabled"                       # with the configured `backend`
@@ -145,8 +156,8 @@ Giga SS Store is active in two places.
 "EVM state store enabled"                   # with `dir` and `separateDBs` labels
 ```
 
-**EVM RPC.** `debug_traceBlockByNumber` is the cleanest end-to-end check —
-it forces the node to read EVM state out of the new EVM SS backend:
+Then confirm EVM RPC with `debug_traceBlockByNumber`. That call forces the
+node to read EVM state out of the new EVM SS backend:
 
 ```bash copy
 curl -s -X POST http://127.0.0.1:8545 \
@@ -155,6 +166,9 @@ curl -s -X POST http://127.0.0.1:8545 \
 ```
 
 The response should contain a `"result"` field rather than an RPC error.
+
+</Step>
+</Steps>
 
 ## Safety checks
 
@@ -323,7 +337,8 @@ The `seidb import-flatkv-from-memiavl` command populates a FlatKV store from an 
   current layout.
 - A non-empty `ss-db-directory` or `evm-ss-db-directory` overrides the
   corresponding default path.
-- SC data (`memiavl` + FlatKV) is untouched by this migration.
+- SC data (`memiavl`, plus FlatKV if you have opted into it) is untouched by
+  this migration.
 
 ### Does Giga SS Store change the app hash or consensus?
 

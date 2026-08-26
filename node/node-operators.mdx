@@ -104,6 +104,9 @@ ss-enable = true
 ss-backend = "pebbledb"
 # 0 = keep everything; 100,000 is roughly 28 hours of pacific-1 history.
 ss-keep-recent = 100000
+# Route EVM historical state to a dedicated SS backend. Leave false unless
+# you have completed the Giga SS Store migration (RPC nodes only).
+evm-ss-split = false
 
 [receipt-store]
 # Storage backend for EVM transaction receipts. pebbledb (aka pebble) is the
@@ -119,6 +122,13 @@ Storage (`GIGA_STORAGE=true`) in the localnode and rpcnode configuration scripts
 defaults the receipt backend to `pebble` when `RECEIPT_BACKEND` is not set. The
 former `receipt-store.tx-index-backend` config field has been removed.
 </Note>
+
+<Info>
+RPC nodes can split EVM historical state into a dedicated database with
+`evm-ss-split = true`. That requires a full state sync. Follow the
+[Giga SS Store Migration Guide](/node/giga-storage-migration). Validator and
+archive nodes are not supported by that flow yet.
+</Info>
 
 ### Default Configurations
 
@@ -1450,6 +1460,11 @@ legacy single-database IAVL store with separate hot- and historical-data tiers:
    queries. Required for any node that serves RPC. The default backend is
    **PebbleDB**. Do not use RocksDB for new nodes. If you already use RocksDB,
    follow [Move off RocksDB](#move-off-rocksdb) before support is removed.
+   RPC nodes can optionally split EVM historical state into a dedicated EVM SS
+   database (`evm-ss-split = true`). That change is per-node, does not affect
+   the app hash, and requires a full state sync. See the
+   [Giga SS Store Migration Guide](/node/giga-storage-migration). Validator
+   and archive nodes are not supported by that flow yet.
 
 The legacy IAVL backend has been fully removed. Setting `sc-enable = false`
 makes the node panic at startup with `SeiDB state-commit (SC) must be
@@ -1571,6 +1586,10 @@ For a non-archive node:
 3. Set `ss-backend = "pebbledb"`, then rebuild through
    [state sync](/node/statesync) or a provider-confirmed
    [PebbleDB snapshot](/node/snapshot).
+   RPC nodes that are also enabling Giga SS Store should set
+   `evm-ss-split = true` before that same state sync. One rebuild can
+   populate both PebbleDB and the split EVM SS layout. See the
+   [Giga SS Store Migration Guide](/node/giga-storage-migration).
 4. Confirm the startup log reports `"SeiDB SS is enabled"` with the PebbleDB
    backend. Test the RPC methods your node serves before you delete the old
    RocksDB backup.
