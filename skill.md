@@ -67,9 +67,9 @@ For the full list of community + paid RPC providers and failover patterns, see [
 |---|---|
 | Smart contracts | **Foundry** (preferred) or Hardhat |
 | Frontend | **Wagmi + Viem** (React) or Ethers.js v6 |
-| Wallet | **Sei Global Wallet** (`@sei-js/sei-global-wallet`) + MetaMask fallback |
-| Chain config | `viem/chains`: `sei`, `seiTestnet` |
-| Sei precompiles | `@sei-js/precompiles`: addresses and ABIs |
+| Wallet | **Sei Global Wallet** (`@sei-js/sei-global-wallet`, ESM-only; add [consumer overrides](https://github.com/sei-protocol/sei-js/tree/main/packages/sei-global-wallet#required-consumer-overrides)) + MetaMask fallback |
+| Chain config | `viem/chains` or `@sei-js/precompiles`: `sei`, `seiTestnet` |
+| Sei precompiles | `@sei-js/precompiles`: addresses, raw `*_PRECOMPILE_ABI` constants, and `@sei-js/precompiles/ethers` factories. ESM-only; Viem `^2.55.16`. |
 | Verification | Seiscan via Sourcify (`forge verify-contract --verifier sourcify`) |
 | Testing | Foundry unit + fork tests against testnet |
 
@@ -92,7 +92,7 @@ claude mcp add sei-mcp-server npx @sei-js/mcp-server
 }
 ```
 
-Once connected: address lookup, balance checks, transaction status, contract reads, block data.
+Once connected: address lookup, balance checks, transaction status, contract reads, and block data. The server starts in read-only mode. Wallet tools need `WALLET_MODE=private-key` and `PRIVATE_KEY` on the stdio transport. HTTP transports reject wallet mode.
 
 ## Precompile addresses
 
@@ -106,6 +106,7 @@ Once connected: address lookup, balance checks, transaction status, contract rea
 | Distribution | `0x0000000000000000000000000000000000001007` |
 | PointerView | `0x000000000000000000000000000000000000100A` |
 | Pointer | `0x000000000000000000000000000000000000100B` |
+| Solo | `0x000000000000000000000000000000000000100C` |
 | JSON | `0x0000000000000000000000000000000000001003` |
 | P256 | `0x0000000000000000000000000000000000001011` |
 
@@ -133,7 +134,7 @@ curl -L https://foundry.paradigm.xyz | bash && foundryup
 forge init my-project
 
 # Or scaffold a frontend
-npx @sei-js/create-sei app --name my-sei-app
+npx @sei-js/create-sei app -n my-sei-app
 ```
 
 ```toml

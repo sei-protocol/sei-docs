@@ -32,7 +32,7 @@ Do not use when:
 ### Required
 
 - `rpc_url`
-- `network` (mainnet | testnet | devnet)
+- `network` (mainnet | testnet)
 
 ### Optional
 

@@ -143,7 +143,7 @@ const LLMS_SECTION_ORDER = [
 		name: 'AI Tooling & Micropayments',
 		match: (p) => p.startsWith('/ai') || p.startsWith('/evm/ai-tooling') || p.startsWith('/evm/x402'),
 		overview: [
-			'The Sei MCP Server (@sei-js/mcp-server) connects AI assistants to Sei. Install: `npx -y @sei-js/mcp-server`. Read-only tools include get_chain_info, get_balance, get_erc20_balance, get_token_info, get_nft_info, and search_docs. Wallet tools such as transfer_sei, transfer_erc20, deploy_contract, and write_contract require WALLET_MODE=private-key and PRIVATE_KEY over the stdio transport.',
+			'The Sei MCP Server (@sei-js/mcp-server) connects AI assistants to Sei. Requires Node.js 20+. Install: `npx -y @sei-js/mcp-server`. The server starts in read-only mode. Read-only tools include search_docs, get_supported_networks, get_chain_info, get_balance, get_token_info, get_token_balance, get_erc20_balance, get_nft_info, read_contract, and estimate_gas. Wallet tools such as transfer_sei, transfer_token, transfer_erc20, write_contract, and deploy_contract require WALLET_MODE=private-key and PRIVATE_KEY on the stdio transport. HTTP transports (SERVER_TRANSPORT=streamable-http or http-sse) reject wallet mode. Network selectors: sei, sei-testnet, 1329, 1328, 0x531, 0x530.',
 			'The Cambrian Agent Kit enables autonomous AI agents on Sei with DeFi protocol integrations (Takara lending, Silo lending, Citrex perpetuals, Symphony aggregation, DragonSwap liquidity).',
 			'The x402 protocol enables HTTP 402-based micropayments for machine-to-machine payments. Packages under the @sei-js npm scope support payment verification and signing on Sei.'
 		].join('\n\n')
@@ -153,7 +153,7 @@ const LLMS_SECTION_ORDER = [
 		match: (p) => p.startsWith('/evm'),
 		overview: [
 			"Sei's EVM is fully compatible with Ethereum. Standard Solidity contracts deploy without modification. All Ethereum tooling (Hardhat, Foundry, wagmi, ethers.js, viem, RainbowKit) works as-is. Transactions touching independent state execute concurrently.",
-			'Precompiled contracts at fixed addresses expose native Sei functionality such as staking, governance, distribution, JSON parsing, and P256 verification to EVM. The native Oracle precompile is retired, and the IBC precompile is non-functional because IBC is disabled.',
+			'Precompiled contracts at fixed addresses expose native Sei functionality such as staking, governance, distribution, JSON parsing, P256 verification, and Solo migration claims to EVM. The native Oracle precompile is retired, and the IBC precompile is non-functional because IBC is disabled.',
 			'Native USDC: mainnet 0xe15fC38F6D8c56aF07bbCBe3BAf5708A2Bf42392, testnet 0x4fCF1784B31630811181f670Aea7A7bEF803eaED (6 decimals).'
 		].join('\n\n')
 	},
