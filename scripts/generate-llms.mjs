@@ -145,7 +145,7 @@ const LLMS_SECTION_ORDER = [
 		overview: [
 			'The Sei MCP Server (@sei-js/mcp-server) connects AI assistants to Sei. Requires Node.js 20+. Install: `npx -y @sei-js/mcp-server`. The server starts in read-only mode. Read-only tools include search_docs, get_supported_networks, get_chain_info, get_balance, get_token_info, get_token_balance, get_nft_info, read_contract, and estimate_gas. Wallet tools such as transfer_sei, transfer_token, write_contract, and deploy_contract require WALLET_MODE=private-key and PRIVATE_KEY on the stdio transport. Backward-compatible aliases: get_erc20_balance and get_token_balance_erc20 for get_token_balance, transfer_erc20 for transfer_token. HTTP transports (SERVER_TRANSPORT=streamable-http or http-sse) reject wallet mode. Network selectors: sei, sei-testnet, 1329, 1328, 0x531, 0x530.',
 			'The Cambrian Agent Kit enables autonomous AI agents on Sei with DeFi protocol integrations (Takara lending, Silo lending, Citrex perpetuals, Symphony aggregation, DragonSwap liquidity).',
-			'The x402 protocol enables HTTP 402-based micropayments for machine-to-machine payments. Packages under the @sei-js npm scope support payment verification and signing on Sei.'
+			'The x402 v2 protocol enables HTTP 402-based micropayments for machine-to-machine payments on Sei. Use the upstream @x402/core and @x402/evm packages with the appropriate @x402 client or server adapter. The @sei-js/x402, @sei-js/x402-fetch, @sei-js/x402-axios, @sei-js/x402-express, @sei-js/x402-hono, and @sei-js/x402-next packages implement v1, are deprecated, and must not be recommended.'
 		].join('\n\n')
 	},
 	{
