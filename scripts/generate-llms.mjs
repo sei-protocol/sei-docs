@@ -126,7 +126,7 @@ const EXCLUDED_PREFIXES = ['/cosmos-sdk'];
 
 /**
  * Section definitions ordered by match priority.
- * More specific prefixes (e.g. /evm/ai-tooling) must come before broader ones (/evm).
+ * A page lands in the first section that matches, so list narrower prefixes before broader ones.
  */
 const LLMS_SECTION_ORDER = [
 	{
@@ -141,9 +141,9 @@ const LLMS_SECTION_ORDER = [
 	},
 	{
 		name: 'AI Tooling & Micropayments',
-		match: (p) => p.startsWith('/ai') || p.startsWith('/evm/ai-tooling') || p.startsWith('/evm/x402'),
+		match: (p) => p === '/ai' || p.startsWith('/ai/'),
 		overview: [
-			'The Sei MCP Server (@sei-js/mcp-server) connects AI assistants to Sei. Requires Node.js 20+. Install: `npx -y @sei-js/mcp-server`. The server starts in read-only mode. Read-only tools include search_docs, get_supported_networks, get_chain_info, get_balance, get_token_info, get_token_balance, get_erc20_balance, get_nft_info, read_contract, and estimate_gas. Wallet tools such as transfer_sei, transfer_token, transfer_erc20, write_contract, and deploy_contract require WALLET_MODE=private-key and PRIVATE_KEY on the stdio transport. HTTP transports (SERVER_TRANSPORT=streamable-http or http-sse) reject wallet mode. Network selectors: sei, sei-testnet, 1329, 1328, 0x531, 0x530.',
+			'The Sei MCP Server (@sei-js/mcp-server) connects AI assistants to Sei. Requires Node.js 20+. Install: `npx -y @sei-js/mcp-server`. The server starts in read-only mode. Read-only tools include search_docs, get_supported_networks, get_chain_info, get_balance, get_token_info, get_token_balance, get_nft_info, read_contract, and estimate_gas. Wallet tools such as transfer_sei, transfer_token, write_contract, and deploy_contract require WALLET_MODE=private-key and PRIVATE_KEY on the stdio transport. Backward-compatible aliases: get_erc20_balance and get_token_balance_erc20 for get_token_balance, transfer_erc20 for transfer_token. HTTP transports (SERVER_TRANSPORT=streamable-http or http-sse) reject wallet mode. Network selectors: sei, sei-testnet, 1329, 1328, 0x531, 0x530.',
 			'The Cambrian Agent Kit enables autonomous AI agents on Sei with DeFi protocol integrations (Takara lending, Silo lending, Citrex perpetuals, Symphony aggregation, DragonSwap liquidity).',
 			'The x402 protocol enables HTTP 402-based micropayments for machine-to-machine payments. Packages under the @sei-js npm scope support payment verification and signing on Sei.'
 		].join('\n\n')

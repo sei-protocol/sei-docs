@@ -12,17 +12,19 @@ Sei precompiles are special smart contracts deployed at fixed addresses that exp
 
 | Precompile | Address | Description |
 | --- | --- | --- |
-| Bank | `0x1001` | Query the native SEI bank balance |
-| CosmWasm | `0x1002` | Query or execute existing CosmWasm contracts. `instantiate()` reverts (Proposal 115). |
-| JSON | `0x1003` | Parse JSON data within contracts |
-| Address | `0x1004` | Convert and associate EVM and Sei addresses |
-| Staking | `0x1005` | Delegation and staking operations |
-| Governance | `0x1006` | Proposal voting |
-| Distribution | `0x1007` | Claim staking rewards |
-| Pointer view | `0x100A` | Look up pointer contract addresses |
-| Pointer | `0x100B` | Register pointer contracts |
-| Solo | `0x100C` | Claim Solo migration payloads |
-| P256 | `0x1011` | Verify P-256 elliptic curve signatures |
+| Bank | `0x0000000000000000000000000000000000001001` | Query the native SEI bank balance |
+| CosmWasm | `0x0000000000000000000000000000000000001002` | Query or execute existing CosmWasm contracts. `instantiate()` reverts (Proposal 115). |
+| JSON | `0x0000000000000000000000000000000000001003` | Parse JSON data within contracts |
+| Address | `0x0000000000000000000000000000000000001004` | Convert and associate EVM and Sei addresses |
+| Staking | `0x0000000000000000000000000000000000001005` | Delegation and staking operations |
+| Governance | `0x0000000000000000000000000000000000001006` | Proposal voting |
+| Distribution | `0x0000000000000000000000000000000000001007` | Claim staking rewards |
+| Pointer view | `0x000000000000000000000000000000000000100A` | Look up pointer contract addresses |
+| Pointer | `0x000000000000000000000000000000000000100B` | Register pointer contracts |
+| Solo | `0x000000000000000000000000000000000000100C` | Claim Solo migration payloads |
+| P256 | `0x0000000000000000000000000000000000001011` | Verify P-256 elliptic curve signatures |
+
+This page shows Bank, Staking, Governance, Distribution, JSON, and Solo. The rest are covered on their own pages: [CosmWasm](/evm/precompiles/cosmwasm-precompiles/cosmwasm), [Address](/evm/precompiles/cosmwasm-precompiles/addr), [Pointer contracts](/evm/evm-parity/examples/pointer-contracts) for both pointer precompiles, and [P256](/evm/precompiles/p256-precompile).
 </Info>
 
 <Warning>The IBC and Oracle precompiles are not exported by `@sei-js/precompiles`. IBC is disabled in both directions, and native Oracle queries are retired. Calls to either precompile cannot succeed on live Sei. See [IBC is disabled](/learn/sip-03-migration#ibc-is-disabled) and [Oracle Precompile (Retired)](/evm/precompiles/oracle).</Warning>
@@ -38,14 +40,14 @@ import { getStakingPrecompileEthersV6Contract } from '@sei-js/precompiles/ethers
 ## Setup
 
 ```bash
-npm install viem ethers @sei-js/precompiles
+npm install viem ethers @sei-js/precompiles@^3
 ```
 
 <CodeGroup>
 
 ```ts viem
 import { createPublicClient, createWalletClient, http, custom } from 'viem';
-import { sei } from '@sei-js/precompiles';
+import { sei } from 'viem/chains';
 
 // Read-only
 const client = createPublicClient({ chain: sei, transport: http() });
@@ -266,6 +268,36 @@ console.log(`${symbol}: ${price}`);
 
 </CodeGroup>
 
+## Solo Precompile
+
+Claim a Solo migration payload. Both functions take the signed payload as `bytes` and return a boolean:
+
+<CodeGroup>
+
+```ts viem
+import { SOLO_PRECOMPILE_ABI, SOLO_PRECOMPILE_ADDRESS } from '@sei-js/precompiles';
+
+const hash = await walletClient.writeContract({
+  address: SOLO_PRECOMPILE_ADDRESS,
+  abi: SOLO_PRECOMPILE_ABI,
+  functionName: 'claim',
+  args: ['0xYourPayloadBytes'],
+});
+```
+
+```ts ethers
+import { getSoloPrecompileEthersV6Contract } from '@sei-js/precompiles/ethers';
+
+const solo = getSoloPrecompileEthersV6Contract(signer);
+
+const tx = await solo.claim('0xYourPayloadBytes');
+await tx.wait();
+```
+
+</CodeGroup>
+
+Use `claimSpecific` with the same argument shape to claim a single payload rather than everything available to the address.
+
 ## Common Patterns
 
 ### Error Handling
@@ -367,5 +399,5 @@ For full ABI reference and all available functions on each precompile:
 - [Distribution Precompile →](/evm/precompiles/distribution)
 - [JSON Precompile →](/evm/precompiles/json)
 - [P256 Precompile →](/evm/precompiles/p256-precompile)
-
-The Solo precompile at `0x100C` exports `claim` and `claimSpecific`. Import `SOLO_PRECOMPILE_ABI` and `SOLO_PRECOMPILE_ADDRESS` from `@sei-js/precompiles`, or `getSoloPrecompileEthersV6Contract` from `@sei-js/precompiles/ethers`.
+- [CosmWasm Precompiles →](/evm/precompiles/cosmwasm-precompiles/example-usage)
+- [Pointer contracts →](/evm/evm-parity/examples/pointer-contracts)

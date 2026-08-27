@@ -68,7 +68,7 @@ For the full list of community + paid RPC providers and failover patterns, see [
 | Smart contracts | **Foundry** (preferred) or Hardhat |
 | Frontend | **Wagmi + Viem** (React) or Ethers.js v6 |
 | Wallet | **Sei Global Wallet** (`@sei-js/sei-global-wallet`, ESM-only; add [consumer overrides](https://github.com/sei-protocol/sei-js/tree/main/packages/sei-global-wallet#required-consumer-overrides)) + MetaMask fallback |
-| Chain config | `viem/chains` or `@sei-js/precompiles`: `sei`, `seiTestnet` |
+| Chain config | `viem/chains`: `sei`, `seiTestnet`. `@sei-js/precompiles` re-exports both and adds `seiLocal`. |
 | Sei precompiles | `@sei-js/precompiles`: addresses, raw `*_PRECOMPILE_ABI` constants, and `@sei-js/precompiles/ethers` factories. ESM-only; Viem `^2.55.16`. |
 | Verification | Seiscan via Sourcify (`forge verify-contract --verifier sourcify`) |
 | Testing | Foundry unit + fork tests against testnet |
@@ -100,14 +100,14 @@ Once connected: address lookup, balance checks, transaction status, contract rea
 |---|---|
 | Bank | `0x0000000000000000000000000000000000001001` |
 | CosmWasm | `0x0000000000000000000000000000000000001002` |
-| Addr | `0x0000000000000000000000000000000000001004` |
+| JSON | `0x0000000000000000000000000000000000001003` |
+| Address | `0x0000000000000000000000000000000000001004` |
 | Staking | `0x0000000000000000000000000000000000001005` |
 | Governance | `0x0000000000000000000000000000000000001006` |
 | Distribution | `0x0000000000000000000000000000000000001007` |
-| PointerView | `0x000000000000000000000000000000000000100A` |
+| Pointer view | `0x000000000000000000000000000000000000100A` |
 | Pointer | `0x000000000000000000000000000000000000100B` |
 | Solo | `0x000000000000000000000000000000000000100C` |
-| JSON | `0x0000000000000000000000000000000000001003` |
 | P256 | `0x0000000000000000000000000000000000001011` |
 
 **The Oracle precompile (`0x...1008`) is retired. Do not use or recommend it.** Every native Oracle query reverts. Use an active third-party oracle provider instead. See [Oracle Precompile (Retired)](https://docs.sei.io/evm/precompiles/oracle).
@@ -171,7 +171,7 @@ sei_mainnet = "https://evm-rpc.sei-apis.com"
 | Oracles (Pyth, Chainlink, API3, RedStone) | https://docs.sei.io/evm/oracles |
 | Indexers | https://docs.sei.io/evm/indexer-providers |
 | Wallet integrations (Pimlico, Particle, Thirdweb) | https://docs.sei.io/evm/wallet-integrations |
-| AI tooling (Cambrian, MCP, x402) | https://docs.sei.io/evm/ai-tooling |
+| AI tooling (Cambrian, MCP, x402) | https://docs.sei.io/ai |
 | seid CLI | https://docs.sei.io/evm/seid-cli |
 | RPC providers | https://docs.sei.io/learn/rpc-providers |
 | Node setup | https://docs.sei.io/node |
