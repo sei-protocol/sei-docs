@@ -37,6 +37,36 @@ seid tendermint show-validator
 seid query node info
 ```
 
+
+#### Freeze Mode (`--freeze-height`)
+
+The `--freeze-height` start flag (and the corresponding `freeze-height` field in `app.toml`) puts a full node into read-only freeze mode at a specified block height. Query RPC remains available so the node can continue serving reads, but write and network paths are disabled from startup:
+
+- Transaction and evidence submission is rejected. The `BroadcastTx`, `BroadcastTxAsync`, `BroadcastTxSync`, `BroadcastTxCommit`, and `BroadcastEvidence` RPC calls all return `ErrReadOnly` (`RPC writes are disabled in freeze mode`).
+- Mempool gossip is disabled — the mempool reactor is not started and the mempool p2p channel is not advertised to peers.
+- State sync is disabled.
+
+Block sync and consensus stop before executing the configured height and will not advance beyond it.
+
+```bash
+# Start a full node in read-only freeze mode at a given block height
+seid start --freeze-height <height>
+```
+
+The same behavior can be configured persistently via the `freeze-height` field. `freeze-height` is the first block height a full node must not execute; a value of `0` disables freeze mode.
+
+```toml
+# The first block height a full node must not execute. Query RPC remains available,
+# while transaction and evidence submission, mempool gossip, and state sync are
+# disabled from startup. Set to 0 to disable freeze mode.
+freeze-height = 0
+```
+
+<Warning>
+  Freeze mode is only supported for full nodes. Setting a non-zero `freeze-height` in validator or seed mode is rejected at startup with an error (`freeze height is not supported in <mode> mode`).
+</Warning>
+
+
 ### seidb Tooling Commands
 
 The `seidb` binary provides low-level tooling for inspecting and maintaining a node's on-disk state.
