@@ -12,7 +12,7 @@ The Sei JSON precompile allows EVM applications to efficiently parse and query J
 
 ## How Does the JSON Precompile Work?
 
-The JSON precompile at address `0x0000000000000000000000000000000000001003` exposes functions like `extractAsBytes()`, `extractAsBytesList()`, and `extractAsUint256()`.
+The JSON precompile at address `0x0000000000000000000000000000000000001003` exposes `extractAsBytes()`, `extractAsBytesList()`, `extractAsBytesFromArray()`, and `extractAsUint256()`.
 
 - **Direct Integration:** EVM contracts and dApps can parse JSON data like any other smart contract method.
 - **Native Execution:** JSON parsing is executed at the native level for maximum efficiency.
@@ -51,6 +51,15 @@ function extractAsBytesList(
     string memory key
 ) external view returns (bytes[] memory response);
 
+/// Extracts one element from a JSON array by index.
+/// @param input The input data.
+/// @param arrayIndex The zero-based array index.
+/// @return The extracted data as bytes.
+function extractAsBytesFromArray(
+    bytes memory input,
+    uint16 arrayIndex
+) external view returns (bytes memory response);
+
 /// Extracts data as a uint256 from the input using the specified key.
 /// @param input The input data.
 /// @param key The key to extract.
@@ -82,8 +91,8 @@ Install the required packages for interacting with Sei precompiles:
 # Install ethers.js for smart contract interactions
 npm install ethers
 
-# Install Sei EVM bindings for precompile addresses and ABIs
-npm install @sei-js/precompiles@^2.1.2
+# Install @sei-js/precompiles for precompile addresses and ABIs
+npm install @sei-js/precompiles@^3
 
 # Install dotenv for managing private keys (recommended for security)
 npm install dotenv
@@ -93,7 +102,7 @@ npm install dotenv
 
 ```typescript
 // Import JSON precompile address and ABI
-// View the entire ABI here: https://github.com/sei-protocol/sei-chain/tree/main/precompiles/json
+// View the entire ABI here: https://github.com/sei-protocol/sei-chain/blob/v6.6.1/precompiles/json/legacy/v66/abi.json
 import { JSON_PRECOMPILE_ABI, JSON_PRECOMPILE_ADDRESS } from '@sei-js/precompiles';
 import { ethers } from 'ethers';
 ```
@@ -294,11 +303,11 @@ console.log('Wallet data:', walletData); // Output: { balance: 1000, currency: "
 
 Create a comprehensive JSON parsing application for mainnet:
 
-```javascript title="json-precompile-mainnet.js"
-// json-precompile-mainnet.js
-const { ethers } = require('ethers');
-const { JSON_PRECOMPILE_ABI, JSON_PRECOMPILE_ADDRESS } = require('@sei-js/precompiles');
-require('dotenv').config();
+```javascript title="json-precompile-mainnet.mjs"
+// json-precompile-mainnet.mjs
+import { ethers } from 'ethers';
+import { JSON_PRECOMPILE_ABI, JSON_PRECOMPILE_ADDRESS } from '@sei-js/precompiles';
+import 'dotenv/config';
 
 // Safe extraction utilities
 async function safeExtractBytes(jsonPrecompile, data, key, defaultValue = '') {
@@ -506,7 +515,7 @@ npm init -y
 2. **Install dependencies:**
 
 ```bash
-npm install ethers @sei-js/precompiles@^2.1.2 dotenv
+npm install ethers @sei-js/precompiles@^3 dotenv
 ```
 
 3. **Create a `.env` file:**
@@ -518,7 +527,7 @@ PRIVATE_KEY=your_private_key_here
 <Warning>**Security Note:** Never commit private keys to version control! The `.env` file should be added to your `.gitignore`.</Warning>
 
 4. **Create the demo file:**
-   Copy the complete integration example above into `json-precompile-mainnet.js`
+   Copy the complete integration example above into `json-precompile-mainnet.mjs`
 
 5. **Ensure you have SEI tokens:**
 
@@ -527,7 +536,7 @@ PRIVATE_KEY=your_private_key_here
 6. **Run the script:**
 
 ```bash
-node json-precompile-mainnet.js
+node json-precompile-mainnet.mjs
 ```
 
 ### Expected Output
@@ -703,7 +712,7 @@ async function handleMissingKeys(jsonPrecompile: ethers.Contract, data: any) {
 - **Decimal Handling:** Store decimal numbers as integers with known precision (e.g., 275 for 2.75 with 2 decimal places)
 - **Boolean Values:** Use 0/1 integers to represent false/true
 - **Key Paths:** Extract parent objects first, then parse manually - dot notation may not be supported
-- **Arrays:** Must use `extractAsBytesList()` for array data
+- **Arrays:** Object-keyed arrays use `extractAsBytesList()`. JSON arrays by index use `extractAsBytesFromArray()`.
 - **Gas Costs:** Large JSON objects require higher gas limits
 - **Encoding:** Always use UTF-8 encoding with `ethers.toUtf8Bytes()`
 - **Error Handling:** Always implement fallback values for production applications

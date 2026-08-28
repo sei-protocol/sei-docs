@@ -59,7 +59,7 @@ The EVM section is the primary developer resource for building on Sei. It covers
 - **seid CLI**: Installation, querying, and transactions
 - **Frontend Development**: Sei Global Wallet, building frontends
 - **Smart Contracts**: Development with Hardhat/Foundry, contract wizard, debugging, tracing, verification, precompiles
-- **sei-js Library**: External links to sei-js documentation (Scaffold Sei, MCP Server, X402, Ledger)
+- **Developer tooling**: sei-js packages, Scaffold Sei, MCP Server, x402, and Ledger
 - **Ecosystem Tutorials**: Indexers, wallet integrations, bridging, AI tooling, oracles, VRF
 - **Reference**: Transactions, RPC reference, tokens, changelog, ecosystem contracts
 - **Hardware Wallets**: Ledger integration with Ethers

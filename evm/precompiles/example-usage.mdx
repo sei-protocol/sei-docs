@@ -12,18 +12,35 @@ Sei precompiles are special smart contracts deployed at fixed addresses that exp
 
 | Precompile | Address | Description |
 | --- | --- | --- |
-| Bank | `0x1001` | Query the native SEI bank balance |
-| JSON | `0x1003` | Parse JSON data within contracts |
-| Staking | `0x1005` | Delegation and staking operations |
-| Governance | `0x1006` | Proposal voting |
-| Distribution | `0x1007` | Claim staking rewards |
-| P256 | `0x1011` | Verify P-256 elliptic curve signatures |
+| Bank | `0x0000000000000000000000000000000000001001` | Query the native SEI bank balance |
+| CosmWasm | `0x0000000000000000000000000000000000001002` | Query or execute existing CosmWasm contracts. `instantiate()` reverts (Proposal 115). |
+| JSON | `0x0000000000000000000000000000000000001003` | Parse JSON data within contracts |
+| Address | `0x0000000000000000000000000000000000001004` | Convert and associate EVM and Sei addresses |
+| Staking | `0x0000000000000000000000000000000000001005` | Delegation and staking operations |
+| Governance | `0x0000000000000000000000000000000000001006` | Proposal voting |
+| Distribution | `0x0000000000000000000000000000000000001007` | Claim staking rewards |
+| Pointer view | `0x000000000000000000000000000000000000100A` | Look up pointer contract addresses |
+| Pointer | `0x000000000000000000000000000000000000100B` | Register pointer contracts |
+| Solo | `0x000000000000000000000000000000000000100C` | Claim Solo migration payloads |
+| P256 | `0x0000000000000000000000000000000000001011` | Verify P-256 elliptic curve signatures |
+
+This page shows Bank, Staking, Governance, Distribution, JSON, and Solo. The rest are covered on their own pages: [CosmWasm](/evm/precompiles/cosmwasm-precompiles/cosmwasm), [Address](/evm/precompiles/cosmwasm-precompiles/addr), [Pointer contracts](/evm/evm-parity/examples/pointer-contracts) for both pointer precompiles, and [P256](/evm/precompiles/p256-precompile).
 </Info>
+
+<Warning>The IBC and Oracle precompiles are not exported by `@sei-js/precompiles`. IBC is disabled in both directions, and native Oracle queries are retired. Calls to either precompile cannot succeed on live Sei. See [IBC is disabled](/learn/sip-03-migration#ibc-is-disabled) and [Oracle Precompile (Retired)](/evm/precompiles/oracle).</Warning>
+
+<Note>
+`@sei-js/precompiles@3` is ESM-only and matches Sei Chain v6.6.1 ABIs. Import raw `*_PRECOMPILE_ABI` constants from the package root, `@sei-js/precompiles/precompiles`, or `@sei-js/precompiles/viem`. Ethers factories are on `@sei-js/precompiles/ethers`. The package does not expose `VIEM_*_PRECOMPILE_ABI` aliases. It re-exports Viem's `sei` and `seiTestnet` definitions and also exports `seiLocal` (chain ID `713714`, `http://localhost:8545`). Viem 2.55.16 or newer is required.
+
+```ts
+import { getStakingPrecompileEthersV6Contract } from '@sei-js/precompiles/ethers';
+```
+</Note>
 
 ## Setup
 
 ```bash
-npm install viem ethers @sei-js/precompiles
+npm install viem ethers @sei-js/precompiles@^3
 ```
 
 <CodeGroup>
@@ -109,7 +126,7 @@ const delegation = await client.readContract({
   args: [account, 'seivaloper1...'],
 });
 
-// Undelegate 5 SEI — amount is in 6-decimal usei (1 SEI = 1_000_000 usei), not wei
+// Undelegate 5 SEI. The amount uses 6-decimal usei (1 SEI = 1_000_000 usei), not wei.
 const undelegateHash = await walletClient.writeContract({
   address: STAKING_PRECOMPILE_ADDRESS,
   abi: STAKING_PRECOMPILE_ABI,
@@ -132,7 +149,7 @@ await tx.wait();
 const delegation = await readStaking.delegation(await signer.getAddress(), 'seivaloper1...');
 console.log('Delegated:', delegation.balance.amount.toString());
 
-// Undelegate 5 SEI — amount is in 6-decimal usei (1 SEI = 1_000_000 usei), not wei
+// Undelegate 5 SEI. The amount uses 6-decimal usei (1 SEI = 1_000_000 usei), not wei.
 const undelegateTx = await staking.undelegate('seivaloper1...', ethers.parseUnits('5', 6));
 await undelegateTx.wait();
 ```
@@ -203,7 +220,7 @@ await tx.wait();
 
 ## JSON Precompile
 
-Parse JSON data within EVM contracts or dApps — useful for processing oracle responses, NFT metadata, and structured payloads:
+Parse JSON data within EVM contracts or dApps. This is useful for processing oracle responses, NFT metadata, and structured payloads:
 
 <CodeGroup>
 
@@ -251,6 +268,36 @@ console.log(`${symbol}: ${price}`);
 
 </CodeGroup>
 
+## Solo Precompile
+
+Claim a Solo migration payload. Both functions take the signed payload as `bytes` and return a boolean:
+
+<CodeGroup>
+
+```ts viem
+import { SOLO_PRECOMPILE_ABI, SOLO_PRECOMPILE_ADDRESS } from '@sei-js/precompiles';
+
+const hash = await walletClient.writeContract({
+  address: SOLO_PRECOMPILE_ADDRESS,
+  abi: SOLO_PRECOMPILE_ABI,
+  functionName: 'claim',
+  args: ['0xYourPayloadBytes'],
+});
+```
+
+```ts ethers
+import { getSoloPrecompileEthersV6Contract } from '@sei-js/precompiles/ethers';
+
+const solo = getSoloPrecompileEthersV6Contract(signer);
+
+const tx = await solo.claim('0xYourPayloadBytes');
+await tx.wait();
+```
+
+</CodeGroup>
+
+Use `claimSpecific` with the same argument shape to claim a single payload rather than everything available to the address.
+
 ## Common Patterns
 
 ### Error Handling
@@ -281,16 +328,16 @@ Fetch multiple precompile values in parallel:
 const [delegation1, delegation2, rewards] = await Promise.all([
   readStaking.delegation(address, validator1),
   readStaking.delegation(address, validator2),
-  distribution.delegationTotalRewards(address),
+  distribution.rewards(address),
 ]);
 ```
 
 ### Gas Limits
 
-Precompile calls that write state need enough gas. Use `estimateGas` rather than hard-coding:
+Precompile calls that write state need enough gas. Use `estimateContractGas` rather than hard-coding:
 
 ```ts viem
-const gas = await client.estimateGas({
+const gas = await client.estimateContractGas({
   account,
   address: STAKING_PRECOMPILE_ADDRESS,
   abi: STAKING_PRECOMPILE_ABI,
@@ -352,3 +399,5 @@ For full ABI reference and all available functions on each precompile:
 - [Distribution Precompile →](/evm/precompiles/distribution)
 - [JSON Precompile →](/evm/precompiles/json)
 - [P256 Precompile →](/evm/precompiles/p256-precompile)
+- [CosmWasm Precompiles →](/evm/precompiles/cosmwasm-precompiles/example-usage)
+- [Pointer contracts →](/evm/evm-parity/examples/pointer-contracts)

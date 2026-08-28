@@ -432,24 +432,55 @@ slow = false
 # Deny list defines list of methods that EVM RPC should fail fast, e.g ["debug_traceBlockByNumber"]
 deny_list = []
 
-# Legacy sei_* JSON-RPC (EVM HTTP only - not Cosmos REST on 1317).
+# Legacy sei_* / sei2_* JSON-RPC (EVM HTTP only - not Cosmos REST on 1317).
 #
-# DEPRECATION: The remaining sei_* JSON-RPC surface is deprecated and scheduled for removal. Do not
-# build new integrations on it; use eth_* / debug_* and documented replacements. HTTP 200;
+# DEPRECATION: The sei_* and sei2_* JSON-RPC surfaces are deprecated and scheduled for removal. Do not
+# build new integrations on them; use eth_* / debug_* and documented replacements. HTTP 200;
 # gate errors use standard JSON-RPC error encoding (see evmrpc/AGENTS.md). Successful allowlisted
 # responses are unchanged; nodes may set HTTP header Sei-Legacy-RPC-Deprecation (see AGENTS.md).
 #
-# The sei2_* namespace and obsolete sei_* methods have been removed.
-#
 # Only methods listed in enabled_legacy_sei_apis are allowed. Init defaults enable the three
-# address/Cosmos helpers; uncomment the receipt method below to enable it.
+# address/Cosmos helpers; uncomment optional lines below to enable more legacy methods (include
+# sei2_* block methods at the end of the list if you need them).
 enabled_legacy_sei_apis = [
   "sei_getSeiAddress",
   "sei_getEVMAddress",
   "sei_getCosmosTx",
 
-  # Optional legacy method - uncomment to enable (same deprecation applies):
+  # Optional legacy methods - uncomment to enable (same deprecation applies):
+  # "sei_associate",
+  # "sei_getBlockByHash",
+  # "sei_getBlockByHashExcludeTraceFail",
+  # "sei_getBlockByNumber",
+  # "sei_getBlockByNumberExcludeTraceFail",
+  # "sei_getBlockReceipts",
+  # "sei_getBlockTransactionCountByHash",
+  # "sei_getBlockTransactionCountByNumber",
+  # "sei_getEvmTx",
+  # "sei_getFilterChanges",
+  # "sei_getFilterLogs",
+  # "sei_getLogs",
+  # "sei_getTransactionByBlockHashAndIndex",
+  # "sei_getTransactionByBlockNumberAndIndex",
+  # "sei_getTransactionByHash",
+  # "sei_getTransactionCount",
+  # "sei_getTransactionErrorByHash",
   # "sei_getTransactionReceipt",
+  # "sei_getTransactionReceiptExcludeTraceFail",
+  # "sei_getVMError",
+  # "sei_newBlockFilter",
+  # "sei_newFilter",
+  # "sei_sign",
+  # "sei_uninstallFilter",
+  #
+  # Optional sei2_* block namespace (bank transfers in blocks; HTTP only):
+  # "sei2_getBlockByHash",
+  # "sei2_getBlockByHashExcludeTraceFail",
+  # "sei2_getBlockByNumber",
+  # "sei2_getBlockByNumberExcludeTraceFail",
+  # "sei2_getBlockReceipts",
+  # "sei2_getBlockTransactionCountByHash",
+  # "sei2_getBlockTransactionCountByNumber",
 ]
 
 # max number of logs returned if block range is open-ended
@@ -952,7 +983,7 @@ external-address = ""
 # Comma separated list of peers to be added to the peer store
 # on startup. Either BootstrapPeers or PersistentPeers are
 # needed for peer discovery
-bootstrap-peers = ""
+bootstrap-peers = "0cd5f57c249b5aca815710338e1fe7a14797585d@seed-0-p2p.pacific-1.prod.platform.sei.io:26656,f0f057f1593d28bec11591cf146bd223e0be1866@seed-1-p2p.pacific-1.prod-euw1.platform.sei.io:26656,8e28f62368a1ceae0102645db8584b218650930d@seed-2-p2p.pacific-1.prod-use2.platform.sei.io:26656"
 
 # Comma separated list of nodes to keep persistent connections to
 persistent-peers = ""
@@ -982,6 +1013,12 @@ allow-duplicate-ip = false
 # Peer connection configuration.
 handshake-timeout = "10s"
 dial-timeout = "3s"
+
+# How often the node accepts a new inbound connection. A larger interval paces
+# the accept loop more slowly; if the kernel accept backlog outpaces it, arriving
+# peers wait past handshake-timeout and the node silently stops acquiring inbound
+# peers. A value of 0 disables the limiter.
+accept-interval = "10ms"
 
 # Time to wait before flushing messages out on the connection
 # TODO: Remove once MConnConnection is removed.
@@ -1554,9 +1591,7 @@ replacement under your trace workload before you cut over.
 
 ### Giga Storage and Giga Executor
 
-These are two **separate** opt-in features that ship in newer `seid`
-releases. Both default to off; only enable them deliberately and after
-following the relevant migration guide.
+These are two **separate** features that ship in newer `seid` releases.
 
 **Giga Storage** repartitions SeiDB so EVM state lives in its own
 databases at both the SC and SS layers, freeing non-EVM modules from EVM
@@ -1585,16 +1620,20 @@ full procedure is in the
 currently supported on **RPC nodes only**; validators and archive nodes are
 not yet covered.
 
-**Giga Executor** is independent of Giga Storage. It swaps the EVM
-interpreter from go-ethereum's geth to an evmone-based executor for
-higher throughput, with optional OCC parallelism on top:
+**Giga Executor** is independent of Giga Storage. From the v6.6 release line,
+newly generated configurations and configurations that omit these fields
+default to the Giga execution path with OCC enabled. Set both fields explicitly
+to `false` to opt out. Follow the release-specific operator instructions before
+changing either setting:
 
 ```toml
 [giga_executor]
-# Use the evmone-based executor instead of geth's interpreter. Experimental.
-enabled = false
+# Use the Giga execution path.
+# Default: true.
+enabled = true
 # Run Giga-executed txs in parallel with Optimistic Concurrency Control.
-occ_enabled = false
+# Default: true.
+occ_enabled = true
 ```
 
 ### Database Maintenance
