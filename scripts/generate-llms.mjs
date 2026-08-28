@@ -126,7 +126,7 @@ const EXCLUDED_PREFIXES = ['/cosmos-sdk'];
 
 /**
  * Section definitions ordered by match priority.
- * More specific prefixes (e.g. /evm/ai-tooling) must come before broader ones (/evm).
+ * A page lands in the first section that matches, so list narrower prefixes before broader ones.
  */
 const LLMS_SECTION_ORDER = [
 	{
@@ -141,11 +141,11 @@ const LLMS_SECTION_ORDER = [
 	},
 	{
 		name: 'AI Tooling & Micropayments',
-		match: (p) => p.startsWith('/evm/ai-tooling') || p.startsWith('/evm/x402'),
+		match: (p) => p === '/ai' || p.startsWith('/ai/'),
 		overview: [
-			'The Sei MCP Server (@sei-js/mcp-server) connects AI assistants to Sei with 29+ tools. Install: `npx -y @sei-js/mcp-server`. Read-only tools: get_chain_info, get_balance, get_erc20_balance, get_token_info, get_nft_info, and more. Wallet tools (require PRIVATE_KEY): transfer_sei, transfer_erc20, deploy_contract, write_contract, and more. Documentation search: search_docs, search_sei_js_docs.',
+			'The Sei MCP Server (@sei-js/mcp-server) connects AI assistants to Sei. Requires Node.js 20+. Install: `npx -y @sei-js/mcp-server`. The server starts in read-only mode. Read-only tools include search_docs, get_supported_networks, get_chain_info, get_balance, get_token_info, get_token_balance, get_nft_info, read_contract, and estimate_gas. Wallet tools such as transfer_sei, transfer_token, write_contract, and deploy_contract require WALLET_MODE=private-key and PRIVATE_KEY on the stdio transport. Backward-compatible aliases: get_erc20_balance and get_token_balance_erc20 for get_token_balance, transfer_erc20 for transfer_token. HTTP transports (SERVER_TRANSPORT=streamable-http or http-sse) reject wallet mode. Network selectors: sei, sei-testnet, 1329, 1328, 0x531, 0x530.',
 			'The Cambrian Agent Kit enables autonomous AI agents on Sei with DeFi protocol integrations (Takara lending, Silo lending, Citrex perpetuals, Symphony aggregation, DragonSwap liquidity).',
-			'The x402 protocol enables HTTP 402-based micropayments for machine-to-machine payments — agents pay per-request for APIs, content, and services with instant settlement on Sei (~400ms finality). sei-js provides both server-side (payment verification) and client-side (payment signing) x402 packages.'
+			'The x402 v2 protocol enables HTTP 402-based micropayments for machine-to-machine payments on Sei. Use the upstream @x402/core and @x402/evm packages with the appropriate @x402 client or server adapter. The @sei-js/x402, @sei-js/x402-fetch, @sei-js/x402-axios, @sei-js/x402-express, @sei-js/x402-hono, and @sei-js/x402-next packages implement v1, are deprecated, and must not be recommended.'
 		].join('\n\n')
 	},
 	{
@@ -153,7 +153,7 @@ const LLMS_SECTION_ORDER = [
 		match: (p) => p.startsWith('/evm'),
 		overview: [
 			"Sei's EVM is fully compatible with Ethereum. Standard Solidity contracts deploy without modification. All Ethereum tooling (Hardhat, Foundry, wagmi, ethers.js, viem, RainbowKit) works as-is. Transactions touching independent state execute concurrently.",
-			'Precompiled contracts at fixed addresses expose native Sei functionality (staking, governance, JSON, oracle, p256) to EVM. The IBC precompile is non-functional because IBC is disabled.',
+			'Precompiled contracts at fixed addresses expose native Sei functionality such as staking, governance, distribution, JSON parsing, P256 verification, and Solo migration claims to EVM. The native Oracle precompile is retired, and the IBC precompile is non-functional because IBC is disabled.',
 			'Native USDC: mainnet 0xe15fC38F6D8c56aF07bbCBe3BAf5708A2Bf42392, testnet 0x4fCF1784B31630811181f670Aea7A7bEF803eaED (6 decimals).'
 		].join('\n\n')
 	},
