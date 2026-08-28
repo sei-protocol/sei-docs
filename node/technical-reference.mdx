@@ -67,6 +67,43 @@ freeze-height = 0
 </Warning>
 
 
+
+### Frozen RPC Router
+
+The `frozen-rpc-router` binary is a companion to freeze mode. It exposes a single HTTP EVM JSON-RPC endpoint that transparently proxies requests to a live node and one or more freeze-height-frozen nodes, routing each request to the correct backend based on the block height it references. This lets a set of archival nodes — each frozen before a different height — collectively serve historical state through one endpoint.
+
+Because a freeze height is an exclusive boundary, a node started with `--freeze-height 100` serves blocks through height 99. The router therefore sends height 99 to that node and height 100 to the next configured interval (or to the live node when no frozen interval covers it).
+
+```bash
+# Route between a live node and two frozen nodes
+go run ./cmd/frozen-rpc-router \
+  --listen-address 0.0.0.0:8545 \
+  --live-node localhost:9545 \
+  --frozen-node 1000000=localhost:9546 \
+  --frozen-node 2000000=10.0.0.12:8545
+```
+
+The binary accepts the following flags:
+
+- `--listen-address` — address on which the router listens (default `127.0.0.1:8545`).
+- `--live-node` — HTTP RPC address of the live node (required).
+- `--frozen-node` — a `freeze-height=ip:port` pair; repeat once per frozen node. Bare `ip:port`, `http://`, and `https://` URLs are all accepted. Frozen nodes may be listed in any order, but freeze heights must be unique.
+- `--max-request-body-bytes` — maximum JSON-RPC request body size (default 5MiB); larger requests are rejected with HTTP `413`.
+- `--shutdown-timeout` — graceful shutdown timeout (default `10s`).
+
+#### Routing Rules
+
+- Methods with an explicit numeric block parameter (for example `eth_getBlockByNumber`, `eth_getBalance`, `eth_call`, `eth_getStorageAt`, `debug_traceBlockByNumber`) are routed to the interval that contains that height. The `earliest` tag resolves to height 0.
+- `eth_getLogs` and `eth_feeHistory` are routed only when their entire explicit block range falls within a single interval. A range that crosses an interval boundary is rejected with JSON-RPC error `-32000` (`block ranges spanning multiple frozen-node intervals are not supported`).
+- Latest-style block tags (`latest`, `pending`, `safe`, `finalized`), requests referencing a block by hash, methods without a block parameter, stateful filter methods, subscriptions, and WebSocket connections are all forwarded to the live node.
+- Batch requests are split so each call reaches its correct backend, then reassembled into a single response.
+
+#### Route Header
+
+Every HTTP response carries a `Sei-RPC-Route` header identifying which backend served it: `frozen:<height>` for a request served by the frozen node at that freeze height, `live` for the live node, and `mixed` for a batch split across multiple backends.
+
+
+
 ### seidb Tooling Commands
 
 The `seidb` binary provides low-level tooling for inspecting and maintaining a node's on-disk state.
