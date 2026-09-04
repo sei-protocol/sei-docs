@@ -67,7 +67,7 @@ export const Faucet = () => {
 
 	const formatNextUseTime = (iso) => {
 		const diffMs = new Date(iso).getTime() - nowMs;
-		// An unparseable date must not read as "now" while the button stays
+		// A date we cannot parse must not read as "now" while the button stays
 		// disabled — the two would contradict each other on screen.
 		if (!isFinite(diffMs)) return 'a little while';
 		if (diffMs <= 0) return 'now';
