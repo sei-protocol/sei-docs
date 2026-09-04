@@ -9,8 +9,7 @@
 //   - toasts are inline status banners
 //
 // The faucet backend stays at faucet-v3.seinetwork.io; this snippet only
-// replaces the iframe UI. The public sitekey must allow docs.sei.io (and
-// localhost for `mint dev`) as a hostname in the hCaptcha dashboard.
+// replaces the iframe UI.
 //
 // Usage in MDX:
 //   import { Faucet } from '/snippets/faucet.jsx';
@@ -164,7 +163,7 @@ export const Faucet = () => {
 			.catch(() => {
 				if (cancelled) return;
 				window.__seiHCaptchaPromise = null;
-				setErrorMsg('Captcha failed to load. Add this hostname to the hCaptcha sitekey, or try again.');
+				setErrorMsg('Captcha failed to load. Refresh the page and try again.');
 			});
 
 		return () => {
