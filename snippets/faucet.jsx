@@ -5,7 +5,9 @@
 // bundle. None of those are required:
 //   - hCaptcha is loaded from js.hcaptcha.com (already on Mintlify's default
 //     CSP) and driven via window.hcaptcha.render / .execute
-//   - address checks are a 0x + 40-hex regex
+//   - address checks are a 0x + 40-hex shape test. viem's isAddress also
+//     verifies the EIP-55 checksum, which needs keccak256 and so cannot run
+//     here — the faucet stays the authority on whether an address is real.
 //   - toasts are inline status banners
 //
 // The faucet backend stays at faucet-v3.seinetwork.io; this snippet only
@@ -25,6 +27,10 @@ export const Faucet = () => {
 	const widgetId = useRef(null);
 	const pollRef = useRef(null);
 	const timeoutRef = useRef(null);
+	// Every stop bumps the generation, so a fetch still in flight can tell its
+	// result is stale and skip writing to state.
+	const pollGenRef = useRef(0);
+	const pollInFlightRef = useRef(false);
 
 	const [destAddress, setDestAddress] = useState('');
 	const [captchaToken, setCaptchaToken] = useState(null);
@@ -37,6 +43,9 @@ export const Faucet = () => {
 	const [errorMsg, setErrorMsg] = useState(null);
 	const [verifyHover, setVerifyHover] = useState(false);
 	const [requestHover, setRequestHover] = useState(false);
+	// The rate-limit notice counts down, and nothing else re-renders while the
+	// reader sits on the page, so it needs a clock of its own.
+	const [nowMs, setNowMs] = useState(() => Date.now());
 
 	const trimmed = destAddress.trim();
 	const isValidAddress = /^0x[0-9a-fA-F]{40}$/.test(trimmed);
@@ -57,9 +66,11 @@ export const Faucet = () => {
 	};
 
 	const formatNextUseTime = (iso) => {
-		const date = new Date(iso);
-		const diffMs = date.getTime() - Date.now();
-		if (!isFinite(diffMs) || diffMs <= 0) return 'now';
+		const diffMs = new Date(iso).getTime() - nowMs;
+		// An unparseable date must not read as "now" while the button stays
+		// disabled — the two would contradict each other on screen.
+		if (!isFinite(diffMs)) return 'a little while';
+		if (diffMs <= 0) return 'now';
 		const hours = Math.floor(diffMs / (1000 * 60 * 60));
 		const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
 		if (hours > 0 && mins > 0) return `${hours}h ${mins}m`;
@@ -69,6 +80,8 @@ export const Faucet = () => {
 	};
 
 	const stopPolling = () => {
+		pollGenRef.current += 1;
+		pollInFlightRef.current = false;
 		if (pollRef.current) {
 			clearInterval(pollRef.current);
 			pollRef.current = null;
@@ -99,6 +112,19 @@ export const Faucet = () => {
 			if (timeoutRef.current) clearTimeout(timeoutRef.current);
 		};
 	}, []);
+
+	useEffect(() => {
+		if (!nextUseTime) return;
+		const deadline = new Date(nextUseTime).getTime();
+		const id = setInterval(() => {
+			const now = Date.now();
+			setNowMs(now);
+			// Clear the notice once the window has passed so the button comes
+			// back, instead of stranding the reader on an expired countdown.
+			if (isFinite(deadline) && now >= deadline) setNextUseTime(null);
+		}, 60000);
+		return () => clearInterval(id);
+	}, [nextUseTime]);
 
 	useEffect(() => {
 		let cancelled = false;
@@ -163,6 +189,11 @@ export const Faucet = () => {
 			.catch(() => {
 				if (cancelled) return;
 				window.__seiHCaptchaPromise = null;
+				// Drop the failed tag as well. Left in place, the next attempt
+				// takes the "already requested" branch and waits out the full
+				// timeout instead of re-fetching the script.
+				const staleTag = document.querySelector('script[data-sei-hcaptcha]');
+				if (staleTag) staleTag.remove();
 				setErrorMsg('Captcha failed to load. Refresh the page and try again.');
 			});
 
@@ -184,36 +215,44 @@ export const Faucet = () => {
 
 	const startPolling = (messageId) => {
 		stopPolling();
+		const generation = pollGenRef.current;
 		setIsPolling(true);
 		setPollingMessage('Transaction submitted, checking status...');
 
 		const pollOnce = async () => {
+			// A /message/:id slower than the 3s interval must not stack up.
+			if (pollInFlightRef.current) return;
+			pollInFlightRef.current = true;
 			try {
 				const response = await fetch(`${FAUCET_API_URL}/message/${messageId}`);
 				if (!response.ok) throw new Error('Failed to fetch message status');
 				const responseJson = await response.json();
+				// Polling stopped while this was in flight — the address
+				// changed, or the timeout fired. Its result is stale.
+				if (pollGenRef.current !== generation) return;
 				if (responseJson && responseJson.status === 'success') {
 					const data = responseJson.data || {};
 					if (data.status === 'success' && data.txHash) {
 						setTxHash(data.txHash);
 						stopPolling();
-						return true;
+						return;
 					}
 					if (data.status === 'error') {
 						stopPolling();
 						setErrorMsg('Transaction failed. Please try again.');
-						return true;
+						return;
 					}
 					if (data.status === 'processing' || data.status === 'pending') {
 						setPollingMessage('Transaction is being processed...');
-						return false;
+						return;
 					}
 				}
 				setPollingMessage('Checking transaction status...');
-				return false;
 			} catch (e) {
+				if (pollGenRef.current !== generation) return;
 				setPollingMessage('Checking transaction status...');
-				return false;
+			} finally {
+				pollInFlightRef.current = false;
 			}
 		};
 
@@ -247,16 +286,19 @@ export const Faucet = () => {
 		}
 	};
 
-	const handleSubmit = async () => {
-		if (!captchaToken) {
-			setErrorMsg('Complete the captcha verification first.');
-			return;
+	// The faucet reports actionable refusals (rejected captcha, rejected
+	// address) in a message field. Only fall back when it says nothing useful,
+	// otherwise the reader is sent to Discord to ask what we were already told.
+	const faucetError = (payload) => {
+		const data = (payload && payload.data) || {};
+		const candidates = [payload && payload.message, payload && payload.error, data.message, data.error, data.reason];
+		for (const candidate of candidates) {
+			if (typeof candidate === 'string' && candidate.trim()) return candidate.trim();
 		}
-		if (!isValidAddress) {
-			setErrorMsg('Enter a valid Sei EVM address (0x followed by 40 hex characters).');
-			return;
-		}
+		return 'Error requesting tokens. Please try again later.';
+	};
 
+	const handleSubmit = async () => {
 		setSendingRequest(true);
 		setErrorMsg(null);
 		setTxHash(null);
@@ -278,7 +320,7 @@ export const Faucet = () => {
 			} else if (responseJson && responseJson.data && responseJson.data.nextAllowedUseDate) {
 				setNextUseTime(responseJson.data.nextAllowedUseDate);
 			} else {
-				setErrorMsg('Error requesting tokens. Please try again later.');
+				setErrorMsg(faucetError(responseJson));
 			}
 			resetCaptcha();
 		} catch (e) {
@@ -290,6 +332,25 @@ export const Faucet = () => {
 	};
 
 	const isSubmitDisabled = !!nextUseTime || !isValidAddress || !captchaToken || isPolling || sendingRequest;
+
+	// The request button is disabled until every precondition is met, so say
+	// which one is missing rather than leaving a greyed-out button unexplained.
+	const describeBlocker = () => {
+		if (nextUseTime || isPolling || sendingRequest || txHash) return null;
+		if (looksLikeSeiBech32 && !isValidAddress) return 'Use the 0x EVM address, not the sei1… address.';
+		if (trimmed && !isValidAddress) return 'Enter a valid EVM address: 0x followed by 40 hex characters.';
+		if (isValidAddress && !captchaToken) return 'Complete the captcha verification to enable the request.';
+		return null;
+	};
+	const blockedReason = describeBlocker();
+
+	const handleAddressKeyDown = (e) => {
+		if (e.key !== 'Enter') return;
+		e.preventDefault();
+		if (!isValidAddress) return;
+		if (!captchaToken) handleCaptchaVerification();
+		else if (!isSubmitDisabled) handleSubmit();
+	};
 
 	const DropletIcon = ({ className }) => (
 		<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2' strokeLinecap='round' strokeLinejoin='round' className={className} aria-hidden='true'>
@@ -348,11 +409,10 @@ export const Faucet = () => {
 
 	return (
 		<div className='not-prose w-full flex flex-col gap-4 my-4' style={{ position: 'relative' }}>
-			<div
-				ref={captchaNode}
-				aria-hidden='true'
-				style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }}
-			/>
+			{/* hCaptcha mounts the challenge here. Keep it out of the layout but
+			    inside the accessibility tree — under aria-hidden a screen-reader
+			    user cannot reach the image or audio challenge. */}
+			<div ref={captchaNode} style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }} />
 
 			<div className='overflow-hidden' style={{ border: `1px solid ${HAIRLINE}` }}>
 				<div className='flex items-stretch' style={{ borderBottom: `1px solid ${HAIRLINE}` }}>
@@ -364,6 +424,7 @@ export const Faucet = () => {
 						placeholder='Enter your EVM (0x...) address'
 						value={destAddress}
 						onChange={handleAddressChange}
+						onKeyDown={handleAddressKeyDown}
 						autoComplete='off'
 						autoCapitalize='off'
 						autoCorrect='off'
@@ -414,9 +475,7 @@ export const Faucet = () => {
 				</div>
 			</div>
 
-			{looksLikeSeiBech32 && !isValidAddress ? (
-				<p className='text-sm text-neutral-600 dark:text-neutral-400'>Use the 0x EVM address, not the sei1… address.</p>
-			) : null}
+			{blockedReason ? <p className='text-sm text-neutral-600 dark:text-neutral-400'>{blockedReason}</p> : null}
 
 			{errorMsg ? (
 				<div className='flex items-start gap-3 px-4 py-3 text-sm' style={{ borderLeft: '3px solid var(--sei-maroon-100)', backgroundColor: 'rgba(96, 0, 20, 0.08)' }}>
