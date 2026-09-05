@@ -124,9 +124,17 @@ export const Faucet = () => {
 
 	const addressChecksumOk = (address) => {
 		const body = address.slice(2);
+		// Both single-case forms are accepted as unchecksummed: neither carries
+		// case information to verify. This follows ethers; viem's isAddress
+		// under strict rejects the all-uppercase one.
 		if (body === body.toLowerCase() || body === body.toUpperCase()) return true;
 		// EIP-55 hashes the ASCII lowercase hex, not the 20 address bytes.
-		const hash = keccak256(new TextEncoder().encode(body.toLowerCase()));
+		// The upstream shape test guarantees 40 hex characters, so charCodeAt
+		// is already the ASCII encoding.
+		const lower = body.toLowerCase();
+		const ascii = new Uint8Array(40);
+		for (let i = 0; i < 40; i++) ascii[i] = lower.charCodeAt(i);
+		const hash = keccak256(ascii);
 		for (let i = 0; i < 40; i++) {
 			const ch = body[i];
 			if (ch >= '0' && ch <= '9') continue;
@@ -141,7 +149,8 @@ export const Faucet = () => {
 
 	const trimmed = destAddress.trim();
 	const hasAddressShape = /^0x[0-9a-fA-F]{40}$/.test(trimmed);
-	const isValidAddress = hasAddressShape && addressChecksumOk(trimmed);
+	// Hover and the 60s clock tick both re-render, and neither should re-hash.
+	const isValidAddress = useMemo(() => hasAddressShape && addressChecksumOk(trimmed), [hasAddressShape, trimmed]);
 	const looksLikeSeiBech32 = /^sei1[a-z0-9]{10,}$/i.test(trimmed);
 
 	const mono = { fontFamily: 'var(--sei-font-mono)' };
@@ -453,7 +462,7 @@ export const Faucet = () => {
 		if (nextUseTime || isPolling || sendingRequest || txHash) return null;
 		if (looksLikeSeiBech32 && !hasAddressShape) return 'Use the 0x EVM address, not the sei1… address.';
 		if (trimmed && !hasAddressShape) return 'Enter a valid EVM address: 0x followed by 40 hex characters.';
-		if (hasAddressShape && !isValidAddress) return 'This mixed-case address does not match its EIP-55 checksum. That usually means it was mistyped or truncated.';
+		if (hasAddressShape && !isValidAddress) return 'This address fails its EIP-55 checksum, so a character is probably wrong. Copy it again from your wallet.';
 		if (isValidAddress && !captchaToken) return 'Complete the captcha verification to enable the request.';
 		return null;
 	};
