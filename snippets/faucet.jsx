@@ -120,14 +120,15 @@ export const Faucet = () => {
 
 	useEffect(() => {
 		if (!nextUseTime) return;
-		const id = setInterval(() => {
-			const now = Date.now();
-			setNowMs(now);
-			// Clear the notice once the window has passed so the button comes
-			// back, instead of stranding the reader on an expired countdown.
-			if (now >= nextUseTime) setNextUseTime(null);
-		}, 60000);
-		return () => clearInterval(id);
+		const display = setInterval(() => setNowMs(Date.now()), 60000);
+		// Separate from the display tick: hanging the re-enable off a 60s
+		// interval would leave the button dead for up to a minute past the
+		// deadline. This fires on the deadline itself.
+		const expiry = setTimeout(() => setNextUseTime(null), Math.max(0, nextUseTime - Date.now()));
+		return () => {
+			clearInterval(display);
+			clearTimeout(expiry);
+		};
 	}, [nextUseTime]);
 
 	useEffect(() => {
@@ -191,13 +192,14 @@ export const Faucet = () => {
 				setCaptchaReady(true);
 			})
 			.catch(() => {
-				if (cancelled) return;
+				// Clear the cache before the unmount check, not after. A reader
+				// navigating away mid-failure would otherwise leave the rejected
+				// promise on window for the life of the tab, and every later
+				// mount would short-circuit to it instead of re-fetching.
 				window.__seiHCaptchaPromise = null;
-				// Drop the failed tag as well. Left in place, the next attempt
-				// takes the "already requested" branch and waits out the full
-				// timeout instead of re-fetching the script.
 				const staleTag = document.querySelector('script[data-sei-hcaptcha]');
 				if (staleTag) staleTag.remove();
+				if (cancelled) return;
 				setErrorMsg('Captcha failed to load. Refresh the page and try again.');
 			});
 
@@ -348,6 +350,9 @@ export const Faucet = () => {
 	};
 
 	const isSubmitDisabled = !!nextUseTime || !isValidAddress || !captchaToken || isPolling || sendingRequest;
+	// Re-running a solved challenge just discards a good token, and running one
+	// mid-request produces a token handleSubmit's resetCaptcha throws away.
+	const isVerifyDisabled = !captchaReady || !!captchaToken || sendingRequest || isPolling || !!nextUseTime;
 
 	// The request button is disabled until every precondition is met, so say
 	// which one is missing rather than leaving a greyed-out button unexplained.
@@ -424,7 +429,7 @@ export const Faucet = () => {
 	};
 
 	return (
-		<div className='not-prose w-full flex flex-col gap-4 my-4' style={{ position: 'relative' }}>
+		<div className='not-prose w-full flex flex-col my-4' style={{ position: 'relative' }}>
 			{/* hCaptcha mounts the challenge here. Keep it out of the layout but
 			    inside the accessibility tree — under aria-hidden a screen-reader
 			    user cannot reach the image or audio challenge. */}
@@ -441,6 +446,10 @@ export const Faucet = () => {
 						value={destAddress}
 						onChange={handleAddressChange}
 						onKeyDown={handleAddressKeyDown}
+						// Editing mid-request would reset the banners while the POST
+						// still resolves against the address captured at click time,
+						// so the confirmation would name an address no longer shown.
+						disabled={sendingRequest || isPolling}
 						autoComplete='off'
 						autoCapitalize='off'
 						autoCorrect='off'
@@ -459,6 +468,7 @@ export const Faucet = () => {
 					<button
 						type='button'
 						onClick={handleCaptchaVerification}
+						disabled={isVerifyDisabled}
 						onMouseEnter={() => setVerifyHover(true)}
 						onMouseLeave={() => setVerifyHover(false)}
 						className={`flex-1 flex items-center justify-center gap-3 px-5 py-5 ${
@@ -467,8 +477,9 @@ export const Faucet = () => {
 						style={{
 							...buttonLabelStyle,
 							borderRight: `1px solid ${HAIRLINE}`,
-							backgroundColor: captchaToken ? 'rgba(16, 185, 129, 0.12)' : verifyHover ? SURFACE : 'transparent',
-							cursor: 'pointer'
+							backgroundColor: captchaToken ? 'rgba(16, 185, 129, 0.12)' : verifyHover && !isVerifyDisabled ? SURFACE : 'transparent',
+							cursor: isVerifyDisabled ? 'not-allowed' : 'pointer',
+							opacity: isVerifyDisabled && !captchaToken ? 0.6 : 1
 						}}>
 						<ShieldCheckIcon className='w-4 h-4' />
 						{captchaToken ? 'Verified' : 'Verify Captcha'}
@@ -493,24 +504,25 @@ export const Faucet = () => {
 
 			{/* The status blocks below mount and unmount as state changes, and a
 			    live region announces nothing if it arrives at the same instant as
-			    its own text — the region has to be there already. These wrappers
-			    are display: contents, so they hold the roles without taking part
-			    in the flex layout. */}
-			<div style={{ display: 'contents' }} role='status'>
-				{blockedReason ? <p className='text-sm text-neutral-600 dark:text-neutral-400'>{blockedReason}</p> : null}
+			    its own text — the region has to be there already. So the wrappers
+			    stay mounted and empty. Spacing lives on the blocks themselves
+			    (mt-4) rather than a gap on the parent, so an empty wrapper adds
+			    no height. */}
+			<div role='status'>
+				{blockedReason ? <p className='mt-4 text-sm text-neutral-600 dark:text-neutral-400'>{blockedReason}</p> : null}
 			</div>
 
-			<div style={{ display: 'contents' }} role='alert'>
+			<div role='alert'>
 				{errorMsg ? (
-					<div className='flex items-start gap-3 px-4 py-3 text-sm' style={{ borderLeft: '3px solid var(--sei-maroon-100)', backgroundColor: 'rgba(96, 0, 20, 0.08)' }}>
+					<div className='mt-4 flex items-start gap-3 px-4 py-3 text-sm' style={{ borderLeft: '3px solid var(--sei-maroon-100)', backgroundColor: 'rgba(96, 0, 20, 0.08)' }}>
 						<p className='text-neutral-700 dark:text-neutral-300'>{errorMsg}</p>
 					</div>
 				) : null}
 			</div>
 
-			<div style={{ display: 'contents' }} role='status'>
+			<div role='status'>
 				{nextUseTime ? (
-					<div className='flex items-center gap-3 px-4 py-3 text-sm' style={{ borderLeft: '3px solid var(--sei-maroon-100)', backgroundColor: 'rgba(96, 0, 20, 0.08)' }}>
+					<div className='mt-4 flex items-center gap-3 px-4 py-3 text-sm' style={{ borderLeft: '3px solid var(--sei-maroon-100)', backgroundColor: 'rgba(96, 0, 20, 0.08)' }}>
 						<HourglassIcon className='w-4 h-4 shrink-0' />
 						<p className='text-neutral-700 dark:text-neutral-300'>
 							You can request tokens again in{' '}
@@ -521,7 +533,7 @@ export const Faucet = () => {
 
 				{isPolling || txHash ? (
 					<div
-						className='flex items-center gap-3 px-4 py-3 text-sm'
+						className='mt-4 flex items-center gap-3 px-4 py-3 text-sm'
 						style={{
 							borderLeft: `3px solid ${isPolling ? 'var(--sei-gold-100)' : 'var(--sei-live)'}`,
 							backgroundColor: isPolling ? 'rgba(150, 111, 34, 0.08)' : 'rgba(56, 223, 0, 0.08)'
