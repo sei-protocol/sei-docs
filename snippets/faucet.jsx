@@ -5,9 +5,9 @@
 // bundle. None of those are required:
 //   - hCaptcha is loaded from js.hcaptcha.com (already on Mintlify's default
 //     CSP) and driven via window.hcaptcha.render / .execute
-//   - address checks are a 0x + 40-hex shape test. viem's isAddress also
-//     verifies the EIP-55 checksum, which needs keccak256 and so cannot run
-//     here — the faucet stays the authority on whether an address is real.
+//   - address checks are a 0x + 40-hex shape test, plus an EIP-55 checksum
+//     on mixed-case input. Keccak-256 is inlined below; Mintlify snippets
+//     cannot import viem.
 //   - toasts are inline status banners
 //
 // The faucet backend stays at faucet-v3.seinetwork.io; this snippet only
@@ -47,8 +47,101 @@ export const Faucet = () => {
 	// reader sits on the page, so it needs a clock of its own.
 	const [nowMs, setNowMs] = useState(() => Date.now());
 
+	const keccak256 = (bytes) => {
+		const MASK = 0xffffffffffffffffn;
+		const RATE = 136; // 1088-bit rate for 256-bit output
+		// Keccak-f[1600] round constants.
+		const RC = [
+			0x0000000000000001n, 0x0000000000008082n, 0x800000000000808an, 0x8000000080008000n,
+			0x000000000000808bn, 0x0000000080000001n, 0x8000000080008081n, 0x8000000000008009n,
+			0x000000000000008an, 0x0000000000000088n, 0x0000000080008009n, 0x000000008000000an,
+			0x000000008000808bn, 0x800000000000008bn, 0x8000000000008089n, 0x8000000000008003n,
+			0x8000000000008002n, 0x8000000000000080n, 0x000000000000800an, 0x800000008000000an,
+			0x8000000080008081n, 0x8000000000008080n, 0x0000000080000001n, 0x8000000080008008n
+		];
+		// Rho rotation offsets, indexed x + 5*y.
+		const RHO = [0, 1, 62, 28, 27, 36, 44, 6, 55, 20, 3, 10, 43, 25, 39, 41, 45, 15, 21, 8, 18, 2, 61, 56, 14];
+
+		const rotl64 = (x, n) => {
+			if (n === 0) return x;
+			const s = BigInt(n);
+			return ((x << s) | (x >> (64n - s))) & MASK;
+		};
+
+		const keccakF = (st) => {
+			for (let round = 0; round < 24; round++) {
+				const C = [0n, 0n, 0n, 0n, 0n];
+				for (let x = 0; x < 5; x++) {
+					C[x] = st[x] ^ st[x + 5] ^ st[x + 10] ^ st[x + 15] ^ st[x + 20];
+				}
+				for (let x = 0; x < 5; x++) {
+					const D = C[(x + 4) % 5] ^ rotl64(C[(x + 1) % 5], 1);
+					for (let y = 0; y < 5; y++) st[x + 5 * y] ^= D;
+				}
+
+				const B = new Array(25);
+				for (let x = 0; x < 5; x++) {
+					for (let y = 0; y < 5; y++) {
+						B[y + 5 * ((2 * x + 3 * y) % 5)] = rotl64(st[x + 5 * y], RHO[x + 5 * y]);
+					}
+				}
+
+				for (let y = 0; y < 5; y++) {
+					for (let x = 0; x < 5; x++) {
+						const b0 = B[x + 5 * y];
+						const b1 = B[((x + 1) % 5) + 5 * y];
+						const b2 = B[((x + 2) % 5) + 5 * y];
+						// BigInt ~ is infinite-width; XOR with the mask is a 64-bit NOT.
+						st[x + 5 * y] = (b0 ^ ((b1 ^ MASK) & b2)) & MASK;
+					}
+				}
+
+				st[0] = (st[0] ^ RC[round]) & MASK;
+			}
+		};
+
+		const state = [];
+		for (let i = 0; i < 25; i++) state.push(0n);
+
+		const padded = new Uint8Array(bytes.length + (RATE - (bytes.length % RATE)));
+		padded.set(bytes);
+		padded[bytes.length] = 0x01; // Keccak domain (Ethereum); SHA3-256 uses 0x06
+		padded[padded.length - 1] |= 0x80;
+
+		for (let offset = 0; offset < padded.length; offset += RATE) {
+			for (let i = 0; i < RATE; i++) {
+				state[(i / 8) | 0] ^= BigInt(padded[offset + i]) << BigInt((i % 8) * 8);
+			}
+			keccakF(state);
+		}
+
+		const out = new Uint8Array(32);
+		for (let i = 0; i < 32; i++) {
+			out[i] = Number((state[(i / 8) | 0] >> BigInt((i % 8) * 8)) & 0xffn);
+		}
+		return out;
+	};
+
+	const addressChecksumOk = (address) => {
+		const body = address.slice(2);
+		if (body === body.toLowerCase() || body === body.toUpperCase()) return true;
+		// EIP-55 hashes the ASCII lowercase hex, not the 20 address bytes.
+		const hash = keccak256(new TextEncoder().encode(body.toLowerCase()));
+		for (let i = 0; i < 40; i++) {
+			const ch = body[i];
+			if (ch >= '0' && ch <= '9') continue;
+			const byte = hash[i >> 1];
+			const nibble = i % 2 === 0 ? byte >> 4 : byte & 0xf;
+			const wantUpper = nibble >= 8;
+			const isUpper = ch >= 'A' && ch <= 'F';
+			if (wantUpper !== isUpper) return false;
+		}
+		return true;
+	};
+
 	const trimmed = destAddress.trim();
-	const isValidAddress = /^0x[0-9a-fA-F]{40}$/.test(trimmed);
+	const hasAddressShape = /^0x[0-9a-fA-F]{40}$/.test(trimmed);
+	const isValidAddress = hasAddressShape && addressChecksumOk(trimmed);
 	const looksLikeSeiBech32 = /^sei1[a-z0-9]{10,}$/i.test(trimmed);
 
 	const mono = { fontFamily: 'var(--sei-font-mono)' };
@@ -358,8 +451,9 @@ export const Faucet = () => {
 	// which one is missing rather than leaving a greyed-out button unexplained.
 	const describeBlocker = () => {
 		if (nextUseTime || isPolling || sendingRequest || txHash) return null;
-		if (looksLikeSeiBech32 && !isValidAddress) return 'Use the 0x EVM address, not the sei1… address.';
-		if (trimmed && !isValidAddress) return 'Enter a valid EVM address: 0x followed by 40 hex characters.';
+		if (looksLikeSeiBech32 && !hasAddressShape) return 'Use the 0x EVM address, not the sei1… address.';
+		if (trimmed && !hasAddressShape) return 'Enter a valid EVM address: 0x followed by 40 hex characters.';
+		if (hasAddressShape && !isValidAddress) return 'This mixed-case address does not match its EIP-55 checksum. That usually means it was mistyped or truncated.';
 		if (isValidAddress && !captchaToken) return 'Complete the captcha verification to enable the request.';
 		return null;
 	};
