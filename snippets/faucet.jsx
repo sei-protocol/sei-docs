@@ -5,9 +5,10 @@
 // bundle. None of those are required:
 //   - hCaptcha is loaded from js.hcaptcha.com (already on Mintlify's default
 //     CSP) and driven via window.hcaptcha.render / .execute
-//   - address checks are a 0x + 40-hex shape test. viem's isAddress also
-//     verifies the EIP-55 checksum, which needs keccak256 and so cannot run
-//     here — the faucet stays the authority on whether an address is real.
+//   - address checks are a 0x + 40-hex shape test, plus an advisory EIP-55
+//     checksum from the Keccak-256 inlined below, since Mintlify snippets
+//     cannot import viem. The checksum warns and never blocks: the faucet
+//     backend stays the authority on whether an address is real.
 //   - toasts are inline status banners
 //
 // The faucet backend stays at faucet-v3.seinetwork.io; this snippet only
@@ -47,8 +48,118 @@ export const Faucet = () => {
 	// reader sits on the page, so it needs a clock of its own.
 	const [nowMs, setNowMs] = useState(() => Date.now());
 
+	const keccak256 = useCallback((bytes) => {
+		const MASK = 0xffffffffffffffffn;
+		const RATE = 136; // 1088-bit rate for 256-bit output
+		// Keccak-f[1600] round constants.
+		const RC = [
+			0x0000000000000001n, 0x0000000000008082n, 0x800000000000808an, 0x8000000080008000n,
+			0x000000000000808bn, 0x0000000080000001n, 0x8000000080008081n, 0x8000000000008009n,
+			0x000000000000008an, 0x0000000000000088n, 0x0000000080008009n, 0x000000008000000an,
+			0x000000008000808bn, 0x800000000000008bn, 0x8000000000008089n, 0x8000000000008003n,
+			0x8000000000008002n, 0x8000000000000080n, 0x000000000000800an, 0x800000008000000an,
+			0x8000000080008081n, 0x8000000000008080n, 0x0000000080000001n, 0x8000000080008008n
+		];
+		// Rho rotation offsets, indexed x + 5*y.
+		const RHO = [0, 1, 62, 28, 27, 36, 44, 6, 55, 20, 3, 10, 43, 25, 39, 41, 45, 15, 21, 8, 18, 2, 61, 56, 14];
+
+		const rotl64 = (x, n) => {
+			if (n === 0) return x;
+			const s = BigInt(n);
+			return ((x << s) | (x >> (64n - s))) & MASK;
+		};
+
+		const keccakF = (st) => {
+			for (let round = 0; round < 24; round++) {
+				const C = [0n, 0n, 0n, 0n, 0n];
+				for (let x = 0; x < 5; x++) {
+					C[x] = st[x] ^ st[x + 5] ^ st[x + 10] ^ st[x + 15] ^ st[x + 20];
+				}
+				for (let x = 0; x < 5; x++) {
+					const D = C[(x + 4) % 5] ^ rotl64(C[(x + 1) % 5], 1);
+					for (let y = 0; y < 5; y++) st[x + 5 * y] ^= D;
+				}
+
+				const B = new Array(25);
+				for (let x = 0; x < 5; x++) {
+					for (let y = 0; y < 5; y++) {
+						B[y + 5 * ((2 * x + 3 * y) % 5)] = rotl64(st[x + 5 * y], RHO[x + 5 * y]);
+					}
+				}
+
+				for (let y = 0; y < 5; y++) {
+					for (let x = 0; x < 5; x++) {
+						const b0 = B[x + 5 * y];
+						const b1 = B[((x + 1) % 5) + 5 * y];
+						const b2 = B[((x + 2) % 5) + 5 * y];
+						// BigInt ~ is infinite-width; XOR with the mask is a 64-bit NOT.
+						st[x + 5 * y] = (b0 ^ ((b1 ^ MASK) & b2)) & MASK;
+					}
+				}
+
+				st[0] = (st[0] ^ RC[round]) & MASK;
+			}
+		};
+
+		const state = [];
+		for (let i = 0; i < 25; i++) state.push(0n);
+
+		const padded = new Uint8Array(bytes.length + (RATE - (bytes.length % RATE)));
+		padded.set(bytes);
+		padded[bytes.length] = 0x01; // Keccak domain (Ethereum); SHA3-256 uses 0x06
+		padded[padded.length - 1] |= 0x80;
+
+		for (let offset = 0; offset < padded.length; offset += RATE) {
+			for (let i = 0; i < RATE; i++) {
+				state[(i / 8) | 0] ^= BigInt(padded[offset + i]) << BigInt((i % 8) * 8);
+			}
+			keccakF(state);
+		}
+
+		const out = new Uint8Array(32);
+		for (let i = 0; i < 32; i++) {
+			out[i] = Number((state[(i / 8) | 0] >> BigInt((i % 8) * 8)) & 0xffn);
+		}
+		return out;
+	}, []);
+
+	const addressChecksumOk = useCallback((address) => {
+		const body = address.slice(2);
+		// Both single-case forms are accepted as unchecksummed: neither carries
+		// case information to verify. This follows ethers; viem's isAddress
+		// under strict rejects the all-uppercase one.
+		if (body === body.toLowerCase() || body === body.toUpperCase()) return true;
+		// EIP-55 hashes the ASCII lowercase hex, not the 20 address bytes.
+		// The upstream shape test guarantees 40 hex characters, so charCodeAt
+		// is already the ASCII encoding.
+		const lower = body.toLowerCase();
+		const ascii = new Uint8Array(40);
+		for (let i = 0; i < 40; i++) ascii[i] = lower.charCodeAt(i);
+		const hash = keccak256(ascii);
+		for (let i = 0; i < 40; i++) {
+			const ch = body[i];
+			if (ch >= '0' && ch <= '9') continue;
+			const byte = hash[i >> 1];
+			const nibble = i % 2 === 0 ? byte >> 4 : byte & 0xf;
+			const wantUpper = nibble >= 8;
+			const isUpper = ch >= 'A' && ch <= 'F';
+			if (wantUpper !== isUpper) return false;
+		}
+		return true;
+	}, [keccak256]);
+
 	const trimmed = destAddress.trim();
-	const isValidAddress = /^0x[0-9a-fA-F]{40}$/.test(trimmed);
+	const hasAddressShape = /^0x[0-9a-fA-F]{40}$/.test(trimmed);
+	// The checksum advises, it does not gate. This is hand-written Keccak, and
+	// the failure modes are lopsided: a false negative strands someone holding
+	// a perfectly good address, while a false positive costs one request the
+	// backend rejects anyway. So submission keys off the shape test, and a bad
+	// checksum degrades to a warning rather than a locked button.
+	// Memoized because hover and the 60s clock tick both re-render.
+	const checksumSuspect = useMemo(
+		() => hasAddressShape && !addressChecksumOk(trimmed),
+		[hasAddressShape, trimmed, addressChecksumOk]
+	);
 	const looksLikeSeiBech32 = /^sei1[a-z0-9]{10,}$/i.test(trimmed);
 
 	const mono = { fontFamily: 'var(--sei-font-mono)' };
@@ -349,7 +460,7 @@ export const Faucet = () => {
 		}
 	};
 
-	const isSubmitDisabled = !!nextUseTime || !isValidAddress || !captchaToken || isPolling || sendingRequest;
+	const isSubmitDisabled = !!nextUseTime || !hasAddressShape || !captchaToken || isPolling || sendingRequest;
 	// Re-running a solved challenge just discards a good token, and running one
 	// mid-request produces a token handleSubmit's resetCaptcha throws away.
 	const isVerifyDisabled = !captchaReady || !!captchaToken || sendingRequest || isPolling || !!nextUseTime;
@@ -358,9 +469,9 @@ export const Faucet = () => {
 	// which one is missing rather than leaving a greyed-out button unexplained.
 	const describeBlocker = () => {
 		if (nextUseTime || isPolling || sendingRequest || txHash) return null;
-		if (looksLikeSeiBech32 && !isValidAddress) return 'Use the 0x EVM address, not the sei1… address.';
-		if (trimmed && !isValidAddress) return 'Enter a valid EVM address: 0x followed by 40 hex characters.';
-		if (isValidAddress && !captchaToken) return 'Complete the captcha verification to enable the request.';
+		if (looksLikeSeiBech32 && !hasAddressShape) return 'Use the 0x EVM address, not the sei1… address.';
+		if (trimmed && !hasAddressShape) return 'Enter a valid EVM address: 0x followed by 40 hex characters.';
+		if (hasAddressShape && !captchaToken) return 'Complete the captcha verification to enable the request.';
 		return null;
 	};
 	const blockedReason = describeBlocker();
@@ -368,7 +479,7 @@ export const Faucet = () => {
 	const handleAddressKeyDown = (e) => {
 		if (e.key !== 'Enter') return;
 		e.preventDefault();
-		if (!isValidAddress) return;
+		if (!hasAddressShape) return;
 		if (!captchaToken) handleCaptchaVerification();
 		else if (!isSubmitDisabled) handleSubmit();
 	};
@@ -407,6 +518,13 @@ export const Faucet = () => {
 	const CheckIcon = ({ className }) => (
 		<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2' strokeLinecap='round' strokeLinejoin='round' className={className} aria-hidden='true'>
 			<path d='M5 12l5 5l10 -10' />
+		</svg>
+	);
+	const AlertTriangleIcon = ({ className }) => (
+		<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2' strokeLinecap='round' strokeLinejoin='round' className={className} aria-hidden='true'>
+			<path d='M12 9v4' />
+			<path d='M10.363 3.591l-8.106 13.534a1.914 1.914 0 0 0 1.636 2.871h16.214a1.914 1.914 0 0 0 1.636 -2.87l-8.106 -13.536a1.914 1.914 0 0 0 -3.274 0' />
+			<path d='M12 16h.01' />
 		</svg>
 	);
 	const ExternalLinkIcon = ({ className }) => (
@@ -510,6 +628,15 @@ export const Faucet = () => {
 			    no height. */}
 			<div role='status'>
 				{blockedReason ? <p className='mt-4 text-sm text-neutral-600 dark:text-neutral-400'>{blockedReason}</p> : null}
+
+				{checksumSuspect ? (
+					<div className='mt-4 flex items-start gap-3 px-4 py-3 text-sm' style={{ borderLeft: '3px solid var(--sei-gold-100)', backgroundColor: 'rgba(150, 111, 34, 0.08)' }}>
+						<AlertTriangleIcon className='w-4 h-4 shrink-0 mt-0.5' />
+						<p className='text-neutral-700 dark:text-neutral-300'>
+							This address fails its EIP-55 checksum, so a character may be wrong. Check it against your wallet. You can still request, and the faucet will reject it if the address is bad.
+						</p>
+					</div>
+				) : null}
 			</div>
 
 			<div role='alert'>
