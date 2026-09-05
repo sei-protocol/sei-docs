@@ -65,11 +65,16 @@ export const Faucet = () => {
 		letterSpacing: '0.05em'
 	};
 
-	const formatNextUseTime = (iso) => {
-		const diffMs = new Date(iso).getTime() - nowMs;
-		// A date we cannot parse must not read as "now" while the button stays
-		// disabled — the two would contradict each other on screen.
-		if (!isFinite(diffMs)) return 'a little while';
+	// nextUseTime is held as a timestamp, never the raw ISO string: a date we
+	// cannot read must not reach state at all, or the countdown never expires
+	// and the request button stays disabled with no way back.
+	const parseDeadline = (iso) => {
+		const ms = new Date(iso).getTime();
+		return isFinite(ms) ? ms : null;
+	};
+
+	const formatNextUseTime = (deadlineMs) => {
+		const diffMs = deadlineMs - nowMs;
 		if (diffMs <= 0) return 'now';
 		const hours = Math.floor(diffMs / (1000 * 60 * 60));
 		const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
@@ -115,13 +120,12 @@ export const Faucet = () => {
 
 	useEffect(() => {
 		if (!nextUseTime) return;
-		const deadline = new Date(nextUseTime).getTime();
 		const id = setInterval(() => {
 			const now = Date.now();
 			setNowMs(now);
 			// Clear the notice once the window has passed so the button comes
 			// back, instead of stranding the reader on an expired countdown.
-			if (isFinite(deadline) && now >= deadline) setNextUseTime(null);
+			if (now >= nextUseTime) setNextUseTime(null);
 		}, 60000);
 		return () => clearInterval(id);
 	}, [nextUseTime]);
@@ -252,7 +256,10 @@ export const Faucet = () => {
 				if (pollGenRef.current !== generation) return;
 				setPollingMessage('Checking transaction status...');
 			} finally {
-				pollInFlightRef.current = false;
+				// Only the run that still owns the poll may release the flag. A
+				// superseded run clearing it would let the interval fire a second
+				// request while the live run is still awaiting its own.
+				if (pollGenRef.current === generation) pollInFlightRef.current = false;
 			}
 		};
 
@@ -318,7 +325,16 @@ export const Faucet = () => {
 			if (responseJson && responseJson.status === 'success' && responseJson.data && responseJson.data.messageId) {
 				startPolling(responseJson.data.messageId);
 			} else if (responseJson && responseJson.data && responseJson.data.nextAllowedUseDate) {
-				setNextUseTime(responseJson.data.nextAllowedUseDate);
+				const deadline = parseDeadline(responseJson.data.nextAllowedUseDate);
+				if (deadline) {
+					// Same update as the deadline itself. nowMs was seeded at mount,
+					// and a docs page is a long-lived tab — without this the first
+					// minute of the countdown is off by the whole session so far.
+					setNowMs(Date.now());
+					setNextUseTime(deadline);
+				} else {
+					setErrorMsg('Rate limited by the faucet. Try again later.');
+				}
 			} else {
 				setErrorMsg(faucetError(responseJson));
 			}
@@ -475,52 +491,63 @@ export const Faucet = () => {
 				</div>
 			</div>
 
-			{blockedReason ? <p className='text-sm text-neutral-600 dark:text-neutral-400'>{blockedReason}</p> : null}
+			{/* The status blocks below mount and unmount as state changes, and a
+			    live region announces nothing if it arrives at the same instant as
+			    its own text — the region has to be there already. These wrappers
+			    are display: contents, so they hold the roles without taking part
+			    in the flex layout. */}
+			<div style={{ display: 'contents' }} role='status'>
+				{blockedReason ? <p className='text-sm text-neutral-600 dark:text-neutral-400'>{blockedReason}</p> : null}
+			</div>
 
-			{errorMsg ? (
-				<div className='flex items-start gap-3 px-4 py-3 text-sm' style={{ borderLeft: '3px solid var(--sei-maroon-100)', backgroundColor: 'rgba(96, 0, 20, 0.08)' }}>
-					<p className='text-neutral-700 dark:text-neutral-300'>{errorMsg}</p>
-				</div>
-			) : null}
-
-			{nextUseTime ? (
-				<div className='flex items-center gap-3 px-4 py-3 text-sm' style={{ borderLeft: '3px solid var(--sei-maroon-100)', backgroundColor: 'rgba(96, 0, 20, 0.08)' }}>
-					<HourglassIcon className='w-4 h-4 shrink-0' />
-					<p className='text-neutral-700 dark:text-neutral-300'>
-						You can request tokens again in{' '}
-						<span style={{ color: 'var(--sei-maroon-50)' }}>{formatNextUseTime(nextUseTime)}</span>
-					</p>
-				</div>
-			) : null}
-
-			{isPolling || txHash ? (
-				<div
-					className='flex items-center gap-3 px-4 py-3 text-sm'
-					style={{
-						borderLeft: `3px solid ${isPolling ? 'var(--sei-gold-100)' : 'var(--sei-live)'}`,
-						backgroundColor: isPolling ? 'rgba(150, 111, 34, 0.08)' : 'rgba(56, 223, 0, 0.08)'
-					}}>
-					{isPolling ? <SpinnerIcon className='animate-spin w-4 h-4 shrink-0' /> : <CheckIcon className='w-4 h-4 shrink-0' />}
-					<div className='flex-1'>
-						{isPolling ? (
-							<p className='text-neutral-700 dark:text-neutral-300'>{pollingMessage}</p>
-						) : (
-							<div className='flex flex-wrap items-center gap-x-3 gap-y-1'>
-								<p className='text-neutral-700 dark:text-neutral-300'>Transaction confirmed</p>
-								<a
-									href={`${EXPLORER_TX}/${txHash}`}
-									target='_blank'
-									rel='noopener noreferrer'
-									className='flex items-center gap-1.5 no-underline'
-									style={{ ...labelStyle, fontSize: '11px', color: 'var(--sei-maroon-50)' }}>
-									View on Explorer
-									<ExternalLinkIcon className='w-3 h-3' />
-								</a>
-							</div>
-						)}
+			<div style={{ display: 'contents' }} role='alert'>
+				{errorMsg ? (
+					<div className='flex items-start gap-3 px-4 py-3 text-sm' style={{ borderLeft: '3px solid var(--sei-maroon-100)', backgroundColor: 'rgba(96, 0, 20, 0.08)' }}>
+						<p className='text-neutral-700 dark:text-neutral-300'>{errorMsg}</p>
 					</div>
-				</div>
-			) : null}
+				) : null}
+			</div>
+
+			<div style={{ display: 'contents' }} role='status'>
+				{nextUseTime ? (
+					<div className='flex items-center gap-3 px-4 py-3 text-sm' style={{ borderLeft: '3px solid var(--sei-maroon-100)', backgroundColor: 'rgba(96, 0, 20, 0.08)' }}>
+						<HourglassIcon className='w-4 h-4 shrink-0' />
+						<p className='text-neutral-700 dark:text-neutral-300'>
+							You can request tokens again in{' '}
+							<span style={{ color: 'var(--sei-maroon-50)' }}>{formatNextUseTime(nextUseTime)}</span>
+						</p>
+					</div>
+				) : null}
+
+				{isPolling || txHash ? (
+					<div
+						className='flex items-center gap-3 px-4 py-3 text-sm'
+						style={{
+							borderLeft: `3px solid ${isPolling ? 'var(--sei-gold-100)' : 'var(--sei-live)'}`,
+							backgroundColor: isPolling ? 'rgba(150, 111, 34, 0.08)' : 'rgba(56, 223, 0, 0.08)'
+						}}>
+						{isPolling ? <SpinnerIcon className='animate-spin w-4 h-4 shrink-0' /> : <CheckIcon className='w-4 h-4 shrink-0' />}
+						<div className='flex-1'>
+							{isPolling ? (
+								<p className='text-neutral-700 dark:text-neutral-300'>{pollingMessage}</p>
+							) : (
+								<div className='flex flex-wrap items-center gap-x-3 gap-y-1'>
+									<p className='text-neutral-700 dark:text-neutral-300'>Transaction confirmed</p>
+									<a
+										href={`${EXPLORER_TX}/${txHash}`}
+										target='_blank'
+										rel='noopener noreferrer'
+										className='flex items-center gap-1.5 no-underline'
+										style={{ ...labelStyle, fontSize: '11px', color: 'var(--sei-maroon-50)' }}>
+										View on Explorer
+										<ExternalLinkIcon className='w-3 h-3' />
+									</a>
+								</div>
+							)}
+						</div>
+					</div>
+				) : null}
+			</div>
 		</div>
 	);
 };
