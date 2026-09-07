@@ -39,13 +39,15 @@ seid query node info
 
 #### Freeze mode (`--freeze-height`)
 
-As of v6.6.3, the `--freeze-height` start flag (and the corresponding `freeze-height` field in `app.toml`) puts a full node into read-only freeze mode at a specified block height. Query RPC remains available so the node can continue serving reads, but write and network paths are disabled from startup:
+As of v6.6.3, the `--freeze-height` start flag (and the corresponding `freeze-height` field in `app.toml`) puts a full node into read-only freeze mode at a specified block height. Freeze mode exists for historical RPC nodes. A node frozen at an upgrade height keeps running the pre-upgrade binary and keeps serving the state that binary produced, instead of shutting down at the boundary or executing the upgrade block with code that no longer matches that state. Query RPC remains available so the node can continue serving reads, but write and network paths are disabled from startup:
 
-- Transaction and evidence submission is rejected. The `BroadcastTx`, `BroadcastTxAsync`, `BroadcastTxSync`, `BroadcastTxCommit`, and `BroadcastEvidence` RPC calls all return `ErrReadOnly` (`RPC writes are disabled in freeze mode`).
+- Transaction and evidence submission is rejected. The `BroadcastTx`, `BroadcastTxAsync`, `BroadcastTxSync`, `BroadcastTxCommit`, and `BroadcastEvidence` RPC calls all return `ErrReadOnly` (`RPC writes are disabled in freeze mode`). The EVM endpoint submits transactions through the same path, so `eth_sendRawTransaction` fails with the same error.
 - Mempool gossip is disabled — the mempool reactor is not started and the mempool p2p channel is not advertised to peers.
-- State sync is disabled.
+- State sync is disabled. If it is enabled in `config.toml`, the node logs a notice and falls back to block sync.
 
 Block sync and consensus stop before executing the configured height and will not advance beyond it.
+
+The node must not have reached the freeze height yet. If the application, block store, or state store height is already at or above `freeze-height`, startup fails with `<source> height <n> has already reached freeze height <h>`. To build a frozen node, start from a data directory that is below the freeze height (a fresh sync from genesis, or a [snapshot](/node/snapshot) taken below that height) and let block sync stop at the boundary.
 
 ```bash
 # Start a full node in read-only freeze mode at a given block height
@@ -60,12 +62,12 @@ freeze-height = 0
 ```
 
 <Warning>
-  Freeze mode is only supported for full nodes. Setting a non-zero `freeze-height` in validator or seed mode is rejected at startup with an error (`freeze height is not supported in <mode> mode`).
+  Freeze mode is only supported for full nodes. Setting a non-zero `freeze-height` in validator or seed mode is rejected at startup with an error (`freeze height is not supported in <mode> mode`). `freeze-height` also cannot be combined with `halt-height`, `halt-time`, or the `--grpc-only` start flag; each combination is rejected at startup.
 </Warning>
 
 ### Frozen RPC router
 
-The `frozen-rpc-router` binary, available as of v6.6.3, is a companion to freeze mode. It exposes a single HTTP EVM JSON-RPC endpoint that transparently proxies requests to a live node and one or more freeze-height-frozen nodes, routing each request to the correct backend based on the block height it references. This lets a set of archival nodes — each frozen before a different height — collectively serve historical state through one endpoint.
+The `frozen-rpc-router` binary, available as of v6.6.3, is a companion to freeze mode. It exposes a single HTTP EVM JSON-RPC endpoint that transparently proxies requests to a live node and one or more freeze-height-frozen nodes, routing each request to the correct backend based on the block height it references. This lets a set of archival nodes — each frozen at a different upgrade height and running the binary that was live for its interval — collectively serve historical state through one endpoint.
 
 Because a freeze height is an exclusive boundary, a node started with `--freeze-height 100` serves blocks through height 99. The router therefore sends height 99 to that node and height 100 to the next configured interval (or to the live node when no frozen interval covers it).
 
@@ -98,7 +100,7 @@ The binary accepts the following flags:
 
 - `--listen-address` — address on which the router listens (default `127.0.0.1:8545`).
 - `--live-node` — HTTP RPC address of the live node (required).
-- `--frozen-node` — a `freeze-height=ip:port` pair; repeat once per frozen node. Bare `ip:port`, `http://`, and `https://` URLs are all accepted. Frozen nodes may be listed in any order, but each freeze height must be positive and unique.
+- `--frozen-node` — a `freeze-height=ip:port` pair; repeat once per frozen node. Bare `host:port` addresses and `http://` or `https://` URLs are all accepted. Frozen nodes may be listed in any order, but each freeze height must be positive and unique.
 - `--max-request-body-bytes` — maximum JSON-RPC request body size in bytes (default `5242880`, which is 5 MiB); larger requests are rejected with HTTP `413`.
 - `--max-block-reference-depth` — maximum nested block reference depth (default `16`); bounds how deeply nested `blockNumber` object references are parsed when resolving a request's block parameter. Must be positive.
 - `--batch-request-limit` — maximum number of calls in a JSON-RPC batch (default `1000`). Must be positive. A batch exceeding this limit is rejected with JSON-RPC error `-32600` (`batch too large`).
@@ -113,6 +115,7 @@ Only JSON-RPC `POST` requests are inspected and routed. Every other request, inc
 - `eth_getLogs` and `eth_feeHistory` are routed only when their entire explicit block range falls within a single interval. A range that crosses an interval boundary is rejected with JSON-RPC error `-32000` (`block ranges spanning multiple frozen-node intervals are not supported`).
 - Latest-style block tags (`latest`, `pending`, `safe`, `finalized`), requests referencing a block by hash, methods without a block parameter, and stateful filter methods are all forwarded to the live node.
 - Batch requests are split so each call reaches its correct backend, then reassembled into a single response.
+- Calls whose backend cannot be reached return JSON-RPC error `-32001` (`upstream request failed`).
 
 <Warning>
   Only `eth_*` and `debug_*` methods are height-routed. Block-scoped legacy `sei_*` and `sei2_*` methods (for example `sei_getBlockByNumber`, `sei_getBlockReceipts`, `sei_getLogs`) are not in the routing table and are always forwarded to the live node, even when they reference a height that only a frozen node still holds. This only affects nodes whose `enabled_legacy_sei_apis` list in `app.toml` has been widened beyond the three default helpers (`sei_getSeiAddress`, `sei_getEVMAddress`, `sei_getCosmosTx`).
@@ -120,7 +123,7 @@ Only JSON-RPC `POST` requests are inspected and routed. Every other request, inc
 
 #### Route header
 
-Responses proxied to a single backend carry a `Sei-RPC-Route` header identifying which backend served them: `frozen:<height>` for the frozen node at that freeze height, or `live` for the live node. A batch split across multiple backends returns `mixed`. Errors generated by the router itself (oversized or malformed requests, batches over the limit, block ranges spanning intervals) and non-`POST` traffic passed through to the live node do not carry the header.
+Responses proxied to a single backend carry a `Sei-RPC-Route` header identifying which backend served them: `frozen:<height>` for the frozen node at that freeze height, or `live` for the live node. A batch split across multiple backends returns `mixed`. Errors generated by the router itself (oversized or malformed requests, batches over the limit, block ranges spanning intervals, unreachable backends) and non-`POST` traffic passed through to the live node do not carry the header.
 
 ### seidb Tooling Commands
 
