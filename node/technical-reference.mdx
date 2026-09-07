@@ -111,15 +111,11 @@ The binary accepts the following flags:
 
 Only JSON-RPC `POST` requests are inspected and routed. Every other request, including WebSocket upgrade requests, is passed straight through to the `--live-node` address without inspection. Because that address is the live node's HTTP RPC endpoint, which does not accept WebSocket upgrades, clients that need subscriptions should connect directly to the live node's WebSocket port (`8546` by default) rather than through the router.
 
-- Methods that take an explicit block number or the `earliest` tag (for example `eth_getBlockByNumber`, `eth_getBalance`, `eth_call`, `eth_getStorageAt`, `debug_traceBlockByNumber`) are routed to the interval that contains that height. `earliest` resolves to height 0.
+- `eth_*` and `debug_*` methods that take an explicit block number or the `earliest` tag (for example `eth_getBlockByNumber`, `eth_getBalance`, `eth_call`, `eth_getStorageAt`, `debug_traceBlockByNumber`) are routed to the interval that contains that height. `earliest` resolves to height 0.
 - `eth_getLogs` and `eth_feeHistory` are routed only when their entire explicit block range falls within a single interval. A range that crosses an interval boundary is rejected with JSON-RPC error `-32000` (`block ranges spanning multiple frozen-node intervals are not supported`).
 - Latest-style block tags (`latest`, `pending`, `safe`, `finalized`), requests referencing a block by hash, methods without a block parameter, and stateful filter methods are all forwarded to the live node.
 - Batch requests are split so each call reaches its correct backend, then reassembled into a single response.
 - Calls whose backend cannot be reached return JSON-RPC error `-32001` (`upstream request failed`).
-
-<Warning>
-  Only `eth_*` and `debug_*` methods are height-routed. Block-scoped legacy `sei_*` and `sei2_*` methods (for example `sei_getBlockByNumber`, `sei_getBlockReceipts`, `sei_getLogs`) are not in the routing table and are always forwarded to the live node, even when they reference a height that only a frozen node still holds. This only affects nodes whose `enabled_legacy_sei_apis` list in `app.toml` has been widened beyond the three default helpers (`sei_getSeiAddress`, `sei_getEVMAddress`, `sei_getCosmosTx`).
-</Warning>
 
 #### Route header
 
