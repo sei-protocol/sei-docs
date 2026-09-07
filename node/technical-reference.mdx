@@ -101,18 +101,19 @@ The binary accepts the following flags:
 - `--listen-address` — address on which the router listens (default `127.0.0.1:8545`).
 - `--live-node` — HTTP RPC address of the live node (required).
 - `--frozen-node` — a `freeze-height=ip:port` pair; repeat once per frozen node. Bare `host:port` addresses and `http://` or `https://` URLs are all accepted. Frozen nodes may be listed in any order, but each freeze height must be positive and unique.
-- `--max-request-body-bytes` — maximum JSON-RPC request body size in bytes (default `5242880`, which is 5 MiB); larger requests are rejected with HTTP `413`.
+- `--max-request-body-bytes` — maximum JSON-RPC request body size in bytes (default `5242880`, which is 5 MiB). Must be positive. Larger requests are rejected with HTTP `413`.
 - `--max-block-reference-depth` — maximum nested block reference depth (default `16`); bounds how deeply nested `blockNumber` object references are parsed when resolving a request's block parameter. Must be positive.
 - `--batch-request-limit` — maximum number of calls in a JSON-RPC batch (default `1000`). Must be positive. A batch exceeding this limit is rejected with JSON-RPC error `-32600` (`batch too large`).
 - `--write-timeout` — maximum duration for writing an HTTP response (default `30s`). Must be positive.
-- `--shutdown-timeout` — graceful shutdown timeout (default `10s`).
+- `--shutdown-timeout` — graceful shutdown timeout (default `10s`). Must be positive.
 
 #### Routing rules
 
 Only JSON-RPC `POST` requests are inspected and routed. Every other request, including WebSocket upgrade requests, is passed straight through to the `--live-node` address without inspection. Because that address is the live node's HTTP RPC endpoint, which does not accept WebSocket upgrades, clients that need subscriptions should connect directly to the live node's WebSocket port (`8546` by default) rather than through the router.
 
 - `eth_*` and `debug_*` methods that take an explicit block number or the `earliest` tag (for example `eth_getBlockByNumber`, `eth_getBalance`, `eth_call`, `eth_getStorageAt`, `debug_traceBlockByNumber`) are routed to the interval that contains that height. `earliest` resolves to height 0.
-- `eth_getLogs` and `eth_feeHistory` are routed only when their entire explicit block range falls within a single interval. A range that crosses an interval boundary is rejected with JSON-RPC error `-32000` (`block ranges spanning multiple frozen-node intervals are not supported`).
+- `eth_getLogs` and `eth_feeHistory` are routed only when their entire block range falls within a single interval. The range is explicit for `eth_getLogs`; for `eth_feeHistory` it is derived from `blockCount` and `newestBlock` (`newestBlock - blockCount + 1` through `newestBlock`, clamped at `0`). A range that crosses an interval boundary is rejected with JSON-RPC error `-32000` (`block ranges spanning multiple frozen-node intervals are not supported`).
+- An `eth_getLogs` filter that sets `fromBlock` but omits `toBlock` is treated as ending at `latest`, so it is rejected with the same `-32000` error whenever `fromBlock` is inside a frozen interval. Set `toBlock` explicitly to stay within one interval. The reverse works: a filter that sets only `toBlock` is routed to the interval that contains `toBlock`.
 - Latest-style block tags (`latest`, `pending`, `safe`, `finalized`), requests referencing a block by hash, methods without a block parameter, and stateful filter methods are all forwarded to the live node.
 - Batch requests are split so each call reaches its correct backend, then reassembled into a single response.
 - Calls whose backend cannot be reached return JSON-RPC error `-32001` (`upstream request failed`).
