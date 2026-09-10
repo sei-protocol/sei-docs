@@ -5,7 +5,7 @@ description: 'Submit many independent orders from one funded Sei address without
 keywords: ['sei', 'hft', 'high-frequency trading', 'nonce', 'parallel nonce', 'nonce lanes', 'eip-7702', 'erc-4337', 'entrypoint', 'userop', 'relayer', 'bundler', 'trading infrastructure', 'market making']
 ---
 
-import { PnNonceQueue, PnLaneNonce, PnDelegation, PnPipeline, PnBundleLifecycle, PnFailureIsolation } from '/snippets/parallel-nonce-diagrams.jsx';
+import { ParallelNonceQueue, ParallelNonceLanes, ParallelNonceDelegation, ParallelNoncePipeline, ParallelNonceBundleLifecycle, ParallelNonceFailureIsolation } from '/snippets/parallel-nonce-diagrams.jsx';
 
 One funded account on Sei EVM has one sequential nonce. That is the right model for a wallet and the wrong model for an order flow: a single transaction that never lands freezes every transaction signed after it. The usual fix is a fleet of hot wallets, which multiplies balances, approvals, and keys.
 
@@ -26,7 +26,7 @@ An EVM account's transaction nonces are strictly sequential. If nonce `n` has no
 
 The second case is the submission bottleneck. It covers transactions that are dropped, underpriced, rejected at admission, lost before broadcast, or stranded after a process crash.
 
-<PnNonceQueue />
+<ParallelNonceQueue />
 
 Two properties of Sei make this sharper than on Ethereum:
 
@@ -56,7 +56,7 @@ nonce = (uint192 key << 64) | uint64 sequence
 
 The EntryPoint keeps one `sequence` counter for each `key`. The repository calls a key a **lane**.
 
-<PnLaneNonce />
+<ParallelNonceLanes />
 
 Four rules follow from that layout:
 
@@ -77,7 +77,7 @@ An EIP-7702 authorization writes a delegation designator into the EOA's code slo
 
 The address does not change. Its native balance, token balances, venue state, and approvals stay attached to the same account. When the EntryPoint calls the account, the EVM runs `LaneAccount`'s code in the EOA's context, so `LaneAccount.execute` reaches the venue with the trading EOA as `msg.sender`.
 
-<PnDelegation />
+<ParallelNonceDelegation />
 
 `LaneAccount` inherits the audited `Simple7702Account` from the [account-abstraction](https://github.com/eth-infinitism/account-abstraction) repository and adds a single policy check:
 
@@ -103,7 +103,7 @@ The trader spends one ordinary EVM nonce to install the delegation, using a type
 
 UserOperations are not transactions. Something still has to wrap them in `EntryPoint.handleOps` transactions and pay for them. The repository uses a pool of gas-only relayers fed by a private in-process mempool.
 
-<PnPipeline />
+<ParallelNoncePipeline />
 
 The sequential constraint has not disappeared; it has moved. Each relayer still has one sequential EVM nonce and keeps one outer transaction in flight at a time. What changes is the custody boundary. Relayers hold native SEI for gas and nothing else. A compromised relayer key can lose its own gas balance or rebroadcast operations the trader already signed. It cannot create a new operation, because every UserOperation carries the trader's EIP-712 signature over the EntryPoint's `PackedUserOperation` digest.
 
@@ -113,7 +113,7 @@ The private mempool matters for a different reason. The canonical ERC-4337 mempo
 
 Each relayer runs one asynchronous worker. The worker takes a bundle of up to `MAX_OPS_PER_BUNDLE` operations (never two from the same lane), and then works through a fixed sequence.
 
-<PnBundleLifecycle />
+<ParallelNonceBundleLifecycle />
 
 Two details carry most of the safety:
 
@@ -126,7 +126,7 @@ Before any new work is created, a restarted process reconciles every incomplete 
 
 The EntryPoint treats an account execution failure as a per-operation result: it emits a failed `UserOperationEvent`, charges gas, advances that lane, and continues with the next operation. A validation failure (bad signature, stale sequence, insufficient prefund) is different: it reverts the whole `handleOps` transaction and nothing in it is consumed.
 
-<PnFailureIsolation />
+<ParallelNonceFailureIsolation />
 
 | Situation | Lane sequence | Other lanes in the bundle | Recovery |
 | --- | --- | --- | --- |

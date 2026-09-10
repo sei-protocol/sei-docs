@@ -1,4 +1,4 @@
-export const PnNonceQueue = () => {
+export const ParallelNonceQueue = () => {
   const ink = 'currentColor';
   const ok = '#10b981';
   const bad = '#ef4444';
@@ -14,7 +14,7 @@ export const PnNonceQueue = () => {
       <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/40 p-4 text-neutral-800 dark:text-neutral-200">
         <svg viewBox="0 0 880 310" role="img" aria-label="A missing EVM nonce strands every later nonce; the usual workaround is more hot wallets" style={{ width: '100%', minWidth: 620, height: 'auto', display: 'block' }}>
           <defs>
-            <marker id="pn1-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <marker id="queue-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
               <path d="M 0 1 L 9 5 L 0 9 z" fill={ink} fillOpacity="0.6" />
             </marker>
           </defs>
@@ -27,7 +27,7 @@ export const PnNonceQueue = () => {
                 <rect x={x} y={46} width={160} height={54} rx={7} fill={it.c} fillOpacity="0.12" stroke={it.c} strokeWidth="1.2" />
                 <text x={x + 80} y={68} fontSize="12" fontWeight="600" textAnchor="middle" fill={ink}>nonce {it.n}</text>
                 <text x={x + 80} y={86} fontSize="10" textAnchor="middle" fill={it.c}>{it.s}</text>
-                {i < nonces.length - 1 ? <line x1={x + 162} y1={73} x2={x + 186} y2={73} stroke={ink} strokeOpacity="0.45" strokeWidth="1.2" markerEnd="url(#pn1-a)" /> : null}
+                {i < nonces.length - 1 ? <line x1={x + 162} y1={73} x2={x + 186} y2={73} stroke={ink} strokeOpacity="0.45" strokeWidth="1.2" markerEnd="url(#queue-arrow)" /> : null}
               </g>
             );
           })}
@@ -56,7 +56,7 @@ export const PnNonceQueue = () => {
   );
 };
 
-export const PnLaneNonce = () => {
+export const ParallelNonceLanes = () => {
   const ink = 'currentColor';
   const accent = 'var(--sei-maroon-50)';
   const ok = '#10b981';
@@ -75,7 +75,7 @@ export const PnLaneNonce = () => {
       <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/40 p-4 text-neutral-800 dark:text-neutral-200">
         <svg viewBox="0 0 880 342" role="img" aria-label="ERC-4337 two-dimensional nonce: a 192-bit lane key and a 64-bit sequence, with one sequence counter per lane" style={{ width: '100%', minWidth: 620, height: 'auto', display: 'block' }}>
           <defs>
-            <marker id="pn2-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <marker id="lanes-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
               <path d="M 0 1 L 9 5 L 0 9 z" fill={accent} />
             </marker>
           </defs>
@@ -116,12 +116,12 @@ export const PnLaneNonce = () => {
           {chip(120, 282, 'next 0', 'next', 'l3n')}
           <text x={340} y={298} fontSize="10" fill={ink} fillOpacity="0.65">a fresh lane starts at 0 and is valid immediately</text>
 
-          <line x1={700} y1={206} x2={700} y2={302} stroke={accent} strokeWidth="1.2" strokeDasharray="4 3" markerStart="url(#pn2-a)" markerEnd="url(#pn2-a)" />
+          <line x1={700} y1={206} x2={700} y2={302} stroke={accent} strokeWidth="1.2" strokeDasharray="4 3" markerStart="url(#lanes-arrow)" markerEnd="url(#lanes-arrow)" />
           <text x={712} y={250} fontSize="10" fill={accent} fontWeight="600">no ordering between lanes</text>
           <text x={712} y={264} fontSize="9.5" fill={ink} fillOpacity="0.6">whatever happens on one lane,</text>
           <text x={712} y={277} fontSize="9.5" fill={ink} fillOpacity="0.6">the others stay valid</text>
 
-          <line x1={120} y1={324} x2={200} y2={324} stroke={accent} strokeWidth="1.2" markerEnd="url(#pn2-a)" />
+          <line x1={120} y1={324} x2={200} y2={324} stroke={accent} strokeWidth="1.2" markerEnd="url(#lanes-arrow)" />
           <text x={210} y={328} fontSize="9.5" fill={accent} fontWeight="600">strictly ordered within a lane, left to right</text>
         </svg>
       </div>
@@ -130,7 +130,7 @@ export const PnLaneNonce = () => {
   );
 };
 
-export const PnDelegation = () => {
+export const ParallelNonceDelegation = () => {
   const ink = 'currentColor';
   const accent = 'var(--sei-maroon-50)';
   const gold = 'var(--sei-gold-25)';
@@ -140,10 +140,10 @@ export const PnDelegation = () => {
       <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/40 p-4 text-neutral-800 dark:text-neutral-200">
         <svg viewBox="0 0 880 350" role="img" aria-label="EIP-7702 installs a delegation designator in the trading EOA's code slot so the EntryPoint can execute LaneAccount logic at the same address" style={{ width: '100%', minWidth: 620, height: 'auto', display: 'block' }}>
           <defs>
-            <marker id="pn3-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <marker id="delegation-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
               <path d="M 0 1 L 9 5 L 0 9 z" fill={ink} fillOpacity="0.6" />
             </marker>
-            <marker id="pn3-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <marker id="delegation-accent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
               <path d="M 0 1 L 9 5 L 0 9 z" fill={accent} />
             </marker>
           </defs>
@@ -163,7 +163,7 @@ export const PnDelegation = () => {
           <text x={685} y={62} fontSize="12.5" fontWeight="600" textAnchor="middle" fill={ink}>EntryPoint v0.8 singleton</text>
           <text x={685} y={80} fontSize="10" textAnchor="middle" fill={ink} fillOpacity="0.7" fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace">0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108</text>
           <text x={685} y={100} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.65">checks signature, lane sequence, and prefund</text>
-          <line x1={528} y1={79} x2={374} y2={79} stroke={ink} strokeOpacity="0.55" strokeWidth="1.3" markerEnd="url(#pn3-a)" />
+          <line x1={528} y1={79} x2={374} y2={79} stroke={ink} strokeOpacity="0.55" strokeWidth="1.3" markerEnd="url(#delegation-arrow)" />
           <text x={451} y={70} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.75">handleOps calls</text>
           <text x={451} y={92} fontSize="8.5" textAnchor="middle" fill={ink} fillOpacity="0.75" fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace">execute(target, value, data)</text>
 
@@ -172,10 +172,10 @@ export const PnDelegation = () => {
           <text x={685} y={210} fontSize="10" textAnchor="middle" fill={ink} fillOpacity="0.75">inherits the audited Simple7702Account</text>
           <text x={685} y={226} fontSize="10" textAnchor="middle" fill={ink} fillOpacity="0.75">adds one rule: lane 0 is rejected</text>
           <text x={685} y={242} fontSize="10" textAnchor="middle" fill={ink} fillOpacity="0.75">ADMIN_LANE = max uint192 for ordered admin calls</text>
-          <line x1={356} y1={209} x2={526} y2={209} stroke={accent} strokeWidth="1.3" markerEnd="url(#pn3-b)" />
+          <line x1={356} y1={209} x2={526} y2={209} stroke={accent} strokeWidth="1.3" markerEnd="url(#delegation-accent)" />
           <text x={441} y={202} fontSize="9.5" textAnchor="middle" fill={accent} fontWeight="600">runs this code</text>
 
-          <line x1={205} y1={258} x2={205} y2={296} stroke={ink} strokeOpacity="0.55" strokeWidth="1.3" markerEnd="url(#pn3-a)" />
+          <line x1={205} y1={258} x2={205} y2={296} stroke={ink} strokeOpacity="0.55" strokeWidth="1.3" markerEnd="url(#delegation-arrow)" />
           <rect x={90} y={298} width={230} height={40} rx={7} fill={gold} fillOpacity="0.25" stroke={gold} strokeWidth="1.1" />
           <text x={205} y={323} fontSize="12" fontWeight="600" textAnchor="middle" fill={ink}>venue contract</text>
           <text x={340} y={312} fontSize="10" fill={ink} fillOpacity="0.8">msg.sender = the trading EOA, not a proxy</text>
@@ -187,7 +187,7 @@ export const PnDelegation = () => {
   );
 };
 
-export const PnPipeline = () => {
+export const ParallelNoncePipeline = () => {
   const ink = 'currentColor';
   const accent = 'var(--sei-maroon-50)';
   const gold = 'var(--sei-gold-25)';
@@ -198,7 +198,7 @@ export const PnPipeline = () => {
       <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/40 p-4 text-neutral-800 dark:text-neutral-200">
         <svg viewBox="0 0 900 340" role="img" aria-label="Submission pipeline: the trader signs UserOperations into a private mempool, gas-only relayers wrap bundles in handleOps transactions, and the EntryPoint executes them through LaneAccount at the venue" style={{ width: '100%', minWidth: 640, height: 'auto', display: 'block' }}>
           <defs>
-            <marker id="pn4-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <marker id="pipeline-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
               <path d="M 0 1 L 9 5 L 0 9 z" fill={ink} fillOpacity="0.6" />
             </marker>
           </defs>
@@ -213,7 +213,7 @@ export const PnPipeline = () => {
           <text x={120} y={170} fontSize="10" textAnchor="middle" fill={ink} fillOpacity="0.8">signs one UserOperation per lane</text>
           <text x={120} y={186} fontSize="10" textAnchor="middle" fill={ink} fillOpacity="0.8">EIP-712 digest, no nonce RPCs</text>
           <text x={120} y={210} fontSize="10" textAnchor="middle" fill={accent} fontWeight="600">EVM nonce does not move</text>
-          <line x1={212} y1={172} x2={246} y2={172} stroke={ink} strokeOpacity="0.5" strokeWidth="1.3" markerEnd="url(#pn4-a)" />
+          <line x1={212} y1={172} x2={246} y2={172} stroke={ink} strokeOpacity="0.5" strokeWidth="1.3" markerEnd="url(#pipeline-arrow)" />
 
           <rect x={250} y={110} width={170} height={124} rx={9} {...box} />
           <text x={335} y={134} fontSize="12.5" fontWeight="600" textAnchor="middle" fill={ink}>Private mempool</text>
@@ -226,11 +226,11 @@ export const PnPipeline = () => {
             const y = 40 + i * 72;
             return (
               <g key={r}>
-                <path d={`M 422 172 C 460 172, 470 ${y + 24}, 486 ${y + 24}`} fill="none" stroke={ink} strokeOpacity="0.45" strokeWidth="1.1" markerEnd="url(#pn4-a)" />
+                <path d={`M 422 172 C 460 172, 470 ${y + 24}, 486 ${y + 24}`} fill="none" stroke={ink} strokeOpacity="0.45" strokeWidth="1.1" markerEnd="url(#pipeline-arrow)" />
                 <rect x={490} y={y} width={150} height={48} rx={7} {...box} />
                 <text x={565} y={y + 19} fontSize="11.5" fontWeight="600" textAnchor="middle" fill={ink}>{r}</text>
                 <text x={565} y={y + 35} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.65">own sequential nonce, 1 tx in flight</text>
-                <path d={`M 642 ${y + 24} C 660 ${y + 24}, 664 172, 686 172`} fill="none" stroke={ink} strokeOpacity="0.45" strokeWidth="1.1" markerEnd="url(#pn4-a)" />
+                <path d={`M 642 ${y + 24} C 660 ${y + 24}, 664 172, 686 172`} fill="none" stroke={ink} strokeOpacity="0.45" strokeWidth="1.1" markerEnd="url(#pipeline-arrow)" />
               </g>
             );
           })}
@@ -241,7 +241,7 @@ export const PnPipeline = () => {
           <text x={785} y={168} fontSize="10" textAnchor="middle" fill={ink} fillOpacity="0.8" fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace">handleOps(ops[], relayer)</text>
           <text x={785} y={185} fontSize="10" textAnchor="middle" fill={ink} fillOpacity="0.8">validates every op, then executes</text>
           <text x={785} y={201} fontSize="10" textAnchor="middle" fill={ink} fillOpacity="0.8">each one, refunds gas to the relayer</text>
-          <line x1={785} y1={220} x2={785} y2={254} stroke={ink} strokeOpacity="0.55" strokeWidth="1.3" markerEnd="url(#pn4-a)" />
+          <line x1={785} y1={220} x2={785} y2={254} stroke={ink} strokeOpacity="0.55" strokeWidth="1.3" markerEnd="url(#pipeline-arrow)" />
 
           <rect x={690} y={258} width={190} height={56} rx={9} fill={gold} fillOpacity="0.25" stroke={gold} strokeWidth="1.1" />
           <text x={785} y={281} fontSize="11.5" fontWeight="600" textAnchor="middle" fill={ink}>LaneAccount.execute → venue</text>
@@ -253,7 +253,7 @@ export const PnPipeline = () => {
   );
 };
 
-export const PnBundleLifecycle = () => {
+export const ParallelNonceBundleLifecycle = () => {
   const ink = 'currentColor';
   const accent = 'var(--sei-maroon-50)';
   const ok = '#10b981';
@@ -273,13 +273,13 @@ export const PnBundleLifecycle = () => {
       <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/40 p-4 text-neutral-800 dark:text-neutral-200">
         <svg viewBox="0 0 920 300" role="img" aria-label="Lifecycle of one bundle inside a relayer worker, including the same-nonce replacement loop and the simulation guard" style={{ width: '100%', minWidth: 640, height: 'auto', display: 'block' }}>
           <defs>
-            <marker id="pn5-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <marker id="bundle-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
               <path d="M 0 1 L 9 5 L 0 9 z" fill={ink} fillOpacity="0.6" />
             </marker>
-            <marker id="pn5-w" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <marker id="bundle-warn" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
               <path d="M 0 1 L 9 5 L 0 9 z" fill={warn} />
             </marker>
-            <marker id="pn5-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <marker id="bundle-bad" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
               <path d="M 0 1 L 9 5 L 0 9 z" fill={bad} />
             </marker>
           </defs>
@@ -293,23 +293,23 @@ export const PnBundleLifecycle = () => {
                 <rect x={x} y={52} width={112} height={54} rx={7} fill={last ? ok : ink} fillOpacity={last ? 0.14 : 0.05} stroke={last ? ok : ink} strokeOpacity={last ? 0.9 : 0.35} strokeWidth="1.1" />
                 <text x={x + 56} y={74} fontSize="11" fontWeight="600" textAnchor="middle" fill={ink}>{st.t}</text>
                 <text x={x + 56} y={92} fontSize="8.5" textAnchor="middle" fill={ink} fillOpacity="0.6">{st.s}</text>
-                {i < steps.length - 1 ? <line x1={x + 114} y1={79} x2={x + 122} y2={79} stroke={ink} strokeOpacity="0.5" strokeWidth="1.2" markerEnd="url(#pn5-a)" /> : null}
+                {i < steps.length - 1 ? <line x1={x + 114} y1={79} x2={x + 122} y2={79} stroke={ink} strokeOpacity="0.5" strokeWidth="1.2" markerEnd="url(#bundle-arrow)" /> : null}
               </g>
             );
           })}
 
-          <line x1={210} y1={108} x2={210} y2={160} stroke={bad} strokeWidth="1.2" strokeDasharray="4 3" markerEnd="url(#pn5-b)" />
+          <line x1={210} y1={108} x2={210} y2={160} stroke={bad} strokeWidth="1.2" strokeDasharray="4 3" markerEnd="url(#bundle-bad)" />
           <rect x={60} y={164} width={300} height={62} rx={7} fill={bad} fillOpacity="0.08" stroke={bad} strokeOpacity="0.8" strokeWidth="1.1" />
           <text x={210} y={184} fontSize="10.5" fontWeight="600" textAnchor="middle" fill={bad}>simulation fails (AA24, AA25, prefund, AA95)</text>
           <text x={210} y={201} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.75">nothing is broadcast, no lane sequence is consumed,</text>
           <text x={210} y={216} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.75">and the relayer nonce is not spent</text>
 
-          <line x1={706} y1={108} x2={706} y2={160} stroke={warn} strokeWidth="1.2" strokeDasharray="4 3" markerEnd="url(#pn5-w)" />
+          <line x1={706} y1={108} x2={706} y2={160} stroke={warn} strokeWidth="1.2" strokeDasharray="4 3" markerEnd="url(#bundle-warn)" />
           <rect x={430} y={164} width={440} height={62} rx={7} fill={warn} fillOpacity="0.1" stroke={warn} strokeOpacity="0.9" strokeWidth="1.1" />
           <text x={650} y={184} fontSize="10.5" fontWeight="600" textAnchor="middle" fill={warn}>no receipt before the timeout</text>
           <text x={650} y={201} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.75">check every earlier attempt for a receipt, bump fees by REPLACEMENT_FEE_BUMP_PERCENT,</text>
           <text x={650} y={216} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.75">sign a replacement at the same nonce n, journal it, rebroadcast (up to BUNDLE_MAX_ATTEMPTS)</text>
-          <line x1={582} y1={162} x2={582} y2={110} stroke={warn} strokeWidth="1.2" strokeDasharray="4 3" markerEnd="url(#pn5-w)" />
+          <line x1={582} y1={162} x2={582} y2={110} stroke={warn} strokeWidth="1.2" strokeDasharray="4 3" markerEnd="url(#bundle-warn)" />
 
           <text x={450} y={262} fontSize="10.5" textAnchor="middle" fill={accent} fontWeight="600">the worker never sends nonce n + 1 while a transaction at n might still land</text>
           <text x={450} y={282} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.6">on restart, the last exact raw transaction is rebroadcast first, then reconciled against lane sequences and the relayer's confirmed nonce</text>
@@ -320,7 +320,7 @@ export const PnBundleLifecycle = () => {
   );
 };
 
-export const PnFailureIsolation = () => {
+export const ParallelNonceFailureIsolation = () => {
   const ink = 'currentColor';
   const ok = '#10b981';
   const bad = '#ef4444';
