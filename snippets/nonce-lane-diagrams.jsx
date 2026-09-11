@@ -196,7 +196,7 @@ export const NonceLanePipeline = () => {
   return (
     <div className="not-prose w-full my-5">
       <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/40 p-4 text-neutral-800 dark:text-neutral-200">
-        <svg viewBox="0 0 900 340" role="img" aria-label="Submission pipeline: the trader signs UserOperations into a private mempool, gas-only relayers wrap bundles in handleOps transactions, and the EntryPoint executes them through LaneAccount at the venue" style={{ width: '100%', minWidth: 640, height: 'auto', display: 'block' }}>
+        <svg viewBox="0 0 900 340" role="img" aria-label="Submission pipeline: the trader signs UserOperations into an in-process bundling queue, gas-only relayers wrap bundles in handleOps transactions, and the EntryPoint executes them through LaneAccount at the venue" style={{ width: '100%', minWidth: 640, height: 'auto', display: 'block' }}>
           <defs>
             <marker id="pipeline-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
               <path d="M 0 1 L 9 5 L 0 9 z" fill={ink} fillOpacity="0.6" />
@@ -216,7 +216,7 @@ export const NonceLanePipeline = () => {
           <line x1={212} y1={172} x2={246} y2={172} stroke={ink} strokeOpacity="0.5" strokeWidth="1.3" markerEnd="url(#pipeline-arrow)" />
 
           <rect x={250} y={110} width={170} height={124} rx={9} {...box} />
-          <text x={335} y={134} fontSize="12.5" fontWeight="600" textAnchor="middle" fill={ink}>Private mempool</text>
+          <text x={335} y={134} fontSize="12.5" fontWeight="600" textAnchor="middle" fill={ink}>Bundling queue</text>
           <text x={335} y={154} fontSize="10" textAnchor="middle" fill={ink} fillOpacity="0.8">in-process FIFO of signed ops</text>
           <text x={335} y={170} fontSize="10" textAnchor="middle" fill={ink} fillOpacity="0.8">one op per lane per bundle</text>
           <text x={335} y={186} fontSize="10" textAnchor="middle" fill={ink} fillOpacity="0.8">no ERC-7562 4-op sender cap</text>
@@ -260,7 +260,7 @@ export const NonceLaneBundleLifecycle = () => {
   const warn = '#f59e0b';
   const bad = '#ef4444';
   const steps = [
-    { t: 'take bundle', s: 'from the mempool' },
+    { t: 'take bundle', s: 'from the queue' },
     { t: 'simulate', s: 'eth_estimateGas' },
     { t: 'sign at nonce n', s: 'EIP-1559 outer tx' },
     { t: 'journal', s: 'bytes hit disk first' },
