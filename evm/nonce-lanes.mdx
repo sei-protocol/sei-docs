@@ -1,7 +1,7 @@
 ---
 title: 'Nonce Lanes: Concurrent Submission from One Account'
 sidebarTitle: 'Nonce Lanes'
-description: 'Keep many independent transactions in flight from one funded Sei address without a sequential nonce queue. This guide explains how ERC-4337 nonce lanes, EIP-7702 delegation, a private mempool, and gas-only relayers fit together, and walks you through running the reference implementation.'
+description: 'Keep many independent transactions in flight from one funded Sei address without a sequential nonce queue. This guide explains how ERC-4337 nonce lanes, EIP-7702 delegation, an in-process bundling queue, and gas-only relayers fit together, and walks you through running the reference implementation.'
 keywords: ['sei', 'nonce', 'nonce lanes', 'two-dimensional nonce', 'eip-7702', 'erc-4337', 'entrypoint', 'userop', 'relayer', 'bundler', 'account abstraction', 'throughput', 'market making', 'liquidation bot']
 ---
 
@@ -53,7 +53,7 @@ The design combines four ingredients. Each one solves a specific part of the pro
 | --- | --- |
 | ERC-4337 v0.8 two-dimensional nonces | Independent nonce lanes for one account |
 | EIP-7702 delegation | The existing funded address keeps its balance and approvals |
-| A private in-process mempool | No per-sender pending cap and no third-party bundler |
+| An in-process bundling queue | No per-sender pending cap and no third-party bundler |
 | Gas-only relayers with a write-ahead journal | Someone still has to send sequential transactions, but they hold no inventory |
 
 ### ERC-4337 nonce lanes
@@ -111,13 +111,13 @@ The account spends one ordinary EVM nonce to install the delegation, using a typ
 
 ### Gas-only relayers carry what is left of the queue
 
-UserOperations are not transactions. Something still has to wrap them in `EntryPoint.handleOps` transactions and pay for them. The repository uses a pool of gas-only relayers fed by a private in-process mempool.
+UserOperations are not transactions. Something still has to wrap them in `EntryPoint.handleOps` transactions and pay for them. The repository uses a pool of gas-only relayers fed by an in-process bundling queue.
 
 <NonceLanePipeline />
 
 The sequential constraint has not disappeared; it has moved. Each relayer still has one sequential EVM nonce and keeps one outer transaction in flight at a time. What changes is the custody boundary. Relayers hold native SEI for gas and nothing else. A compromised relayer key can lose its own gas balance or rebroadcast operations the funded account already signed. It cannot create a new operation, because every UserOperation carries an EIP-712 signature from the funded account over the EntryPoint's `PackedUserOperation` digest.
 
-The private mempool matters for a different reason. The canonical ERC-4337 mempool enforces the [ERC-7562](https://eips.ethereum.org/EIPS/eip-7562) validation rules, including `SAME_SENDER_MEMPOOL_COUNT = 4` for an unstaked sender. Four pending operations is a wallet number, not a throughput number. Those rules exist so competing bundlers can safely pack strangers' operations together. Here every operation comes from one account you control, so there are no strangers to defend against. The EntryPoint still enforces everything that protects funds: the signature, per-lane nonce uniqueness, and prefund solvency.
+The bundling queue matters for a different reason. It is a plain in-process queue, not a mempool: nothing is gossiped, nothing arrives from a stranger, and it is gone when the process exits. That is what lets it skip the canonical ERC-4337 alt-mempool, which enforces the [ERC-7562](https://eips.ethereum.org/EIPS/eip-7562) validation rules, including `SAME_SENDER_MEMPOOL_COUNT = 4` for an unstaked sender. Four pending operations is a wallet number, not a throughput number. Those rules exist so competing bundlers can safely pack strangers' operations together. Here every operation comes from one account you control, so there are no strangers to defend against. The EntryPoint still enforces everything that protects funds: the signature, per-lane nonce uniqueness, and prefund solvency.
 
 ### One bundle, start to finish
 
@@ -174,7 +174,7 @@ The pillars behind that table:
 1. **One balance, many lanes.** Capital, approvals, and protocol state stay on one address. Width comes from lanes, not from splitting funds. A new lane costs nothing to open and is valid at sequence `0` immediately.
 2. **A custody boundary you can reason about.** The only key that can create a valid operation is the funded account's. Relayer keys can be rotated, replaced, or lost with a bounded cost measured in gas.
 3. **A frozen nonce on the hot path.** After the one-time delegation, the funded account's EVM nonce never moves while submitting. Nothing an RPC drops or a producer rejects can strand the account.
-4. **No third-party bundler and no per-sender cap.** The private mempool removes the ERC-7562 `SAME_SENDER_MEMPOOL_COUNT` limit and the dependency on someone else's inclusion policy, while keeping every EntryPoint check that protects funds.
+4. **No third-party bundler and no per-sender cap.** Keeping the bundling queue in-process removes the ERC-7562 `SAME_SENDER_MEMPOOL_COUNT` limit and the dependency on someone else's inclusion policy, while keeping every EntryPoint check that protects funds.
 5. **Crash-safe by construction.** Signed operations and signed outer transactions are journaled before broadcast. Replacement reuses the relayer nonce. Restart reconciliation is deterministic and refuses to create duplicate work when the state is ambiguous.
 6. **Built for how Sei behaves.** The hot signing path performs no nonce reads, so an unreliable pending view costs nothing. Fast blocks and instant finality keep each relayer's receipt wait short, which is what makes `RELAYER_COUNT × MAX_OPS_PER_BUNDLE` a meaningful per-block width rather than a theoretical one.
 
@@ -527,7 +527,7 @@ const unsigned = buildOp({
 });
 
 const op = await signUserOp(account, unsigned, chain.id, ENTRY_POINT);
-mempool.add({
+bundlingQueue.add({
   op,
   hash: userOpHash(op, chain.id, ENTRY_POINT),
   lane: slot.lane,
@@ -608,7 +608,7 @@ Treat `.env`, `app/.state/`, signed raw transactions, and RPC URLs containing cr
     UserOperations, the EntryPoint, and two-dimensional nonces.
   </Card>
   <Card title="ERC-7562: Validation and mempool rules" icon="file-lines" href="https://eips.ethereum.org/EIPS/eip-7562">
-    The public-mempool rules the private queue sidesteps.
+    The alt-mempool rules the in-process bundling queue sidesteps.
   </Card>
   <Card title="Finality and block tags" icon="clock" href="/evm/evm-parity/finality">
     Why one confirmation is final and the pending view is unreliable.
