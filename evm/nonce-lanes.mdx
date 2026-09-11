@@ -1,0 +1,625 @@
+---
+title: 'Nonce Lanes: Concurrent Submission from One Account'
+sidebarTitle: 'Nonce Lanes'
+description: 'Keep many independent transactions in flight from one funded Sei address without a sequential nonce queue. This guide explains how ERC-4337 nonce lanes, EIP-7702 delegation, an in-process bundling queue, and gas-only relayers fit together, and walks you through running the reference implementation.'
+keywords: ['sei', 'nonce', 'nonce lanes', 'two-dimensional nonce', 'eip-7702', 'erc-4337', 'entrypoint', 'userop', 'relayer', 'bundler', 'account abstraction', 'throughput', 'market making', 'liquidation bot']
+---
+
+import { SequentialNonceQueue, NonceLanes, NonceLaneDelegation, NonceLanePipeline, NonceLaneBundleLifecycle, NonceLaneFailureIsolation } from '/snippets/nonce-lane-diagrams.jsx';
+
+One funded account on Sei EVM has one sequential nonce. That is the right model for a wallet and the wrong model for a stream of independent work: a single transaction that never lands freezes every transaction signed after it. The usual fix is a fleet of hot wallets, which multiplies balances, approvals, and keys.
+
+[sei-nonce-lanes](https://github.com/sei-protocol/sei-nonce-lanes) is a reference implementation that removes the queue instead. One funded externally owned account (EOA) keeps its address, balance, and approvals, and keeps many mutually independent operations in flight at the same time.
+
+The pattern applies whenever one funded address needs to do many things that do not depend on each other: market making and order flow, liquidation and keeper bots, oracle updates, payout and claim batching, or game and backend transactions.
+
+<Info>
+  The repository is a runnable engineering demonstration, not a production service. It uses a mock venue, plaintext development keys in `.env`, an in-process queue, and console output. Read [Before you adapt this](#before-you-adapt-this) before pointing it at real funds.
+</Info>
+
+<Note>
+  This page is about submission concurrency. If you want a hosted bundler, a paymaster, and gas sponsorship for consumer wallets, start with [Pimlico](/evm/wallet-integrations/pimlico) or [Thirdweb EIP-7702](/evm/wallet-integrations/thirdweb-7702) instead. Nonce lanes solve the opposite problem: throughput from one address you control, with no third party in the submission path.
+</Note>
+
+## Why one account is one queue
+
+An EVM account's transaction nonces are strictly sequential. If nonce `n` has not executed, nonce `n + 1` cannot execute first. Two failures that look similar behave differently:
+
+| Event | Blocks later nonces? |
+| --- | --- |
+| The transaction lands and its call reverts | No. The transaction consumed its nonce. |
+| The transaction never lands | Yes. Every later nonce waits until the gap is filled or replaced. |
+
+The second case is the submission bottleneck. It covers transactions that are dropped, underpriced, rejected at admission, lost before broadcast, or stranded after a process crash.
+
+<SequentialNonceQueue />
+
+Two properties of Sei make this sharper than on Ethereum:
+
+- **Strict nonce admission.** Under Giga, the Autobahn producer mempool admits EVM transactions in per-sender nonce order and rejects a gap with a `bad nonce` error instead of holding it for later. See [Giga mode behavior](/node/technical-reference#giga-mode-behavior-and-per-block-limits). The repository's `npm run baseline` command probes the behavior of whatever RPC path you configure rather than assuming every endpoint behaves identically.
+- **No dependable pending view.** Sei does not expose Ethereum-style pending state, and [Finality and block tags](/evm/evm-parity/finality#pending-state) tells you not to rely on a pending nonce differing from the confirmed nonce. `txpool_content` is also [truncated and collapses the pending/queued distinction](/evm/reference). So even where a node answers a pending-nonce query, it is not a foundation to rebuild an in-flight queue on.
+
+<Warning>
+  Do not design around a pending nonce on Sei. `eth_getTransactionCount(address, "pending")` is [documented](/evm/reference) as returning `EvmNextPendingNonce` from the mempool, so it is not an alias for `"latest"` — but the finality guidance marks the pending view as unreliable, and what you get back varies by node and by whether it runs Giga. The design below sidesteps the question entirely: its hot path reads no nonces at all.
+</Warning>
+
+Splitting work across hot wallets raises throughput, but every wallet is another balance to rebalance, another set of approvals to maintain, and another key that can move funds.
+
+## How it works
+
+The design combines four ingredients. Each one solves a specific part of the problem, and none is sufficient alone.
+
+| Ingredient | What it contributes |
+| --- | --- |
+| ERC-4337 v0.8 two-dimensional nonces | Independent nonce lanes for one account |
+| EIP-7702 delegation | The existing funded address keeps its balance and approvals |
+| An in-process bundling queue | No per-sender pending cap and no third-party bundler |
+| Gas-only relayers with a write-ahead journal | Someone still has to send sequential transactions, but they hold no inventory |
+
+### ERC-4337 nonce lanes
+
+EntryPoint v0.8 stores a UserOperation nonce as a 192-bit key plus a 64-bit sequence:
+
+```text
+nonce = (uint192 key << 64) | uint64 sequence
+```
+
+The EntryPoint keeps one `sequence` counter for each `key`. The specification calls this a two-dimensional nonce; the repository calls a key a **lane**.
+
+<NonceLanes />
+
+Four rules follow from that layout:
+
+- Operations on different lanes have no ordering relationship.
+- Operations on the same lane stay strictly sequential, so the implementation allows at most one in-flight operation per lane.
+- An operation that executes and reverts still consumes its lane sequence.
+- An operation that never reaches a successful `handleOps` transaction consumes nothing.
+
+`LaneAccount` rejects lane `0`. Most SDKs pick key `0` when you do not pass one, and work that lands entirely on key `0` is a single queue again. Rejecting it turns a silent fallback into a loud validation failure. `ADMIN_LANE` (the maximum `uint192`) is reserved for integrations that need one explicitly ordered lane for administrative calls.
+
+### EIP-7702 keeps the funded address
+
+An EIP-7702 authorization writes a delegation designator into the EOA's code slot:
+
+```text
+0xef0100 || <LaneAccount implementation address>
+```
+
+The address does not change. Its native balance, token balances, protocol state, and approvals stay attached to the same account. When the EntryPoint calls the account, the EVM runs `LaneAccount`'s code in the EOA's context, so `LaneAccount.execute` reaches the target with the funded EOA as `msg.sender`.
+
+<NonceLaneDelegation />
+
+`LaneAccount` inherits the audited `Simple7702Account` from the [account-abstraction](https://github.com/eth-infinitism/account-abstraction) repository and adds a single policy check:
+
+```solidity
+contract LaneAccount is Simple7702Account {
+    uint192 public constant ADMIN_LANE = type(uint192).max;
+
+    error LaneZeroReserved();
+
+    function _validateNonce(uint256 nonce) internal pure override {
+        if (nonce >> 64 == 0) revert LaneZeroReserved();
+    }
+}
+```
+
+The account spends one ordinary EVM nonce to install the delegation, using a type-4 transaction. Sei requires a non-empty authorization list on type-4 transactions; see [Transaction types](/evm/evm-parity/transaction-types#set-code-eip-7702-auth-list-requirement). After that, the submission path signs UserOperations only and the funded account's EVM nonce stops moving.
+
+<Note>
+  EIP-7702 alone does not create independent nonces. It preserves the account. ERC-4337 supplies the independent nonce model. You need both.
+</Note>
+
+### Gas-only relayers carry what is left of the queue
+
+UserOperations are not transactions. Something still has to wrap them in `EntryPoint.handleOps` transactions and pay for them. The repository uses a pool of gas-only relayers fed by an in-process bundling queue.
+
+<NonceLanePipeline />
+
+The sequential constraint has not disappeared; it has moved. Each relayer still has one sequential EVM nonce and keeps one outer transaction in flight at a time. What changes is the custody boundary. Relayers hold native SEI for gas and nothing else. A compromised relayer key can lose its own gas balance or rebroadcast operations the funded account already signed. It cannot create a new operation, because every UserOperation carries an EIP-712 signature from the funded account over the EntryPoint's `PackedUserOperation` digest.
+
+The bundling queue matters for a different reason. It is a plain in-process queue, not a mempool: nothing is gossiped, nothing arrives from a stranger, and it is gone when the process exits. That is what lets it skip the canonical ERC-4337 alt-mempool, which enforces the [ERC-7562](https://eips.ethereum.org/EIPS/eip-7562) validation rules, including `SAME_SENDER_MEMPOOL_COUNT = 4` for an unstaked sender. Four pending operations is a wallet number, not a throughput number. Those rules exist so competing bundlers can safely pack strangers' operations together. Here every operation comes from one account you control, so there are no strangers to defend against. The EntryPoint still enforces everything that protects funds: the signature, per-lane nonce uniqueness, and prefund solvency.
+
+### One bundle, start to finish
+
+Each relayer runs one asynchronous worker. The worker takes a bundle of up to `MAX_OPS_PER_BUNDLE` operations (never two from the same lane), and then works through a fixed sequence.
+
+<NonceLaneBundleLifecycle />
+
+Two details carry most of the safety:
+
+- **Write-ahead ordering.** The signed outer transaction is written to the journal before it is broadcast. A crash between signing and sending cannot lose or duplicate work; on restart, the exact raw bytes are rebroadcast first.
+- **Same-nonce replacement.** If no receipt arrives within `BUNDLE_RECEIPT_TIMEOUT_MS`, the worker checks earlier attempts for a receipt, bumps fees by `REPLACEMENT_FEE_BUMP_PERCENT`, and signs a replacement at the same relayer nonce. It never sends nonce `n + 1` while a transaction at `n` might still land, which is exactly the gap this design exists to avoid.
+
+Before any new work is created, a restarted process reconciles every incomplete journal entry against the EntryPoint. If the chain sequence is ahead of the journal, the operation was consumed. If they match, the lane is reserved and the operation is recovered or requeued. If the chain is behind the journal, the state is inconsistent and the process stops rather than guessing.
+
+### What fails alone and what fails together
+
+The EntryPoint treats an account execution failure as a per-operation result: it emits a failed `UserOperationEvent`, charges gas, advances that lane, and continues with the next operation. A validation failure (bad signature, stale sequence, insufficient prefund) is different: it reverts the whole `handleOps` transaction and nothing in it is consumed.
+
+<NonceLaneFailureIsolation />
+
+| Situation | Lane sequence | Other lanes in the bundle | Recovery |
+| --- | --- | --- | --- |
+| Operation executes successfully | Consumed | Continue | None |
+| Operation execution reverts | Consumed | Continue | Retry the intent on the lane's next sequence if you want |
+| Operation validation fails | Not consumed | Entire `handleOps` reverts | Fix the cause and resubmit |
+| Signed operation never reached a mined bundle | Not consumed | Independent lanes stay valid | The journal requeues it |
+| Outer transaction times out or is evicted | Unknown until reconciled | Bundle stays intact | Rebroadcast and fee-bump at the same relayer nonce |
+| Outer transaction mines and reverts | Not consumed | Nothing in that bundle executes | Relayer nonce is consumed; operations can be requeued |
+| Process exits after journaling | Determined at restart | No new work starts first | Reconcile receipts, lane sequences, and the relayer nonce |
+
+Every bundle is simulated with `eth_estimateGas` before broadcast, so validation failures are normally caught before any gas is spent. `MAX_OPS_PER_BUNDLE` sets the size of the shared validation domain; keep it small when isolation matters more than amortized cost.
+
+## Why this is hard to replicate
+
+Faster hardware and better RPC routing improve every submission strategy equally. What changes here is structural: it changes what a single funded address is allowed to do, and it does so with the same custody surface as a single wallet.
+
+The honest comparison is against a fleet of hot wallets, because that is what most teams actually run. A fleet can match the width. What it cannot match is doing so from one balance, one approval set, and one key.
+
+| | One hot wallet | Fleet of N hot wallets | Public ERC-4337 bundler | Nonce lanes |
+| --- | --- | --- | --- | --- |
+| Unresolved operations from one balance | 1 | 1 per wallet | At most 4 per unstaked sender | `LANE_POOL_SIZE` (32 by default, 4096 maximum) |
+| Outer transactions in flight | 1 | N | The bundler's policy, not yours | `RELAYER_COUNT` |
+| Balances and approvals to maintain | One address | N addresses, approved N times | One address | One address |
+| Keys that can move funds | 1 | N | 1 | 1; relayers hold gas only |
+| Depends on a pending-nonce view | Yes | Yes | No | No: sequences are read once at startup, then tracked locally |
+| Failure blast radius | Everything behind the gap | Everything behind the gap, per wallet | One operation | One lane for execution, one bundle for validation |
+
+<Note>
+  Read the first two rows together. `LANE_POOL_SIZE` caps how many operations can be signed and unresolved at once; `RELAYER_COUNT` caps how many outer transactions are actually broadcast at once. Lanes give you a large pool of independent intents, not a large number of simultaneous transactions. The rough per-block submission width is `RELAYER_COUNT × MAX_OPS_PER_BUNDLE`.
+</Note>
+
+The pillars behind that table:
+
+1. **One balance, many lanes.** Capital, approvals, and protocol state stay on one address. Width comes from lanes, not from splitting funds. A new lane costs nothing to open and is valid at sequence `0` immediately.
+2. **A custody boundary you can reason about.** The only key that can create a valid operation is the funded account's. Relayer keys can be rotated, replaced, or lost with a bounded cost measured in gas.
+3. **A frozen nonce on the hot path.** After the one-time delegation, the funded account's EVM nonce never moves while submitting. Nothing an RPC drops or a producer rejects can strand the account.
+4. **No third-party bundler and no per-sender cap.** Keeping the bundling queue in-process removes the ERC-7562 `SAME_SENDER_MEMPOOL_COUNT` limit and the dependency on someone else's inclusion policy, while keeping every EntryPoint check that protects funds.
+5. **Crash-safe by construction.** Signed operations and signed outer transactions are journaled before broadcast. Replacement reuses the relayer nonce. Restart reconciliation is deterministic and refuses to create duplicate work when the state is ambiguous.
+6. **Built for how Sei behaves.** The hot signing path performs no nonce reads, so an unreliable pending view costs nothing. Fast blocks and instant finality keep each relayer's receipt wait short, which is what makes `RELAYER_COUNT × MAX_OPS_PER_BUNDLE` a meaningful per-block width rather than a theoretical one.
+
+<Warning>
+  Submission concurrency is not execution parallelism. Independent lanes remove ordering between submissions. They do not make conflicting storage writes execute in parallel. A contract that funnels everything through one hot storage slot still serializes on that slot. See [Optimizing for parallelization](/evm/best-practices/optimizing-for-parallelization) and the [parallelization engine](/learn/parallelization-engine).
+</Warning>
+
+<Note>
+  Block time and gas limits differ between today's [Twin-Turbo consensus](/learn/twin-turbo-consensus) and [Sei Giga](/learn/sei-giga). Size a relayer pool against the network you are actually submitting to, and measure rather than assuming.
+</Note>
+
+## Tutorial: run the reference implementation
+
+The walkthrough below deploys the demo contracts, delegates a throwaway account, funds a relayer pool, and submits 24 operations across 32 lanes. One order is deliberately given an unfillable limit price so you can watch a revert land without disturbing its neighbors.
+
+### Prerequisites
+
+- Git with submodule support
+- [Foundry](https://getfoundry.sh/) with `forge`, `anvil`, and `cast`
+- Node.js 22 or newer, and npm
+- For the Atlantic-2 path: a fresh throwaway key funded from the [Sei faucet](/learn/faucet)
+
+<Steps>
+  <Step title="Clone and verify">
+    Clone with submodules so the pinned `account-abstraction` and OpenZeppelin dependencies come along:
+
+    ```bash
+    git clone --recurse-submodules https://github.com/sei-protocol/sei-nonce-lanes.git
+    cd sei-nonce-lanes
+    ```
+
+    For an existing clone, run `git submodule update --init --recursive`.
+
+    Install the Node dependencies and run every local check:
+
+    ```bash
+    cd app
+    npm ci
+    npm run check
+    cd ..
+
+    forge fmt --check
+    forge test -vv
+    ```
+
+    The Foundry suite runs against the real EntryPoint v0.8 bytecode from the pinned dependency, placed at the canonical address inside the test VM. It proves that different lanes can land in any order, that an execution revert affects only its own lane, that an operation that is never submitted blocks nothing, that a gap on one shared lane reproduces sequential blocking, that one validation failure reverts the whole bundle, that lane `0` is rejected, and that a 50-lane bundle fits in one outer transaction.
+  </Step>
+
+  <Step title="Choose a target network">
+    Start with a local Prague fork. It carries the deployed EntryPoint bytecode from Atlantic-2 but spends only Anvil funds.
+
+    <Tabs>
+      <Tab title="Local Anvil fork (recommended first)">
+        EIP-7702 requires a Prague-capable node. Keep this terminal running:
+
+        ```bash
+        anvil \
+          --fork-url https://evm-rpc-testnet.sei-apis.com \
+          --chain-id 1328 \
+          --hardfork prague
+        ```
+
+        The repository compiles its contracts for Cancun because they use no Prague-only opcodes, but the local node must run Prague to accept the type-4 delegation transaction.
+
+        Create the configuration and point it at the fork:
+
+        ```bash
+        cp .env.example .env
+        ```
+
+        ```dotenv title=".env"
+        SEI_CHAIN_ID=1328
+        SEI_RPC_URL=http://127.0.0.1:8545
+
+        RELAYER_COUNT=4
+        RELAYER_START_INDEX=1
+        ```
+
+        Set `TRADER_PRIVATE_KEY` to account `0`'s private key from the Anvil startup output, and `RELAYER_MNEMONIC` to the mnemonic printed by that same Anvil process. Starting relayers at index `1` keeps the funded account and relayer identities distinct; the application rejects overlapping identities.
+
+        Deploy the demo contracts from the repository root using Anvil's unlocked account:
+
+        ```bash
+        forge script script/Deploy.s.sol:Deploy \
+          --rpc-url http://127.0.0.1:8545 \
+          --broadcast \
+          --unlocked \
+          --sender 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+        ```
+      </Tab>
+      <Tab title="Atlantic-2 testnet">
+        Generate fresh credentials. Never reuse a key or mnemonic that has appeared in a tutorial, a test framework, or a shared document:
+
+        ```bash
+        cast wallet new            # funded account key
+        cast wallet new-mnemonic   # relayer mnemonic
+        ```
+
+        Fund the address from the [Sei faucet](/learn/faucet), then configure:
+
+        ```bash
+        cp .env.example .env
+        ```
+
+        ```dotenv title=".env"
+        SEI_CHAIN_ID=1328
+        SEI_RPC_URL=https://evm-rpc-testnet.sei-apis.com
+
+        TRADER_PRIVATE_KEY=0x...
+        RELAYER_MNEMONIC="word word word ..."
+        RELAYER_COUNT=4
+        RELAYER_START_INDEX=0
+        ```
+
+        Deploy with a funded key. The deployer can be the throwaway account, but it does not have to be:
+
+        ```bash
+        export DEPLOYER_PRIVATE_KEY=0x...
+
+        forge script script/Deploy.s.sol:Deploy \
+          --rpc-url https://evm-rpc-testnet.sei-apis.com \
+          --broadcast \
+          --private-key "$DEPLOYER_PRIVATE_KEY"
+
+        unset DEPLOYER_PRIVATE_KEY
+        ```
+
+        <Danger>
+          Never use Anvil, Hardhat, tutorial, or shared test mnemonics on Atlantic-2 or Pacific-1. Their addresses and keys are public, and some are already delegated to sweeper code, so a successful funding transaction can still leave a zero balance.
+        </Danger>
+      </Tab>
+    </Tabs>
+
+    Copy the two printed addresses into `.env`:
+
+    ```dotenv title=".env"
+    LANE_ACCOUNT_IMPL=0x...
+    VENUE=0x...
+    ```
+
+    <Note>
+      Mutating commands refuse to write to a remote Pacific-1 RPC unless `ALLOW_MAINNET=1` is set explicitly. That guard prevents an accidental `SEI_CHAIN_ID=1329` run. It does not guard the separate Forge deployment command, and it does not make the demo production-ready.
+    </Note>
+  </Step>
+
+  <Step title="Check the preflight">
+    `status` is read-only. Run it before anything that writes:
+
+    ```bash
+    cd app
+    npm run status
+    ```
+
+    It prints the chain ID, whether code exists at the EntryPoint address `0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108`, the account's current delegation, balances, its EntryPoint deposit, each relayer's confirmed nonce and gas balance, the lane sequences, and the venue state.
+  </Step>
+
+  <Step title="Delegate the account">
+    ```bash
+    npm run delegate
+    ```
+
+    This sends one type-4 transaction with an authorization for `LANE_ACCOUNT_IMPL`. It spends the account's EVM nonce once. The command is idempotent: if the account already delegates to the configured implementation, it does nothing. If the account delegates to something else, it tells you before replacing it.
+  </Step>
+
+  <Step title="Fund the relayers and the EntryPoint deposit">
+    ```bash
+    npm run fund
+    npm run status
+    ```
+
+    `fund` uses ordinary transactions to top each relayer up to `RELAYER_FUNDING` SEI and to bring the account's `EntryPoint.depositTo` balance up to `ENTRYPOINT_DEPOSIT` SEI. The deposit is what the EntryPoint draws prefund from when it validates each operation. On a public network you can instead send SEI to relayer `0` and run `npm run dispense`, which waits for the balance and splits it across the pool. Use one bootstrapping path or the other, not both.
+  </Step>
+
+  <Step title="Submit the run">
+    ```bash
+    npm run submit
+    ```
+
+    One `submit` process performs the complete run and exits. It runs the preflight, estimates the delegated call's gas, reads each lane's sequence once, signs 24 operations concurrently with no nonce RPCs, journals them, bundles them, drains the bundles through the relayer pool, and prints a report. By default, order `2` receives a limit price below the mark, so its operation reverts during execution while the neighboring lanes continue.
+  </Step>
+</Steps>
+
+### Read the report
+
+The output below is illustrative; your addresses, blocks, and timings will differ.
+
+```text
+=== preflight ===
+chain          Sei Testnet (1328)
+entryPoint     0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108 (… bytes)
+account        0xf39F…2266
+delegated to   0x5FbD…0aa3
+account nonce  3  <- watch this, it must not move
+journal        0 pending op(s)
+relayer        0x7099…79C8  0.5 SEI
+…
+
+=== build ===
+lane pool      32 lanes, 32 idle
+signed         24 new ops in 52ms, without nonce RPCs
+hash check     local digest matches EntryPoint.getUserOpHash
+
+=== submit ===
+24 ops -> bundles of <=4 -> 4 relayers
+
+  mined   lanes [32,31,30,29]  block 187213  gas 612345
+  mined   lanes [28,27,26,25]  block 187213  gas 598120
+  …
+
+=== per-order outcome ===
+  #  lane  seq  exec      filled  land#  block     note
+   0    32    0  ok           yes      1    187213
+   1    31    0  ok           yes      2    187213
+   2    30    0  reverted     no       0    187213  expected revert (limit under mark)
+   3    29    0  ok           yes      3    187213
+  …
+
+=== summary ===
+ops submitted        24
+ops landed           24
+  executed ok        23
+  reverted on chain  1  (each consumed only its own lane)
+bundles              6 across 2 block(s)
+  pending recovery   0
+  failed safely      0
+distinct lanes       24
+relayers used        4
+throughput           13.0 landed ops/sec
+
+account EVM nonce    3 -> 3  UNCHANGED
+```
+
+What to look for:
+
+- **`account nonce` before and `account EVM nonce` after** must be identical. The funded key never entered a queue.
+- **`exec`** is read from the `UserOperationEvent` in each receipt. `reverted` means the operation landed, consumed its lane sequence, and failed inside the call. `not mined` would mean the outer transaction never landed and nothing was consumed.
+- **`land#`** is the venue's global landing counter. It shows the order in which operations actually executed, which has nothing to do with lane number. Lane acquisition is last-in, first-out, so a fresh 32-lane pool starts at lane `32`; lane numbers carry no priority.
+- **`hash check`** confirms that the locally computed EIP-712 digest matches `EntryPoint.getUserOpHash` for the first operation, so client-side hashing matches consensus.
+
+If a bundle is reported as `PENDING` or `FAILED`, the command exits non-zero and leaves the journal intact. Run `npm run submit` again once the RPC can answer receipt and nonce queries; the process recovers or replaces at the same relayer nonce before it creates new work. Do not delete the journal and do not send the relayer's next nonce by hand.
+
+### Optional: real swaps on Atlantic-2
+
+The repository includes a real-target path that routes tiny native SEI and native USDC swaps through the documented DragonSwap V1 deployment on Atlantic-2. It is hard-blocked on every other chain. Get testnet USDC from the [Circle faucet](https://faucet.circle.com/), then:
+
+```bash
+cd app
+npm run swap:setup
+npm run swap:submit
+```
+
+`swap:setup` uses ordinary transactions to approve a limited amount of USDC and to create and seed the WSEI/USDC pair if the factory has no live pair. `swap:submit` alternates SEI to USDC and USDC to SEI swaps through independent lanes and reports outcomes from EntryPoint events rather than one RPC read per swap. The same knobs apply:
+
+```bash
+ORDERS=3000 \
+LANE_POOL_SIZE=3000 \
+MAX_OPS_PER_BUNDLE=4 \
+REVERT_ORDER_INDEX=2 \
+npm run swap:submit
+```
+
+The account must hold enough of both assets for every input-side swap to execute regardless of landing order. Set `REVERT_ORDER_INDEX=-1` when you want to measure maximum throughput.
+
+### Optional: see the baseline you are escaping
+
+```bash
+npm run baseline
+```
+
+Using a gas-only relayer key so nothing of value is at risk, `baseline` sends nonce `n + 1` while deliberately skipping `n`, reports whether the RPC path rejected it or stranded it, then fills the gap. Compare that with a `submit` run where 24 operations from one account are mutually independent.
+
+## Tuning
+
+Three knobs shape a run. They interact, so change one at a time and measure.
+
+<AccordionGroup>
+  <Accordion title="Lane pool size: the ceiling on in-flight operations">
+    One lane holds at most one in-flight operation, so `LANE_POOL_SIZE` is the hard ceiling on unresolved UserOperations in a process. Larger pools permit more concurrently unresolved intents, add startup `getNonce` reads (batched with bounded concurrency so a public RPC does not rate-limit you), and increase the recovery state you must understand after a failure. `ORDERS` must not exceed `LANE_POOL_SIZE`; the application rejects that configuration instead of silently submitting fewer operations.
+  </Accordion>
+  <Accordion title="Bundle width: gas efficiency against isolation">
+    `MAX_OPS_PER_BUNDLE` trades amortized outer-transaction overhead for the size of the shared validation failure domain. A width of `1` gives maximum isolation and the highest overhead. Execution reverts stay per-operation at any width. The relayer caps signed transaction gas below the live block gas limit and rejects a bundle whose estimate cannot fit.
+
+    As a reference point, on Atlantic-2 on September 3, 2026, the real-swap path sustained 77 operations per bundle; 78 hit the 12,500,000 block-gas ceiling and failed safely during simulation. Width 76 produced the best observed submission rate for that call shape, 47.7 landed swaps per second. Treat these as measurements for one call shape on one network at one point in time, not as protocol limits.
+  </Accordion>
+  <Accordion title="Relayer count: concurrent outer transaction streams">
+    Each relayer has one sequential outer transaction stream. Under favorable admission and inclusion conditions, the immediate submission width is roughly `RELAYER_COUNT × MAX_OPS_PER_BUNDLE` per block. That is a planning heuristic, not a throughput guarantee: RPC latency, block limits, state contention, gas, and producer policy still apply. Public RPC endpoints have [rate limits](/evm/networks); use a [dedicated provider](/learn/rpc-providers) or your own node for anything beyond a demo.
+  </Accordion>
+</AccordionGroup>
+
+### Configuration reference
+
+The application always loads `.env` from the repository root. The variables you are most likely to change:
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `SEI_CHAIN_ID` | `1328` | `1328` (Atlantic-2) or `1329` (Pacific-1) |
+| `SEI_RPC_URL` | viem chain default | HTTP endpoint; its reported chain ID must match before any write |
+| `ALLOW_MAINNET` | `0` | Must be `1` for writes to a remote Pacific-1 RPC |
+| `TRADER_PRIVATE_KEY` | required | The funded account that signs every UserOperation |
+| `RELAYER_MNEMONIC` | required | Fresh BIP-39 mnemonic used only for gas-paying relayers |
+| `RELAYER_COUNT` | `4` | Relayer workers, `1..256` |
+| `RELAYER_START_INDEX` | `0` | First derivation index; offset it if the mnemonic also holds the funded account |
+| `RELAYER_FUNDING` | `0.5` | Target SEI balance per relayer for `fund` |
+| `ENTRYPOINT_DEPOSIT` | `1` | Target deposit in the EntryPoint for `fund` |
+| `LANE_ACCOUNT_IMPL` | unset | Deployed `LaneAccount`; required by `delegate` and `submit` |
+| `VENUE` | unset | Deployed demo target; required by `submit` |
+| `ORDERS` | `24` | Operations per run; must not exceed `LANE_POOL_SIZE` |
+| `LANE_POOL_SIZE` | `32` | `1..4096` lanes and the in-flight ceiling |
+| `MAX_OPS_PER_BUNDLE` | `4` | `1..LANE_POOL_SIZE` operations sharing one validation domain |
+| `REVERT_ORDER_INDEX` | `2` | Order that receives an unfillable limit price; `-1` disables |
+| `CALL_GAS_LIMIT` | `500000` | Execution-gas floor; the live estimate plus headroom can raise it |
+| `BUNDLE_RECEIPT_TIMEOUT_MS` | `12000` | Receipt wait before same-nonce replacement |
+| `BUNDLE_MAX_ATTEMPTS` | `3` | Same-nonce attempts per process invocation |
+| `REPLACEMENT_FEE_BUMP_PERCENT` | `25` | Fee increase per replacement, `10..1000` |
+| `OPERATION_JOURNAL_PATH` | `app/.state/pending-ops.json` | Durable signed-operation journal |
+
+The [repository README](https://github.com/sei-protocol/sei-nonce-lanes#configuration) documents the full set, including the real-swap variables.
+
+## Adapting it to your contract
+
+The demo's `MockPerpVenue` is a stand-in that reverts on slippage so a failure is observable. Swapping it for a real target is a matter of encoding a different call. `LaneAccount.execute(target, value, data)` forwards any call, and the target sees the funded EOA as `msg.sender`:
+
+```ts
+import { encodeFunctionData } from 'viem';
+import { buildOp, signUserOp, userOpHash } from './userop.js';
+
+// Any call your contract accepts from the funded EOA.
+const data = encodeFunctionData({
+  abi: targetAbi,
+  functionName: 'placeOrder',
+  args: [market, side, size, limitPrice],
+});
+
+// One lane per in-flight intent. The pool tracks sequences locally.
+const slot = lanePool.acquire();
+if (!slot) throw new Error('lane pool exhausted; raise LANE_POOL_SIZE');
+
+const unsigned = buildOp({
+  sender: account.address, // the delegated EOA
+  lane: slot.lane,
+  seq: slot.seq,
+  target: TARGET,
+  value: 0n, // native SEI to forward, if the call needs it
+  data,
+  verificationGasLimit,
+  callGasLimit,
+  preVerificationGas,
+  maxFeePerGas,
+  maxPriorityFeePerGas,
+});
+
+const op = await signUserOp(account, unsigned, chain.id, ENTRY_POINT);
+bundlingQueue.add({
+  op,
+  hash: userOpHash(op, chain.id, ENTRY_POINT),
+  lane: slot.lane,
+  seq: slot.seq,
+  orderId,
+  label: '',
+});
+```
+
+The real-swap path in `app/src/swap-submit.ts` is a complete example of this against a live router, including forwarding native SEI as `value`.
+
+Check these before you trust a new target:
+
+- **`msg.sender` and `tx.origin`.** At the target, `msg.sender` is the funded EOA and `tx.origin` is the gas-paying relayer. Contracts that require `tx.origin == msg.sender` are incompatible. Audit each router, approval path, callback, reentrancy assumption, and authorization rule.
+- **Gas on Sei.** Storage writes cost materially more than on Ethereum. The application estimates the delegated call live and raises `CALL_GAS_LIMIT` when the estimate plus headroom is higher, so do not copy Ethereum-sized static limits. See [Gas and fees](/evm/evm-parity/gas-and-fees).
+- **Storage contention.** Lanes remove submission ordering, not execution conflicts. Analyze which storage slots your calls touch; see [Optimizing for parallelization](/evm/best-practices/optimizing-for-parallelization).
+- **Lane policy.** One lane per in-flight intent is the simplest correct policy. If some calls must stay ordered relative to each other, put them on one lane (or on `ADMIN_LANE`) rather than falling back to lane `0`.
+
+### Before you adapt this
+
+The repository is explicit about what it leaves out. Before this design touches real funds, add at least:
+
+- audited account and integration contracts;
+- hardware-backed or remote signing;
+- a real risk engine with an idempotent intent model;
+- durable, replicated queue and reconciliation storage;
+- metrics, tracing, alerting, and structured logs;
+- controlled deployment and delegation procedures;
+- RPC redundancy and chain-specific fee policy;
+- graceful shutdown and operator runbooks; and
+- load, fault-injection, and live-chain recovery testing.
+
+<Warning>
+  **Delegation is powerful.** EIP-7702 changes the code that executes at your address. Before delegating, verify the implementation source and deployed address, verify the target chain, inspect any existing delegation, and use a throwaway account for this demo. `submit` refuses to run if the current designator does not exactly match `LANE_ACCOUNT_IMPL`.
+</Warning>
+
+Treat `.env`, `app/.state/`, signed raw transactions, and RPC URLs containing credentials as sensitive. The journal does not contain private keys, but it contains signed UserOperations and replayable raw transactions until their nonces are consumed. Clone the repository for a teammate and create fresh keys; do not copy a working directory.
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="RPC chain ID does not match">
+    Check both `SEI_CHAIN_ID` and `SEI_RPC_URL`. For a local fork, pass `--chain-id 1328` to Anvil. The configured chain ID is part of the EIP-712 signature domain and cannot be guessed safely.
+  </Accordion>
+  <Accordion title="EntryPoint v0.8 … MISSING">
+    The RPC has no code at `0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108`. Confirm the chain and the fork source before deploying anything. The preflight checks for code presence, not byte-for-byte identity; verify canonical addresses independently before a real deployment.
+  </Accordion>
+  <Accordion title="Delegation mismatch">
+    Run `npm run status` and compare `delegated to` with `LANE_ACCOUNT_IMPL`. Do not blindly replace an unexpected designator. Confirm the account, chain, and implementation first, then run `npm run delegate` deliberately.
+  </Accordion>
+  <Accordion title="Relayer has no gas">
+    Run `npm run fund`, or send SEI to relayer `0` and run `npm run dispense`.
+  </Accordion>
+  <Accordion title="simulation failed: AA…">
+    Common validation causes: `AA24` is an invalid signature or the wrong EIP-712 chain or domain; `AA25` is a stale or incorrect lane sequence; an insufficient EntryPoint prefund; or delegation to the wrong account implementation. Run `npm run status` and resolve the cause before widening bundles or retrying.
+  </Accordion>
+  <Accordion title="AA95 out of gas while widening bundles">
+    The bundle no longer fits the current block gas limit. Nothing in a bundle that fails simulation is broadcast or consumed. Rerun with a smaller `MAX_OPS_PER_BUNDLE`; the durable queue is repacked at the smaller width.
+  </Accordion>
+  <Accordion title="Journal lock is owned by another process">
+    Only one lane-based process may use an account at a time, even when `submit` and `swap:submit` use different journals. Stop the other process. A lock whose recorded PID is no longer alive is removed automatically on the next run.
+  </Accordion>
+  <Accordion title="A bundle remains in pending recovery">
+    Do not delete the journal and do not send the relayer's next nonce manually. Run `npm run submit` again once the RPC can answer receipt and nonce queries. If the application reports partial lane consumption or a state it cannot reconcile, stop and inspect the EntryPoint events, every attempted transaction hash, the relayer's confirmed nonce, and each lane sequence.
+  </Accordion>
+</AccordionGroup>
+
+## Resources
+
+<CardGroup cols={2}>
+  <Card title="sei-nonce-lanes" icon="github" href="https://github.com/sei-protocol/sei-nonce-lanes">
+    Source, tests, and the full configuration reference.
+  </Card>
+  <Card title="EIP-7702: Set EOA account code" icon="file-lines" href="https://eips.ethereum.org/EIPS/eip-7702">
+    The delegation mechanism that keeps the funded address.
+  </Card>
+  <Card title="ERC-4337: Account abstraction" icon="file-lines" href="https://eips.ethereum.org/EIPS/eip-4337">
+    UserOperations, the EntryPoint, and two-dimensional nonces.
+  </Card>
+  <Card title="ERC-7562: Validation and mempool rules" icon="file-lines" href="https://eips.ethereum.org/EIPS/eip-7562">
+    The alt-mempool rules the in-process bundling queue sidesteps.
+  </Card>
+  <Card title="Finality and block tags" icon="clock" href="/evm/evm-parity/finality">
+    Why one confirmation is final and the pending view is unreliable.
+  </Card>
+  <Card title="Transaction types" icon="list" href="/evm/evm-parity/transaction-types">
+    Type-4 support and authorization list requirements on Sei.
+  </Card>
+  <Card title="Pimlico" icon="rocket" href="/evm/wallet-integrations/pimlico">
+    A hosted ERC-4337 bundler and paymaster, if you want sponsorship instead of throughput.
+  </Card>
+  <Card title="Thirdweb EIP-7702" icon="wallet" href="/evm/wallet-integrations/thirdweb-7702">
+    EIP-7702 delegation for consumer wallet flows.
+  </Card>
+</CardGroup>
