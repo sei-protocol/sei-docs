@@ -1,4 +1,4 @@
-export const ParallelNonceQueue = () => {
+export const SequentialNonceQueue = () => {
   const ink = 'currentColor';
   const ok = '#10b981';
   const bad = '#ef4444';
@@ -56,7 +56,7 @@ export const ParallelNonceQueue = () => {
   );
 };
 
-export const ParallelNonceLanes = () => {
+export const NonceLanes = () => {
   const ink = 'currentColor';
   const accent = 'var(--sei-maroon-50)';
   const ok = '#10b981';
@@ -130,7 +130,7 @@ export const ParallelNonceLanes = () => {
   );
 };
 
-export const ParallelNonceDelegation = () => {
+export const NonceLaneDelegation = () => {
   const ink = 'currentColor';
   const accent = 'var(--sei-maroon-50)';
   const gold = 'var(--sei-gold-25)';
@@ -187,7 +187,7 @@ export const ParallelNonceDelegation = () => {
   );
 };
 
-export const ParallelNoncePipeline = () => {
+export const NonceLanePipeline = () => {
   const ink = 'currentColor';
   const accent = 'var(--sei-maroon-50)';
   const gold = 'var(--sei-gold-25)';
@@ -253,7 +253,7 @@ export const ParallelNoncePipeline = () => {
   );
 };
 
-export const ParallelNonceBundleLifecycle = () => {
+export const NonceLaneBundleLifecycle = () => {
   const ink = 'currentColor';
   const accent = 'var(--sei-maroon-50)';
   const ok = '#10b981';
@@ -320,7 +320,7 @@ export const ParallelNonceBundleLifecycle = () => {
   );
 };
 
-export const ParallelNonceFailureIsolation = () => {
+export const NonceLaneFailureIsolation = () => {
   const ink = 'currentColor';
   const ok = '#10b981';
   const bad = '#ef4444';
