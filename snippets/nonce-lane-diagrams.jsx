@@ -32,7 +32,7 @@ export const SequentialNonceQueue = () => {
             );
           })}
           <text x={40} y={124} fontSize="10.5" fill={ink} fillOpacity="0.7">nonces 7 and 8 are signed and valid, but nothing at or above 7 can execute until 6 is filled or replaced</text>
-          <text x={40} y={142} fontSize="10.5" fill={ink} fillOpacity="0.7">on Sei there is no pending view to inspect: eth_getTransactionCount(addr, "pending") equals "latest", and a nonce gap is rejected with a bad nonce error</text>
+          <text x={40} y={142} fontSize="10.5" fill={ink} fillOpacity="0.7">on Sei eth_getTransactionCount(addr, "pending") reads the mempool, not "latest", and is unreliable; a nonce gap is rejected with a bad nonce error</text>
 
           <line x1={40} y1={162} x2={840} y2={162} stroke={ink} strokeOpacity="0.15" strokeWidth="1" />
 
