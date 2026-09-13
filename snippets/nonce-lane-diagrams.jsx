@@ -363,7 +363,7 @@ export const NonceLaneFailureIsolation = () => {
           <line x1={30} y1={222} x2={870} y2={222} stroke={ink} strokeOpacity="0.15" strokeWidth="1" />
           <rect x={30} y={236} width={840} height={58} rx={9} fill={warn} fillOpacity="0.08" stroke={warn} strokeOpacity="0.8" strokeWidth="1" />
           <text x={48} y={258} fontSize="11.5" fontWeight="600" fill={ink}>Never submitted: nothing consumed</text>
-          <text x={48} y={278} fontSize="10" fill={ink} fillOpacity="0.8">a signed operation whose outer transaction was dropped, evicted, or never broadcast leaves its lane sequence untouched; neighbouring lanes stay valid and the journal requeues it</text>
+          <text x={48} y={278} fontSize="10" fill={ink} fillOpacity="0.8">a signed operation whose outer transaction was dropped, evicted, or never broadcast leaves its lane sequence untouched; neighboring lanes stay valid and the journal requeues it</text>
         </svg>
       </div>
       <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Three different failures, three different blast radii. An execution revert costs one lane sequence and nothing else. A validation failure costs the outer transaction attempt but no sequences. A dropped bundle costs nothing on chain, which is exactly the case that strands a sequential account.</div>

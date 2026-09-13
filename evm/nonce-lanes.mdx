@@ -156,13 +156,16 @@ Faster hardware and better RPC routing improve every submission strategy equally
 
 The honest comparison is against a fleet of hot wallets, because that is what most teams actually run. A fleet can match the width. What it cannot match is doing so from one balance, one approval set, and one key.
 
+Be precise about what the baseline actually is. A single address was never limited to one transaction at a time: it can sign and broadcast nonces `n`, `n+1`, `n+2`, and onward and have all of them unresolved, and [the producer mempool admits them](/node/technical-reference#giga-mode-behavior-and-per-block-limits) as long as they arrive in order. The constraint is not how many it can have outstanding but that they form a single ordered queue, so one that never lands strands every later nonce behind it.
+
 | | One hot wallet | Fleet of N hot wallets | Public ERC-4337 bundler | Nonce lanes |
 | --- | --- | --- | --- | --- |
-| Unresolved operations from one balance | 1 | 1 per wallet | At most 4 per unstaked sender | `LANE_POOL_SIZE` (32 by default, 4096 maximum) |
-| Outer transactions in flight | 1 | N | The bundler's policy, not yours | `RELAYER_COUNT` |
+| Submissions signed and unresolved at once | Many | Many per wallet | At most 4 per unstaked sender | `LANE_POOL_SIZE` (32 by default, 4096 maximum) |
+| Outer transactions broadcast at once | Many | Many per wallet | The bundler's policy, not yours | `RELAYER_COUNT` |
+| Are those submissions independent? | No: one ordered queue | Only across wallets, ordered within each | Yes | Yes: one sequence per lane |
 | Balances and approvals to maintain | One address | N addresses, approved N times | One address | One address |
 | Keys that can move funds | 1 | N | 1 | 1; relayers hold gas only |
-| Depends on a pending-nonce view | Yes | Yes | No | No: sequences are read once at startup, then tracked locally |
+| Recovering the in-flight set after a crash | Re-derive it from the chain | Re-derive it per wallet | The bundler's problem, not yours | Durable journal and deterministic reconciliation |
 | Failure blast radius | Everything behind the gap | Everything behind the gap, per wallet | One operation | One lane for execution, one bundle for validation |
 
 <Note>
