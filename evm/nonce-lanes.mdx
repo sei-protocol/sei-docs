@@ -2,7 +2,7 @@
 title: 'Nonce Lanes: Concurrent Submission from One Account'
 sidebarTitle: 'Nonce Lanes'
 description: 'Keep many independent transactions in flight from one funded Sei address without a sequential nonce queue. This guide explains how ERC-4337 nonce lanes, EIP-7702 delegation, an in-process bundling queue, and gas-only relayers fit together, and walks you through running the reference implementation.'
-keywords: ['sei', 'nonce', 'nonce lanes', 'two-dimensional nonce', 'eip-7702', 'erc-4337', 'entrypoint', 'userop', 'relayer', 'bundler', 'account abstraction', 'throughput', 'market making', 'liquidation bot']
+keywords: ['sei', 'nonce', 'nonce lanes', 'two-dimensional nonce', 'eip-7702', 'erc-4337', 'entrypoint', 'userop', 'relayer', 'bundler', 'account abstraction', 'throughput', 'benchmark', 'market making', 'liquidation bot']
 ---
 
 import { SequentialNonceQueue, NonceLanes, NonceLaneDelegation, NonceLanePipeline, NonceLaneBundleLifecycle, NonceLaneFailureIsolation } from '/snippets/nonce-lane-diagrams.jsx';
@@ -36,7 +36,7 @@ The second case is the submission bottleneck. It covers transactions that are dr
 
 Two properties of Sei make this sharper than on Ethereum:
 
-- **Strict nonce admission.** Under Giga, the Autobahn producer mempool admits EVM transactions in per-sender nonce order and rejects a gap with a `bad nonce` error instead of holding it for later. See [Giga mode behavior](/node/technical-reference#giga-mode-behavior-and-per-block-limits). The repository's `npm run baseline` command probes the behavior of whatever RPC path you configure rather than assuming every endpoint behaves identically.
+- **Strict nonce admission.** Under Giga, the Autobahn producer mempool admits EVM transactions in per-sender nonce order and rejects a gap with a `bad nonce` error instead of holding it for later. See [Giga mode behavior](/node/technical-reference#giga-mode-behavior-and-per-block-limits). What you observe through an RPC endpoint can differ, because the node in front of the producer may hold a gapped transaction and release it later, or accept it and then drop it. The repository's `npm run baseline` command probes the behavior of whatever RPC path you configure rather than assuming every endpoint behaves identically; on one day it returned [two different verdicts](#optional-see-the-baseline-you-are-escaping) for two Atlantic-2 endpoints.
 - **No dependable pending view.** Sei does not expose Ethereum-style pending state, and [Finality and block tags](/evm/evm-parity/finality#pending-state) tells you not to rely on a pending nonce differing from the confirmed nonce. `txpool_content` is also [truncated and collapses the pending/queued distinction](/evm/reference). So even where a node answers a pending-nonce query, it is not a foundation to rebuild an in-flight queue on.
 
 <Warning>
@@ -177,6 +177,8 @@ Be precise about what the baseline actually is. A single address was never limit
 <Note>
   Read the first two rows together. `LANE_POOL_SIZE` caps how many operations can be signed and unresolved at once; `RELAYER_COUNT` caps how many outer transactions are actually broadcast at once. Lanes give you a large pool of independent intents, not a large number of simultaneous transactions. The rough per-block submission width is `RELAYER_COUNT × MAX_OPS_PER_BUNDLE`.
 </Note>
+
+Measured on Atlantic-2 on September 14, 2026, against the same venue call: one address with sequential nonces landed 1 operation per second sending serially and 7 per second pipelining one request at a time, and reached 51 per second only by sending all 1,024 transactions in one JSON-RPC batch. A fleet of 8 hot wallets also landed 51 per second. Nonce lanes landed 60 to 64 per second from one address whose EVM nonce never moved, against a block-gas ceiling of about 73 for that call shape. The method, the run shapes, and the caveats are in [Benchmarks](#benchmarks).
 
 The pillars behind that table:
 
@@ -475,6 +477,8 @@ Using a gas-only relayer key so nothing of value is at risk, `baseline` measures
 
 The probe samples both the `latest` and `pending` nonce tags before, during, and after, and prints any rejection message verbatim, because the exact string is the finding. If the two tags already disagree before the probe starts, it warns you: either the account has work in flight or the node reports a mempool-derived pending nonce, and in both cases the gap it is about to create may not be a gap at all, so the verdict cannot be attributed to nonce ordering. Compare the result with a `submit` run, where 24 operations from one account are mutually independent and one failure strands nothing.
 
+The verdict depends on the path. On September 14, 2026, two Atlantic-2 RPC endpoints answered differently on the same day: a dedicated provider queued the gapped transaction and released it once the gap filled, while the public endpoint returned a hash and then dropped it, so it never landed even after the gap was filled. Neither rejected it at admission. Probe the path you will actually use.
+
 ## Tuning
 
 Three knobs shape a run. They interact, so change one at a time and measure.
@@ -490,10 +494,14 @@ Three knobs shape a run. They interact, so change one at a time and measure.
 
     That is why `CALL_GAS_LIMIT` is unset by default. Both submit paths measure the real call gas for the chain and call shape and add 25 percent; the variable is only a floor, and it changes anything only when you set it above that measurement. Because the EntryPoint reserves each operation's declared call gas before running it, a floor above the measurement costs block gas, and therefore operations per block, without changing the gas actually used.
 
-    As a reference point, on Atlantic-2 on September 3, 2026, with `CALL_GAS_LIMIT=500000`, which was the default at the time, the real-swap path sustained 77 operations per bundle; 78 no longer fit the 12,500,000 block gas limit in effect that day and failed safely during simulation. Width 76 produced the best observed submission rate for that call shape, 47.7 landed swaps per second. Treat these as measurements for one call shape, one configuration, and one network at one point in time, not as protocol limits. With the floor unset, each operation reserves only its measured gas plus headroom, so the width that fits will differ; measure again rather than reusing that number.
+    As a reference point, on Atlantic-2 on September 3, 2026, with `CALL_GAS_LIMIT=500000`, which was the default at the time, the real-swap path sustained 77 operations per bundle; 78 no longer fit the 12,500,000 block gas limit in effect that day and failed safely during simulation. Width 76 produced the best observed submission rate for that call shape, 47.7 landed swaps per second. Treat these as measurements for one call shape, one configuration, and one network at one point in time, not as protocol limits.
+
+    The mock venue is a heavier call. On September 14, 2026, with `CALL_GAS_LIMIT` unset, each `place` operation used about 331,000 gas of outer transaction gas, so 36 operations was the widest bundle that fit and 37 failed safely in simulation. Widths 8, 16, and 36 packed 4, 2, and 1 bundles into a 12,500,000-gas block; width 9, which should fit 4, landed 3. Wide bundles also queue behind each other, because only one 11,700,000-gas bundle fits a block. With more than about 8 relayers at width 32 or 36, receipt waits exceed the default `BUNDLE_RECEIPT_TIMEOUT_MS`; raise the timeout for those shapes rather than paying for fee-bumped replacements of bundles that will land anyway.
   </Accordion>
   <Accordion title="Relayer count: concurrent outer transaction streams">
     Each relayer has one sequential outer transaction stream. Under favorable admission and inclusion conditions, the immediate submission width is roughly `RELAYER_COUNT × MAX_OPS_PER_BUNDLE` per block. That is a planning heuristic, not a throughput guarantee: RPC latency, block limits, state contention, gas, and producer policy still apply. Public RPC endpoints have [rate limits](/evm/networks); use a [dedicated provider](/learn/rpc-providers) or your own node for anything beyond a demo.
+
+    One relayer's bundle cycle is five sequential RPC round trips (gas estimate, fee estimate, block number, broadcast, receipt poll) plus inclusion, about 1.5 seconds on a 120 ms endpoint. Below roughly 120 operations in flight the pool is the bottleneck and throughput scales with `RELAYER_COUNT`; above that, block gas is. In the September 14, 2026 measurements, 4 relayers landed 2.7, 8.9, 15.3, 24.3, 45.4, and 50.5 operations per second at widths 1, 4, 8, 16, 32, and 36, and width 4 landed 2.2, 8.9, 15.4, 27.9, and 47.2 per second with 1, 4, 8, 16, and 32 relayers.
   </Accordion>
 </AccordionGroup>
 
@@ -526,6 +534,64 @@ The application always loads `.env` from the repository root. The variables you 
 | `OPERATION_JOURNAL_PATH` | `app/.state/pending-ops.json` | Durable signed-operation journal |
 
 The [repository README](https://github.com/sei-protocol/sei-nonce-lanes#configuration) documents the full set, including the real-swap variables.
+
+## Benchmarks
+
+`app/bench/` measures the lane path against the thing it replaces: one EOA sending ordinary transactions with sequential nonces. Every mode calls the same `MockPerpVenue.place` on the configured `VENUE`, so the numbers differ only in how the calls were submitted. The commands read the root `.env`, and the shell environment overrides it:
+
+```bash
+cd app
+
+# Lane throughput for one run shape. Same safety path as submit, outcomes read
+# from the bundle receipts, one JSON line appended to .state/bench/lanes-results.jsonl.
+ORDERS=1024 LANE_POOL_SIZE=1024 MAX_OPS_PER_BUNDLE=16 RELAYER_COUNT=16 \
+REVERT_ORDER_INDEX=-1 BENCH_LABEL="16x16" npm run bench:lanes
+
+# The same over several "RELAYER_COUNT MAX_OPS_PER_BUNDLE" combinations.
+BUNDLE_RECEIPT_TIMEOUT_MS=60000 npm run bench:sweep -- sat "32 8" "16 16" "16 36"
+
+# One EOA with sequential nonces, every nonce taken from one confirmed read.
+BENCH_MODE=serial        BENCH_TXS=30   npm run bench:baseline
+BENCH_MODE=pipelined     BENCH_TXS=200  npm run bench:baseline
+BENCH_MODE=batch         BENCH_TXS=1024 npm run bench:baseline
+BENCH_MODE=pipelined-gap BENCH_TXS=100  BENCH_GAP_INDEX=50 npm run bench:baseline
+BENCH_MODE=fleet         BENCH_TXS=64   BENCH_FLEET_SIZE=8 BENCH_FUND_SEI=4 npm run bench:baseline
+
+# What the chain included, block by block, independent of any client clock.
+REPORT_FROM_BLOCK=<first block> REPORT_TO_BLOCK=<last block> npm run bench:report
+npm run bench:latency
+```
+
+The `bench:baseline` modes are the ways one address can drive a sequential queue. `serial` sends one transaction and waits for its receipt before the next. `pipelined` signs everything up front and broadcasts in nonce order without waiting. `pipelined-gap` does the same but never broadcasts the transaction at `BENCH_GAP_INDEX`, then repairs the gap. `batch` sends everything in one JSON-RPC batch request. `fleet` derives `BENCH_FLEET_SIZE` wallets from `RELAYER_MNEMONIC`, funds them from the account, and runs `pipelined` on each at once.
+
+`bench:lanes` shares the account-wide run lock with `submit` and `swap:submit` but keeps its own journal under `app/.state/bench/`, so a benchmark never replays the tutorial's pending operations. If a `submit` run was interrupted, recover it with `npm run submit` first. The remaining `BENCH_*` and `REPORT_*` knobs are documented in the [repository README](https://github.com/sei-protocol/sei-nonce-lanes#benchmarks).
+
+### Measured against the alternatives
+
+Every row below was measured on Atlantic-2 on September 14, 2026. Conditions: block gas limit 12,500,000; base fee 50 gwei plus a 1 gwei tip; about 2.0 blocks per second under load; 120 ms warm request latency to the configured endpoint. Each direct `place` transaction used 328,425 gas and each lane operation about 331,000 gas of outer transaction gas, so the block admits 36 to 38 operations however they are submitted: roughly 73 landed operations per second for this call shape. Chain-side rates divide landed operations by the block-timestamp span, which Sei stamps in whole seconds. Client-side rates divide by wall time from first broadcast to last receipt.
+
+| Submission | Landed ops/s, chain-side | Client-side | Block gas used, average |
+| --- | --- | --- | --- |
+| One EOA, serial send and wait (30 tx) | 1.0 | 1.0 | |
+| One EOA, pipelined, one request in flight (200 tx) | 6.9 | 6.7 | |
+| Tutorial lanes, 4 relayers × 4 per bundle (24 ops) | 8.0 | 5.7 | 11% |
+| Fleet of 4 wallets × 100 tx | 26.7 | 24.8 | |
+| Fleet of 8 wallets × 64 tx | 51.2 | 49.7 | 54% |
+| One EOA, 1,024 tx in one JSON-RPC batch | 51.2 | 47.3 | 68% |
+| Lanes, 32 relayers × 8 per bundle (1,024 ops) | 60.2 | 55.3 | 83% |
+| Lanes, 16 relayers × 16 per bundle (1,024 ops) | 64.0 | 54.6 | 81% |
+| Lanes, 16 relayers × 36 per bundle (1,024 ops) | 64.0 | 55.1 | 88% |
+
+What the numbers say:
+
+- **Block gas bounds raw throughput, not the nonce model.** Lanes came closest to the ceiling, with 28 of 31 blocks at least 90 percent full in the 16 × 36 run, from one address whose EVM nonce never moved. A single ordered queue matched the fleet only when every transaction left in one JSON-RPC batch; one request at a time, it is bounded by the round trip, about 7 per second.
+- **Small relayer pools are client-bound.** Throughput scales with `RELAYER_COUNT` until roughly 120 operations are in flight, then block gas takes over. The relayer and width series are in [Tuning](#tuning).
+- **A gap costs the whole queue.** One lost transaction in the sequential queue (`pipelined-gap`, nonce 50 of 100) left the 49 transactions behind it accepted but unmined until the client resent it 15 seconds later. In the lane runs, the deliberately reverting order consumed only its own lane while the rest of its bundle landed.
+- **RPC paths differ.** `npm run baseline` gave [two different verdicts](#optional-see-the-baseline-you-are-escaping) for two Atlantic-2 endpoints on the same day.
+
+<Note>
+  These are measurements of one call shape, one network state, and one client machine, not protocol limits. Cost was about 0.02 SEI per landed operation at the effective 52 gwei. Rerun the benchmarks against the network and endpoint you will actually use; block time and gas limits differ between [Twin Turbo Consensus](/learn/twin-turbo-consensus) and [Sei Giga](/learn/sei-giga). The raw records under `app/.state/bench/` include a journal for `bench:lanes`, which you should treat like `pending-ops.json`.
+</Note>
 
 ## Adapting it to your contract
 
@@ -635,7 +701,7 @@ Treat `.env`, `app/.state/`, signed raw transactions, and RPC URLs containing cr
 
 <CardGroup cols={2}>
   <Card title="sei-nonce-lanes" icon="github" href="https://github.com/sei-protocol/sei-nonce-lanes">
-    Source, tests, and the full configuration reference.
+    Source, tests, benchmarks, and the full configuration reference.
   </Card>
   <Card title="EIP-7702: Set EOA account code" icon="file-lines" href="https://eips.ethereum.org/EIPS/eip-7702">
     The delegation mechanism that keeps the funded address.
