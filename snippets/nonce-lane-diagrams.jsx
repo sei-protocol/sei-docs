@@ -32,7 +32,7 @@ export const SequentialNonceQueue = () => {
             );
           })}
           <text x={40} y={124} fontSize="10.5" fill={ink} fillOpacity="0.7">nonces 7 and 8 are signed and valid, but nothing at or above 7 can execute until 6 is filled or replaced</text>
-          <text x={40} y={142} fontSize="10.5" fill={ink} fillOpacity="0.7">on Sei eth_getTransactionCount(addr, "pending") reads the mempool, not "latest", and is unreliable; a nonce gap is rejected with a bad nonce error</text>
+          <text x={40} y={142} fontSize="10.5" fill={ink} fillOpacity="0.7">on Sei under Giga the producer mempool rejects 7 and 8 with a bad nonce error rather than queueing them: the same stall</text>
 
           <line x1={40} y1={162} x2={840} y2={162} stroke={ink} strokeOpacity="0.15" strokeWidth="1" />
 
@@ -44,14 +44,14 @@ export const SequentialNonceQueue = () => {
                 <rect x={x} y={206} width={160} height={68} rx={7} fill={ink} fillOpacity="0.05" stroke={ink} strokeOpacity="0.35" strokeWidth="1" />
                 <text x={x + 80} y={226} fontSize="11.5" fontWeight="600" textAnchor="middle" fill={ink}>hot wallet {w}</text>
                 <text x={x + 80} y={243} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.65">own balance, own approvals</text>
-                <text x={x + 80} y={258} fontSize="9.5" textAnchor="middle" fill={bad} fillOpacity="0.9">own key that can move inventory</text>
+                <text x={x + 80} y={258} fontSize="9.5" textAnchor="middle" fill={bad} fillOpacity="0.9">own key that can move funds</text>
               </g>
             );
           })}
-          <text x={440} y={298} fontSize="10.5" textAnchor="middle" fill={ink} fillOpacity="0.6">throughput scales with wallets, and so do fragmented balances, duplicated approvals, and keys that hold inventory</text>
+          <text x={440} y={298} fontSize="10.5" textAnchor="middle" fill={ink} fillOpacity="0.6">throughput scales with wallets, and so do fragmented balances, duplicated approvals, and keys that hold funds</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">A transaction that lands and reverts consumes its nonce and blocks nothing. A transaction that never lands leaves a gap, and every later nonce waits behind it. Splitting inventory across hot wallets buys width at the cost of custody surface.</div>
+      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">A transaction that lands and reverts consumes its nonce and blocks nothing. A transaction that never lands leaves a gap, and every later nonce waits behind it. On Sei a pending-nonce read comes from the mempool rather than aliasing latest, and it is too unreliable to rebuild an in-flight queue from. Splitting funds across hot wallets buys width at the cost of custody surface.</div>
     </div>
   );
 };
@@ -86,7 +86,7 @@ export const NonceLanes = () => {
           <text x={840} y={44} fontSize="9.5" textAnchor="end" fill={ink} fillOpacity="0.55">bit 0</text>
           <rect x={40} y={50} width={600} height={44} rx={6} fill={accent} fillOpacity="0.14" stroke={accent} strokeWidth="1.2" />
           <text x={340} y={68} fontSize="12" fontWeight="600" textAnchor="middle" fill={ink}>uint192 key: the lane</text>
-          <text x={340} y={84} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.65">any value from 1 to 2^192 - 1, chosen by the trader</text>
+          <text x={340} y={84} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.65">any value from 1 to 2^192 - 1, chosen by the caller</text>
           <rect x={640} y={50} width={200} height={44} rx={6} fill={ink} fillOpacity="0.06" stroke={ink} strokeOpacity="0.4" strokeWidth="1.2" />
           <text x={740} y={68} fontSize="12" fontWeight="600" textAnchor="middle" fill={ink}>uint64 sequence</text>
           <text x={740} y={84} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.65">kept by the EntryPoint per lane</text>
@@ -138,7 +138,7 @@ export const NonceLaneDelegation = () => {
   return (
     <div className="not-prose w-full my-5">
       <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/40 p-4 text-neutral-800 dark:text-neutral-200">
-        <svg viewBox="0 0 880 350" role="img" aria-label="EIP-7702 installs a delegation designator in the trading EOA's code slot so the EntryPoint can execute LaneAccount logic at the same address" style={{ width: '100%', minWidth: 620, height: 'auto', display: 'block' }}>
+        <svg viewBox="0 0 880 350" role="img" aria-label="EIP-7702 installs a delegation designator in the funded EOA's code slot so the EntryPoint can execute LaneAccount logic at the same address" style={{ width: '100%', minWidth: 620, height: 'auto', display: 'block' }}>
           <defs>
             <marker id="delegation-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
               <path d="M 0 1 L 9 5 L 0 9 z" fill={ink} fillOpacity="0.6" />
@@ -149,12 +149,12 @@ export const NonceLaneDelegation = () => {
           </defs>
 
           <rect x={40} y={40} width={330} height={216} rx={9} {...box} stroke={accent} strokeOpacity="0.9" strokeWidth="1.3" />
-          <text x={205} y={64} fontSize="13" fontWeight="600" textAnchor="middle" fill={ink}>Trading EOA, same address</text>
+          <text x={205} y={64} fontSize="13" fontWeight="600" textAnchor="middle" fill={ink}>Funded EOA, same address</text>
           <text x={60} y={92} fontSize="10.5" fill={ink} fillOpacity="0.8">same native SEI balance</text>
           <text x={60} y={110} fontSize="10.5" fill={ink} fillOpacity="0.8">same token balances and venue approvals</text>
           <text x={60} y={128} fontSize="10.5" fill={ink} fillOpacity="0.8">same private key signs every UserOperation</text>
-          <text x={60} y={146} fontSize="10.5" fill={ink} fillOpacity="0.8">EVM nonce: spent once by the type-4 transaction,</text>
-          <text x={60} y={161} fontSize="10.5" fill={ink} fillOpacity="0.8">then frozen on the trading path</text>
+          <text x={60} y={146} fontSize="10.5" fill={ink} fillOpacity="0.8">EVM nonce: a self-sponsored delegation spends two,</text>
+          <text x={60} y={161} fontSize="10.5" fill={ink} fillOpacity="0.8">then it is frozen on the submission path</text>
           <rect x={56} y={180} width={298} height={58} rx={6} fill={accent} fillOpacity="0.12" stroke={accent} strokeWidth="1" />
           <text x={68} y={198} fontSize="9.5" fill={accent} fontWeight="600">code slot (delegation designator)</text>
           <text x={68} y={220} fontSize="11" fill={ink} fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace">0xef0100 || LaneAccount address</text>
@@ -169,7 +169,7 @@ export const NonceLaneDelegation = () => {
 
           <rect x={530} y={168} width={310} height={88} rx={9} fill={accent} fillOpacity="0.08" stroke={accent} strokeWidth="1.2" />
           <text x={685} y={191} fontSize="12.5" fontWeight="600" textAnchor="middle" fill={ink}>LaneAccount implementation</text>
-          <text x={685} y={210} fontSize="10" textAnchor="middle" fill={ink} fillOpacity="0.75">inherits the audited Simple7702Account</text>
+          <text x={685} y={210} fontSize="10" textAnchor="middle" fill={ink} fillOpacity="0.75">inherits the reference Simple7702Account</text>
           <text x={685} y={226} fontSize="10" textAnchor="middle" fill={ink} fillOpacity="0.75">adds one rule: lane 0 is rejected</text>
           <text x={685} y={242} fontSize="10" textAnchor="middle" fill={ink} fillOpacity="0.75">ADMIN_LANE = max uint192 for ordered admin calls</text>
           <line x1={356} y1={209} x2={526} y2={209} stroke={accent} strokeWidth="1.3" markerEnd="url(#delegation-accent)" />
@@ -178,7 +178,7 @@ export const NonceLaneDelegation = () => {
           <line x1={205} y1={258} x2={205} y2={296} stroke={ink} strokeOpacity="0.55" strokeWidth="1.3" markerEnd="url(#delegation-arrow)" />
           <rect x={90} y={298} width={230} height={40} rx={7} fill={gold} fillOpacity="0.25" stroke={gold} strokeWidth="1.1" />
           <text x={205} y={323} fontSize="12" fontWeight="600" textAnchor="middle" fill={ink}>venue contract</text>
-          <text x={340} y={312} fontSize="10" fill={ink} fillOpacity="0.8">msg.sender = the trading EOA, not a proxy</text>
+          <text x={340} y={312} fontSize="10" fill={ink} fillOpacity="0.8">msg.sender = the funded EOA, not a proxy</text>
           <text x={340} y={328} fontSize="10" fill={ink} fillOpacity="0.8">tx.origin = the gas-paying relayer</text>
         </svg>
       </div>
@@ -196,7 +196,7 @@ export const NonceLanePipeline = () => {
   return (
     <div className="not-prose w-full my-5">
       <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/40 p-4 text-neutral-800 dark:text-neutral-200">
-        <svg viewBox="0 0 900 340" role="img" aria-label="Submission pipeline: the trader signs UserOperations into an in-process bundling queue, gas-only relayers wrap bundles in handleOps transactions, and the EntryPoint executes them through LaneAccount at the venue" style={{ width: '100%', minWidth: 640, height: 'auto', display: 'block' }}>
+        <svg viewBox="0 0 900 340" role="img" aria-label="Submission pipeline: the funded account signs UserOperations into an in-process bundling queue, gas-only relayers wrap bundles in handleOps transactions, and the EntryPoint executes them through LaneAccount at the venue" style={{ width: '100%', minWidth: 640, height: 'auto', display: 'block' }}>
           <defs>
             <marker id="pipeline-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
               <path d="M 0 1 L 9 5 L 0 9 z" fill={ink} fillOpacity="0.6" />
@@ -204,11 +204,11 @@ export const NonceLanePipeline = () => {
           </defs>
 
           <line x1={450} y1={18} x2={450} y2={322} stroke={accent} strokeWidth="1.3" strokeDasharray="6 4" />
-          <text x={440} y={14} fontSize="10" textAnchor="end" fill={accent} fontWeight="600">holds inventory, signs intents</text>
+          <text x={440} y={14} fontSize="10" textAnchor="end" fill={accent} fontWeight="600">holds the funds, signs intents</text>
           <text x={460} y={14} fontSize="10" fill={accent} fontWeight="600">holds gas only, cannot forge an operation</text>
 
           <rect x={30} y={110} width={180} height={124} rx={9} fill={accent} fillOpacity="0.1" stroke={accent} strokeWidth="1.3" />
-          <text x={120} y={134} fontSize="12.5" fontWeight="600" textAnchor="middle" fill={ink}>Trading EOA</text>
+          <text x={120} y={134} fontSize="12.5" fontWeight="600" textAnchor="middle" fill={ink}>Funded EOA</text>
           <text x={120} y={154} fontSize="10" textAnchor="middle" fill={ink} fillOpacity="0.8">delegated to LaneAccount</text>
           <text x={120} y={170} fontSize="10" textAnchor="middle" fill={ink} fillOpacity="0.8">signs one UserOperation per lane</text>
           <text x={120} y={186} fontSize="10" textAnchor="middle" fill={ink} fillOpacity="0.8">EIP-712 digest, no nonce RPCs</text>
@@ -234,7 +234,7 @@ export const NonceLanePipeline = () => {
               </g>
             );
           })}
-          <text x={565} y={334} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.6">the sequential constraint moved here, away from inventory</text>
+          <text x={565} y={334} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.6">the sequential constraint moved here, away from the funds</text>
 
           <rect x={690} y={126} width={190} height={92} rx={9} {...box} stroke={accent} strokeOpacity="0.9" strokeWidth="1.3" />
           <text x={785} y={149} fontSize="12.5" fontWeight="600" textAnchor="middle" fill={ink}>EntryPoint v0.8</text>
@@ -245,10 +245,10 @@ export const NonceLanePipeline = () => {
 
           <rect x={690} y={258} width={190} height={56} rx={9} fill={gold} fillOpacity="0.25" stroke={gold} strokeWidth="1.1" />
           <text x={785} y={281} fontSize="11.5" fontWeight="600" textAnchor="middle" fill={ink}>LaneAccount.execute → venue</text>
-          <text x={785} y={299} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.7">msg.sender is the trading EOA</text>
+          <text x={785} y={299} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.7">msg.sender is the funded EOA</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">UserOperations are not transactions. Gas-only relayers wrap each bundle in an EntryPoint.handleOps transaction and pay for it. Each relayer still has one sequential EVM nonce, but a relayer key can only lose its own gas: it cannot create a valid operation without the trader's signature.</div>
+      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">UserOperations are not transactions. Gas-only relayers wrap each bundle in an EntryPoint.handleOps transaction and pay for it. Each relayer still has one sequential EVM nonce, but a relayer key can only lose its own gas: it cannot create a valid operation without the funded account's signature.</div>
     </div>
   );
 };
@@ -265,7 +265,7 @@ export const NonceLaneBundleLifecycle = () => {
     { t: 'sign at nonce n', s: 'EIP-1559 outer tx' },
     { t: 'journal', s: 'bytes hit disk first' },
     { t: 'broadcast', s: 'sendRawTransaction' },
-    { t: 'wait for receipt', s: 'until the timeout' },
+    { t: 'wait for receipt', s: 'poll until the timeout' },
     { t: 'settle lanes', s: 'then nonce n + 1' }
   ];
   return (
@@ -335,7 +335,7 @@ export const NonceLaneFailureIsolation = () => {
   return (
     <div className="not-prose w-full my-5">
       <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/40 p-4 text-neutral-800 dark:text-neutral-200">
-        <svg viewBox="0 0 900 310" role="img" aria-label="Execution reverts are isolated to one lane inside a bundle; validation failures revert the whole bundle without consuming anything; never-submitted operations consume nothing" style={{ width: '100%', minWidth: 640, height: 'auto', display: 'block' }}>
+        <svg viewBox="0 0 900 320" role="img" aria-label="Execution reverts are isolated to one lane inside a bundle; validation failures revert the whole bundle without consuming anything; never-submitted operations consume nothing" style={{ width: '100%', minWidth: 640, height: 'auto', display: 'block' }}>
           <text x={30} y={28} fontSize="13" fontWeight="600" fill={ink}>Execution revert: isolated to its lane</text>
           <rect x={30} y={44} width={400} height={118} rx={9} fill="none" stroke={ink} strokeOpacity="0.35" strokeWidth="1" strokeDasharray="5 4" />
           <text x={230} y={60} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.6">one handleOps transaction, one block</text>
@@ -361,9 +361,10 @@ export const NonceLaneFailureIsolation = () => {
           <text x={470} y={202} fontSize="10" fill={ink} fillOpacity="0.75">for free; MAX_OPS_PER_BUNDLE sets the size of this failure domain</text>
 
           <line x1={30} y1={222} x2={870} y2={222} stroke={ink} strokeOpacity="0.15" strokeWidth="1" />
-          <rect x={30} y={236} width={840} height={58} rx={9} fill={warn} fillOpacity="0.08" stroke={warn} strokeOpacity="0.8" strokeWidth="1" />
+          <rect x={30} y={236} width={840} height={72} rx={9} fill={warn} fillOpacity="0.08" stroke={warn} strokeOpacity="0.8" strokeWidth="1" />
           <text x={48} y={258} fontSize="11.5" fontWeight="600" fill={ink}>Never submitted: nothing consumed</text>
-          <text x={48} y={278} fontSize="10" fill={ink} fillOpacity="0.8">a signed operation whose outer transaction was dropped, evicted, or never broadcast leaves its lane sequence untouched; neighboring lanes stay valid and the journal requeues it</text>
+          <text x={48} y={277} fontSize="10" fill={ink} fillOpacity="0.8">a signed operation whose outer transaction was dropped, evicted, or never broadcast</text>
+          <text x={48} y={293} fontSize="10" fill={ink} fillOpacity="0.8">leaves its lane sequence untouched; neighboring lanes stay valid and the journal requeues it</text>
         </svg>
       </div>
       <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Three different failures, three different blast radii. An execution revert costs one lane sequence and nothing else. A validation failure costs the outer transaction attempt but no sequences. A dropped bundle costs nothing on chain, which is exactly the case that strands a sequential account.</div>

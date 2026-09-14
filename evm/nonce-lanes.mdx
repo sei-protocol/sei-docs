@@ -54,7 +54,7 @@ The design combines four ingredients. Each one solves a specific part of the pro
 | ERC-4337 v0.8 two-dimensional nonces | Independent nonce lanes for one account |
 | EIP-7702 delegation | The existing funded address keeps its balance and approvals |
 | An in-process bundling queue | No per-sender pending cap and no third-party bundler |
-| Gas-only relayers with a write-ahead journal | Someone still has to send sequential transactions, but they hold no inventory |
+| Gas-only relayers with a write-ahead journal | Someone still has to send sequential transactions, but they hold only gas |
 
 ### ERC-4337 nonce lanes
 
@@ -89,7 +89,7 @@ The address does not change. Its native balance, token balances, protocol state,
 
 <NonceLaneDelegation />
 
-`LaneAccount` inherits the audited `Simple7702Account` from the [account-abstraction](https://github.com/eth-infinitism/account-abstraction) repository and adds a single policy check:
+`LaneAccount` inherits the reference `Simple7702Account` from the eth-infinitism [account-abstraction](https://github.com/eth-infinitism/account-abstraction) repository and adds a single policy check:
 
 ```solidity
 contract LaneAccount is Simple7702Account {
@@ -103,7 +103,9 @@ contract LaneAccount is Simple7702Account {
 }
 ```
 
-The account spends one ordinary EVM nonce to install the delegation, using a type-4 transaction. Sei requires a non-empty authorization list on type-4 transactions; see [Transaction types](/evm/evm-parity/transaction-types#set-code-eip-7702-auth-list-requirement). After that, the submission path signs UserOperations only and the funded account's EVM nonce stops moving.
+Installing the delegation takes one type-4 transaction. Sei requires a non-empty authorization list on type-4 transactions; see [Transaction types](/evm/evm-parity/transaction-types#set-code-eip-7702-auth-list-requirement).
+
+Count the nonce cost carefully. An authorization list is applied after the transaction's own nonce has been incremented, so when the authority is also the sender, the authorization must be signed over `nonce + 1`, and applying it increments the account a second time. A self-sponsored delegation therefore advances the account by two, which is the path `npm run delegate` takes. Only a delegation sponsored by a different sender costs the funded account a single increment, the one the authorization itself performs. Either way, once the designator is in place the submission path signs UserOperations only and the funded account's EVM nonce stops moving.
 
 <Note>
   EIP-7702 alone does not create independent nonces. It preserves the account. ERC-4337 supplies the independent nonce model. You need both.
@@ -127,8 +129,12 @@ Each relayer runs one asynchronous worker. The worker takes a bundle of up to `M
 
 Two details carry most of the safety:
 
-- **Write-ahead ordering.** The signed outer transaction is written to the journal before it is broadcast. A crash between signing and sending cannot lose or duplicate work; on restart, the exact raw bytes are rebroadcast first.
+- **Write-ahead ordering.** The signed outer transaction is written to the journal before it is broadcast. Each journal snapshot is fsynced before it is renamed into place, and the directory is fsynced after it, so a record that has been written survives a lost kernel or host and not only a crashed process. On restart, the exact raw bytes are rebroadcast first, so a crash between signing and sending cannot lose or duplicate work. The journal is still one file on one disk, not a replicated database.
 - **Same-nonce replacement.** If no receipt arrives within `BUNDLE_RECEIPT_TIMEOUT_MS`, the worker checks earlier attempts for a receipt, bumps fees by `REPLACEMENT_FEE_BUMP_PERCENT`, and signs a replacement at the same relayer nonce. It never sends nonce `n + 1` while a transaction at `n` might still land, which is exactly the gap this design exists to avoid.
+
+The receipt wait polls every `RECEIPT_POLLING_INTERVAL_MS`, 250 ms by default. Sei produces blocks in well under a second, and viem's 4-second default would spend most of the timeout idle between polls, then report a timeout for a bundle that had already landed and trigger a fee-bumped replacement nobody needed.
+
+Two smaller guards keep the simulation and the journal honest. The `eth_estimateGas` call is issued from the relayer's address rather than its signing account, so the client library does not add a pending-nonce lookup of its own before the estimate. And one file lock, which identifies its holder by inode rather than by the existence of a file, keeps a second process off the same account. The process re-checks that it still holds the lock immediately before it signs and before every journal write, so a process that lost a lock race stops instead of signing.
 
 Before any new work is created, a restarted process reconciles every incomplete journal entry against the EntryPoint. If the chain sequence is ahead of the journal, the operation was consumed. If they match, the lane is reserved and the operation is recovered or requeued. If the chain is behind the journal, the state is inconsistent and the process stops rather than guessing.
 
@@ -178,7 +184,7 @@ The pillars behind that table:
 2. **A custody boundary you can reason about.** The only key that can create a valid operation is the funded account's. Relayer keys can be rotated, replaced, or lost with a bounded cost measured in gas.
 3. **A frozen nonce on the hot path.** After the one-time delegation, the funded account's EVM nonce never moves while submitting. Nothing an RPC drops or a producer rejects can strand the account.
 4. **No third-party bundler and no per-sender cap.** Keeping the bundling queue in-process removes the ERC-7562 `SAME_SENDER_MEMPOOL_COUNT` limit and the dependency on someone else's inclusion policy, while keeping every EntryPoint check that protects funds.
-5. **Crash-safe by construction.** Signed operations and signed outer transactions are journaled before broadcast. Replacement reuses the relayer nonce. Restart reconciliation is deterministic and refuses to create duplicate work when the state is ambiguous.
+5. **Crash-safe by construction.** Signed operations and signed outer transactions are journaled and fsynced before broadcast. Replacement reuses the relayer nonce. Restart reconciliation is deterministic and refuses to create duplicate work when the state is ambiguous.
 6. **Built for how Sei behaves.** The hot signing path performs no nonce reads, so an unreliable pending view costs nothing. Fast blocks and instant finality keep each relayer's receipt wait short, which is what makes `RELAYER_COUNT × MAX_OPS_PER_BUNDLE` a meaningful per-block width rather than a theoretical one.
 
 <Warning>
@@ -186,7 +192,7 @@ The pillars behind that table:
 </Warning>
 
 <Note>
-  Block time and gas limits differ between today's [Twin-Turbo consensus](/learn/twin-turbo-consensus) and [Sei Giga](/learn/sei-giga). Size a relayer pool against the network you are actually submitting to, and measure rather than assuming.
+  Block time and gas limits differ between today's [Twin Turbo Consensus](/learn/twin-turbo-consensus) and [Sei Giga](/learn/sei-giga). Size a relayer pool against the network you are actually submitting to, and measure rather than assuming.
 </Note>
 
 ## Tutorial: run the reference implementation
@@ -229,6 +235,10 @@ The walkthrough below deploys the demo contracts, delegates a throwaway account,
   <Step title="Choose a target network">
     Start with a local Prague fork. It carries the deployed EntryPoint bytecode from Atlantic-2 but spends only Anvil funds.
 
+    <Danger>
+      Never use Anvil, Hardhat, tutorial, or shared test mnemonics on Atlantic-2 or Pacific-1. Their addresses and keys are public, and some are already delegated to sweeper code, so a successful funding transaction can still leave a zero balance. The fork below also runs as chain `1328`, so an authorization signed against it is replayable on Atlantic-2 itself whenever the account's nonce lines up. Regenerate every key and mnemonic before you point a fork's `.env` at a public network.
+    </Danger>
+
     <Tabs>
       <Tab title="Local Anvil fork (recommended first)">
         EIP-7702 requires a Prague-capable node. Keep this terminal running:
@@ -257,6 +267,8 @@ The walkthrough below deploys the demo contracts, delegates a throwaway account,
         ```
 
         Set `TRADER_PRIVATE_KEY` to account `0`'s private key from the Anvil startup output, and `RELAYER_MNEMONIC` to the mnemonic printed by that same Anvil process. Starting relayers at index `1` keeps the funded account and relayer identities distinct; the application rejects overlapping identities.
+
+        Those are Anvil's published credentials, which is why this `.env` belongs to the fork and nowhere else.
 
         Deploy the demo contracts from the repository root using Anvil's unlocked account:
 
@@ -295,19 +307,13 @@ The walkthrough below deploys the demo contracts, delegates a throwaway account,
         Deploy with a funded key. The deployer can be the throwaway account, but it does not have to be:
 
         ```bash
-        export DEPLOYER_PRIVATE_KEY=0x...
-
         forge script script/Deploy.s.sol:Deploy \
           --rpc-url https://evm-rpc-testnet.sei-apis.com \
           --broadcast \
-          --private-key "$DEPLOYER_PRIVATE_KEY"
-
-        unset DEPLOYER_PRIVATE_KEY
+          --interactives 1
         ```
 
-        <Danger>
-          Never use Anvil, Hardhat, tutorial, or shared test mnemonics on Atlantic-2 or Pacific-1. Their addresses and keys are public, and some are already delegated to sweeper code, so a successful funding transaction can still leave a zero balance.
-        </Danger>
+        `--interactives 1` prompts for the key and does not echo it, so it never reaches your shell history, the process table, or an environment variable.
       </Tab>
     </Tabs>
 
@@ -319,7 +325,7 @@ The walkthrough below deploys the demo contracts, delegates a throwaway account,
     ```
 
     <Note>
-      Mutating commands refuse to write to a remote Pacific-1 RPC unless `ALLOW_MAINNET=1` is set explicitly. That guard prevents an accidental `SEI_CHAIN_ID=1329` run. It does not guard the separate Forge deployment command, and it does not make the demo production-ready.
+      Mutating commands refuse to write to a remote Pacific-1 RPC unless `ALLOW_MAINNET=1` is set explicitly, and they refuse any remote-chain write when `TRADER_PRIVATE_KEY` is Anvil account `0` or `RELAYER_MNEMONIC` is the Anvil mnemonic. Those guards catch an accidental `SEI_CHAIN_ID=1329` run and the two most common leaked credentials, nothing more. They do not guard the separate Forge deployment command, and they do not make the demo production-ready.
     </Note>
   </Step>
 
@@ -339,7 +345,9 @@ The walkthrough below deploys the demo contracts, delegates a throwaway account,
     npm run delegate
     ```
 
-    This sends one type-4 transaction with an authorization for `LANE_ACCOUNT_IMPL`. It spends the account's EVM nonce once. The command is idempotent: if the account already delegates to the configured implementation, it does nothing. If the account delegates to something else, it tells you before replacing it.
+    This sends one type-4 transaction with an authorization for `LANE_ACCOUNT_IMPL`, signed and paid for by the account itself, so the account's EVM nonce advances by two: once for the transaction, once for the authorization. The command reads the account's confirmed nonce once and pins both the transaction nonce and the authorization nonce (`nonce + 1`) to that read, instead of letting the client fill them from a pending-nonce lookup. That matters because a wrong authorization nonce is not rejected: the EVM skips the authorization, the transaction still succeeds, and nothing is installed. The command therefore re-reads the designator after the receipt and fails if the delegation did not take effect.
+
+    The command is idempotent: if the account already delegates to the configured implementation, it does nothing. If the account delegates to something else, it tells you before replacing it.
   </Step>
 
   <Step title="Fund the relayers and the EntryPoint deposit">
@@ -367,15 +375,18 @@ The output below is illustrative; your addresses, blocks, and timings will diffe
 ```text
 === preflight ===
 chain          Sei Testnet (1328)
+rpc            http://127.0.0.1:8545
 entryPoint     0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108 (… bytes)
-account        0xf39F…2266
+trader         0xf39F…2266
 delegated to   0x5FbD…0aa3
-account nonce  3  <- watch this, it must not move
+…
+trader nonce   9  <- watch this, it must not move
 journal        0 pending op(s)
 relayer        0x7099…79C8  0.5 SEI
 …
 
 === build ===
+call gas       78125 (estimate 62500)
 lane pool      32 lanes, 32 idle
 signed         24 new ops in 52ms, without nonce RPCs
 hash check     local digest matches EntryPoint.getUserOpHash
@@ -403,17 +414,22 @@ ops landed           24
 bundles              6 across 2 block(s)
   pending recovery   0
   failed safely      0
+journal pending      0
 distinct lanes       24
 relayers used        4
+sign time            52ms
+submit time          1846ms
 throughput           13.0 landed ops/sec
 
-account EVM nonce    3 -> 3  UNCHANGED
+trader EVM nonce     9 -> 9  UNCHANGED
+total wall time      4210ms
 ```
 
 What to look for:
 
-- **`account nonce` before and `account EVM nonce` after** must be identical. The funded key never entered a queue.
-- **`exec`** is read from the `UserOperationEvent` in each receipt. `reverted` means the operation landed, consumed its lane sequence, and failed inside the call. `not mined` would mean the outer transaction never landed and nothing was consumed.
+- **`trader nonce` before and `trader EVM nonce` after** must be identical. The tool calls the funded account the trader. Its key never entered a queue.
+- **`call gas`** is the measured delegated-call estimate plus 25 percent. A `CALL_GAS_LIMIT floor` appears in that line only when you set one; leave it unset unless you have a reason, because the EntryPoint reserves the declared limit before running each operation.
+- **`exec`** combines the bundle receipt with the venue's `isFilled` read. `reverted` means the outer transaction landed, so the operation consumed its lane sequence, but the call failed inside the venue. `not mined` would mean the outer transaction never landed and nothing was consumed.
 - **`land#`** is the venue's global landing counter. It shows the order in which operations actually executed, which has nothing to do with lane number. Lane acquisition is last-in, first-out, so a fresh 32-lane pool starts at lane `32`; lane numbers carry no priority.
 - **`hash check`** confirms that the locally computed EIP-712 digest matches `EntryPoint.getUserOpHash` for the first operation, so client-side hashing matches consensus.
 
@@ -424,7 +440,7 @@ If a bundle is reported as `PENDING` or `FAILED`, the command exits non-zero and
 The repository includes a real-target path that routes tiny native SEI and native USDC swaps through the documented DragonSwap V1 deployment on Atlantic-2. It is hard-blocked on every other chain. Get testnet USDC from the [Circle faucet](https://faucet.circle.com/), then:
 
 ```bash
-cd app
+# from the app directory, where the walkthrough left off
 npm run swap:setup
 npm run swap:submit
 ```
@@ -444,10 +460,20 @@ The account must hold enough of both assets for every input-side swap to execute
 ### Optional: see the baseline you are escaping
 
 ```bash
+# from the app directory, where the walkthrough left off
 npm run baseline
 ```
 
-Using a gas-only relayer key so nothing of value is at risk, `baseline` sends nonce `n + 1` while deliberately skipping `n`, reports whether the RPC path rejected it or stranded it, then fills the gap. Compare that with a `submit` run where 24 operations from one account are mutually independent.
+Using a gas-only relayer key so nothing of value is at risk, `baseline` measures the constraint directly. It sends nonce `n + 1` while deliberately skipping `n`, waits to see whether that transaction can be included above a gap, fills the gap with nonce `n`, then checks whether the skipped-ahead transaction lands once the gap is closed. The verdict is one of four outcomes:
+
+| Verdict | What the RPC path did | In flight per sender |
+| --- | --- | --- |
+| `REJECTED at admission` | Refused the gapped nonce, typically with `bad nonce` | 1; a gap cannot even be created |
+| `ADMITTED then dropped` | Returned a hash, then discarded the transaction | 1 in effect, despite admission succeeding |
+| `QUEUED, then included once the gap filled` | Held it and released it in nonce order | More than 1, released in order |
+| `ACCEPTED and included above a gap` | Included it out of order | More than 1, not strictly ordered on this path |
+
+The probe samples both the `latest` and `pending` nonce tags before, during, and after, and prints any rejection message verbatim, because the exact string is the finding. If the two tags already disagree before the probe starts, it warns you: either the account has work in flight or the node reports a mempool-derived pending nonce, and in both cases the gap it is about to create may not be a gap at all, so the verdict cannot be attributed to nonce ordering. Compare the result with a `submit` run, where 24 operations from one account are mutually independent and one failure strands nothing.
 
 ## Tuning
 
@@ -458,9 +484,13 @@ Three knobs shape a run. They interact, so change one at a time and measure.
     One lane holds at most one in-flight operation, so `LANE_POOL_SIZE` is the hard ceiling on unresolved UserOperations in a process. Larger pools permit more concurrently unresolved intents, add startup `getNonce` reads (batched with bounded concurrency so a public RPC does not rate-limit you), and increase the recovery state you must understand after a failure. `ORDERS` must not exceed `LANE_POOL_SIZE`; the application rejects that configuration instead of silently submitting fewer operations.
   </Accordion>
   <Accordion title="Bundle width: gas efficiency against isolation">
-    `MAX_OPS_PER_BUNDLE` trades amortized outer-transaction overhead for the size of the shared validation failure domain. A width of `1` gives maximum isolation and the highest overhead. Execution reverts stay per-operation at any width. The relayer caps signed transaction gas below the live block gas limit and rejects a bundle whose estimate cannot fit.
+    `MAX_OPS_PER_BUNDLE` trades amortized outer-transaction overhead for the size of the shared validation failure domain. A width of `1` gives maximum isolation and the highest overhead. Execution reverts stay per-operation at any width. The relayer caps signed transaction gas below the block gas limit it read at startup and rejects a bundle whose estimate cannot fit.
 
-    As a reference point, on Atlantic-2 on September 3, 2026, the real-swap path sustained 77 operations per bundle; 78 hit the 12,500,000 block-gas ceiling and failed safely during simulation. Width 76 produced the best observed submission rate for that call shape, 47.7 landed swaps per second. Treat these as measurements for one call shape on one network at one point in time, not as protocol limits.
+    A bundle does not need the sum of its operations' declared call gas, which is the arithmetic most people try first. The EntryPoint checks before each operation that enough gas remains to honor that operation's `callGasLimit`, and whatever an operation leaves unspent passes to the next one, so the outer transaction needs the gas the bundle actually consumes plus about one operation's declared limit in reserve. Declaring more than you need is still not free: v0.8 charges 10 percent of unused call gas beyond a 40,000-gas threshold, and each operation reserves prefund from the deposit against its declared limits rather than its measured cost, so an inflated limit ties up deposit that is only refunded afterwards.
+
+    That is why `CALL_GAS_LIMIT` is unset by default. Both submit paths measure the real call gas for the chain and call shape and add 25 percent; the variable is only a floor, and it changes anything only when you set it above that measurement. Because the EntryPoint reserves each operation's declared call gas before running it, a floor above the measurement costs block gas, and therefore operations per block, without changing the gas actually used.
+
+    As a reference point, on Atlantic-2 on September 3, 2026, with `CALL_GAS_LIMIT=500000`, which was the default at the time, the real-swap path sustained 77 operations per bundle; 78 no longer fit the 12,500,000 block gas limit in effect that day and failed safely during simulation. Width 76 produced the best observed submission rate for that call shape, 47.7 landed swaps per second. Treat these as measurements for one call shape, one configuration, and one network at one point in time, not as protocol limits. With the floor unset, each operation reserves only its measured gas plus headroom, so the width that fits will differ; measure again rather than reusing that number.
   </Accordion>
   <Accordion title="Relayer count: concurrent outer transaction streams">
     Each relayer has one sequential outer transaction stream. Under favorable admission and inclusion conditions, the immediate submission width is roughly `RELAYER_COUNT × MAX_OPS_PER_BUNDLE` per block. That is a planning heuristic, not a throughput guarantee: RPC latency, block limits, state contention, gas, and producer policy still apply. Public RPC endpoints have [rate limits](/evm/networks); use a [dedicated provider](/learn/rpc-providers) or your own node for anything beyond a demo.
@@ -488,8 +518,9 @@ The application always loads `.env` from the repository root. The variables you 
 | `LANE_POOL_SIZE` | `32` | `1..4096` lanes and the in-flight ceiling |
 | `MAX_OPS_PER_BUNDLE` | `4` | `1..LANE_POOL_SIZE` operations sharing one validation domain |
 | `REVERT_ORDER_INDEX` | `2` | Order that receives an unfillable limit price; `-1` disables |
-| `CALL_GAS_LIMIT` | `500000` | Execution-gas floor; the live estimate plus headroom can raise it |
+| `CALL_GAS_LIMIT` | unset | Optional floor for each operation's declared call gas; when unset, the live estimate plus 25 percent is used |
 | `BUNDLE_RECEIPT_TIMEOUT_MS` | `12000` | Receipt wait before same-nonce replacement |
+| `RECEIPT_POLLING_INTERVAL_MS` | `250` | Receipt poll interval, `10..60000`; viem's own default is `4000` |
 | `BUNDLE_MAX_ATTEMPTS` | `3` | Same-nonce attempts per process invocation |
 | `REPLACEMENT_FEE_BUMP_PERCENT` | `25` | Fee increase per replacement, `10..1000` |
 | `OPERATION_JOURNAL_PATH` | `app/.state/pending-ops.json` | Durable signed-operation journal |
@@ -545,7 +576,7 @@ The real-swap path in `app/src/swap-submit.ts` is a complete example of this aga
 Check these before you trust a new target:
 
 - **`msg.sender` and `tx.origin`.** At the target, `msg.sender` is the funded EOA and `tx.origin` is the gas-paying relayer. Contracts that require `tx.origin == msg.sender` are incompatible. Audit each router, approval path, callback, reentrancy assumption, and authorization rule.
-- **Gas on Sei.** Storage writes cost materially more than on Ethereum. The application estimates the delegated call live and raises `CALL_GAS_LIMIT` when the estimate plus headroom is higher, so do not copy Ethereum-sized static limits. See [Gas and fees](/evm/evm-parity/gas-and-fees).
+- **Gas on Sei.** Storage writes cost materially more than on Ethereum. The application estimates the delegated call live and declares that estimate plus 25 percent, raised to `CALL_GAS_LIMIT` only when you set that floor higher. Do not copy Ethereum-sized static limits in either direction: too low runs out of gas, and too high reserves block gas your operations never use. See [Gas and fees](/evm/evm-parity/gas-and-fees).
 - **Storage contention.** Lanes remove submission ordering, not execution conflicts. Analyze which storage slots your calls touch; see [Optimizing for parallelization](/evm/best-practices/optimizing-for-parallelization).
 - **Lane policy.** One lane per in-flight intent is the simplest correct policy. If some calls must stay ordered relative to each other, put them on one lane (or on `ADMIN_LANE`) rather than falling back to lane `0`.
 
@@ -592,6 +623,8 @@ Treat `.env`, `app/.state/`, signed raw transactions, and RPC URLs containing cr
   </Accordion>
   <Accordion title="Journal lock is owned by another process">
     Only one lane-based process may use an account at a time, even when `submit` and `swap:submit` use different journals. Stop the other process. A lock whose recorded PID is no longer alive is removed automatically on the next run.
+
+    `could not acquire the lock … within 2000ms` is different. The lock file exists but its contents could not be read, which is what a live holder can look like while it is still writing the file. Removing such a lock would evict a running process, so the next run waits for it instead. If the message persists across runs, no process owns the file and you can delete it by hand.
   </Accordion>
   <Accordion title="A bundle remains in pending recovery">
     Do not delete the journal and do not send the relayer's next nonce manually. Run `npm run submit` again once the RPC can answer receipt and nonce queries. If the application reports partial lane consumption or a state it cannot reconcile, stop and inspect the EntryPoint events, every attempted transaction hash, the relayer's confirmed nonce, and each lane sequence.
