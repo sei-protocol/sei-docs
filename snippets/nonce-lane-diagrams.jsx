@@ -97,7 +97,7 @@ export const NonceLanes = () => {
 
           <text x={40} y={191} fontSize="11" fill={bad} fontWeight="600">lane 0</text>
           <line x1={38} y1={187} x2={78} y2={187} stroke={bad} strokeWidth="1.2" />
-          <text x={120} y={191} fontSize="10" fill={bad}>rejected by LaneAccount: SDKs default to key 0, and a book on key 0 is one queue again</text>
+          <text x={120} y={191} fontSize="10" fill={bad}>rejected by LaneAccount: SDKs default to key 0, and work on key 0 is one queue again</text>
 
           <text x={40} y={226} fontSize="11" fill={ink} fontWeight="600">lane 1</text>
           {chip(120, 210, 'seq 0', 'ok', 'l1s0')}
@@ -356,7 +356,7 @@ export const NonceLaneFailureIsolation = () => {
           {lane(582, 70, 'lane 30', 'AA25 stale seq', bad, false, 'b30')}
           {lane(678, 70, 'lane 31', 'not consumed', ink, true, 'b31')}
           {lane(774, 70, 'lane 32', 'not consumed', ink, true, 'b32')}
-          <text x={670} y={152} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.7">bad signature, stale sequence, or thin prefund fails before any execution</text>
+          <text x={670} y={152} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.7">bad signature, stale sequence, or insufficient prefund fails before any execution</text>
           <text x={470} y={186} fontSize="10" fill={ink} fillOpacity="0.75">every bundle is simulated before broadcast, so this is normally caught</text>
           <text x={470} y={202} fontSize="10" fill={ink} fillOpacity="0.75">for free; MAX_OPS_PER_BUNDLE sets the size of this failure domain</text>
 
@@ -367,7 +367,7 @@ export const NonceLaneFailureIsolation = () => {
           <text x={48} y={293} fontSize="10" fill={ink} fillOpacity="0.8">leaves its lane sequence untouched; neighboring lanes stay valid and the journal requeues it</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Three different failures, three different blast radii. An execution revert costs one lane sequence and nothing else. A validation failure costs the outer transaction attempt but no sequences. A dropped bundle costs nothing on chain, which is exactly the case that strands a sequential account.</div>
+      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">The three failures have different blast radii. An execution revert costs one lane sequence and nothing else. A validation failure costs the outer transaction attempt but no sequences. A dropped bundle costs nothing on chain, which is exactly the case that strands a sequential account.</div>
     </div>
   );
 };
