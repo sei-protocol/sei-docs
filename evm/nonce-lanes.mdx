@@ -36,7 +36,7 @@ The second case is the submission bottleneck. It covers transactions that are dr
 
 Two properties of Sei make this sharper than on Ethereum:
 
-- **Strict nonce admission.** Under Giga, the Autobahn producer mempool admits EVM transactions in per-sender nonce order and rejects a gap with a `bad nonce` error instead of holding it for later. See [Giga mode behavior](/node/technical-reference#giga-mode-behavior-and-per-block-limits). What you observe through an RPC endpoint can differ, because the node in front of the producer may hold a gapped transaction and release it later, or accept it and then drop it. The repository's `npm run baseline` command probes the RPC path you configure; in one session it returned [two different verdicts](#optional-see-the-baseline-you-are-escaping) for two Atlantic-2 endpoints.
+- **Strict nonce admission.** Under Giga, the Autobahn producer mempool admits EVM transactions in per-sender nonce order and rejects a gap with a `bad nonce` error instead of holding it for later. See [Giga mode behavior](/node/technical-reference#giga-mode-behavior-and-per-block-limits). What you observe through an RPC endpoint can differ, because the node in front of the producer may hold a gapped transaction and release it later, or accept it and then drop it. The repository's `npm run baseline` command probes the RPC path you configure; in one session it returned [two different verdicts](#optional-see-the-baseline-you-are-escaping) for two Sei Testnet endpoints.
 - **No dependable pending view.** Sei does not expose Ethereum-style pending state, and [Finality and block tags](/evm/evm-parity/finality#pending-state) tells you not to rely on a pending nonce differing from the confirmed nonce. `txpool_content` is also [truncated and collapses the pending/queued distinction](/evm/reference). Even where a node answers a pending-nonce query, the value cannot be used to rebuild an in-flight queue.
 
 <Warning>
@@ -178,7 +178,7 @@ The baseline is not one transaction at a time. A single address can sign and bro
   Read the first two rows together. `LANE_POOL_SIZE` caps how many operations can be signed and unresolved at once; `RELAYER_COUNT` caps how many outer transactions are broadcast at once. Lanes provide a large pool of independent intents rather than a large number of simultaneous transactions. The approximate per-block submission width is `RELAYER_COUNT × MAX_OPS_PER_BUNDLE`.
 </Note>
 
-Measured on Atlantic-2 against the same venue call, one address with sequential nonces landed 1 operation per second sending serially and 7 per second pipelining one request at a time, and reached 51 per second only by sending all 1,024 transactions in one JSON-RPC batch. A fleet of 8 hot wallets also landed 51 per second. Nonce lanes landed 60 to 64 per second from one address whose EVM nonce never moved, against a block-gas ceiling of about 73 for that call shape. The method, the run shapes, and the caveats are in [Benchmarks](#benchmarks).
+Measured on Sei Testnet against the same venue call, one address with sequential nonces landed 1 operation per second sending serially and 7 per second pipelining one request at a time, and reached 51 per second only by sending all 1,024 transactions in one JSON-RPC batch. A fleet of 8 hot wallets also landed 51 per second. Nonce lanes landed 60 to 64 per second from one address whose EVM nonce never moved, against a block-gas ceiling of about 73 for that call shape. The method, the run shapes, and the caveats are in [Benchmarks](#benchmarks).
 
 Six properties of the design produce those rows:
 
@@ -206,7 +206,7 @@ The walkthrough below deploys the demo contracts, delegates a throwaway account,
 - Git with submodule support
 - [Foundry](https://getfoundry.sh/) with `forge`, `anvil`, and `cast`
 - Node.js 22 or newer, and npm
-- For the Atlantic-2 path: a fresh throwaway key funded from the [Sei faucet](/learn/faucet)
+- For the Sei Testnet path: a fresh throwaway key funded from the [Sei faucet](/learn/faucet)
 
 <Steps>
   <Step title="Clone and verify">
@@ -235,10 +235,10 @@ The walkthrough below deploys the demo contracts, delegates a throwaway account,
   </Step>
 
   <Step title="Choose a target network">
-    Start with a local Prague fork. It carries the deployed EntryPoint bytecode from Atlantic-2 but spends only Anvil funds.
+    Start with a local Prague fork. It carries the deployed EntryPoint bytecode from Sei Testnet but spends only Anvil funds.
 
     <Danger>
-      Never use Anvil, Hardhat, tutorial, or shared test mnemonics on Atlantic-2 or Pacific-1. Their addresses and keys are public, and some are already delegated to sweeper code, so a successful funding transaction can still leave a zero balance. The fork below also runs as chain `1328`, so an authorization signed against it is replayable on Atlantic-2 itself whenever the account's nonce lines up. Regenerate every key and mnemonic before you point a fork's `.env` at a public network.
+      Never use Anvil, Hardhat, tutorial, or shared test mnemonics on Sei Testnet or Sei Mainnet. Their addresses and keys are public, and some are already delegated to sweeper code, so a successful funding transaction can still leave a zero balance. The fork below also runs as chain `1328`, so an authorization signed against it is replayable on Sei Testnet whenever the account's nonce lines up. Regenerate every key and mnemonic before you point a fork's `.env` at a public network.
     </Danger>
 
     <Tabs>
@@ -282,7 +282,7 @@ The walkthrough below deploys the demo contracts, delegates a throwaway account,
           --sender 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
         ```
       </Tab>
-      <Tab title="Atlantic-2 testnet">
+      <Tab title="Sei Testnet">
         Generate fresh credentials. Never reuse a key or mnemonic that has appeared in a tutorial, a test framework, or a shared document:
 
         ```bash
@@ -327,7 +327,7 @@ The walkthrough below deploys the demo contracts, delegates a throwaway account,
     ```
 
     <Note>
-      Mutating commands refuse to write to a remote Pacific-1 RPC unless `ALLOW_MAINNET=1` is set explicitly, and they refuse any remote-chain write when `TRADER_PRIVATE_KEY` is Anvil account `0` or `RELAYER_MNEMONIC` is the Anvil mnemonic. Those guards catch only an accidental `SEI_CHAIN_ID=1329` run and the two most common leaked credentials. They do not cover the separate Forge deployment command, and they do not make the demo production-ready.
+      Mutating commands refuse to write to a remote Sei Mainnet RPC unless `ALLOW_MAINNET=1` is set explicitly, and they refuse any remote-chain write when `TRADER_PRIVATE_KEY` is Anvil account `0` or `RELAYER_MNEMONIC` is the Anvil mnemonic. Those guards catch only an accidental `SEI_CHAIN_ID=1329` run and the two most common leaked credentials. They do not cover the separate Forge deployment command, and they do not make the demo production-ready.
     </Note>
   </Step>
 
@@ -437,9 +437,9 @@ What to look for:
 
 If a bundle is reported as `PENDING` or `FAILED`, the command exits non-zero and leaves the journal intact. Run `npm run submit` again once the RPC can answer receipt and nonce queries; the process recovers or replaces at the same relayer nonce before it creates new work. Do not delete the journal and do not send the relayer's next nonce by hand.
 
-### Optional: real swaps on Atlantic-2
+### Optional: real swaps on Sei Testnet
 
-The repository includes a real-target path that routes tiny native SEI and native USDC swaps through the documented DragonSwap V1 deployment on Atlantic-2. It is hard-blocked on every other chain. Get testnet USDC from the [Circle faucet](https://faucet.circle.com/), then:
+The repository includes a real-target path that routes tiny native SEI and native USDC swaps through the documented DragonSwap V1 deployment on Sei Testnet. It is hard-blocked on every other chain. Get testnet USDC from the [Circle faucet](https://faucet.circle.com/), then:
 
 ```bash
 # from the app directory, where the walkthrough left off
@@ -479,7 +479,7 @@ The probe measures gap handling only. How many consecutive nonces one sender can
 
 The probe samples both the `latest` and `pending` nonce tags before, during, and after, and prints any rejection message verbatim, because the exact message is the finding. If the two tags already disagree before the probe starts, it warns you: either the account has work in flight or the node reports a mempool-derived pending nonce, and in both cases the gap it is about to create may not be a gap at all, so the verdict cannot be attributed to nonce ordering. Compare the result with a `submit` run, where 24 operations from one account are mutually independent and one failure strands nothing.
 
-The verdict depends on the path. In one session, two Atlantic-2 RPC endpoints answered differently: a dedicated provider queued the gapped transaction and released it once the gap filled, while the public endpoint returned a hash and then dropped it, so it never landed even after the gap was filled. Neither rejected it at admission. Probe the path you will actually use.
+The verdict depends on the path. In one session, two Sei Testnet RPC endpoints answered differently: a dedicated provider queued the gapped transaction and released it once the gap filled, while the public endpoint returned a hash and then dropped it, so it never landed even after the gap was filled. Neither rejected it at admission. Probe the path you will actually use.
 
 ## Tuning
 
@@ -496,7 +496,7 @@ Three knobs shape a run. They interact, so change one at a time and measure.
 
     That is why `CALL_GAS_LIMIT` is unset by default. Both submit paths measure the real call gas for the chain and call shape and add 25 percent; the variable is only a floor, and it has an effect only when you set it above that measurement. Because the EntryPoint reserves each operation's declared call gas before running it, a floor above the measurement costs block gas, and therefore operations per block, without changing the gas actually used.
 
-    As a reference point, on Atlantic-2 with `CALL_GAS_LIMIT=500000`, the default in an earlier revision of the repository, the real-swap path sustained 77 operations per bundle; 78 no longer fit the 12,500,000 block gas limit in effect during that run and failed safely during simulation. Width 76 produced the best observed submission rate for that call shape, 47.7 landed swaps per second. These are measurements for one call shape, one configuration, and one network state, not protocol limits.
+    As a reference point, on Sei Testnet with `CALL_GAS_LIMIT=500000`, the default in an earlier revision of the repository, the real-swap path sustained 77 operations per bundle; 78 no longer fit the 12,500,000 block gas limit in effect during that run and failed safely during simulation. Width 76 produced the best observed submission rate for that call shape, 47.7 landed swaps per second. These are measurements for one call shape, one configuration, and one network state, not protocol limits.
 
     The mock venue is a heavier call. In the [benchmark session](#benchmarks), with `CALL_GAS_LIMIT` unset, each `place` operation used about 331,000 gas of outer transaction gas, so 36 operations was the widest bundle that fit and 37 failed safely in simulation. Widths 8, 16, and 36 packed 4, 2, and 1 bundles into a 12,500,000-gas block; width 9, which should fit 4, landed 3. Wide bundles also queue behind each other, because only one 11,700,000-gas bundle fits a block. With more than about 8 relayers at width 32 or 36, receipt waits exceed the default `BUNDLE_RECEIPT_TIMEOUT_MS`; raise the timeout for those shapes instead of paying for fee-bumped replacements of bundles that land anyway.
   </Accordion>
@@ -513,9 +513,9 @@ The application always loads `.env` from the repository root. The variables you 
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `SEI_CHAIN_ID` | `1328` | `1328` (Atlantic-2) or `1329` (Pacific-1) |
+| `SEI_CHAIN_ID` | `1328` | `1328` (Sei Testnet) or `1329` (Sei Mainnet) |
 | `SEI_RPC_URL` | viem chain default | HTTP endpoint; its reported chain ID must match before any write |
-| `ALLOW_MAINNET` | `0` | Must be `1` for writes to a remote Pacific-1 RPC |
+| `ALLOW_MAINNET` | `0` | Must be `1` for writes to a remote Sei Mainnet RPC |
 | `TRADER_PRIVATE_KEY` | required | The funded account that signs every UserOperation |
 | `RELAYER_MNEMONIC` | required | Fresh BIP-39 mnemonic used only for gas-paying relayers |
 | `RELAYER_COUNT` | `4` | Relayer workers, `1..256` |
@@ -570,7 +570,7 @@ The `bench:baseline` modes are the ways one address can drive a sequential queue
 
 ### Measured against the alternatives
 
-Every row below comes from one measurement session on Atlantic-2. Conditions during the session: block gas limit 12,500,000; base fee 50 gwei plus a 1 gwei tip; about 2.0 blocks per second under load; 120 ms warm request latency to the configured endpoint. Each direct `place` transaction used 328,425 gas and each lane operation about 331,000 gas of outer transaction gas, so the block admits 36 to 38 operations however they are submitted: roughly 73 landed operations per second for this call shape. Chain-side rates divide landed operations by the block-timestamp span, which Sei stamps in whole seconds. Client-side rates divide by wall time from first broadcast to last receipt.
+Every row below comes from one measurement session on Sei Testnet. Conditions during the session: block gas limit 12,500,000; base fee 50 gwei plus a 1 gwei tip; about 2.0 blocks per second under load; 120 ms warm request latency to the configured endpoint. Each direct `place` transaction used 328,425 gas and each lane operation about 331,000 gas of outer transaction gas, so the block admits 36 to 38 operations however they are submitted: roughly 73 landed operations per second for this call shape. Chain-side rates divide landed operations by the block-timestamp span, which Sei stamps in whole seconds. Client-side rates divide by wall time from first broadcast to last receipt.
 
 | Submission | Landed ops/s, chain-side | Client-side | Block gas used, average |
 | --- | --- | --- | --- |
@@ -589,7 +589,7 @@ What the numbers show:
 - Block gas, not the nonce model, set the ceiling. Lanes came closest to it, with 28 of 31 blocks at least 90 percent full in the 16 × 36 run, from one address whose EVM nonce never moved. A single ordered queue matched the fleet only when every transaction left in one JSON-RPC batch; one request at a time, it is bounded by the round trip, about 7 per second.
 - Small relayer pools are client-bound. Throughput scales with `RELAYER_COUNT` until roughly 120 operations are in flight, then block gas takes over. The relayer and width series are in [Tuning](#tuning).
 - A gap costs the whole queue. One lost transaction in the sequential queue (`pipelined-gap`, nonce 50 of 100) left the 49 transactions behind it accepted but unmined until the client resent it 15 seconds later. In the lane runs, the deliberately reverting order consumed only its own lane while the rest of its bundle landed.
-- RPC paths differ. `npm run baseline` gave [two different verdicts](#optional-see-the-baseline-you-are-escaping) for two Atlantic-2 endpoints in the same session.
+- RPC paths differ. `npm run baseline` gave [two different verdicts](#optional-see-the-baseline-you-are-escaping) for two Sei Testnet endpoints in the same session.
 
 <Note>
   These are measurements of one call shape, one network state, and one client machine, not protocol limits. Cost was about 0.02 SEI per landed operation at the effective 52 gwei. Rerun the benchmarks against the network and endpoint you will actually use; block time and gas limits differ between [Twin Turbo Consensus](/learn/twin-turbo-consensus) and [Sei Giga](/learn/sei-giga). The raw records under `app/.state/bench/` include a journal for `bench:lanes`, which you should treat like `pending-ops.json`.

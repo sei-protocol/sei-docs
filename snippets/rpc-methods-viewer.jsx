@@ -10,13 +10,13 @@
 export const RPCMethodsViewer = () => {
 const NETWORKS = {
   mainnet: {
-    label: 'Pacific-1 · Mainnet',
+    label: 'Sei Mainnet',
     chainId: '1329',
     http: 'https://evm-rpc.sei-apis.com',
     ws: 'wss://evm-ws.sei-apis.com',
   },
   testnet: {
-    label: 'Atlantic-2 · Testnet',
+    label: 'Sei Testnet',
     chainId: '1328',
     http: 'https://evm-rpc-testnet.sei-apis.com',
     ws: 'wss://evm-ws-testnet.sei-apis.com',
@@ -62,7 +62,7 @@ const LANGUAGES = [
 
 const SEI_RPC_METHODS = [
   {"namespace":"eth","name":"eth_blockNumber","status":"supported","description":"Returns the number of the most recent committed EVM block as a hex uint64.","seiNote":"Block height comes from CometBFT latest height; the latest committed block is already final on Sei (instant finality, so latest == safe == finalized)."},
-  {"namespace":"eth","name":"eth_chainId","status":"supported","description":"Returns the EVM chain ID as a hex big int.","seiNote":"Sourced from the x/evm keeper. Mainnet (pacific-1) = 1329 (0x531); testnet (atlantic-2) = 1328 (0x530)."},
+  {"namespace":"eth","name":"eth_chainId","status":"supported","description":"Returns the EVM chain ID as a hex big int.","seiNote":"Sourced from the x/evm keeper. Sei Mainnet = 1329 (0x531); Sei Testnet = 1328 (0x530)."},
   {"namespace":"eth","name":"eth_coinbase","status":"limited","description":"Returns the block reward beneficiary (coinbase) address.","seiNote":"Sei has no miner; this returns the Cosmos fee-collector module address (GetFeeCollectorAddress), not a validator/miner address. The COINBASE opcode returns the same value."},
   {"namespace":"eth","name":"eth_accounts","status":"limited","description":"Returns the list of addresses for which the node holds hosted keys.","seiNote":"Sourced from the node's local test keyring only; production/public RPC nodes hold no hosted keys, so this returns an empty list. Sign client-side and use eth_sendRawTransaction."},
   {"namespace":"eth","name":"eth_gasPrice","status":"limited","description":"Returns a suggested gas price in wei (hex).","seiNote":"Sei-specific congestion heuristic, not a raw mempool oracle. InfoAPI.GasPrice/GasPriceHelper (info.go): when uncongested it returns baseFee * 110/100 (base fee +10%); when congested it returns medianRewardPrevBlock + baseFee (50th-percentile priority-fee reward from the previous block added to base fee). The base fee comes from the x/evm keeper (GetNextBaseFeePerGas), which is itself floored at the governance-set minimum base fee; the RPC handler applies no additional explicit lower-bound clamp. The mainnet minimum gas price (~50 gwei) is enforced for transaction acceptance at the mempool/ante-handler level, not inside eth_gasPrice."},
@@ -115,7 +115,7 @@ const SEI_RPC_METHODS = [
   {"namespace":"eth","name":"eth_getUncleByBlockNumberAndIndex","status":"unsupported","description":"Uncle block by number and index. Not registered; Sei has no uncles.","seiNote":"No uncle blocks under CometBFT consensus; not registered, returns -32601.","params":[{"name":"number","type":"BLOCKNUMBER","description":"Block number or tag.","example":"latest"},{"name":"index","type":"QUANTITY","description":"Uncle index.","example":"0x0"}]},
   {"namespace":"eth","name":"eth_getUncleByBlockHashAndIndex","status":"unsupported","description":"Uncle block by hash and index. Not registered; Sei has no uncles.","seiNote":"No uncle blocks under CometBFT consensus; not registered, returns -32601.","params":[{"name":"blockHash","type":"DATA, 32 bytes","description":"Block hash.","example":"0x5620c15afd9a1d0ab19d7560043df6e038d731c6205974dca7a55900071e3864"},{"name":"index","type":"QUANTITY","description":"Uncle index.","example":"0x0"}]},
   {"namespace":"eth","name":"eth_pendingTransactions","status":"unsupported","description":"List pending transactions in the node's transaction pool. Not registered on Sei.","seiNote":"Sei exposes no geth-style mempool through this method; pending state is surfaced only via the 'pending' tag on eth_getTransactionCount and via txpool_content. Not registered, returns -32601."},
-  {"namespace":"net","name":"net_version","status":"supported","description":"Returns the network/chain ID as a decimal string.","seiNote":"Returns the EVM chain ID in decimal (alias of eth_chainId): '1329' on pacific-1 mainnet, '1328' on atlantic-2 testnet."},
+  {"namespace":"net","name":"net_version","status":"supported","description":"Returns the network/chain ID as a decimal string.","seiNote":"Returns the EVM chain ID in decimal (alias of eth_chainId): 1329 on Sei Mainnet and 1328 on Sei Testnet."},
   {"namespace":"net","name":"net_listening","status":"unsupported","description":"Whether the node is listening for connections. Not registered on Sei.","seiNote":"Not registered on Sei's NetAPI; returns -32601 method not found (P2P is handled by CometBFT, not this RPC)."},
   {"namespace":"net","name":"net_peerCount","status":"unsupported","description":"Number of connected peers. Not registered on Sei.","seiNote":"Not registered on Sei's NetAPI; returns -32601. Query CometBFT net_info for peer data instead."},
   {"namespace":"web3","name":"web3_clientVersion","status":"supported","description":"Returns the client version string.","seiNote":"Reports a synthetic 'Geth/<os>-<arch>/<goVersion>' string (Sei's EVM is backed by go-ethereum); it does NOT embed the actual sei-chain/seid version, so it is not a reliable Sei version indicator."},

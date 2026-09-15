@@ -290,7 +290,7 @@ When referencing network information, always include:
 - Explorer links
 
 Example:
-| Network | Chain ID | RPC URL |
+| Network | EVM chain ID | RPC URL |
 |---------|----------|---------|
-| Mainnet (pacific-1) | 1329 (0x531) | https://evm-rpc.sei-apis.com |
-| Testnet (atlantic-2) | 1328 (0x530) | https://evm-rpc-testnet.sei-apis.com |
+| Sei Mainnet | 1329 (0x531) | https://evm-rpc.sei-apis.com |
+| Sei Testnet | 1328 (0x530) | https://evm-rpc-testnet.sei-apis.com |
