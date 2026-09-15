@@ -9,14 +9,14 @@ export const SstoreGasLive = ({ network = 'mainnet' }) => {
   const RPC = {
     mainnet: {
       url: 'https://evm-rpc.sei-apis.com',
-      chain: 'pacific-1',
+      chain: 'Sei Mainnet',
       id: 1329,
       probe: '0xeeB428bcf499D0A1c401f123F64BFf754a5de57A',
       explorer: 'https://seiscan.io/address/0xeeB428bcf499D0A1c401f123F64BFf754a5de57A'
     },
     testnet: {
       url: 'https://evm-rpc-testnet.sei-apis.com',
-      chain: 'atlantic-2',
+      chain: 'Sei Testnet',
       id: 1328,
       probe: '0xE5A35b2457E1C3cfF2F6527fAA32DE0B2a8e28E0',
       explorer: 'https://testnet.seiscan.io/address/0xE5A35b2457E1C3cfF2F6527fAA32DE0B2a8e28E0'

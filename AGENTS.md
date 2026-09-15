@@ -14,7 +14,7 @@
 - **Sei Giga** is the next-generation architecture upgrade
 - **seid** is the CLI binary; always lowercase and code-formatted
 - **sei-js** (lowercase, hyphenated) for the JS/TS SDK
-- **Pacific-1** (mainnet chain ID `1329`), **Atlantic-2** (testnet chain ID `1328`)
+- Use **Sei Mainnet** (EVM chain ID `1329`) and **Sei Testnet** (EVM chain ID `1328`) in reader-facing copy. Keep the literal identifiers `pacific-1` and `atlantic-2` only where technically required, especially in node-operator instructions, CLI or config values, API paths, and registry keys.
 - Precompiles live at specific addresses — always reference exact address when mentioning
 - **Twin Turbo Consensus** and **parallelization engine** are proper nouns
 - Prefer "dApp" over "app" when the context is blockchain

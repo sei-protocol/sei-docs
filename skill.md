@@ -38,7 +38,7 @@ npx skills add sei-ecosystem    # apps / integrations only
 ## Critical facts — apply to every answer
 
 1. **400ms block time, instant finality** — use `tx.wait(1)`, never `tx.wait(12)`
-2. **SSTORE gas is 72,000 on Sei** — the same on both mainnet (pacific-1) and testnet (atlantic-2); it does not vary by network. Set via governance (mainnet Proposal #109, "Update EVM SSTORE set gas to 72000", which set the `evm` param `KeySeiSstoreSetGasEIP2200` to `72000`), so it is adjustable and can change — confirm the live value at https://docs.sei.io/evm/differences-with-ethereum#sstore-gas-cost
+2. **SSTORE gas is 72,000 on Sei** — the same on both Sei Mainnet and Sei Testnet; it does not vary by network. Set via governance (mainnet Proposal #109, "Update EVM SSTORE set gas to 72000", which set the `evm` param `KeySeiSstoreSetGasEIP2200` to `72000`), so it is adjustable and can change — confirm the live value at https://docs.sei.io/evm/differences-with-ethereum#sstore-gas-cost
 3. **Use legacy `gasPrice`** — Sei has no base fee burn; prefer `gasPrice` over EIP-1559 `maxFeePerGas` / `maxPriorityFeePerGas`
 4. **Minimum gas price: 50 gwei**
 5. **Block gas limit: 12.5M per block**
@@ -47,15 +47,15 @@ npx skills add sei-ecosystem    # apps / integrations only
 8. **No base fee burn** — all fees go to validators
 9. **Dual address system** — every account has `sei1...` (Cosmos) + `0x...` (EVM) from the same key; cross-VM transfers require **association**
 10. **CosmWasm deprecated** per SIP-3 (proposal 99) — use EVM for new development
-11. **Chain IDs:** Mainnet `pacific-1` / `1329`; Testnet `atlantic-2` / `1328`
+11. **EVM chain IDs:** Sei Mainnet `1329`; Sei Testnet `1328`
 12. **No `safe` or `finalized` block tags** — use `latest`
 
 ## Networks
 
-| Network | Chain ID | EVM RPC | Cosmos RPC |
+| Network | EVM chain ID | EVM RPC | Cosmos RPC |
 |---|---|---|---|
-| Mainnet (`pacific-1`) | 1329 | https://evm-rpc.sei-apis.com | https://rpc.sei-apis.com |
-| Testnet (`atlantic-2`) | 1328 | https://evm-rpc-testnet.sei-apis.com | https://rpc-testnet.sei-apis.com |
+| Sei Mainnet | 1329 | https://evm-rpc.sei-apis.com | https://rpc.sei-apis.com |
+| Sei Testnet | 1328 | https://evm-rpc-testnet.sei-apis.com | https://rpc-testnet.sei-apis.com |
 
 Testnet faucet: https://docs.sei.io/learn/faucet
 
@@ -184,7 +184,7 @@ sei_mainnet = "https://evm-rpc.sei-apis.com"
 
 1. **Classify the task** — contract / frontend / node ops / cross-VM / migration
 2. **Apply the 12 critical facts** above for relevance
-3. **Always testnet first** — deploy to atlantic-2, test fully, verify on Seiscan, only then promote to mainnet
+3. **Always testnet first** — deploy to Sei Testnet, test fully, verify on Seiscan, only then promote to Sei Mainnet
 4. **Verify contracts** on Seiscan using Sourcify (`forge verify-contract --verifier sourcify`)
 5. **For cross-VM** (pointer contracts, precompiles) — verify address association before sending value
 

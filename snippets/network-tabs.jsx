@@ -275,10 +275,10 @@ export const NetworkTabs = (props) => {
 		<div className='network-tabs w-full'>
 			<div className='flex flex-wrap gap-2 mb-6'>
 				<button type='button' onClick={() => selectTab('mainnet')} className={tabButtonClass('mainnet')}>
-					Mainnet (pacific-1)
+					Sei Mainnet
 				</button>
 				<button type='button' onClick={() => selectTab('testnet')} className={tabButtonClass('testnet')}>
-					Testnet (atlantic-2)
+					Sei Testnet
 				</button>
 				<button type='button' onClick={() => selectTab('localnet')} className={tabButtonClass('localnet')}>
 					Local Environment
