@@ -540,9 +540,12 @@ export const Faucet = () => {
 		color: '#ffffff',
 		cursor: 'pointer'
 	};
+	// Disabled label: still clearly "off", but legible on both page backgrounds
+	// (the previous 0.7-alpha grey measured 2.2:1 on the light surface; this
+	// mid grey is ~3.8:1 light / ~4.4:1 dark).
 	const requestDisabledStyle = {
 		backgroundColor: SURFACE,
-		color: 'rgba(128, 128, 128, 0.7)',
+		color: 'rgb(118, 118, 118)',
 		cursor: 'not-allowed'
 	};
 
@@ -589,9 +592,8 @@ export const Faucet = () => {
 						disabled={isVerifyDisabled}
 						onMouseEnter={() => setVerifyHover(true)}
 						onMouseLeave={() => setVerifyHover(false)}
-						className={`flex-1 flex items-center justify-center gap-3 px-5 py-5 ${
-							captchaToken ? 'text-green-700 dark:text-green-400' : 'text-neutral-600 dark:text-neutral-400'
-						}`}
+						className='sei-faucet-verify flex-1 flex items-center justify-center gap-3 px-5 py-5'
+						data-verified={Boolean(captchaToken)}
 						style={{
 							...buttonLabelStyle,
 							borderRight: `1px solid ${HAIRLINE}`,

@@ -24,7 +24,7 @@
 //   // Tier 2 — CodeSandbox (browser-bundled template; verify it runs anonymously)
 //   <SandboxEmbed
 //     kind="codesandbox"
-//     src="https://codesandbox.io/embed/<id>?view=split&hidenavigation=1&theme=dark"
+//     src="https://codesandbox.io/embed/<id>?view=split&hidenavigation=1"
 //     title="viem · read Sei testnet"
 //     description="Edit and re-run this viem example against Sei testnet."
 //   />
@@ -57,16 +57,46 @@ export const SandboxEmbed = (props) => {
 	const allowAttr = 'clipboard-read; clipboard-write';
 
 	// --- state ---
-	const [loaded, setLoaded] = useState(false);
+	const [frameSrc, setFrameSrc] = useState(null);
 	const [btnHover, setBtnHover] = useState(false);
+	// Keep the server and first client render identical. The docs default to
+	// dark; the effect then syncs any saved light preference after hydration.
+	const [isDark, setIsDark] = useState(true);
+
+	useEffect(() => {
+		const el = document.documentElement;
+		const update = () => setIsDark(el.classList.contains('dark'));
+		update();
+		const obs = new MutationObserver(update);
+		obs.observe(el, { attributes: true, attributeFilter: ['class'] });
+		return () => obs.disconnect();
+	}, []);
+
+	// Update only the query string. URL.searchParams replaces theme=auto/system
+	// as well as light/dark and leaves Remix/StackBlitz hash payloads intact.
+	const themedSrc = (() => {
+		if (!src) return src;
+		try {
+			const url = new URL(src);
+			url.searchParams.set('theme', isDark ? 'dark' : 'light');
+			return url.toString();
+		} catch {
+			return src;
+		}
+	})();
+
+	// Capture the URL at load time. Theme changes may update the Open link, but
+	// must not navigate a running iframe and wipe edits or compile state.
+	const loadEditor = () => {
+		if (themedSrc) setFrameSrc(themedSrc);
+	};
+	const loaded = frameSrc !== null;
 
 	// --- theme-agnostic surfaces (see theming note above) ---
 	const HAIRLINE = 'rgba(128, 128, 128, 0.25)';
 	const surfaceStyle = { backgroundColor: 'rgba(128, 128, 128, 0.08)' };
 	const monoStyle = { fontFamily: 'var(--sei-font-mono)' };
 
-	const cardClass = 'not-prose w-full rounded-lg border overflow-hidden my-4';
-	const headerClass = 'flex items-center justify-between gap-3 px-4 py-2.5 border-b';
 	const buttonStyle = {
 		backgroundColor: btnHover ? 'var(--sei-maroon-200)' : 'var(--sei-maroon-100)',
 		color: '#ffffff',
@@ -93,28 +123,28 @@ export const SandboxEmbed = (props) => {
 	);
 
 	return (
-		<div className={cardClass} style={{ borderColor: HAIRLINE }}>
-			<div className={headerClass} style={{ ...surfaceStyle, borderBottomColor: HAIRLINE }}>
+		<div className='not-prose w-full rounded-lg border overflow-hidden my-4' style={{ borderColor: HAIRLINE }}>
+			<div className='flex items-center justify-between gap-3 px-4 py-2.5 border-b' style={{ ...surfaceStyle, borderBottomColor: HAIRLINE }}>
 				<div className='flex flex-col min-w-0'>
 					<span className='text-sm font-medium text-neutral-900 dark:text-white truncate' style={monoStyle}>
 						{title || meta.name}
 					</span>
-					<span className='text-xs text-neutral-500 dark:text-neutral-500'>{meta.name}</span>
+					<span className='text-xs text-neutral-600 dark:text-neutral-400'>{meta.name}</span>
 				</div>
 				<div className='flex items-center gap-3 shrink-0'>
-					{src ? (
+					{themedSrc ? (
 						<a
-							href={src}
+							href={themedSrc}
 							target='_blank'
 							rel='noopener noreferrer'
 							className='inline-flex items-center gap-1 text-xs text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200 transition-colors'>
 							Open <ExternalIcon />
 						</a>
 					) : null}
-					{!loaded && src ? (
+					{!loaded && themedSrc ? (
 						<button
 							type='button'
-							onClick={() => setLoaded(true)}
+							onClick={loadEditor}
 							onMouseEnter={() => setBtnHover(true)}
 							onMouseLeave={() => setBtnHover(false)}
 							className='inline-flex items-center gap-1.5 px-3 py-1.5 transition-colors'
@@ -130,13 +160,13 @@ export const SandboxEmbed = (props) => {
 				<div className='px-4 pt-3 pb-1 text-sm text-neutral-600 dark:text-neutral-400'>{description}</div>
 			) : null}
 
-			{!src ? (
+			{!themedSrc ? (
 				<div className='px-4 py-6 text-sm text-red-600 dark:text-red-400' style={monoStyle}>
 					SandboxEmbed: missing required `src`.
 				</div>
 			) : loaded ? (
 				<iframe
-					src={src}
+					src={frameSrc}
 					title={title || meta.name}
 					className='w-full block border-0'
 					style={{ height: frameHeight + 'px', backgroundColor: 'rgba(128, 128, 128, 0.05)' }}
@@ -147,8 +177,8 @@ export const SandboxEmbed = (props) => {
 			) : (
 				<button
 					type='button'
-					onClick={() => setLoaded(true)}
-					className='w-full flex flex-col items-center justify-center gap-2 text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200 transition-colors'
+					onClick={loadEditor}
+					className='w-full flex flex-col items-center justify-center gap-2 text-neutral-600 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200 transition-colors'
 					style={{ height: frameHeight + 'px', cursor: 'pointer', ...surfaceStyle }}>
 					<PlayIcon />
 					<span className='text-sm' style={monoStyle}>Click to load {meta.name}</span>

@@ -33,6 +33,13 @@
 - Use `<Tabs>` / `<Tab>` for parallel code samples (hardhat vs. foundry, ethers vs. viem, etc.)
 - Always give `<CodeGroup>` blocks explicit language tags
 
+## Mintlify JSX snippets
+
+- In `snippets/*.jsx`, write Tailwind utility lists as literal `className="..."` attributes. Mintlify only generates and prefixes utilities it can extract there.
+- Do not store utility lists in variables or assemble `className` dynamically. For conditional styling, use explicit JSX branches, inline styles, or a semantic data/class hook backed by `style.css`.
+- A component may forward a `className` prop when every caller supplies a literal utility list.
+- Run `node scripts/check-snippet-classnames.mjs` after editing snippets.
+
 ## Content boundaries
 
 - Cosmos-SDK content is deprecated (see SIP-3) — keep the deprecation notice visible on `cosmos-sdk/index.mdx`

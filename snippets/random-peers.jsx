@@ -158,7 +158,7 @@ export const RandomPeers = ({ format = 'bash', network = 'mainnet', count = 5 })
             className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold border border-neutral-300 dark:border-neutral-600 bg-white/80 dark:bg-neutral-800/80 text-neutral-700 dark:text-neutral-200 hover:bg-white dark:hover:bg-neutral-800 transition-colors">
             {copied ? (
               <>
-                <CheckIcon className="text-green-600" />
+                <CheckIcon className="text-green-600 dark:text-green-400" />
                 Copied
               </>
             ) : (

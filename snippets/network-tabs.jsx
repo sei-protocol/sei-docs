@@ -111,48 +111,63 @@ export const NetworkTabs = (props) => {
 		}
 	};
 
-	const tabButtonClass = (tab) =>
-		`px-3 py-1.5 text-sm transition-colors ${
-			activeTab === tab
-				? 'bg-neutral-200 dark:bg-neutral-800/80 text-neutral-900 dark:text-white border border-neutral-300 dark:border-neutral-700'
-				: 'bg-neutral-100 dark:bg-neutral-800/50 text-neutral-600 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-700/50 hover:bg-neutral-200 dark:hover:bg-neutral-700/70 hover:text-neutral-900 dark:hover:text-white'
-		}`;
+	// Mintlify only compiles Tailwind classes that appear literally inside a
+	// `className` attribute (it rewrites them to `mint-*`). Keep utility lists
+	// as direct literals; use data attributes plus style.css or inline styles
+	// for conditional state. Tab surfaces use rgba hairlines so they read the
+	// same on both page backgrounds.
+	const [hoverTab, setHoverTab] = useState(null);
 
-	const sectionTitleClass = 'font-medium text-neutral-900 dark:text-white';
-	const statusIndicatorClass = 'w-2 h-2 rounded-full';
-	const labelClass = 'text-neutral-500 dark:text-neutral-500 mb-1';
-	const valueClass = 'text-neutral-700 dark:text-neutral-300';
-	const linkClass = 'text-neutral-700 hover:text-neutral-900 dark:text-neutral-300 dark:hover:text-white transition-colors';
-	const visitLinkClass = 'text-neutral-700 hover:text-neutral-900 dark:text-neutral-300 dark:hover:text-white flex items-center transition-colors';
+	const tabButtonStyle = (tab) => {
+		const active = activeTab === tab;
+		const hover = hoverTab === tab;
+		return {
+			backgroundColor: active ? 'rgba(128, 128, 128, 0.22)' : hover ? 'rgba(128, 128, 128, 0.16)' : 'rgba(128, 128, 128, 0.08)',
+			border: `1px solid ${active ? 'rgba(128, 128, 128, 0.4)' : 'rgba(128, 128, 128, 0.22)'}`,
+			cursor: 'pointer'
+		};
+	};
 
 	const renderTabContent = (tab, isVisible = true) => {
-		const contentClass = isVisible ? 'tab-content' : 'sr-only';
 		const ariaHidden = !isVisible;
+		const visuallyHiddenStyle = isVisible
+			? undefined
+			: {
+					position: 'absolute',
+					width: '1px',
+					height: '1px',
+					padding: 0,
+					margin: '-1px',
+					overflow: 'hidden',
+					clip: 'rect(0, 0, 0, 0)',
+					whiteSpace: 'nowrap',
+					borderWidth: 0
+			  };
 
 		switch (tab) {
 			case 'mainnet':
 				return (
-					<div key={tab} className={contentClass} aria-hidden={ariaHidden} data-search-content data-tab-value='mainnet'>
+					<div key={tab} className='tab-content' style={visuallyHiddenStyle} aria-hidden={ariaHidden} data-search-content data-tab-value='mainnet'>
 						<div className='w-full'>
 							<div>
 								<div className='flex items-center gap-2 mb-4'>
-									<div className={`${statusIndicatorClass} bg-green-500`}></div>
-									<h3 className={sectionTitleClass}>EVM</h3>
+									<div className='w-2 h-2 rounded-full bg-green-500'></div>
+									<h3 className='font-medium text-neutral-900 dark:text-white'>EVM</h3>
 								</div>
 
 								<div className='space-y-3'>
 									<div className='flex flex-col'>
-										<div className={labelClass}>Chain ID:</div>
+										<div className='text-neutral-600 dark:text-neutral-400 mb-1'>Chain ID:</div>
 										<div className='flex items-center justify-between'>
-											<span className={valueClass}>1329 (0x531)</span>
+											<span className='text-neutral-700 dark:text-neutral-300'>1329 (0x531)</span>
 											<CopyButton textToCopy='1329' />
 										</div>
 									</div>
 
 									<div className='flex flex-col'>
-										<div className={labelClass}>RPC URL:</div>
+										<div className='text-neutral-600 dark:text-neutral-400 mb-1'>RPC URL:</div>
 										<div className='flex items-center justify-between'>
-											<a href='https://evm-rpc.sei-apis.com' target='_blank' rel='noopener noreferrer' className={linkClass}>
+											<a href='https://evm-rpc.sei-apis.com' target='_blank' rel='noopener noreferrer' className='text-neutral-700 hover:text-neutral-900 dark:text-neutral-300 dark:hover:text-white transition-colors'>
 												https://evm-rpc.sei-apis.com
 											</a>
 											<CopyButton textToCopy='https://evm-rpc.sei-apis.com' />
@@ -160,10 +175,10 @@ export const NetworkTabs = (props) => {
 									</div>
 
 									<div className='flex flex-col'>
-										<div className={labelClass}>Explorer:</div>
+										<div className='text-neutral-600 dark:text-neutral-400 mb-1'>Explorer:</div>
 										<div className='flex items-center justify-between'>
-											<span className={valueClass}>seiscan.io</span>
-											<a href='https://seiscan.io' target='_blank' rel='noopener noreferrer' className={visitLinkClass}>
+											<span className='text-neutral-700 dark:text-neutral-300'>seiscan.io</span>
+											<a href='https://seiscan.io' target='_blank' rel='noopener noreferrer' className='text-neutral-700 hover:text-neutral-900 dark:text-neutral-300 dark:hover:text-white flex items-center transition-colors'>
 												Visit
 												<ChevronRightIcon className='w-4 h-4 ml-1' />
 											</a>
@@ -176,27 +191,27 @@ export const NetworkTabs = (props) => {
 				);
 			case 'testnet':
 				return (
-					<div key={tab} className={contentClass} aria-hidden={ariaHidden} data-search-content data-tab-value='testnet'>
+					<div key={tab} className='tab-content' style={visuallyHiddenStyle} aria-hidden={ariaHidden} data-search-content data-tab-value='testnet'>
 						<div className='grid grid-cols-1 gap-6 w-full'>
 							<div>
 								<div className='flex items-center gap-2 mb-4'>
-									<div className={`${statusIndicatorClass} bg-blue-500`}></div>
-									<h3 className={sectionTitleClass}>EVM</h3>
+									<div className='w-2 h-2 rounded-full bg-blue-500'></div>
+									<h3 className='font-medium text-neutral-900 dark:text-white'>EVM</h3>
 								</div>
 
 								<div className='space-y-3'>
 									<div className='flex flex-col'>
-										<div className={labelClass}>Chain ID:</div>
+										<div className='text-neutral-600 dark:text-neutral-400 mb-1'>Chain ID:</div>
 										<div className='flex items-center justify-between'>
-											<span className={valueClass}>1328 (0x530)</span>
+											<span className='text-neutral-700 dark:text-neutral-300'>1328 (0x530)</span>
 											<CopyButton textToCopy='1328' />
 										</div>
 									</div>
 
 									<div className='flex flex-col'>
-										<div className={labelClass}>RPC URL:</div>
+										<div className='text-neutral-600 dark:text-neutral-400 mb-1'>RPC URL:</div>
 										<div className='flex items-center justify-between'>
-											<a href='https://evm-rpc-testnet.sei-apis.com' target='_blank' rel='noopener noreferrer' className={linkClass}>
+											<a href='https://evm-rpc-testnet.sei-apis.com' target='_blank' rel='noopener noreferrer' className='text-neutral-700 hover:text-neutral-900 dark:text-neutral-300 dark:hover:text-white transition-colors'>
 												https://evm-rpc-testnet.sei-apis.com
 											</a>
 											<CopyButton textToCopy='https://evm-rpc-testnet.sei-apis.com' />
@@ -204,20 +219,20 @@ export const NetworkTabs = (props) => {
 									</div>
 
 									<div className='flex flex-col'>
-										<div className={labelClass}>Explorer:</div>
+										<div className='text-neutral-600 dark:text-neutral-400 mb-1'>Explorer:</div>
 										<div className='flex items-center justify-between'>
-											<span className={valueClass}>testnet.seiscan.io</span>
-											<a href='https://testnet.seiscan.io' target='_blank' rel='noopener noreferrer' className={visitLinkClass}>
+											<span className='text-neutral-700 dark:text-neutral-300'>testnet.seiscan.io</span>
+											<a href='https://testnet.seiscan.io' target='_blank' rel='noopener noreferrer' className='text-neutral-700 hover:text-neutral-900 dark:text-neutral-300 dark:hover:text-white flex items-center transition-colors'>
 												Visit
 												<ChevronRightIcon className='w-4 h-4 ml-1' />
 											</a>
 										</div>
 									</div>
 									<div className='flex flex-col'>
-										<div className={labelClass}>Faucet:</div>
+										<div className='text-neutral-600 dark:text-neutral-400 mb-1'>Faucet:</div>
 										<div className='flex items-center justify-between'>
-											<span className={valueClass}>Testnet faucet</span>
-											<a href='https://docs.sei.io/learn/faucet' target='_blank' rel='noopener noreferrer' className={visitLinkClass}>
+											<span className='text-neutral-700 dark:text-neutral-300'>Testnet faucet</span>
+											<a href='https://docs.sei.io/learn/faucet' target='_blank' rel='noopener noreferrer' className='text-neutral-700 hover:text-neutral-900 dark:text-neutral-300 dark:hover:text-white flex items-center transition-colors'>
 												Visit
 												<ChevronRightIcon className='w-4 h-4 ml-1' />
 											</a>
@@ -230,35 +245,35 @@ export const NetworkTabs = (props) => {
 				);
 			case 'localnet':
 				return (
-					<div key={tab} className={contentClass} aria-hidden={ariaHidden} data-search-content data-tab-value='localnet'>
+					<div key={tab} className='tab-content' style={visuallyHiddenStyle} aria-hidden={ariaHidden} data-search-content data-tab-value='localnet'>
 						<div className='grid grid-cols-1 gap-6 w-full'>
 							<div>
 								<div className='flex items-center gap-2 mb-4'>
-									<div className={`${statusIndicatorClass} bg-purple-500`}></div>
-									<h3 className={sectionTitleClass}>EVM</h3>
+									<div className='w-2 h-2 rounded-full bg-purple-500'></div>
+									<h3 className='font-medium text-neutral-900 dark:text-white'>EVM</h3>
 								</div>
 
 								<div className='space-y-3'>
 									<div className='flex flex-col'>
-										<div className={labelClass}>Chain ID:</div>
+										<div className='text-neutral-600 dark:text-neutral-400 mb-1'>Chain ID:</div>
 										<div className='flex items-center justify-between'>
-											<span className={valueClass}>713714 (0xAE3F2)</span>
+											<span className='text-neutral-700 dark:text-neutral-300'>713714 (0xAE3F2)</span>
 											<CopyButton textToCopy='713714' />
 										</div>
 									</div>
 
 									<div className='flex flex-col'>
-										<div className={labelClass}>RPC URL:</div>
+										<div className='text-neutral-600 dark:text-neutral-400 mb-1'>RPC URL:</div>
 										<div className='flex items-center justify-between'>
-											<span className={valueClass}>http://localhost:8545</span>
+											<span className='text-neutral-700 dark:text-neutral-300'>http://localhost:8545</span>
 											<CopyButton textToCopy='http://localhost:8545' />
 										</div>
 									</div>
 
 									<div className='flex flex-col'>
-										<div className={labelClass}>Explorer:</div>
+										<div className='text-neutral-600 dark:text-neutral-400 mb-1'>Explorer:</div>
 										<div className='flex items-center justify-between'>
-											<span className={valueClass}>N/A</span>
+											<span className='text-neutral-700 dark:text-neutral-300'>N/A</span>
 										</div>
 									</div>
 								</div>
@@ -274,13 +289,34 @@ export const NetworkTabs = (props) => {
 	return (
 		<div className='network-tabs w-full'>
 			<div className='flex flex-wrap gap-2 mb-6'>
-				<button type='button' onClick={() => selectTab('mainnet')} className={tabButtonClass('mainnet')}>
+				<button
+					type='button'
+					onClick={() => selectTab('mainnet')}
+					onMouseEnter={() => setHoverTab('mainnet')}
+					onMouseLeave={() => setHoverTab(null)}
+					className='sei-network-tab px-3 py-1.5 text-sm transition-colors'
+					data-active={activeTab === 'mainnet'}
+					style={tabButtonStyle('mainnet')}>
 					Sei Mainnet
 				</button>
-				<button type='button' onClick={() => selectTab('testnet')} className={tabButtonClass('testnet')}>
+				<button
+					type='button'
+					onClick={() => selectTab('testnet')}
+					onMouseEnter={() => setHoverTab('testnet')}
+					onMouseLeave={() => setHoverTab(null)}
+					className='sei-network-tab px-3 py-1.5 text-sm transition-colors'
+					data-active={activeTab === 'testnet'}
+					style={tabButtonStyle('testnet')}>
 					Sei Testnet
 				</button>
-				<button type='button' onClick={() => selectTab('localnet')} className={tabButtonClass('localnet')}>
+				<button
+					type='button'
+					onClick={() => selectTab('localnet')}
+					onMouseEnter={() => setHoverTab('localnet')}
+					onMouseLeave={() => setHoverTab(null)}
+					className='sei-network-tab px-3 py-1.5 text-sm transition-colors'
+					data-active={activeTab === 'localnet'}
+					style={tabButtonStyle('localnet')}>
 					Local Environment
 				</button>
 			</div>

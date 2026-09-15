@@ -1,8 +1,8 @@
 export const SequentialNonceQueue = () => {
   const ink = 'currentColor';
-  const ok = '#10b981';
-  const bad = '#ef4444';
-  const warn = '#f59e0b';
+  const ok = 'var(--sei-diagram-ok, #1a7a00)';
+  const bad = 'var(--sei-diagram-error, #c20a00)';
+  const warn = 'var(--sei-diagram-warning, #b45309)';
   const nonces = [
     { n: 5, s: 'landed', c: ok },
     { n: 6, s: 'dropped, never landed', c: bad },
@@ -51,7 +51,7 @@ export const SequentialNonceQueue = () => {
           <text x={440} y={298} fontSize="10.5" textAnchor="middle" fill={ink} fillOpacity="0.6">throughput scales with wallets, and so do fragmented balances, duplicated approvals, and keys that hold funds</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">A transaction that lands and reverts consumes its nonce and blocks nothing. A transaction that never lands leaves a gap, and every later nonce waits behind it. On Sei a pending-nonce read comes from the mempool rather than aliasing latest, and it is too unreliable to rebuild an in-flight queue from. Splitting funds across hot wallets buys width at the cost of custody surface.</div>
+      <div className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">A transaction that lands and reverts consumes its nonce and blocks nothing. A transaction that never lands leaves a gap, and every later nonce waits behind it. On Sei a pending-nonce read comes from the mempool rather than aliasing latest, and it is too unreliable to rebuild an in-flight queue from. Splitting funds across hot wallets buys width at the cost of custody surface.</div>
     </div>
   );
 };
@@ -59,8 +59,8 @@ export const SequentialNonceQueue = () => {
 export const NonceLanes = () => {
   const ink = 'currentColor';
   const accent = 'var(--sei-maroon-50)';
-  const ok = '#10b981';
-  const bad = '#ef4444';
+  const ok = 'var(--sei-diagram-ok, #1a7a00)';
+  const bad = 'var(--sei-diagram-error, #c20a00)';
   const chip = (x, y, label, state, key) => {
     const c = state === 'ok' ? ok : state === 'bad' ? bad : ink;
     return (
@@ -125,7 +125,7 @@ export const NonceLanes = () => {
           <text x={210} y={328} fontSize="9.5" fill={accent} fontWeight="600">strictly ordered within a lane, left to right</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">EntryPoint v0.8 stores a UserOperation nonce as a 192-bit key plus a 64-bit sequence and tracks one sequence per key. Operations on different keys never queue behind each other; operations on the same key stay sequential. The repository calls a key a lane and forbids lane 0.</div>
+      <div className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">EntryPoint v0.8 stores a UserOperation nonce as a 192-bit key plus a 64-bit sequence and tracks one sequence per key. Operations on different keys never queue behind each other; operations on the same key stay sequential. The repository calls a key a lane and forbids lane 0.</div>
     </div>
   );
 };
@@ -133,7 +133,7 @@ export const NonceLanes = () => {
 export const NonceLaneDelegation = () => {
   const ink = 'currentColor';
   const accent = 'var(--sei-maroon-50)';
-  const gold = 'var(--sei-gold-25)';
+  const gold = 'var(--sei-diagram-gold, var(--sei-gold-100))';
   const box = { fill: ink, fillOpacity: 0.05, stroke: ink, strokeOpacity: 0.35, strokeWidth: 1 };
   return (
     <div className="not-prose w-full my-5">
@@ -182,7 +182,7 @@ export const NonceLaneDelegation = () => {
           <text x={340} y={328} fontSize="10" fill={ink} fillOpacity="0.8">tx.origin = the gas-paying relayer</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">One type-4 transaction writes the designator into the EOA's code slot. The address, balances, and approvals do not move. When the EntryPoint calls the account, the EVM runs LaneAccount's code in the EOA's context, so the venue sees the funded address as msg.sender.</div>
+      <div className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">One type-4 transaction writes the designator into the EOA's code slot. The address, balances, and approvals do not move. When the EntryPoint calls the account, the EVM runs LaneAccount's code in the EOA's context, so the venue sees the funded address as msg.sender.</div>
     </div>
   );
 };
@@ -190,7 +190,7 @@ export const NonceLaneDelegation = () => {
 export const NonceLanePipeline = () => {
   const ink = 'currentColor';
   const accent = 'var(--sei-maroon-50)';
-  const gold = 'var(--sei-gold-25)';
+  const gold = 'var(--sei-diagram-gold, var(--sei-gold-100))';
   const box = { fill: ink, fillOpacity: 0.05, stroke: ink, strokeOpacity: 0.35, strokeWidth: 1 };
   const relayers = ['relayer 0', 'relayer 1', 'relayer 2', 'relayer N'];
   return (
@@ -248,7 +248,7 @@ export const NonceLanePipeline = () => {
           <text x={785} y={299} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.7">msg.sender is the funded EOA</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">UserOperations are not transactions. Gas-only relayers wrap each bundle in an EntryPoint.handleOps transaction and pay for it. Each relayer still has one sequential EVM nonce, but a relayer key can only lose its own gas: it cannot create a valid operation without the funded account's signature.</div>
+      <div className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">UserOperations are not transactions. Gas-only relayers wrap each bundle in an EntryPoint.handleOps transaction and pay for it. Each relayer still has one sequential EVM nonce, but a relayer key can only lose its own gas: it cannot create a valid operation without the funded account's signature.</div>
     </div>
   );
 };
@@ -256,9 +256,9 @@ export const NonceLanePipeline = () => {
 export const NonceLaneBundleLifecycle = () => {
   const ink = 'currentColor';
   const accent = 'var(--sei-maroon-50)';
-  const ok = '#10b981';
-  const warn = '#f59e0b';
-  const bad = '#ef4444';
+  const ok = 'var(--sei-diagram-ok, #1a7a00)';
+  const warn = 'var(--sei-diagram-warning, #b45309)';
+  const bad = 'var(--sei-diagram-error, #c20a00)';
   const steps = [
     { t: 'take bundle', s: 'from the queue' },
     { t: 'simulate', s: 'eth_estimateGas' },
@@ -315,16 +315,16 @@ export const NonceLaneBundleLifecycle = () => {
           <text x={450} y={282} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.6">on restart, the last exact raw transaction is rebroadcast first, then reconciled against lane sequences and the relayer's confirmed nonce</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Write-ahead ordering is deliberate: the signed outer transaction is journaled before it reaches the network, so a crash between signing and broadcast cannot lose or duplicate work. Replacement always reuses the relayer nonce, which is why a stuck bundle cannot create a nonce gap.</div>
+      <div className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">Write-ahead ordering is deliberate: the signed outer transaction is journaled before it reaches the network, so a crash between signing and broadcast cannot lose or duplicate work. Replacement always reuses the relayer nonce, which is why a stuck bundle cannot create a nonce gap.</div>
     </div>
   );
 };
 
 export const NonceLaneFailureIsolation = () => {
   const ink = 'currentColor';
-  const ok = '#10b981';
-  const bad = '#ef4444';
-  const warn = '#f59e0b';
+  const ok = 'var(--sei-diagram-ok, #1a7a00)';
+  const bad = 'var(--sei-diagram-error, #c20a00)';
+  const warn = 'var(--sei-diagram-warning, #b45309)';
   const lane = (x, y, label, sub, c, dashed, key) => (
     <g key={key}>
       <rect x={x} y={y} width={86} height={62} rx={7} fill={c} fillOpacity={dashed ? 0.04 : 0.14} stroke={c} strokeOpacity={dashed ? 0.6 : 0.95} strokeWidth="1.2" strokeDasharray={dashed ? '4 3' : undefined} />
@@ -367,7 +367,7 @@ export const NonceLaneFailureIsolation = () => {
           <text x={48} y={293} fontSize="10" fill={ink} fillOpacity="0.8">leaves its lane sequence untouched; neighboring lanes stay valid and the journal requeues it</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">The three failures have different blast radii. An execution revert costs one lane sequence and nothing else. A validation failure costs the outer transaction attempt but no sequences. A dropped bundle costs nothing on chain, which is exactly the case that strands a sequential account.</div>
+      <div className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">The three failures have different blast radii. An execution revert costs one lane sequence and nothing else. A validation failure costs the outer transaction attempt but no sequences. A dropped bundle costs nothing on chain, which is exactly the case that strands a sequential account.</div>
     </div>
   );
 };

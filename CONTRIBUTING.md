@@ -30,3 +30,9 @@ See the [README](README.md) for more details on local setup.
 - **Lead with the goal**: Start instructions with what the user wants to accomplish
 - **Use consistent terminology**: Don't alternate between synonyms for the same concept
 - **Include examples**: Show, don't just tell
+
+## JSX snippet styling
+
+Mintlify only generates Tailwind utilities that appear as literal class lists in `className="..."` attributes within `snippets/*.jsx`. Do not keep utility lists in variables or assemble `className` dynamically. Use explicit JSX branches, inline styles, or a semantic hook in `style.css` for conditional styles.
+
+Run `node scripts/check-snippet-classnames.mjs` before opening a pull request.
