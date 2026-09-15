@@ -378,6 +378,8 @@ export const NonceLaneFailureIsolation = () => {
 // the block-timestamp span (whole seconds on Sei); client-side rates divide by
 // wall time from first broadcast to last receipt. Block gas limit 12,500,000,
 // about 331,000 gas per operation, so the ceiling is roughly 73 per second.
+// Keep each series in sync with the benchmark table and Tuning prose in
+// evm/nonce-lanes.mdx.
 
 export const NonceLaneThroughputComparison = () => {
   const ink = 'currentColor';
@@ -418,8 +420,8 @@ export const NonceLaneThroughputComparison = () => {
           <text x={x0 + 40 * scale} y={plotBottom + 30} fontSize="10" textAnchor="middle" fill={ink} fillOpacity="0.7">landed operations per second</text>
 
           <line x1={x0 + ceiling * scale} y1={58} x2={x0 + ceiling * scale} y2={plotBottom} stroke={warn} strokeWidth="1.2" strokeDasharray="4 3" />
-          <text x={x0 + ceiling * scale + 5} y={rowTop(0) + 12} fontSize="9.5" fill={warn} fontWeight="600">block-gas ceiling</text>
-          <text x={x0 + ceiling * scale + 5} y={rowTop(0) + 25} fontSize="9.5" fill={warn}>≈ 73 per second</text>
+          <text x={x0 + ceiling * scale + 5} y={rowTop(0) + 12} fontSize="9.5" fill={ink} fontWeight="600">block-gas ceiling</text>
+          <text x={x0 + ceiling * scale + 5} y={rowTop(0) + 25} fontSize="9.5" fill={ink}>≈ 73 per second</text>
 
           {rows.map((r, i) => {
             const y = rowTop(i);
@@ -435,7 +437,7 @@ export const NonceLaneThroughputComparison = () => {
           })}
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">One measurement session on Sei testnet, every strategy calling the same MockPerpVenue.place at about 330,000 gas per call. Block gas, not the nonce model, sets the ceiling: lanes came within 12 percent of it from one address whose EVM nonce never moved, while the single sequential queue got there only by sending every transaction in one JSON-RPC batch. Short runs read high on the chain-side scale because Sei stamps blocks in whole seconds.</div>
+      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">One measurement session on Sei testnet, every strategy calling the same MockPerpVenue.place at about 330,000 gas per call. Block gas, not the nonce model, sets the ceiling: lanes came within 12 percent of it from one address whose EVM nonce never moved, while the single sequential queue matched the hot-wallet fleet only when every transaction left in one JSON-RPC batch. Short runs read high on the chain-side scale because Sei stamps blocks in whole seconds.</div>
     </div>
   );
 };
@@ -474,7 +476,7 @@ export const NonceLaneBlockGasUtilization = () => {
             </g>
           ))}
           <line x1={x0 + 90 * scale} y1={58} x2={x0 + 90 * scale} y2={plotBottom} stroke={warn} strokeWidth="1.2" strokeDasharray="4 3" />
-          <text x={x0 + 90 * scale} y={plotBottom + 28} fontSize="9.5" textAnchor="middle" fill={warn} fontWeight="600">90%: the chain, not the client, is the limit</text>
+          <text x={x0 + 90 * scale} y={plotBottom + 28} fontSize="9.5" textAnchor="middle" fill={ink} fontWeight="600">90%: the chain, not the client, is the limit</text>
 
           {rows.map((r, i) => {
             const y = rowTop(i);
@@ -494,7 +496,7 @@ export const NonceLaneBlockGasUtilization = () => {
           })}
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Read from the chain with the repository's block report over each run's block range. The tutorial shape leaves blocks almost empty, so its rate is the client's, not the chain's. The wide lane runs filled 28 of 31 blocks past 90 percent, which is what a block-gas ceiling looks like; the single sequential queue reached the same fullest block but left 8 of its 40 blocks with nothing from the queue.</div>
+      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Read from the chain with the repository's block report over each run's block range. The tutorial shape leaves blocks almost empty, so its rate is the client's, not the chain's. The lanes run with 16 relayers and 36 operations per bundle filled 28 of 31 blocks past 90 percent. The batch run's fullest block came within one percentage point of it, 97.2 percent compared with 98.1 percent, but averaged 68.1 percent compared with 88.4 percent for lanes.</div>
     </div>
   );
 };
@@ -546,7 +548,7 @@ export const NonceLaneScalingSeries = () => {
                   </g>
                 ))}
                 <line x1={left + 22} y1={yFor(ceiling)} x2={right} y2={yFor(ceiling)} stroke={warn} strokeWidth="1.2" strokeDasharray="4 3" />
-                <text x={right} y={yFor(ceiling) - 5} fontSize="9" textAnchor="end" fill={warn} fontWeight="600">block-gas ceiling ≈ 73</text>
+                <text x={right} y={yFor(ceiling) - 5} fontSize="9" textAnchor="end" fill={ink} fontWeight="600">block-gas ceiling ≈ 73</text>
                 <polyline points={points(p, p.client)} fill="none" stroke={ink} strokeOpacity="0.45" strokeWidth="1.4" strokeDasharray="5 3" />
                 <polyline points={points(p, p.chain)} fill="none" stroke={accent} strokeWidth="1.8" />
                 {p.cats.map((c, i) => {
@@ -575,7 +577,7 @@ export const NonceLaneScalingSeries = () => {
           <text x={458} y={305.5} fontSize="9.5" fill={ink} fillOpacity="0.8">client-side</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Categories are evenly spaced, not to scale. Both series climb almost linearly while the pool is the bottleneck, because each relayer's bundle cycle is about 1.5 seconds of sequential RPC round trips plus inclusion, and flatten as the in-flight work approaches what a 12,500,000-gas block can hold. Runs used 32 to 1,024 operations, so the shorter ones read higher on the chain-side scale than they would sustain.</div>
+      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Categories are evenly spaced, not to scale. Both series climb almost linearly while the pool is the bottleneck, because each relayer's bundle cycle is about 1.5 seconds of sequential RPC round trips plus inclusion, and flatten as the in-flight work approaches what a 12,500,000-gas block can hold. Runs used 32 to 1,024 operations, so the shorter ones read higher on the chain-side scale than they would sustain. The sweep point with 4 relayers and a bundle width of 4 used 32 operations. The tutorial comparison used 24, so their rates differ despite the same bundle shape.</div>
     </div>
   );
 };
