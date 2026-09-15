@@ -59,3 +59,18 @@ exclude = [
 
 # Don't check mailto: links (this is the default; set explicitly for clarity).
 include_mail = false
+
+# Per-host throttling. NOTE: TOML table headers capture every key that follows
+# them, so keep all top-level options above this line.
+#
+# github.com is by far the most-linked host (roughly a fifth of all unique
+# URLs). Hitting it with lychee's default per-host settings (10 requests in
+# flight, 50 ms apart) trips GitHub's abuse detection, which answers 503/429
+# for pages that are perfectly fine. That produced the false positives in
+# https://github.com/sei-protocol/sei-docs/issues/77. lychee does not retry a
+# 503, and the GITHUB_TOKEN API fallback can only validate bare owner/repo URLs
+# (not blob/tree paths), so the fix is to slow down instead. Measured cost:
+# ~80 GitHub requests at one per second adds about 40 seconds to the weekly run.
+[hosts."github.com"]
+concurrency = 2
+request_interval = "1s"
