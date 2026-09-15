@@ -543,7 +543,9 @@ sei-tendermint
   const [dynamicVersions, setDynamicVersions] = useState([]);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [isDark, setIsDark] = useState(false);
+  const [isDark, setIsDark] = useState(() =>
+    typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+  );
 
   useEffect(() => {
     const el = document.documentElement;
@@ -793,8 +795,8 @@ sei-tendermint
           {sectionComponents.map((comp, i) => (
             <div key={i}>
               <div className="flex items-center gap-2 mb-3">
-                <div className="flex items-center gap-2 bg-gray-100 px-3 py-1.5">
-                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: 'var(--sei-maroon-100)' }}></div>
+                <div className="flex items-center gap-2 bg-gray-100 dark:bg-neutral-800 px-3 py-1.5">
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: isDark ? 'var(--sei-maroon-25)' : 'var(--sei-maroon-100)' }}></div>
                   <span className="font-medium text-gray-700 dark:text-white text-sm">{comp.name}</span>
                 </div>
               </div>
@@ -853,9 +855,9 @@ sei-tendermint
           {components.map((comp, i) => (
             <div key={i}>
               <div className="flex items-center gap-2 mb-3">
-                <div className="flex items-center gap-2 bg-slate-100 px-3 py-1.5">
-                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: 'var(--sei-maroon-100)' }}></div>
-                  <span className="font-medium text-slate-700 text-sm">{comp.name}</span>
+                <div className="flex items-center gap-2 bg-slate-100 dark:bg-neutral-800 px-3 py-1.5">
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: isDark ? 'var(--sei-maroon-25)' : 'var(--sei-maroon-100)' }}></div>
+                  <span className="font-medium text-slate-700 dark:text-white text-sm">{comp.name}</span>
                 </div>
               </div>
               <div className="space-y-2">
@@ -918,7 +920,7 @@ sei-tendermint
             <div key={version.version} className="mb-8">
               <div className="flex items-center gap-3 mb-4">
                 <h2 className="text-xl font-bold text-gray-900 dark:text-white m-0">{version.version}</h2>
-                <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">Release</span>
+                <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-neutral-800 px-2 py-1 rounded-full">Release</span>
               </div>
               <div className="space-y-4">{renderContent(version.body)}</div>
             </div>
@@ -959,7 +961,7 @@ sei-tendermint
           View on GitHub
         </a>
         {loading && (
-          <span className="inline-flex items-center text-xs text-neutral-500 dark:text-neutral-400">
+          <span className="inline-flex items-center text-xs text-neutral-600 dark:text-neutral-400">
             <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-r-transparent mr-2" />
             Checking for the latest releases…
           </span>
@@ -971,7 +973,7 @@ sei-tendermint
           <div key={version.version} className="mb-8">
             <div className="flex items-center gap-3 mb-4">
               <h2 className="text-xl font-bold text-gray-900 dark:text-white m-0">{version.version}</h2>
-              <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">Release</span>
+              <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-neutral-800 px-2 py-1 rounded-full">Release</span>
             </div>
             <div className="space-y-4">{renderContent(version.body)}</div>
           </div>

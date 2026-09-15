@@ -29,7 +29,7 @@ const NAMESPACE_META = {
   txpool: { label: 'txpool', color: '#3b82f6', blurb: 'Transaction-pool inspection.' },
   net: { label: 'net', color: '#0d9488', blurb: 'Network metadata.' },
   web3: { label: 'web3', color: '#7c3aed', blurb: 'Client metadata.' },
-  sei: { label: 'sei', color: '#600014', blurb: 'Remaining legacy Sei extensions for address resolution, cross-VM lookup, and synthetic receipts.', deprecated: true },
+  sei: { label: 'sei', color: '#600014', colorDark: '#b99ba1', blurb: 'Remaining legacy Sei extensions for address resolution, cross-VM lookup, and synthetic receipts.', deprecated: true },
   admin: { label: 'admin', color: '#6b7280', blurb: 'Node administration — not exposed on Sei.', unavailable: true },
   miner: { label: 'miner', color: '#6b7280', blurb: 'Mining control — not applicable (no proof-of-work).', unavailable: true },
   clique: { label: 'clique', color: '#6b7280', blurb: 'Clique proof-of-authority — not applicable (CometBFT consensus).', unavailable: true },
@@ -206,7 +206,9 @@ const deriveWsEndpoint = (httpUrl) => {
 const isWsOnly = (name) => name === 'eth_subscribe' || name === 'eth_unsubscribe';
 const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_sendTransaction' || name === 'eth_signTransaction' || name === 'eth_sign' || name.startsWith('personal_');
 
-  const [theme, setTheme] = useState('dark');
+  const [theme, setTheme] = useState(() =>
+    (typeof document !== 'undefined' && document.documentElement.classList.contains('dark')) ? 'dark' : 'light'
+  );
   const [isMobile, setIsMobile] = useState(false);
   const [mobileView, setMobileView] = useState('list');
   const rootRef = useRef(null);
@@ -719,7 +721,9 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
     border: isDark ? '#1f1f1f' : '#ececee',
     text: isDark ? '#ffffff' : '#131313',
     sub: isDark ? '#9ca3af' : '#666666',
-    faint: isDark ? '#6b7280' : '#999999',
+    // #999 on the white panel is 2.85:1 and #6b7280 on #0a0a0a is 4.1:1 (method
+    // descriptions are 11.5px). These pass 4.5:1 in both themes.
+    faint: isDark ? '#8b919c' : '#707070',
     input: isDark ? '#161616' : '#ffffff',
     code: isDark ? '#0d0d0d' : '#1a1a1a',
     maroon: '#600014',
@@ -823,11 +827,12 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
               {visibleNamespaces.map((ns) => {
                 const active = selectedNamespace === ns;
                 const col = NAMESPACE_META[ns].color;
+                const colFg = isDark && NAMESPACE_META[ns].colorDark ? NAMESPACE_META[ns].colorDark : col;
                 return (
                   <button
                     key={ns}
                     onClick={() => setSelectedNamespace(ns)}
-                    style={{ fontSize: 11, padding: '3px 9px', borderRadius: 3, cursor: 'pointer', fontWeight: 600, border: `1px solid ${col}`, background: active ? col : 'transparent', color: active ? '#fff' : (isDark ? col : col), opacity: active ? 1 : 0.85 }}
+                    style={{ fontSize: 11, padding: '3px 9px', borderRadius: 3, cursor: 'pointer', fontWeight: 600, border: `1px solid ${active ? col : colFg}`, background: active ? col : 'transparent', color: active ? '#fff' : colFg, opacity: active ? 1 : 0.85 }}
                   >
                     {NAMESPACE_META[ns].label}
                   </button>
@@ -871,7 +876,7 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
                 <button
                   key={mm.name}
                   onClick={() => selectMethod(mm)}
-                  style={{ width: '100%', textAlign: 'left', padding: '9px 13px 9px 12px', cursor: 'pointer', border: 'none', borderLeft: `3px solid ${mm.meta.color}`, borderBottom: bd, background: active ? (isDark ? '#161616' : '#f0eef0') : 'transparent', display: 'block', opacity: mm.status === 'unsupported' ? 0.6 : 1 }}
+                  style={{ width: '100%', textAlign: 'left', padding: '9px 13px 9px 12px', cursor: 'pointer', border: 'none', borderLeft: `3px solid ${isDark && mm.meta.colorDark ? mm.meta.colorDark : mm.meta.color}`, borderBottom: bd, background: active ? (isDark ? '#161616' : '#f0eef0') : 'transparent', display: 'block', opacity: mm.status === 'unsupported' ? 0.6 : 1 }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                     <StatusDot status={mm.status} />

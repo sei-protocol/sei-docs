@@ -235,7 +235,7 @@ export const SipIndex = () => {
 	// what left these cards white on a black page. The other data snippets here
 	// watch the `dark` class on <html> and style inline from the style.css
 	// tokens instead, so this follows the same approach.
-	const [isDark, setIsDark] = useState(false);
+	const [isDark, setIsDark] = useState(() => typeof document !== 'undefined' && document.documentElement.classList.contains('dark'));
 
 	useEffect(() => {
 		const root = document.documentElement;

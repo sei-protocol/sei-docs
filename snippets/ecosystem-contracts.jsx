@@ -592,7 +592,7 @@ export const EcosystemContracts = () => {
 	const addressKey = 'Contract Address';
 
 	// --- Dark mode detection (Mintlify toggles a `dark` class on <html>) ---
-	const [isDark, setIsDark] = useState(false);
+	const [isDark, setIsDark] = useState(() => typeof document !== 'undefined' && document.documentElement.classList.contains('dark'));
 	useEffect(() => {
 		const el = document.documentElement;
 		const update = () => setIsDark(el.classList.contains('dark'));

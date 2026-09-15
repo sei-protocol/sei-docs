@@ -136,10 +136,9 @@ export const RunSnippet = (props) => {
 	const monoStyle = { fontFamily: 'var(--sei-font-mono)' };
 	const codeStyle = { backgroundColor: 'rgba(128, 128, 128, 0.05)', fontFamily: 'var(--sei-font-mono)' };
 
-	const cardClass = 'not-prose w-full rounded-lg border overflow-hidden my-4';
-	const headerClass = 'flex items-center justify-between gap-3 px-4 py-2.5 border-b';
-	const labelClass = 'text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-500';
-	const preClass = 'm-0 px-4 py-3 text-sm overflow-x-auto text-neutral-700 dark:text-neutral-300';
+	// Tailwind classes are written literally in each `className` below: Mintlify
+	// only compiles (and `mint-`-prefixes) classes it finds inside the attribute
+	// itself, so strings kept in variables never get their `dark:` variants.
 
 	const buttonStyle = {
 		backgroundColor: btnHover ? 'var(--sei-maroon-200)' : 'var(--sei-maroon-100)',
@@ -153,13 +152,13 @@ export const RunSnippet = (props) => {
 	};
 
 	return (
-		<div className={cardClass} style={{ borderColor: HAIRLINE }}>
-			<div className={headerClass} style={{ ...surfaceStyle, borderBottomColor: HAIRLINE }}>
+		<div className='not-prose w-full rounded-lg border overflow-hidden my-4' style={{ borderColor: HAIRLINE }}>
+			<div className='flex items-center justify-between gap-3 px-4 py-2.5 border-b' style={{ ...surfaceStyle, borderBottomColor: HAIRLINE }}>
 				<div className='flex flex-col min-w-0'>
 					<span className='text-sm font-medium text-neutral-900 dark:text-white truncate' style={monoStyle}>
 						{title || method}
 					</span>
-					<span className='text-xs text-neutral-500 dark:text-neutral-500'>{networkLabel}</span>
+					<span className='text-xs text-neutral-600 dark:text-neutral-400'>{networkLabel}</span>
 				</div>
 				<button
 					type='button'
@@ -188,16 +187,16 @@ export const RunSnippet = (props) => {
 			) : null}
 
 			<div className='px-4 pt-3 pb-1'>
-				<span className={labelClass}>Request</span>
+				<span className='text-xs uppercase tracking-wide text-neutral-600 dark:text-neutral-400'>Request</span>
 			</div>
-			<pre className={preClass} style={codeStyle}>
+			<pre className='m-0 px-4 py-3 text-sm overflow-x-auto text-neutral-700 dark:text-neutral-300' style={codeStyle}>
 				{requestJson}
 			</pre>
 
 			{phase === 'success' ? (
 				<div className='border-t' style={{ borderTopColor: HAIRLINE }}>
 					<div className='flex items-center justify-between px-4 pt-3 pb-1'>
-						<span className={labelClass}>Response{elapsed != null ? ` · ${elapsed} ms` : ''}</span>
+						<span className='text-xs uppercase tracking-wide text-neutral-600 dark:text-neutral-400'>Response{elapsed != null ? ` · ${elapsed} ms` : ''}</span>
 						<button
 							type='button'
 							onClick={copyResult}
@@ -205,11 +204,11 @@ export const RunSnippet = (props) => {
 							{copied ? 'Copied' : 'Copy'}
 						</button>
 					</div>
-					<pre className={preClass} style={codeStyle}>
+					<pre className='m-0 px-4 py-3 text-sm overflow-x-auto text-neutral-700 dark:text-neutral-300' style={codeStyle}>
 						{resultString}
 					</pre>
 					{decoded ? (
-						<div className='px-4 pb-3 text-xs text-neutral-500 dark:text-neutral-500' style={monoStyle}>
+						<div className='px-4 pb-3 text-xs text-neutral-600 dark:text-neutral-400' style={monoStyle}>
 							= {decoded} (decimal)
 						</div>
 					) : null}
@@ -219,9 +218,9 @@ export const RunSnippet = (props) => {
 			{phase === 'error' ? (
 				<div className='border-t' style={{ borderTopColor: HAIRLINE }}>
 					<div className='px-4 pt-3 pb-1'>
-						<span className={labelClass}>Error</span>
+						<span className='text-xs uppercase tracking-wide text-neutral-600 dark:text-neutral-400'>Error</span>
 					</div>
-					<pre className={`${preClass} text-red-600 dark:text-red-400`} style={codeStyle}>
+					<pre className='m-0 px-4 py-3 text-sm overflow-x-auto text-red-600 dark:text-red-400' style={codeStyle}>
 						{errorMsg}
 					</pre>
 				</div>

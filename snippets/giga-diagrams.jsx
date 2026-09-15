@@ -67,7 +67,7 @@ export const GigaProposerComparison = () => {
           <text x={655} y={278} fontSize="10.5" fill={ink} fillOpacity="0.6" textAnchor="middle">designed to use aggregate validator bandwidth</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">One leader per height versus every validator proposing concurrently. In Giga, consensus will commit a cut of all lane tips, so a single decision will finalize many blocks of data.</div>
+      <div className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">One leader per height versus every validator proposing concurrently. In Giga, consensus will commit a cut of all lane tips, so a single decision will finalize many blocks of data.</div>
     </div>
   );
 };
@@ -75,7 +75,7 @@ export const GigaProposerComparison = () => {
 export const GigaAsyncPipeline = () => {
   const ink = 'currentColor';
   const accent = 'var(--sei-maroon-50)';
-  const gold = 'var(--sei-gold-25)';
+  const gold = 'light-dark(var(--sei-gold-100), var(--sei-gold-25))';
   const rows = [
     { y: 62, label: 'Ordering' },
     { y: 116, label: 'Execution' },
@@ -122,7 +122,7 @@ export const GigaAsyncPipeline = () => {
           <text x={126} y={243} fontSize="9.5" fill={ink} fillOpacity="0.55">time</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Consensus will keep ordering new blocks while earlier blocks execute and their divergence digests are attested. Ordering finality will be the fast signal; state attestation will follow a bounded number of blocks later.</div>
+      <div className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">Consensus will keep ordering new blocks while earlier blocks execute and their divergence digests are attested. Ordering finality will be the fast signal; state attestation will follow a bounded number of blocks later.</div>
     </div>
   );
 };
@@ -130,7 +130,7 @@ export const GigaAsyncPipeline = () => {
 export const GigaTxJourney = () => {
   const ink = 'currentColor';
   const accent = 'var(--sei-maroon-50)';
-  const gold = 'var(--sei-gold-25)';
+  const gold = 'light-dark(var(--sei-gold-100), var(--sei-gold-25))';
   const steps = [
     { t: 'submit', s: 'to any RPC node' },
     { t: 'lane', s: 'validator includes it' },
@@ -167,15 +167,15 @@ export const GigaTxJourney = () => {
           <line x1={826} y1={46} x2={826} y2={62} stroke={gold} strokeWidth="1.6" strokeDasharray="3 3" />
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">The initial Autobahn transaction flow before Sedna. An RPC node routes the complete signed transaction to a lane, consensus fixes its order, execution produces the receipt, and attestation follows.</div>
+      <div className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">The initial Autobahn transaction flow before Sedna. An RPC node routes the complete signed transaction to a lane, consensus fixes its order, execution produces the receipt, and attestation follows.</div>
     </div>
   );
 };
 
 export const GigaRoadmapTrack = () => {
   const ink = 'currentColor';
-  const done = '#10b981';
-  const prog = '#f59e0b';
+  const done = 'light-dark(#1a7a00, #10b981)';
+  const prog = 'light-dark(#b45309, #f59e0b)';
   const items = [
     { l: 'WP v1', s: 'done' },
     { l: 'Devnet', s: 'done' },
@@ -218,7 +218,7 @@ export const GigaRoadmapTrack = () => {
           <text x={551} y={148.5} fontSize="10" fill={ink} fillOpacity="0.7">coming soon</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">The eleven roadmap milestones from giga.seilabs.io. Ares is the default execution path on upgraded v6.6 nodes, Eidos migration remains phased, and the Autobahn testnet is next.</div>
+      <div className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">The eleven roadmap milestones from giga.seilabs.io. Ares is the default execution path on upgraded v6.6 nodes, Eidos migration remains phased, and the Autobahn testnet is next.</div>
     </div>
   );
 };
@@ -277,7 +277,7 @@ export const GigaLanesAndCuts = () => {
           <text x={684} y={239} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.7">off the critical path</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Each validator will chain batches into its own lane. The whitepaper uses f + 1 replica votes for availability; the implementation applies stake-weighted thresholds.</div>
+      <div className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">Each validator will chain batches into its own lane. The whitepaper uses f + 1 replica votes for availability; the implementation applies stake-weighted thresholds.</div>
     </div>
   );
 };
@@ -318,7 +318,7 @@ export const GigaSlotPipeline = () => {
           <text x={630} y={208} fontSize="10.5" textAnchor="middle" fill={ink} fillOpacity="0.8">steady state: one cut per 1.5 round trips</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Slots will overlap: replicas will begin slot s+1 as soon as they see the Prepare message for slot s, targeting an effective steady-state cadence of one committed cut per 1.5 network round trips. This is not per-transaction latency.</div>
+      <div className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">Slots will overlap: replicas will begin slot s+1 as soon as they see the Prepare message for slot s, targeting an effective steady-state cadence of one committed cut per 1.5 network round trips. This is not per-transaction latency.</div>
     </div>
   );
 };
@@ -326,7 +326,7 @@ export const GigaSlotPipeline = () => {
 export const GigaAttestationFlow = () => {
   const ink = 'currentColor';
   const accent = 'var(--sei-maroon-50)';
-  const gold = 'var(--sei-gold-25)';
+  const gold = 'light-dark(var(--sei-gold-100), var(--sei-gold-25))';
   const blocks = ['n-1', 'n', 'n+1', 'n+2', 'n+x'];
   return (
     <div className="not-prose w-full my-5">
@@ -375,7 +375,7 @@ export const GigaAttestationFlow = () => {
           <text x={460} y={247} fontSize="10" textAnchor="middle" fill={ink} fillOpacity="0.75">divergence under 1/3 of voting power can be isolated; over 1/3 is designed to halt the chain</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Execution results will be committed as a lattice-hash digest rather than a state root, and validators will attest to that digest a bounded number of blocks later.</div>
+      <div className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">Execution results will be committed as a lattice-hash digest rather than a state root, and validators will attest to that digest a bounded number of blocks later.</div>
     </div>
   );
 };
@@ -425,7 +425,7 @@ export const GigaOccDiagram = () => {
           <text x={126} y={244} fontSize="9.5" fill={ink} fillOpacity="0.6">only conflicting transactions re-run; after 10 retries the implementation falls back to sequential execution</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">All transactions in a block will start in parallel with private write buffers. Validation will re-execute only those whose reads collided with an earlier transaction's writes.</div>
+      <div className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">All transactions in a block will start in parallel with private write buffers. Validation will re-execute only those whose reads collided with an earlier transaction's writes.</div>
     </div>
   );
 };
@@ -433,7 +433,7 @@ export const GigaOccDiagram = () => {
 export const GigaStorageArchitecture = () => {
   const ink = 'currentColor';
   const accent = 'var(--sei-maroon-50)';
-  const gold = 'var(--sei-gold-25)';
+  const gold = 'light-dark(var(--sei-gold-100), var(--sei-gold-25))';
   return (
     <div className="not-prose w-full my-5">
       <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/40 p-4 text-neutral-800 dark:text-neutral-200">
@@ -477,7 +477,7 @@ export const GigaStorageArchitecture = () => {
           <text x={690} y={276} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.75">bisect, replay one range</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">In the proposed architecture, the write path avoids Merkle-tree updates. State lives in a RAM-first flat store with an append-only WAL, while commitments come from a homomorphic lattice hash over each block's write log.</div>
+      <div className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">In the proposed architecture, the write path avoids Merkle-tree updates. State lives in a RAM-first flat store with an append-only WAL, while commitments come from a homomorphic lattice hash over each block's write log.</div>
     </div>
   );
 };
@@ -485,7 +485,7 @@ export const GigaStorageArchitecture = () => {
 export const GigaBudWindow = () => {
   const ink = 'currentColor';
   const accent = 'var(--sei-maroon-50)';
-  const gold = 'var(--sei-gold-25)';
+  const gold = 'light-dark(var(--sei-gold-100), var(--sei-gold-25))';
   const leaves = ['(key a, value, n, prev)', '(key b, value, n, prev)', '(key c, value, n, prev)'];
   return (
     <div className="not-prose w-full my-5">
@@ -529,7 +529,7 @@ export const GigaBudWindow = () => {
           <text x={520} y={232} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.6">touch transactions refresh a stale key's anchor; deletions leave tombstones for exclusion proofs</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Every block will get a Merkle root over just its own updates. SuperBUDs will aggregate those roots over exponentially sized windows so provers can cover long ranges with a handful of digests.</div>
+      <div className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">Every block will get a Merkle root over just its own updates. SuperBUDs will aggregate those roots over exponentially sized windows so provers can cover long ranges with a handful of digests.</div>
     </div>
   );
 };
@@ -598,7 +598,7 @@ export const GigaMergeRule = () => {
           <text x={741} y={276} fontSize="9" textAnchor="middle" fill={ink} fillOpacity="0.6">dropped copy gets a partial tip refund</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">The merged order will be a pure function of finalized lane contents: lanes will sort by their highest included tip, order inside each lane will not change, and the first occurrence of a hash will win.</div>
+      <div className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">The merged order will be a pure function of finalized lane contents: lanes will sort by their highest included tip, order inside each lane will not change, and the first occurrence of a hash will win.</div>
     </div>
   );
 };
@@ -606,7 +606,7 @@ export const GigaMergeRule = () => {
 export const GigaFinalitySignals = () => {
   const ink = 'currentColor';
   const accent = 'var(--sei-maroon-50)';
-  const gold = 'var(--sei-gold-25)';
+  const gold = 'light-dark(var(--sei-gold-100), var(--sei-gold-25))';
   return (
     <div className="not-prose w-full my-5">
       <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/40 p-4 text-neutral-800 dark:text-neutral-200">
@@ -641,7 +641,7 @@ export const GigaFinalitySignals = () => {
           <text x={393} y={216} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.6">ordering fixes position; execution yields the result; attestation adds a signed quorum confirmation</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Ordering finality fixes position but has no receipt yet. After execution, applications may use the receipt according to their risk policy; high-value and cross-chain flows should wait for the attested digest.</div>
+      <div className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">Ordering finality fixes position but has no receipt yet. After execution, applications may use the receipt according to their risk policy; high-value and cross-chain flows should wait for the attested digest.</div>
     </div>
   );
 };
@@ -691,7 +691,7 @@ export const GigaParallelismContrast = () => {
           <text x={648} y={238} fontSize="10" fill={ink} fillOpacity="0.65" textAnchor="middle">conflicting write sets: parallelism lost for the block</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">The same four transfers, two storage layouts. Per-user slots let Block-STM commit everything in one pass; a shared counter forces retries until the transactions run one by one.</div>
+      <div className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">The same four transfers, two storage layouts. Per-user slots let Block-STM commit everything in one pass; a shared counter forces retries until the transactions run one by one.</div>
     </div>
   );
 };
@@ -699,7 +699,7 @@ export const GigaParallelismContrast = () => {
 export const GigaFeeSplit = () => {
   const ink = 'currentColor';
   const accent = 'var(--sei-maroon-50)';
-  const gold = 'var(--sei-gold-25)';
+  const gold = 'light-dark(var(--sei-gold-100), var(--sei-gold-25))';
   const parts = [
     { x: 60, w: 300, label: 'execution fee', sub: '1559-style base fee', to: 'pays for gas actually consumed', c: null },
     { x: 360, w: 240, label: 'ordering fee (tip)', sub: 'buys a position in the order', to: 'socialised: epoch pool, stake x liveness', c: 'accent' },
@@ -726,7 +726,7 @@ export const GigaFeeSplit = () => {
           <text x={430} y={166} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.6">the protocol pools tips and does not pay the carrying proposer directly</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Execution, ordering, and duplicate distribution will be priced separately. The tip will be strictly enforced for ordering and then socialised across the validator set.</div>
+      <div className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">Execution, ordering, and duplicate distribution will be priced separately. The tip will be strictly enforced for ordering and then socialised across the validator set.</div>
     </div>
   );
 };

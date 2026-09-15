@@ -24,7 +24,7 @@
 //   // Tier 2 — CodeSandbox (browser-bundled template; verify it runs anonymously)
 //   <SandboxEmbed
 //     kind="codesandbox"
-//     src="https://codesandbox.io/embed/<id>?view=split&hidenavigation=1&theme=dark"
+//     src="https://codesandbox.io/embed/<id>?view=split&hidenavigation=1"
 //     title="viem · read Sei testnet"
 //     description="Edit and re-run this viem example against Sei testnet."
 //   />
@@ -59,14 +59,38 @@ export const SandboxEmbed = (props) => {
 	// --- state ---
 	const [loaded, setLoaded] = useState(false);
 	const [btnHover, setBtnHover] = useState(false);
+	const [isDark, setIsDark] = useState(
+		() => typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+	);
+
+	useEffect(() => {
+		const el = document.documentElement;
+		const update = () => setIsDark(el.classList.contains('dark'));
+		update();
+		const obs = new MutationObserver(update);
+		obs.observe(el, { attributes: true, attributeFilter: ['class'] });
+		return () => obs.disconnect();
+	}, []);
+
+	// Rewrite `theme=` so CodeSandbox/Remix follow the docs light/dark toggle.
+	// Hash fragments (Remix `code=`) are left intact.
+	const themedSrc = (() => {
+		if (!src) return src;
+		const theme = isDark ? 'dark' : 'light';
+		const replaced = src.replace(/([?&#])theme=(dark|light)/gi, `$1theme=${theme}`);
+		if (/[?&#]theme=/i.test(replaced)) return replaced;
+		const hashIdx = replaced.indexOf('#');
+		const before = hashIdx === -1 ? replaced : replaced.slice(0, hashIdx);
+		const hash = hashIdx === -1 ? '' : replaced.slice(hashIdx);
+		const join = before.includes('?') ? (before.endsWith('?') || before.endsWith('&') ? '' : '&') : '?';
+		return `${before}${join}theme=${theme}${hash}`;
+	})();
 
 	// --- theme-agnostic surfaces (see theming note above) ---
 	const HAIRLINE = 'rgba(128, 128, 128, 0.25)';
 	const surfaceStyle = { backgroundColor: 'rgba(128, 128, 128, 0.08)' };
 	const monoStyle = { fontFamily: 'var(--sei-font-mono)' };
 
-	const cardClass = 'not-prose w-full rounded-lg border overflow-hidden my-4';
-	const headerClass = 'flex items-center justify-between gap-3 px-4 py-2.5 border-b';
 	const buttonStyle = {
 		backgroundColor: btnHover ? 'var(--sei-maroon-200)' : 'var(--sei-maroon-100)',
 		color: '#ffffff',
@@ -93,25 +117,25 @@ export const SandboxEmbed = (props) => {
 	);
 
 	return (
-		<div className={cardClass} style={{ borderColor: HAIRLINE }}>
-			<div className={headerClass} style={{ ...surfaceStyle, borderBottomColor: HAIRLINE }}>
+		<div className='not-prose w-full rounded-lg border overflow-hidden my-4' style={{ borderColor: HAIRLINE }}>
+			<div className='flex items-center justify-between gap-3 px-4 py-2.5 border-b' style={{ ...surfaceStyle, borderBottomColor: HAIRLINE }}>
 				<div className='flex flex-col min-w-0'>
 					<span className='text-sm font-medium text-neutral-900 dark:text-white truncate' style={monoStyle}>
 						{title || meta.name}
 					</span>
-					<span className='text-xs text-neutral-500 dark:text-neutral-500'>{meta.name}</span>
+					<span className='text-xs text-neutral-600 dark:text-neutral-400'>{meta.name}</span>
 				</div>
 				<div className='flex items-center gap-3 shrink-0'>
-					{src ? (
+					{themedSrc ? (
 						<a
-							href={src}
+							href={themedSrc}
 							target='_blank'
 							rel='noopener noreferrer'
 							className='inline-flex items-center gap-1 text-xs text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200 transition-colors'>
 							Open <ExternalIcon />
 						</a>
 					) : null}
-					{!loaded && src ? (
+					{!loaded && themedSrc ? (
 						<button
 							type='button'
 							onClick={() => setLoaded(true)}
@@ -130,13 +154,13 @@ export const SandboxEmbed = (props) => {
 				<div className='px-4 pt-3 pb-1 text-sm text-neutral-600 dark:text-neutral-400'>{description}</div>
 			) : null}
 
-			{!src ? (
+			{!themedSrc ? (
 				<div className='px-4 py-6 text-sm text-red-600 dark:text-red-400' style={monoStyle}>
 					SandboxEmbed: missing required `src`.
 				</div>
 			) : loaded ? (
 				<iframe
-					src={src}
+					src={themedSrc}
 					title={title || meta.name}
 					className='w-full block border-0'
 					style={{ height: frameHeight + 'px', backgroundColor: 'rgba(128, 128, 128, 0.05)' }}
@@ -148,7 +172,7 @@ export const SandboxEmbed = (props) => {
 				<button
 					type='button'
 					onClick={() => setLoaded(true)}
-					className='w-full flex flex-col items-center justify-center gap-2 text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200 transition-colors'
+					className='w-full flex flex-col items-center justify-center gap-2 text-neutral-600 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200 transition-colors'
 					style={{ height: frameHeight + 'px', cursor: 'pointer', ...surfaceStyle }}>
 					<PlayIcon />
 					<span className='text-sm' style={monoStyle}>Click to load {meta.name}</span>

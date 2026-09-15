@@ -80,8 +80,10 @@ export const AddSeiButton = ({ network = 'mainnet', label = 'Add Sei to MetaMask
         {isBusy ? 'Adding…' : label}
       </button>
       {status && (
+        // Template-literal form: Mintlify compiles classes inside `${…}` here but
+        // not in a bare `className={cond ? 'a' : 'b'}` expression.
         <span
-          className={status.type === 'error' ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}
+          className={`${status.type === 'error' ? 'text-red-600 dark:text-red-400' : 'text-green-700 dark:text-green-400'}`}
           style={{ fontSize: '11px' }}>
           {status.message}
         </span>
