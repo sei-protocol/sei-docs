@@ -592,9 +592,8 @@ export const Faucet = () => {
 						disabled={isVerifyDisabled}
 						onMouseEnter={() => setVerifyHover(true)}
 						onMouseLeave={() => setVerifyHover(false)}
-						className={`flex-1 flex items-center justify-center gap-3 px-5 py-5 ${
-							captchaToken ? 'text-green-700 dark:text-green-400' : 'text-neutral-600 dark:text-neutral-400'
-						}`}
+						className='sei-faucet-verify flex-1 flex items-center justify-center gap-3 px-5 py-5'
+						data-verified={Boolean(captchaToken)}
 						style={{
 							...buttonLabelStyle,
 							borderRight: `1px solid ${HAIRLINE}`,

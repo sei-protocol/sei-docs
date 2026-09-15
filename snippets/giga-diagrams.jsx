@@ -75,7 +75,7 @@ export const GigaProposerComparison = () => {
 export const GigaAsyncPipeline = () => {
   const ink = 'currentColor';
   const accent = 'var(--sei-maroon-50)';
-  const gold = 'light-dark(var(--sei-gold-100), var(--sei-gold-25))';
+  const gold = 'var(--sei-diagram-gold, var(--sei-gold-100))';
   const rows = [
     { y: 62, label: 'Ordering' },
     { y: 116, label: 'Execution' },
@@ -130,7 +130,7 @@ export const GigaAsyncPipeline = () => {
 export const GigaTxJourney = () => {
   const ink = 'currentColor';
   const accent = 'var(--sei-maroon-50)';
-  const gold = 'light-dark(var(--sei-gold-100), var(--sei-gold-25))';
+  const gold = 'var(--sei-diagram-gold, var(--sei-gold-100))';
   const steps = [
     { t: 'submit', s: 'to any RPC node' },
     { t: 'lane', s: 'validator includes it' },
@@ -174,8 +174,8 @@ export const GigaTxJourney = () => {
 
 export const GigaRoadmapTrack = () => {
   const ink = 'currentColor';
-  const done = 'light-dark(#1a7a00, #10b981)';
-  const prog = 'light-dark(#b45309, #f59e0b)';
+  const done = 'var(--sei-diagram-ok, #1a7a00)';
+  const prog = 'var(--sei-diagram-warning, #b45309)';
   const items = [
     { l: 'WP v1', s: 'done' },
     { l: 'Devnet', s: 'done' },
@@ -326,7 +326,7 @@ export const GigaSlotPipeline = () => {
 export const GigaAttestationFlow = () => {
   const ink = 'currentColor';
   const accent = 'var(--sei-maroon-50)';
-  const gold = 'light-dark(var(--sei-gold-100), var(--sei-gold-25))';
+  const gold = 'var(--sei-diagram-gold, var(--sei-gold-100))';
   const blocks = ['n-1', 'n', 'n+1', 'n+2', 'n+x'];
   return (
     <div className="not-prose w-full my-5">
@@ -433,7 +433,7 @@ export const GigaOccDiagram = () => {
 export const GigaStorageArchitecture = () => {
   const ink = 'currentColor';
   const accent = 'var(--sei-maroon-50)';
-  const gold = 'light-dark(var(--sei-gold-100), var(--sei-gold-25))';
+  const gold = 'var(--sei-diagram-gold, var(--sei-gold-100))';
   return (
     <div className="not-prose w-full my-5">
       <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/40 p-4 text-neutral-800 dark:text-neutral-200">
@@ -485,7 +485,7 @@ export const GigaStorageArchitecture = () => {
 export const GigaBudWindow = () => {
   const ink = 'currentColor';
   const accent = 'var(--sei-maroon-50)';
-  const gold = 'light-dark(var(--sei-gold-100), var(--sei-gold-25))';
+  const gold = 'var(--sei-diagram-gold, var(--sei-gold-100))';
   const leaves = ['(key a, value, n, prev)', '(key b, value, n, prev)', '(key c, value, n, prev)'];
   return (
     <div className="not-prose w-full my-5">
@@ -606,7 +606,7 @@ export const GigaMergeRule = () => {
 export const GigaFinalitySignals = () => {
   const ink = 'currentColor';
   const accent = 'var(--sei-maroon-50)';
-  const gold = 'light-dark(var(--sei-gold-100), var(--sei-gold-25))';
+  const gold = 'var(--sei-diagram-gold, var(--sei-gold-100))';
   return (
     <div className="not-prose w-full my-5">
       <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/40 p-4 text-neutral-800 dark:text-neutral-200">
@@ -699,7 +699,7 @@ export const GigaParallelismContrast = () => {
 export const GigaFeeSplit = () => {
   const ink = 'currentColor';
   const accent = 'var(--sei-maroon-50)';
-  const gold = 'light-dark(var(--sei-gold-100), var(--sei-gold-25))';
+  const gold = 'var(--sei-diagram-gold, var(--sei-gold-100))';
   const parts = [
     { x: 60, w: 300, label: 'execution fee', sub: '1559-style base fee', to: 'pays for gas actually consumed', c: null },
     { x: 360, w: 240, label: 'ordering fee (tip)', sub: 'buys a position in the order', to: 'socialised: epoch pool, stake x liveness', c: 'accent' },

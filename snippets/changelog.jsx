@@ -543,9 +543,9 @@ sei-tendermint
   const [dynamicVersions, setDynamicVersions] = useState([]);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [isDark, setIsDark] = useState(() =>
-    typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
-  );
+  // Match the configured dark default during SSR and hydration. The effect
+  // applies any saved light preference immediately afterwards.
+  const [isDark, setIsDark] = useState(true);
 
   useEffect(() => {
     const el = document.documentElement;
@@ -637,14 +637,18 @@ sei-tendermint
       return repoMap[compName] || 'sei-protocol/sei-chain';
     };
 
-    const renderLink = (key, href, text, marginClass = 'ml-1') => (
+    const renderLink = (key, href, text, marginSide = 'left') => (
       <a
         key={key}
         href={href}
         target="_blank"
         rel="noopener noreferrer"
-        className={`px-2 py-0.5 text-sm font-medium no-underline ${marginClass}`}
-        style={linkBaseStyle()}
+        className="px-2 py-0.5 text-sm font-medium no-underline"
+        style={{
+          ...linkBaseStyle(),
+          marginLeft: marginSide === 'left' ? '0.25rem' : undefined,
+          marginRight: marginSide === 'right' ? '0.25rem' : undefined
+        }}
         onMouseEnter={(e) => applyLinkHover(e, true)}
         onMouseLeave={(e) => applyLinkHover(e, false)}>
         {text}
@@ -725,7 +729,7 @@ sei-tendermint
                   const inlineComponentMatch = prevParts.match(/\b(sei-chain|sei-tendermint|sei-cosmos|sei-db|sei-wasmd|sei-iavl|sei-ibc-go|tm-db)\s*$/i);
                   const effectiveComponent = inlineComponentMatch ? inlineComponentMatch[1] : componentName;
                   const repoPath = getRepoUrl(effectiveComponent);
-                  return renderLink(`${key}-${j}`, `https://github.com/${repoPath}/pull/${trimmedPart}`, `#${trimmedPart}`, 'mr-1');
+                  return renderLink(`${key}-${j}`, `https://github.com/${repoPath}/pull/${trimmedPart}`, `#${trimmedPart}`, 'right');
                 }
               }
               return <span key={`${key}-${j}`}>{subPart}</span>;

@@ -57,11 +57,11 @@ export const SandboxEmbed = (props) => {
 	const allowAttr = 'clipboard-read; clipboard-write';
 
 	// --- state ---
-	const [loaded, setLoaded] = useState(false);
+	const [frameSrc, setFrameSrc] = useState(null);
 	const [btnHover, setBtnHover] = useState(false);
-	const [isDark, setIsDark] = useState(
-		() => typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
-	);
+	// Keep the server and first client render identical. The docs default to
+	// dark; the effect then syncs any saved light preference after hydration.
+	const [isDark, setIsDark] = useState(true);
 
 	useEffect(() => {
 		const el = document.documentElement;
@@ -72,19 +72,25 @@ export const SandboxEmbed = (props) => {
 		return () => obs.disconnect();
 	}, []);
 
-	// Rewrite `theme=` so CodeSandbox/Remix follow the docs light/dark toggle.
-	// Hash fragments (Remix `code=`) are left intact.
+	// Update only the query string. URL.searchParams replaces theme=auto/system
+	// as well as light/dark and leaves Remix/StackBlitz hash payloads intact.
 	const themedSrc = (() => {
 		if (!src) return src;
-		const theme = isDark ? 'dark' : 'light';
-		const replaced = src.replace(/([?&#])theme=(dark|light)/gi, `$1theme=${theme}`);
-		if (/[?&#]theme=/i.test(replaced)) return replaced;
-		const hashIdx = replaced.indexOf('#');
-		const before = hashIdx === -1 ? replaced : replaced.slice(0, hashIdx);
-		const hash = hashIdx === -1 ? '' : replaced.slice(hashIdx);
-		const join = before.includes('?') ? (before.endsWith('?') || before.endsWith('&') ? '' : '&') : '?';
-		return `${before}${join}theme=${theme}${hash}`;
+		try {
+			const url = new URL(src);
+			url.searchParams.set('theme', isDark ? 'dark' : 'light');
+			return url.toString();
+		} catch {
+			return src;
+		}
 	})();
+
+	// Capture the URL at load time. Theme changes may update the Open link, but
+	// must not navigate a running iframe and wipe edits or compile state.
+	const loadEditor = () => {
+		if (themedSrc) setFrameSrc(themedSrc);
+	};
+	const loaded = frameSrc !== null;
 
 	// --- theme-agnostic surfaces (see theming note above) ---
 	const HAIRLINE = 'rgba(128, 128, 128, 0.25)';
@@ -138,7 +144,7 @@ export const SandboxEmbed = (props) => {
 					{!loaded && themedSrc ? (
 						<button
 							type='button'
-							onClick={() => setLoaded(true)}
+							onClick={loadEditor}
 							onMouseEnter={() => setBtnHover(true)}
 							onMouseLeave={() => setBtnHover(false)}
 							className='inline-flex items-center gap-1.5 px-3 py-1.5 transition-colors'
@@ -160,7 +166,7 @@ export const SandboxEmbed = (props) => {
 				</div>
 			) : loaded ? (
 				<iframe
-					src={themedSrc}
+					src={frameSrc}
 					title={title || meta.name}
 					className='w-full block border-0'
 					style={{ height: frameHeight + 'px', backgroundColor: 'rgba(128, 128, 128, 0.05)' }}
@@ -171,7 +177,7 @@ export const SandboxEmbed = (props) => {
 			) : (
 				<button
 					type='button'
-					onClick={() => setLoaded(true)}
+					onClick={loadEditor}
 					className='w-full flex flex-col items-center justify-center gap-2 text-neutral-600 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200 transition-colors'
 					style={{ height: frameHeight + 'px', cursor: 'pointer', ...surfaceStyle }}>
 					<PlayIcon />

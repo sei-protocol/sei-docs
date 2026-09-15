@@ -27,9 +27,8 @@ export const SstoreGasLive = ({ network = 'mainnet' }) => {
   const [data, setData] = useState(null);
   const [err, setErr] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [isDark, setIsDark] = useState(
-    () => typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
-  );
+  // Keep SSR and hydration deterministic with the configured dark default.
+  const [isDark, setIsDark] = useState(true);
 
   useEffect(() => {
     const el = document.documentElement;

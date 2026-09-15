@@ -112,12 +112,10 @@ export const NetworkTabs = (props) => {
 	};
 
 	// Mintlify only compiles Tailwind classes that appear literally inside a
-	// `className` attribute (it rewrites them to `mint-*`): plain strings and
-	// template literals (including `${cond ? 'a' : 'b'}`) work, but strings
-	// kept in variables or a bare `className={cond ? 'a' : 'b'}` are left raw
-	// and only work when Mintlify's own bundle happens to ship the same class.
-	// Every className below is therefore written out in place. Tab surfaces
-	// use rgba hairlines so they read the same on both page backgrounds.
+	// `className` attribute (it rewrites them to `mint-*`). Keep utility lists
+	// as direct literals; use data attributes plus style.css or inline styles
+	// for conditional state. Tab surfaces use rgba hairlines so they read the
+	// same on both page backgrounds.
 	const [hoverTab, setHoverTab] = useState(null);
 
 	const tabButtonStyle = (tab) => {
@@ -131,13 +129,25 @@ export const NetworkTabs = (props) => {
 	};
 
 	const renderTabContent = (tab, isVisible = true) => {
-		const contentClass = isVisible ? 'tab-content' : 'sr-only';
 		const ariaHidden = !isVisible;
+		const visuallyHiddenStyle = isVisible
+			? undefined
+			: {
+					position: 'absolute',
+					width: '1px',
+					height: '1px',
+					padding: 0,
+					margin: '-1px',
+					overflow: 'hidden',
+					clip: 'rect(0, 0, 0, 0)',
+					whiteSpace: 'nowrap',
+					borderWidth: 0
+			  };
 
 		switch (tab) {
 			case 'mainnet':
 				return (
-					<div key={tab} className={contentClass} aria-hidden={ariaHidden} data-search-content data-tab-value='mainnet'>
+					<div key={tab} className='tab-content' style={visuallyHiddenStyle} aria-hidden={ariaHidden} data-search-content data-tab-value='mainnet'>
 						<div className='w-full'>
 							<div>
 								<div className='flex items-center gap-2 mb-4'>
@@ -181,7 +191,7 @@ export const NetworkTabs = (props) => {
 				);
 			case 'testnet':
 				return (
-					<div key={tab} className={contentClass} aria-hidden={ariaHidden} data-search-content data-tab-value='testnet'>
+					<div key={tab} className='tab-content' style={visuallyHiddenStyle} aria-hidden={ariaHidden} data-search-content data-tab-value='testnet'>
 						<div className='grid grid-cols-1 gap-6 w-full'>
 							<div>
 								<div className='flex items-center gap-2 mb-4'>
@@ -235,7 +245,7 @@ export const NetworkTabs = (props) => {
 				);
 			case 'localnet':
 				return (
-					<div key={tab} className={contentClass} aria-hidden={ariaHidden} data-search-content data-tab-value='localnet'>
+					<div key={tab} className='tab-content' style={visuallyHiddenStyle} aria-hidden={ariaHidden} data-search-content data-tab-value='localnet'>
 						<div className='grid grid-cols-1 gap-6 w-full'>
 							<div>
 								<div className='flex items-center gap-2 mb-4'>
@@ -284,7 +294,8 @@ export const NetworkTabs = (props) => {
 					onClick={() => selectTab('mainnet')}
 					onMouseEnter={() => setHoverTab('mainnet')}
 					onMouseLeave={() => setHoverTab(null)}
-					className={`px-3 py-1.5 text-sm transition-colors ${activeTab === 'mainnet' ? 'text-neutral-900 dark:text-white' : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'}`}
+					className='sei-network-tab px-3 py-1.5 text-sm transition-colors'
+					data-active={activeTab === 'mainnet'}
 					style={tabButtonStyle('mainnet')}>
 					Sei Mainnet
 				</button>
@@ -293,7 +304,8 @@ export const NetworkTabs = (props) => {
 					onClick={() => selectTab('testnet')}
 					onMouseEnter={() => setHoverTab('testnet')}
 					onMouseLeave={() => setHoverTab(null)}
-					className={`px-3 py-1.5 text-sm transition-colors ${activeTab === 'testnet' ? 'text-neutral-900 dark:text-white' : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'}`}
+					className='sei-network-tab px-3 py-1.5 text-sm transition-colors'
+					data-active={activeTab === 'testnet'}
 					style={tabButtonStyle('testnet')}>
 					Sei Testnet
 				</button>
@@ -302,7 +314,8 @@ export const NetworkTabs = (props) => {
 					onClick={() => selectTab('localnet')}
 					onMouseEnter={() => setHoverTab('localnet')}
 					onMouseLeave={() => setHoverTab(null)}
-					className={`px-3 py-1.5 text-sm transition-colors ${activeTab === 'localnet' ? 'text-neutral-900 dark:text-white' : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'}`}
+					className='sei-network-tab px-3 py-1.5 text-sm transition-colors'
+					data-active={activeTab === 'localnet'}
 					style={tabButtonStyle('localnet')}>
 					Local Environment
 				</button>

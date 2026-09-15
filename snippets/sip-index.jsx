@@ -235,7 +235,9 @@ export const SipIndex = () => {
 	// what left these cards white on a black page. The other data snippets here
 	// watch the `dark` class on <html> and style inline from the style.css
 	// tokens instead, so this follows the same approach.
-	const [isDark, setIsDark] = useState(() => typeof document !== 'undefined' && document.documentElement.classList.contains('dark'));
+	// Seed SSR and hydration from docs.json's dark default, then sync a saved
+	// light preference in the effect.
+	const [isDark, setIsDark] = useState(true);
 
 	useEffect(() => {
 		const root = document.documentElement;

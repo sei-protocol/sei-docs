@@ -206,9 +206,9 @@ const deriveWsEndpoint = (httpUrl) => {
 const isWsOnly = (name) => name === 'eth_subscribe' || name === 'eth_unsubscribe';
 const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_sendTransaction' || name === 'eth_signTransaction' || name === 'eth_sign' || name.startsWith('personal_');
 
-  const [theme, setTheme] = useState(() =>
-    (typeof document !== 'undefined' && document.documentElement.classList.contains('dark')) ? 'dark' : 'light'
-  );
+  // docs.json defaults to dark. Using the same deterministic value for SSR
+  // and hydration avoids a markup mismatch; the effect syncs saved preference.
+  const [theme, setTheme] = useState('dark');
   const [isMobile, setIsMobile] = useState(false);
   const [mobileView, setMobileView] = useState('list');
   const rootRef = useRef(null);

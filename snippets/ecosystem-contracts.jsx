@@ -592,7 +592,9 @@ export const EcosystemContracts = () => {
 	const addressKey = 'Contract Address';
 
 	// --- Dark mode detection (Mintlify toggles a `dark` class on <html>) ---
-	const [isDark, setIsDark] = useState(() => typeof document !== 'undefined' && document.documentElement.classList.contains('dark'));
+	// Seed both SSR and hydration from the configured dark default, then sync
+	// any saved light preference after hydration.
+	const [isDark, setIsDark] = useState(true);
 	useEffect(() => {
 		const el = document.documentElement;
 		const update = () => setIsDark(el.classList.contains('dark'));
@@ -787,13 +789,13 @@ export const EcosystemContracts = () => {
 												{group.contractCount} contract{group.contractCount !== 1 ? 's' : ''}
 											</span>
 										</span>
-										<span className={`ml-4 inline-block transition-transform ${isOpen ? 'rotate-180' : ''}`} aria-hidden='true'>
+										<span className='ml-4 inline-block transition-transform' style={{ transform: isOpen ? 'rotate(180deg)' : 'none' }} aria-hidden='true'>
 											<svg width='16' height='16' viewBox='0 0 20 20' fill='none' xmlns='http://www.w3.org/2000/svg' className='text-neutral-600 dark:text-neutral-300'>
 												<path d='M5 8l5 5 5-5' stroke='currentColor' strokeWidth='2' strokeLinecap='round' strokeLinejoin='round' />
 											</svg>
 										</span>
 									</button>
-									<section id={sectionId} className={`${isOpen ? 'block' : 'hidden'}`}>
+									<section id={sectionId} hidden={!isOpen}>
 										<div className='p-4 space-y-4'>
 												{/* Desktop view — a div grid (not a <table>): Mintlify maps MDX
 											    <table> to a wrapper with a negative var(--page-padding) margin

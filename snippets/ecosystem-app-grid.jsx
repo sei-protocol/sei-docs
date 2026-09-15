@@ -13,9 +13,9 @@ export const EcosystemAppGrid = (props) => {
 	};
 
 	// --- Dark mode detection (Mintlify toggles a `dark` class on <html>) ---
-	const [isDark, setIsDark] = useState(
-		() => typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
-	);
+	// Use the configured dark default for deterministic SSR/hydration, then
+	// sync a saved light preference in the effect.
+	const [isDark, setIsDark] = useState(true);
 	useEffect(() => {
 		const el = document.documentElement;
 		const update = () => setIsDark(el.classList.contains('dark'));
@@ -209,7 +209,7 @@ export const EcosystemAppGrid = (props) => {
 							) : (
 								<WorldIcon
 									size={24}
-									style={{ color: hover ? 'var(--sei-maroon-100)' : 'var(--sei-grey-200)', transition: 'color 0.3s' }}
+									style={{ color: hover ? 'var(--sei-maroon-100)' : isDark ? '#737373' : 'var(--sei-grey-200)', transition: 'color 0.3s' }}
 								/>
 							)}
 						</figure>

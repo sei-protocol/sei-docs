@@ -1,8 +1,8 @@
 export const SequentialNonceQueue = () => {
   const ink = 'currentColor';
-  const ok = 'light-dark(#1a7a00, #10b981)';
-  const bad = 'light-dark(#c20a00, #ef4444)';
-  const warn = 'light-dark(#b45309, #f59e0b)';
+  const ok = 'var(--sei-diagram-ok, #1a7a00)';
+  const bad = 'var(--sei-diagram-error, #c20a00)';
+  const warn = 'var(--sei-diagram-warning, #b45309)';
   const nonces = [
     { n: 5, s: 'landed', c: ok },
     { n: 6, s: 'dropped, never landed', c: bad },
@@ -59,8 +59,8 @@ export const SequentialNonceQueue = () => {
 export const NonceLanes = () => {
   const ink = 'currentColor';
   const accent = 'var(--sei-maroon-50)';
-  const ok = 'light-dark(#1a7a00, #10b981)';
-  const bad = 'light-dark(#c20a00, #ef4444)';
+  const ok = 'var(--sei-diagram-ok, #1a7a00)';
+  const bad = 'var(--sei-diagram-error, #c20a00)';
   const chip = (x, y, label, state, key) => {
     const c = state === 'ok' ? ok : state === 'bad' ? bad : ink;
     return (
@@ -133,7 +133,7 @@ export const NonceLanes = () => {
 export const NonceLaneDelegation = () => {
   const ink = 'currentColor';
   const accent = 'var(--sei-maroon-50)';
-  const gold = 'light-dark(var(--sei-gold-100), var(--sei-gold-25))';
+  const gold = 'var(--sei-diagram-gold, var(--sei-gold-100))';
   const box = { fill: ink, fillOpacity: 0.05, stroke: ink, strokeOpacity: 0.35, strokeWidth: 1 };
   return (
     <div className="not-prose w-full my-5">
@@ -190,7 +190,7 @@ export const NonceLaneDelegation = () => {
 export const NonceLanePipeline = () => {
   const ink = 'currentColor';
   const accent = 'var(--sei-maroon-50)';
-  const gold = 'light-dark(var(--sei-gold-100), var(--sei-gold-25))';
+  const gold = 'var(--sei-diagram-gold, var(--sei-gold-100))';
   const box = { fill: ink, fillOpacity: 0.05, stroke: ink, strokeOpacity: 0.35, strokeWidth: 1 };
   const relayers = ['relayer 0', 'relayer 1', 'relayer 2', 'relayer N'];
   return (
@@ -256,9 +256,9 @@ export const NonceLanePipeline = () => {
 export const NonceLaneBundleLifecycle = () => {
   const ink = 'currentColor';
   const accent = 'var(--sei-maroon-50)';
-  const ok = 'light-dark(#1a7a00, #10b981)';
-  const warn = 'light-dark(#b45309, #f59e0b)';
-  const bad = 'light-dark(#c20a00, #ef4444)';
+  const ok = 'var(--sei-diagram-ok, #1a7a00)';
+  const warn = 'var(--sei-diagram-warning, #b45309)';
+  const bad = 'var(--sei-diagram-error, #c20a00)';
   const steps = [
     { t: 'take bundle', s: 'from the queue' },
     { t: 'simulate', s: 'eth_estimateGas' },
@@ -322,9 +322,9 @@ export const NonceLaneBundleLifecycle = () => {
 
 export const NonceLaneFailureIsolation = () => {
   const ink = 'currentColor';
-  const ok = 'light-dark(#1a7a00, #10b981)';
-  const bad = 'light-dark(#c20a00, #ef4444)';
-  const warn = 'light-dark(#b45309, #f59e0b)';
+  const ok = 'var(--sei-diagram-ok, #1a7a00)';
+  const bad = 'var(--sei-diagram-error, #c20a00)';
+  const warn = 'var(--sei-diagram-warning, #b45309)';
   const lane = (x, y, label, sub, c, dashed, key) => (
     <g key={key}>
       <rect x={x} y={y} width={86} height={62} rx={7} fill={c} fillOpacity={dashed ? 0.04 : 0.14} stroke={c} strokeOpacity={dashed ? 0.6 : 0.95} strokeWidth="1.2" strokeDasharray={dashed ? '4 3' : undefined} />
