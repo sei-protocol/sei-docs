@@ -52,10 +52,10 @@ npx skills add sei-ecosystem    # apps / integrations only
 
 ## Networks
 
-| Network | EVM chain ID | EVM RPC | Cosmos RPC |
-|---|---|---|---|
-| Sei Mainnet | 1329 | https://evm-rpc.sei-apis.com | https://rpc.sei-apis.com |
-| Sei Testnet | 1328 | https://evm-rpc-testnet.sei-apis.com | https://rpc-testnet.sei-apis.com |
+| Network | EVM chain ID | Cosmos chain ID | EVM RPC | Cosmos RPC |
+|---|---|---|---|---|
+| Sei Mainnet | 1329 | pacific-1 | https://evm-rpc.sei-apis.com | https://rpc.sei-apis.com |
+| Sei Testnet | 1328 | atlantic-2 | https://evm-rpc-testnet.sei-apis.com | https://rpc-testnet.sei-apis.com |
 
 Testnet faucet: https://docs.sei.io/learn/faucet
 

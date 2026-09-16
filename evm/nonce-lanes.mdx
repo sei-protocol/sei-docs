@@ -58,7 +58,7 @@ The design combines four mechanisms. Each solves one part of the problem; none i
 
 ### ERC-4337 nonce lanes
 
-The canonical EntryPoint v0.8 singleton is already deployed at `0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108` on both Sei mainnet (Pacific-1, chain ID `1329`) and Sei testnet (Atlantic-2, chain ID `1328`), so nothing here asks you to deploy one. It stores a UserOperation nonce as a 192-bit key plus a 64-bit sequence:
+The canonical EntryPoint v0.8 singleton is already deployed at `0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108` on both Sei Mainnet (chain ID `1329`) and Sei Testnet (chain ID `1328`), so nothing here asks you to deploy one. It stores a UserOperation nonce as a 192-bit key plus a 64-bit sequence:
 
 ```text
 nonce = (uint192 key << 64) | uint64 sequence
@@ -235,10 +235,10 @@ The walkthrough below deploys the demo contracts, delegates a throwaway account,
   </Step>
 
   <Step title="Choose a target network">
-    Start with a local Prague fork. It carries the deployed EntryPoint bytecode from Sei Testnet but spends only Anvil funds.
+    Start with a local Prague fork. It carries Sei Testnet's state, including the deployed EntryPoint, but spends only local funds.
 
     <Danger>
-      Never use Anvil, Hardhat, tutorial, or shared test mnemonics on Sei Testnet or Sei Mainnet. Their addresses and keys are public, and some are already delegated to sweeper code, so a successful funding transaction can still leave a zero balance. The fork below also runs as chain `1328`, so an authorization signed against it is replayable on Sei Testnet whenever the account's nonce lines up. Regenerate every key and mnemonic before you point a fork's `.env` at a public network.
+      Never use Anvil, Hardhat, tutorial, or shared test mnemonics on Sei Testnet or Sei Mainnet. Their addresses and keys are public, so anyone can move funds sent to them. An address derived from a published mnemonic may also carry an existing EIP-7702 delegation, and a fork inherits that code. The fork below therefore needs a fresh mnemonic too. It also runs as chain `1328`, so an authorization signed against it is replayable on Sei Testnet itself whenever the account's nonce lines up. Regenerate every key and mnemonic before you point a fork's `.env` at a public network.
     </Danger>
 
     <Tabs>
@@ -336,7 +336,7 @@ The walkthrough below deploys the demo contracts, delegates a throwaway account,
     ```
 
     <Note>
-      Mutating commands refuse to write to a remote Sei Mainnet RPC unless `ALLOW_MAINNET=1` is set explicitly, and they refuse any remote-chain write when `TRADER_PRIVATE_KEY` is Anvil account `0` or `RELAYER_MNEMONIC` is the Anvil mnemonic. Those guards catch only an accidental `SEI_CHAIN_ID=1329` run and the two most common leaked credentials. They do not cover the separate Forge deployment command, and they do not make the demo production-ready.
+      Mutating commands refuse to write to a remote Sei Mainnet RPC unless `ALLOW_MAINNET=1` is set explicitly. They also refuse remote writes when `TRADER_PRIVATE_KEY` is Anvil account `0` or `RELAYER_MNEMONIC` is the default Anvil mnemonic. The fresh mnemonic above does not trigger that credential guard. Keep its `.env` pointed at `127.0.0.1`; if you point it at Sei Testnet, chain ID `1328` is still valid and the application cannot know the change was accidental. These guards do not cover the separate Forge deployment command, and they do not make the demo production-ready.
     </Note>
   </Step>
 
@@ -350,7 +350,7 @@ The walkthrough below deploys the demo contracts, delegates a throwaway account,
 
     It prints the chain ID and whether there is code at the EntryPoint address `0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108`. It also reports the account's current delegation, balances, its EntryPoint deposit, each relayer's confirmed nonce and gas balance, the lane sequences, and the venue state.
 
-    Against current Sei testnet or mainnet state, the EntryPoint line reads `present` because the singleton is deployed on both. On a local fork or against a misconfigured endpoint, the check catches missing fork state or the wrong network. The relayer lines are worth a second look: any `HAS CODE/DELEGATION` marker means the mutating commands will refuse that relayer.
+    Against current Sei Testnet or Sei Mainnet state, the EntryPoint line reads `present` because the singleton is deployed on both. On a local fork or against a misconfigured endpoint, the check catches missing fork state or the wrong network. The relayer lines are worth a second look: any `HAS CODE/DELEGATION` marker means the mutating commands will refuse that relayer.
   </Step>
 
   <Step title="Delegate the account">
@@ -587,6 +587,8 @@ The `bench:baseline` modes are the ways one address can drive a sequential queue
 
 Every row below comes from one measurement session on Sei Testnet. Conditions during the session: block gas limit 12,500,000; base fee 50 gwei plus a 1 gwei tip; about 2.0 blocks per second under load; 120 ms warm request latency to the configured endpoint. Each direct `place` transaction used 328,425 gas and each lane operation about 331,000 gas of outer transaction gas, so the block admits 36 to 38 operations however they are submitted: roughly 73 landed operations per second for this call shape. Chain-side rates divide landed operations by the block-timestamp span, which Sei stamps in whole seconds. Client-side rates divide by wall time from first broadcast to last receipt.
 
+<NonceLaneThroughputComparison />
+
 | Submission | Landed ops/s, chain-side | Client-side | Block gas: average / fullest / blocks ≥ 90% |
 | --- | --- | --- | --- |
 | One EOA, serial send and wait (30 tx) | 1.0 | 1.0 | not recorded |
@@ -692,7 +694,7 @@ Treat `.env`, `app/.state/`, signed raw transactions, and RPC URLs containing cr
     Check both `SEI_CHAIN_ID` and `SEI_RPC_URL`. For a local fork, pass `--chain-id 1328` to Anvil. The configured chain ID is part of the EIP-712 signature domain and cannot be guessed safely.
   </Accordion>
   <Accordion title="EntryPoint v0.8 … MISSING">
-    The canonical v0.8 singleton is deployed at `0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108` on both Sei mainnet and Sei testnet. A `MISSING` line against current state usually means the configured RPC is not serving Sei. Check `SEI_RPC_URL`, and check that a local Anvil was started with `--fork-url` against a Sei endpoint rather than as a bare chain. `submit` fails closed on the same condition with `No EntryPoint at … on this chain`, before it signs anything.
+    The canonical v0.8 singleton is deployed at `0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108` on both Sei Mainnet and Sei Testnet. A `MISSING` line against current state usually means the configured RPC is not serving Sei. Check `SEI_RPC_URL`, and check that a local Anvil was started with `--fork-url` against a Sei endpoint rather than as a bare chain. `submit` fails closed on the same condition with `No EntryPoint at … on this chain`, before it signs anything.
 
     Do not deploy your own EntryPoint to work around it. A second EntryPoint lives at a different address, so it has a different EIP-712 domain and shares no lane sequences or deposits with the one every other integration on Sei uses.
 

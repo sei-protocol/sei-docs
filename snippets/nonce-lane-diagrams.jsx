@@ -404,8 +404,8 @@ export const NonceLaneThroughputComparison = () => {
   return (
     <div className="not-prose w-full my-5">
       <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/40 p-4 text-neutral-800 dark:text-neutral-200">
-        <svg viewBox="0 0 900 468" role="img" aria-label="Landed operations per second for one EOA with sequential nonces, fleets of hot wallets, and nonce lanes, all calling the same venue on Sei testnet; the block-gas ceiling is about 73 per second" style={{ width: '100%', minWidth: 640, height: 'auto', display: 'block' }}>
-          <text x={20} y={24} fontSize="13" fontWeight="600" fill={ink}>Landed operations per second, same venue call, Sei testnet</text>
+        <svg viewBox="0 0 900 468" role="img" aria-label="Landed operations per second for one EOA with sequential nonces, fleets of hot wallets, and nonce lanes, all calling the same venue on Sei Testnet; the block-gas ceiling is about 73 per second" style={{ width: '100%', minWidth: 640, height: 'auto', display: 'block' }}>
+          <text x={20} y={24} fontSize="13" fontWeight="600" fill={ink}>Landed operations per second, same venue call, Sei Testnet</text>
           <rect x={x0} y={37} width={10} height={10} rx={2} fill={accent} />
           <text x={x0 + 15} y={45} fontSize="9.5" fill={ink} fillOpacity="0.8">chain-side: landed ÷ block-timestamp span</text>
           <rect x={x0 + 240} y={37} width={10} height={10} rx={2} fill={ink} fillOpacity="0.3" />
@@ -437,7 +437,7 @@ export const NonceLaneThroughputComparison = () => {
           })}
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">One measurement session on Sei testnet, every strategy calling the same MockPerpVenue.place at about 330,000 gas per call. Block gas, not the nonce model, sets the ceiling: lanes came within 12 percent of it from one address whose EVM nonce never moved, while the single sequential queue matched the hot-wallet fleet only when every transaction left in one JSON-RPC batch. Short runs read high on the chain-side scale because Sei stamps blocks in whole seconds.</div>
+      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">One measurement session on Sei Testnet, every strategy calling the same MockPerpVenue.place at about 330,000 gas per call. Block gas, not the nonce model, sets the ceiling: lanes came within 12 percent of it from one address whose EVM nonce never moved, while the single sequential queue matched the hot-wallet fleet only when every transaction left in one JSON-RPC batch. Short runs read high on the chain-side scale because Sei stamps blocks in whole seconds.</div>
     </div>
   );
 };
