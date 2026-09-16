@@ -142,10 +142,18 @@ export const NetworkTabs = (props) => {
 
 								<div className='space-y-3'>
 									<div className='flex flex-col'>
-										<div className={labelClass}>Chain ID:</div>
+										<div className={labelClass}>EVM chain ID:</div>
 										<div className='flex items-center justify-between'>
 											<span className={valueClass}>1329 (0x531)</span>
 											<CopyButton textToCopy='1329' />
+										</div>
+									</div>
+
+									<div className='flex flex-col'>
+										<div className={labelClass}>Cosmos chain ID:</div>
+										<div className='flex items-center justify-between'>
+											<span className={valueClass}>pacific-1</span>
+											<CopyButton textToCopy='pacific-1' />
 										</div>
 									</div>
 
@@ -186,10 +194,18 @@ export const NetworkTabs = (props) => {
 
 								<div className='space-y-3'>
 									<div className='flex flex-col'>
-										<div className={labelClass}>Chain ID:</div>
+										<div className={labelClass}>EVM chain ID:</div>
 										<div className='flex items-center justify-between'>
 											<span className={valueClass}>1328 (0x530)</span>
 											<CopyButton textToCopy='1328' />
+										</div>
+									</div>
+
+									<div className='flex flex-col'>
+										<div className={labelClass}>Cosmos chain ID:</div>
+										<div className='flex items-center justify-between'>
+											<span className={valueClass}>atlantic-2</span>
+											<CopyButton textToCopy='atlantic-2' />
 										</div>
 									</div>
 
@@ -240,10 +256,18 @@ export const NetworkTabs = (props) => {
 
 								<div className='space-y-3'>
 									<div className='flex flex-col'>
-										<div className={labelClass}>Chain ID:</div>
+										<div className={labelClass}>EVM chain ID:</div>
 										<div className='flex items-center justify-between'>
 											<span className={valueClass}>713714 (0xAE3F2)</span>
 											<CopyButton textToCopy='713714' />
+										</div>
+									</div>
+
+									<div className='flex flex-col'>
+										<div className={labelClass}>Cosmos chain ID:</div>
+										<div className='flex items-center justify-between'>
+											<span className={valueClass}>sei-chain (default)</span>
+											<CopyButton textToCopy='sei-chain' />
 										</div>
 									</div>
 
