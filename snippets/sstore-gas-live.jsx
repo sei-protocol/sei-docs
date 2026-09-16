@@ -27,10 +27,11 @@ export const SstoreGasLive = ({ network = 'mainnet' }) => {
   const [data, setData] = useState(null);
   const [err, setErr] = useState(null);
   const [loading, setLoading] = useState(true);
-  // Keep SSR and hydration deterministic with the configured dark default.
+  // See scripts/check-snippet-theme-default.mjs for the shared SSR theme
+  // invariant. Layout sync applies a saved preference before paint.
   const [isDark, setIsDark] = useState(true);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = document.documentElement;
     const update = () => setIsDark(el.classList.contains('dark'));
     update();

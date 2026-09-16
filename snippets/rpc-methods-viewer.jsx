@@ -206,8 +206,8 @@ const deriveWsEndpoint = (httpUrl) => {
 const isWsOnly = (name) => name === 'eth_subscribe' || name === 'eth_unsubscribe';
 const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_sendTransaction' || name === 'eth_signTransaction' || name === 'eth_sign' || name.startsWith('personal_');
 
-  // docs.json defaults to dark. Using the same deterministic value for SSR
-  // and hydration avoids a markup mismatch; the effect syncs saved preference.
+  // See scripts/check-snippet-theme-default.mjs for the shared SSR theme
+  // invariant. Layout sync applies a saved preference before paint.
   const [theme, setTheme] = useState('dark');
   const [isMobile, setIsMobile] = useState(false);
   const [mobileView, setMobileView] = useState('list');
@@ -237,7 +237,7 @@ const isMutation = (name) => name === 'eth_sendRawTransaction' || name === 'eth_
 
   const isDark = theme === 'dark';
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const detect = () => setTheme(document.documentElement.classList.contains('dark') ? 'dark' : 'light');
     detect();
     const observer = new MutationObserver(detect);

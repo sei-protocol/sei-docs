@@ -1,8 +1,15 @@
 // ThemeAwareIframe chooses the docs theme before loading a third-party embed.
 // The resolved URL is intentionally frozen after mount: changing an iframe src
 // on every theme toggle would reload the embedded app and discard reader state.
-export const ThemeAwareIframe = (props) => {
-	const { src, title, className, style, loading = 'lazy', allow, allowFullScreen } = props || {};
+export const ThemeAwareIframe = ({
+	src,
+	title,
+	className,
+	style,
+	loading = 'lazy',
+	allow,
+	allowFullScreen
+} = {}) => {
 	const [frameSrc, setFrameSrc] = useState(null);
 
 	useEffect(() => {

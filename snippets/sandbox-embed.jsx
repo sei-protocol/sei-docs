@@ -59,11 +59,11 @@ export const SandboxEmbed = (props) => {
 	// --- state ---
 	const [frameSrc, setFrameSrc] = useState(null);
 	const [btnHover, setBtnHover] = useState(false);
-	// Keep the server and first client render identical. The docs default to
-	// dark; the effect then syncs any saved light preference after hydration.
+	// See scripts/check-snippet-theme-default.mjs for the shared SSR theme
+	// invariant. Layout sync applies a saved preference before paint.
 	const [isDark, setIsDark] = useState(true);
 
-	useEffect(() => {
+	useLayoutEffect(() => {
 		const el = document.documentElement;
 		const update = () => setIsDark(el.classList.contains('dark'));
 		update();

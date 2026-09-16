@@ -33,12 +33,13 @@
 - Use `<Tabs>` / `<Tab>` for parallel code samples (hardhat vs. foundry, ethers vs. viem, etc.)
 - Always give `<CodeGroup>` blocks explicit language tags
 
-## Mintlify JSX snippets
+## Mintlify JSX styling
 
-- In `snippets/*.jsx`, write Tailwind utility lists as literal `className="..."` attributes. Mintlify only generates and prefixes utilities it can extract there.
+- In `snippets/*.jsx` and rendered JSX in `.mdx` pages, write Tailwind utility lists as literal attributes. Prefer `className="..."`; static string and template expressions without interpolation are also extractor-safe.
 - Do not store utility lists in variables or assemble `className` dynamically. For conditional styling, use explicit JSX branches, inline styles, or a semantic data/class hook backed by `style.css`.
-- A component may forward a `className` prop when every caller supplies a literal utility list.
-- Run `node scripts/check-snippet-classnames.mjs` after editing snippets.
+- A component may forward the exact `className` prop when it destructures `className` in its parameters and every caller supplies a literal utility list.
+- Theme-aware snippets must seed hydration from `docs.json` `appearance.default` and synchronize the DOM theme in `useLayoutEffect`.
+- Run `node scripts/check-snippet-classnames.mjs` after editing snippets or rendered MDX JSX. Run `node scripts/check-snippet-theme-default.mjs` after editing a theme-aware snippet.
 
 ## Content boundaries
 

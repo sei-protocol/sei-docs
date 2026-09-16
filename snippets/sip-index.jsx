@@ -235,11 +235,11 @@ export const SipIndex = () => {
 	// what left these cards white on a black page. The other data snippets here
 	// watch the `dark` class on <html> and style inline from the style.css
 	// tokens instead, so this follows the same approach.
-	// Seed SSR and hydration from docs.json's dark default, then sync a saved
-	// light preference in the effect.
+	// See scripts/check-snippet-theme-default.mjs for the shared SSR theme
+	// invariant. Layout sync applies a saved preference before paint.
 	const [isDark, setIsDark] = useState(true);
 
-	useEffect(() => {
+	useLayoutEffect(() => {
 		const root = document.documentElement;
 		const sync = () => setIsDark(root.classList.contains('dark'));
 		sync();

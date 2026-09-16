@@ -543,11 +543,11 @@ sei-tendermint
   const [dynamicVersions, setDynamicVersions] = useState([]);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
-  // Match the configured dark default during SSR and hydration. The effect
-  // applies any saved light preference immediately afterwards.
+  // This deterministic seed is CI-checked against docs.json appearance.default
+  // by scripts/check-snippet-theme-default.mjs.
   const [isDark, setIsDark] = useState(true);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = document.documentElement;
     const update = () => setIsDark(el.classList.contains('dark'));
     update();

@@ -592,10 +592,10 @@ export const EcosystemContracts = () => {
 	const addressKey = 'Contract Address';
 
 	// --- Dark mode detection (Mintlify toggles a `dark` class on <html>) ---
-	// Seed both SSR and hydration from the configured dark default, then sync
-	// any saved light preference after hydration.
+	// See scripts/check-snippet-theme-default.mjs for the shared SSR theme
+	// invariant. Layout sync applies a saved preference before paint.
 	const [isDark, setIsDark] = useState(true);
-	useEffect(() => {
+	useLayoutEffect(() => {
 		const el = document.documentElement;
 		const update = () => setIsDark(el.classList.contains('dark'));
 		update();

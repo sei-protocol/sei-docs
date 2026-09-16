@@ -13,10 +13,10 @@ export const EcosystemAppGrid = (props) => {
 	};
 
 	// --- Dark mode detection (Mintlify toggles a `dark` class on <html>) ---
-	// Use the configured dark default for deterministic SSR/hydration, then
-	// sync a saved light preference in the effect.
+	// See scripts/check-snippet-theme-default.mjs for the shared SSR theme
+	// invariant. Layout sync applies a saved preference before paint.
 	const [isDark, setIsDark] = useState(true);
-	useEffect(() => {
+	useLayoutEffect(() => {
 		const el = document.documentElement;
 		const update = () => setIsDark(el.classList.contains('dark'));
 		update();
