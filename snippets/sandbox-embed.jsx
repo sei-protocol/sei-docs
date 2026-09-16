@@ -5,7 +5,7 @@
 // isolated WebContainers). This component therefore embeds only SELF-SUFFICIENT
 // pure-iframe URLs:
 //   • CodeSandbox /embed  — Tier 2: editable/runnable viem/ethers TypeScript
-//   • Remix IDE           — Tier 3: Solidity compile + deploy to Sei testnet
+//   • Remix IDE           — Tier 3: Solidity compile + deploy to Sei Testnet
 //
 // The <iframe> src is deferred until the reader clicks, so a page with several
 // embeds pays nothing on load (Mintlify has no dynamic import / React.lazy).
@@ -25,16 +25,16 @@
 //   <SandboxEmbed
 //     kind="codesandbox"
 //     src="https://codesandbox.io/embed/<id>?view=split&hidenavigation=1"
-//     title="viem · read Sei testnet"
-//     description="Edit and re-run this viem example against Sei testnet."
+//     title="viem · read Sei Testnet"
+//     description="Edit and re-run this viem example against Sei Testnet."
 //   />
 //
 //   // Tier 3 — Remix IDE (code= must be base64URL: +/→-_, no padding)
 //   <SandboxEmbed
 //     kind="remix"
 //     src="https://remix.ethereum.org/?#activate=solidity,fileManager&code=<base64url>"
-//     title="Counter.sol · deploy to Sei testnet"
-//     description="Compile in-browser, then deploy via MetaMask on Sei testnet or Remix's External HTTP Provider set to https://evm-rpc-testnet.sei-apis.com."
+//     title="Counter.sol · deploy to Sei Testnet"
+//     description="Compile in-browser, then deploy via MetaMask on Sei Testnet or Remix's External HTTP Provider set to https://evm-rpc-testnet.sei-apis.com."
 //   />
 export const SandboxEmbed = (props) => {
 	const { src, kind = 'codesandbox', title, description, height, label } = props || {};

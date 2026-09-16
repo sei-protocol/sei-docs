@@ -5,7 +5,7 @@ description: 'Keep many independent transactions in flight from one funded Sei a
 keywords: ['sei', 'nonce', 'nonce lanes', 'two-dimensional nonce', 'eip-7702', 'erc-4337', 'entrypoint', 'userop', 'relayer', 'bundler', 'account abstraction', 'throughput', 'benchmark', 'market making', 'liquidation bot']
 ---
 
-import { SequentialNonceQueue, NonceLanes, NonceLaneDelegation, NonceLanePipeline, NonceLaneBundleLifecycle, NonceLaneFailureIsolation } from '/snippets/nonce-lane-diagrams.jsx';
+import { SequentialNonceQueue, NonceLanes, NonceLaneDelegation, NonceLanePipeline, NonceLaneBundleLifecycle, NonceLaneFailureIsolation, NonceLaneThroughputComparison, NonceLaneBlockGasUtilization, NonceLaneScalingSeries } from '/snippets/nonce-lane-diagrams.jsx';
 
 One funded account on Sei EVM has one sequential nonce. That suits a wallet, where each action follows the last. It does not suit a stream of independent work: one transaction that never lands blocks every transaction signed after it. The usual fix is a fleet of hot wallets, which multiplies balances, approvals, and keys.
 
@@ -58,7 +58,7 @@ The design combines four mechanisms. Each solves one part of the problem; none i
 
 ### ERC-4337 nonce lanes
 
-EntryPoint v0.8 stores a UserOperation nonce as a 192-bit key plus a 64-bit sequence:
+The canonical EntryPoint v0.8 singleton is already deployed at `0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108` on both Sei Mainnet (chain ID `1329`) and Sei Testnet (chain ID `1328`), so nothing here asks you to deploy one. It stores a UserOperation nonce as a 192-bit key plus a 64-bit sequence:
 
 ```text
 nonce = (uint192 key << 64) | uint64 sequence
@@ -235,22 +235,31 @@ The walkthrough below deploys the demo contracts, delegates a throwaway account,
   </Step>
 
   <Step title="Choose a target network">
-    Start with a local Prague fork. It carries the deployed EntryPoint bytecode from Sei Testnet but spends only Anvil funds.
+    Start with a local Prague fork. It carries Sei Testnet's state, including the deployed EntryPoint, but spends only local funds.
 
     <Danger>
-      Never use Anvil, Hardhat, tutorial, or shared test mnemonics on Sei Testnet or Sei Mainnet. Their addresses and keys are public, and some are already delegated to sweeper code, so a successful funding transaction can still leave a zero balance. The fork below also runs as chain `1328`, so an authorization signed against it is replayable on Sei Testnet whenever the account's nonce lines up. Regenerate every key and mnemonic before you point a fork's `.env` at a public network.
+      Never use Anvil, Hardhat, tutorial, or shared test mnemonics on Sei Testnet or Sei Mainnet. Their addresses and keys are public, so anyone can move funds sent to them. An address derived from a published mnemonic may also carry an existing EIP-7702 delegation, and a fork inherits that code. The fork below therefore needs a fresh mnemonic too. It also runs as chain `1328`, so an authorization signed against it is replayable on Sei Testnet itself whenever the account's nonce lines up. Regenerate every key and mnemonic before you point a fork's `.env` at a public network.
     </Danger>
 
     <Tabs>
       <Tab title="Local Anvil fork (recommended first)">
-        EIP-7702 requires a Prague-capable node. Keep this terminal running:
+        EIP-7702 requires a Prague-capable node. Generate a mnemonic for the fork to use, and do not fall back to Anvil's default one:
+
+        ```bash
+        cast wallet new-mnemonic
+        ```
+
+        Keep this terminal running:
 
         ```bash
         anvil \
           --fork-url https://evm-rpc-testnet.sei-apis.com \
           --chain-id 1328 \
-          --hardfork prague
+          --hardfork prague \
+          --mnemonic "word word word ..."
         ```
+
+        Anvil funds the first ten accounts of whatever mnemonic you hand it. Using a fresh phrase avoids Anvil's published addresses. Do not use the default mnemonic here: a fork keeps any account code already attached to those public addresses, and every mutating command refuses a relayer that has code.
 
         The repository compiles its contracts for Cancun because they use no Prague-only opcodes, but the local node must run Prague to accept the type-4 delegation transaction.
 
@@ -268,18 +277,18 @@ The walkthrough below deploys the demo contracts, delegates a throwaway account,
         RELAYER_START_INDEX=1
         ```
 
-        Set `TRADER_PRIVATE_KEY` to account `0`'s private key from the Anvil startup output, and `RELAYER_MNEMONIC` to the mnemonic printed by that same Anvil process. Starting relayers at index `1` keeps the funded account and relayer identities distinct; the application rejects overlapping identities.
+        Set `TRADER_PRIVATE_KEY` to account `0`'s private key from the Anvil startup output, and `RELAYER_MNEMONIC` to the phrase you just generated. Starting relayers at index `1` keeps the funded account and relayer identities distinct; the application rejects overlapping identities.
 
-        Those are Anvil's published credentials, so this `.env` must only ever point at the fork.
+        Anvil prints that key in the clear and it lands in `.env`, so treat the phrase as throwaway and keep this `.env` pointed at `127.0.0.1`.
 
-        Deploy the demo contracts from the repository root using Anvil's unlocked account:
+        Deploy the demo contracts from the repository root. Anvil unlocks its own accounts, so pass account `0`'s address from its startup output as the sender:
 
         ```bash
         forge script script/Deploy.s.sol:Deploy \
           --rpc-url http://127.0.0.1:8545 \
           --broadcast \
           --unlocked \
-          --sender 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+          --sender 0xYourAnvilAccount0
         ```
       </Tab>
       <Tab title="Sei Testnet">
@@ -327,7 +336,7 @@ The walkthrough below deploys the demo contracts, delegates a throwaway account,
     ```
 
     <Note>
-      Mutating commands refuse to write to a remote Sei Mainnet RPC unless `ALLOW_MAINNET=1` is set explicitly, and they refuse any remote-chain write when `TRADER_PRIVATE_KEY` is Anvil account `0` or `RELAYER_MNEMONIC` is the Anvil mnemonic. Those guards catch only an accidental `SEI_CHAIN_ID=1329` run and the two most common leaked credentials. They do not cover the separate Forge deployment command, and they do not make the demo production-ready.
+      Mutating commands refuse to write to a remote Sei Mainnet RPC unless `ALLOW_MAINNET=1` is set explicitly. They also refuse remote writes when `TRADER_PRIVATE_KEY` is Anvil account `0` or `RELAYER_MNEMONIC` is the default Anvil mnemonic. The fresh mnemonic above does not trigger that credential guard. Keep its `.env` pointed at `127.0.0.1`; if you point it at Sei Testnet, chain ID `1328` is still valid and the application cannot know the change was accidental. These guards do not cover the separate Forge deployment command, and they do not make the demo production-ready.
     </Note>
   </Step>
 
@@ -339,7 +348,9 @@ The walkthrough below deploys the demo contracts, delegates a throwaway account,
     npm run status
     ```
 
-    It prints the chain ID, whether code exists at the EntryPoint address `0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108`, the account's current delegation, balances, its EntryPoint deposit, each relayer's confirmed nonce and gas balance, the lane sequences, and the venue state.
+    It prints the chain ID and whether there is code at the EntryPoint address `0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108`. It also reports the account's current delegation, balances, its EntryPoint deposit, each relayer's confirmed nonce and gas balance, the lane sequences, and the venue state.
+
+    Against current Sei Testnet or Sei Mainnet state, the EntryPoint line reads `present` because the singleton is deployed on both. On a local fork or against a misconfigured endpoint, the check catches missing fork state or the wrong network. The relayer lines are worth a second look: any `HAS CODE/DELEGATION` marker means the mutating commands will refuse that relayer.
   </Step>
 
   <Step title="Delegate the account">
@@ -379,12 +390,12 @@ The output below is illustrative; your addresses, blocks, and timings will diffe
 chain          Sei Testnet (1328)
 rpc            http://127.0.0.1:8545
 entryPoint     0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108 (… bytes)
-trader         0xf39F…2266
-delegated to   0x5FbD…0aa3
+trader         0x9A3c…1f74
+delegated to   0xC7a1…8e05
 …
 trader nonce   9  <- watch this, it must not move
 journal        0 pending op(s)
-relayer        0x7099…79C8  0.5 SEI
+relayer        0x2Ef8…b310  0.5 SEI
 …
 
 === build ===
@@ -503,7 +514,11 @@ Three knobs shape a run. They interact, so change one at a time and measure.
   <Accordion title="Relayer count: concurrent outer transaction streams">
     Each relayer has one sequential outer transaction stream. Under favorable admission and inclusion conditions, the immediate submission width is roughly `RELAYER_COUNT × MAX_OPS_PER_BUNDLE` per block. That is a planning heuristic, not a throughput guarantee: RPC latency, block limits, state contention, gas, and producer policy still apply. Public RPC endpoints have [rate limits](/evm/networks); use a [dedicated provider](/learn/rpc-providers) or your own node for anything beyond a demo.
 
-    One relayer's bundle cycle is five sequential RPC round trips (gas estimate, fee estimate, block number, broadcast, receipt poll) plus inclusion, about 1.5 seconds on a 120 ms endpoint. Below roughly 120 operations in flight the pool is the bottleneck and throughput scales with `RELAYER_COUNT`; above that, block gas is. In the [benchmark session](#benchmarks), 4 relayers landed 2.7, 8.9, 15.3, 24.3, 45.4, and 50.5 operations per second at widths 1, 4, 8, 16, 32, and 36, and width 4 landed 2.2, 8.9, 15.4, 27.9, and 47.2 per second with 1, 4, 8, 16, and 32 relayers.
+    One relayer's bundle cycle is five sequential RPC round trips (gas estimate, fee estimate, block number, broadcast, receipt poll) plus inclusion, about 1.5 seconds on a 120 ms endpoint. Below roughly 120 operations in flight the pool is the bottleneck and throughput scales with `RELAYER_COUNT`; above that, block gas is.
+
+    In the [benchmark session](#benchmarks), the bundle-width sweep with 4 relayers produced client-side rates of 2.7, 8.9, 15.3, 24.3, 45.4, and 50.5 operations per second at widths 1, 4, 8, 16, 32, and 36. Its chain-side rates were 3.2, 9.8, 17.1, 28.4, 51.2, and 56.9. At width 4, the relayer-count sweep produced client-side rates of 2.2, 8.9, 15.4, 27.9, and 47.2 operations per second with 1, 4, 8, 16, and 32 relayers. Its chain-side rates were 2.7, 9.8, 17.1, 32.0, and 51.2.
+
+    <NonceLaneScalingSeries />
   </Accordion>
 </AccordionGroup>
 
@@ -572,17 +587,21 @@ The `bench:baseline` modes are the ways one address can drive a sequential queue
 
 Every row below comes from one measurement session on Sei Testnet. Conditions during the session: block gas limit 12,500,000; base fee 50 gwei plus a 1 gwei tip; about 2.0 blocks per second under load; 120 ms warm request latency to the configured endpoint. Each direct `place` transaction used 328,425 gas and each lane operation about 331,000 gas of outer transaction gas, so the block admits 36 to 38 operations however they are submitted: roughly 73 landed operations per second for this call shape. Chain-side rates divide landed operations by the block-timestamp span, which Sei stamps in whole seconds. Client-side rates divide by wall time from first broadcast to last receipt.
 
-| Submission | Landed ops/s, chain-side | Client-side | Block gas used, average |
+<NonceLaneThroughputComparison />
+
+| Submission | Landed ops/s, chain-side | Client-side | Block gas: average / fullest / blocks ≥ 90% |
 | --- | --- | --- | --- |
 | One EOA, serial send and wait (30 tx) | 1.0 | 1.0 | not recorded |
 | One EOA, pipelined, one request in flight (200 tx) | 6.9 | 6.7 | not recorded |
-| Tutorial lanes, 4 relayers × 4 per bundle (24 ops) | 8.0 | 5.7 | 11% |
+| Tutorial lanes, 4 relayers × 4 per bundle (24 ops) | 8.0 | 5.7 | 10.6% / 31.1% / 0 of 7 |
 | Fleet of 4 wallets × 100 tx | 26.7 | 24.8 | not recorded |
-| Fleet of 8 wallets × 64 tx | 51.2 | 49.7 | 54% |
-| One EOA, 1,024 tx in one JSON-RPC batch | 51.2 | 47.3 | 68% |
-| Lanes, 32 relayers × 8 per bundle (1,024 ops) | 60.2 | 55.3 | 83% |
-| Lanes, 16 relayers × 16 per bundle (1,024 ops) | 64.0 | 54.6 | 81% |
-| Lanes, 16 relayers × 36 per bundle (1,024 ops) | 64.0 | 55.1 | 88% |
+| Fleet of 8 wallets × 64 tx | 51.2 | 49.7 | 54.4% / 66.7% / 0 of 25 |
+| One EOA, 1,024 tx in one JSON-RPC batch | 51.2 | 47.3 | 68.1% / 97.2% / 24 of 40 |
+| Lanes, 32 relayers × 8 per bundle (1,024 ops) | 60.2 | 55.3 | 82.5% / 94.6% / 1 of 34 |
+| Lanes, 16 relayers × 16 per bundle (1,024 ops) | 64.0 | 54.6 | 81.1% / 91.4% / 1 of 34 |
+| Lanes, 16 relayers × 36 per bundle (1,024 ops) | 64.0 | 55.1 | 88.4% / 98.1% / 28 of 31 |
+
+<NonceLaneBlockGasUtilization />
 
 What the numbers show:
 
@@ -675,13 +694,28 @@ Treat `.env`, `app/.state/`, signed raw transactions, and RPC URLs containing cr
     Check both `SEI_CHAIN_ID` and `SEI_RPC_URL`. For a local fork, pass `--chain-id 1328` to Anvil. The configured chain ID is part of the EIP-712 signature domain and cannot be guessed safely.
   </Accordion>
   <Accordion title="EntryPoint v0.8 … MISSING">
-    The RPC has no code at `0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108`. Confirm the chain and the fork source before deploying anything. The preflight checks for code presence, not byte-for-byte identity; verify canonical addresses independently before a real deployment.
+    The canonical v0.8 singleton is deployed at `0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108` on both Sei Mainnet and Sei Testnet. A `MISSING` line against current state usually means the configured RPC is not serving Sei. Check `SEI_RPC_URL`, and check that a local Anvil was started with `--fork-url` against a Sei endpoint rather than as a bare chain. `submit` fails closed on the same condition with `No EntryPoint at … on this chain`, before it signs anything.
+
+    Do not deploy your own EntryPoint to work around it. A second EntryPoint lives at a different address, so it has a different EIP-712 domain and shares no lane sequences or deposits with the one every other integration on Sei uses.
+
+    Confirm the deployment against the same endpoint. Export `SEI_RPC_URL` from your `.env`, then run:
+
+    ```bash
+    cast call 0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108 \
+      'eip712Domain()(bytes1,string,string,uint256,address,bytes32,uint256[])' \
+      --rpc-url "$SEI_RPC_URL"
+    ```
+
+    It answers `ERC4337`, version `1`, its own address, and the chain ID you queried. Comparing bytecode against another chain's deployment is the wrong test: v0.8 caches that domain separator in an immutable, so the runtime code at the canonical address differs by that one word, and by the chain ID word, on every chain it is deployed to.
   </Accordion>
   <Accordion title="Delegation mismatch">
     Run `npm run status` and compare `delegated to` with `LANE_ACCOUNT_IMPL`. Do not blindly replace an unexpected designator. Confirm the account, chain, and implementation first, then run `npm run delegate` deliberately.
   </Accordion>
   <Accordion title="Relayer has no gas">
     Run `npm run fund`, or send SEI to relayer `0` and run `npm run dispense`.
+  </Accordion>
+  <Accordion title="Refuses a relayer that already has code or a delegation">
+    Relayers must be plain EOAs, and every mutating command checks that before it signs. The usual cause is a public mnemonic whose addresses already have code or a delegation on Sei. A fork inherits that account code. Generate a fresh mnemonic with `cast wallet new-mnemonic`, point `RELAYER_MNEMONIC` at it, and fund the new relayers rather than trying to undelegate the old ones.
   </Accordion>
   <Accordion title="simulation failed: AA…">
     Common validation causes: `AA24` is an invalid signature or the wrong EIP-712 chain or domain; `AA25` is a stale or incorrect lane sequence; an insufficient EntryPoint prefund; or delegation to the wrong account implementation. Run `npm run status` and resolve the cause before widening bundles or retrying.

@@ -47,15 +47,15 @@ npx skills add sei-ecosystem    # apps / integrations only
 8. **No base fee burn** — all fees go to validators
 9. **Dual address system** — every account has `sei1...` (Cosmos) + `0x...` (EVM) from the same key; cross-VM transfers require **association**
 10. **CosmWasm deprecated** per SIP-3 (proposal 99) — use EVM for new development
-11. **EVM chain IDs:** Sei Mainnet `1329`; Sei Testnet `1328`
+11. **Chain IDs:** Sei Mainnet — EVM `1329`, Cosmos `pacific-1`; Sei Testnet — EVM `1328`, Cosmos `atlantic-2`
 12. **No `safe` or `finalized` block tags** — use `latest`
 
 ## Networks
 
-| Network | EVM chain ID | EVM RPC | Cosmos RPC |
-|---|---|---|---|
-| Sei Mainnet | 1329 | https://evm-rpc.sei-apis.com | https://rpc.sei-apis.com |
-| Sei Testnet | 1328 | https://evm-rpc-testnet.sei-apis.com | https://rpc-testnet.sei-apis.com |
+| Network | EVM chain ID | Cosmos chain ID | EVM RPC | Cosmos RPC |
+|---|---|---|---|---|
+| Sei Mainnet | 1329 | pacific-1 | https://evm-rpc.sei-apis.com | https://rpc.sei-apis.com |
+| Sei Testnet | 1328 | atlantic-2 | https://evm-rpc-testnet.sei-apis.com | https://rpc-testnet.sei-apis.com |
 
 Testnet faucet: https://docs.sei.io/learn/faucet
 

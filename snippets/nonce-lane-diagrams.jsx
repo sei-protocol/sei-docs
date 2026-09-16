@@ -371,3 +371,213 @@ export const NonceLaneFailureIsolation = () => {
     </div>
   );
 };
+
+// Benchmark charts. Every figure below is from one measurement session on Sei
+// testnet against the same MockPerpVenue.place call; the page's Benchmarks
+// section states the conditions. Chain-side rates divide landed operations by
+// the block-timestamp span (whole seconds on Sei); client-side rates divide by
+// wall time from first broadcast to last receipt. Block gas limit 12,500,000,
+// about 331,000 gas per operation, so the ceiling is roughly 73 per second.
+// Keep each series in sync with the benchmark table and Tuning prose in
+// evm/nonce-lanes.mdx.
+
+export const NonceLaneThroughputComparison = () => {
+  const ink = 'currentColor';
+  const accent = 'var(--sei-maroon-50)';
+  const warn = 'var(--sei-diagram-warning, #b45309)';
+  const rows = [
+    { label: '1 EOA, serial: send, wait, send (30 tx)', chain: 1.0, client: 1.0, lanes: false },
+    { label: '1 EOA, pipelined, 1 request in flight (200 tx)', chain: 6.9, client: 6.7, lanes: false },
+    { label: 'tutorial lanes, 4 relayers × 4 per bundle (24 ops)', chain: 8.0, client: 5.7, lanes: true },
+    { label: 'fleet of 4 hot wallets × 100 tx', chain: 26.7, client: 24.8, lanes: false },
+    { label: 'fleet of 8 hot wallets × 64 tx', chain: 51.2, client: 49.7, lanes: false },
+    { label: '1 EOA, 1,024 tx in one JSON-RPC batch', chain: 51.2, client: 47.3, lanes: false },
+    { label: 'lanes, 32 relayers × 8 per bundle (1,024 ops)', chain: 60.2, client: 55.3, lanes: true },
+    { label: 'lanes, 16 relayers × 16 per bundle (1,024 ops)', chain: 64.0, client: 54.6, lanes: true },
+    { label: 'lanes, 16 relayers × 36 per bundle (1,024 ops)', chain: 64.0, client: 55.1, lanes: true }
+  ];
+  const ceiling = 73;
+  const x0 = 316;
+  const scale = 6.5; // px per landed op/s, 0..80 across 520 px
+  const rowTop = (i) => 62 + i * 40;
+  const plotBottom = rowTop(rows.length) - 6;
+  return (
+    <div className="not-prose w-full my-5">
+      <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/40 p-4 text-neutral-800 dark:text-neutral-200">
+        <svg viewBox="0 0 900 468" role="img" aria-label="Landed operations per second for one EOA with sequential nonces, fleets of hot wallets, and nonce lanes, all calling the same venue on Sei Testnet; the block-gas ceiling is about 73 per second" style={{ width: '100%', minWidth: 640, height: 'auto', display: 'block' }}>
+          <text x={20} y={24} fontSize="13" fontWeight="600" fill={ink}>Landed operations per second, same venue call, Sei Testnet</text>
+          <rect x={x0} y={37} width={10} height={10} rx={2} fill={accent} />
+          <text x={x0 + 15} y={45} fontSize="9.5" fill={ink} fillOpacity="0.8">chain-side: landed ÷ block-timestamp span</text>
+          <rect x={x0 + 240} y={37} width={10} height={10} rx={2} fill={ink} fillOpacity="0.3" />
+          <text x={x0 + 255} y={45} fontSize="9.5" fill={ink} fillOpacity="0.8">client-side: landed ÷ wall time, first broadcast to last receipt</text>
+
+          {[0, 20, 40, 60, 80].map((v) => (
+            <g key={'g' + v}>
+              <line x1={x0 + v * scale} y1={58} x2={x0 + v * scale} y2={plotBottom} stroke={ink} strokeOpacity="0.12" strokeWidth="1" />
+              <text x={x0 + v * scale} y={plotBottom + 14} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.6">{v}</text>
+            </g>
+          ))}
+          <text x={x0 + 40 * scale} y={plotBottom + 30} fontSize="10" textAnchor="middle" fill={ink} fillOpacity="0.7">landed operations per second</text>
+
+          <line x1={x0 + ceiling * scale} y1={58} x2={x0 + ceiling * scale} y2={plotBottom} stroke={warn} strokeWidth="1.2" strokeDasharray="4 3" />
+          <text x={x0 + ceiling * scale + 5} y={rowTop(0) + 12} fontSize="9.5" fill={ink} fontWeight="600">block-gas ceiling</text>
+          <text x={x0 + ceiling * scale + 5} y={rowTop(0) + 25} fontSize="9.5" fill={ink}>≈ 73 per second</text>
+
+          {rows.map((r, i) => {
+            const y = rowTop(i);
+            return (
+              <g key={r.label}>
+                <text x={x0 - 12} y={y + 22} fontSize="10.5" textAnchor="end" fill={r.lanes ? accent : ink} fontWeight={r.lanes ? '600' : '400'}>{r.label}</text>
+                <rect x={x0} y={y + 6} width={r.chain * scale} height={11} rx={2} fill={accent} fillOpacity="0.9" />
+                <text x={x0 + r.chain * scale + 4} y={y + 15} fontSize="9.5" fill={ink}>{r.chain.toFixed(1)}</text>
+                <rect x={x0} y={y + 19} width={r.client * scale} height={11} rx={2} fill={ink} fillOpacity="0.3" />
+                <text x={x0 + r.client * scale + 4} y={y + 28} fontSize="9.5" fill={ink} fillOpacity="0.7">{r.client.toFixed(1)}</text>
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">One measurement session on Sei Testnet, every strategy calling the same MockPerpVenue.place at about 330,000 gas per call. Block gas, not the nonce model, sets the ceiling: lanes came within 12 percent of it from one address whose EVM nonce never moved, while the single sequential queue matched the hot-wallet fleet only when every transaction left in one JSON-RPC batch. Short runs read high on the chain-side scale because Sei stamps blocks in whole seconds.</div>
+    </div>
+  );
+};
+
+export const NonceLaneBlockGasUtilization = () => {
+  const ink = 'currentColor';
+  const accent = 'var(--sei-maroon-50)';
+  const warn = 'var(--sei-diagram-warning, #b45309)';
+  const rows = [
+    { label: 'tutorial lanes, 4 relayers × 4 per bundle', avg: 10.6, max: 31.1, full: '0 of 7' },
+    { label: 'fleet of 8 hot wallets × 64 tx', avg: 54.4, max: 66.7, full: '0 of 25' },
+    { label: '1 EOA, 1,024 tx in one JSON-RPC batch', avg: 68.1, max: 97.2, full: '24 of 40' },
+    { label: 'lanes, 16 relayers × 16 per bundle', avg: 81.1, max: 91.4, full: '1 of 34' },
+    { label: 'lanes, 32 relayers × 8 per bundle', avg: 82.5, max: 94.6, full: '1 of 34' },
+    { label: 'lanes, 16 relayers × 36 per bundle', avg: 88.4, max: 98.1, full: '28 of 31' }
+  ];
+  const x0 = 306;
+  const scale = 4.3; // px per percent, 0..100 across 430 px
+  const rowTop = (i) => 62 + i * 40;
+  const plotBottom = rowTop(rows.length) - 6;
+  return (
+    <div className="not-prose w-full my-5">
+      <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/40 p-4 text-neutral-800 dark:text-neutral-200">
+        <svg viewBox="0 0 900 350" role="img" aria-label="Average and maximum block gas used as a percentage of the 12,500,000 limit during each benchmark run, with the number of blocks at least 90 percent full" style={{ width: '100%', minWidth: 640, height: 'auto', display: 'block' }}>
+          <text x={20} y={24} fontSize="13" fontWeight="600" fill={ink}>Block gas used during each run, percent of the 12,500,000 limit</text>
+          <rect x={x0} y={37} width={10} height={10} rx={2} fill={accent} fillOpacity="0.9" />
+          <text x={x0 + 15} y={45} fontSize="9.5" fill={ink} fillOpacity="0.8">average over the run's blocks</text>
+          <line x1={x0 + 190} y1={36} x2={x0 + 190} y2={48} stroke={ink} strokeWidth="1.6" />
+          <text x={x0 + 197} y={45} fontSize="9.5" fill={ink} fillOpacity="0.8">fullest block</text>
+          <text x={770} y={45} fontSize="9.5" fill={ink} fillOpacity="0.8" fontWeight="600">blocks ≥ 90% full</text>
+
+          {[0, 25, 50, 75, 100].map((v) => (
+            <g key={'g' + v}>
+              <line x1={x0 + v * scale} y1={58} x2={x0 + v * scale} y2={plotBottom} stroke={ink} strokeOpacity="0.12" strokeWidth="1" />
+              <text x={x0 + v * scale} y={plotBottom + 14} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.6">{v}%</text>
+            </g>
+          ))}
+          <line x1={x0 + 90 * scale} y1={58} x2={x0 + 90 * scale} y2={plotBottom} stroke={warn} strokeWidth="1.2" strokeDasharray="4 3" />
+          <text x={x0 + 90 * scale} y={plotBottom + 28} fontSize="9.5" textAnchor="middle" fill={ink} fontWeight="600">90%: the chain, not the client, is the limit</text>
+
+          {rows.map((r, i) => {
+            const y = rowTop(i);
+            const xMax = x0 + r.max * scale;
+            // Long bars carry their label inside, so it never sits on the 90% line.
+            const inside = r.avg >= 60;
+            return (
+              <g key={r.label}>
+                <text x={x0 - 12} y={y + 20} fontSize="10.5" textAnchor="end" fill={ink}>{r.label}</text>
+                <rect x={x0} y={y + 8} width={r.avg * scale} height={16} rx={2} fill={accent} fillOpacity="0.9" />
+                <text x={inside ? x0 + r.avg * scale - 5 : x0 + r.avg * scale + 4} y={y + 20} fontSize="9.5" textAnchor={inside ? 'end' : 'start'} fill={inside ? '#ffffff' : ink} fontWeight={inside ? '600' : '400'}>{r.avg.toFixed(1)}%</text>
+                <line x1={xMax} y1={y + 5} x2={xMax} y2={y + 27} stroke={ink} strokeWidth="1.6" />
+                <text x={xMax + 4} y={y + 20} fontSize="9" fill={ink} fillOpacity="0.65">{r.max.toFixed(1)}%</text>
+                <text x={770} y={y + 20} fontSize="10.5" fill={ink} fillOpacity="0.85">{r.full}</text>
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Read from the chain with the repository's block report over each run's block range. The tutorial shape leaves blocks almost empty, so its rate is the client's, not the chain's. The lanes run with 16 relayers and 36 operations per bundle filled 28 of 31 blocks past 90 percent. The batch run's fullest block came within one percentage point of it, 97.2 percent compared with 98.1 percent, but averaged 68.1 percent compared with 88.4 percent for lanes.</div>
+    </div>
+  );
+};
+
+export const NonceLaneScalingSeries = () => {
+  const ink = 'currentColor';
+  const accent = 'var(--sei-maroon-50)';
+  const warn = 'var(--sei-diagram-warning, #b45309)';
+  const yTop = 62;
+  const yBottom = 252;
+  const yFor = (v) => yBottom - (v / 80) * (yBottom - yTop);
+  const ceiling = 73;
+  const panels = [
+    {
+      title: '4 relayers, by bundle width',
+      axis: 'MAX_OPS_PER_BUNDLE',
+      x0: 78,
+      step: 70,
+      cats: ['1', '4', '8', '16', '32', '36'],
+      chain: [3.2, 9.8, 17.1, 28.4, 51.2, 56.9],
+      client: [2.7, 8.9, 15.3, 24.3, 45.4, 50.5]
+    },
+    {
+      title: 'width 4, by relayer count',
+      axis: 'RELAYER_COUNT',
+      x0: 518,
+      step: 84,
+      cats: ['1', '4', '8', '16', '32'],
+      chain: [2.7, 9.8, 17.1, 32.0, 51.2],
+      client: [2.2, 8.9, 15.4, 27.9, 47.2]
+    }
+  ];
+  const points = (p, series) => series.map((v, i) => `${p.x0 + i * p.step},${yFor(v)}`).join(' ');
+  return (
+    <div className="not-prose w-full my-5">
+      <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/40 p-4 text-neutral-800 dark:text-neutral-200">
+        <svg viewBox="0 0 900 312" role="img" aria-label="Landed operations per second as bundle width grows at 4 relayers, and as the relayer count grows at width 4; both series rise toward the block-gas ceiling of about 73 per second" style={{ width: '100%', minWidth: 640, height: 'auto', display: 'block' }}>
+          {panels.map((p) => {
+            const left = p.x0 - 40;
+            const right = p.x0 + (p.cats.length - 1) * p.step + 30;
+            return (
+              <g key={p.title}>
+                <text x={left} y={24} fontSize="13" fontWeight="600" fill={ink}>{p.title}</text>
+                <text x={left} y={44} fontSize="9.5" fill={ink} fillOpacity="0.6">landed operations per second</text>
+                {[0, 20, 40, 60, 80].map((v) => (
+                  <g key={p.title + v}>
+                    <line x1={left + 22} y1={yFor(v)} x2={right} y2={yFor(v)} stroke={ink} strokeOpacity="0.12" strokeWidth="1" />
+                    <text x={left + 16} y={yFor(v) + 3.5} fontSize="9" textAnchor="end" fill={ink} fillOpacity="0.6">{v}</text>
+                  </g>
+                ))}
+                <line x1={left + 22} y1={yFor(ceiling)} x2={right} y2={yFor(ceiling)} stroke={warn} strokeWidth="1.2" strokeDasharray="4 3" />
+                <text x={right} y={yFor(ceiling) - 5} fontSize="9" textAnchor="end" fill={ink} fontWeight="600">block-gas ceiling ≈ 73</text>
+                <polyline points={points(p, p.client)} fill="none" stroke={ink} strokeOpacity="0.45" strokeWidth="1.4" strokeDasharray="5 3" />
+                <polyline points={points(p, p.chain)} fill="none" stroke={accent} strokeWidth="1.8" />
+                {p.cats.map((c, i) => {
+                  const x = p.x0 + i * p.step;
+                  // Near the axis a label below the dot would land on the category tick, so it moves beside it.
+                  const low = yFor(p.client[i]) + 15 > yBottom - 4;
+                  return (
+                    <g key={p.title + c}>
+                      <circle cx={x} cy={yFor(p.client[i])} r={3} fill={ink} fillOpacity="0.45" />
+                      <circle cx={x} cy={yFor(p.chain[i])} r={3.4} fill={accent} />
+                      <text x={x} y={yFor(p.chain[i]) - 8} fontSize="9" textAnchor="middle" fill={accent} fontWeight="600">{p.chain[i].toFixed(1)}</text>
+                      <text x={low ? x + 8 : x} y={low ? yFor(p.client[i]) + 3.5 : yFor(p.client[i]) + 15} fontSize="8.5" textAnchor={low ? 'start' : 'middle'} fill={ink} fillOpacity="0.65">{p.client[i].toFixed(1)}</text>
+                      <text x={x} y={yBottom + 16} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.8">{c}</text>
+                    </g>
+                  );
+                })}
+                <text x={(left + 22 + right) / 2} y={yBottom + 32} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.6" fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace">{p.axis}</text>
+              </g>
+            );
+          })}
+          <line x1={330} y1={302} x2={352} y2={302} stroke={accent} strokeWidth="1.8" />
+          <circle cx={341} cy={302} r={3.4} fill={accent} />
+          <text x={358} y={305.5} fontSize="9.5" fill={ink} fillOpacity="0.8">chain-side</text>
+          <line x1={430} y1={302} x2={452} y2={302} stroke={ink} strokeOpacity="0.45" strokeWidth="1.4" strokeDasharray="5 3" />
+          <circle cx={441} cy={302} r={3} fill={ink} fillOpacity="0.45" />
+          <text x={458} y={305.5} fontSize="9.5" fill={ink} fillOpacity="0.8">client-side</text>
+        </svg>
+      </div>
+      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Categories are evenly spaced, not to scale. Both series climb almost linearly while the pool is the bottleneck, because each relayer's bundle cycle is about 1.5 seconds of sequential RPC round trips plus inclusion, and flatten as the in-flight work approaches what a 12,500,000-gas block can hold. Runs used 32 to 1,024 operations, so the shorter ones read higher on the chain-side scale than they would sustain. The sweep point with 4 relayers and a bundle width of 4 used 32 operations. The tutorial comparison used 24, so their rates differ despite the same bundle shape.</div>
+    </div>
+  );
+};

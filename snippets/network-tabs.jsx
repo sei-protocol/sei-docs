@@ -157,10 +157,18 @@ export const NetworkTabs = (props) => {
 
 								<div className='space-y-3'>
 									<div className='flex flex-col'>
-										<div className='text-neutral-600 dark:text-neutral-400 mb-1'>Chain ID:</div>
+										<div className='text-neutral-600 dark:text-neutral-400 mb-1'>EVM chain ID:</div>
 										<div className='flex items-center justify-between'>
 											<span className='text-neutral-700 dark:text-neutral-300'>1329 (0x531)</span>
 											<CopyButton textToCopy='1329' />
+										</div>
+									</div>
+
+									<div className='flex flex-col'>
+										<div className='text-neutral-600 dark:text-neutral-400 mb-1'>Cosmos chain ID:</div>
+										<div className='flex items-center justify-between'>
+											<span className='text-neutral-700 dark:text-neutral-300'>pacific-1</span>
+											<CopyButton textToCopy='pacific-1' />
 										</div>
 									</div>
 
@@ -201,10 +209,18 @@ export const NetworkTabs = (props) => {
 
 								<div className='space-y-3'>
 									<div className='flex flex-col'>
-										<div className='text-neutral-600 dark:text-neutral-400 mb-1'>Chain ID:</div>
+										<div className='text-neutral-600 dark:text-neutral-400 mb-1'>EVM chain ID:</div>
 										<div className='flex items-center justify-between'>
 											<span className='text-neutral-700 dark:text-neutral-300'>1328 (0x530)</span>
 											<CopyButton textToCopy='1328' />
+										</div>
+									</div>
+
+									<div className='flex flex-col'>
+										<div className='text-neutral-600 dark:text-neutral-400 mb-1'>Cosmos chain ID:</div>
+										<div className='flex items-center justify-between'>
+											<span className='text-neutral-700 dark:text-neutral-300'>atlantic-2</span>
+											<CopyButton textToCopy='atlantic-2' />
 										</div>
 									</div>
 
@@ -255,10 +271,18 @@ export const NetworkTabs = (props) => {
 
 								<div className='space-y-3'>
 									<div className='flex flex-col'>
-										<div className='text-neutral-600 dark:text-neutral-400 mb-1'>Chain ID:</div>
+										<div className='text-neutral-600 dark:text-neutral-400 mb-1'>EVM chain ID:</div>
 										<div className='flex items-center justify-between'>
 											<span className='text-neutral-700 dark:text-neutral-300'>713714 (0xAE3F2)</span>
 											<CopyButton textToCopy='713714' />
+										</div>
+									</div>
+
+									<div className='flex flex-col'>
+										<div className='text-neutral-600 dark:text-neutral-400 mb-1'>Cosmos chain ID:</div>
+										<div className='flex items-center justify-between'>
+											<span className='text-neutral-700 dark:text-neutral-300'>sei-chain (default)</span>
+											<CopyButton textToCopy='sei-chain' />
 										</div>
 									</div>
 

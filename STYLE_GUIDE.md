@@ -285,7 +285,8 @@ Use tables for comparing features, listing network information, or presenting st
 
 When referencing network information, always include:
 
-- Chain ID (both decimal and hex format where applicable)
+- EVM chain ID (both decimal and hex format where applicable)
+- Cosmos chain ID (`pacific-1`, `atlantic-2`) when the table documents `seid` or Cosmos endpoints
 - RPC URLs
 - Explorer links
 
