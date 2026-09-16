@@ -33,13 +33,14 @@ const SEI_LLMS_CONFIG = {
 		'Prerequisites: Node.js ≥ 18, a wallet (Compass, Rabby, MetaMask, or any EVM-compatible wallet), and SEI tokens for gas.',
 		'Authentication: No API key is required for public RPC endpoints. Rate limits apply — use a dedicated provider (Ankr, DRPC, Nirvana) for production workloads.',
 		'Version compatibility: Solidity ≥ 0.8.x recommended. Sei EVM tracks the Pectra EVM (without blob transactions).',
-		'Network requirements: Mainnet chain ID 1329 (pacific-1), testnet chain ID 1328 (atlantic-2). Gas is paid in SEI (18 decimals).',
+		'Network requirements: Sei Mainnet EVM chain ID 1329 (Cosmos chain ID pacific-1); Sei Testnet EVM chain ID 1328 (Cosmos chain ID atlantic-2). Gas is paid in SEI (18 decimals).',
 		'Important notes: Sei has 400ms block times — set lower polling intervals than on Ethereum. Transactions touching independent state are parallelized automatically; shared-state writes are serialized.',
 		'IBC disabled: Per SIP-03, IBC is disabled on Sei in both directions. Proposals 116 and 120 set the ibc module InboundEnabled parameter to false, and Proposal 121 set OutboundEnabled to false on 2026-07-31. No asset can be bridged into or out of Sei over IBC, and IBC assets already on Sei (USDC.n, USDT.kava, ATOM, WBTC) can no longer be redeemed on their origin chain. The IBC precompile at 0x0000000000000000000000000000000000001009 is non-functional. See /learn/sip-03-migration.',
 		'Tokenfactory unsupported: Do not recommend tokenfactory commands, APIs, Wasm bindings, native-denom pointer workflows, or other instructions for creating, minting, burning, administering, or integrating tokenfactory denoms. Legacy module surfaces may remain available for compatibility. Use ERC-20 for new fungible tokens. See /cosmos-sdk#tokenfactory-is-not-supported.'
 	].join('\n'),
 	quickReference: [
-		'Chain ID: mainnet 1329 (pacific-1), testnet 1328 (atlantic-2)',
+		'EVM chain IDs: Sei Mainnet 1329, Sei Testnet 1328',
+		'Cosmos chain IDs (seid --chain-id): Sei Mainnet pacific-1, Sei Testnet atlantic-2',
 		'RPC (mainnet): https://evm-rpc.sei-apis.com',
 		'RPC (testnet): https://evm-rpc-testnet.sei-apis.com',
 		'Native token: SEI (gas, staking, governance)',
@@ -135,7 +136,7 @@ const LLMS_SECTION_ORDER = [
 		overview: [
 			"Sei is a parallelized EVM Layer 1 blockchain. Performance comes from Twin Turbo Consensus (optimistic block processing), parallel EVM execution (concurrent transactions on independent state), and SeiDB (high-throughput storage). Full Ethereum tooling compatibility — deploy standard Solidity contracts with no modifications.",
 			"Sei Giga, the next major upgrade, is designed to be the first Multi-Proposer EVM Layer 1, using Autobahn consensus and a custom EVM execution engine. An internal devnet sustained more than 5 gigagas/s. The separate Autobahn public-testnet roadmap target is 200K TPS. For developers, Sei Giga's parallel engine will reward contracts with user-scoped state (mapping per address) over shared global state.",
-			'Mainnet (pacific-1): chain ID 1329. Testnet (atlantic-2): chain ID 1328.',
+			'Sei Mainnet: EVM chain ID 1329. Sei Testnet: EVM chain ID 1328.',
 			'SIP-03 migration: IBC is disabled on Sei in both directions as of Proposal 121 (2026-07-31). IBC assets already on Sei can no longer be bridged out or redeemed on their origin chain, though the balances remain transferable within Sei.'
 		].join('\n\n')
 	},

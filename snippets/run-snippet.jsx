@@ -39,7 +39,7 @@ export const RunSnippet = (props) => {
 		mainnet: 'https://evm-rpc.sei-apis.com'
 	};
 	const rpcUrl = endpoint || ENDPOINTS[network] || ENDPOINTS.testnet;
-	const networkLabel = network === 'mainnet' ? 'pacific-1 · mainnet' : network === 'testnet' ? 'atlantic-2 · testnet' : network;
+	const networkLabel = network === 'mainnet' ? 'Sei Mainnet' : network === 'testnet' ? 'Sei Testnet' : network;
 
 	const requestBody = { jsonrpc: '2.0', id: 1, method, params };
 	const requestJson = JSON.stringify(requestBody, null, 2);

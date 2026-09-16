@@ -285,12 +285,13 @@ Use tables for comparing features, listing network information, or presenting st
 
 When referencing network information, always include:
 
-- Chain ID (both decimal and hex format where applicable)
+- EVM chain ID (both decimal and hex format where applicable)
+- Cosmos chain ID (`pacific-1`, `atlantic-2`) when the table documents `seid` or Cosmos endpoints
 - RPC URLs
 - Explorer links
 
 Example:
-| Network | Chain ID | RPC URL |
+| Network | EVM chain ID | RPC URL |
 |---------|----------|---------|
-| Mainnet (pacific-1) | 1329 (0x531) | https://evm-rpc.sei-apis.com |
-| Testnet (atlantic-2) | 1328 (0x530) | https://evm-rpc-testnet.sei-apis.com |
+| Sei Mainnet | 1329 (0x531) | https://evm-rpc.sei-apis.com |
+| Sei Testnet | 1328 (0x530) | https://evm-rpc-testnet.sei-apis.com |

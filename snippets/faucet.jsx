@@ -1,4 +1,4 @@
-// Faucet — atlantic-2 testnet faucet, inlined from sei-docs-widgets.
+// Sei Testnet faucet, inlined from sei-docs-widgets.
 //
 // The widget repo kept this as an iframe because it imported npm packages
 // (`@hcaptcha/react-hcaptcha`, `viem`, `sonner`) that Mintlify snippets cannot
