@@ -35,4 +35,4 @@ See the [README](README.md) for more details on local setup.
 
 Mintlify only generates Tailwind utilities it can extract from JSX. In `snippets/*.jsx` and rendered JSX in `.mdx` pages, keep class lists in literal attributes. Prefer `className="..."`; static string and template expressions without interpolation are also safe. Do not keep utility lists in variables or assemble `className` dynamically. Use explicit JSX branches, inline styles, or a semantic hook in `style.css` for conditional styles.
 
-Run `node scripts/check-snippet-classnames.mjs` before opening a pull request. For theme-aware snippets, also run `node scripts/check-snippet-theme-default.mjs`.
+For theme-aware snippets, run `node scripts/check-snippet-theme-default.mjs`.

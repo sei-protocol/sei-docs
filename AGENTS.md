@@ -39,7 +39,7 @@
 - Do not store utility lists in variables or assemble `className` dynamically. For conditional styling, use explicit JSX branches, inline styles, or a semantic data/class hook backed by `style.css`.
 - A component may forward the exact `className` prop when it destructures `className` in its parameters and every caller supplies a literal utility list.
 - Theme-aware snippets must seed hydration from `docs.json` `appearance.default` and synchronize the DOM theme in `useLayoutEffect`.
-- Run `node scripts/check-snippet-classnames.mjs` after editing snippets or rendered MDX JSX. Run `node scripts/check-snippet-theme-default.mjs` after editing a theme-aware snippet.
+- Run `node scripts/check-snippet-theme-default.mjs` after editing a theme-aware snippet.
 
 ## Content boundaries
 
