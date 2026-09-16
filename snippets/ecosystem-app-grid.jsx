@@ -13,8 +13,10 @@ export const EcosystemAppGrid = (props) => {
 	};
 
 	// --- Dark mode detection (Mintlify toggles a `dark` class on <html>) ---
-	const [isDark, setIsDark] = useState(false);
-	useEffect(() => {
+	// See scripts/check-snippet-theme-default.mjs for the shared SSR theme
+	// invariant. Layout sync applies a saved preference before paint.
+	const [isDark, setIsDark] = useState(true);
+	useLayoutEffect(() => {
 		const el = document.documentElement;
 		const update = () => setIsDark(el.classList.contains('dark'));
 		update();
@@ -207,7 +209,7 @@ export const EcosystemAppGrid = (props) => {
 							) : (
 								<WorldIcon
 									size={24}
-									style={{ color: hover ? 'var(--sei-maroon-100)' : '#737373', transition: 'color 0.3s' }}
+									style={{ color: hover ? 'var(--sei-maroon-100)' : isDark ? '#737373' : 'var(--sei-grey-200)', transition: 'color 0.3s' }}
 								/>
 							)}
 						</figure>
@@ -274,7 +276,7 @@ export const EcosystemAppGrid = (props) => {
 
 	if (hasError) {
 		return (
-			<div className='py-10 text-sm text-neutral-500 dark:text-neutral-400 italic'>
+			<div className='py-10 text-sm text-neutral-600 dark:text-neutral-400 italic'>
 				Couldn’t load {category} integrations right now. Please refresh to try again.
 			</div>
 		);
@@ -283,7 +285,7 @@ export const EcosystemAppGrid = (props) => {
 	const apps = data.filter((app) => app && app.fieldData && app.fieldData['docs-category'] === category);
 
 	if (!apps || apps.length === 0) {
-		return <div className='py-10 text-sm text-neutral-500 dark:text-neutral-400 italic'>No {category} integrations published yet.</div>;
+		return <div className='py-10 text-sm text-neutral-600 dark:text-neutral-400 italic'>No {category} integrations published yet.</div>;
 	}
 
 	return (

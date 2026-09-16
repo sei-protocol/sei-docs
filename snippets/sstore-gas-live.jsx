@@ -27,6 +27,18 @@ export const SstoreGasLive = ({ network = 'mainnet' }) => {
   const [data, setData] = useState(null);
   const [err, setErr] = useState(null);
   const [loading, setLoading] = useState(true);
+  // See scripts/check-snippet-theme-default.mjs for the shared SSR theme
+  // invariant. Layout sync applies a saved preference before paint.
+  const [isDark, setIsDark] = useState(true);
+
+  useLayoutEffect(() => {
+    const el = document.documentElement;
+    const update = () => setIsDark(el.classList.contains('dark'));
+    update();
+    const obs = new MutationObserver(update);
+    obs.observe(el, { attributes: true, attributeFilter: ['class'] });
+    return () => obs.disconnect();
+  }, []);
 
   const ethCall = async (url, to, data) => {
     const res = await fetch(url, {
@@ -72,9 +84,9 @@ export const SstoreGasLive = ({ network = 'mainnet' }) => {
           fontSize: '11px',
           textTransform: 'uppercase',
           letterSpacing: '0.04em',
-          color: active ? '#ffffff' : 'var(--sei-maroon-100)',
+          color: active ? '#ffffff' : isDark ? 'var(--sei-maroon-25)' : 'var(--sei-maroon-100)',
           backgroundColor: active ? 'var(--sei-maroon-100)' : 'transparent',
-          border: '1px solid var(--sei-maroon-100)',
+          border: `1px solid ${isDark ? 'var(--sei-maroon-25)' : 'var(--sei-maroon-100)'}`,
           cursor: active ? 'default' : 'pointer'
         }}>
         {children}
@@ -84,14 +96,14 @@ export const SstoreGasLive = ({ network = 'mainnet' }) => {
 
   const Stat = ({ label, value, sub }) => (
     <div className="flex flex-col gap-0.5">
-      <span className="text-[11px] uppercase tracking-wide text-neutral-500 dark:text-neutral-400" style={{ fontFamily: 'var(--sei-font-mono)' }}>
+      <span className="text-[11px] uppercase tracking-wide text-neutral-600 dark:text-neutral-400" style={{ fontFamily: 'var(--sei-font-mono)' }}>
         {label}
       </span>
       <span className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50 tabular-nums" style={{ fontFamily: 'var(--sei-font-mono)' }}>
         {loading ? '…' : value}
-        <span className="text-sm font-normal text-neutral-500 dark:text-neutral-400"> gas</span>
+        <span className="text-sm font-normal text-neutral-600 dark:text-neutral-400"> gas</span>
       </span>
-      {sub && <span className="text-[11px] text-neutral-500 dark:text-neutral-400">{sub}</span>}
+      {sub && <span className="text-[11px] text-neutral-600 dark:text-neutral-400">{sub}</span>}
     </div>
   );
 
@@ -123,7 +135,7 @@ export const SstoreGasLive = ({ network = 'mainnet' }) => {
         </div>
       )}
 
-      <div className="mt-3 text-[11px] text-neutral-500 dark:text-neutral-400">
+      <div className="mt-3 text-[11px] text-neutral-600 dark:text-neutral-400">
         {RPC[net].chain} ({RPC[net].id}) · read via <code>eth_call</code> from the verified{' '}
         <a href={RPC[net].explorer} target="_blank" rel="noopener noreferrer" className="underline">
           SstoreGasProbe

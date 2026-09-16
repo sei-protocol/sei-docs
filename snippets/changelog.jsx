@@ -543,9 +543,11 @@ sei-tendermint
   const [dynamicVersions, setDynamicVersions] = useState([]);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [isDark, setIsDark] = useState(false);
+  // This deterministic seed is CI-checked against docs.json appearance.default
+  // by scripts/check-snippet-theme-default.mjs.
+  const [isDark, setIsDark] = useState(true);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = document.documentElement;
     const update = () => setIsDark(el.classList.contains('dark'));
     update();
@@ -635,14 +637,18 @@ sei-tendermint
       return repoMap[compName] || 'sei-protocol/sei-chain';
     };
 
-    const renderLink = (key, href, text, marginClass = 'ml-1') => (
+    const renderLink = (key, href, text, marginSide = 'left') => (
       <a
         key={key}
         href={href}
         target="_blank"
         rel="noopener noreferrer"
-        className={`px-2 py-0.5 text-sm font-medium no-underline ${marginClass}`}
-        style={linkBaseStyle()}
+        className="px-2 py-0.5 text-sm font-medium no-underline"
+        style={{
+          ...linkBaseStyle(),
+          marginLeft: marginSide === 'left' ? '0.25rem' : undefined,
+          marginRight: marginSide === 'right' ? '0.25rem' : undefined
+        }}
         onMouseEnter={(e) => applyLinkHover(e, true)}
         onMouseLeave={(e) => applyLinkHover(e, false)}>
         {text}
@@ -723,7 +729,7 @@ sei-tendermint
                   const inlineComponentMatch = prevParts.match(/\b(sei-chain|sei-tendermint|sei-cosmos|sei-db|sei-wasmd|sei-iavl|sei-ibc-go|tm-db)\s*$/i);
                   const effectiveComponent = inlineComponentMatch ? inlineComponentMatch[1] : componentName;
                   const repoPath = getRepoUrl(effectiveComponent);
-                  return renderLink(`${key}-${j}`, `https://github.com/${repoPath}/pull/${trimmedPart}`, `#${trimmedPart}`, 'mr-1');
+                  return renderLink(`${key}-${j}`, `https://github.com/${repoPath}/pull/${trimmedPart}`, `#${trimmedPart}`, 'right');
                 }
               }
               return <span key={`${key}-${j}`}>{subPart}</span>;
@@ -793,8 +799,8 @@ sei-tendermint
           {sectionComponents.map((comp, i) => (
             <div key={i}>
               <div className="flex items-center gap-2 mb-3">
-                <div className="flex items-center gap-2 bg-gray-100 px-3 py-1.5">
-                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: 'var(--sei-maroon-100)' }}></div>
+                <div className="flex items-center gap-2 bg-gray-100 dark:bg-neutral-800 px-3 py-1.5">
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: isDark ? 'var(--sei-maroon-25)' : 'var(--sei-maroon-100)' }}></div>
                   <span className="font-medium text-gray-700 dark:text-white text-sm">{comp.name}</span>
                 </div>
               </div>
@@ -853,9 +859,9 @@ sei-tendermint
           {components.map((comp, i) => (
             <div key={i}>
               <div className="flex items-center gap-2 mb-3">
-                <div className="flex items-center gap-2 bg-slate-100 px-3 py-1.5">
-                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: 'var(--sei-maroon-100)' }}></div>
-                  <span className="font-medium text-slate-700 text-sm">{comp.name}</span>
+                <div className="flex items-center gap-2 bg-slate-100 dark:bg-neutral-800 px-3 py-1.5">
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: isDark ? 'var(--sei-maroon-25)' : 'var(--sei-maroon-100)' }}></div>
+                  <span className="font-medium text-slate-700 dark:text-white text-sm">{comp.name}</span>
                 </div>
               </div>
               <div className="space-y-2">
@@ -918,7 +924,7 @@ sei-tendermint
             <div key={version.version} className="mb-8">
               <div className="flex items-center gap-3 mb-4">
                 <h2 className="text-xl font-bold text-gray-900 dark:text-white m-0">{version.version}</h2>
-                <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">Release</span>
+                <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-neutral-800 px-2 py-1 rounded-full">Release</span>
               </div>
               <div className="space-y-4">{renderContent(version.body)}</div>
             </div>
@@ -959,7 +965,7 @@ sei-tendermint
           View on GitHub
         </a>
         {loading && (
-          <span className="inline-flex items-center text-xs text-neutral-500 dark:text-neutral-400">
+          <span className="inline-flex items-center text-xs text-neutral-600 dark:text-neutral-400">
             <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-r-transparent mr-2" />
             Checking for the latest releases…
           </span>
@@ -971,7 +977,7 @@ sei-tendermint
           <div key={version.version} className="mb-8">
             <div className="flex items-center gap-3 mb-4">
               <h2 className="text-xl font-bold text-gray-900 dark:text-white m-0">{version.version}</h2>
-              <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">Release</span>
+              <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-neutral-800 px-2 py-1 rounded-full">Release</span>
             </div>
             <div className="space-y-4">{renderContent(version.body)}</div>
           </div>
