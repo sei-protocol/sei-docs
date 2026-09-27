@@ -60,6 +60,16 @@ exclude = [
 # Don't check mailto: links (this is the default; set explicitly for clarity).
 include_mail = false
 
+# Check GitHub file links (github.com/<owner>/<repo>/blob/<ref>/<path>) against
+# raw.githubusercontent.com, the CDN that serves the same file for scripted
+# downloads. A missing file, ref, or repo still returns 404 there, while
+# github.com's rendered blob pages are the ones that answer the checker with
+# 503s for files that exist. Reports show the raw URL. A blob link must point
+# at a file; the CDN returns 404 for directories, so use /tree/ for those.
+remap = [
+  "^https://github\\.com/([^/]+)/([^/]+)/blob/([^?#]+).* https://raw.githubusercontent.com/$1/$2/$3",
+]
+
 # Per-host throttling. NOTE: TOML table headers capture every key that follows
 # them, so keep all top-level options above this line.
 #
@@ -69,8 +79,10 @@ include_mail = false
 # for pages that are perfectly fine. That produced the false positives in
 # https://github.com/sei-protocol/sei-docs/issues/77. lychee does not retry a
 # 503, and the GITHUB_TOKEN API fallback can only validate bare owner/repo URLs
-# (not blob/tree paths), so the fix is to slow down instead. Measured cost:
-# ~80 GitHub requests at one per second adds about 40 seconds to the weekly run.
+# (not blob/tree paths), so slowing down is what keeps 503s rare. It does not
+# stop them entirely, which is why external-links.yml re-checks every failure
+# before reporting it. Measured cost: with blob links remapped above, ~45
+# github.com requests at one per second keep the full run under a minute.
 [hosts."github.com"]
 concurrency = 2
 request_interval = "1s"
