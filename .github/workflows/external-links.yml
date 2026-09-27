@@ -40,7 +40,9 @@ jobs:
           args: ${{ env.LYCHEE_ARGS }}
           fail: false
           format: markdown
-          output: ./lychee-report.md
+          # Keep the report outside the checkout, or the re-check's '**/*.md'
+          # glob reads it as a docs page and lists every failure twice.
+          output: ${{ runner.temp }}/lychee-report.md
 
       # Throttled or briefly unavailable hosts (GitHub in particular) answer
       # live pages with a 503, and lychee reports that without retrying. Only
@@ -57,12 +59,12 @@ jobs:
           args: ${{ env.LYCHEE_ARGS }}
           fail: false
           format: markdown
-          output: ./lychee-report.md
+          output: ${{ runner.temp }}/lychee-report.md
 
       - name: Open or update tracking issue on broken links
         if: steps.lychee.outputs.exit_code != 0 && steps.recheck.outputs.exit_code != 0
         uses: peter-evans/create-issue-from-file@v5
         with:
           title: 🔗 Broken external links detected
-          content-filepath: ./lychee-report.md
+          content-filepath: ${{ runner.temp }}/lychee-report.md
           labels: broken-links, automated
