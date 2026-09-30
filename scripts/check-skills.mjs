@@ -35,6 +35,19 @@ for (const dir of dirs) {
   if (!new RegExp(`^name: ${dir}$`, 'm').test(source)) {
     failures.push(`${path}: frontmatter name must be '${dir}' to match its directory`);
   }
+
+  // Agents copy these samples verbatim, so catch the regressions that can double-sign a
+  // validator or report a reverted payment as sent.
+  for (const [, code] of source.matchAll(/```[^\n]*\n([\s\S]*?)```/g)) {
+    if (code.includes('unsafe-reset-all') && !/\bset -[a-z]*e/.test(code)) {
+      failures.push(`${path}: a script that runs unsafe-reset-all must fail closed (set -euo pipefail)`);
+    }
+    const waits = (code.match(/waitForTransactionReceipt\(/gi) || []).length;
+    const statusChecks = (code.match(/\.status\b/g) || []).length;
+    if (waits > statusChecks) {
+      failures.push(`${path}: a sample waits for a receipt without checking its status (viem resolves reverted transactions too)`);
+    }
+  }
 }
 
 const registry = [...(await readFile(registryPath, 'utf8')).matchAll(/id: '([a-z0-9-]+)'/g)]
@@ -56,4 +69,7 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log(`Checked ${dirs.length} skills; each is generated from sei-skill and listed in the registry.`);
+console.log(
+  `Checked ${dirs.length} skills; each is generated from sei-skill, listed in the registry, `
+  + 'and free of the known sample regressions.'
+);
