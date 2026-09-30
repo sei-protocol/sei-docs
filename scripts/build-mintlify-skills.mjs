@@ -73,6 +73,18 @@ const DOCS_POLICY = [
   'Current seid releases require Go 1.25.6 or later; the authoritative version is the go.mod at the release tag (https://docs.sei.io/node).',
 ];
 
+// Known bugs in sei-skill's samples. Agents copy skill code verbatim, so the
+// output must correct them. Remove an entry once sei-skill fixes it.
+const SOURCE_ERRATA = [
+  'Precompiles are native code in the Sei node. A local EVM and a Foundry, Hardhat, or anvil fork all lack them, so precompile calls fail there. Recommend testing on Sei Testnet or a local seid node and placing a mock at the address in unit tests (Foundry vm.etch, Hardhat hardhat_setCode); never recommend forking for precompile tests.',
+  'Signature-gated execution (such as a P-256 passkey wallet) must build the signed digest inside the contract from block.chainid, address(this), a nonce that increments on use, and the exact call. Never verify a caller-supplied hash.',
+  'x402 verification must check that the Transfer log was emitted by the USDC contract and must consume each transaction hash exactly once with an atomic insert-if-absent. A client-supplied reference alone does not prevent replay.',
+  'seid tendermint unsafe-reset-all resets priv_validator_state.json to height 0. Resync scripts must back it up first and restore the backup after clearing data/.',
+  'CCTP v2 TokenMessengerV2.depositForBurn takes seven arguments: amount, destinationDomain, mintRecipient, burnToken, destinationCaller, maxFee, minFinalityThreshold (1000 Fast, 2000 Standard).',
+  'Do not hardcode a 50 gwei gas price in write samples; read the live floor from eth_gasPrice.',
+  'Keep units explicit: staking delegation balances are usei (6 decimals) while delegate() takes wei (18 decimals), and ERC-20 samples for an arbitrary token must read decimals() instead of assuming 18.',
+];
+
 const PROMPT = (name, bar) => `You are flattening the canonical Sei skill source below into ONE self-contained Mintlify skill file for docs.sei.io.
 
 Produce a single SKILL.md for the skill "${name}":
@@ -82,9 +94,14 @@ Produce a single SKILL.md for the skill "${name}":
 - The file is MDX-parsed by the docs tooling: no HTML comments, and no bare "<", ">", "{", or "}" outside code spans/fences (write placeholders like \`<your-rpc>\` in backticks).
 - Match or exceed the QUALITY BAR (the current docs skill) in correctness and concision. Do not reintroduce anything the source dropped (e.g. Axelar, LayerZero v1 API, native-oracle endorsement, overconfident Wormhole-EVM examples).
 - Follow the DOCS POLICY below wherever it conflicts with the source or the quality bar; leave out source material it rules out.
+- Correct every sample the SOURCE ERRATA below describes, even where the source still shows the old version.
+- Output only the SKILL.md itself, starting with its frontmatter.
 
 == DOCS POLICY ==
 ${DOCS_POLICY.map((rule) => '- ' + rule).join('\n')}
+
+== SOURCE ERRATA ==
+${SOURCE_ERRATA.map((rule) => '- ' + rule).join('\n')}
 
 ${bar ? '== QUALITY BAR (current docs skill — match this) ==\n' + bar + '\n' : ''}== CANONICAL SOURCE (flatten this) ==\n`;
 
@@ -146,8 +163,20 @@ if (process.env.ANTHROPIC_API_KEY) {
     if (only && m.name !== only) continue;
     const prompt = R(join(DIST, m.name, 'PROMPT.md')) + R(join(DIST, m.name, 'SOURCE_BUNDLE.md'));
     const msg = await client.messages.create({ model: MODEL, max_tokens: 8000, messages: [{ role: 'user', content: prompt }] });
+    // A truncated reply, or one with prose before the frontmatter, would still be
+    // stamped GENERATED and pass the marker check in CI.
+    if (msg.stop_reason === 'max_tokens') {
+      console.error(`! ${m.name}: the reply hit max_tokens, so it is incomplete; nothing written.`);
+      process.exit(1);
+    }
     const text = msg.content.map((b) => (b.type === 'text' ? b.text : '')).join('');
-    const skillMd = stampGenerated(text.replace(/^```(markdown)?\n?/, '').replace(/\n?```$/, ''));
+    const body = text.trim().replace(/^```(markdown)?\n?/, '').replace(/\n?```$/, '');
+    const frontmatter = body.startsWith('---\n') ? body.slice(4).split('\n---')[0] : '';
+    if (!new RegExp(`^name: ${m.name}$`, 'm').test(frontmatter)) {
+      console.error(`! ${m.name}: the reply does not start with frontmatter naming "${m.name}"; nothing written.`);
+      process.exit(1);
+    }
+    const skillMd = stampGenerated(body) + '\n';
     writeFileSync(join(DIST, m.name, 'SKILL.md'), skillMd);
     if (write) {
       const dest = join(DOCS_SKILLS, m.name, 'SKILL.md');

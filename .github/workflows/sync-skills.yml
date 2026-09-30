@@ -83,15 +83,17 @@ jobs:
             exit 0
           fi
           BRANCH="chore/sync-skills-${{ steps.src.outputs.ref }}"
+          # A reviewer may have pushed fixups to an open sync PR for this ref;
+          # a force-push would silently discard them.
+          if [[ -n "$(gh pr list --head "$BRANCH" --state open --json number --jq '.[].number')" ]]; then
+            echo "An open PR already syncs sei-skill@${{ steps.src.outputs.ref }}; leaving it untouched."
+            exit 0
+          fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git checkout -b "$BRANCH"
           git commit -m "chore(skills): regenerate from sei-skill@${{ steps.src.outputs.ref }}"
           git push -f origin "$BRANCH"
-          if [[ -n "$(gh pr list --head "$BRANCH" --state open --json number --jq '.[].number')" ]]; then
-            echo 'PR already exists for this branch; pushed update.'
-            exit 0
-          fi
           gh pr create \
             --title "chore(skills): regenerate from sei-skill@${{ steps.src.outputs.ref }}" \
             --body "Automated regeneration of \`.mintlify/skills/\` from [sei-protocol/sei-skill](https://github.com/sei-protocol/sei-skill)@${{ steps.src.outputs.ref }} via \`scripts/build-mintlify-skills.mjs\`. These are generated artifacts — review for quality before merge."
