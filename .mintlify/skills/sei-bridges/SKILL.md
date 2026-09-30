@@ -105,7 +105,10 @@ import { parseUnits, pad, zeroHash } from "viem";
 // 1) Approve + burn on the SOURCE chain through CCTP v2's TokenMessengerV2.
 //    SEI_DOMAIN comes from Circle's supported-chains/domain table — verify, do not hardcode.
 const amount = parseUnits("100", 6); // 100 USDC, 6 decimals
-await sourceUsdc.write.approve([TOKEN_MESSENGER_V2, amount]);
+// write.approve returns a hash, not a receipt — wait for the allowance to be mined before burning
+const approveHash = await sourceUsdc.write.approve([TOKEN_MESSENGER_V2, amount]);
+const approval = await sourceClient.waitForTransactionReceipt({ hash: approveHash });
+if (approval.status !== "success") throw new Error("USDC approval failed");
 await sourceTokenMessengerV2.write.depositForBurn([
   amount,
   SEI_DOMAIN,                            // destinationDomain — Circle's domain id for Sei

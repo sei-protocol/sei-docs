@@ -100,19 +100,23 @@ import { seiTestnet } from 'wagmi/chains'; // switch to `sei` only after explici
 
 function Transfer({ token, to, amount }: { token: `0x${string}`; to: `0x${string}`; amount: string }) {
   const { address } = useAccount();
+  // Pin every read and the receipt wait to the same chain as the write; otherwise a wallet on
+  // the wrong network reads another token's decimals and the receipt hook never resolves.
+  const chainId = seiTestnet.id;
   const { data: balance } = useReadContract({
     address: token,
     abi: ERC20_ABI,
     functionName: 'balanceOf',
     args: address ? [address] : undefined,
+    chainId,
     query: { enabled: !!address }
   });
   // Read decimals from the token — USDC on Sei has 6, so assuming 18 overpays by 10^12.
-  const { data: decimals } = useReadContract({ address: token, abi: ERC20_ABI, functionName: 'decimals' });
+  const { data: decimals } = useReadContract({ address: token, abi: ERC20_ABI, functionName: 'decimals', chainId });
 
   const { writeContract, data: hash, isPending } = useWriteContract();
   // ~400ms blocks: one confirmation is final — do NOT wait for 12.
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash, chainId });
 
   const send = () =>
     writeContract({
@@ -120,7 +124,7 @@ function Transfer({ token, to, amount }: { token: `0x${string}`; to: `0x${string
       abi: ERC20_ABI,
       functionName: 'transfer',
       args: [to, parseUnits(amount, decimals as number)],
-      chainId: seiTestnet.id // pin chain to atlantic-2 during development
+      chainId // pin chain to atlantic-2 during development
       // Sei uses legacy gas — never maxFeePerGas. Omit gasPrice so the wallet/RPC
       // estimates it; if you must override, query eth_gasPrice for the live floor
       // (governance-adjustable, ~50 gwei on mainnet) instead of hardcoding.
