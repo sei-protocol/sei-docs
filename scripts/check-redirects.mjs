@@ -57,18 +57,13 @@ for (const { source, destination } of redirects) {
     continue;
   }
 
+  const candidates = path
+    ? [`${path}.mdx`, `${path}.md`, `${path}/index.mdx`, `${path}/index.md`]
+    : ['index.mdx', 'index.md'];
   // Only markdown and text files (such as /skill.md and /llms.txt) count as
   // direct file destinations, so a typo can't pass by matching docs.json, a
   // script, or an image.
-  const candidates = path
-    ? [
-      ...(/\.(md|txt)$/.test(path) ? [path] : []),
-      `${path}.mdx`,
-      `${path}.md`,
-      `${path}/index.mdx`,
-      `${path}/index.md`
-    ]
-    : ['index.mdx', 'index.md'];
+  if (/\.(md|txt)$/.test(path)) candidates.push(path);
   if (!(await Promise.all(candidates.map(isFile))).some(Boolean)) {
     failures.push(`${source} -> ${destination}: no page at ${target}`);
   }
