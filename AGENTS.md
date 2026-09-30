@@ -52,7 +52,7 @@
 
 ## Redirects
 
-All legacy paths from the Nextra site are preserved in `docs.json` under `redirects`. When renaming or moving a page, always add a matching redirect entry so external links and search results continue to resolve.
+All legacy paths from the Nextra site are preserved in `docs.json` under `redirects`. When renaming or moving a page, always add a matching redirect entry so external links and search results continue to resolve. Run `node scripts/check-redirects.mjs` after editing redirects; CI runs it too and fails when a destination isn't a page in this repo.
 
 ## llms.txt / llms-full.txt
 
