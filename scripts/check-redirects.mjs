@@ -25,7 +25,7 @@ const isFile = async (path) =>
 const isDirectory = async (path) =>
   !path || ((await exists(path)) && (await stat(`${repoDir}${path}`)).isDirectory());
 
-const sources = new Set(redirects.map(({ source }) => source));
+const sources = new Set(redirects.map(({ source }) => source.replace(/\/+$/, '') || '/'));
 const failures = [];
 let checked = 0;
 
