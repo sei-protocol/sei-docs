@@ -55,7 +55,13 @@ const TARGET_CHAIN_ID = 1328n;
 const provider = new ethers.JsonRpcProvider(RPC_URL);
 const wallet = new ethers.Wallet(process.env.PRIVATE_KEY!, provider); // key from env — never in prompts or memory
 
-async function safeContractCall(contract: ethers.Contract, method: string, args: any[], options: Record<string, unknown> = {}) {
+async function safeContractCall(
+  contract: ethers.Contract,
+  method: string,
+  args: any[],
+  confirm: (summary: string) => Promise<boolean>, // asks the human — never auto-approve
+  options: Record<string, unknown> = {}
+) {
   // 1. Verify the network — fail fast on a mismatch.
   const { chainId } = await provider.getNetwork();
   if (chainId !== TARGET_CHAIN_ID) throw new Error(`Wrong network: expected ${TARGET_CHAIN_ID}, got ${chainId}`);
@@ -63,11 +69,11 @@ async function safeContractCall(contract: ethers.Contract, method: string, args:
   // 2. Simulate. estimateGas reverts exactly as the real transaction would.
   const gasEstimate = await contract[method].estimateGas(...args, options);
 
-  // 3. Present the action and cost; wait for explicit confirmation on anything valuable.
+  // 3. Present the action and cost, and stop unless the user explicitly approves.
   //    The gas-price floor is governance-set, so read it live instead of hardcoding it.
   const gasPrice = BigInt(await provider.send('eth_gasPrice', []));
-  console.log(`Action: ${method}(${args.join(', ')})`);
-  console.log(`Estimated cost: ${ethers.formatEther(gasEstimate * gasPrice)} SEI`);
+  const summary = `${method}(${args.join(', ')}) on chain ${TARGET_CHAIN_ID}, estimated cost ${ethers.formatEther(gasEstimate * gasPrice)} SEI`;
+  if (!(await confirm(summary))) throw new Error('Rejected by the user');
 
   // 4. Execute with a 20% buffer and the chainId pinned to the SAME network.
   const tx = await contract[method](...args, {

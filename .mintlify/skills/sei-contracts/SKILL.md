@@ -189,12 +189,12 @@ contract DEX {
 Further OCC-aware rules:
 
 - **Prefer pull over push:** let users `withdraw()` their own balance (one isolated key per tx) instead of looping over recipients.
-- **Per-user reentrancy state:** OpenZeppelin's single-slot `ReentrancyGuard` makes every guarded call conflict on one slot. Key the guard by `msg.sender` (`mapping(address => bool)`) — it still stops self-reentrancy, the typical attack; keep a global guard only where invariants span users.
+- **Reentrancy guards without a hot slot:** OpenZeppelin's classic `ReentrancyGuard` writes one storage slot on every guarded call, so all guarded calls conflict under OCC. Use `ReentrancyGuardTransient` (OpenZeppelin v5.1+, EIP-1153 transient storage), which keeps a real global guard without a persistent write. Don't key a guard by `msg.sender`: a second attacker contract has a different `msg.sender`, and cross-function reentrancy on shared state still gets through.
 - **If you must keep an on-chain aggregate, shard it** into buckets (e.g. `uint256(uint160(msg.sender)) & 0xFF` → 256 slots) and sum on read.
 - **Separate hot from cold state:** don't pack a per-user balance (written every action) with rarely-touched stats in one slot.
 - **Shared-resource protocols:** a single AMM pool's reserve slots inevitably conflict — accept it for small pools, or partition (tick-range liquidity, multiple pools/fee tiers, isolated per-asset lending markets, lazy per-user interest accrual).
 - **Avoid unbounded storage-writing loops** — page work across transactions. **Cross-VM calls** (EVM → CosmWasm via bridge precompiles) introduce serialization points.
-- **Measure it:** send N concurrent txs from N distinct EOAs at testnet and inspect `debug_traceBlockByNumber` — block `gas_used / theoretical_serial_gas` near 1.0 means full serialization.
+- **Measure it by execution time, not gas:** gas used is identical whether transactions run in parallel or serially, so no gas ratio can show serialization. Load-test on testnet with N concurrent txs from N distinct EOAs, and compare block execution time on a node you run between a conflicting and a disjoint write-set.
 
 Full playbook: https://docs.sei.io/evm/best-practices/optimizing-for-parallelization and https://docs.sei.io/learn/parallelization-engine.
 

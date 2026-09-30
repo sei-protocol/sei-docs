@@ -88,6 +88,8 @@ const SOURCE_ERRATA = [
   'When porting Solana programs, msg.sender replaces the Signer check but authorizes no one: every has_one or stored-authority constraint becomes an explicit require(msg.sender == authority) or onlyOwner check.',
   'Character filters are not a prompt-injection defense. Samples must pass on-chain strings to a model delimited as untrusted data and gate writes on policy and explicit confirmation.',
   'Token-transfer samples use SafeERC20 (safeTransfer, safeTransferFrom) rather than ignoring the returned bool.',
+  'Agent write samples block on an explicit confirmation step, such as an injected confirm(summary) callback, before signing; logging a summary is not a gate.',
+  'Recommend OpenZeppelin ReentrancyGuardTransient (EIP-1153, no persistent slot, so no OCC hot key) over guards keyed by msg.sender, which miss reentry through a second contract and cross-function reentrancy. Gas used is the same whether transactions run in parallel or serially, so it cannot measure parallelism.',
   'CCTP v2 TokenMessengerV2.depositForBurn takes seven arguments: amount, destinationDomain, mintRecipient, burnToken, destinationCaller, maxFee, minFinalityThreshold (1000 Fast, 2000 Standard).',
   'Do not hardcode a 50 gwei gas price in write samples; read the live floor from eth_gasPrice.',
   'Keep units explicit: staking delegation balances are usei (6 decimals) while delegate() takes wei (18 decimals), and ERC-20 samples for an arbitrary token must read decimals() instead of assuming 18.',
@@ -182,7 +184,9 @@ if (process.env.ANTHROPIC_API_KEY) {
       process.exit(1);
     }
     const text = msg.content.map((b) => (b.type === 'text' ? b.text : '')).join('');
-    const body = text.trim().replace(/^```(markdown)?\n?/, '').replace(/\n?```$/, '');
+    // Unwrap only a reply that is one fenced block; a skill may legitimately end with a code fence.
+    const wrapped = text.trim().match(/^```(?:markdown)?\n([\s\S]*)\n```$/);
+    const body = wrapped ? wrapped[1] : text.trim();
     const frontmatter = body.startsWith('---\n') ? body.slice(4).split('\n---')[0] : '';
     if (!new RegExp(`^name: ${m.name}$`, 'm').test(frontmatter)) {
       console.error(`! ${m.name}: the reply does not start with frontmatter naming "${m.name}"; nothing written.`);
