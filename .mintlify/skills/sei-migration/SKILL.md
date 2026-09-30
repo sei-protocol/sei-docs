@@ -168,10 +168,11 @@ provider.on("block", (blockNumber) => {
 ## Deploy, verify, test (both paths)
 
 ```bash
-# Foundry — deploy to atlantic-2 testnet
+# Foundry — deploy to atlantic-2 testnet (forge create only simulates without --broadcast)
 forge create \
   --rpc-url https://evm-rpc-testnet.sei-apis.com \
   --private-key $PRIVATE_KEY \
+  --broadcast \
   src/MyContract.sol:MyContract
 
 # Verify on Seiscan via Sourcify — no API key required
@@ -185,6 +186,7 @@ forge verify-contract \
 npx hardhat run scripts/deploy.ts --network seiTestnet
 
 # Run your existing test suite against a testnet fork
+# (Sei precompile calls fail on a fork — test those on Sei Testnet itself)
 forge test --fork-url https://evm-rpc-testnet.sei-apis.com -vvv
 ```
 
@@ -228,7 +230,7 @@ contract Counter {
 
     constructor() {
         count = 0;
-        authority = msg.sender; // Signer validation is implicit — msg.sender is always authenticated
+        authority = msg.sender; // msg.sender replaces Anchor's Signer check; authority checks stay explicit
     }
 
     function increment() external {
@@ -237,15 +239,19 @@ contract Counter {
 }
 ```
 
-No account space allocation (storage grows dynamically), no explicit `Signer` checks, no system program imports.
+No account space allocation (storage grows dynamically) and no system program imports. `msg.sender` replaces the `Signer` check, but it only authenticates the caller: an authority constraint such as Anchor's `has_one = authority` still needs an explicit `require(msg.sender == authority)` or `onlyOwner` (see the access-control example below).
 
 ### CPI to interface call; SPL to ERC-20
 
 ```solidity
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-// Replaces a CPI to the token program — no account plumbing
-IERC20(tokenAddress).transferFrom(msg.sender, recipient, amount);
+using SafeERC20 for IERC20;
+
+// Replaces a CPI to the token program — no account plumbing. safeTransferFrom reverts
+// when a token returns false instead of silently continuing.
+IERC20(tokenAddress).safeTransferFrom(msg.sender, recipient, amount);
 ```
 
 ```solidity
@@ -317,7 +323,8 @@ const fee = gasLimit * gasPrice;           // no rent, no minimum balance, no ac
 ```
 [ ] Install Foundry (curl -L https://foundry.paradigm.xyz | bash && foundryup)
 [ ] Translate program accounts -> Solidity storage variables
-[ ] Replace explicit Signer checks -> msg.sender; CPI -> external calls; SPL -> ERC-20 (OpenZeppelin)
+[ ] Replace Signer checks -> msg.sender, and port every authority constraint -> require / onlyOwner
+[ ] CPI -> external calls; SPL -> ERC-20 (OpenZeppelin, with SafeERC20 for transfers)
 [ ] Remove rent-exemption checks and account declarations — not needed on Sei
 [ ] Replace Anchor error codes -> Solidity custom errors
 [ ] Frontend: @solana/web3.js -> ethers.js or viem; wallet-adapter -> wagmi + @sei-js/sei-global-wallet
@@ -331,10 +338,11 @@ On Solana you declare every account a transaction will touch so the runtime can 
 
 ```solidity
 // No account declarations — OCC parallelizes non-conflicting swaps automatically
+// (using SafeERC20 for IERC20)
 function swap(address tokenIn, address tokenOut, uint256 amountIn) external {
-    IERC20(tokenIn).transferFrom(msg.sender, address(this), amountIn);
+    IERC20(tokenIn).safeTransferFrom(msg.sender, address(this), amountIn);
     uint256 amountOut = calculateOutput(amountIn);
-    IERC20(tokenOut).transfer(msg.sender, amountOut);
+    IERC20(tokenOut).safeTransfer(msg.sender, amountOut);
 }
 ```
 
@@ -364,7 +372,8 @@ Once migrated, an optional Sei-native upgrade: precompiles expose staking and go
 - **Budgeting 20,000 gas per storage write.** A cold SSTORE is 72,000 gas on Sei (both networks), and a `forge --gas-report --fork-url` report shows ~22,100 because revm applies the standard schedule — estimate with `eth_estimateGas` or storage-heavy designs will surprise you in production.
 - **Single-transaction mega-migrations.** A loop that fits Ethereum's 60 M-gas block exceeds Sei's 12.5 M limit — paginate.
 - **Sizing amounts in lamports.** 1 SEI = 1e18 wei (`1 ether`), not 1e9.
-- **Re-implementing Solana ownership checks or `accounts[]` parameters.** `msg.sender` is always authenticated, and OCC needs no declared account lists — write normal Solidity.
+- **Dropping authority checks while porting.** `msg.sender` replaces the signer check, but it doesn't authorize anyone: port every `has_one` or stored-authority constraint to `require(msg.sender == authority)` or `onlyOwner`, or admin functions are open to everyone.
+- **Re-implementing `accounts[]` parameters.** OCC needs no declared account lists — write normal Solidity.
 - **Keeping rent-exemption logic.** There is no rent on Sei; storage is permanent, with no minimum balance or account closure.
 - **Hot global counters.** A `totalVolume += amount` on every call makes all callers conflict under OCC and serialize — partition state per user/position.
 - **Calling the native Oracle precompile.** It is shut off — integrate Pyth, Chainlink, API3, or RedStone instead.
