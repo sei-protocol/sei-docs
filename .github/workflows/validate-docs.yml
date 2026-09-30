@@ -18,41 +18,7 @@ jobs:
         run: jq empty docs.json
 
       - name: Enforce generated-only agent skills
-        run: |
-          set -euo pipefail
-          # .mintlify/skills/ is GENERATED from sei-protocol/sei-skill by
-          # scripts/build-mintlify-skills.mjs (see .github/workflows/sync-skills.yml).
-          # Hand-authored skill content is not allowed in this repo, and the
-          # registry at /ai/skills must list exactly the skills that install.
-          shopt -s nullglob
-          skills=(.mintlify/skills/*/SKILL.md)
-          if [[ ${#skills[@]} -eq 0 ]]; then
-            echo "::error::No skills under .mintlify/skills/. The registry at /ai/skills would list skills that don't install."
-            exit 1
-          fi
-          bad=0
-          for f in "${skills[@]}"; do
-            dir=$(basename "$(dirname "$f")")
-            if ! grep -q 'GENERATED FROM sei-protocol/sei-skill' "$f"; then
-              echo "::error file=$f::Missing 'GENERATED FROM sei-protocol/sei-skill' marker. Edit the source in sei-skill and regenerate; do not hand-author skills here."
-              bad=$((bad+1))
-            fi
-            if ! grep -qx "name: ${dir}" "$f"; then
-              echo "::error file=$f::Frontmatter name must be '${dir}' to match its directory."
-              bad=$((bad+1))
-            fi
-          done
-          registry=$(grep -oE "id: '[a-z0-9-]+'" snippets/skills-registry.jsx | cut -d"'" -f2 | sort || true)
-          installed=$(for f in "${skills[@]}"; do basename "$(dirname "$f")"; done | sort)
-          if [[ "$registry" != "$installed" ]]; then
-            echo "::error file=snippets/skills-registry.jsx::Registry cards don't match .mintlify/skills/."
-            diff <(echo "$registry") <(echo "$installed") || true
-            bad=$((bad+1))
-          fi
-          if [[ "$bad" -gt 0 ]]; then
-            exit 1
-          fi
-          echo "All ${#skills[@]} skills carry the generated marker and match the registry."
+        run: node scripts/check-skills.mjs
 
       - name: Validate snippet theme defaults
         run: node scripts/check-snippet-theme-default.mjs

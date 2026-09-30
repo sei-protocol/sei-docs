@@ -23,7 +23,7 @@
  *
  * Paths and model (override via env):
  *   SEI_SKILL_DIR    default ../../sei-skill/skill   (sibling checkout)
- *   ANTHROPIC_MODEL  default claude-opus-4-8
+ *   ANTHROPIC_MODEL  required with ANTHROPIC_API_KEY — a current model ID
  *
  * Usage:
  *   node scripts/build-mintlify-skills.mjs [--skill sei-bridges]
@@ -83,7 +83,10 @@ const SOURCE_ERRATA = [
   'Match precompile ABIs to sei-chain precompiles/<name>/abi.json: Distribution withdrawDelegationRewards(string validator) and withdrawValidatorCommission() with the delegator or operator as caller; Governance submitProposal(string proposalJSON), proposal(uint64), and proposals(int32,address,address,bytes); Pointer addCW20Pointer, addCW721Pointer, and addCW1155Pointer; JSON has no extractAsBytes32 and all its functions are view; Staking delegation() returns one struct (balance, delegation), and paginated queries take a bytes key ("0x" for the first page).',
   'P256 verify(bytes input) takes the 160-byte packing of hash, r, s, x, y and returns empty data for an invalid signature, so call it with staticcall and check the output length.',
   '@sei-js/precompiles exports P256_PRECOMPILE_ADDRESS and P256_PRECOMPILE_ABI, no longer exports the Oracle precompile, and re-exports sei and seiTestnet from viem.',
-  'seid has no register-evm-pointer or register-cosmos-pointer command (register through the Pointer precompile; seid q evm pointer only looks pointers up), and forge script has no --simulate flag (it simulates unless --broadcast is passed).',
+  'seid has no register-evm-pointer or register-cosmos-pointer command (register through the Pointer precompile; seid q evm pointer only looks pointers up). forge script has no --simulate flag, and forge script and forge create (Foundry 1.0+) only simulate unless --broadcast is passed.',
+  'When porting Solana programs, msg.sender replaces the Signer check but authorizes no one: every has_one or stored-authority constraint becomes an explicit require(msg.sender == authority) or onlyOwner check.',
+  'Character filters are not a prompt-injection defense. Samples must pass on-chain strings to a model delimited as untrusted data and gate writes on policy and explicit confirmation.',
+  'Token-transfer samples use SafeERC20 (safeTransfer, safeTransferFrom) rather than ignoring the returned bool.',
   'CCTP v2 TokenMessengerV2.depositForBurn takes seven arguments: amount, destinationDomain, mintRecipient, burnToken, destinationCaller, maxFee, minFinalityThreshold (1000 Fast, 2000 Standard).',
   'Do not hardcode a 50 gwei gas price in write samples; read the live floor from eth_gasPrice.',
   'Keep units explicit: staking delegation balances are usei (6 decimals) while delegate() takes wei (18 decimals), and ERC-20 samples for an arbitrary token must read decimals() instead of assuming 18.',
@@ -113,10 +116,14 @@ const args = process.argv.slice(2);
 const only = args.includes('--skill') ? args[args.indexOf('--skill') + 1] : null;
 const write = args.includes('--write'); // also write generated SKILL.md into .mintlify/skills/<name>/
 const SRC_REF = process.env.SEI_SKILL_REF || '';
-const MODEL = process.env.ANTHROPIC_MODEL || 'claude-opus-4-8';
+const MODEL = process.env.ANTHROPIC_MODEL;
 
 if (write && !process.env.ANTHROPIC_API_KEY) {
   console.error('! --write needs ANTHROPIC_API_KEY: without it nothing is generated, so nothing would be written.');
+  process.exit(1);
+}
+if (process.env.ANTHROPIC_API_KEY && !MODEL) {
+  console.error('! Set ANTHROPIC_MODEL to a current model ID to generate; there is no default.');
   process.exit(1);
 }
 

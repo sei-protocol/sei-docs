@@ -11,7 +11,8 @@ name: Sync agent skills from sei-skill
 #   - repository_dispatch  (sei-skill's release workflow sends type: sei-skill-release
 #                           with client_payload.ref = the released tag/sha)
 #
-# Requires repo secret: ANTHROPIC_API_KEY
+# Requires repo secret ANTHROPIC_API_KEY and repo variable ANTHROPIC_MODEL (a
+# current model ID).
 
 on:
   workflow_dispatch:
@@ -61,7 +62,6 @@ jobs:
       - name: Regenerate skills from sei-skill
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          # Optional repo variable; the script falls back to its default model.
           ANTHROPIC_MODEL: ${{ vars.ANTHROPIC_MODEL }}
           SEI_SKILL_DIR: ${{ github.workspace }}/.sei-skill-src/skill
           SEI_SKILL_REF: ${{ steps.src.outputs.ref }}
@@ -69,6 +69,13 @@ jobs:
 
       - name: Clean up source + build dirs
         run: rm -rf .sei-skill-src dist
+
+      # PRs opened with GITHUB_TOKEN don't trigger other workflows, so the sync PR
+      # never runs validate-docs.yml or link-check.yml. Run their skill checks here.
+      - name: Validate regenerated skills
+        run: |
+          node scripts/check-skills.mjs
+          npx --yes mint broken-links
 
       - name: Open PR if skills changed
         env:
@@ -93,6 +100,7 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git checkout -b "$BRANCH"
           git commit -m "chore(skills): regenerate from sei-skill@${{ steps.src.outputs.ref }}"
+          # Overwrites a leftover branch from a closed sync PR for the same ref.
           git push -f origin "$BRANCH"
           gh pr create \
             --title "chore(skills): regenerate from sei-skill@${{ steps.src.outputs.ref }}" \
