@@ -83,10 +83,12 @@ STATE_SYNC_RPC="https://rpc.sei-apis.com:443"   # or https://sei-rpc.polkachu.co
 cp $HOME/.sei/config/priv_validator_key.json $HOME/priv_validator_key.json.bak
 cp $HOME/.sei/data/priv_validator_state.json $HOME/priv_validator_state.json.bak
 
-# Reset state (existing nodes only) — this wipe preserves priv_validator_state.json
+# Reset state (existing nodes only). unsafe-reset-all resets priv_validator_state.json
+# to height 0, so restore the backup after clearing data/ — a zeroed signing state
+# lets a validator double-sign heights it already signed.
 seid tendermint unsafe-reset-all --home $HOME/.sei
-find $HOME/.sei/data/ -mindepth 1 ! -name 'priv_validator_state.json' -delete
-rm -rf $HOME/.sei/wasm
+rm -rf $HOME/.sei/data/* $HOME/.sei/wasm
+cp $HOME/priv_validator_state.json.bak $HOME/.sei/data/priv_validator_state.json
 
 # Fetch a trusted height (rounded down) and its hash
 LATEST_HEIGHT=$(curl -s $STATE_SYNC_RPC/block | jq -r .block.header.height)
@@ -109,7 +111,7 @@ sudo systemctl start seid
 
 Endpoints: mainnet `https://rpc.sei-apis.com:443` or `https://sei-rpc.polkachu.com:443`; testnet (`atlantic-2`) `https://rpc-testnet.sei-apis.com:443` with its own peer set — see https://docs.sei.io/node/statesync.
 
-Alternative bootstrap: restore a provider snapshot into `$HOME/.sei` — see https://docs.sei.io/node/snapshot. Back up `priv_validator_state.json` before touching `data/`, exactly as above.
+Alternative bootstrap: restore a provider snapshot into `$HOME/.sei` — see https://docs.sei.io/node/snapshot. Back up `priv_validator_state.json` before touching `data/` and restore it afterwards, exactly as above.
 
 ## Essential configuration
 
@@ -362,7 +364,7 @@ pex = false             # disable peer exchange
 
 - **Starting from genesis on a live network** → `integer divide by zero` panic. Always bootstrap via state sync or a snapshot.
 - **Hand-downloading a genesis file.** `seid init` already wrote the right one for known networks; overwriting it causes mismatches.
-- **Wiping `priv_validator_state.json` during a resync** — a signing state reset to zero risks double-signing. Use the `find ... ! -name 'priv_validator_state.json' -delete` wipe, and back up both validator files before any maintenance.
+- **Losing the real `priv_validator_state.json` during a resync** — `unsafe-reset-all` resets it to height 0, and a zeroed signing state risks double-signing. Back up both validator files before any maintenance and restore the signing state after clearing `data/`.
 - **Running the same `priv_validator_key.json` in two places** — double-signing is catastrophic and unrecoverable. After any migration, confirm the old instance is fully offline before the new one signs.
 - **Forgetting `--mode validator` at init** — RPC/P2P bind publicly. Never expose a validator's RPC; front it with sentries (`pex = false`).
 - **Disabling SS on an RPC node** — `ss-enable = true` is required for any RPC node; historical queries break without it.

@@ -107,6 +107,8 @@ function Transfer({ token, to, amount }: { token: `0x${string}`; to: `0x${string
     args: address ? [address] : undefined,
     query: { enabled: !!address }
   });
+  // Read decimals from the token — USDC on Sei has 6, so assuming 18 overpays by 10^12.
+  const { data: decimals } = useReadContract({ address: token, abi: ERC20_ABI, functionName: 'decimals' });
 
   const { writeContract, data: hash, isPending } = useWriteContract();
   // ~400ms blocks: one confirmation is final — do NOT wait for 12.
@@ -117,7 +119,7 @@ function Transfer({ token, to, amount }: { token: `0x${string}`; to: `0x${string
       address: token,
       abi: ERC20_ABI,
       functionName: 'transfer',
-      args: [to, parseUnits(amount, 18)],
+      args: [to, parseUnits(amount, decimals as number)],
       chainId: seiTestnet.id // pin chain to atlantic-2 during development
       // Sei uses legacy gas — never maxFeePerGas. Omit gasPrice so the wallet/RPC
       // estimates it; if you must override, query eth_gasPrice for the live floor
@@ -125,7 +127,7 @@ function Transfer({ token, to, amount }: { token: `0x${string}`; to: `0x${string
     });
 
   return (
-    <button onClick={send} disabled={isPending || isConfirming}>
+    <button onClick={send} disabled={decimals === undefined || isPending || isConfirming}>
       {isPending ? 'Confirm in wallet...' : isConfirming ? 'Finalizing...' : isSuccess ? 'Sent' : 'Send'}
     </button>
   );
@@ -247,7 +249,7 @@ const client = createPublicClient({
 ## Testing the frontend
 
 - **End-to-end on testnet first.** Fund accounts from `https://docs.sei.io/learn/faucet` and exercise the full wallet + transaction + dual-address flow on `atlantic-2` (1328) before mainnet.
-- **Local fork.** `anvil --fork-url https://evm-rpc-testnet.sei-apis.com --chain-id 1328`, then point the wagmi transport at `http://localhost:8545`.
+- **Local fork.** `anvil --fork-url https://evm-rpc-testnet.sei-apis.com --chain-id 1328`, then point the wagmi transport at `http://localhost:8545`. A fork copies state but not Sei's native precompiles, so the Addr lookup and other precompile reads fail there — test those against Sei Testnet.
 
 ## Common pitfalls
 

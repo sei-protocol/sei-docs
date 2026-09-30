@@ -93,7 +93,7 @@ forge verify-contract --verifier sourcify --chain-id 1328 \
   <DEPLOYED_ADDRESS> src/MyToken.sol:MyToken
 ```
 
-Precompiles exist only on the real chain — local-EVM unit tests that call them revert. Fork testnet instead: `vm.createSelectFork("sei_testnet")` in `setUp()`, then call the precompile at its fixed address (e.g. staking at `0x0000000000000000000000000000000000001005`). `@sei-js/precompiles` ships JS/TS only, so declare the Solidity interface inline.
+Precompiles are native code in the Sei node, so they exist only on a real Sei network: local-EVM unit tests that call them revert, and a fork (`vm.createSelectFork`) copies Sei's state but not the precompiles, so it fails the same way. In unit tests, deploy a mock and place its code at the fixed address with `vm.etch` (e.g. staking at `0x0000000000000000000000000000000000001005`); exercise the real precompile with a script against `sei_testnet`. `@sei-js/precompiles` ships JS/TS only, so declare the Solidity interface inline.
 
 Profile gas with Foundry, but get Sei's real storage-write cost from a live estimate — a `--fork-url` report forks state yet runs the standard EVM gas schedule:
 
@@ -146,7 +146,7 @@ npx hardhat ignition deploy ignition/modules/MyToken.ts --network seiTestnet
 npx hardhat verify sourcify --network seiTestnet <CONTRACT_ADDRESS> "My Token" "MTK"
 ```
 
-Precompile calls revert on the local Hardhat network too — enable `forking: { url: 'https://evm-rpc-testnet.sei-apis.com' }` when testing them.
+Precompile calls revert on the local Hardhat network and on a Hardhat fork alike — the fork copies state, not Sei's native precompiles. Put a mock at the precompile address with `hardhat_setCode` for unit tests, and run the real call against `seiTestnet`.
 
 ## Verification on Seiscan
 
@@ -219,9 +219,10 @@ import { ethers } from 'ethers';
 const provider = new ethers.JsonRpcProvider('https://evm-rpc-testnet.sei-apis.com');
 const signer = new ethers.Wallet(process.env.PRIVATE_KEY!, provider);
 
+const gasPrice = BigInt(await provider.send('eth_gasPrice', [])); // live governance-set floor
 const tx = await contract.increment({
-  gasPrice: ethers.parseUnits('50', 'gwei'), // legacy pricing at/above the governance floor
-  gasLimit: 300_000n                         // add buffer — OCC can slightly vary estimates
+  gasPrice,          // legacy pricing — never hardcode it; governance can raise the floor
+  gasLimit: 300_000n // add buffer — OCC can slightly vary estimates
 });
 await tx.wait(1); // one confirmation is final on Sei — do NOT use wait(12)
 
@@ -304,7 +305,7 @@ Sei-specific AA notes:
 - **Hot global counters.** A single `totalX += amount;` on every call serializes all callers under OCC — aggregate off-chain via events or shard the slot.
 - **Assuming Ethereum's 20,000-gas SSTORE.** Storage writes cost 72,000 gas on Sei (governance-adjustable, same on both networks) — estimate with `eth_estimateGas`; a `--gas-report --fork-url` run shows ~22,100 and understates it.
 - **Single-transaction mega-migrations.** A loop that fits in a 60M-gas Ethereum block exceeds Sei's 12.5M block limit — paginate.
-- **Calling precompiles in local unit tests.** They only exist on the real chain — fork testnet (`vm.createSelectFork` / Hardhat `forking`).
+- **Calling precompiles in local unit tests or on a fork.** They only exist on a real Sei network, and forks don't include them — mock them with `vm.etch` / `hardhat_setCode` in unit tests and run the real calls on Sei Testnet.
 - **Mixing address formats.** A contract expecting `0x...` will not accept `sei1...`; cross-VM transfers need association first.
 - **Compiling above `cancun`.** Newer `evm_version` targets may not be enabled and silently break verification; blob (EIP-4844) code has no place on Sei.
 - **Reaching for CosmWasm for a new project.** Deprecated for new development per SIP-3 — build on Sei EVM.

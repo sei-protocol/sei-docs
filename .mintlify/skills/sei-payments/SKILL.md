@@ -14,7 +14,7 @@ license: MIT
 compatibility: Node.js 18+; viem or ethers
 metadata:
   author: Sei
-  version: 1.1.0
+  version: 1.2.0
   intended-host: docs.sei.io
   domain: payments
 ---
@@ -122,7 +122,7 @@ The challenge advertised on a `402` response (one entry per accepted payment opt
 }
 ```
 
-`maxAmountRequired` is in USDC base units — `"1000"` is `0.001` USDC (`parseUnits('0.001', 6)`). The `reference` is a unique per-challenge nonce used to prevent replay. Note that `extra.version` (`"2"`) is the USDC contract's **EIP-712 domain version** (used for permit/signed transfers of the token), *not* the x402 protocol version — that is the top-level `x402Version` (`1`). Do not conflate the two.
+`maxAmountRequired` is in USDC base units — `"1000"` is `0.001` USDC (`parseUnits('0.001', 6)`). The `reference` identifies the challenge. It isn't recorded on-chain, so it can't stop replay by itself — the server must also consume each transaction hash exactly once. Note that `extra.version` (`"2"`) is the USDC contract's **EIP-712 domain version** (used for permit/signed transfers of the token), *not* the x402 protocol version — that is the top-level `x402Version` (`1`). Do not conflate the two.
 
 Server side — return `402` until a valid proof arrives (Next.js route handler shown; Express/Hono are analogous):
 
@@ -142,7 +142,7 @@ export async function GET(req: NextRequest) {
 }
 ```
 
-Verification must check the receipt status, the recipient, the exact amount, **and** that the reference nonce has not been seen before:
+Verification must check the receipt status, that the `Transfer` log comes from the USDC contract, the recipient, and the amount, **and** consume the transaction hash so one payment unlocks only one request:
 
 ```typescript
 async function verifyPayment(paymentHeader: string) {
@@ -158,13 +158,18 @@ async function verifyPayment(paymentHeader: string) {
   }
 
   // REQUIRED for a non-replayable paywall — do NOT ship without these.
-  // transferMatches decodes the USDC Transfer event from receipt.logs and confirms
-  // to === payTo and value >= maxAmountRequired; the reference helpers persist seen
-  // nonces so one valid payment can't be replayed. (The @sei-js/x402-* middleware does this.)
-  if (!transferMatches(receipt, payTo, maxAmountRequired) || !isReferenceUnused(payload.reference)) {
-    return { isValid: false, reason: 'Payment does not match challenge or was already used' };
+  // transferMatches decodes the Transfer event from receipt.logs, requires the log to be
+  // emitted by the USDC contract (log.address === asset), and confirms to === payTo and
+  // value >= maxAmountRequired. isIssuedReference accepts only references this server
+  // handed out. claimPayment must be an atomic insert-if-absent keyed on the transaction
+  // hash (e.g. Redis SET NX or a SQL unique index), so one on-chain payment unlocks exactly
+  // one request even when retries arrive concurrently.
+  if (!transferMatches(receipt, asset, payTo, maxAmountRequired) || !isIssuedReference(payload.reference)) {
+    return { isValid: false, reason: 'Payment does not match challenge' };
   }
-  markReferenceUsed(payload.reference);
+  if (!(await claimPayment(payload.txHash, payload.reference))) {
+    return { isValid: false, reason: 'Payment was already used' };
+  }
   return { isValid: true, txHash: payload.txHash };
 }
 ```
@@ -193,7 +198,7 @@ For production, prefer the `@sei-js/x402-*` middleware (Express/Hono/Next) and c
 - **Sending EIP-1559 fee fields.** Use legacy `gasPrice`; there is no base-fee burn on Sei (all fees go to validators). The floor is governance-adjustable — query `eth_gasPrice` rather than hardcoding a number.
 - **Mixing TypeScript syntax into a `.js` file.** Plain `node index.js` cannot parse `as const`, the `!` non-null assertion, or `as` casts. Keep the script valid ESM JavaScript (as above) or rename it `index.ts` and run it with a TS runner like `npx tsx index.ts`.
 - **Forgetting native SEI for fees.** A USDC transfer still costs transaction fees paid in native SEI. A wallet with USDC but zero SEI cannot pay.
-- **Trusting `txHash` alone in x402.** Verify the receipt status, the recipient (`payTo`), the exact amount, AND that the `reference` nonce has not been seen before — otherwise the same valid payment can be replayed against your endpoint.
+- **Trusting `txHash` or the `reference` alone in x402.** Verify the receipt status, that the `Transfer` log comes from the USDC contract, the recipient (`payTo`), and the amount, then consume the transaction hash with an atomic insert-if-absent. A client-chosen reference isn't bound to the payment, so checking only the reference lets one payment be replayed with a fresh reference each time.
 - **Confusing the two version fields in x402.** `x402Version` is the protocol version (`1`); `extra.version` is the USDC contract's EIP-712 domain version (`"2"`). They are unrelated.
 - **Using testnet addresses on mainnet (or vice versa).** The USDC address differs per network; the wrong one points at a different or nonexistent token. Re-verify on Seiscan before moving real value.
 - **Assuming address association is needed.** Plain ERC-20 USDC transfers between `0x...` addresses need no association. Only if a flow crosses into Cosmos-side modules do the user's `sei1...` and `0x...` addresses need linking — see https://docs.sei.io/learn/accounts.

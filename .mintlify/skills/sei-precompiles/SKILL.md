@@ -31,7 +31,7 @@ This skill makes the agent precise at calling Sei's native precompiles — fixed
 - **Addresses are fixed** (40-hex, left-padded): Bank `0x...1001` · CosmWasm `0x...1002` · JSON `0x...1003` · Addr `0x...1004` · Staking `0x...1005` · Governance `0x...1006` · Distribution `0x...1007` · Oracle `0x...1008` (retired) · IBC `0x...1009` (do not use) · PointerView `0x...100A` · Pointer `0x...100B` · Solo `0x...100C` · P256Verify `0x...1011`. Import them from `@sei-js/precompiles` rather than hardcoding (exception: P256 is not exported — define it inline).
 - **The Oracle precompile (`0x...1008`) is retired** — it was shut off in July 2026 and queries now revert. It is not a data source: do not call it, and treat any code that reads it as broken. Use a third-party oracle instead — see https://docs.sei.io/learn/oracles.
 - **The IBC precompile (`0x...1009`) cannot succeed.** IBC is disabled on Sei in both directions (Proposals 116 and 120 inbound, Proposal 121 outbound), so its `transfer` reverts. Do not call it in new contracts or present it as a way to move assets; existing `ibc/...` balances stay usable within Sei.
-- **Precompiles only exist on Sei.** A plain local EVM (Hardhat node, `forge test` without a fork) has nothing at these addresses, so calls revert. Test against a fork: `--fork-url <sei-evm-rpc>` in Foundry or `forking` in Hardhat config — endpoints at https://docs.sei.io/evm/networks.
+- **Precompiles only exist on a real Sei network.** They are native code in the Sei node, so a plain local EVM (Hardhat node, `forge test`) has nothing at these addresses, and a Foundry, Hardhat, or anvil fork copies Sei's state but not these implementations — calls fail in both. Test precompile calls on Sei Testnet or a local `seid` node, and place a mock at the address in unit tests (Foundry `vm.etch`, Hardhat `hardhat_setCode`). Endpoints: https://docs.sei.io/evm/networks.
 - **Staking decimal asymmetry (the #1 footgun).** `delegate()` reads `msg.value` in 18-decimal wei (`1 SEI = 1e18 wei`); `undelegate()` / `redelegate()` take the amount in 6-decimal usei (`1 SEI = 1,000,000 usei`). The asymmetry is intentional — match each signature exactly. Unbonding takes 21 days; delegators share proportionally in validator slashing.
 - **No approvals, and events are emitted.** Precompiles never use the ERC20 approve pattern — value goes in as `msg.value` (payable) or as parameters. All precompiles emit events; index them with `eth_getLogs` or The Graph.
 - **Governance voting power = staked SEI only.** Liquid SEI gives zero voting power; non-voters inherit their validator's vote. Mainnet: minimum deposit 3,500 SEI (7,000 expedited), deposit period 2 days, voting period 3 days (1 day expedited), quorum 33.4% of bonded stake; ALL deposits are burned if a proposal gets >33.4% NoWithVeto. Vote options: `1`=Yes, `2`=Abstain, `3`=No, `4`=NoWithVeto. atlantic-2 uses much smaller deposits — rehearse the full flow there.
@@ -226,23 +226,30 @@ interface IP256 {
         external view returns (bool);
 }
 
-contract PasskeyWallet {
+contract P256Wallet {
     address constant P256 = 0x0000000000000000000000000000000000001011;
-    bytes32 public pubKeyX; // stored at WebAuthn registration
+    bytes32 public pubKeyX; // stored at registration
     bytes32 public pubKeyY;
+    uint256 public nonce;
 
     constructor(bytes32 _x, bytes32 _y) { pubKeyX = _x; pubKeyY = _y; }
 
-    function execute(address target, bytes calldata data, bytes32 msgHash, bytes32 r, bytes32 s)
+    // Build the signed digest here, never from caller input: binding it to this chain,
+    // this wallet, the next nonce, and the exact call stops replays and redirected calls.
+    function execute(address target, bytes calldata data, bytes32 r, bytes32 s)
         external returns (bytes memory)
     {
-        require(IP256(P256).verify(msgHash, r, s, pubKeyX, pubKeyY), "Invalid passkey signature");
+        bytes32 digest = keccak256(abi.encode(block.chainid, address(this), nonce, target, data));
+        require(IP256(P256).verify(digest, r, s, pubKeyX, pubKeyY), "Invalid P-256 signature");
+        nonce++;
         (bool ok, bytes memory result) = target.call(data);
         require(ok, "Execution failed");
         return result;
     }
 }
 ```
+
+This verifies a raw P-256 signature over the digest, as an HSM or platform key produces. A WebAuthn passkey signs `sha256(authenticatorData ‖ sha256(clientDataJSON))` instead, so a passkey wallet must also check that the challenge inside `clientDataJSON` equals this digest — use an audited WebAuthn verifier rather than rolling your own.
 
 ```typescript
 // P256 is NOT exported by @sei-js/precompiles — define the address and ABI inline.
@@ -304,7 +311,8 @@ Or from Solidity via the Pointer precompile (`0x00000000000000000000000000000000
 ## Common pitfalls
 
 - **Treating `undelegate`/`redelegate` amounts as wei.** They are 6-decimal usei; only `delegate` uses 18-decimal `msg.value`. `parseEther('5')` passed to `undelegate` is off by 1e12.
-- **Testing precompiles on a non-forked local node.** Nothing exists at the precompile addresses off-Sei, so calls revert. Fork a Sei RPC in Foundry/Hardhat.
+- **Testing precompiles on a local node or a fork.** Precompiles are native to Sei nodes, so neither a local EVM nor a Foundry/Hardhat fork runs them. Test on Sei Testnet, and mock them in unit tests.
+- **Verifying a caller-supplied hash in a signature-gated wallet.** Anyone who sees one valid signature can replay it for arbitrary calls — compute the digest in the contract from the chain ID, the wallet address, a nonce, and the call.
 - **Calling the Oracle precompile.** Shut off July 2026 — queries revert even though `ORACLE_PRECOMPILE_ADDRESS`/`ABI` are still exported. Use a third-party oracle (https://docs.sei.io/learn/oracles).
 - **Calling the IBC precompile.** IBC is disabled in both directions, so `transfer` reverts — there is no IBC route on or off Sei.
 - **Looking for P256 in `@sei-js/precompiles`.** Not exported; define the address/ABI inline. Do not confuse P-256 (secp256r1, `0x...1011`) with secp256k1 (`ecrecover`).

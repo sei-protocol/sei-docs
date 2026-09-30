@@ -308,7 +308,7 @@ Fee estimation drops the rent component entirely:
 
 ```typescript
 const gasLimit = 200_000n;
-const gasPrice = parseUnits("50", "gwei"); // ~50 gwei floor on mainnet; query eth_gasPrice for the live value
+const gasPrice = await publicClient.getGasPrice(); // eth_gasPrice — live governance floor (~50 gwei on mainnet)
 const fee = gasLimit * gasPrice;           // no rent, no minimum balance, no account closure
 ```
 

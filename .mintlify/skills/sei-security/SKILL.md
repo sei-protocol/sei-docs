@@ -36,7 +36,7 @@ The guiding rule: **default to testnet (atlantic-2, chainId 1328), simulate ever
 - **OCC parallel execution.** Sei's engine can execute transactions in parallel. Standard reentrancy guards still work, but shared state accessed by concurrent transactions needs protection: checks-effects-interactions plus OpenZeppelin `ReentrancyGuard` on any function that sends ETH, calls external contracts, or triggers callbacks (ERC777, ERC721/1155 `safeTransfer`).
 - **Staking precompile (`0x1005`) units differ per method.** `delegate()` is payable with the value in **wei** (18 decimals); `undelegate()` and `redelegate()` take an amount in **usei** (6 decimals; 1 SEI = 1,000,000 usei). Mixing them is a fund-loss bug.
 - **The native Oracle precompile (`0x...1008`) is RETIRED** (shut off July 2026) — any query reverts with "oracle precompile is retired". Use Pyth, Chainlink, API3, or RedStone for prices; never an AMM spot price.
-- **Finality is instant.** One confirmation (`tx.wait(1)`) is final — do not port 12-confirmation logic from Ethereum. The canonical write pattern uses a legacy `gasPrice` of 50 gwei (the network minimum).
+- **Finality is instant.** One confirmation (`tx.wait(1)`) is final — do not port 12-confirmation logic from Ethereum. The canonical write pattern uses a legacy `gasPrice` read from `eth_gasPrice`: the floor is governance-set (currently ~50 gwei on mainnet), so never hardcode it.
 - **`SELFDESTRUCT` follows EIP-6780.** It only sends ETH to the target without destroying the contract, unless called in the same transaction as `CREATE`. Don't rely on it for cleanup.
 - **Solidity >=0.8.0 reverts on overflow by default**, but `unchecked` blocks bypass that protection — reserve them for provably safe counters, never user-controlled arithmetic.
 
@@ -64,14 +64,16 @@ async function safeContractCall(contract: ethers.Contract, method: string, args:
   const gasEstimate = await contract[method].estimateGas(...args, options);
 
   // 3. Present the action and cost; wait for explicit confirmation on anything valuable.
+  //    The gas-price floor is governance-set, so read it live instead of hardcoding it.
+  const gasPrice = BigInt(await provider.send('eth_gasPrice', []));
   console.log(`Action: ${method}(${args.join(', ')})`);
-  console.log(`Estimated cost: ${ethers.formatEther(gasEstimate * 50_000_000_000n)} SEI (50 gwei minimum gas price)`);
+  console.log(`Estimated cost: ${ethers.formatEther(gasEstimate * gasPrice)} SEI`);
 
   // 4. Execute with a 20% buffer and the chainId pinned to the SAME network.
   const tx = await contract[method](...args, {
     ...options,
     gasLimit: (gasEstimate * 120n) / 100n,
-    gasPrice: ethers.parseUnits('50', 'gwei'),
+    gasPrice,
     chainId: TARGET_CHAIN_ID,
   });
 
@@ -209,9 +211,12 @@ if (isMainnet && !userExplicitlyConfirmedMainnet) {
 }
 
 // 4. Make actions idempotent — check state before acting, so retries are safe.
+//    delegation() reports the balance in usei (6 decimals); delegate() takes wei (18 decimals).
+const targetUsei = 10_000_000n; // 10 SEI
 const currentDelegation = await staking.delegation(agentAddress, validator);
-if (currentDelegation.balance.amount < targetAmount) {
-  await staking.delegate(validator, { value: remainingAmount });
+if (currentDelegation.balance.amount < targetUsei) {
+  const missingWei = (targetUsei - currentDelegation.balance.amount) * 1_000_000_000_000n; // usei -> wei
+  await (await staking.delegate(validator, { value: missingWei })).wait(1);
 }
 ```
 

@@ -100,21 +100,25 @@ For an *already-deployed* ERC-20 you can't reissue, use an **OFT Adapter** (lock
 CCTP moves *native* USDC (no wrapper): burn on the source chain, Circle attests off-chain, mint on Sei.
 
 ```ts
-import { parseUnits, pad } from "viem";
+import { parseUnits, pad, zeroHash } from "viem";
 
-// 1) Approve + burn on the SOURCE chain. SEI_DOMAIN comes from Circle's CCTP
-//    supported-chains/domain table — verify, do not hardcode.
+// 1) Approve + burn on the SOURCE chain through CCTP v2's TokenMessengerV2.
+//    SEI_DOMAIN comes from Circle's supported-chains/domain table — verify, do not hardcode.
 const amount = parseUnits("100", 6); // 100 USDC, 6 decimals
-await sourceUsdc.write.approve([TOKEN_MESSENGER, amount]);
-await sourceTokenMessenger.write.depositForBurn([
+await sourceUsdc.write.approve([TOKEN_MESSENGER_V2, amount]);
+await sourceTokenMessengerV2.write.depositForBurn([
   amount,
-  SEI_DOMAIN,                            // Circle domain id for Sei
+  SEI_DOMAIN,                            // destinationDomain — Circle's domain id for Sei
   pad(seiRecipient0x, { size: 32 }),     // mintRecipient as bytes32
-  sourceUsdcAddress,
+  sourceUsdcAddress,                     // burnToken
+  zeroHash,                              // destinationCaller — bytes32(0) lets any address relay
+  MAX_FEE,                               // maxFee in USDC base units — take it from Circle's fee API
+  2000,                                  // minFinalityThreshold — 2000 Standard, 1000 Fast
 ]);
 
-// 2) Poll Circle's attestation API, then mint on Sei — confirms in ~one Sei block.
-const hash = await seiMessageTransmitter.write.receiveMessage([message, attestation]);
+// 2) Poll Circle's attestation API for the message and attestation, then mint on Sei
+//    through MessageTransmitterV2 — confirms in ~one Sei block.
+const hash = await seiMessageTransmitterV2.write.receiveMessage([message, attestation]);
 await seiClient.waitForTransactionReceipt({ hash, confirmations: 1 });
 ```
 
@@ -174,6 +178,7 @@ For high-value transfers prefer, in order: (1) **CCTP** for USDC — fewest trus
 - **Planning an IBC transfer in either direction.** IBC is closed (inbound: pacific-1 Proposal 116 / atlantic-2 #247; outbound: Proposal 121) — use an EVM bridge. Never tell a holder to bridge, migrate, or exit `ibc/...` assets: there is no route, and their balances stay usable within Sei.
 - **Routing transfers through Wormhole's Sei CosmWasm side or the Portal Bridge.** It is closed: `USDCso`, Wormhole-bridged `WETH`, and `USDCet` still move within Sei but have no exit path.
 - **Wrong USDC units or recipient encoding.** USDC is 6 decimals on Sei (`parseUnits(value, 6)`), and CCTP's `mintRecipient` is the `0x...` address left-padded to bytes32.
+- **Calling CCTP v2 with the v1 signature.** `TokenMessengerV2.depositForBurn` takes seven arguments — the v1 four plus `destinationCaller`, `maxFee`, and `minFinalityThreshold` — so a four-argument call fails against the v2 ABI.
 - **Expecting Sei's finality to speed up bridging.** Source-chain finality + attestation dominates end-to-end time; the Sei-side confirmation itself is ~1 block — `tx.wait(1)`, never 12.
 - **Building new CosmWasm or IBC-precompile flows.** CosmWasm is deprecated per SIP-3 and the IBC precompile's `transfer` cannot succeed — deploy ERC-20 / OFT contracts directly on Sei EVM. Existing pointers still give cross-VM access to existing denoms.
 - **Skipping the testnet round trip.** Wire and test the full path on atlantic-2 (1328) before touching mainnet (pacific-1, 1329).
