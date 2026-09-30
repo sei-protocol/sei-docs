@@ -13,9 +13,12 @@ const exists = async (path) => {
   let dir = '';
   for (const name of path.split('/')) {
     if (!listings.has(dir)) {
-      listings.set(dir, new Set(await readdir(`${repoDir}${dir}`).catch(() => [])));
+      listings.set(
+        dir,
+        readdir(`${repoDir}${dir}`).then((names) => new Set(names), () => new Set())
+      );
     }
-    if (!listings.get(dir).has(name)) return false;
+    if (!(await listings.get(dir)).has(name)) return false;
     dir = dir ? `${dir}/${name}` : name;
   }
   return true;
@@ -50,6 +53,8 @@ for (const { source, destination } of redirects) {
   }
 
   const target = `/${path}`;
+  // Only exact sources are matched, so a destination under a wildcard source
+  // such as /.sei/:path* is not flagged as a chain.
   if (sources.has(target)) {
     failures.push(
       `${source} -> ${destination}: ${target} is itself a redirect; point at its destination instead`
