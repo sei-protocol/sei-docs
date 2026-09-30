@@ -122,7 +122,8 @@ await sourceTokenMessengerV2.write.depositForBurn([
 // 2) Poll Circle's attestation API for the message and attestation, then mint on Sei
 //    through MessageTransmitterV2 — confirms in ~one Sei block.
 const hash = await seiMessageTransmitterV2.write.receiveMessage([message, attestation]);
-await seiClient.waitForTransactionReceipt({ hash, confirmations: 1 });
+const minted = await seiClient.waitForTransactionReceipt({ hash, confirmations: 1 });
+if (minted.status !== "success") throw new Error("USDC mint on Sei reverted");
 ```
 
 End-to-end time is dominated by **source-chain** finality + Circle's attestation (often 15+ min), independent of Sei's sub-second finality. Test on atlantic-2 first — get testnet USDC from the Circle Faucet (https://faucet.circle.com). Contract addresses and domain IDs: https://developers.circle.com/cctp. USDC on Sei: https://docs.sei.io/evm/usdc-on-sei.

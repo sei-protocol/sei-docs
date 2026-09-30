@@ -90,7 +90,9 @@ if (balance < amount) throw new Error('Insufficient USDC balance');
 const hash = await walletClient.writeContract({
   address: USDC_ADDRESS, abi: USDC_ABI, functionName: 'transfer', args: [process.env.RECIPIENT_ADDRESS, amount],
 });
-await publicClient.waitForTransactionReceipt({ hash }); // one confirmation is enough on Sei
+const receipt = await publicClient.waitForTransactionReceipt({ hash }); // one confirmation is enough on Sei
+// viem doesn't throw on a revert — it returns status 'reverted'
+if (receipt.status !== 'success') throw new Error(`Transfer reverted: ${hash}`);
 console.log('Sent:', hash);
 ```
 

@@ -77,13 +77,17 @@ State sync fetches a recent snapshot from peers instead of replaying history —
 
 ```bash
 #!/bin/bash
+# Fail closed: a failed stop or backup must never be followed by the reset below.
+set -euo pipefail
 STATE_SYNC_RPC="https://rpc.sei-apis.com:443"   # or https://sei-rpc.polkachu.com:443
 
 # Existing nodes: stop seid FIRST — a running validator can sign past the backup below,
 # leaving the restored signing state stale — then back up validator key + signing state
 sudo systemctl stop seid
+if systemctl is-active --quiet seid; then echo "seid is still running; aborting" >&2; exit 1; fi
 cp $HOME/.sei/config/priv_validator_key.json $HOME/priv_validator_key.json.bak
 cp $HOME/.sei/data/priv_validator_state.json $HOME/priv_validator_state.json.bak
+[ -s $HOME/priv_validator_state.json.bak ] || { echo "signing-state backup missing; aborting" >&2; exit 1; }
 
 # Reset state (existing nodes only). unsafe-reset-all resets priv_validator_state.json
 # to height 0, so restore the backup after clearing data/ — a zeroed signing state

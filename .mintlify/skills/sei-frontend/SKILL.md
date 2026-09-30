@@ -29,7 +29,7 @@ This skill makes the agent good at wiring a web frontend to Sei EVM: configuring
 - **Chain IDs.** Mainnet `pacific-1` is EVM chain `1329`; testnet `atlantic-2` is EVM chain `1328`. Default to testnet in development; mainnet is the production target — promote only when the user explicitly asks.
 - **RPC endpoints.** EVM mainnet `https://evm-rpc.sei-apis.com`; EVM testnet `https://evm-rpc-testnet.sei-apis.com`. Testnet SEI comes from the faucet at `https://docs.sei.io/learn/faucet`.
 - **Chain config comes from `wagmi/chains` / `viem/chains`.** Import the `sei` and `seiTestnet` chain objects from `wagmi/chains` (or `viem/chains`) — they carry the canonical `chainName`, `nativeCurrency`, `rpcUrls`, and `blockExplorers` wallets need. `@sei-js/precompiles` re-exports those same objects plus a `seiLocal` dev chain; use it for precompile addresses and ABIs (`ADDRESS_PRECOMPILE_ADDRESS`, `ADDRESS_PRECOMPILE_ABI`).
-- **Use legacy `gasPrice`, never EIP-1559 fields.** Sei does not use EIP-1559 priority fees — drop `maxFeePerGas` / `maxPriorityFeePerGas`. The minimum gas price is governance-set and adjustable (currently ~50 gwei on mainnet — pacific-1 Proposal #112 / atlantic-2 #244); query `eth_gasPrice` for the live floor rather than hardcoding a number.
+- **Default to legacy `gasPrice`.** Sei accepts EIP-1559 (type-2) transactions, but there is no base-fee burn or priority-fee market, so `maxFeePerGas` / `maxPriorityFeePerGas` buy nothing — a single `gasPrice` is simpler. The minimum gas price is governance-set and adjustable (currently ~50 gwei on mainnet — pacific-1 Proposal #112 / atlantic-2 #244); query `eth_gasPrice` for the live floor rather than hardcoding a number.
 - **400ms blocks, instant finality.** Wait for a single confirmation (`tx.wait(1)` in ethers, `useWaitForTransactionReceipt` in wagmi). Never wait 12 confirmations. `safe` / `finalized` block tags are not distinct from `latest` on Sei — treat them as `latest`; libraries that map `finalized` to 64 blocks back just add ~25 seconds of lag for no benefit.
 - **Every account is dual-address.** One public key yields both a Cosmos `sei1...` (bech32) and an EVM `0x...` address. Until they are **associated** on-chain they behave as separate accounts with separate balances, and cross-VM transfers fail. Resolve either side through the Addr precompile at `0x0000000000000000000000000000000000001004` — and note that `getSeiAddr` / `getEvmAddr` **revert** for an unassociated address (they do not return an empty string).
 - **EIP-6963 is the wallet-discovery standard.** Wallets announce themselves via events instead of fighting over `window.ethereum`; wagmi's `injected()` connector discovers all of them automatically (Sei Global Wallet, MetaMask, Rabby, Compass, Coinbase Wallet, ...).
@@ -115,8 +115,11 @@ function Transfer({ token, to, amount }: { token: `0x${string}`; to: `0x${string
   const { data: decimals } = useReadContract({ address: token, abi: ERC20_ABI, functionName: 'decimals', chainId });
 
   const { writeContract, data: hash, isPending } = useWriteContract();
-  // ~400ms blocks: one confirmation is final — do NOT wait for 12.
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash, chainId });
+  // ~400ms blocks: one confirmation is final — do NOT wait for 12. The hook resolves for a
+  // reverted transaction too, so read the receipt's status rather than treating it as success.
+  const { data: receipt, isLoading: isConfirming } = useWaitForTransactionReceipt({ hash, chainId });
+  const isSuccess = receipt?.status === 'success';
+  const isReverted = receipt?.status === 'reverted';
 
   const send = () =>
     writeContract({
@@ -132,7 +135,7 @@ function Transfer({ token, to, amount }: { token: `0x${string}`; to: `0x${string
 
   return (
     <button onClick={send} disabled={decimals === undefined || isPending || isConfirming}>
-      {isPending ? 'Confirm in wallet...' : isConfirming ? 'Finalizing...' : isSuccess ? 'Sent' : 'Send'}
+      {isPending ? 'Confirm in wallet...' : isConfirming ? 'Finalizing...' : isSuccess ? 'Sent' : isReverted ? 'Reverted — try again' : 'Send'}
     </button>
   );
 }
