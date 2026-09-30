@@ -28,7 +28,7 @@ This skill makes the agent precise at calling Sei's native precompiles — fixed
 
 ## Critical facts
 
-- **Addresses are fixed** (40-hex, left-padded): Bank `0x...1001` · CosmWasm `0x...1002` · JSON `0x...1003` · Addr `0x...1004` · Staking `0x...1005` · Governance `0x...1006` · Distribution `0x...1007` · Oracle `0x...1008` (retired) · IBC `0x...1009` (do not use) · PointerView `0x...100A` · Pointer `0x...100B` · Solo `0x...100C` · P256Verify `0x...1011`. Import them from `@sei-js/precompiles` rather than hardcoding (exception: P256 is not exported — define it inline).
+- **Addresses are fixed** (40-hex, left-padded): Bank `0x...1001` · CosmWasm `0x...1002` · JSON `0x...1003` · Addr `0x...1004` · Staking `0x...1005` · Governance `0x...1006` · Distribution `0x...1007` · Oracle `0x...1008` (retired) · IBC `0x...1009` (do not use) · PointerView `0x...100A` · Pointer `0x...100B` · Solo `0x...100C` · P256Verify `0x...1011`. Import them from `@sei-js/precompiles` rather than hardcoding. The live ABIs are in `sei-chain` under `precompiles/<name>/abi.json`.
 - **The Oracle precompile (`0x...1008`) is retired** — it was shut off in July 2026 and queries now revert. It is not a data source: do not call it, and treat any code that reads it as broken. Use a third-party oracle instead — see https://docs.sei.io/learn/oracles.
 - **The IBC precompile (`0x...1009`) cannot succeed.** IBC is disabled on Sei in both directions (Proposals 116 and 120 inbound, Proposal 121 outbound), so its `transfer` reverts. Do not call it in new contracts or present it as a way to move assets; existing `ibc/...` balances stay usable within Sei.
 - **Precompiles only exist on a real Sei network.** They are native code in the Sei node, so a plain local EVM (Hardhat node, `forge test`) has nothing at these addresses, and a Foundry, Hardhat, or anvil fork copies Sei's state but not these implementations — calls fail in both. Test precompile calls on Sei Testnet or a local `seid` node, and place a mock at the address in unit tests (Foundry `vm.etch`, Hardhat `hardhat_setCode`). Endpoints: https://docs.sei.io/evm/networks.
@@ -53,7 +53,7 @@ import {
   JSON_PRECOMPILE_ADDRESS, JSON_PRECOMPILE_ABI,
   ADDRESS_PRECOMPILE_ADDRESS, ADDRESS_PRECOMPILE_ABI,
   POINTERVIEW_PRECOMPILE_ADDRESS, POINTERVIEW_PRECOMPILE_ABI,
-} from '@sei-js/precompiles'; // BANK_* and POINTER_* also exported; P256 is NOT
+} from '@sei-js/precompiles'; // BANK_*, POINTER_*, and P256_* are exported too
 
 // ethers v6 — signer from the connected wallet (atlantic-2 while testing)
 import { ethers } from 'ethers';
@@ -77,13 +77,14 @@ function delegate(string memory validatorAddress) external payable returns (bool
 function undelegate(string memory validatorAddress, uint256 amount) external returns (bool); // amount = usei (1e6)
 function redelegate(string memory srcValidatorAddress, string memory dstValidatorAddress, uint256 amount)
     external returns (bool);                                                                  // amount = usei (1e6)
-// Distribution (0x...1007):
-function withdrawDelegatorReward(address delegatorAddress, string memory validatorAddress) external returns (bool);
-function withdrawValidatorCommission(string memory validatorAddress) external returns (bool);
+// Distribution (0x...1007) — the caller is the delegator (or, for commission, the validator operator):
+function withdrawDelegationRewards(string memory validator) external returns (bool);
+function withdrawMultipleDelegationRewards(string[] memory validators) external returns (bool);
+function withdrawValidatorCommission() external returns (bool);
 // Events: Delegate / Undelegate / Redelegate (delegator indexed) — rewards accrue every block.
 ```
 
-Queries: `delegation(delegator, validator)` returns `(shares, Coin balance)`; `delegatorDelegations`, `validators(status, ...)`, and `delegatorUnbondingDelegations` list results with cursor pagination — pass the previous response's `nextKey`/`pageKey`, or `""` for the first page.
+Queries: `delegation(delegator, validator)` returns one struct — `balance` (`amount` in usei, `denom`) and `delegation` (`delegator_address`, `shares`, `decimals`, `validator_address`); distribution's `rewards(delegator)` and `delegationRewards(delegator, validator)` read pending rewards. `delegatorDelegations`, `validators(status, ...)`, and `delegatorUnbondingDelegations` paginate with a `bytes` key — pass the previous response's `nextKey`, or `"0x"` for the first page.
 
 ```typescript
 import { DISTRIBUTION_PRECOMPILE_ADDRESS, DISTRIBUTION_PRECOMPILE_ABI } from '@sei-js/precompiles';
@@ -97,12 +98,12 @@ await tx.wait(1);
 // Undelegate 10 SEI — amount in usei (6 decimals, NOT wei): 10 SEI = 10,000,000 usei
 await (await staking.undelegate(validator, 10_000_000n)).wait(1); // unbonding period: 21 days
 
-// Query a delegation — balance is a Coin { amount, denom }
-const [shares, balance] = await staking.delegation(await signer.getAddress(), validator);
-console.log('Shares:', shares.toString(), '| Balance:', balance.amount.toString(), balance.denom);
+// Query a delegation — one struct: balance { amount (usei), denom } and delegation { shares, ... }
+const { balance, delegation } = await staking.delegation(await signer.getAddress(), validator);
+console.log('Shares:', delegation.shares.toString(), '| Balance:', balance.amount.toString(), balance.denom);
 
-// Claim rewards — note the (delegator, validator) argument pair
-await (await distribution.withdrawDelegatorReward(await signer.getAddress(), validator)).wait(1);
+// Claim rewards — the caller is the delegator, so only the validator is passed
+await (await distribution.withdrawDelegationRewards(validator)).wait(1);
 ```
 
 ## Solidity: stake from a contract
@@ -117,8 +118,8 @@ interface IStaking {
     function delegate(string memory validatorAddress) external payable returns (bool);
 }
 interface IDistribution {
-    function withdrawDelegatorReward(address delegatorAddress, string memory validatorAddress)
-        external returns (bool);
+    // The caller is the delegator — here, the vault contract itself.
+    function withdrawDelegationRewards(string memory validator) external returns (bool);
 }
 
 contract StakingVault {
@@ -137,12 +138,12 @@ contract StakingVault {
 
     // Claim rewards and immediately re-delegate them.
     function compound() external {
-        IDistribution(DISTRIBUTION).withdrawDelegatorReward(address(this), validatorAddress);
+        IDistribution(DISTRIBUTION).withdrawDelegationRewards(validatorAddress);
         uint256 rewards = address(this).balance;
         if (rewards > 0) IStaking(STAKING).delegate{value: rewards}(validatorAddress);
     }
 
-    receive() external payable {} // receives the withdrawn rewards
+    receive() external payable {} // accept plain SEI transfers
 }
 ```
 
@@ -168,38 +169,40 @@ await (await governance.deposit(42n, { value: ethers.parseEther('100') })).wait(
 Proposal submission and queries:
 
 ```solidity
-function submitProposal(
-    string memory title,
-    string memory description,
-    string memory metadata,     // e.g. "ipfs://..."
-    string memory proposalType  // "Text", "ParameterChange", "SoftwareUpgrade"
-) external payable returns (uint64 proposalID); // msg.value = deposit (3,500 SEI minimum on mainnet)
+// proposalJSON, e.g. {"title":"...","description":"...","type":"Text","is_expedited":false}
+// msg.value = deposit (3,500 SEI minimum on mainnet, 7,000 expedited)
+function submitProposal(string memory proposalJSON) external payable returns (uint64 proposalID);
 
-function getProposal(uint64 proposalID) external view returns (Proposal memory);
-function getProposals(uint32 proposalStatus, uint32 pageLimit, string memory pageKey)
-    external view returns (Proposal[] memory);
+function proposal(uint64 proposalID) external view returns (Proposal memory);
+function proposals(int32 proposalStatus, address voter, address depositor, bytes memory pageKey)
+    external view returns (Proposal[] memory proposals, bytes memory nextKey);
+```
+
+```typescript
+const proposalJSON = JSON.stringify({ title: 'My proposal', description: 'Why it matters', type: 'Text', is_expedited: false });
+await (await governance.submitProposal(proposalJSON, { value: ethers.parseEther('3500') })).wait(1);
 ```
 
 Parse the `proposalID` from the transaction's events after `submitProposal`. Contracts vote the same way — cast `0x0000000000000000000000000000000000001006` to an interface with `vote(uint64, int32) returns (bool)`.
 
 ## JSON parsing on-chain
 
-The JSON precompile (`0x...1003`) parses payloads natively — far cheaper than hand-rolled Solidity parsing. Functions: `extractAsBytes`, `extractAsBytes32`, `extractAsBytesList`, `extractAsUint256` (all `(bytes input, string key)`). There is no dot-notation for nested keys — extract the parent object as bytes, then parse it again.
+The JSON precompile (`0x...1003`) parses payloads natively — far cheaper than hand-rolled Solidity parsing. Functions: `extractAsBytes`, `extractAsBytesList`, and `extractAsUint256` (each `(bytes input, string key)`), plus `extractAsBytesFromArray(bytes input, uint16 arrayIndex)` for top-level arrays. All are `view`. There is no dot-notation for nested keys — extract the parent object as bytes, then parse it again.
 
 ```solidity
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
 interface IJSON {
-    function extractAsUint256(bytes memory input, string memory key) external pure returns (uint256);
-    function extractAsBytes(bytes memory input, string memory key) external pure returns (bytes memory);
+    function extractAsUint256(bytes memory input, string memory key) external view returns (uint256);
+    function extractAsBytes(bytes memory input, string memory key) external view returns (bytes memory);
 }
 
 contract PayloadParser {
     address constant JSON = 0x0000000000000000000000000000000000001003;
 
     // Nested value {"oracle": {"symbol": "BTC"}} -> extract parent, then child
-    function parseSymbol(bytes calldata payload) external pure returns (bytes memory) {
+    function parseSymbol(bytes calldata payload) external view returns (bytes memory) {
         bytes memory oracle = IJSON(JSON).extractAsBytes(payload, "oracle");
         return IJSON(JSON).extractAsBytes(oracle, "symbol");
     }
@@ -222,8 +225,8 @@ The P256 precompile (`0x...1011`) verifies NIST P-256 (secp256r1) signatures —
 pragma solidity ^0.8.28;
 
 interface IP256 {
-    function verify(bytes32 messageHash, bytes32 r, bytes32 s, bytes32 x, bytes32 y)
-        external view returns (bool);
+    // input = abi.encodePacked(hash, r, s, x, y), 160 bytes
+    function verify(bytes calldata input) external view returns (bytes memory response);
 }
 
 contract P256Wallet {
@@ -240,10 +243,15 @@ contract P256Wallet {
         external returns (bytes memory)
     {
         bytes32 digest = keccak256(abi.encode(block.chainid, address(this), nonce, target, data));
-        require(IP256(P256).verify(digest, r, s, pubKeyX, pubKeyY), "Invalid P-256 signature");
+        // A valid signature returns non-empty data; an invalid one returns none, which would
+        // revert a high-level call, so use staticcall and check the output length.
+        (bool ok, bytes memory output) = P256.staticcall(
+            abi.encodeWithSelector(IP256.verify.selector, abi.encodePacked(digest, r, s, pubKeyX, pubKeyY))
+        );
+        require(ok && output.length > 0, "Invalid P-256 signature");
         nonce++;
-        (bool ok, bytes memory result) = target.call(data);
-        require(ok, "Execution failed");
+        (bool success, bytes memory result) = target.call(data);
+        require(success, "Execution failed");
         return result;
     }
 }
@@ -252,14 +260,18 @@ contract P256Wallet {
 This verifies a raw P-256 signature over the digest, as an HSM or platform key produces. A WebAuthn passkey signs `sha256(authenticatorData ‖ sha256(clientDataJSON))` instead, so a passkey wallet must also check that the challenge inside `clientDataJSON` equals this digest — use an audited WebAuthn verifier rather than rolling your own.
 
 ```typescript
-// P256 is NOT exported by @sei-js/precompiles — define the address and ABI inline.
-// Source of truth: github.com/sei-protocol/sei-chain/tree/main/precompiles/p256
-const P256_PRECOMPILE_ADDRESS = '0x0000000000000000000000000000000000001011';
-const P256_PRECOMPILE_ABI = [
-  'function verify(bytes32 hash, bytes32 r, bytes32 s, bytes32 x, bytes32 y) view returns (bool)',
-];
+import { P256_PRECOMPILE_ADDRESS, P256_PRECOMPILE_ABI } from '@sei-js/precompiles';
 const p256 = new ethers.Contract(P256_PRECOMPILE_ADDRESS, P256_PRECOMPILE_ABI, provider);
-const isValid = await p256.verify(messageHash, r, s, x, y); // true for a valid P-256 signature
+
+// 160-byte input: hash ‖ r ‖ s ‖ x ‖ y, each 32 bytes
+const input = ethers.concat([messageHash, r, s, x, y].map((v) => ethers.zeroPadValue(v, 32)));
+let isValid = false;
+try {
+  // Success returns 32 bytes ending in 0x01
+  isValid = (await p256.verify(input)) === ethers.zeroPadValue('0x01', 32);
+} catch {
+  // An invalid signature returns no data, which ethers can't decode as bytes — treat it as invalid
+}
 ```
 
 ## Address association (Addr precompile)
@@ -295,27 +307,23 @@ if (exists) {
 const [cwPointer, cwVersion, cwExists] = await pointerView.getCW20Pointer('sei1cw20contract...');
 ```
 
-An already-deployed CW20 or CW721 without a pointer can still get one (types `CW20`, `CW721`):
+An already-deployed CW20, CW721, or CW1155 without a pointer can still get one through the Pointer precompile (`0x000000000000000000000000000000000000100B`): `addCW20Pointer(string cwAddr)`, `addCW721Pointer(string cwAddr)`, and `addCW1155Pointer(string cwAddr)`, each `payable returns (address)` and charging a small protocol fee in SEI. `seid` has no pointer-registration command; it only looks pointers up:
 
 ```bash
-seid tx evm register-evm-pointer CW20 <CW20_CONTRACT_ADDRESS> \
-  --from <KEY_NAME> --chain-id atlantic-2 \
-  --node https://rpc-testnet.sei-apis.com --fees 40000usei
-
-# Look up an existing pointer
 seid q evm pointer CW20 <CW20_CONTRACT_ADDRESS> --node https://rpc-testnet.sei-apis.com
 ```
 
-Or from Solidity via the Pointer precompile (`0x000000000000000000000000000000000000100B`): `registerCW20Pointer(string cwAddr)` and `registerCW721Pointer(string cwAddr)` — each `payable returns (address pointer)`, charging a small protocol fee in SEI. The Bank precompile (`0x...1001`, legacy bridge) can `send` existing native tokens from the EVM side but cannot mint; for a new token with programmatic minting, deploy an ERC-20. Full cross-VM model: https://docs.sei.io/learn/pointers.
+The Bank precompile (`0x...1001`, legacy bridge) can `send` existing native tokens from the EVM side but cannot mint; for a new token with programmatic minting, deploy an ERC-20. Full cross-VM model: https://docs.sei.io/learn/pointers.
 
 ## Common pitfalls
 
 - **Treating `undelegate`/`redelegate` amounts as wei.** They are 6-decimal usei; only `delegate` uses 18-decimal `msg.value`. `parseEther('5')` passed to `undelegate` is off by 1e12.
 - **Testing precompiles on a local node or a fork.** Precompiles are native to Sei nodes, so neither a local EVM nor a Foundry/Hardhat fork runs them. Test on Sei Testnet, and mock them in unit tests.
 - **Verifying a caller-supplied hash in a signature-gated wallet.** Anyone who sees one valid signature can replay it for arbitrary calls — compute the digest in the contract from the chain ID, the wallet address, a nonce, and the call.
-- **Calling the Oracle precompile.** Shut off July 2026 — queries revert even though `ORACLE_PRECOMPILE_ADDRESS`/`ABI` are still exported. Use a third-party oracle (https://docs.sei.io/learn/oracles).
+- **Calling the Oracle precompile.** Shut off July 2026 — queries revert, and `@sei-js/precompiles` no longer exports it. Use a third-party oracle (https://docs.sei.io/learn/oracles).
 - **Calling the IBC precompile.** IBC is disabled in both directions, so `transfer` reverts — there is no IBC route on or off Sei.
-- **Looking for P256 in `@sei-js/precompiles`.** Not exported; define the address/ABI inline. Do not confuse P-256 (secp256r1, `0x...1011`) with secp256k1 (`ecrecover`).
+- **Calling P256 with five `bytes32` arguments or a typed call.** `verify` takes one 160-byte `bytes` input and returns no data for an invalid signature, so a high-level Solidity call reverts instead of returning false — use `staticcall` and check the output length. Do not confuse P-256 (secp256r1, `0x...1011`) with secp256k1 (`ecrecover`).
+- **Calling functions the precompiles don't have.** `withdrawDelegatorReward`, a four-string `submitProposal`, `getProposal`/`getProposals`, `extractAsBytes32`, and `registerCW20Pointer` aren't in the ABIs — use `withdrawDelegationRewards(validator)`, `submitProposal(proposalJSON)`, `proposal`/`proposals`, `extractAsBytesFromArray`, and `addCW20Pointer`.
 - **`voteWeighted` weights not summing to exactly `"1.0"`** → the transaction fails. Weights are decimal strings, not integers.
 - **Expecting voting power from liquid SEI.** Only staked SEI votes; non-voters inherit their validator's vote. And >33.4% NoWithVeto burns ALL deposits on a proposal, including yours.
 - **Assuming `getSeiAddr`/`getEvmAddr` return empty strings for unknown addresses.** They REVERT when no association exists — wrap in try/catch.

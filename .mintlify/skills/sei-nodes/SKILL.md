@@ -79,7 +79,9 @@ State sync fetches a recent snapshot from peers instead of replaying history —
 #!/bin/bash
 STATE_SYNC_RPC="https://rpc.sei-apis.com:443"   # or https://sei-rpc.polkachu.com:443
 
-# Existing nodes: back up validator key + signing state FIRST
+# Existing nodes: stop seid FIRST — a running validator can sign past the backup below,
+# leaving the restored signing state stale — then back up validator key + signing state
+sudo systemctl stop seid
 cp $HOME/.sei/config/priv_validator_key.json $HOME/priv_validator_key.json.bak
 cp $HOME/.sei/data/priv_validator_state.json $HOME/priv_validator_state.json.bak
 

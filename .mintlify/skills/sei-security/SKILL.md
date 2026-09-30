@@ -81,7 +81,7 @@ async function safeContractCall(contract: ethers.Contract, method: string, args:
 }
 ```
 
-Foundry users get the same pre-flight from `forge script --simulate`; debug reverts with tracing per https://docs.sei.io/evm/debugging-contracts. Chain IDs and RPC endpoints: https://docs.sei.io/evm/networks.
+Foundry users get the same pre-flight by running `forge script` without `--broadcast`, which only simulates; debug reverts with tracing per https://docs.sei.io/evm/debugging-contracts. Chain IDs and RPC endpoints: https://docs.sei.io/evm/networks.
 
 ### Deployment checklist
 
