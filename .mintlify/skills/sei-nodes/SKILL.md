@@ -48,8 +48,8 @@ Sei is a high-performance EVM-compatible chain built from three integrated compo
 | Type | Purpose | Config |
 |---|---|---|
 | Full / RPC | Query data, relay txs | Default settings |
-| Archive | Full history from genesis (10 TB+) | `min-retain-blocks=0`, `pruning="nothing"` |
-| State sync provider | Provide snapshots to bootstrap peers | `enable=true` under `[statesync]` in `config.toml` |
+| Archive | Full history from genesis (10 TB+) | `min-retain-blocks=0`, `pruning="nothing"`, `ss-keep-recent=0` |
+| State sync provider | Provide snapshots to bootstrap peers | Non-zero `snapshot-interval` (e.g. `1000`) under `[state-sync]` in `app.toml` |
 | Validator | Sign blocks, secure network | `mode=validator` in `config.toml` + sufficient delegation |
 
 Hardware baseline: 16+ CPU cores, 256 GB DDR5 RAM, 2 TB NVMe SSD. OS: Ubuntu 22.04 (recommended) or macOS.
@@ -154,7 +154,7 @@ sc-snapshot-interval = 10000
 [state-store]
 ss-enable = true                  # REQUIRED for any RPC-serving node
 ss-backend = "pebbledb"
-ss-keep-recent = 100000           # keep last 100k blocks
+ss-keep-recent = 100000           # keep last 100k blocks; archive nodes set 0 (keep all)
 ss-prune-interval = 600
 ```
 
@@ -374,6 +374,7 @@ pex = false             # disable peer exchange
 - **Running the same `priv_validator_key.json` in two places** — double-signing is catastrophic and unrecoverable. After any migration, confirm the old instance is fully offline before the new one signs.
 - **Forgetting `--mode validator` at init** — RPC/P2P bind publicly. Never expose a validator's RPC; front it with sentries (`pex = false`).
 - **Disabling SS on an RPC node** — `ss-enable = true` is required for any RPC node; historical queries break without it.
+- **Confusing the two state-sync switches.** `[statesync] enable = true` in `config.toml` makes a node bootstrap *from* peers' snapshots; serving snapshots takes a non-zero `[state-sync] snapshot-interval` in `app.toml`.
 - **Flipping `evm-ss-split` on a node with existing data** — startup safety checks fail. The Giga SS split requires a fresh state sync.
 - **Inventing SeiDB keys.** There is no `sc-read-mode` and no `sc-enable-lattice-hash`; SC migration is driven by `sc-write-mode` alone, and `test_only_dual_write` must never run in production.
 - **Inventing `[priv-validator]` keys.** There is no `key-type` or `server-address`: `seid` listens on `laddr` and the remote signer dials in. A config that expects `seid` to connect out leaves the validator with no signer, so it misses blocks and gets jailed.

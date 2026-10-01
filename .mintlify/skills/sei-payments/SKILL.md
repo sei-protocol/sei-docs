@@ -144,7 +144,7 @@ export async function GET(req: NextRequest) {
 }
 ```
 
-Verification must check the receipt status, that the `Transfer` log comes from the USDC contract, the recipient, and the amount; that the payer signed this challenge; **and** consume the transaction hash so one payment unlocks only one request:
+Verification must canonicalize the transaction hash, then check the receipt status, that the `Transfer` log comes from the USDC contract, the recipient, and the amount; that the payer signed this challenge; **and** consume the transaction hash so one payment unlocks only one request:
 
 ```typescript
 async function verifyPayment(paymentHeader: string) {
@@ -154,7 +154,15 @@ async function verifyPayment(paymentHeader: string) {
     return { isValid: false, reason: 'Invalid payment format or network' };
   }
 
-  const receipt = await publicClient.getTransactionReceipt({ hash: payload.txHash });
+  // Canonicalize before verifying, checking the signature, or consuming: a mixed-case hash
+  // names the same transaction but is a different storage key, so it could unlock a
+  // second request with one transfer.
+  const txHash = String(payload.txHash).toLowerCase();
+  if (!/^0x[0-9a-f]{64}$/.test(txHash)) {
+    return { isValid: false, reason: 'Malformed transaction hash' };
+  }
+
+  const receipt = await publicClient.getTransactionReceipt({ hash: txHash as `0x${string}` });
   if (receipt?.status !== 'success') {
     return { isValid: false, reason: 'Transaction not found or reverted' };
   }
@@ -174,7 +182,7 @@ async function verifyPayment(paymentHeader: string) {
   // accounts (ERC-1271).
   const signedByPayer = await publicClient.verifyMessage({
     address: transfer.from,
-    message: `${payload.reference}:${payload.txHash}`,
+    message: `${payload.reference}:${txHash}`,
     signature: payload.signature,
   });
   if (!signedByPayer) {
@@ -184,10 +192,10 @@ async function verifyPayment(paymentHeader: string) {
   // claimPayment must be an atomic insert-if-absent keyed on the transaction hash that
   // also consumes the reference (e.g. Redis SET NX or a SQL unique index), so one payment
   // unlocks exactly one request even when retries arrive concurrently.
-  if (!(await claimPayment(payload.txHash, payload.reference))) {
+  if (!(await claimPayment(txHash, payload.reference))) {
     return { isValid: false, reason: 'Payment or challenge was already used' };
   }
-  return { isValid: true, txHash: payload.txHash };
+  return { isValid: true, txHash };
 }
 ```
 
@@ -195,8 +203,8 @@ Client side, after paying on-chain, the proof echoes the challenge's `reference`
 
 ```typescript
 const reference = challenge.accepts[0].extra.reference;
-// Sign with the same account that sent the USDC transfer
-const signature = await walletClient.signMessage({ message: `${reference}:${txHash}` });
+// Sign with the same account that sent the USDC transfer, over the lowercase hash the server checks
+const signature = await walletClient.signMessage({ message: `${reference}:${txHash.toLowerCase()}` });
 const proof = {
   x402Version: 1,
   scheme: 'exact',
@@ -218,7 +226,7 @@ For production, prefer the `@sei-js/x402-*` middleware (Express/Hono/Next) and c
 - **Sending EIP-1559 fee fields.** Use legacy `gasPrice`; there is no base-fee burn on Sei (all fees go to validators). The floor is governance-adjustable — query `eth_gasPrice` rather than hardcoding a number.
 - **Mixing TypeScript syntax into a `.js` file.** Plain `node index.js` cannot parse `as const`, the `!` non-null assertion, or `as` casts. Keep the script valid ESM JavaScript (as above) or rename it `index.ts` and run it with a TS runner like `npx tsx index.ts`.
 - **Forgetting native SEI for fees.** A USDC transfer still costs transaction fees paid in native SEI. A wallet with USDC but zero SEI cannot pay.
-- **Trusting `txHash` or the `reference` alone in x402.** Verify the receipt status, that the `Transfer` log comes from the USDC contract, the recipient (`payTo`), and the amount; require the transfer's `from` to have signed the reference; then consume the transaction hash with an atomic insert-if-absent. The reference never appears on-chain, so without the signature one payment can be replayed with a fresh reference, or someone else's public transfer claimed first.
+- **Trusting `txHash` or the `reference` alone in x402.** Verify the receipt status, that the `Transfer` log comes from the USDC contract, the recipient (`payTo`), and the amount; require the transfer's `from` to have signed the reference; then consume the transaction hash with an atomic insert-if-absent. Lowercase and validate the hash before any of these, or mixed-case variants of one hash unlock one request each. The reference never appears on-chain, so without the signature one payment can be replayed with a fresh reference, or someone else's public transfer claimed first.
 - **Confusing the two version fields in x402.** `x402Version` is the protocol version (`1`); `extra.version` is the USDC contract's EIP-712 domain version (`"2"`). They are unrelated.
 - **Using testnet addresses on mainnet (or vice versa).** The USDC address differs per network; the wrong one points at a different or nonexistent token. Re-verify on Seiscan before moving real value.
 - **Assuming address association is needed.** Plain ERC-20 USDC transfers between `0x...` addresses need no association. Only if a flow crosses into Cosmos-side modules do the user's `sei1...` and `0x...` addresses need linking — see https://docs.sei.io/learn/accounts.
