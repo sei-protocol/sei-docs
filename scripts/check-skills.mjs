@@ -37,13 +37,17 @@ for (const dir of dirs) {
   }
 
   // Agents copy these samples verbatim, so catch the regressions that can double-sign a
-  // validator, leave it without a signer, or report a reverted payment as sent.
+  // validator, leave it without a signer, report a reverted payment as sent, or build on
+  // the deprecated x402 v1 packages.
   for (const [, code] of source.matchAll(/```[^\n]*\n([\s\S]*?)```/g)) {
     if (code.includes('unsafe-reset-all') && !/\bset -[a-z]*e/.test(code)) {
       failures.push(`${path}: a script that runs unsafe-reset-all must fail closed (set -euo pipefail)`);
     }
     if (/^\[priv-validator\]/m.test(code) && /^\s*(key-type|server-address)\s*=/m.test(code)) {
       failures.push(`${path}: [priv-validator] has no key-type or server-address; seid listens on laddr and the remote signer dials in`);
+    }
+    if (code.includes('@sei-js/x402')) {
+      failures.push(`${path}: a sample uses a deprecated @sei-js/x402 package; use the upstream @x402 v2 packages (see ai/x402.mdx)`);
     }
     const waits = (code.match(/waitForTransactionReceipt\(/gi) || []).length;
     const statusChecks = (code.match(/\.status\b/g) || []).length;
