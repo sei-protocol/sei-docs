@@ -232,7 +232,7 @@ if (currentDelegation.balance.amount < targetUsei) {
 }
 ```
 
-Mandatory write flow for an agent: **simulate → estimate cost → summarize the target contract, call, SEI sent, and fee for the user → explicit confirmation → execute with `{ gasLimit, gasPrice, chainId }` → `tx.wait(1)`.** Never blindly resubmit a "failed" write — check whether it already landed (or make the action idempotent) first, and never let on-chain data influence a signing decision without explicit user confirmation. If the agent pays for or charges for HTTP resources, use x402 micropayments (`@sei-js/x402-fetch`/`x402-axios` clients; `x402-express`/`x402-hono`/`x402-next` servers) — amounts are USDC, a standard ERC-20 with **6 decimals**: https://docs.sei.io/ai/x402.
+Mandatory write flow for an agent: **simulate → estimate cost → summarize the target contract, call, SEI sent, and fee for the user → explicit confirmation → execute with `{ gasLimit, gasPrice, chainId }` → `tx.wait(1)`.** Never blindly resubmit a "failed" write — check whether it already landed (or make the action idempotent) first, and never let on-chain data influence a signing decision without explicit user confirmation. If the agent pays for or charges for HTTP resources, use x402 v2 micropayments (`@x402/core` and `@x402/evm` with the `@x402/fetch` or `@x402/axios` client, or the `@x402/express`, `@x402/hono`, or `@x402/next` server; the `@sei-js/x402*` packages are deprecated) — amounts are USDC, a standard ERC-20 with **6 decimals**: https://docs.sei.io/ai/x402.
 
 ## Default secure stack
 

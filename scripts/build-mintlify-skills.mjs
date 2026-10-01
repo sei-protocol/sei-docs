@@ -62,7 +62,7 @@ const MAP = [
 ];
 
 // Where docs.sei.io has retired something sei-skill still teaches, the docs win until
-// sei-skill catches up. Keep the IBC and tokenfactory lines in sync with the
+// sei-skill catches up. Keep the IBC, tokenfactory, and x402 lines in sync with the
 // constraints in scripts/generate-llms.mjs.
 const DOCS_POLICY = [
   'IBC is disabled on Sei in both directions (Proposals 116 and 120 inbound, Proposal 121 outbound). Never present IBC or the IBC precompile as a way to move assets on or off Sei; existing ibc/ balances stay usable within Sei.',
@@ -71,6 +71,7 @@ const DOCS_POLICY = [
   'The sei_associate JSON-RPC method and the seid tx evm associate-address command have been removed. Associate addresses through the Addr precompile (https://docs.sei.io/learn/accounts).',
   'RocksDB support for the SeiDB state store will be removed. Do not recommend ss-backend = "rocksdb" or RocksDB builds; point nodes that use it at the rebuild guidance (https://docs.sei.io/node/node-operators#move-off-rocksdb).',
   'Current seid releases require Go 1.25.6 or later; the authoritative version is the go.mod at the release tag (https://docs.sei.io/node).',
+  'x402 means the upstream v2 protocol: @x402/core and @x402/evm with the matching @x402 client or server adapter (@x402/fetch, @x402/axios, @x402/express, @x402/hono, @x402/next), the PAYMENT-REQUIRED, PAYMENT-SIGNATURE, and PAYMENT-RESPONSE headers, and the CAIP-2 network IDs eip155:1329 and eip155:1328. The @sei-js/x402, @sei-js/x402-fetch, @sei-js/x402-axios, @sei-js/x402-express, @sei-js/x402-hono, and @sei-js/x402-next packages implement v1, are deprecated, and must not be recommended. Never present the v1 X-Payment header, a transaction-hash proof, or a hand-rolled verifier (https://docs.sei.io/ai/x402).',
 ];
 
 // Known bugs in sei-skill's samples. Agents copy skill code verbatim, so the
@@ -78,7 +79,6 @@ const DOCS_POLICY = [
 const SOURCE_ERRATA = [
   'Precompiles are native code in the Sei node. A local EVM and a Foundry, Hardhat, or anvil fork all lack them, so precompile calls fail there. Recommend testing on Sei Testnet or a local seid node and placing a mock at the address in unit tests (Foundry vm.etch, Hardhat hardhat_setCode); never recommend forking for precompile tests.',
   'Signature-gated execution (such as a P-256 passkey wallet) must build the signed digest inside the contract from block.chainid, address(this), a nonce that increments on use, and the exact call. Never verify a caller-supplied hash.',
-  'x402 verification must check that the Transfer log was emitted by the USDC contract, require the transfer\'s from address to have signed the challenge reference (verifyMessage, so smart accounts work), and consume each transaction hash exactly once with an atomic insert-if-absent. The reference never appears on-chain, so without the signature anyone holding a reference can claim someone else\'s public transfer. Canonicalize the hash first (lowercase it, then require /^0x[0-9a-f]{64}$/) and use that form for the receipt lookup, the signed message, and the consumed key: a mixed-case variant names the same transaction under a different key.',
   'Wait for an approval to be mined before the call that spends it; viem write calls return a hash, not a receipt. viem waitForTransactionReceipt and wagmi useWaitForTransactionReceipt resolve for reverted transactions too, so every sample checks receipt.status before reporting success. wagmi samples that pin a chainId pin it on every read and receipt hook too.',
   'Sei accepts EIP-1559 (type-2) transactions but has no base-fee burn or priority-fee market: recommend legacy gasPrice as the default without calling EIP-1559 fields unsupported.',
   'Validator resync scripts fail closed (set -euo pipefail), stop seid and verify it stopped before touching keys or data, back up priv_validator_state.json and check the backup exists, and restore it after clearing data/, because seid tendermint unsafe-reset-all resets it to height 0.',

@@ -8,8 +8,8 @@ description: >
   "charge per API request", "HTTP 402 micropayments", "x402 on Sei", "monetize my API
   with crypto", "pay-per-call agent payments", "add a paywall to my endpoint",
   "stablecoin transfer on Sei". Covers accepting and sending payments on Sei with USDC
-  (ERC-20, 6 decimals) and x402 HTTP-native micropayments — token addresses, the
-  transfer flow, the 402 challenge/verify cycle, and replay protection.
+  (ERC-20, 6 decimals) and x402 v2 HTTP-native micropayments — token addresses, the
+  transfer flow, and the upstream @x402 seller middleware and buyer clients.
 license: MIT
 compatibility: Node.js 18+; viem or ethers
 metadata:
@@ -33,16 +33,18 @@ This skill makes an agent good at moving and accepting digital dollars on Sei: t
 - **Get testnet USDC** from the [Circle Faucet](https://faucet.circle.com), or bridge real USDC cross-chain with [Circle CCTP v2](https://developers.circle.com/cctp). You still need a little native SEI to pay transaction fees.
 - **~400ms blocks with fast finality make micropayments practical.** A payment confirms in roughly a block — wait for one confirmation (`tx.wait(1)` or one block of polling), never `tx.wait(12)`. On Sei `safe`/`finalized`/`latest` all resolve to the same instantly-final block; query `latest`.
 - **Use legacy `gasPrice`** for payment transactions. Sei has no EIP-1559 base-fee burn — all fees go to validators. The minimum gas price is governance-adjustable (currently ~50 gwei on mainnet — query `eth_gasPrice` for the live floor). See https://docs.sei.io/evm/differences-with-ethereum.
-- **x402 uses HTTP 402 ("Payment Required").** The server answers an unpaid request with `402` plus a JSON payment challenge; the client pays on-chain, then retries with proof in a base64-encoded `X-Payment` header. The challenge `x402Version` is `1` and the scheme is `exact`.
+- **x402 v2 uses HTTP 402 ("Payment Required").** The server answers an unpaid request with `402` and a `PAYMENT-REQUIRED` header; the client signs a payment authorization and retries with it in `PAYMENT-SIGNATURE`; the server verifies and settles, then returns the resource with a `PAYMENT-RESPONSE` header. Header values are Base64-encoded JSON that the SDK encodes and decodes.
+- **x402 identifies Sei by CAIP-2 network ID**: `eip155:1329` (Sei Mainnet) and `eip155:1328` (Sei Testnet). Native USDC is in x402's default asset registry for both, so a route price like `"$0.001"` resolves to USDC on the selected network.
+- **With the `exact` EVM scheme the buyer sends no transaction.** USDC on Sei supports EIP-3009: the buyer signs a transfer authorization, and a facilitator verifies it, submits the transfer, and pays the gas. The facilitator must support the Sei network you target.
 
 ## Default stack
 
 - **Language/runtime:** Node.js 18+ with `"type": "module"` (ES module imports), TypeScript optional.
 - **Chain library:** `viem` — it ships Sei chain definitions (`sei`, `seiTestnet` in `viem/chains`), so no hand-rolled RPC config is needed.
-- **x402 packages (`@sei-js`):** pick by role rather than hand-rolling challenge/verify —
-  - Client (paying): [`@sei-js/x402-fetch`](https://www.npmjs.com/package/@sei-js/x402-fetch) (fetch wrapper) or [`@sei-js/x402-axios`](https://www.npmjs.com/package/@sei-js/x402-axios) (axios interceptors).
-  - Server (charging): [`@sei-js/x402-express`](https://www.npmjs.com/package/@sei-js/x402-express), [`@sei-js/x402-hono`](https://www.npmjs.com/package/@sei-js/x402-hono), or [`@sei-js/x402-next`](https://www.npmjs.com/package/@sei-js/x402-next).
-  - Core protocol: [`@sei-js/x402`](https://www.npmjs.com/package/@sei-js/x402).
+- **x402 packages (upstream v2, `@x402` scope):** `@x402/core` and `@x402/evm`, plus one adapter per role rather than hand-rolling verification —
+  - Client (paying): `@x402/fetch` (fetch wrapper) or `@x402/axios` (axios interceptors), with `viem` for the signer.
+  - Server (charging): `@x402/express`, `@x402/hono`, or `@x402/next`.
+  - The `@sei-js/x402*` packages are deprecated v1 implementations; do not use them.
 - **Settlement asset:** USDC (6 decimals). Quote prices in whole USDC, convert to base units at the edge.
 - **Secrets:** pass `PRIVATE_KEY` via the environment; never commit it.
 
@@ -105,118 +107,107 @@ SEI_NETWORK=mainnet PRIVATE_KEY=0x... RECIPIENT_ADDRESS=0x... node index.js # ma
 
 ## Charge per request with x402
 
-The x402 flow has five steps: (1) client requests a protected resource; (2) server returns `402` with a payment challenge; (3) client pays on-chain (a USDC transfer to `payTo`); (4) client retries with a base64 `X-Payment` proof; (5) server verifies the payment on-chain and serves the resource.
+x402 v2 has three roles: the **client** signs a payment authorization, the **resource server** sets the price and serves the resource, and a **facilitator** verifies the authorization, submits the transfer on-chain, and reports the settlement. The flow: (1) the client requests the resource; (2) the server returns `402` with `PAYMENT-REQUIRED`; (3) the client signs an accepted payment option; (4) it retries with `PAYMENT-SIGNATURE`; (5) the server verifies and settles, then returns the resource with `PAYMENT-RESPONSE`. Use the `exact` scheme for a fixed price per request.
 
-The challenge advertised on a `402` response (one entry per accepted payment option):
-
-```json
-{
-  "x402Version": 1,
-  "accepts": [{
-    "scheme": "exact",
-    "network": "sei-testnet",
-    "maxAmountRequired": "1000",
-    "resource": "/api/weather",
-    "payTo": "0x9dC2aA0038830c052253161B1EE49B9dD449bD66",
-    "asset": "0x4fCF1784B31630811181f670Aea7A7bEF803eaED",
-    "extra": { "name": "USDC", "version": "2", "reference": "sei-1234567890-abc123" }
-  }]
-}
+```bash
+# Server: core + EVM scheme + your framework's adapter (@x402/express, @x402/hono, or @x402/next)
+npm install express @x402/core @x402/evm @x402/express
+# Client: core + EVM scheme + @x402/fetch (or @x402/axios), with viem for the signer
+npm install @x402/core @x402/evm @x402/fetch viem
 ```
 
-`maxAmountRequired` is in USDC base units — `"1000"` is `0.001` USDC (`parseUnits('0.001', 6)`). The `reference` identifies the challenge. It isn't recorded on-chain, so it can't bind a payment to a client by itself: the server must also consume each transaction hash exactly once, and require the payer to sign the reference so nobody can claim someone else's public transfer. Note that `extra.version` (`"2"`) is the USDC contract's **EIP-712 domain version** (used for permit/signed transfers of the token), *not* the x402 protocol version — that is the top-level `x402Version` (`1`). Do not conflate the two.
-
-Server side — return `402` until a valid proof arrives (Next.js route handler shown; Express/Hono are analogous):
+Server side — charge `0.001` USDC for `GET /weather` on Sei Testnet. Set `X402_FACILITATOR_URL` to a facilitator that supports `eip155:1328`:
 
 ```typescript
-import { NextRequest, NextResponse } from 'next/server';
+import express from "express";
+import { HTTPFacilitatorClient } from "@x402/core/server";
+import { ExactEvmScheme } from "@x402/evm/exact/server";
+import { paymentMiddleware, x402ResourceServer } from "@x402/express";
 
-export async function GET(req: NextRequest) {
-  const paymentHeader = req.headers.get('x-payment');
-  if (!paymentHeader) {
-    return NextResponse.json(generatePaymentChallenge(), { status: 402 });
-  }
-  const verification = await verifyPayment(paymentHeader);
-  if (!verification.isValid) {
-    return NextResponse.json({ ...generatePaymentChallenge(), error: verification.reason }, { status: 402 });
-  }
-  return NextResponse.json({ location: 'Sei Network', temperature: '99°F' }); // paid: serve the resource
+const facilitatorUrl = process.env.X402_FACILITATOR_URL;
+const payTo = process.env.PAY_TO_ADDRESS as `0x${string}` | undefined;
+
+if (!facilitatorUrl || !payTo) {
+  throw new Error("Set X402_FACILITATOR_URL and PAY_TO_ADDRESS");
 }
-```
 
-Verification must canonicalize the transaction hash, then check the receipt status, that the `Transfer` log comes from the USDC contract, the recipient, and the amount; that the payer signed this challenge; **and** consume the transaction hash so one payment unlocks only one request:
+const app = express();
+const network = "eip155:1328";
+const facilitator = new HTTPFacilitatorClient({ url: facilitatorUrl });
+const resourceServer = new x402ResourceServer(facilitator).register(
+  network,
+  new ExactEvmScheme(),
+);
 
-```typescript
-async function verifyPayment(paymentHeader: string) {
-  const data = JSON.parse(Buffer.from(paymentHeader, 'base64').toString());
-  const { x402Version, scheme, network, payload } = data;
-  if (x402Version !== 1 || scheme !== 'exact' || network !== 'sei-testnet') {
-    return { isValid: false, reason: 'Invalid payment format or network' };
-  }
+app.use(
+  paymentMiddleware(
+    {
+      "GET /weather": {
+        accepts: [
+          {
+            scheme: "exact",
+            price: "$0.001",
+            network,
+            payTo,
+          },
+        ],
+        description: "Current weather data",
+        mimeType: "application/json",
+      },
+    },
+    resourceServer,
+  ),
+);
 
-  // Canonicalize before verifying, checking the signature, or consuming: a mixed-case hash
-  // names the same transaction but is a different storage key, so it could unlock a
-  // second request with one transfer.
-  const txHash = String(payload.txHash).toLowerCase();
-  if (!/^0x[0-9a-f]{64}$/.test(txHash)) {
-    return { isValid: false, reason: 'Malformed transaction hash' };
-  }
-
-  const receipt = await publicClient.getTransactionReceipt({ hash: txHash as `0x${string}` });
-  if (receipt?.status !== 'success') {
-    return { isValid: false, reason: 'Transaction not found or reverted' };
-  }
-
-  // REQUIRED for a paywall that can't be replayed or hijacked — do NOT ship without these.
-  // findTransfer decodes the Transfer event from receipt.logs and returns it only if the
-  // log was emitted by the USDC contract (log.address === asset), to === payTo, and
-  // value >= maxAmountRequired. isIssuedReference accepts only unexpired references this
-  // server handed out.
-  const transfer = findTransfer(receipt, asset, payTo, maxAmountRequired);
-  if (!transfer || !isIssuedReference(payload.reference)) {
-    return { isValid: false, reason: 'Payment does not match challenge' };
-  }
-
-  // Bind the claim to the payer. Transfers are public, so without this anyone holding a
-  // reference could claim someone else's payment. verifyMessage handles EOAs and smart
-  // accounts (ERC-1271).
-  const signedByPayer = await publicClient.verifyMessage({
-    address: transfer.from,
-    message: `${payload.reference}:${txHash}`,
-    signature: payload.signature,
+app.get("/weather", (_request, response) => {
+  response.json({
+    location: "Sei",
+    conditions: "sunny",
   });
-  if (!signedByPayer) {
-    return { isValid: false, reason: 'Payment was not signed by the payer' };
-  }
+});
 
-  // claimPayment must be an atomic insert-if-absent keyed on the transaction hash that
-  // also consumes the reference (e.g. Redis SET NX or a SQL unique index), so one payment
-  // unlocks exactly one request even when retries arrive concurrently.
-  if (!(await claimPayment(txHash, payload.reference))) {
-    return { isValid: false, reason: 'Payment or challenge was already used' };
-  }
-  return { isValid: true, txHash };
-}
+app.listen(4021);
 ```
 
-Client side, after paying on-chain, the proof echoes the challenge's `reference`, signed by the paying account, and goes back base64-encoded in `X-Payment`:
+The middleware sends the `402` response, verifies the payment, and settles it. The route handler runs only after verification, and the middleware releases its response only if settlement succeeds.
+
+Client side — the Fetch adapter makes the request, reads the `402`, signs an accepted payment option, and retries with `PAYMENT-SIGNATURE`:
 
 ```typescript
-const reference = challenge.accepts[0].extra.reference;
-// Sign with the same account that sent the USDC transfer, over the lowercase hash the server checks
-const signature = await walletClient.signMessage({ message: `${reference}:${txHash.toLowerCase()}` });
-const proof = {
-  x402Version: 1,
-  scheme: 'exact',
-  network: 'sei-testnet',
-  payload: { txHash, reference, signature },
-};
-const res = await fetch(`${baseUrl}/api/weather`, {
-  headers: { 'X-Payment': Buffer.from(JSON.stringify(proof)).toString('base64') },
-});
+import { x402Client } from "@x402/core/client";
+import { ExactEvmScheme } from "@x402/evm/exact/client";
+import { wrapFetchWithPayment } from "@x402/fetch";
+import { privateKeyToAccount } from "viem/accounts";
+
+const privateKey = process.env.EVM_PRIVATE_KEY as `0x${string}` | undefined;
+
+if (!privateKey) {
+  throw new Error("Set EVM_PRIVATE_KEY");
+}
+
+const signer = privateKeyToAccount(privateKey);
+const client = new x402Client();
+client.register("eip155:*", new ExactEvmScheme(signer));
+
+const fetchWithPayment = wrapFetchWithPayment(fetch, client);
+const response = await fetchWithPayment("https://api.example.com/weather");
+
+if (!response.ok) {
+  throw new Error(`Request failed with status ${response.status}`);
+}
+
+console.log(await response.json());
 ```
 
-For production, prefer the `@sei-js/x402-*` middleware (Express/Hono/Next) and client wrappers over hand-rolling challenge/verify logic. See the [sei-x402 repo](https://github.com/sei-protocol/sei-x402) and its quickstarts for sellers and buyers.
+Before production:
+
+- Serve over HTTPS so intermediaries can't read or replace payment headers.
+- Keep buyer keys in a server-side secret store; never ship a private key in browser code.
+- Confirm the facilitator supports `eip155:1329` (Sei Mainnet) or `eip155:1328` (Sei Testnet), or run your own.
+- Test rejected signatures, expired authorizations, failed settlement, and insufficient balances.
+- Fulfill a request only after x402 reports a valid payment.
+
+For the current API, follow the upstream seller quickstart (https://docs.x402.org/getting-started/quickstart-for-sellers) and buyer quickstart (https://docs.x402.org/getting-started/quickstart-for-buyers).
 
 ## Common pitfalls
 
@@ -225,9 +216,11 @@ For production, prefer the `@sei-js/x402-*` middleware (Express/Hono/Next) and c
 - **Expecting `safe`/`finalized` to differ from `latest`.** On Sei they all resolve to the same instantly-final block. Read state at `latest`.
 - **Sending EIP-1559 fee fields.** Use legacy `gasPrice`; there is no base-fee burn on Sei (all fees go to validators). The floor is governance-adjustable — query `eth_gasPrice` rather than hardcoding a number.
 - **Mixing TypeScript syntax into a `.js` file.** Plain `node index.js` cannot parse `as const`, the `!` non-null assertion, or `as` casts. Keep the script valid ESM JavaScript (as above) or rename it `index.ts` and run it with a TS runner like `npx tsx index.ts`.
-- **Forgetting native SEI for fees.** A USDC transfer still costs transaction fees paid in native SEI. A wallet with USDC but zero SEI cannot pay.
-- **Trusting `txHash` or the `reference` alone in x402.** Verify the receipt status, that the `Transfer` log comes from the USDC contract, the recipient (`payTo`), and the amount; require the transfer's `from` to have signed the reference; then consume the transaction hash with an atomic insert-if-absent. Lowercase and validate the hash before any of these, or mixed-case variants of one hash unlock one request each. The reference never appears on-chain, so without the signature one payment can be replayed with a fresh reference, or someone else's public transfer claimed first.
-- **Confusing the two version fields in x402.** `x402Version` is the protocol version (`1`); `extra.version` is the USDC contract's EIP-712 domain version (`"2"`). They are unrelated.
+- **Forgetting native SEI for fees.** A plain USDC transfer still costs transaction fees paid in native SEI, so a wallet with USDC but zero SEI cannot send one. (With x402's `exact` scheme the facilitator submits the transfer and pays the gas.)
+- **Using the deprecated `@sei-js/x402*` packages.** They implement x402 v1 and are no longer maintained. Use `@x402/core`, `@x402/evm`, and the `@x402` adapter for your client or framework.
+- **Porting x402 v1 code by renaming packages.** v2 also changes the headers (`X-PAYMENT` becomes `PAYMENT-SIGNATURE`, `X-PAYMENT-RESPONSE` becomes `PAYMENT-RESPONSE`), uses CAIP-2 IDs such as `eip155:1328` instead of names like `sei-testnet`, and sets `x402Version: 2`. Follow https://docs.x402.org/guides/migration-v1-to-v2.
+- **Treating a transaction receipt as proof of payment.** Verification must bind the signed payload to the network, asset, amount, recipient, resource, and validity window. Use the x402 middleware with a compatible facilitator, or implement the full verification and settlement rules if you self-facilitate.
+- **Assuming every facilitator supports Sei.** x402 can sign payments for any EVM network, but the facilitator must support `eip155:1329` or `eip155:1328`. Confirm before deploying, or run your own.
 - **Using testnet addresses on mainnet (or vice versa).** The USDC address differs per network; the wrong one points at a different or nonexistent token. Re-verify on Seiscan before moving real value.
 - **Assuming address association is needed.** Plain ERC-20 USDC transfers between `0x...` addresses need no association. Only if a flow crosses into Cosmos-side modules do the user's `sei1...` and `0x...` addresses need linking — see https://docs.sei.io/learn/accounts.
 - **Inventing a bridge for USDC.** To get USDC onto Sei from another chain, use [Circle CCTP v2](https://developers.circle.com/cctp) (or the Circle Faucet on testnet); do not invent a bridge contract.
@@ -240,6 +233,7 @@ For production, prefer the `@sei-js/x402-*` middleware (Express/Hono/Next) and c
 | x402 protocol on Sei | https://docs.sei.io/ai/x402 |
 | EVM differences (gas pricing, finality) | https://docs.sei.io/evm/differences-with-ethereum |
 | Accounts & dual-address association | https://docs.sei.io/learn/accounts |
-| sei-x402 repo (packages, quickstarts) | https://github.com/sei-protocol/sei-x402 |
+| x402 v2 SDK and protocol (upstream) | https://docs.x402.org |
+| x402 v1 to v2 migration | https://docs.x402.org/guides/migration-v1-to-v2 |
 | Circle CCTP v2 (bridge USDC in) | https://developers.circle.com/cctp |
 | Circle testnet faucet | https://faucet.circle.com |
