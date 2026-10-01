@@ -37,10 +37,13 @@ for (const dir of dirs) {
   }
 
   // Agents copy these samples verbatim, so catch the regressions that can double-sign a
-  // validator or report a reverted payment as sent.
+  // validator, leave it without a signer, or report a reverted payment as sent.
   for (const [, code] of source.matchAll(/```[^\n]*\n([\s\S]*?)```/g)) {
     if (code.includes('unsafe-reset-all') && !/\bset -[a-z]*e/.test(code)) {
       failures.push(`${path}: a script that runs unsafe-reset-all must fail closed (set -euo pipefail)`);
+    }
+    if (/^\[priv-validator\]/m.test(code) && /^\s*(key-type|server-address)\s*=/m.test(code)) {
+      failures.push(`${path}: [priv-validator] has no key-type or server-address; seid listens on laddr and the remote signer dials in`);
     }
     const waits = (code.match(/waitForTransactionReceipt\(/gi) || []).length;
     const statusChecks = (code.match(/\.status\b/g) || []).length;
