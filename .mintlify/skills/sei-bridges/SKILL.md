@@ -1,0 +1,200 @@
+---
+# GENERATED FROM sei-protocol/sei-skill@e2445c8 — DO NOT EDIT BY HAND.
+# Edit the source in sei-skill, then regenerate via scripts/build-mintlify-skills.mjs
+# (see .github/workflows/sync-skills.yml).
+name: sei-bridges
+description: >
+  Use when "bridge assets to Sei", "bridge assets from Sei", "launch an omnichain token on Sei",
+  "deploy a LayerZero OFT on Sei", "send a cross-chain message with LayerZero", "get native USDC
+  onto Sei", "use CCTP with Sei", "bridge with Wormhole on Sei", "IBC transfer to or from Sei",
+  "why is IBC disabled on Sei", or "can I move ibc/ assets off Sei". Covers choosing and
+  integrating Sei's documented EVM bridges — LayerZero V2 (OFT/OApp) and Circle CCTP v2 (native
+  USDC) — plus the verify-first status of Wormhole, end-user bridge UIs, and the closed state of
+  IBC in both directions, including what legacy ibc/ and Wormhole-wrapped balances can still do.
+license: MIT
+compatibility: Requires Node.js 18+; ethers v6 and/or viem; Foundry or Hardhat with solc 0.8.22+ for OFT contracts; seid CLI only to query IBC parameters and denom traces
+metadata:
+  author: Sei
+  version: 1.1.0
+  intended-host: docs.sei.io
+  domain: bridges
+---
+
+# Sei bridges
+
+This skill makes an agent fluent in moving assets and messages between Sei and other chains: picking the right bridge per asset, deploying LayerZero V2 OFTs, moving native USDC with Circle CCTP v2, handling Wormhole's verify-first status, pointing end users at the official bridge UI, and explaining why IBC and Wormhole's Sei CosmWasm side no longer move assets on or off Sei. The EVM bridges Sei documents and recommends are **LayerZero V2** (Sei is a full LayerZero V2 endpoint) and **Circle CCTP v2** (native USDC); the official UI is the Sei bridge dashboard / Thirdweb. Pick the bridge by the asset, not by habit.
+
+## Critical facts
+
+- **Networks:** test the full round trip on Sei Testnet (chain ID `1328`) first; Sei Mainnet (chain ID `1329`) is the production target.
+- **Documented EVM bridges:** LayerZero V2 (OFT for tokens, OApp for arbitrary messaging) and Circle CCTP v2 (native USDC). End-user UI: https://dashboard.sei.io/bridge.
+- **Sei LayerZero Endpoint IDs (EIDs): Sei Mainnet `30280`, Sei Testnet `40455`.** Read the EndpointV2 address and all protocol contracts from https://docs.layerzero.network/v2/deployments/deployed-contracts?chains=sei — do not hardcode them from memory.
+- **IBC is closed on Sei in both directions.** Inbound was disabled by pacific-1 [Proposal 116](https://www.mintscan.io/sei/proposals/116) (with [Proposal 120](https://www.mintscan.io/sei/proposals/120); Sei Testnet `atlantic-2` **#247**); outbound was disabled by [Proposal 121](https://seistream.app/proposals/121) on 2026-07-31. [Proposal 115](https://www.mintscan.io/sei/proposals/115) separately froze new CosmWasm uploads (atlantic-2 **#246**). Assets can neither arrive on Sei nor leave it via IBC; existing `ibc/...` balances remain usable *within* Sei.
+- **Wormhole is verify-first, not documented by Sei.** Wormhole's supported-networks list shows a SeiEVM entry (chain ID 1329) with NTT, WTT, and CCTP routing on Sei Mainnet, but Sei's own docs provide no Wormhole EVM integration guide. The Wormhole *CosmWasm* side on Sei is closed.
+- **USDC is 6 decimals on Sei** (`parseUnits(value, 6)`); CCTP's `mintRecipient` is the `0x...` Sei address left-padded to bytes32; Sei's Circle domain ID comes from Circle's supported-chains table — verify, do not hardcode.
+- **EVM bridges take `0x...` addresses on the Sei side.** Never pass `sei1...` addresses to LayerZero or CCTP.
+- **Use legacy `gasPrice` for Sei-side claim/redeem/mint transactions.** Sei has no EIP-1559 base-fee burn — set a single `gasPrice`, not `maxFeePerGas`/`maxPriorityFeePerGas`. The minimum gas price is governance-adjustable, so query `eth_gasPrice` for the live floor; an under-priced redemption just sits in the mempool. See https://docs.sei.io/evm/differences-with-ethereum.
+- **Sei's destination-side finality is ~1 block** — use `tx.wait(1)`. End-to-end bridge time is dominated by the source chain's finality plus the bridge's attestation, not by Sei.
+- **CosmWasm is deprecated for new development (SIP-3).** Deploy ERC-20 / OFT contracts directly. Pointer contracts remain useful for cross-VM access to existing denoms; the IBC precompile does not — its `transfer` cannot succeed with outbound IBC disabled.
+- **Always verify bridge contract addresses, EIDs, and CCTP domain IDs** against each bridge's official docs and on [Seiscan](https://seiscan.io) before sending real value. Bridges are high-value targets and addresses change across version upgrades.
+
+## Which bridge? (decision matrix)
+
+| You have / want | Use | Mechanism |
+|---|---|---|
+| A **new token** native on Sei + other chains | **LayerZero V2 OFT** | burn-and-mint, one canonical supply, no wrapped IOU |
+| **Native USDC** moved onto/off Sei | **Circle CCTP v2** | burn-and-mint native USDC, fewest trust assumptions |
+| An **existing asset** only Wormhole covers (some Solana-native tokens) | **Wormhole** NTT/WTT — *verify first* | wrapped / native-token transfer |
+| **Arbitrary cross-chain messages** / calls + transfers | **LayerZero** (OApp) | GMP via Sei's LayerZero V2 endpoint |
+| **End users** bridging in a UI, no integration | **Sei bridge dashboard** / Thirdweb | aggregated routing |
+| Assets moving **to or from a Cosmos chain via IBC** | **Not available — either direction** | inbound disabled (Prop 116 / #247), outbound disabled (Prop 121); no EVM alternative reaches Cosmos chains |
+
+## LayerZero V2 (OFT + messaging)
+
+Live on Sei Mainnet and Sei Testnet. Sei is fully integrated as a LayerZero V2 endpoint. An OFT exists natively on Sei + other chains; cross-chain sends burn on the source and mint on the destination. Scaffold with `npx create-lz-oapp@latest` (choose the OFT example), deploy the same contract on each chain pointing at that chain's endpoint, then wire the peers.
+
+```solidity
+// MyOFT.sol — same contract deploys on Sei and every other chain.
+pragma solidity ^0.8.22;
+
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { OFT } from "@layerzerolabs/oft-evm/contracts/OFT.sol";
+
+contract MyOFT is OFT {
+    // `endpoint` is the LayerZero EndpointV2 address for the chain you deploy on
+    // (Sei Testnet EID 40455 / Sei Mainnet EID 30280); read it from the deployments page.
+    constructor(string memory name, string memory symbol, address endpoint, address owner)
+        OFT(name, symbol, endpoint, owner) Ownable(owner) {}
+}
+```
+
+Wire peers, quote the fee, then send — the cross-chain fee is paid in native gas and must be quoted first:
+
+```ts
+import { Options, addressToBytes32 } from "@layerzerolabs/lz-v2-utilities";
+import { parseUnits } from "ethers";
+
+// Tell Sei's OFT about the peer on the other chain (and vice versa on that chain).
+await seiOft.setPeer(DST_EID, addressToBytes32(remoteOftAddress));
+
+const options = Options.newOptions().addExecutorLzReceiveOption(80_000n, 0n).toHex();
+const sendParam = {
+  dstEid: DST_EID,
+  to: addressToBytes32(recipient0x),   // 0x recipient on the destination chain
+  amountLD: parseUnits("100", 18),
+  minAmountLD: parseUnits("99", 18),   // slippage floor
+  extraOptions: options,
+  composeMsg: "0x",
+  oftCmd: "0x",
+};
+
+const { nativeFee } = await seiOft.quoteSend(sendParam, false); // quote BEFORE sending
+const tx = await seiOft.send(sendParam, { nativeFee, lzTokenFee: 0n }, refund0x, { value: nativeFee });
+await tx.wait(1); // one confirmation — Sei finalizes fast
+```
+
+For an *already-deployed* ERC-20 you can't reissue, use an **OFT Adapter** (locks the existing token instead of minting) rather than `OFT`. If `quoteSend` reverts, the pathway/DVNs aren't wired; review the DVN set your pathway uses before Sei Mainnet. Full walkthrough, EIDs, and deployed contracts: https://docs.sei.io/evm/bridging/layerzero and https://docs.layerzero.network/v2.
+
+## Native USDC via Circle CCTP v2
+
+CCTP moves *native* USDC (no wrapper): burn on the source chain, Circle attests off-chain, mint on Sei.
+
+```ts
+import { parseUnits, pad, zeroHash } from "viem";
+
+// 1) Approve + burn on the SOURCE chain through CCTP v2's TokenMessengerV2.
+//    SEI_DOMAIN comes from Circle's supported-chains/domain table — verify, do not hardcode.
+const amount = parseUnits("100", 6); // 100 USDC, 6 decimals
+// write.approve returns a hash, not a receipt — wait for the allowance to be mined before burning
+const approveHash = await sourceUsdc.write.approve([TOKEN_MESSENGER_V2, amount]);
+const approval = await sourceClient.waitForTransactionReceipt({ hash: approveHash });
+if (approval.status !== "success") throw new Error("USDC approval failed");
+await sourceTokenMessengerV2.write.depositForBurn([
+  amount,
+  SEI_DOMAIN,                            // destinationDomain — Circle's domain id for Sei
+  pad(seiRecipient0x, { size: 32 }),     // mintRecipient as bytes32
+  sourceUsdcAddress,                     // burnToken
+  zeroHash,                              // destinationCaller — bytes32(0) lets any address relay
+  MAX_FEE,                               // maxFee in USDC base units — take it from Circle's fee API
+  2000,                                  // minFinalityThreshold — 2000 Standard, 1000 Fast
+]);
+
+// 2) Poll Circle's attestation API for the message and attestation, then mint on Sei
+//    through MessageTransmitterV2 — confirms in ~one Sei block.
+const hash = await seiMessageTransmitterV2.write.receiveMessage([message, attestation]);
+const minted = await seiClient.waitForTransactionReceipt({ hash, confirmations: 1 });
+if (minted.status !== "success") throw new Error("USDC mint on Sei reverted");
+```
+
+End-to-end time is dominated by **source-chain** finality + Circle's attestation (often 15+ min), independent of Sei's sub-second finality. Test on Sei Testnet first, with testnet USDC from the Circle Faucet (https://faucet.circle.com). Contract addresses and domain IDs: https://developers.circle.com/cctp. USDC on Sei: https://docs.sei.io/evm/usdc-on-sei.
+
+## Wormhole (verify first — not documented by Sei)
+
+- Wormhole's supported-networks list (https://wormhole.com/docs/products/reference/supported-networks/) shows a **SeiEVM** entry (chain ID 1329) with NTT, WTT (wrapped token transfers), and CCTP routing on Sei Mainnet. Sei's docs provide no Wormhole EVM integration guide — if you specifically need Wormhole (coverage LayerZero/CCTP lack), verify the current SeiEVM contract addresses and the exact SDK chain handle on Wormhole's docs before integrating. Wormhole lists Sei twice: a CosmWasm `Sei` side and an EVM `SeiEVM` side — confirm which handle you are using.
+- **The Wormhole CosmWasm side on Sei is closed.** Wrapped assets that arrived on the Cosmos side (e.g. `USDCso`, Wormhole-bridged `WETH`, `USDCet`) are still held in the bank module and still move within Sei. They are **not** IBC vouchers and were **not** affected by the IBC proposals (#116/#120/#121), but the legacy Portal Bridge is no longer available as a route off Sei, so there is no exit path for them either. See https://docs.sei.io/learn/sip-03-migration. Do not route transfers through it in either direction.
+- For your own multichain token, Wormhole **NTT** is the analogue of LayerZero's OFT; **WTT** is the lock/mint wrapped path. Wormhole's guardian set has historically been targeted — check current guardian status. When LayerZero V2 (OFT / messaging) or CCTP (USDC) cover your case, prefer them: they have first-class Sei documentation and deployed-contract tables.
+
+## End-user bridging (no contract work)
+
+Point users at the official **Sei bridge dashboard**, https://dashboard.sei.io/bridge — it aggregates routes onto Sei. To embed bridging in your own dApp, use Thirdweb Payments (onramp/swap/bridge widget): https://docs.sei.io/evm/bridging/thirdweb. The dashboard's transfer tool also handles native↔EVM asset movement during SIP-3 migration: https://dashboard.sei.io/evm-upgrade.
+
+## IBC (closed — both directions)
+
+IBC is closed on Sei — never present it as a way to move assets on or off the chain, in either direction. Both governing parameters of the `ibc` module are `false` on Sei Mainnet: `InboundEnabled` (Proposal 116, with Proposal 120) and `OutboundEnabled` (Proposal 121, passed 2026-07-31). Query them directly rather than trusting a proposal page, since a later proposal could change either one:
+
+```bash
+seid q params subspace ibc InboundEnabled  --node https://rpc.sei-apis.com
+seid q params subspace ibc OutboundEnabled --node https://rpc.sei-apis.com
+```
+
+**Legacy `ibc/...` assets are not gone, and they are not frozen.** They remain in the bank module and behave like any other native denom inside Sei: they still appear in `seid q bank balances <sei1...>`, still transfer between Sei accounts, still work through their ERC-20 pointer contracts, and can still be swapped on a Sei DEX that has liquidity for the pair. What is closed is the **redemption path**: no `ibc/...` asset can go back to its origin chain, and no new one can arrive. Resolving what a denom represents is a local query and still works:
+
+```bash
+seid q ibc-transfer denom-trace <IBC_HASH> --node https://rpc.sei-apis.com
+```
+
+No longer possible:
+
+- Sending assets **out** of Sei over IBC — `seid tx ibc-transfer transfer` fails regardless of channel, recipient, or amount.
+- Receiving assets **into** Sei over IBC from any Cosmos chain.
+- The exit and migration routes Sei previously documented for legacy holders. Noble/CCTP for `USDC.n` and Skip:Go for ATOM and WBTC all depended on outbound IBC and no longer function. Anything phrased as "migrate your IBC assets before the proposal activates" is out of date.
+- Opening or recovering IBC channels and light clients for asset-transfer purposes.
+
+The IBC precompile at `0x0000000000000000000000000000000000001009` exposed IBC transfers to the EVM. Its `transfer` cannot succeed now that outbound IBC is disabled — do not include it in new contracts or present it as a bridging option; existing contracts that call it revert on that path. For cross-VM access that does still work (native SEI and existing `ibc/...` denoms moving between the EVM and Cosmos layers within Sei), use the Bank precompile and existing pointers: https://docs.sei.io/evm/precompiles/cosmwasm-precompiles/bank and https://docs.sei.io/learn/pointers. Affected assets are listed at https://docs.sei.io/learn/sip-03-migration.
+
+## Finality timing and trust
+
+| Bridge | Source → Sei time | Notes |
+|---|---|---|
+| LayerZero V2 | ~2-5 min | Depends on DVN config + source-chain finality |
+| Wormhole | ~10-15 min | Guardian set attestation + source finality |
+| CCTP (native USDC) | ~15-30 min | Source-chain finality is the bottleneck |
+
+For high-value transfers prefer, in order: (1) **CCTP** for USDC — fewest trust assumptions; (2) a self-controlled **LayerZero V2 OFT** if you control both ends of the token. Every bridge holds locked or burnable value — audit history matters.
+
+## Common pitfalls
+
+- **Passing `sei1...` addresses to LayerZero or CCTP.** EVM bridges expect `0x...` format on the Sei side.
+- **Hardcoding endpoint addresses, EIDs, or CCTP domain IDs from memory.** They change across version upgrades — read them from the official deployment tables and confirm on Seiscan.
+- **Sending an OFT transfer without `quoteSend`.** The cross-chain fee is paid in native gas and must be quoted first; if `quoteSend` reverts, the pathway/DVNs aren't wired.
+- **Using `OFT` for an already-deployed ERC-20 you can't reissue.** Use an OFT Adapter — it locks the existing token instead of minting.
+- **EIP-1559 fee fields on Sei-side redemptions.** No base-fee burn on Sei — set a legacy `gasPrice` at or above the governance-set floor that `eth_gasPrice` returns, or the claim sits in the mempool.
+- **Planning an IBC transfer in either direction.** IBC is closed (inbound: pacific-1 Proposal 116 / atlantic-2 #247; outbound: Proposal 121) — use an EVM bridge. Never tell a holder to bridge, migrate, or exit `ibc/...` assets: there is no route, and their balances stay usable within Sei.
+- **Routing transfers through Wormhole's Sei CosmWasm side or the Portal Bridge.** It is closed: `USDCso`, Wormhole-bridged `WETH`, and `USDCet` still move within Sei but have no exit path.
+- **Wrong USDC units or recipient encoding.** USDC is 6 decimals on Sei (`parseUnits(value, 6)`), and CCTP's `mintRecipient` is the `0x...` address left-padded to bytes32.
+- **Calling CCTP v2 with the v1 signature.** `TokenMessengerV2.depositForBurn` takes seven arguments — the v1 four plus `destinationCaller`, `maxFee`, and `minFinalityThreshold` — so a four-argument call fails against the v2 ABI.
+- **Expecting Sei's finality to speed up bridging.** Source-chain finality + attestation dominates end-to-end time; the Sei-side confirmation itself is ~1 block — `tx.wait(1)`, never 12.
+- **Building new CosmWasm or IBC-precompile flows.** CosmWasm is deprecated per SIP-3 and the IBC precompile's `transfer` cannot succeed — deploy ERC-20 / OFT contracts directly on Sei EVM. Existing pointers still give cross-VM access to existing denoms.
+- **Skipping the Sei Testnet round trip.** Wire and test the full path on Sei Testnet (1328) before touching Sei Mainnet (1329).
+
+## Key docs
+
+| Topic | Link |
+| --- | --- |
+| LayerZero on Sei (EIDs, deployed contracts, OFT walkthrough) | https://docs.sei.io/evm/bridging/layerzero |
+| Thirdweb bridging / payments widget | https://docs.sei.io/evm/bridging/thirdweb |
+| USDC on Sei (native USDC via CCTP) | https://docs.sei.io/evm/usdc-on-sei |
+| SIP-3 migration (IBC, CosmWasm, legacy assets) | https://docs.sei.io/learn/sip-03-migration |
+| Bank precompile (cross-VM native denoms) | https://docs.sei.io/evm/precompiles/cosmwasm-precompiles/bank |
+| Pointer contracts | https://docs.sei.io/learn/pointers |
+| Differences with Ethereum (gas price, fees) | https://docs.sei.io/evm/differences-with-ethereum |

@@ -12,6 +12,7 @@ const themeSeedFiles = new Set([
   'rpc-methods-viewer.jsx',
   'sandbox-embed.jsx',
   'sip-index.jsx',
+  'skills-registry.jsx',
   'sstore-gas-live.jsx'
 ]);
 
