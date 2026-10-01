@@ -28,6 +28,14 @@ const isFile = async (path) =>
 const isDirectory = async (path) =>
   !path || ((await exists(path)) && (await stat(`${repoDir}${path}`)).isDirectory());
 
+// Mintlify serves each hosted skill at /.well-known/agent-skills/<name>/skill.md: the
+// root skill.md under its frontmatter name, and every .mintlify/skills/<name>/SKILL.md.
+// With more than one skill, /skill.md itself redirects to the skills index.
+const rootSkillName = (await readFile(`${repoDir}skill.md`, 'utf8').catch(() => ''))
+  .match(/^name: (['"]?)([\w-]+)\1$/m)?.[2];
+const isHostedSkill = async (name) =>
+  name === rootSkillName || (await isFile(`.mintlify/skills/${name}/SKILL.md`));
+
 const sources = new Set(redirects.map(({ source }) => source.replace(/\/+$/, '') || '/'));
 const failures = [];
 let checked = 0;
@@ -59,6 +67,14 @@ for (const { source, destination } of redirects) {
     failures.push(
       `${source} -> ${destination}: ${target} is itself a redirect; point at its destination instead`
     );
+    continue;
+  }
+
+  const skill = path.match(/^\.well-known\/agent-skills\/([\w-]+)\/skill\.md$/);
+  if (skill) {
+    if (!(await isHostedSkill(skill[1]))) {
+      failures.push(`${source} -> ${destination}: this repo hosts no skill named ${skill[1]}`);
+    }
     continue;
   }
 
