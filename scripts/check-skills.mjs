@@ -32,7 +32,7 @@ for (const dir of dirs) {
       + 'Edit the source in sei-skill and regenerate; do not hand-author skills here.'
     );
   }
-  if (!new RegExp(`^name: ${dir}$`, 'm').test(source)) {
+  if (!new RegExp(`^name: (['"]?)${dir}\\1$`, 'm').test(source)) {
     failures.push(`${path}: frontmatter name must be '${dir}' to match its directory`);
   }
 
@@ -49,10 +49,14 @@ for (const dir of dirs) {
     if (code.includes('@sei-js/x402')) {
       failures.push(`${path}: a sample uses a deprecated @sei-js/x402 package; use the upstream @x402 v2 packages (see ai/x402.mdx)`);
     }
+    // A count heuristic, not proof: it flags a block with more receipt waits (viem's
+    // waitForTransactionReceipt or wagmi's useWaitForTransactionReceipt, which both resolve
+    // for reverted transactions) than .status reads. HTTP res/response.status reads don't
+    // count, but any other unrelated .status read can still hide a missing check.
     const waits = (code.match(/waitForTransactionReceipt\(/gi) || []).length;
-    const statusChecks = (code.match(/\.status\b/g) || []).length;
+    const statusChecks = (code.match(/(?<!\b(?:res|response)\??)\.status\b/g) || []).length;
     if (waits > statusChecks) {
-      failures.push(`${path}: a sample waits for a receipt without checking its status (viem resolves reverted transactions too)`);
+      failures.push(`${path}: a code block has more receipt waits than .status reads, so a reverted transaction may be reported as a success`);
     }
   }
 }
