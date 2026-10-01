@@ -278,15 +278,15 @@ cp $HOME/.sei/config/priv_validator_key.json /secure-offline-backup/
 cp $HOME/.sei/data/priv_validator_state.json /secure-offline-backup/
 ```
 
-Production validators should sign via a remote signer/HSM — TMKMS (battle-tested; YubiHSM2/Ledger) or Horcrux (threshold signing, no single point of failure):
+Production validators should sign via a remote signer/HSM — TMKMS (battle-tested; YubiHSM2/Ledger) or Horcrux (threshold signing, no single point of failure). Both dial in: `seid` listens on `[priv-validator] laddr` and waits for the signer to connect.
 
 ```toml
-# config.toml — remote signer
+# config.toml — remote signer. [priv-validator] has no key-type or server-address keys.
 [priv-validator]
-key-type = "socket"
-laddr = "tcp://127.0.0.1:1234"
-server-address = "tcp://HSM_HOST:1234"
+laddr = "tcp://VALIDATOR_PRIVATE_IP:1234"   # seid listens here; the signer dials in
 ```
+
+Point the signer at that address with chain ID `pacific-1` and configure its side per the TMKMS (https://github.com/iqlusioninc/tmkms) or Horcrux (https://github.com/strangelove-ventures/horcrux) docs. The firewall below denies incoming traffic by default, so allow only the signer host: `ufw allow from SIGNER_IP to any port 1234 proto tcp`.
 
 ### Create and operate
 
@@ -376,6 +376,7 @@ pex = false             # disable peer exchange
 - **Disabling SS on an RPC node** — `ss-enable = true` is required for any RPC node; historical queries break without it.
 - **Flipping `evm-ss-split` on a node with existing data** — startup safety checks fail. The Giga SS split requires a fresh state sync.
 - **Inventing SeiDB keys.** There is no `sc-read-mode` and no `sc-enable-lattice-hash`; SC migration is driven by `sc-write-mode` alone, and `test_only_dual_write` must never run in production.
+- **Inventing `[priv-validator]` keys.** There is no `key-type` or `server-address`: `seid` listens on `laddr` and the remote signer dials in. A config that expects `seid` to connect out leaves the validator with no signer, so it misses blocks and gets jailed.
 - **Conflating the Giga knobs**: `evm-ss-split` (SS split), `sc-write-mode` (SC FlatKV routing), and `[giga_executor] enabled` (evmone interpreter) are three independent features.
 - **Setting `sc-enable = false`** — as of v6.6.0 the node panics at startup; IAVL is gone and state commit is mandatory.
 - **Building a new node on RocksDB.** State-store support for it will be removed; stay on PebbleDB and move existing RocksDB nodes per https://docs.sei.io/node/node-operators#move-off-rocksdb.
