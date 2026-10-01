@@ -1,7 +1,7 @@
 export const SkillsRegistry = () => {
 	// --- Foundation skills hosted on docs.sei.io (.mintlify/skills/<id>/SKILL.md).
-	//     All install together via `npx skills add https://docs.sei.io`. Keep this list in
-	//     sync with the .mintlify/skills/ directory. ---
+	//     Each card copies `npx skills add https://docs.sei.io --skill <id>`, which installs
+	//     only that skill. Keep this list in sync with the .mintlify/skills/ directory. ---
 	const SKILLS = [
 		{
 			id: 'sei-contracts',
@@ -61,7 +61,7 @@ export const SkillsRegistry = () => {
 		}
 	];
 
-	const INSTALL_CMD = 'npx skills add https://docs.sei.io';
+	const installCommand = (id) => `npx skills add https://docs.sei.io --skill ${id}`;
 	const FILTERS = ['All', 'Contracts', 'Frontend', 'Precompiles', 'Infrastructure', 'Payments', 'Security', 'Bridges', 'Migration'];
 
 	// --- Dark mode detection (Mintlify toggles a `dark` class on <html>) ---
@@ -188,9 +188,11 @@ export const SkillsRegistry = () => {
 		const [copyHover, setCopyHover] = useState(false);
 		const [linkHover, setLinkHover] = useState(false);
 
+		const command = installCommand(skill.id);
+
 		const copy = async () => {
 			try {
-				await navigator.clipboard.writeText(INSTALL_CMD);
+				await navigator.clipboard.writeText(command);
 				setCopied(true);
 				setTimeout(() => setCopied(false), 1600);
 			} catch (e) {
@@ -262,9 +264,9 @@ export const SkillsRegistry = () => {
 						borderRadius: 8,
 						cursor: 'pointer'
 					}}
-					aria-label='Copy the Sei Foundation skills install command'>
-					<code className='text-xs text-neutral-700 dark:text-neutral-300 truncate' style={{ fontFamily: 'var(--sei-font-mono)' }}>
-						{INSTALL_CMD}
+					aria-label={`Copy the install command for the ${skill.title} skill`}>
+					<code className='text-xs text-neutral-700 dark:text-neutral-300 break-words min-w-0' style={{ fontFamily: 'var(--sei-font-mono)' }}>
+						{command}
 					</code>
 					<span className='inline-flex items-center shrink-0' style={{ color: copied ? (isDark ? '#34d399' : '#059669') : accent }}>
 						{copied ? <CheckIcon /> : <CopyIcon />}
