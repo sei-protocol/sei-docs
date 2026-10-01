@@ -74,6 +74,16 @@ const DOCS_POLICY = [
   'x402 means the upstream v2 protocol: @x402/core and @x402/evm with the matching @x402 client or server adapter (@x402/fetch, @x402/axios, @x402/express, @x402/hono, @x402/next), the PAYMENT-REQUIRED, PAYMENT-SIGNATURE, and PAYMENT-RESPONSE headers, and the CAIP-2 network IDs eip155:1329 and eip155:1328. The @sei-js/x402, @sei-js/x402-fetch, @sei-js/x402-axios, @sei-js/x402-express, @sei-js/x402-hono, and @sei-js/x402-next packages implement v1, are deprecated, and must not be recommended. Never present the v1 X-Payment header, a transaction-hash proof, or a hand-rolled verifier (https://docs.sei.io/ai/x402).',
 ];
 
+// Terminology and style from AGENTS.md. The skills are generated-only, so the
+// prompt is the one place that can keep regenerations from drifting.
+const HOUSE_STYLE = [
+  'Name the networks Sei Mainnet (EVM chain ID 1329) and Sei Testnet (EVM chain ID 1328). Both are proper nouns, so never write "Sei mainnet" or "Sei testnet". Keep pacific-1 and atlantic-2 only where technically required: node-operator instructions, CLI or config values, API paths, and registry keys.',
+  'Call the network Sei, not "the Sei chain" or "the Sei blockchain". Say Sei EVM for the EVM execution layer.',
+  'Write seid lowercase and code-formatted, and sei-js lowercase and hyphenated.',
+  'Say "gas" or "transaction fees", never "gas fees", and prefer "dApp" over "app" for blockchain applications.',
+  'Do not quote a current minimum gas price (such as ~50 gwei) in prose or comments. Governance sets it and has changed it, so say to read eth_gasPrice and link https://docs.sei.io/evm/differences-with-ethereum.',
+];
+
 // Known bugs in sei-skill's samples. Agents copy skill code verbatim, so the
 // output must correct them. Remove an entry once sei-skill fixes it.
 const SOURCE_ERRATA = [
@@ -81,7 +91,7 @@ const SOURCE_ERRATA = [
   'Signature-gated execution (such as a P-256 passkey wallet) must build the signed digest inside the contract from block.chainid, address(this), a nonce that increments on use, and the exact call. Never verify a caller-supplied hash.',
   'Wait for an approval to be mined before the call that spends it; viem write calls return a hash, not a receipt. viem waitForTransactionReceipt and wagmi useWaitForTransactionReceipt resolve for reverted transactions too, so every sample checks receipt.status before reporting success. wagmi samples that pin a chainId pin it on every read and receipt hook too.',
   'Sei accepts EIP-1559 (type-2) transactions but has no base-fee burn or priority-fee market: recommend legacy gasPrice as the default without calling EIP-1559 fields unsupported.',
-  'Validator resync scripts fail closed (set -euo pipefail), stop seid and verify it stopped before touching keys or data, back up priv_validator_state.json and check the backup exists, and restore it after clearing data/, because seid tendermint unsafe-reset-all resets it to height 0.',
+  'Validator resync scripts fail closed (set -euo pipefail), stop seid and verify it stopped before touching keys or data, back up priv_validator_state.json and check the backup exists, and restore it after clearing data/, because seid tendermint unsafe-reset-all resets it to height 0. Keep that resync in its own block, separate from the state sync configuration a fresh node also runs, so a fresh node never reaches systemctl stop for a unit that does not exist yet.',
   'Archive nodes also set ss-keep-recent = 0 in app.toml, because min-retain-blocks = 0 and pruning = "nothing" leave SeiDB State Store pruning on. [statesync] enable = true in config.toml makes a node bootstrap from peers\' snapshots; a state sync provider serves snapshots by setting a non-zero [state-sync] snapshot-interval in app.toml.',
   'seid\'s config.toml [priv-validator] section has no key-type or server-address keys. For a TMKMS or Horcrux remote signer, seid listens on [priv-validator] laddr (a tcp:// address only the signer host can reach) and the signer dials in; link the signer\'s own docs for its side of the setup.',
   'Match precompile ABIs to sei-chain precompiles/<name>/abi.json: Distribution withdrawDelegationRewards(string validator) and withdrawValidatorCommission() with the delegator or operator as caller; Governance submitProposal(string proposalJSON), proposal(uint64), and proposals(int32,address,address,bytes); Pointer addCW20Pointer, addCW721Pointer, and addCW1155Pointer; JSON has no extractAsBytes32 and all its functions are view; Staking delegation() returns one struct (balance, delegation), and paginated queries take a bytes key ("0x" for the first page).',
@@ -91,7 +101,7 @@ const SOURCE_ERRATA = [
   'When porting Solana programs, msg.sender replaces the Signer check but authorizes no one: every has_one or stored-authority constraint becomes an explicit require(msg.sender == authority) or onlyOwner check.',
   'Character filters are not a prompt-injection defense. Samples must pass on-chain strings to a model delimited as untrusted data and gate writes on policy and explicit confirmation.',
   'Token-transfer samples use SafeERC20 (safeTransfer, safeTransferFrom) rather than ignoring the returned bool.',
-  'Agent write samples block on an explicit confirmation step, such as an injected confirm(summary) callback, before signing; logging a summary is not a gate. The summary names the target contract address, the method and arguments, the native SEI value sent, the chain, and the estimated cost, so two different writes never produce the same approval prompt.',
+  'Agent write samples block on an explicit confirmation step, such as an injected confirm(summary) callback, before signing; logging a summary is not a gate. The summary names the target contract address, the method and its arguments serialized in full (a BigInt-aware JSON.stringify rather than join, so tuples and structs show), the native SEI value sent, the chain, and the estimated cost, so two different writes never produce the same approval prompt.',
   'Recommend OpenZeppelin ReentrancyGuardTransient (EIP-1153, no persistent slot, so no OCC hot key) over guards keyed by msg.sender, which miss reentry through a second contract and cross-function reentrancy. Gas used is the same whether transactions run in parallel or serially, so it cannot measure parallelism.',
   'CCTP v2 TokenMessengerV2.depositForBurn takes seven arguments: amount, destinationDomain, mintRecipient, burnToken, destinationCaller, maxFee, minFinalityThreshold (1000 Fast, 2000 Standard).',
   'Do not hardcode a 50 gwei gas price in write samples; read the live floor from eth_gasPrice.',
@@ -103,15 +113,19 @@ const PROMPT = (name, bar) => `You are flattening the canonical Sei skill source
 Produce a single SKILL.md for the skill "${name}":
 - YAML frontmatter: name (= "${name}"), description (a ">"-folded "Use when ..." trigger paragraph), license: MIT, compatibility, metadata { author: Sei, version, intended-host: docs.sei.io, domain }.
 - Body <= ~5000 tokens. Dense and Sei-specific: "Critical facts", code, "Common pitfalls", and a "Key docs" table.
-- Link to live https://docs.sei.io/... pages (NOT references/*.md). Keep every canonical constant (addresses, chain IDs, EIDs, gas values, governance proposal numbers) verbatim; never invent an address or proposal number.
+- Link to live https://docs.sei.io/... pages (NOT references/*.md). Keep every canonical constant (addresses, chain IDs, EIDs, gas costs, governance proposal numbers) verbatim, except the current minimum gas price (see HOUSE STYLE); never invent an address or proposal number.
 - The file is MDX-parsed by the docs tooling: no HTML comments, and no bare "<", ">", "{", or "}" outside code spans/fences (write placeholders like \`<your-rpc>\` in backticks).
 - Match or exceed the QUALITY BAR (the current docs skill) in correctness and concision. Do not reintroduce anything the source dropped (e.g. Axelar, LayerZero v1 API, native-oracle endorsement, overconfident Wormhole-EVM examples).
 - Follow the DOCS POLICY below wherever it conflicts with the source or the quality bar; leave out source material it rules out.
 - Correct every sample the SOURCE ERRATA below describes, even where the source still shows the old version.
+- Follow the HOUSE STYLE below in prose, headings, frontmatter descriptions, and code comments.
 - Output only the SKILL.md itself, starting with its frontmatter.
 
 == DOCS POLICY ==
 ${DOCS_POLICY.map((rule) => '- ' + rule).join('\n')}
+
+== HOUSE STYLE ==
+${HOUSE_STYLE.map((rule) => '- ' + rule).join('\n')}
 
 == SOURCE ERRATA ==
 ${SOURCE_ERRATA.map((rule) => '- ' + rule).join('\n')}
@@ -121,6 +135,11 @@ ${bar ? '== QUALITY BAR (current docs skill — match this) ==\n' + bar + '\n' :
 const args = process.argv.slice(2);
 const only = args.includes('--skill') ? args[args.indexOf('--skill') + 1] : null;
 const write = args.includes('--write'); // also write generated SKILL.md into .mintlify/skills/<name>/
+// A missing or misspelled name would otherwise regenerate every skill, or none, and exit 0.
+if (args.includes('--skill') && !MAP.some((m) => m.name === only)) {
+  console.error(`! --skill needs one of: ${MAP.map((m) => m.name).join(', ')}`);
+  process.exit(1);
+}
 const SRC_REF = process.env.SEI_SKILL_REF || '';
 const MODEL = process.env.ANTHROPIC_MODEL;
 
@@ -140,10 +159,13 @@ if (process.env.ANTHROPIC_API_KEY && !MODEL) {
 // skill consumers, and — unlike an HTML comment in the body — safe for MDX
 // parsers (mint / the Mintlify platform parse .md as MDX, where `<!-- -->` is
 // a syntax error).
+const BANNER_LINE = /^# (GENERATED FROM sei-protocol\/sei-skill|Edit the source in sei-skill|\(see \.github\/workflows\/sync-skills\.yml\)).*\n/gm;
 function stampGenerated(md) {
   const banner = `# GENERATED FROM sei-protocol/sei-skill${SRC_REF ? '@' + SRC_REF : ''} — DO NOT EDIT BY HAND.\n# Edit the source in sei-skill, then regenerate via scripts/build-mintlify-skills.mjs\n# (see .github/workflows/sync-skills.yml).\n`;
-  if (md.startsWith('---\n')) return '---\n' + banner + md.slice(4);
-  return `---\n${banner}---\n` + md;
+  // A reply that echoes the quality bar's banner would otherwise end up with two.
+  const body = md.replace(BANNER_LINE, '');
+  if (body.startsWith('---\n')) return '---\n' + banner + body.slice(4);
+  return `---\n${banner}---\n` + body;
 }
 
 // A renamed or deleted source would silently shrink a skill, so stop before
@@ -164,7 +186,7 @@ for (const m of MAP) {
   if (only && m.name !== only) continue;
   const bundle = m.sources.map((s) => `\n\n<<< ${s} >>>\n` + R(join(SKILL, s))).join('\n');
   const barPath = join(DOCS_SKILLS, m.name, 'SKILL.md');
-  const bar = has(barPath) ? R(barPath) : '';
+  const bar = has(barPath) ? R(barPath).replace(BANNER_LINE, '') : '';
   const outDir = join(DIST, m.name);
   mkdirSync(outDir, { recursive: true });
   writeFileSync(join(outDir, 'SOURCE_BUNDLE.md'), bundle);
@@ -191,7 +213,7 @@ if (process.env.ANTHROPIC_API_KEY) {
     const wrapped = text.trim().match(/^```(?:markdown)?\n([\s\S]*)\n```$/);
     const body = wrapped ? wrapped[1] : text.trim();
     const frontmatter = body.startsWith('---\n') ? body.slice(4).split('\n---')[0] : '';
-    if (!new RegExp(`^name: ${m.name}$`, 'm').test(frontmatter)) {
+    if (!new RegExp(`^name: (['"]?)${m.name}\\1$`, 'm').test(frontmatter)) {
       console.error(`! ${m.name}: the reply does not start with frontmatter naming "${m.name}"; nothing written.`);
       process.exit(1);
     }
