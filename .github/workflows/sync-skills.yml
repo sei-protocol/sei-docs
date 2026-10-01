@@ -102,6 +102,13 @@ jobs:
           git commit -m "chore(skills): regenerate from sei-skill@${{ steps.src.outputs.ref }}"
           # Overwrites a leftover branch from a closed sync PR for the same ref.
           git push -f origin "$BRANCH"
-          gh pr create \
+          new_pr=$(gh pr create \
             --title "chore(skills): regenerate from sei-skill@${{ steps.src.outputs.ref }}" \
-            --body "Automated regeneration of \`.mintlify/skills/\` from [sei-protocol/sei-skill](https://github.com/sei-protocol/sei-skill)@${{ steps.src.outputs.ref }} via \`scripts/build-mintlify-skills.mjs\`. These are generated artifacts — review for quality before merge."
+            --body "Automated regeneration of \`.mintlify/skills/\` from [sei-protocol/sei-skill](https://github.com/sei-protocol/sei-skill)@${{ steps.src.outputs.ref }} via \`scripts/build-mintlify-skills.mjs\`. These are generated artifacts — review for quality before merge.")
+          # Close open sync PRs for older refs, so two PRs never rewrite the same skills.
+          # Their branches stay, so a reviewer's fixups there can still be ported.
+          gh pr list --state open --limit 100 --json number,headRefName |
+            jq -r --arg branch "$BRANCH" '.[] | select((.headRefName | startswith("chore/sync-skills-")) and .headRefName != $branch) | .number' |
+            while read -r number; do
+              gh pr close "$number" --comment "Superseded by $new_pr, which syncs sei-skill@${{ steps.src.outputs.ref }}. This branch is kept, so any fixups here can be ported."
+            done
