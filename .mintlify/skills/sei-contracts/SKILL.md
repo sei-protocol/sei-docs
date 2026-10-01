@@ -30,12 +30,12 @@ This skill makes an agent fluent in EVM smart-contract development on Sei: Found
 
 ## Critical facts
 
-- **Chain IDs:** mainnet `pacific-1` = EVM chain ID `1329`; testnet `atlantic-2` = `1328`. Deploy and verify against testnet first.
-- **EVM RPC:** mainnet `https://evm-rpc.sei-apis.com`; testnet `https://evm-rpc-testnet.sei-apis.com`. Testnet faucet: https://docs.sei.io/learn/faucet. On the EVM side SEI has 18 decimals.
+- **Chain IDs:** Sei Mainnet (`pacific-1`) is EVM chain ID `1329`; Sei Testnet (`atlantic-2`) is `1328`. Deploy and verify on Sei Testnet first.
+- **EVM RPC:** Sei Mainnet `https://evm-rpc.sei-apis.com`; Sei Testnet `https://evm-rpc-testnet.sei-apis.com`. Sei Testnet faucet: https://docs.sei.io/learn/faucet. On the EVM side SEI has 18 decimals.
 - **~400ms blocks, instant finality:** use `tx.wait(1)` — never `tx.wait(12)`. `safe`, `finalized`, and `latest` all resolve to the same instantly-final block, and there is no pending state — just use `latest`.
 - **No EIP-1559 base-fee burn:** all fees go to validators. Prefer **legacy `gasPrice`**; `maxFeePerGas`/`maxPriorityFeePerGas` are accepted but there is no priority-fee market.
-- **The minimum gas price is governance-set:** currently ~50 gwei on mainnet (pacific-1 [Proposal #112](https://www.mintscan.io/sei/proposals/112) / atlantic-2 #244; it has changed before, 100→10→50). Query `eth_gasPrice` for the live floor — a `gasPrice` below it gets the tx evicted from the mempool, not included slowly.
-- **Storage write (SSTORE) gas is 72,000** — far above Ethereum's 20,000, and the **same on mainnet and testnet** (set by governance [Proposal #109](https://www.mintscan.io/sei/proposals/109)). It is governance-adjustable: read the live value at https://docs.sei.io/evm/differences-with-ethereum#sstore-gas-cost and estimate per-transaction with `eth_estimateGas`. (A `forge --gas-report --fork-url` report applies revm's standard EVM schedule and shows ~22,100, not Sei's cost.)
+- **The minimum gas price is governance-set** (pacific-1 [Proposal #112](https://www.mintscan.io/sei/proposals/112) / atlantic-2 #244) and has changed before. Query `eth_gasPrice` for the live floor: a `gasPrice` below it gets the tx evicted from the mempool, not included slowly.
+- **Storage write (SSTORE) gas is 72,000** — far above Ethereum's 20,000, and the **same on Sei Mainnet and Sei Testnet** (set by governance [Proposal #109](https://www.mintscan.io/sei/proposals/109)). It is governance-adjustable: read the live value at https://docs.sei.io/evm/differences-with-ethereum#sstore-gas-cost and estimate per-transaction with `eth_estimateGas`. (A `forge --gas-report --fork-url` report applies revm's standard EVM schedule and shows ~22,100, not Sei's cost.)
 - **Block gas limit is 12.5M** (vs Ethereum's 60M) and it caps a single transaction — keep hot paths under ~5M gas and paginate migrations.
 - **Parallel execution (OCC):** non-conflicting transactions run in parallel; transactions that write the same storage key conflict and get re-executed serially. Partition state by user/asset/id; avoid hot global counters.
 - **`block.coinbase` returns the global fee collector**, not the block proposer.
@@ -43,7 +43,7 @@ This skill makes an agent fluent in EVM smart-contract development on Sei: Found
 - **Dual-address accounts:** every key has a `sei1...` (Cosmos) and a `0x...` (EVM) address; cross-VM transfers require association first. SEI balances can also change from Cosmos-side transactions — EVM-event-only indexers miss them, so read balances from RPC. See https://docs.sei.io/learn/accounts.
 - **EVM level is Pectra without blobs** — no EIP-4844 blob transactions. Pin `evm_version = "cancun"` (or earlier); newer targets may not be enabled and a mismatch silently breaks verification. State is a global AVL tree (no per-account MPT roots): `eth_getProof` proves against the global root and takes at most 1024 hex-encoded storage keys; `BLOCKHASH` is the Tendermint header hash.
 - **CosmWasm is deprecated for new development** per SIP-3 — target Sei EVM.
-- **Verification is via Seiscan (mainnet https://seiscan.io, testnet https://testnet.seiscan.io), backed by Sourcify** — no Etherscan API key required.
+- **Verification is via Seiscan (Sei Mainnet https://seiscan.io, Sei Testnet https://testnet.seiscan.io), backed by Sourcify** — no Etherscan API key required.
 
 ## Default stack
 
@@ -52,7 +52,7 @@ This skill makes an agent fluent in EVM smart-contract development on Sei: Found
 - **Libraries:** OpenZeppelin Contracts v5 (`@openzeppelin/contracts`), plus `@openzeppelin/contracts-upgradeable` for proxies.
 - **Precompiles:** import addresses/ABIs from `@sei-js/precompiles` (JS/TS) instead of hardcoding; in Solidity declare interfaces inline (source of truth: `github.com/sei-protocol/sei-chain`, `precompiles/`).
 - **AI tooling:** `claude mcp add sei-mcp-server npx @sei-js/mcp-server`.
-- **Networks:** default to testnet (`atlantic-2`, 1328); only target mainnet (`pacific-1`, 1329) on explicit confirmation.
+- **Networks:** default to Sei Testnet (1328); only target Sei Mainnet (1329) on explicit confirmation.
 
 ## Agent guardrails
 
@@ -79,7 +79,7 @@ sei_testnet = "https://evm-rpc-testnet.sei-apis.com"
 sei_mainnet = "https://evm-rpc.sei-apis.com"
 ```
 
-Deploy with a Forge script (simulate first), verifying on Sourcify in the same run — testnet shown; for mainnet swap to `sei_mainnet` and `--chain-id 1329`:
+Deploy with a Forge script (simulate first), verifying on Sourcify in the same run. Sei Testnet is shown; for Sei Mainnet, swap to `sei_mainnet` and `--chain-id 1329`:
 
 ```bash
 # Dry run first — without --broadcast, forge script only simulates.
@@ -156,7 +156,7 @@ Sourcify recompiles your source with the exact deploy-time settings and matches 
 - **`Bytecode mismatch`** → pin `solc_version`, `optimizer_runs`, and `evm_version` to exactly what you deployed with; an `evm_version` above `cancun` is a common silent failure.
 - **Proxies:** verify the *implementation* first, then on Seiscan open the *proxy* address → "More" → "Is this a proxy?" → confirm, so reads route to the implementation ABI. Re-link there if the ABI looks stale after an upgrade.
 - **Manual fallback:** upload sources at https://verify.sourcify.dev — Seiscan picks up Sourcify verifications automatically.
-- Verify on testnet first; mainnet is identical with chain ID 1329.
+- Verify on Sei Testnet first; Sei Mainnet is identical with chain ID 1329.
 
 ## Design for parallel execution (OCC)
 
@@ -194,7 +194,7 @@ Further OCC-aware rules:
 - **Separate hot from cold state:** don't pack a per-user balance (written every action) with rarely-touched stats in one slot.
 - **Shared-resource protocols:** a single AMM pool's reserve slots inevitably conflict — accept it for small pools, or partition (tick-range liquidity, multiple pools/fee tiers, isolated per-asset lending markets, lazy per-user interest accrual).
 - **Avoid unbounded storage-writing loops** — page work across transactions. **Cross-VM calls** (EVM → CosmWasm via bridge precompiles) introduce serialization points.
-- **Measure it by execution time, not gas:** gas used is identical whether transactions run in parallel or serially, so no gas ratio can show serialization. Load-test on testnet with N concurrent txs from N distinct EOAs, and compare block execution time on a node you run between a conflicting and a disjoint write-set.
+- **Measure it by execution time, not gas:** gas used is identical whether transactions run in parallel or serially, so no gas ratio can show serialization. Load-test on Sei Testnet with N concurrent txs from N distinct EOAs, and compare block execution time on a node you run between a conflicting and a disjoint write-set.
 
 Full playbook: https://docs.sei.io/evm/best-practices/optimizing-for-parallelization and https://docs.sei.io/learn/parallelization-engine.
 
@@ -286,7 +286,7 @@ Sei-specific upgrade notes:
 
 ## Account abstraction (ERC-4337)
 
-ERC-4337 works on Sei EVM with the canonical **EntryPoint v0.7 at `0x0000000071727De22E5E9d8BAf0edAc6f37da032`**. Bundlers/paymasters: **Pimlico** (live on mainnet + testnet, verifying and ERC20 paymasters) and **Particle Network**; smart-account factories Safe, Kernel, SimpleAccount, and Biconomy V2 are available through the Pimlico SDK. Integrate with `viem` + `permissionless`: point the bundler transport at `https://api.pimlico.io/v2/sei/rpc?apikey=...` (mainnet; testnet endpoints per https://docs.sei.io/evm/wallet-integrations/pimlico), import `entryPoint07Address` from `viem/account-abstraction`, then `toSafeSmartAccount(...)` + `createSmartAccountClient(...)`. For consumer apps prefer **Sei Global Wallet** (`@sei-js/sei-global-wallet`) — embedded smart account with social login, sponsored onboarding, EIP-6963-compatible. Skip AA when a single signed call suffices: each user op adds 30-100k gas over a direct EOA transaction.
+ERC-4337 works on Sei EVM with the canonical **EntryPoint v0.7 at `0x0000000071727De22E5E9d8BAf0edAc6f37da032`**. Bundlers/paymasters: **Pimlico** (live on Sei Mainnet and Sei Testnet, verifying and ERC20 paymasters) and **Particle Network**; smart-account factories Safe, Kernel, SimpleAccount, and Biconomy V2 are available through the Pimlico SDK. Integrate with `viem` + `permissionless`: point the bundler transport at `https://api.pimlico.io/v2/sei/rpc?apikey=...` (Sei Mainnet; Sei Testnet endpoints per https://docs.sei.io/evm/wallet-integrations/pimlico), import `entryPoint07Address` from `viem/account-abstraction`, then `toSafeSmartAccount(...)` + `createSmartAccountClient(...)`. For consumer apps prefer **Sei Global Wallet** (`@sei-js/sei-global-wallet`) — embedded smart account with social login, sponsored onboarding, EIP-6963-compatible. Skip AA when a single signed call suffices: each user op adds 30-100k gas over a direct EOA transaction.
 
 Sei-specific AA notes:
 

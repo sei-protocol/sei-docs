@@ -30,15 +30,15 @@ Sei is a high-performance EVM-compatible chain built from three integrated compo
 
 ## Critical facts
 
-- **Networks**: mainnet is `pacific-1`; testnet is `atlantic-2`. Blocks are ~400ms with instant finality — one confirmation suffices; deterministic finality is ~2 blocks (~800ms).
-- **Genesis is automatic.** `seid init` writes the correct `genesis.json` for known networks (mainnet/testnets) — do **not** hand-download or overwrite it.
+- **Networks**: Sei Mainnet is `pacific-1` and Sei Testnet is `atlantic-2`. Blocks are ~400ms with instant finality — one confirmation suffices; deterministic finality is ~2 blocks (~800ms).
+- **Genesis is automatic.** `seid init` writes the correct `genesis.json` for known networks (Sei Mainnet and Sei Testnet) — do **not** hand-download or overwrite it.
 - **Never start from genesis on a live network** — it panics with `integer divide by zero`. Bootstrap via state sync or a snapshot.
 - **Validators init with `--mode validator`**, which binds RPC/P2P to localhost. Never expose a validator's RPC publicly; use sentry nodes.
 - **SeiDB has two layers**: State Commit (SC) — a memiavl Merkle tree holding Cosmos module state and computing the app hash — and State Store (SS) — versioned raw key/values for historical queries. `ss-enable = true` is required for any RPC node.
 - **State commit is mandatory as of Sei v6.6.0.** The legacy IAVL backend has been fully removed; with `sc-enable = false` the node panics at startup with `SeiDB state-commit (SC) must be enabled; IAVL backend has been fully deprecated`.
 - **RocksDB support for the SeiDB state store will be removed.** Do not build new nodes on `ss-backend = "rocksdb"`; nodes already on it should follow the rebuild guidance at https://docs.sei.io/node/node-operators#move-off-rocksdb.
 - **Legacy `sei_*` / `sei2_*` JSON-RPC is deprecated and allowlist-gated** by `[evm] enabled_legacy_sei_apis`; `seid init` enables only `sei_getSeiAddress`, `sei_getEVMAddress`, and `sei_getCosmosTx`.
-- **Minimum gas price**: set `minimum-gas-prices` at or above the mainnet-enforced floor (e.g. `0.02usei`); `0usei` is local-dev only. Minimum gas price, block gas limit, and SSTORE/storage gas are all governance-adjustable — confirm live values at https://docs.sei.io/evm/differences-with-ethereum rather than hardcoding them.
+- **Minimum gas price**: set `minimum-gas-prices` at or above the floor Sei Mainnet enforces (e.g. `0.02usei`); `0usei` is local-dev only. Minimum gas price, block gas limit, and SSTORE/storage gas are all governance-adjustable — confirm live values at https://docs.sei.io/evm/differences-with-ethereum rather than hardcoding them.
 - **No slashing of funds on Sei.** Jailing (exclusion from block signing and rewards) punishes downtime; delegator tokens are safe. Double-signing, however, is catastrophic — guard `priv_validator_key.json` and `priv_validator_state.json`.
 - **Validator set is bounded** by the `MaxValidators` governance parameter (default 100); entering the active set requires sufficient bonded stake (own + delegated).
 - **Current `seid` releases require Go 1.25.6 or later**; the authoritative version is the `go.mod` at the release tag — see https://docs.sei.io/node.
@@ -75,26 +75,36 @@ Key files under `$HOME/.sei/config/`: `app.toml` (gas prices, API, pruning), `co
 
 State sync fetches a recent snapshot from peers instead of replaying history — sync time drops from days to minutes.
 
+Resyncing an existing node starts with a cleanup that a freshly initialized node skips. It fails closed, so a failed stop or backup is never followed by the reset:
+
 ```bash
 #!/bin/bash
-# Fail closed: a failed stop or backup must never be followed by the reset below.
+# Existing nodes only. Skip this on a freshly initialized node, which has no signing
+# history to protect and may not run as a service yet.
 set -euo pipefail
-STATE_SYNC_RPC="https://rpc.sei-apis.com:443"   # or https://sei-rpc.polkachu.com:443
 
-# Existing nodes: stop seid FIRST — a running validator can sign past the backup below,
-# leaving the restored signing state stale — then back up validator key + signing state
+# Stop seid first: a running validator can sign past the backup below, which leaves the
+# restored signing state stale. Then back up the validator key and signing state.
 sudo systemctl stop seid
 if systemctl is-active --quiet seid; then echo "seid is still running; aborting" >&2; exit 1; fi
 cp $HOME/.sei/config/priv_validator_key.json $HOME/priv_validator_key.json.bak
 cp $HOME/.sei/data/priv_validator_state.json $HOME/priv_validator_state.json.bak
 [ -s $HOME/priv_validator_state.json.bak ] || { echo "signing-state backup missing; aborting" >&2; exit 1; }
 
-# Reset state (existing nodes only). unsafe-reset-all resets priv_validator_state.json
-# to height 0, so restore the backup after clearing data/ — a zeroed signing state
-# lets a validator double-sign heights it already signed.
+# unsafe-reset-all resets priv_validator_state.json to height 0, so restore the backup
+# after clearing data/. A zeroed signing state lets a validator double-sign heights it
+# already signed.
 seid tendermint unsafe-reset-all --home $HOME/.sei
 rm -rf $HOME/.sei/data/* $HOME/.sei/wasm
 cp $HOME/priv_validator_state.json.bak $HOME/.sei/data/priv_validator_state.json
+```
+
+Then point every node, fresh or resynced, at a trusted height:
+
+```bash
+#!/bin/bash
+set -euo pipefail
+STATE_SYNC_RPC="https://rpc.sei-apis.com:443"   # or https://sei-rpc.polkachu.com:443
 
 # Fetch a trusted height (rounded down) and its hash
 LATEST_HEIGHT=$(curl -s $STATE_SYNC_RPC/block | jq -r .block.header.height)
@@ -108,14 +118,14 @@ s|^(trust-height[[:space:]]+=[[:space:]]+).*$|\1$BLOCK_HEIGHT|
 s|^(trust-hash[[:space:]]+=[[:space:]]+).*$|\1\"$TRUST_HASH\"|
 " $HOME/.sei/config/config.toml
 
-# Mainnet (pacific-1) state-sync peers
+# Sei Mainnet (pacific-1) state-sync peers
 PEERS="3be6b24cf86a5938cce7d48f44fb6598465a9924@p2p.state-sync-0.pacific-1.seinetwork.io:26656,b21279d7092fde2e41770832a1cacc7d0051e9dc@p2p.state-sync-1.pacific-1.seinetwork.io:26656"
 sed -i "s|^persistent-peers *=.*|persistent-peers = \"$PEERS\"|" $HOME/.sei/config/config.toml
-
-sudo systemctl start seid
 ```
 
-Endpoints: mainnet `https://rpc.sei-apis.com:443` or `https://sei-rpc.polkachu.com:443`; testnet (`atlantic-2`) `https://rpc-testnet.sei-apis.com:443` with its own peer set — see https://docs.sei.io/node/statesync.
+Then start `seid`: `sudo systemctl start seid` on a node that already runs as a service, or create the unit first (see Run as a service below).
+
+Endpoints: Sei Mainnet `https://rpc.sei-apis.com:443` or `https://sei-rpc.polkachu.com:443`; Sei Testnet (`atlantic-2`) `https://rpc-testnet.sei-apis.com:443` with its own peer set — see https://docs.sei.io/node/statesync.
 
 Alternative bootstrap: restore a provider snapshot into `$HOME/.sei` — see https://docs.sei.io/node/snapshot. Back up `priv_validator_state.json` before touching `data/` and restore it afterwards, exactly as above.
 

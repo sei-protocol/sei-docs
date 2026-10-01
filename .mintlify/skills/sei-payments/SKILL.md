@@ -28,11 +28,11 @@ This skill makes an agent good at moving and accepting digital dollars on Sei: t
 - **USDC is a standard ERC-20 on Sei EVM.** Transfer it with `transfer(to, amount)`, read balances with `balanceOf(account)`. No special precompile or bridge call is needed for plain transfers.
 - **USDC has 6 decimals** (not 18). `1 USDC = 1_000_000` base units. Always convert with `parseUnits(value, 6)` / `formatUnits(value, 6)` — using 18 overpays by 10^12x.
 - **USDC token addresses** (verify on [Seiscan](https://seiscan.io) before sending real value):
-  - Mainnet (pacific-1, chain id 1329): `0xe15fC38F6D8c56aF07bbCBe3BAf5708A2Bf42392`
-  - Testnet (atlantic-2, chain id 1328): `0x4fCF1784B31630811181f670Aea7A7bEF803eaED`
-- **Get testnet USDC** from the [Circle Faucet](https://faucet.circle.com), or bridge real USDC cross-chain with [Circle CCTP v2](https://developers.circle.com/cctp). You still need a little native SEI to pay transaction fees.
+  - Sei Mainnet (chain ID 1329): `0xe15fC38F6D8c56aF07bbCBe3BAf5708A2Bf42392`
+  - Sei Testnet (chain ID 1328): `0x4fCF1784B31630811181f670Aea7A7bEF803eaED`
+- **Get Sei Testnet USDC** from the [Circle Faucet](https://faucet.circle.com), or bridge real USDC cross-chain with [Circle CCTP v2](https://developers.circle.com/cctp). You still need a little native SEI to pay transaction fees.
 - **~400ms blocks with fast finality make micropayments practical.** A payment confirms in roughly a block — wait for one confirmation (`tx.wait(1)` or one block of polling), never `tx.wait(12)`. On Sei `safe`/`finalized`/`latest` all resolve to the same instantly-final block; query `latest`.
-- **Use legacy `gasPrice`** for payment transactions. Sei has no EIP-1559 base-fee burn — all fees go to validators. The minimum gas price is governance-adjustable (currently ~50 gwei on mainnet — query `eth_gasPrice` for the live floor). See https://docs.sei.io/evm/differences-with-ethereum.
+- **Use legacy `gasPrice`** for payment transactions. Sei has no EIP-1559 base-fee burn — all fees go to validators. The minimum gas price is governance-adjustable, so query `eth_gasPrice` for the live floor. See https://docs.sei.io/evm/differences-with-ethereum.
 - **x402 v2 uses HTTP 402 ("Payment Required").** The server answers an unpaid request with `402` and a `PAYMENT-REQUIRED` header; the client signs a payment authorization and retries with it in `PAYMENT-SIGNATURE`; the server verifies and settles, then returns the resource with a `PAYMENT-RESPONSE` header. Header values are Base64-encoded JSON that the SDK encodes and decodes.
 - **x402 identifies Sei by CAIP-2 network ID**: `eip155:1329` (Sei Mainnet) and `eip155:1328` (Sei Testnet). Native USDC is in x402's default asset registry for both, so a route price like `"$0.001"` resolves to USDC on the selected network.
 - **With the `exact` EVM scheme the buyer sends no transaction.** USDC on Sei supports EIP-3009: the buyer signs a transfer authorization, and a facilitator verifies it, submits the transfer, and pays the gas. The facilitator must support the Sei network you target.
@@ -40,7 +40,7 @@ This skill makes an agent good at moving and accepting digital dollars on Sei: t
 ## Default stack
 
 - **Language/runtime:** Node.js 18+ with `"type": "module"` (ES module imports), TypeScript optional.
-- **Chain library:** `viem` — it ships Sei chain definitions (`sei`, `seiTestnet` in `viem/chains`), so no hand-rolled RPC config is needed.
+- **Chain library:** `viem` ships definitions for Sei Mainnet and Sei Testnet (`sei`, `seiTestnet` in `viem/chains`), so no hand-rolled RPC config is needed.
 - **x402 packages (upstream v2, `@x402` scope):** `@x402/core` and `@x402/evm`, plus one adapter per role rather than hand-rolling verification —
   - Client (paying): `@x402/fetch` (fetch wrapper) or `@x402/axios` (axios interceptors), with `viem` for the signer.
   - Server (charging): `@x402/express`, `@x402/hono`, or `@x402/next`.
@@ -50,7 +50,7 @@ This skill makes an agent good at moving and accepting digital dollars on Sei: t
 
 ## Send / accept USDC (viem)
 
-Minimal ERC-20 flow — check balance, then transfer. Network is selected by env (`SEI_NETWORK=testnet|mainnet`), defaulting to testnet (atlantic-2, 1328); switch to mainnet (pacific-1, 1329) only on explicit confirmation. Plain ESM JavaScript (`index.js`) — run it directly with `node index.js`.
+Minimal ERC-20 flow — check balance, then transfer. Network is selected by env (`SEI_NETWORK=testnet|mainnet`), defaulting to Sei Testnet (1328); switch to Sei Mainnet (1329) only on explicit confirmation. Plain ESM JavaScript (`index.js`) — run it directly with `node index.js`.
 
 ```js
 import { createPublicClient, createWalletClient, http, formatUnits, parseUnits } from 'viem';
@@ -221,9 +221,9 @@ For the current API, follow the upstream seller quickstart (https://docs.x402.or
 - **Porting x402 v1 code by renaming packages.** v2 also changes the headers (`X-PAYMENT` becomes `PAYMENT-SIGNATURE`, `X-PAYMENT-RESPONSE` becomes `PAYMENT-RESPONSE`), uses CAIP-2 IDs such as `eip155:1328` instead of names like `sei-testnet`, and sets `x402Version: 2`. Follow https://docs.x402.org/guides/migration-v1-to-v2.
 - **Treating a transaction receipt as proof of payment.** Verification must bind the signed payload to the network, asset, amount, recipient, resource, and validity window. Use the x402 middleware with a compatible facilitator, or implement the full verification and settlement rules if you self-facilitate.
 - **Assuming every facilitator supports Sei.** x402 can sign payments for any EVM network, but the facilitator must support `eip155:1329` or `eip155:1328`. Confirm before deploying, or run your own.
-- **Using testnet addresses on mainnet (or vice versa).** The USDC address differs per network; the wrong one points at a different or nonexistent token. Re-verify on Seiscan before moving real value.
+- **Using Sei Testnet addresses on Sei Mainnet (or the reverse).** The USDC address differs per network; the wrong one points at a different or nonexistent token. Re-verify on Seiscan before moving real value.
 - **Assuming address association is needed.** Plain ERC-20 USDC transfers between `0x...` addresses need no association. Only if a flow crosses into Cosmos-side modules do the user's `sei1...` and `0x...` addresses need linking — see https://docs.sei.io/learn/accounts.
-- **Inventing a bridge for USDC.** To get USDC onto Sei from another chain, use [Circle CCTP v2](https://developers.circle.com/cctp) (or the Circle Faucet on testnet); do not invent a bridge contract.
+- **Inventing a bridge for USDC.** To get USDC onto Sei from another chain, use [Circle CCTP v2](https://developers.circle.com/cctp) (or the Circle Faucet on Sei Testnet); do not invent a bridge contract.
 
 ## Key docs
 

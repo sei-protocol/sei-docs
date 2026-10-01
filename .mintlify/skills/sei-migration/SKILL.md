@@ -24,17 +24,17 @@ metadata:
 
 # Sei migration
 
-This skill makes an agent fluent in migrating existing dApps to Sei along the two common paths. From Ethereum (and other EVM chains): Sei is fully EVM bytecode-compatible, so most contracts deploy unchanged — the work is in the behavioral differences (fee model, finality, opcode semantics, storage costs) that will break a naive port, plus tooling and frontend updates. From Solana: the work is conceptual translation — programs/accounts/PDAs/CPI become contracts, storage, CREATE2, and plain external calls, while the execution profile (parallel, 400 ms blocks) stays familiar. Code examples default to the `atlantic-2` testnet (chain ID `1328`); `pacific-1` mainnet (chain ID `1329`) is the production target.
+This skill makes an agent fluent in migrating existing dApps to Sei along the two common paths. From Ethereum (and other EVM chains): Sei is fully EVM bytecode-compatible, so most contracts deploy unchanged — the work is in the behavioral differences (fee model, finality, opcode semantics, storage costs) that will break a naive port, plus tooling and frontend updates. From Solana: the work is conceptual translation — programs/accounts/PDAs/CPI become contracts, storage, CREATE2, and plain external calls, while the execution profile (parallel, 400 ms blocks) stays familiar. Code examples default to Sei Testnet (chain ID `1328`); Sei Mainnet (chain ID `1329`) is the production target.
 
 ## Critical facts
 
-- **Networks:** mainnet `pacific-1` = chain ID `1329`, RPC `https://evm-rpc.sei-apis.com`; testnet `atlantic-2` = chain ID `1328`, RPC `https://evm-rpc-testnet.sei-apis.com`. Get testnet SEI at https://docs.sei.io/learn/faucet.
+- **Networks:** Sei Mainnet (`pacific-1`) is chain ID `1329`, RPC `https://evm-rpc.sei-apis.com`; Sei Testnet (`atlantic-2`) is chain ID `1328`, RPC `https://evm-rpc-testnet.sei-apis.com`. Get SEI for Sei Testnet at https://docs.sei.io/learn/faucet.
 - **400 ms blocks, instant finality:** one block confirmation is final — use `tx.wait(1)`, never `wait(12)` (12 blocks is ~2.5 min on Ethereum but ~4.8 s of pointless waiting on Sei).
 - **Block tags:** `safe` and `finalized` are accepted but resolve to the same instantly-final block as `latest`; there is no `pending` tag — use `latest`.
-- **Fee model:** no EIP-1559 base-fee burn — 100% of fees go to validators. Prefer legacy `gasPrice`; `maxFeePerGas`/`maxPriorityFeePerGas` can be omitted. The minimum gas price is a governance-set, adjustable value (currently ~50 gwei on mainnet, set by pacific-1 [Proposal #112](https://www.mintscan.io/sei/proposals/112) / atlantic-2 #244; it has changed before — 100 → 10 → 50). Query the live floor with `eth_gasPrice`; never hardcode it.
+- **Fee model:** no EIP-1559 base-fee burn — 100% of fees go to validators. Prefer legacy `gasPrice`; `maxFeePerGas`/`maxPriorityFeePerGas` can be omitted. The minimum gas price is a governance-set, adjustable value (pacific-1 [Proposal #112](https://www.mintscan.io/sei/proposals/112) / atlantic-2 #244) that has changed more than once. Query the live floor with `eth_gasPrice`; never hardcode it.
 - **Block gas limit is 12.5 M** (Ethereum: 60 M) — split storage-heavy migration scripts into pageable batches.
 - **EVM version is Pectra, without EIP-4844 blobs:** `BLOBHASH`/`BLOBBASEFEE` are unavailable — blob-dependent contracts need refactoring. The `eth_blobBaseFee` JSON-RPC method is registered but always returns error code `-32000` (`"blobs not supported on this chain"`), not `-32601` method-not-found — that error is the permanent, expected response.
-- **Cold SSTORE costs 72,000 gas** vs Ethereum's 20,000 — same on mainnet and testnet, set by pacific-1 governance [Proposal #109](https://www.mintscan.io/sei/proposals/109), and governance-adjustable. A `forge --gas-report --fork-url` run applies revm's standard EVM schedule and shows ~22,100, **not** Sei's cost — use a live `eth_estimateGas` against a Sei RPC.
+- **Cold SSTORE costs 72,000 gas** vs Ethereum's 20,000, the same on Sei Mainnet and Sei Testnet, set by pacific-1 governance [Proposal #109](https://www.mintscan.io/sei/proposals/109), and governance-adjustable. A `forge --gas-report --fork-url` run applies revm's standard EVM schedule and shows ~22,100, **not** Sei's cost — use a live `eth_estimateGas` against a Sei RPC.
 - **`block.prevrandao` is NOT random** on Sei — it is derived from block time. Use [Pyth VRF](https://docs.sei.io/evm/vrf/pyth-network-vrf) or Chainlink VRF.
 - **`block.coinbase` is the global fee collector**, not the block proposer.
 - **`SELFDESTRUCT` is neutered (EIP-6780):** it only forwards remaining ETH unless it runs in the same transaction that created the contract — replace destroy-based cleanup/upgrade logic with a soft close.
@@ -53,7 +53,7 @@ This skill makes an agent fluent in migrating existing dApps to Sei along the tw
 | Parallel execution | Yes (OCC) | No |
 | Base fee burn | No (100% to validators) | Yes (EIP-1559) |
 | EVM version | Pectra (no blobs) | Fusaka |
-| Chain ID | 1329 mainnet / 1328 testnet | 1 |
+| Chain ID | 1329 (Sei Mainnet) / 1328 (Sei Testnet) | 1 |
 
 ### Fees: use legacy gasPrice
 
@@ -66,7 +66,7 @@ const bad = await contract.myFunction({
 
 // Preferred: legacy gasPrice — read the live floor, don't bake in a number
 const tx = await contract.myFunction({
-  gasPrice: await provider.send("eth_gasPrice", []), // >= governance floor (~50 gwei mainnet)
+  gasPrice: await provider.send("eth_gasPrice", []), // the live governance floor
 });
 ```
 
@@ -182,7 +182,7 @@ forge verify-contract \
   $CONTRACT_ADDRESS \
   src/MyContract.sol:MyContract
 
-# Hardhat — deploy to Sei testnet
+# Hardhat: deploy to Sei Testnet
 npx hardhat run scripts/deploy.ts --network seiTestnet
 
 # Run your existing test suite against a testnet fork
@@ -314,7 +314,7 @@ Fee estimation drops the rent component entirely:
 
 ```typescript
 const gasLimit = 200_000n;
-const gasPrice = await publicClient.getGasPrice(); // eth_gasPrice — live governance floor (~50 gwei on mainnet)
+const gasPrice = await publicClient.getGasPrice(); // eth_gasPrice: the live governance floor
 const fee = gasLimit * gasPrice;           // no rent, no minimum balance, no account closure
 ```
 
@@ -355,8 +355,8 @@ To maximize parallel throughput, avoid shared global counters — partition stat
 | Multicall3 | `0xcA11bde05977b3631167028862bE2a173976CA11` |
 | Permit2 | `0xB952578f3520EE8Ea45b7914994dcf4702cEe578` |
 | CREATE2 Factory | `0x0000000000FFe8B47B3e2130213B802212439497` |
-| USDC (mainnet) | `0xe15fC38F6D8c56aF07bbCBe3BAf5708A2Bf42392` |
-| USDC (testnet) | `0x4fCF1784B31630811181f670Aea7A7bEF803eaED` |
+| USDC (Sei Mainnet) | `0xe15fC38F6D8c56aF07bbCBe3BAf5708A2Bf42392` |
+| USDC (Sei Testnet) | `0x4fCF1784B31630811181f670Aea7A7bEF803eaED` |
 
 Once migrated, an optional Sei-native upgrade: precompiles expose staking and governance to Solidity (https://docs.sei.io/evm/precompiles/example-usage).
 
@@ -364,7 +364,7 @@ Once migrated, an optional Sei-native upgrade: precompiles expose staking and go
 
 - **Waiting for 12 confirmations.** Sei is final in one block (~400 ms); `tx.wait(12)` and "waiting for confirmations..." UX just stall. Use `tx.wait(1)`.
 - **Expecting `safe`/`finalized`/`pending` to behave like Ethereum's.** `safe` and `finalized` resolve to the same block as `latest`, and there is no `pending` tag.
-- **Hardcoding a gas price or relying on EIP-1559 priority mechanics.** There is no base-fee burn, and the governance floor has already changed (100 → 10 → 50 gwei) — query `eth_gasPrice`.
+- **Hardcoding a gas price or relying on EIP-1559 priority mechanics.** There is no base-fee burn, and governance has already changed the floor more than once, so query `eth_gasPrice`.
 - **Trusting `block.prevrandao` for randomness.** It is derived from block time on Sei — use Pyth VRF or Chainlink VRF.
 - **Reading the proposer from `block.coinbase`.** It returns the global fee collector.
 - **Shipping blob-dependent code.** `BLOBHASH`/`BLOBBASEFEE` are unavailable (Pectra without EIP-4844 blobs), and `eth_blobBaseFee` always errors with `-32000` — don't retry it or treat it as a missing method.
@@ -393,4 +393,4 @@ Once migrated, an optional Sei-native upgrade: precompiles expose staking and go
 | Oracles (Pyth/Chainlink/API3/RedStone) | https://docs.sei.io/learn/oracles |
 | Pyth VRF (randomness) | https://docs.sei.io/evm/vrf/pyth-network-vrf |
 | Accounts and dual addresses | https://docs.sei.io/learn/accounts |
-| Testnet faucet | https://docs.sei.io/learn/faucet |
+| Sei Testnet faucet | https://docs.sei.io/learn/faucet |
