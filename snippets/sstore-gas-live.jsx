@@ -113,7 +113,7 @@ export const SstoreGasLive = ({ network = 'mainnet' }) => {
       style={{ backgroundColor: 'rgba(127,127,127,0.04)' }}>
       <div className="flex items-center justify-between gap-3 mb-3">
         <span className="text-[12px] font-semibold text-neutral-700 dark:text-neutral-200" style={{ fontFamily: 'var(--sei-font-mono)' }}>
-          Live SSTORE gas — measured on-chain
+          Live SSTORE gas, measured on-chain
         </span>
         <div className="inline-flex">
           <TabButton value="mainnet">Mainnet</TabButton>
@@ -136,15 +136,14 @@ export const SstoreGasLive = ({ network = 'mainnet' }) => {
       )}
 
       <div className="mt-3 text-[11px] text-neutral-600 dark:text-neutral-400">
-        {RPC[net].chain} ({RPC[net].id}) · read via <code>eth_call</code> from the verified{' '}
+        {RPC[net].chain} ({RPC[net].id}) · read with <code>eth_call</code> from the verified{' '}
         <a href={RPC[net].explorer} target="_blank" rel="noopener noreferrer" className="underline">
           SstoreGasProbe
         </a>{' '}
-        contract. Governance-adjustable — set by{' '}
+        contract. Governance can change this value.{' '}
         <a href="https://seistream.app/proposals/109" target="_blank" rel="noopener noreferrer" className="underline">
           Proposal #109
-        </a>
-        .
+        </a> set it.
       </div>
     </div>
   );

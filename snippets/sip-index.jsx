@@ -381,7 +381,7 @@ export const SipIndex = () => {
 	if (state === 'error') {
 		return (
 			<div className="not-prose" style={statusMessage}>
-				Could not reach the SIPs repository. Browse the proposals directly at{' '}
+				This page could not reach the SIPs repository. Browse the proposals directly at{' '}
 				<a
 					href={`https://github.com/${REPO}/tree/${BRANCH}/sips`}
 					target="_blank"
@@ -501,7 +501,7 @@ export const SipIndex = () => {
 			))}
 
 			<p style={{ fontSize: '12px', color: theme.muted, margin: 0 }}>
-				Pulled live from{' '}
+				This list reads live data from{' '}
 				<a
 					href={`https://github.com/${REPO}/tree/${BRANCH}/sips`}
 					target="_blank"

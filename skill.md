@@ -21,9 +21,9 @@ metadata:
   parent: https://github.com/sei-protocol/sei-skill
 ---
 
-# Sei Developer Documentation
+# Sei developer documentation
 
-Full technical reference for building on Sei. This is the docs.sei.io-resident skill — for the offline AI coding-assistant skill (a Claude Code skill loaded directly into your editor), see **[github.com/sei-protocol/sei-skill](https://github.com/sei-protocol/sei-skill)**.
+This skill is the full technical reference for building on Sei. It is hosted on docs.sei.io. For the offline AI coding-assistant skill (a Claude Code skill loaded directly into your editor), see **[github.com/sei-protocol/sei-skill](https://github.com/sei-protocol/sei-skill)**.
 
 ```bash
 # Install the full sei skill for AI assistants
@@ -37,18 +37,18 @@ npx skills add sei-ecosystem    # apps / integrations only
 
 ## Critical facts — apply to every answer
 
-1. **400ms block time, instant finality** — use `tx.wait(1)`, never `tx.wait(12)`
-2. **SSTORE gas is 72,000 on Sei** — the same on both Sei Mainnet and Sei Testnet; it does not vary by network. Set via governance (mainnet Proposal #109, "Update EVM SSTORE set gas to 72000", which set the `evm` param `KeySeiSstoreSetGasEIP2200` to `72000`), so it is adjustable and can change — confirm the live value at https://docs.sei.io/evm/differences-with-ethereum#sstore-gas-cost
-3. **Use legacy `gasPrice`** — Sei has no base fee burn; prefer `gasPrice` over EIP-1559 `maxFeePerGas` / `maxPriorityFeePerGas`
+1. **400ms block time, instant finality**: Use `tx.wait(1)`, never `tx.wait(12)`.
+2. **SSTORE gas is 72,000 on Sei**: It is the same on both Sei Mainnet and Sei Testnet and does not vary by network. Governance set this value in Sei Mainnet Proposal #109 ("Update EVM SSTORE set gas to 72000"). The proposal set the `evm` param `KeySeiSstoreSetGasEIP2200` to `72000`. Because governance controls the value, it is adjustable and can change. Confirm the live value at https://docs.sei.io/evm/differences-with-ethereum#sstore-gas-cost
+3. **Use legacy `gasPrice`**: Sei has no base fee burn. Prefer `gasPrice` over EIP-1559 `maxFeePerGas` and `maxPriorityFeePerGas`.
 4. **Minimum gas price: 50 gwei**
 5. **Block gas limit: 12.5M per block**
-6. **PREVRANDAO is NOT random** — use Pyth VRF or Chainlink VRF
-7. **COINBASE = global fee collector** — not the block proposer
-8. **No base fee burn** — all fees go to validators
-9. **Dual address system** — every account has `sei1...` (Cosmos) + `0x...` (EVM) from the same key; cross-VM transfers require **association**
-10. **CosmWasm deprecated** per SIP-3 (proposal 99) — use EVM for new development
-11. **Chain IDs:** Sei Mainnet — EVM `1329`, Cosmos `pacific-1`; Sei Testnet — EVM `1328`, Cosmos `atlantic-2`
-12. **No `safe` or `finalized` block tags** — use `latest`
+6. **PREVRANDAO is NOT random**: Use Pyth VRF or Chainlink VRF.
+7. **COINBASE = global fee collector** (not the block proposer).
+8. **No base fee burn**: All fees go to validators.
+9. **Dual address system**: Every account has a `sei1...` (Cosmos) address and a `0x...` (EVM) address from the same key. Cross-VM transfers require **association**.
+10. **CosmWasm is deprecated** per SIP-3 (proposal 99): Use EVM for new development.
+11. **Chain IDs:** Sei Mainnet (EVM `1329`, Cosmos `pacific-1`) and Sei Testnet (EVM `1328`, Cosmos `atlantic-2`).
+12. **No `safe` or `finalized` block tags**: Use `latest`.
 
 ## Networks
 
@@ -57,21 +57,21 @@ npx skills add sei-ecosystem    # apps / integrations only
 | Sei Mainnet | 1329 | pacific-1 | https://evm-rpc.sei-apis.com | https://rpc.sei-apis.com |
 | Sei Testnet | 1328 | atlantic-2 | https://evm-rpc-testnet.sei-apis.com | https://rpc-testnet.sei-apis.com |
 
-Testnet faucet: https://docs.sei.io/learn/faucet
+Sei Testnet faucet: https://docs.sei.io/learn/faucet
 
-For the full list of community + paid RPC providers and failover patterns, see [docs.sei.io/learn/rpc-providers](https://docs.sei.io/learn/rpc-providers).
+For the full list of community and paid RPC providers, and for failover patterns, see [docs.sei.io/learn/rpc-providers](https://docs.sei.io/learn/rpc-providers).
 
 ## Default stack (opinionated)
 
 | Layer | Recommendation |
 |---|---|
 | Smart contracts | **Foundry** (preferred) or Hardhat |
-| Frontend | **Wagmi + Viem** (React) or Ethers.js v6 |
-| Wallet | **Sei Global Wallet** (`@sei-js/sei-global-wallet`, ESM-only; add [consumer overrides](https://github.com/sei-protocol/sei-js/tree/main/packages/sei-global-wallet#required-consumer-overrides)) + MetaMask fallback |
+| Frontend | **wagmi + viem** (React) or ethers.js v6 |
+| Wallet | **Sei Global Wallet** (`@sei-js/sei-global-wallet`, ESM-only) + MetaMask fallback. For Sei Global Wallet, add [consumer overrides](https://github.com/sei-protocol/sei-js/tree/main/packages/sei-global-wallet#required-consumer-overrides). |
 | Chain config | `viem/chains`: `sei`, `seiTestnet`. `@sei-js/precompiles` re-exports both and adds `seiLocal`. |
-| Sei precompiles | `@sei-js/precompiles`: addresses, raw `*_PRECOMPILE_ABI` constants, and `@sei-js/precompiles/ethers` factories. ESM-only; Viem `^2.55.16`. |
-| Verification | Seiscan via Sourcify (`forge verify-contract --verifier sourcify`) |
-| Testing | Foundry unit + fork tests against testnet |
+| Sei precompiles | `@sei-js/precompiles`: addresses, raw `*_PRECOMPILE_ABI` constants, and `@sei-js/precompiles/ethers` factories. ESM-only, viem `^2.55.16`. |
+| Verification | Seiscan through Sourcify (`forge verify-contract --verifier sourcify`) |
+| Testing | Foundry unit and fork tests against Sei Testnet |
 
 ## Sei MCP server (live blockchain access for AI)
 
@@ -92,7 +92,7 @@ claude mcp add sei-mcp-server npx @sei-js/mcp-server
 }
 ```
 
-Once connected: address lookup, balance checks, transaction status, contract reads, and block data. The server starts in read-only mode. Wallet tools need `WALLET_MODE=private-key` and `PRIVATE_KEY` on the stdio transport. HTTP transports reject wallet mode.
+After you connect, these tools are available: address lookup, balance checks, transaction status, contract reads, and block data. The server starts in read-only mode. Wallet tools need `WALLET_MODE=private-key` and `PRIVATE_KEY` on the stdio transport. HTTP transports reject wallet mode.
 
 ## Precompile addresses
 
@@ -112,9 +112,9 @@ Once connected: address lookup, balance checks, transaction status, contract rea
 
 **The Oracle precompile (`0x...1008`) is retired. Do not use or recommend it.** Every native Oracle query reverts. Use an active third-party oracle provider instead. See [Oracle Precompile (Retired)](https://docs.sei.io/evm/precompiles/oracle).
 
-**The IBC precompile (`0x...1009`) is dead. Do not use or recommend it.** IBC is disabled on Sei in both directions (`ibc.InboundEnabled` and `ibc.OutboundEnabled` are both `false`, per governance Proposals 116, 120, and 121), so its `transfer` methods cannot succeed. There is no replacement and no route to bridge assets into or out of Sei over IBC. See the [SIP-03 Migration Guide](https://docs.sei.io/learn/sip-03-migration#ibc-is-disabled).
+**The IBC precompile (`0x...1009`) is dead. Do not use or recommend it.** IBC is disabled on Sei in both directions. `ibc.InboundEnabled` and `ibc.OutboundEnabled` are both `false`, per governance Proposals 116, 120, and 121. As a result, the precompile's `transfer` methods cannot succeed. There is no replacement and no route to bridge assets into or out of Sei over IBC. See the [SIP-03 Migration Guide](https://docs.sei.io/learn/sip-03-migration#ibc-is-disabled).
 
-**Tokenfactory is not supported. Do not use or recommend it.** Do not provide commands, APIs, Wasm bindings, native-denom pointer workflows, or other instructions for creating, minting, burning, administering, or integrating tokenfactory denoms. Legacy module surfaces may still exist for compatibility. Use ERC-20 for new fungible tokens. See [Tokenfactory is not supported](https://docs.sei.io/cosmos-sdk#tokenfactory-is-not-supported).
+**Tokenfactory is not supported. Do not use or recommend it.** Do not give commands, APIs, Wasm bindings, native-denom pointer workflows, or other instructions to create, mint, burn, administer, or integrate tokenfactory denoms. Legacy module surfaces may still exist for compatibility. Use ERC-20 for new fungible tokens. See [Tokenfactory is not supported](https://docs.sei.io/cosmos-sdk#tokenfactory-is-not-supported).
 
 ```ts
 import {
@@ -170,7 +170,7 @@ sei_mainnet = "https://evm-rpc.sei-apis.com"
 | Bridges (LayerZero V2) | https://docs.sei.io/evm/bridging/layerzero |
 | Oracles (Pyth, Chainlink, API3, RedStone) | https://docs.sei.io/evm/oracles |
 | Indexers | https://docs.sei.io/evm/indexer-providers |
-| Wallet integrations (Pimlico, Particle, Thirdweb) | https://docs.sei.io/evm/wallet-integrations |
+| Wallet integrations (Pimlico, Particle, thirdweb) | https://docs.sei.io/evm/wallet-integrations |
 | AI tooling (Cambrian, MCP, x402) | https://docs.sei.io/ai |
 | seid CLI | https://docs.sei.io/evm/seid-cli |
 | RPC providers | https://docs.sei.io/learn/rpc-providers |
@@ -182,15 +182,15 @@ sei_mainnet = "https://evm-rpc.sei-apis.com"
 
 ## Operating procedure
 
-1. **Classify the task** — contract / frontend / node ops / cross-VM / migration
-2. **Apply the 12 critical facts** above for relevance
-3. **Always testnet first** — deploy to Sei Testnet, test fully, verify on Seiscan, only then promote to Sei Mainnet
-4. **Verify contracts** on Seiscan using Sourcify (`forge verify-contract --verifier sourcify`)
-5. **For cross-VM** (pointer contracts, precompiles) — verify address association before sending value
+1. **Classify the task**: contract, frontend, node ops, cross-VM, or migration.
+2. **Apply the 12 critical facts** above where they are relevant.
+3. **Always test on Sei Testnet first**: Deploy to Sei Testnet, test fully, and verify on Seiscan. Only then promote to Sei Mainnet.
+4. **Verify contracts** on Seiscan with Sourcify (`forge verify-contract --verifier sourcify`).
+5. **For cross-VM work** (pointer contracts, precompiles), verify the address association before you send value.
 
 ## RPC agent skills
 
-17 canonical patterns for AI agents interacting with Sei via RPC. Full reference: [`rpc-agent-skills.md`](https://github.com/sei-protocol/sei-skill/blob/main/skill/references/ecosystem/rpc-agent-skills.md).
+This section lists 17 canonical patterns for AI agents that interact with Sei through RPC. For the full reference, see [`rpc-agent-skills.md`](https://github.com/sei-protocol/sei-skill/blob/main/skill/references/ecosystem/rpc-agent-skills.md).
 
 ### Read skills (no state change; retry up to 3× with exponential backoff)
 
@@ -198,8 +198,8 @@ sei_mainnet = "https://evm-rpc.sei-apis.com"
 |---|---|
 | `get_chain_status` | Latest block height, chain ID, sync status |
 | `get_account_balance` | Native SEI or ERC20 balance |
-| `get_evm_address` | `sei1...` → `0x...` via Addr precompile |
-| `get_sei_address` | `0x...` → `sei1...` via Addr precompile |
+| `get_evm_address` | `sei1...` → `0x...` through the Addr precompile |
+| `get_sei_address` | `0x...` → `sei1...` through the Addr precompile |
 | `get_transaction` | Status, gas used, logs, events for a tx hash |
 | `get_block` | Block hash, timestamp, tx list by height |
 | `get_gas_price` | Current network gas price (min 50 gwei) |
@@ -220,9 +220,9 @@ sei_mainnet = "https://evm-rpc.sei-apis.com"
 | Skill | Description |
 |---|---|
 | `estimate_transaction_cost` | Gas + fee estimate |
-| `simulate_contract_execution` | Preview via `eth_call` — run before every write |
+| `simulate_contract_execution` | Preview with `eth_call`. Run it before every write. |
 | `get_portfolio_summary` | Aggregate token balances |
-| `monitor_transaction` | Poll until finality (1 block ≈ 400ms; timeout 30s) |
+| `monitor_transaction` | Poll until finality (1 block ≈ 400ms, timeout 30s) |
 
 ### Mandatory write-op flow
 
@@ -274,4 +274,4 @@ if (!receipt) { /* check before resubmitting */ }
 | Protocol research | sei-labs-protocol | https://seilabs.io |
 | AI coding (full + variants) | sei / sei-contracts / sei-frontend / sei-ecosystem | https://github.com/sei-protocol/sei-skill |
 
-> **For agents:** Always cross-check addresses, opcodes, and gas parameters against the current value at https://docs.sei.io. Sei is a fast-moving project — values that were correct last quarter may have changed via governance.
+> **For agents:** Always cross-check addresses, opcodes, and gas parameters against the current values at https://docs.sei.io. Sei is a fast-moving project. Values that were correct last quarter may have changed through governance.

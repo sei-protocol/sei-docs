@@ -4,23 +4,22 @@ sidebarTitle: 'Technical Reference'
 description: 'Access detailed command syntax, configuration parameters, and troubleshooting procedures for node operators and validators running Sei network infrastructure.'
 keywords: ['sei', 'technical', 'reference', 'node commands', 'configuration', 'troubleshooting']
 ---
-This guide serves as a comprehensive reference for Sei node operators and
-validators, providing detailed command syntax, configuration parameters, and
-troubleshooting procedures. For API documentation, please refer to our API
-Documentation section.
+This guide is a reference for Sei node operators and validators. It gives
+detailed command syntax, configuration parameters, and troubleshooting
+procedures. For API documentation, see the API Documentation section.
 
-## Command Line Interface Reference
+## Command line interface reference
 
-The `seid` binary provides extensive functionality for managing your Sei node.
+The `seid` binary has extensive functionality to manage your Sei node.
 Understanding these commands is essential for effective node operation and
 troubleshooting.
 
-### Node Management Commands
+### Node management commands
 
-These commands help you control and monitor your node's operation:
+These commands help you control and monitor your node:
 
 <Danger>
-  If you see an error such as `panic: recovered: runtime error: integer divide by zero` it means you can’t start nodes straight from the genesis file. Instead, sync to the block tip via [state sync](/node/statesync) or using a [snapshot](/node/snapshot).
+  If you see an error such as `panic: recovered: runtime error: integer divide by zero`, it means that you cannot start nodes directly from the genesis file. Instead, sync to the block tip with [state sync](/node/statesync) or a [snapshot](/node/snapshot).
 </Danger>
 
 ```bash
@@ -39,22 +38,24 @@ seid query node info
 
 #### Freeze mode (`--freeze-height`)
 
-As of v6.6.3, the `--freeze-height` start flag (and the corresponding `freeze-height` field in `app.toml`) puts a full node into read-only freeze mode at a specified block height. Freeze mode exists for historical RPC nodes. A node frozen at an upgrade height keeps running the pre-upgrade binary and keeps serving the state that binary produced, instead of shutting down at the boundary or executing the upgrade block with code that no longer matches that state. Query RPC remains available so the node can continue serving reads, but write and network paths are disabled from startup:
+As of v6.6.3, you can put a full node into read-only freeze mode at a specified block height. Use the `--freeze-height` start flag or the corresponding `freeze-height` field in `app.toml`. Freeze mode exists for historical RPC nodes. A node frozen at an upgrade height keeps running the pre-upgrade binary and keeps serving the state that binary produced. It does not shut down at the boundary or execute the upgrade block with code that no longer matches that state.
+
+Query RPC remains available, so the node can continue to serve reads, but write and network paths are disabled from startup:
 
 - Transaction and evidence submission is rejected. The `BroadcastTx`, `BroadcastTxAsync`, `BroadcastTxSync`, `BroadcastTxCommit`, and `BroadcastEvidence` RPC calls all return `ErrReadOnly` (`RPC writes are disabled in freeze mode`). The EVM endpoint submits transactions through the same path, so `eth_sendRawTransaction` fails with the same error.
-- Mempool gossip is disabled — the mempool reactor is not started and the mempool p2p channel is not advertised to peers.
+- Mempool gossip is disabled. The mempool reactor does not start, and the node does not advertise the mempool p2p channel to peers.
 - State sync is disabled. If it is enabled in `config.toml`, the node logs a notice and falls back to block sync.
 
-Block sync and consensus stop before executing the configured height and will not advance beyond it.
+Block sync and consensus stop before they execute the configured height and do not advance beyond it.
 
-The node must not have reached the freeze height yet. If the application, block store, or state store height is already at or above `freeze-height`, startup fails with `<source> height <n> has already reached freeze height <h>`. To build a frozen node, start from a data directory that is below the freeze height (a fresh sync from genesis, or a [snapshot](/node/snapshot) taken below that height) and let block sync stop at the boundary.
+The node must not have reached the freeze height yet. If the application, block store, or state store height is already at or above `freeze-height`, startup fails with `<source> height <n> has already reached freeze height <h>`. To build a frozen node, start from a data directory that is below the freeze height. This can be a fresh sync from genesis or a [snapshot](/node/snapshot) taken below that height. Then let block sync stop at the boundary.
 
 ```bash
 # Start a full node in read-only freeze mode at a given block height
 seid start --freeze-height <height>
 ```
 
-The same behavior can be configured persistently via the `freeze-height` field. `freeze-height` is the first block height a full node must not execute; a value of `0` disables freeze mode. The key is a top-level entry in `app.toml`, in the base configuration next to `halt-height`, and does not belong under any `[section]` header. See the generated [default `app.toml`](/node/node-operators#default-configurations) for the field in context.
+You can configure the same behavior persistently with the `freeze-height` field. Its value is the first block height that a full node must not execute. A value of `0` disables freeze mode. The key is a top-level entry in `app.toml`, in the base configuration next to `halt-height`, not under any `[section]` header. The generated [default `app.toml`](/node/node-operators#default-configurations) shows the field in context.
 
 ```toml
 # app.toml — top-level key in the base configuration (next to halt-height), not under any [section]
@@ -62,16 +63,16 @@ freeze-height = 0
 ```
 
 <Warning>
-  Freeze mode is only supported for full nodes. Setting a non-zero `freeze-height` in validator or seed mode is rejected at startup with an error (`freeze height is not supported in <mode> mode`). `freeze-height` also cannot be combined with `halt-height`, `halt-time`, or the `--grpc-only` start flag; each combination is rejected at startup.
+  Freeze mode is supported only for full nodes. In validator or seed mode, the node rejects a non-zero `freeze-height` at startup with an error (`freeze height is not supported in <mode> mode`). You also cannot combine `freeze-height` with `halt-height`, `halt-time`, or the `--grpc-only` start flag. The node rejects each combination at startup.
 </Warning>
 
 ### Frozen RPC router
 
-The `frozen-rpc-router` binary, available as of v6.6.3, is a companion to freeze mode. It exposes a single HTTP EVM JSON-RPC endpoint that transparently proxies requests to a live node and one or more freeze-height-frozen nodes, routing each request to the correct backend based on the block height it references. This lets a set of archival nodes — each frozen at a different upgrade height and running the binary that was live for its interval — collectively serve historical state through one endpoint.
+The `frozen-rpc-router` binary, available as of v6.6.3, is a companion to freeze mode. It exposes a single HTTP EVM JSON-RPC endpoint that transparently proxies requests to a live node and one or more freeze-height-frozen nodes. It routes each request to the correct backend based on the block height that the request references. With the router, a set of archival nodes can collectively serve historical state through one endpoint. Each node is frozen at a different upgrade height and runs the binary that was live for its interval.
 
-Because a freeze height is an exclusive boundary, a node started with `--freeze-height 100` serves blocks through height 99. The router therefore sends height 99 to that node and height 100 to the next configured interval (or to the live node when no frozen interval covers it).
+Because a freeze height is an exclusive boundary, a node started with `--freeze-height 100` serves blocks through height 99. The router therefore sends height 99 to that node. It sends height 100 to the next configured interval, or to the live node when no frozen interval covers it.
 
-The router is a standalone binary in the `sei-chain` repository. It is not part of `seid` and is not installed by `make install`, so build it from a source checkout with the `build-frozen-rpc-router` target, which writes the binary to `./build/frozen-rpc-router`:
+The router is a standalone binary in the `sei-chain` repository. It is not part of `seid`, and `make install` does not install it. Build it from a source checkout with the `build-frozen-rpc-router` target, which writes the binary to `./build/frozen-rpc-router`:
 
 ```bash
 git clone https://github.com/sei-protocol/sei-chain.git
@@ -93,42 +94,42 @@ make build-frozen-rpc-router
 ```
 
 <Warning>
-  The router has no authentication of its own: anyone who can reach its listen address can query every backend behind it. The example binds to `127.0.0.1` so that only local clients can connect. If you bind to a public interface (for example `--listen-address 0.0.0.0:8545`), put the router behind a firewall or reverse proxy, as you would for a node's own EVM RPC port.
+  If you bind the router to a public interface (for example, `--listen-address 0.0.0.0:8545`), put it behind a firewall or reverse proxy. Protect it as you would a node's own EVM RPC port. The router has no authentication of its own, so anyone who can reach its listen address can query every backend behind it. The example binds to `127.0.0.1` so that only local clients can connect.
 </Warning>
 
-The binary accepts the following flags:
+The binary accepts these flags:
 
-- `--listen-address` — address on which the router listens (default `127.0.0.1:8545`).
-- `--live-node` — HTTP RPC address of the live node (required).
-- `--frozen-node` — a `freeze-height=ip:port` pair; repeat once per frozen node. Bare `host:port` addresses and `http://` or `https://` URLs are all accepted. Frozen nodes may be listed in any order, but each freeze height must be positive and unique.
-- `--max-request-body-bytes` — maximum JSON-RPC request body size in bytes (default `5242880`, which is 5 MiB). Must be positive. Larger requests are rejected with HTTP `413`.
-- `--max-block-reference-depth` — maximum nested block reference depth (default `16`); bounds how deeply nested `blockNumber` object references are parsed when resolving a request's block parameter. Must be positive.
-- `--batch-request-limit` — maximum number of calls in a JSON-RPC batch (default `1000`). Must be positive. A batch exceeding this limit is rejected with JSON-RPC error `-32600` (`batch too large`).
-- `--write-timeout` — maximum duration for writing an HTTP response (default `30s`). Must be positive.
-- `--shutdown-timeout` — graceful shutdown timeout (default `10s`). Must be positive.
+- `--listen-address`: The address on which the router listens (default `127.0.0.1:8545`).
+- `--live-node`: The HTTP RPC address of the live node (required).
+- `--frozen-node`: A `freeze-height=ip:port` pair. Repeat it once for each frozen node. The router accepts bare `host:port` addresses and `http://` or `https://` URLs. You may list frozen nodes in any order, but each freeze height must be positive and unique.
+- `--max-request-body-bytes`: The maximum JSON-RPC request body size in bytes (default `5242880`, which is 5 MiB). It must be positive. The router rejects larger requests with HTTP `413`.
+- `--max-block-reference-depth`: The maximum nested block reference depth (default `16`). It limits how deeply nested `blockNumber` object references are parsed when the router resolves a request's block parameter. It must be positive.
+- `--batch-request-limit`: The maximum number of calls in a JSON-RPC batch (default `1000`). It must be positive. The router rejects a batch over this limit with JSON-RPC error `-32600` (`batch too large`).
+- `--write-timeout`: The maximum duration to write an HTTP response (default `30s`). It must be positive.
+- `--shutdown-timeout`: The graceful shutdown timeout (default `10s`). It must be positive.
 
 #### Routing rules
 
-Only JSON-RPC `POST` requests are inspected and routed. Every other request, including WebSocket upgrade requests, is passed straight through to the `--live-node` address without inspection. Because that address is the live node's HTTP RPC endpoint, which does not accept WebSocket upgrades, clients that need subscriptions should connect directly to the live node's WebSocket port (`8546` by default) rather than through the router.
+The router inspects and routes only JSON-RPC `POST` requests. It passes every other request, including WebSocket upgrade requests, straight through to the `--live-node` address without inspection. That address is the live node's HTTP RPC endpoint, which does not accept WebSocket upgrades. Clients that need subscriptions should therefore connect directly to the live node's WebSocket port (`8546` by default), not through the router.
 
-- `eth_*` and `debug_*` methods that take an explicit block number or the `earliest` tag (for example `eth_getBlockByNumber`, `eth_getBalance`, `eth_call`, `eth_getStorageAt`, `debug_traceBlockByNumber`) are routed to the interval that contains that height. `earliest` resolves to height 0.
-- `eth_getLogs` and `eth_feeHistory` are routed only when their entire block range falls within a single interval. The range is explicit for `eth_getLogs`; for `eth_feeHistory` it is derived from `blockCount` and `newestBlock` (`newestBlock - blockCount + 1` through `newestBlock`, clamped at `0`). A range that crosses an interval boundary is rejected with JSON-RPC error `-32000` (`block ranges spanning multiple frozen-node intervals are not supported`).
-- An `eth_getLogs` filter that sets `fromBlock` but omits `toBlock` is treated as ending at `latest`, so it is rejected with the same `-32000` error whenever `fromBlock` is inside a frozen interval. Set `toBlock` explicitly to stay within one interval. The reverse works: a filter that sets only `toBlock` is routed to the interval that contains `toBlock`.
-- Latest-style block tags (`latest`, `pending`, `safe`, `finalized`), requests referencing a block by hash, methods without a block parameter, and stateful filter methods are all forwarded to the live node.
-- Batch requests are split so each call reaches its correct backend, then reassembled into a single response.
+- `eth_*` and `debug_*` methods that take an explicit block number or the `earliest` tag are routed to the interval that contains that height. Examples include `eth_getBlockByNumber`, `eth_getBalance`, `eth_call`, `eth_getStorageAt`, and `debug_traceBlockByNumber`. `earliest` resolves to height 0.
+- `eth_getLogs` and `eth_feeHistory` are routed only when their entire block range falls within a single interval. The range is explicit for `eth_getLogs`. For `eth_feeHistory`, the router derives it from `blockCount` and `newestBlock` (`newestBlock - blockCount + 1` through `newestBlock`, clamped at `0`). The router rejects a range that crosses an interval boundary with JSON-RPC error `-32000` (`block ranges spanning multiple frozen-node intervals are not supported`).
+- An `eth_getLogs` filter that sets `fromBlock` but omits `toBlock` is treated as ending at `latest`. As a result, the router rejects it with the same `-32000` error whenever `fromBlock` is inside a frozen interval. To stay within one interval, set `toBlock` explicitly. The reverse works: a filter that sets only `toBlock` is routed to the interval that contains `toBlock`.
+- Requests with latest-style block tags (`latest`, `pending`, `safe`, `finalized`) are forwarded to the live node. So are requests that reference a block by hash, methods without a block parameter, and stateful filter methods.
+- Batch requests are split so that each call reaches its correct backend, then reassembled into a single response.
 - Calls whose backend cannot be reached return JSON-RPC error `-32001` (`upstream request failed`).
 
 #### Route header
 
-Responses proxied to a single backend carry a `Sei-RPC-Route` header identifying which backend served them: `frozen:<height>` for the frozen node at that freeze height, or `live` for the live node. A batch split across multiple backends returns `mixed`. Errors generated by the router itself (oversized or malformed requests, batches over the limit, block ranges spanning intervals, unreachable backends) and non-`POST` traffic passed through to the live node do not carry the header.
+Responses proxied to a single backend carry a `Sei-RPC-Route` header. The header identifies which backend served the response: `frozen:<height>` for the frozen node at that freeze height, or `live` for the live node. A batch split across multiple backends returns `mixed`. Router-generated errors (oversized or malformed requests, batches over the limit, block ranges that span intervals, and unreachable backends) do not carry the header. Neither does non-`POST` traffic that passes through to the live node.
 
-### seidb Tooling Commands
+### seidb tooling commands
 
-The `seidb` binary provides low-level tooling for inspecting and maintaining a node's on-disk state.
+The `seidb` binary has low-level tools to inspect and maintain a node's on-disk state.
 
-#### Reporting FlatKV EVM Migration Status
+#### Reporting FlatKV EVM migration status
 
-The `migrate-evm-status` subcommand reads the on-disk FlatKV EVM migration state from a FlatKV data directory and prints a JSON summary. It is primarily intended for integration and operator tooling that polls each validator to determine whether the FlatKV EVM migration has completed, without needing a custom RPC handler or having to grep through node logs.
+The `migrate-evm-status` subcommand reads the on-disk FlatKV EVM migration state from a FlatKV data directory and prints a JSON summary. It is intended mainly for integration and operator tooling that polls each validator to check whether the FlatKV EVM migration has completed. The tooling then needs no custom RPC handler and does not have to grep through node logs.
 
 ```bash
 # Report FlatKV EVM migration status at the latest available version
@@ -141,20 +142,22 @@ seidb migrate-evm-status -d $HOME/.sei/data/state_commit/flatkv
 seidb migrate-evm-status --db-dir <flatkv-dir> --height <n>
 ```
 
-The command opens FlatKV read-only — it hardlink-clones the latest snapshot and copies the WAL into a temporary directory before opening — so it can be run safely against a directory that a live node is still writing to.
+The command opens FlatKV read-only. It first hardlink-clones the latest snapshot and copies the WAL into a temporary directory. You can therefore run it safely against a directory that a live node is still writing to.
 
-The emitted JSON contains the following fields:
+The emitted JSON contains these fields:
 
-- `version_at` — the FlatKV version that was read.
-- `migration_version` — the on-disk migration version (`0` means the FlatKV EVM migration has not yet completed).
-- `migrate_evm_complete` — `true` once the migration version has reached the FlatKV EVM (v1) target.
-- `boundary_present` — `true` while the migration is in flight (the in-progress resume cursor is still present).
-- `boundary_hex` — hex-encoded migration boundary cursor, included only when a boundary is present.
-- `version_raw_hex` — hex-encoded raw migration-version bytes, included only when a migration version is present.
+- `version_at`: The FlatKV version that was read.
+- `migration_version`: The on-disk migration version (`0` means that the FlatKV EVM migration has not completed yet).
+- `migrate_evm_complete`: `true` after the migration version reaches the FlatKV EVM (v1) target.
+- `boundary_present`: `true` while the migration is in flight (the in-progress resume cursor is still present).
+- `boundary_hex`: The hex-encoded migration boundary cursor. It appears only when a boundary is present.
+- `version_raw_hex`: The hex-encoded raw migration-version bytes. It appears only when a migration version is present.
 
-#### Comparing EVM State Across Backends
+#### Comparing EVM state across backends
 
-The `evm-logical-digest` subcommand computes a backend-independent digest of the EVM logical state (the account, code, and storage buckets) so that a memIAVL node and a FlatKV node can be compared at the same chain height. Because a freshly migrated FlatKV node stamps a per-key `blockHeight` into each value that differs from the memIAVL leaf versions, a raw byte-for-byte digest would diverge even when the underlying EVM state is identical. This command strips the serialization-version and `blockHeight` header on both sides and digests only the height-independent logical payload (storage word, bytecode, or balance+nonce+codehash), producing a comparable `FINAL_DIGEST` per backend.
+The `evm-logical-digest` subcommand computes a backend-independent digest of the EVM logical state (the account, code, and storage buckets). With this digest, you can compare a memIAVL node and a FlatKV node at the same chain height.
+
+A freshly migrated FlatKV node stamps a per-key `blockHeight` into each value, and this stamp differs from the memIAVL leaf versions. As a result, a raw byte-for-byte digest would diverge even when the underlying EVM state is identical. This command strips the serialization-version and `blockHeight` header on both sides. It then digests only the height-independent logical payload (storage word, bytecode, or balance+nonce+codehash) and produces a comparable `FINAL_DIGEST` for each backend.
 
 ```bash
 # FlatKV digest at a height (WAL-replays to it). Prints per-bucket
@@ -175,26 +178,26 @@ seidb evm-logical-digest --backend memiavl \
     --memiavl-normalization translator
 ```
 
-Two backends match when the FlatKV `FINAL_DIGEST` equals the memIAVL `FINAL_DIGEST`. FlatKV also writes an internal migration-version marker row that a memiavl-only node never owns, so the command omits that row from the final comparison automatically.
+Two backends match when the FlatKV `FINAL_DIGEST` equals the memIAVL `FINAL_DIGEST`. FlatKV also writes an internal migration-version marker row, which a memiavl-only node never owns. The command automatically omits that row from the final comparison.
 
-The command accepts the following flags:
+The command accepts these flags:
 
-- `--backend` — backend to read: `flatkv` or `memiavl`.
-- `--db-dir` (`-d`) — for FlatKV, the FlatKV data directory; for memIAVL, the memIAVL root directory containing `current/` and `snapshot-*`.
-- `--height` — target version. FlatKV WAL-replays to it; memIAVL resolves `snapshot-<height>/evm` (`0` selects the `current` symlink).
-- `--memiavl-normalization` — memIAVL normalization mode: `semantic`/`independent` (raw EVM key/value decoder, the default `semantic`) or `translator` (current migration mapping).
-- `--inspect-bucket` — inspect one normalized bucket (`account`, `code`, `storage`, or `legacy`) instead of printing the global digest.
-- `--key-offset` — inspect mode: byte offset into the physical key before applying `--key-prefix` or sharding.
-- `--key-prefix` — inspect mode: hex prefix, relative to `--key-offset`, used to filter physical keys.
-- `--shard-next-bytes` — inspect mode: group matching keys by this many bytes after `--key-prefix`.
-- `--list` — inspect mode: list matching key/logical-value pairs instead of shard `bucket_digest` values.
-- `--list-limit` — inspect mode: maximum pairs to print with `--list` (default `1000`; a value `<= 0` means unlimited).
-- `--details` — inspect list mode: include backend-specific version metadata.
-- `--find-hash` — optional 32-byte hex per-entry hash to hunt for. When two `bucket_digest` values differ by exactly one entry, their XOR is that entry's hash; this prints every matching entry so a single diverging row can be located.
+- `--backend`: The backend to read (`flatkv` or `memiavl`).
+- `--db-dir` (`-d`): For FlatKV, the FlatKV data directory. For memIAVL, the memIAVL root directory that contains `current/` and `snapshot-*`.
+- `--height`: The target version. FlatKV WAL-replays to it, and memIAVL resolves `snapshot-<height>/evm` (`0` selects the `current` symlink).
+- `--memiavl-normalization`: The memIAVL normalization mode. Use `semantic` or `independent` for the raw EVM key-value decoder, or `translator` for the current migration mapping. The default is `semantic`.
+- `--inspect-bucket`: Inspect one normalized bucket (`account`, `code`, `storage`, or `legacy`) instead of printing the global digest.
+- `--key-offset` (inspect mode): The byte offset into the physical key, applied before `--key-prefix` or sharding.
+- `--key-prefix` (inspect mode): A hex prefix, relative to `--key-offset`, that filters physical keys.
+- `--shard-next-bytes` (inspect mode): Group matching keys by this many bytes after `--key-prefix`.
+- `--list` (inspect mode): List pairs of matching keys and logical values instead of shard `bucket_digest` values.
+- `--list-limit` (inspect mode): The maximum number of pairs to print with `--list` (default `1000`). A value `<= 0` means unlimited.
+- `--details` (inspect list mode): Include backend-specific version metadata.
+- `--find-hash`: An optional 32-byte hex per-entry hash to search for. When two `bucket_digest` values differ by exactly one entry, their XOR is the hash of that entry. This flag prints every matching entry, so you can locate a single diverging row.
 
-### Autobahn (GigaRouter) Config Generation
+### Autobahn (GigaRouter) config generation
 
-When running with the Autobahn (GigaRouter) networking layer, you can generate the Autobahn JSON config from a set of node directories. Each directory must contain `validator_pubkey.txt`, `node_pubkey.txt`, `autobahn_address.txt`, and `evmrpc_url.txt`. Unlike the key files, `evmrpc_url.txt` is not written automatically — operators must create it by hand with the node's EVM RPC URL, and the command fails with an error if it is missing. The `mempool_size` field is no longer part of `autobahn.json`; remove it from existing config files.
+When you use the Autobahn (GigaRouter) networking layer, you can generate the Autobahn JSON config from a set of node directories. Each directory must contain `validator_pubkey.txt`, `node_pubkey.txt`, `autobahn_address.txt`, and `evmrpc_url.txt`. Unlike the key files, `evmrpc_url.txt` is not written automatically, so you must create it by hand with the node's EVM RPC URL. If the file is missing, the command fails with an error. The `mempool_size` field is no longer part of `autobahn.json`. Remove it from existing config files.
 
 ```bash
 # Generate an autobahn JSON config from one or more node directories
@@ -210,60 +213,60 @@ seid tendermint gen-autobahn-config ./node0 ./node1 --output autobahn.json --per
 seid tendermint gen-autobahn-config ./node0 ./node1 --output autobahn.json --persistent-state-dir=
 ```
 
-The `--persistent-state-dir` flag controls where autobahn persists its consensus and data write-ahead logs (WALs) across restarts. It defaults to `data/autobahn`, so persistence is enabled by default without any operator action; the consensus and data layers write to distinct subdirectories under this shared on-disk root. A relative path is resolved against the node's `--home` directory at config load time, while absolute paths are used as-is. Passing an empty value (`--persistent-state-dir=`) disables persistence entirely, running both the consensus and data layers in-memory only. When set, the flag populates the `PersistentStateDir` field in the generated config.
+The `--persistent-state-dir` flag controls where Autobahn persists its consensus and data write-ahead logs (WALs) across restarts. The default is `data/autobahn`, so persistence is enabled by default without any operator action. The consensus and data layers write to distinct subdirectories under this shared on-disk root. At config load time, a relative path is resolved against the node's `--home` directory, and an absolute path is used as is. An empty value (`--persistent-state-dir=`) disables persistence entirely, and both the consensus and data layers run in memory only. When set, the flag populates the `PersistentStateDir` field in the generated config.
 
-The command reads the following files from each node directory:
+The command reads these files from each node directory:
 
-- `validator_pubkey.txt` — the validator public key in `validator:<pubkey>` format.
-- `node_pubkey.txt` — the p2p node public key in `node:ed25519:public:<hex>` format.
-- `autobahn_address.txt` — the network address (`host:port`) the node advertises to peers.
-- `evmrpc_url.txt` — the node's EVM RPC URL, written into the validator's `evmrpc` field for cross-shard transaction proxying.
+- `validator_pubkey.txt`: The validator public key in `validator:<pubkey>` format.
+- `node_pubkey.txt`: The p2p node public key in `node:ed25519:public:<hex>` format.
+- `autobahn_address.txt`: The network address (`host:port`) that the node advertises to peers.
+- `evmrpc_url.txt`: The node's EVM RPC URL. It is written into the validator's `evmrpc` field for cross-shard transaction proxying.
 
-The `validator_pubkey.txt` and `node_pubkey.txt` files are written automatically alongside `priv_validator_key.json` and `node_key.json` whenever those keys are saved, so they are typically already present in each node's config directory.
+The `validator_pubkey.txt` and `node_pubkey.txt` files are written automatically next to `priv_validator_key.json` and `node_key.json` whenever those keys are saved. They are therefore usually already present in each node's config directory.
 
-The generated `autobahn.json` file describes the validator set along with transaction limits, block interval, view timeout, and dial interval; gas limits are not part of this file and come from the genesis block parameters instead. To have a node consume it, reference the file from `config.toml` using the `autobahn-config-file` key.
+The generated `autobahn.json` file describes the validator set, transaction limits, block interval, view timeout, and dial interval. Gas limits are not part of this file and come from the genesis block parameters instead. To make a node use the file, reference it from `config.toml` with the `autobahn-config-file` key.
 
-#### Giga Mode Behavior and Per-Block Limits
+#### Giga mode behavior and per-block limits
 
-When a node is started in Giga mode — that is, when `autobahn-config-file` is set in `config.toml` — the block production and networking behavior differs significantly from standard Tendermint consensus:
+A node starts in Giga mode when `autobahn-config-file` is set in `config.toml`. In Giga mode, the block production and networking behavior differs significantly from standard Tendermint consensus:
 
-- **The CometBFT `TxMempool` is not used.** Under Giga the standard mempool (and its gossip reactor) is disabled entirely. Transactions instead route through the Autobahn producer-backed mempool.
-- **Consensus reactor, state sync, and block sync are disabled.** In Giga mode the consensus and state-sync reactors are skipped entirely, while the block-sync reactor still runs without a syncer; both state sync and block sync are forced off regardless of other configuration.
-- **Transactions are admitted through the producer mempool.** The RPC broadcast endpoints call the producer's `InsertTx`/`TryInsertTx` rather than the CometBFT mempool's `CheckTx`. `BroadcastTx` uses `InsertTx`, which blocks while the mempool is full; the async path calls `TryInsertTx` in the background and returns immediately, so when the mempool is full the transaction is silently dropped — the `mempool is full` error from `TryInsertTx` is never surfaced to async callers.
+- **The CometBFT `TxMempool` is not used.** Under Giga, the standard mempool and its gossip reactor are disabled entirely. Transactions route through the Autobahn producer-backed mempool instead.
+- **Consensus reactor, state sync, and block sync are disabled.** In Giga mode, the node skips the consensus and state-sync reactors entirely. The block-sync reactor still runs without a syncer. State sync and block sync are both forced off, regardless of other configuration.
+- **Transactions are admitted through the producer mempool.** The RPC broadcast endpoints call the producer's `InsertTx` or `TryInsertTx`, not the CometBFT mempool's `CheckTx`. `BroadcastTx` uses `InsertTx`, which blocks while the mempool is full. The async path calls `TryInsertTx` in the background and returns immediately. As a result, when the mempool is full, the transaction is silently dropped. The `mempool is full` error from `TryInsertTx` never reaches async callers.
 - **Sequential EVM nonce ordering is enforced.** For EVM transactions, the producer mempool admits transactions strictly in nonce order per sender. A transaction whose nonce does not match the next expected nonce is rejected with a `bad nonce` error. Because admission is sequential, the mempool can track pending nonces (`EvmNextPendingNonce`) as callers submit them.
 
-Each Autobahn block payload is bounded by the following limits, enforced by the producer as it fills a block:
+The producer enforces these limits on each Autobahn block payload as it fills a block:
 
-- **Maximum transactions per block:** the lower of the configured `max_txs_per_block` and the built-in maximum of 2,000 (see the transaction payload caps below).
-- **Maximum total transaction bytes per block:** a fixed per-block byte cap; a single transaction larger than this cap is rejected with a `transaction too large` error.
-- **Wanted gas per block (`MaxGasWantedPerBlock`):** derived from the genesis `MaxGasWanted` block param. A transaction whose `GasWanted` exceeds this per-block limit is rejected as too large.
-- **Estimated gas per block (`MaxGasEstimatedPerBlock`):** derived from the genesis `MaxGas` block param. A transaction whose (normalized) estimated gas exceeds this per-block limit is rejected as too large.
+- **Maximum transactions per block:** The lower of the configured `max_txs_per_block` and the built-in maximum of 2,000 (see the transaction payload caps below).
+- **Maximum total transaction bytes per block:** A fixed per-block byte cap. A single transaction larger than this cap is rejected with a `transaction too large` error.
+- **Wanted gas per block (`MaxGasWantedPerBlock`):** Derived from the genesis `MaxGasWanted` block param. A transaction whose `GasWanted` exceeds this per-block limit is rejected as too large.
+- **Estimated gas per block (`MaxGasEstimatedPerBlock`):** Derived from the genesis `MaxGas` block param. A transaction whose (normalized) estimated gas exceeds this per-block limit is rejected as too large.
 
-When filling a block the producer seals the current block and starts a new one as soon as adding the next transaction would exceed any of the transaction-count, byte, wanted-gas, or estimated-gas limits.
+The producer seals the current block and starts a new one as soon as the next transaction would exceed a limit. This rule covers the transaction-count, byte, wanted-gas, and estimated-gas limits.
 
-#### Autobahn Committee and Network Message Limits
+#### Autobahn committee and network message limits
 
 Beyond the per-block payload limits, Giga mode enforces structural limits on the validator committee and on incoming consensus network messages:
 
-- **Maximum validators per committee:** the Autobahn committee is capped at a hard limit of 100 validators (`MaxValidators`). Committee creation rejects any validator set exceeding this limit — building a committee from more than 100 validators fails with a `too many validators` error rather than being silently truncated.
-- **Bounded consensus network messages.** Autobahn consensus protobuf messages carry declared size and count constraints that are checked against the raw wire bytes before the message is decoded. Payloads that violate these constraints are rejected during decoding, before any allocation, which protects nodes from oversized or malformed inputs that could otherwise decode into much larger in-memory structures.
+- **Maximum validators per committee:** The Autobahn committee has a hard limit of 100 validators (`MaxValidators`). Committee creation rejects any validator set over this limit with a `too many validators` error. It does not silently truncate the set.
+- **Bounded consensus network messages.** Autobahn consensus protobuf messages carry declared size and count constraints. These constraints are checked against the raw wire bytes before the message is decoded. Payloads that violate them are rejected during decoding, before any allocation. This protects nodes from oversized or malformed inputs that could otherwise decode into much larger in-memory structures.
 
 The enforced message constraints include:
 
 - **Per-field maximum sizes** on fixed-width fields such as hashes, signatures, and public keys.
-- **Maximum repeated-field counts** on validator-related lists — signature and quorum-certificate lists are capped at 100 entries (matching the 100-validator committee cap).
-- **Transaction payload caps:** a block payload may carry at most 2,000 transactions, with a combined transaction byte budget of exactly 2,048,000 bytes (2,000 × 1,024) that may be split arbitrarily across the transactions in the payload — these are the built-in maxima referenced by the per-block limits above.
+- **Maximum repeated-field counts** on validator-related lists. Signature and quorum-certificate lists are capped at 100 entries, which matches the 100-validator committee cap.
+- **Transaction payload caps:** A block payload may carry at most 2,000 transactions. The combined transaction byte budget is exactly 2,048,000 bytes (2,000 × 1,024), and it may be split arbitrarily across the transactions in the payload. These are the built-in maxima that the per-block limits above refer to.
 
 Any message whose fields exceed these limits is rejected at decode time, so an oversized network payload never reaches the consensus logic.
 
 <Note>
-  Because Giga replaces the CometBFT mempool, the `unsafe_flush_mempool` RPC endpoint is not supported under Giga and returns `unsafe_flush_mempool is not supported with autobahn mempool`.
+  Giga replaces the CometBFT mempool, so Giga does not support the `unsafe_flush_mempool` RPC endpoint. The endpoint returns `unsafe_flush_mempool is not supported with autobahn mempool`.
 </Note>
 
-### Key Management
+### Key management
 
-Proper key management is crucial for security. These commands help you manage
-your keys effectively:
+Proper key management is critical for security. Use these commands to manage
+your keys:
 
 ```bash
 # Create new key
@@ -285,9 +288,9 @@ seid keys import <name> <keyfile>
 seid keys show <name> -a
 ```
 
-### Transaction Commands
+### Transaction commands
 
-These commands allow you to interact with the blockchain:
+These commands let you interact with Sei:
 
 ```bash
 # Send tokens
@@ -303,16 +306,16 @@ seid tx distribution withdraw-rewards <validator-addr> --from <delegator-key>
 seid tx staking edit-validator [flags] --from <validator-key>
 ```
 
-## Configuration Parameters
+## Configuration parameters
 
-Understanding configuration parameters is essential for optimizing your node's
+Understanding configuration parameters is essential to optimize your node's
 performance and security.
 
-### App.toml Parameters
+### App.toml parameters
 
-The app.toml file controls application-specific settings:
+The `app.toml` file controls application-specific settings:
 
-<Accordion title="Complete app.toml Configuration">
+<Accordion title="Complete app.toml configuration">
 ```toml
 # Minimum gas prices for transaction acceptance
 minimum-gas-prices = "0.02usei"
@@ -343,11 +346,11 @@ ss-prune-interval = 600
 
 </Accordion>
 
-### Config.toml Parameters
+### Config.toml parameters
 
-The config.toml file controls the core consensus engine and networking:
+The `config.toml` file controls the core consensus engine and networking:
 
-<Accordion title="Complete config.toml Configuration">
+<Accordion title="Complete config.toml configuration">
 ```toml
 # P2P Configuration
 [p2p]
@@ -413,22 +416,22 @@ double-sign-check-height = 0
 </Accordion>
 
 <Note>
-  The `[consensus]` section may still parse a `stateless-leader-election` field, but it is **deprecated and ignored**. Stateless (seed-based) leader election is now always enabled regardless of the value set, so this field no longer has any effect. It is retained only for config-parsing compatibility and can be safely omitted.
+  The `[consensus]` section may still parse a `stateless-leader-election` field, but the field is **deprecated and ignored**. Stateless (seed-based) leader election is always enabled, regardless of the value, so the field has no effect. It remains only for config-parsing compatibility, and you can safely omit it.
 </Note>
 
 <Warning>
-  Out-of-process ABCI support has been removed. The full node now runs only with Tendermint in-process; external stand-alone ABCI processes (socket or gRPC) are no longer supported. As a result:
+  Out-of-process ABCI support was removed. The full node now runs only with Tendermint in-process. External standalone ABCI processes (socket or gRPC) are no longer supported. As a result:
 
   - The `seid start` flags `--address` and `--transport` are **deprecated and ignored**.
   - The Tendermint node flags `--proxy-app` and `--abci` are **deprecated and ignored**.
-  - The `proxy-app` and `abci` fields in `config.toml` are **deprecated and ignored**, and are no longer written to newly generated `config.toml` files. Node operators upgrading should delete these lines from their `config.toml` if present.
+  - The `proxy-app` and `abci` fields in `config.toml` are **deprecated and ignored**. Newly generated `config.toml` files no longer include them. If you upgrade a node and these lines are in your `config.toml`, delete them.
 </Warning>
 
-## Network Parameters
+## Network parameters
 
 Understanding network parameters helps you operate your node effectively.
 
-### Chain Parameters
+### Chain parameters
 
 These parameters define the network's behavior:
 
@@ -453,10 +456,10 @@ Oracle Parameters:
 ```
 
 <Info>
-  These values reflect the current on-chain parameters. Query them directly with `seid query staking params` and `seid query slashing params` for the source of truth. Per-validator settings (e.g. commission rate, commission max change rate) are configured per validator and are not chain-level parameters.
+  These values reflect the current on-chain parameters. For the source of truth, query them directly with `seid query staking params` and `seid query slashing params`. Per-validator settings (for example, commission rate and commission max change rate) are configured per validator and are not chain-level parameters.
 </Info>
 
-## File Locations
+## File locations
 
 Understanding the purpose and location of important files helps with maintenance
 and troubleshooting:
@@ -485,9 +488,9 @@ $HOME/.sei/
 ```
 
 <Note>
-  New nodes place the Tendermint consensus databases (blockstore, state, tx_index, evidence, peerstore, and cs.wal) under `data/tendermint/`. Existing nodes that already have these databases in the legacy flat layout directly under `data/` (e.g. `data/blockstore.db`, `data/cs.wal/`) continue using those legacy paths automatically — the legacy location takes precedence when present, so no migration is required.
+  New nodes place the Tendermint consensus databases (blockstore, state, tx_index, evidence, peerstore, and cs.wal) under `data/tendermint/`. Existing nodes with the legacy flat layout keep these databases directly under `data/` (for example, `data/blockstore.db` and `data/cs.wal/`). These nodes continue to use the legacy paths automatically. The legacy location takes precedence when it is present, so no migration is required.
 </Note>
 
-This reference guide provides essential technical information for operating Sei
+This reference guide gives essential technical information for operating Sei
 nodes and validators. For API documentation and other detailed specifications,
-please refer to the respective sections in our documentation set.
+see the relevant sections of this documentation.

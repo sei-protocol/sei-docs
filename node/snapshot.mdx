@@ -4,40 +4,40 @@ sidebarTitle: 'Snapshot Sync'
 description: 'Detailed guide for using snapshots to join the network'
 keywords: ['sei node', 'blockchain node', 'node configuration', 'seidb', 'node maintenance', 'system operations']
 ---
-<Warning>Before you resync a node using snapshots, make sure that in case of a successful resync that you _under no circumstance_ double sign blocks at previous heights with your validator. Failure to do so will cause tombstoning of your validator.</Warning>
+<Warning>Before you resync a node from a snapshot, make sure that your validator cannot double sign. After a successful resync, your validator must _under no circumstance_ double sign blocks at previous heights. If it does, the validator is tombstoned.</Warning>
 
-Follow this guide to join an existing network through **snapshot sync**. To quickly spin up a fresh full node and join the network, it's recommended to restore from a snapshot instead of replaying all historical blocks.
+Use snapshot sync to start a new full node and join an existing network quickly. Snapshot sync restores the node from a snapshot instead of replaying all historical blocks.
 
-## Snapshot Sync
+## Snapshot sync
 
-Snapshot sync allows a new node to join a network by downloading a recent, compressed copy of the entire application state and extracting it directly into the data directory. This reduces the initial sync time from days to minutes.
+Snapshot sync lets a new node join a network with a recent, compressed copy of the entire application state. The node downloads the copy and extracts it directly into the data directory. This reduces the initial sync time from days to minutes.
 
-<Warning>RocksDB support for the SeiDB state store will be removed. No target release has been published. For new or resynced nodes, use a snapshot only after its provider confirms that the state store uses PebbleDB. Keep `ss-backend = "pebbledb"` in `app.toml`. See [Move off RocksDB](/node/node-operators#move-off-rocksdb) if you are replacing an existing RocksDB node.</Warning>
+<Warning>For new or resynced nodes, use a snapshot only after its provider confirms that the state store uses PebbleDB. Keep `ss-backend = "pebbledb"` in `app.toml`. RocksDB support for the SeiDB state store will be removed. No target release has been published. If you are replacing an existing RocksDB node, see [Move off RocksDB](/node/node-operators#move-off-rocksdb).</Warning>
 
 <Danger>Do not restore a pruned snapshot onto an archive node. It does not contain the earlier state-store versions that the archive node must retain. Use only a provider-confirmed full-history PebbleDB archive snapshot, or follow the archive-node guidance in [Move off RocksDB](/node/node-operators#move-off-rocksdb).</Danger>
 
-## Snapshot Providers
+## Snapshot providers
 
-You can select from various providers for downloading snapshots:
+You can download snapshots from these providers:
 
-- Polkachu: [Mainnet Snapshots](https://www.polkachu.com/tendermint_snapshots/sei) | [Testnet Snapshots](https://www.polkachu.com/testnets/sei/snapshots)
+- Polkachu: [Sei Mainnet snapshots](https://www.polkachu.com/tendermint_snapshots/sei) | [Sei Testnet snapshots](https://www.polkachu.com/testnets/sei/snapshots)
 - Imperator.co
 - Stakeme
 - kjnodes
 
 <iframe src="https://seistream.app/labs?page=snapshots" width="100%" height="600" style={{ border: 'none', borderRadius: '8px' }} title="Sei Snapshot Providers" />
 
-Snapshot providers do not consistently label the state-store backend. Ask the
-provider to confirm that the snapshot uses PebbleDB before you restore it. The
+Snapshot providers do not consistently label the state-store backend. Before you
+restore a snapshot, ask the provider to confirm that it uses PebbleDB. The
 post-extraction check below is a second guard against archives that contain an
 obvious RocksDB path. It does not replace provider confirmation because some
 legacy and custom directory names do not identify their backend.
 
-## Clean Up & Preparation
+## Clean up & preparation
 
-If you are **not** starting a node from fresh, perform the following backups and clean‑ups first.
+If the node is **not** new, back up and clean up the existing node first.
 
-<Info>Note: This step is not needed for fresh nodes.</Info>
+<Info>Skip this step on a new node.</Info>
 
 1. **Stop the service**
 
@@ -45,15 +45,15 @@ If you are **not** starting a node from fresh, perform the following backups and
    sudo systemctl stop seid
    ```
 
-2. **Backup Validator State** (Critical for Validators)
-   Assuming your sei home directory is `$HOME/.sei`, back up `priv_validator_key.json` and `priv_validator_state.json`:
+2. **Back up validator state** (critical for validators)
+   If your Sei home directory is `$HOME/.sei`, back up `priv_validator_key.json` and `priv_validator_state.json`:
 
    ```bash
    cp $HOME/.sei/data/priv_validator_state.json $HOME/priv_validator_state.json
    cp $HOME/.sei/config/priv_validator_key.json $HOME/priv_validator_key.json
    ```
 
-3. **Reset the State**
+3. **Reset the state**
 
    ```bash
    seid tendermint unsafe-reset-all --home $HOME/.sei
@@ -67,11 +67,11 @@ If you are **not** starting a node from fresh, perform the following backups and
    ```
 
    If `ss-db-directory` or `evm-ss-db-directory` is not empty, the state store
-   may live outside `$HOME/.sei/data`. Back up anything you need, then move or
+   may live outside `$HOME/.sei/data`. Back up what you need. Then move or
    remove the old state-store data before you restore the snapshot. The generic
-   commands below expect both settings to be empty so the snapshot's default
-   paths are used. Follow your provider's placement instructions if you keep
-   custom paths. Do not reuse a RocksDB directory with
+   commands below expect both settings to be empty so that the snapshot's
+   default paths are used. If you keep custom paths, follow your provider's
+   placement instructions. Do not reuse a RocksDB directory with
    `ss-backend = "pebbledb"`.
 
 5. **Remove data and Wasm**
@@ -80,24 +80,24 @@ If you are **not** starting a node from fresh, perform the following backups and
    rm -rf $HOME/.sei/wasm
    ```
 
-<Warning>All snapshots also include the `wasm` folder. Make sure to copy over the `wasm` folder as well, the node cannot successfully sync without it.</Warning>
+<Warning>Copy the `wasm` folder too. All snapshots include the `wasm` folder, and the node cannot sync successfully without it.</Warning>
 
-## Download & Restore
+## Download & restore
 
-<Info>The following commands are generic examples. Please verify the `SNAPSHOT_URL` and extraction command from your chosen provider above.</Info>
+<Info>These commands are generic examples. Verify the `SNAPSHOT_URL` and the extraction command with the provider that you chose above.</Info>
 
 ### Prerequisites
 
-Ensure you have the necessary tools installed (e.g., `lz4`, `aria2`, `pv`, `wget`).
+Make sure that you have the necessary tools installed (for example, `lz4`, `aria2`, `pv`, and `wget`).
 
 ```bash
 sudo apt update
 sudo apt install curl lz4 wget aria2 pv -y
 ```
 
-### Download and Extract
+### Download and extract
 
-1. **Set the Snapshot URL**
+1. **Set the snapshot URL**
    Replace `<SNAPSHOT_URL>` with the link from your chosen provider.
 
    ```bash
@@ -129,7 +129,7 @@ sudo apt install curl lz4 wget aria2 pv -y
      pv "$SNAPSHOT_FILE" | lz4 -c -d | tar -x -C "$HOME/.sei"
    ```
 
-   <Info>The `-x 16` flag sets the maximum connections per server, and `-s 16` splits the file into 16 segments for parallel downloading. You can adjust these values based on your network conditions.</Info>
+   <Info>The `-x 16` flag sets the maximum connections per server. The `-s 16` flag splits the file into 16 segments for parallel download. You can adjust these values to match your network conditions.</Info>
 
    If extraction fails, remove the partially extracted `data` and `wasm`
    directories before you retry. Do not continue to verification.
@@ -196,7 +196,7 @@ sudo apt install curl lz4 wget aria2 pv -y
    The function returns a nonzero status for `FAIL` and `UNVERIFIED`. Continue
    only if the provider confirmed PebbleDB and the command prints `PASS`. A
    legacy EVM store at `data/evm_ss/` does not identify its backend in the
-   directory name, which is why provider confirmation is still required. If
+   directory name. This is why provider confirmation is still required. If
    you used `aria2c`, remove the downloaded archive after this check passes:
 
    ```bash
@@ -210,7 +210,7 @@ sudo apt install curl lz4 wget aria2 pv -y
    ```
 
 5. **Enable SeiDB and configure PebbleDB**
-   Make sure SeiDB is enabled and the state-store backend is PebbleDB:
+   Make sure that SeiDB is enabled and that the state-store backend is PebbleDB:
 
    ```bash
    sed -i.bak -E "/^\[state-commit\]/,/^\[.*\]/ s|^[#[:space:]]*(sc-enable[[:space:]]*=[[:space:]]*).*$|\1true| ; /^\[state-store\]/,/^\[.*\]/ s|^[#[:space:]]*(ss-enable[[:space:]]*=[[:space:]]*).*$|\1true| ; /^\[state-store\]/,/^\[.*\]/ s|^[#[:space:]]*(ss-backend[[:space:]]*=[[:space:]]*).*$|\1\"pebbledb\"|" $HOME/.sei/config/app.toml
@@ -219,7 +219,7 @@ sudo apt install curl lz4 wget aria2 pv -y
    ```
 
    Confirm that the output includes `ss-backend = "pebbledb"`. If the key is
-   absent, add it directly below `[state-store]` before you restart the node.
+   missing, add it directly below `[state-store]` before you restart the node.
 
 6. **Restart the node**
 
@@ -234,11 +234,11 @@ sudo apt install curl lz4 wget aria2 pv -y
 
 ## Troubleshooting
 
-**Q: I can't download a snapshot.**
-A: Try another time later as these snapshots are refreshed regularly and inform us in the [Sei Tech Chat](https://t.me/+KZdhZ1eE-G01NmZk).
+**Q: I cannot download a snapshot.**
+A: Try again later, because providers refresh these snapshots regularly. Also report the problem in the [Sei Tech Chat](https://t.me/+KZdhZ1eE-G01NmZk).
 
-**Q: The snapshot finishes, but I immediately get `AppHash` errors upon regular block syncing.**
-A: Make sure that you use the latest version of the node software. This usually means the snapshot version doesn't match your node version, or the snapshot is corrupted. Ensure you are using the correct binary version for the block height of the snapshot.
+**Q: The snapshot finishes, but I get `AppHash` errors as soon as regular block sync starts.**
+A: Make sure that you use the latest version of the node software. These errors usually mean that the snapshot version does not match your node version, or that the snapshot is corrupted. Make sure that you use the correct binary version for the block height of the snapshot.
 
 **Q: "No space left on device"**
-A: Snapshots require significant disk space to download and extract. Ensure you have enough free space (check with `df -h`).
+A: Snapshots require significant disk space to download and extract. Make sure that you have enough free space (check with `df -h`).

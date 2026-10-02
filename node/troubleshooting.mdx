@@ -6,16 +6,15 @@ keywords: ['sei node', 'blockchain node', 'node configuration', 'bug', 'troubles
 
 import { RandomPeers } from '/snippets/random-peers.jsx';
 
-Understanding common errors and their solutions helps maintain a healthy node
-operation.
+Knowing common errors and their solutions helps keep your node healthy.
 
-## Common Error Codes
+## Common error codes
 
-Here are the most frequent errors you might encounter and their solutions:
+These are the most frequent errors and their solutions:
 
-### Consensus Errors
+### Consensus errors
 
-When you encounter consensus errors, quick and appropriate action is essential:
+If you get a consensus error, act quickly and appropriately:
 
 ```text
 Error: "Consensus failure - height halted"
@@ -35,7 +34,7 @@ Solution: IMMEDIATELY STOP NODE - potential double signing risk
 Action: Check validator operation on other machines
 ```
 
-### Network Errors
+### Network errors
 
 Network errors can prevent your node from participating in consensus:
 
@@ -55,7 +54,7 @@ Commands:
 - curl localhost:26657/net_info
 ```
 
-### Database Errors
+### Database errors
 
 Database corruption can require immediate attention:
 
@@ -67,9 +66,9 @@ Commands:
   - cp -r backup/data $HOME/.sei/
 ```
 
-### Diagnostic Commands
+### Diagnostic commands
 
-These commands help you investigate issues and monitor your node:
+These commands help you investigate problems and monitor your node:
 
 ```bash
 # Check node synchronization
@@ -85,9 +84,9 @@ journalctl -fu seid -o cat
 top -p $(pgrep seid)
 ```
 
-## AppHash Mismatch Errors
+## AppHash mismatch errors
 
-If you encounter an AppHash mismatch, you'll need to capture the state for comparison with a known good version:
+If you get an AppHash mismatch, capture the state to compare it with a known-good version:
 
 ```bash
 # For SeiDB (all supported nodes):
@@ -99,9 +98,9 @@ seidb dump-iavl -d $HOME/.sei/data/committer.db -o /home/ubuntu/iavl-dump
 systemctl restart seid
 ```
 
-<Note>As with FlatKV, the memIAVL store has two possible locations: nodes created before the layout change keep the legacy `$HOME/.sei/data/committer.db` shown above (it takes precedence when present), while new nodes use `$HOME/.sei/data/state_commit/memiavl`. Point `-d` at whichever exists on your node.</Note>
+<Note>As with FlatKV, the memIAVL store has two possible locations. Nodes created before the layout change keep the legacy `$HOME/.sei/data/committer.db` path shown above (it takes precedence when present). New nodes use `$HOME/.sei/data/state_commit/memiavl`. Point `-d` at whichever path exists on your node.</Note>
 
-On Giga Storage nodes, EVM state lives in a FlatKV store rather than in the memIAVL trees, so an AppHash comparison there requires dumping the FlatKV state as well. Use the `dump-flatkv` command to iterate and dump the physical `(key, value)` pairs into per-bucket files (formatted to match `dump-iavl` so the same diff tooling works on both):
+On Giga Storage nodes, EVM state lives in a FlatKV store instead of the memIAVL trees. An AppHash comparison there also requires a FlatKV state dump. Use the `dump-flatkv` command to iterate and dump the physical `(key, value)` pairs into per-bucket files. The files match the `dump-iavl` format, so the same diff tooling works on both:
 
 ```bash
 # For FlatKV (Giga Storage nodes hold EVM state in FlatKV):
@@ -112,12 +111,12 @@ systemctl restart seid
 
 <Note>Nodes created before the storage layout change keep the FlatKV store at the legacy path `$HOME/.sei/data/flatkv` instead of `$HOME/.sei/data/state_commit/flatkv`. Pass whichever directory exists on your node to `--db-dir`.</Note>
 
-The `dump-flatkv` command accepts the following flags:
+The `dump-flatkv` command accepts these flags:
 
-- `--db-dir` / `-d`: FlatKV database directory.
-- `--output-dir` / `-o`: output directory; one file is written per bucket.
-- `--height`: FlatKV target version; `0` (the default) selects the latest available version.
-- `--bucket` / `-b`: restrict the dump to a single bucket (`account`, `code`, `storage`, or `legacy`). Defaults to all buckets.
+- `--db-dir` (`-d`): The FlatKV database directory.
+- `--output-dir` (`-o`): The output directory, with one file for each bucket.
+- `--height`: The FlatKV target version. The default, `0`, selects the latest available version.
+- `--bucket` (`-b`): Restrict the dump to a single bucket (`account`, `code`, `storage`, or `legacy`). The default is all buckets.
 
 For example, to dump only the `storage` bucket at a specific version:
 
@@ -125,11 +124,11 @@ For example, to dump only the `storage` bucket at a specific version:
 seidb dump-flatkv --db-dir $HOME/.sei/data/state_commit/flatkv --output-dir /home/ubuntu/flatkv-dump --height 12345678 --bucket storage
 ```
 
-### Comparing EVM State Between memIAVL and FlatKV
+### Comparing EVM state between memIAVL and FlatKV
 
-When debugging an AppHash mismatch that involves EVM state, a byte-for-byte physical dump can diverge between backends even when the underlying state is identical. This is because every FlatKV value embeds a per-key block-height stamp (the height the key was last written or migrated), which differs from the memIAVL leaf versions on a freshly migrated node.
+When you debug an AppHash mismatch that involves EVM state, a byte-for-byte physical dump can diverge between backends, even when the underlying state is identical. This happens because every FlatKV value embeds a per-key block-height stamp (the height at which the key was last written or migrated). On a freshly migrated node, this stamp differs from the memIAVL leaf versions.
 
-The `evm-logical-digest` command works around this by computing a backend-independent digest of the EVM *logical* state — it strips the serialization-version and block-height header on both sides and digests only the logical payload (account balance/nonce/code hash, bytecode, and storage words). This lets a memIAVL node and a FlatKV node be compared at the same chain height:
+The `evm-logical-digest` command works around this with a backend-independent digest of the EVM *logical* state. On both sides, it strips the serialization-version and block-height header. Then it digests only the logical payload: account balance, nonce, and code hash, plus bytecode and storage words. With this digest, you can compare a memIAVL node and a FlatKV node at the same chain height:
 
 ```bash
 # FlatKV digest at a height (WAL-replays to it):
@@ -141,9 +140,9 @@ seidb evm-logical-digest --backend memiavl \
     --db-dir $HOME/.sei/data/state_commit/memiavl --height 213200000
 ```
 
-Each run prints per-bucket `bucket_digest` values and a single `FINAL_DIGEST` line covering the `account`, `code`, `storage`, and `legacy` buckets. Compare the `FINAL_DIGEST` lines from both backends at the same height — they should match. Because FlatKV can contain a FlatKV-only migration-version marker that a memIAVL-only node never owns, that row is automatically omitted from the FlatKV final result so the comparison is apples-to-apples.
+Each run prints per-bucket `bucket_digest` values and a single `FINAL_DIGEST` line that covers the `account`, `code`, `storage`, and `legacy` buckets. Compare the `FINAL_DIGEST` lines from both backends at the same height. They should match. FlatKV can contain a FlatKV-only migration-version marker that a memIAVL-only node never owns. The command automatically omits that row from the FlatKV final result, so both results cover the same data.
 
-For targeted debugging, the command also supports inspecting a single normalized bucket instead of printing the global digest. The full flag reference (inspect mode, sharding, `--find-hash`) lives in the [seidb tooling section of the technical reference](/node/technical-reference#comparing-evm-state-across-backends). For example, to list the first 50 `account` rows with version metadata, or to shard the `storage` bucket under a key prefix by the next 2 bytes:
+For targeted debugging, the command can also inspect a single normalized bucket instead of printing the global digest. The [seidb tooling section of the technical reference](/node/technical-reference#comparing-evm-state-across-backends) has the full flag reference, including inspect mode, sharding, and `--find-hash`. These examples list the first 50 `account` rows with version metadata, and shard the `storage` bucket under a key prefix by the next 2 bytes:
 
 ```bash
 seidb evm-logical-digest --backend flatkv -d $HOME/.sei/data/state_commit/flatkv --height 213200000 \
@@ -154,50 +153,50 @@ seidb evm-logical-digest --backend flatkv -d $HOME/.sei/data/state_commit/flatkv
 ```
 
 <Warning>
-**The legacy IAVL backend has been fully removed and SeiDB State Commit (SC) is now mandatory.** SC must be enabled via `sc-enable = true` in the `[state-commit]` section of `app.toml`. If SC is not enabled, the node no longer falls back to IAVL — it panics at startup with:
+**Enable SeiDB State Commit (SC).** Set `sc-enable = true` in the `[state-commit]` section of `app.toml`. The legacy IAVL backend was fully removed, and SC is now mandatory. If SC is not enabled, the node no longer falls back to IAVL. It panics at startup with this error:
 
 ```text
 SeiDB state-commit (SC) must be enabled; IAVL backend has been fully deprecated
 ```
 
-The `seid debug dump-iavl` command has also been removed along with the IAVL backend. To inspect state, use the `seidb dump-iavl` tool shown above.
+The `seid debug dump-iavl` command was also removed with the IAVL backend. To inspect state, use the `seidb dump-iavl` tool shown above.
 </Warning>
 
-Always include the app hash, commit hash, and block height from your logs when reporting issues.
+When you report a problem, always include the app hash, commit hash, and block height from your logs.
 
-### Identifying AppHash Errors
+### Identifying AppHash errors
 
-AppHash errors typically appear in logs as:
+In logs, AppHash errors usually look like this:
 
 ```text
 ERR wrong Block.Header.AppHash. Expected [EXPECTED_HASH], got [ACTUAL_HASH]
 block_id={"hash":"...","parts":{"hash":"...","total":1}} height=[HEIGHT]
 ```
 
-**Common Causes:**
+**Common causes:**
 
-- Using incorrect node version during sync (ensure you're on the latest version)
+- Using an incorrect node version during sync (make sure that you run the latest version)
 - Corrupted or incorrectly applied snapshots
 - Database inconsistencies from improper shutdowns
 - Syncing with outdated or incompatible peers
 
-**Resolution Steps:**
+**Resolution steps:**
 
 1. **Stop the node immediately.**
-2. **Try a node rollback first:**, see [here](/node/troubleshooting#node-rollback)
-3. **If rollback fails, restore from a fresh snapshot:**
+2. **Try a node rollback first.** See [Node rollback](/node/troubleshooting#node-rollback).
+3. **If the rollback fails, restore from a fresh snapshot:**
 
    - Download a recent snapshot from trusted providers (Polkachu, PublicNode)
-   - Ensure you're using the correct node version
-   - Verify peer configurations are up to date
+   - Make sure that you use the correct node version
+   - Verify that peer configurations are up to date
 
-4. **Restart the node and monitor logs for continued errors**
+4. **Restart the node and monitor the logs for continued errors.**
 
-### Peer Connection Issues as AppHash Red Herrings
+### Peer connection issues as AppHash red herrings
 
-**Important Note:** Peer connection failures are often symptoms of underlying AppHash errors, not the root cause.
+**Important:** Peer connection failures are often symptoms of underlying AppHash errors, not the root cause.
 
-When you see extensive peer connection errors like:
+If you see many peer connection errors like these:
 
 ```text
 ERR failed to handshake with peer
@@ -205,33 +204,33 @@ ERR failed to send request for peers
 ERR peer handshake failed endpoint={} err=EOF
 ```
 
-**Don't focus solely on fixing peer connections first.** Instead:
+**Do not focus only on fixing peer connections first.** Instead:
 
 1. **Scan your logs carefully** for AppHash errors that may appear intermittently
 2. **Look for the actual error pattern:**
    ```text
    ERR wrong Block.Header.AppHash. Expected [HASH], got [HASH]
    ```
-3. **Check if your node is stuck** at a specific height despite peer connection attempts
+3. **Check whether your node is stuck** at a specific height despite peer connection attempts
 
-**Why This Happens:**
+**Why this happens:**
 
 - AppHash mismatches prevent proper block validation
-- Node cannot advance to new blocks due to state inconsistency
+- The node cannot advance to new blocks because of a state inconsistency
 - Peers may reject connections from nodes with corrupted state
-- Network appears to be the problem when it's actually a local state issue
+- The network appears to be the problem, but the cause is a local state issue
 
-**Debugging Approach:**
+**Debugging approach:**
 
 1. **First, check for AppHash errors** in your logs (search for "wrong Block.Header.AppHash")
-2. **If AppHash errors are found**, treat this as the primary issue
-3. **Only focus on peer connection fixes** if no AppHash errors exist
+2. **If you find AppHash errors**, treat them as the primary issue
+3. **Focus on peer connection fixes** only if no AppHash errors exist
 
-This approach can save hours of debugging time by addressing the root cause rather than symptoms.
+This approach targets the root cause, not the symptoms, and can save hours of debugging time.
 
-### Peer Connection and Handshake Issues
+### Peer connection and handshake issues
 
-**Identifying Peer Issues:**
+**Identifying peer issues:**
 
 Look for these error patterns in your logs:
 
@@ -241,14 +240,14 @@ ERR failed to send request for peers err="no available peers to send a PEX reque
 ERR peer handshake failed endpoint={} err=EOF module=p2p
 ```
 
-**Common Causes:**
+**Common causes:**
 
 - Outdated peer configurations with mismatched node IDs
-- Network infrastructure changes on peer side
-- Firewall blocking connections on port 26656
+- Network infrastructure changes on the peer side
+- A firewall that blocks connections on port 26656
 - DNS resolution issues
 
-**Resolution Steps:**
+**Resolution steps:**
 
 1. **Update peer configurations** with current node IDs:
 
@@ -264,15 +263,15 @@ ERR peer handshake failed endpoint={} err=EOF module=p2p
    netstat -tulpn | grep :26656
    ```
 
-3. **Check current peer status:**
+3. **Check the current peer status:**
    ```bash
    curl http://localhost:26657/net_info | jq '.result.peers | length'
    curl http://localhost:26657/lag_status | jq .
    ```
 
-### Sync Performance Issues
+### Sync performance issues
 
-**Identifying Sync Problems:**
+**Identifying sync problems:**
 
 Monitor these indicators:
 
@@ -284,16 +283,16 @@ curl http://localhost:26657/lag_status | jq .
 curl http://localhost:26657/status | jq '.result.sync_info'
 ```
 
-**Common Solutions:**
+**Common solutions:**
 
-1. **Increase packet payload size** for large block processing:
+1. **Increase the packet payload size** for large block processing:
 
    ```toml
    # In config.toml [p2p] section
    max-packet-msg-payload-size = 1024000  # Increase from default 102400
    ```
 
-2. **Optimize mempool settings** in `config.toml`:
+2. **Optimize the mempool settings** in `config.toml`:
 
    ```toml
    # In [mempool] section
@@ -302,27 +301,26 @@ curl http://localhost:26657/status | jq '.result.sync_info'
    ttl-num-blocks = 5
    ```
 
-3. **If node gets stuck at specific height:**
+3. **If the node gets stuck at a specific height:**
    - Try restarting the node
-   - If restart doesn't help, perform rollback
+   - If that does not help, perform a rollback
    - Consider taking a fresh snapshot
 
-**Warning Signs to Watch For:**
+**Warning signs to watch for:**
 
-- Current height not increasing over time
-- Increasing lag between current height and max peer height
-- Repeated timeout errors in logs
-- Mempool size consistently reaching limits
+- The current height does not increase over time
+- Increasing lag between the current height and the max peer height
+- Repeated timeout errors in the logs
+- Mempool size that consistently reaches its limits
 
-## Crash and Panic Debugging
+## Crash and panic debugging
 
 For crashes, panics, or nil pointer exceptions:
 
-- Capture at least 1,000 lines of logs leading up to the crash
-- Or collect 15 minutes of log data, whichever provides more context
-- Include the full stack trace if available
+- Capture at least 1,000 lines of logs before the crash or 15 minutes of log data, whichever gives more context
+- Include the full stack trace, if it is available
 
-### Logging Configuration
+### Logging configuration
 
 Proper logging configuration is essential for debugging and monitoring:
 
@@ -335,7 +333,7 @@ log_level = "debug"  # Use "trace" for maximum detail
 log_format = "json"  # Use "plain" for human-readable logs
 ```
 
-Configure log rotation to manage storage effectively:
+Configure log rotation to manage storage:
 
 ```bash
 # Example logrotate configuration
@@ -365,49 +363,49 @@ ulimit -c unlimited
 echo "/tmp/core.%e.%p" > /proc/sys/kernel/core_pattern
 ```
 
-## Other common Issues and Fixes
+## Other common issues and fixes
 
-1. **Sync Problems**
+1. **Sync problems**
 
    - Check available disk space (`df -h`)
-   - Ensure proper peer connections (`curl http://localhost:26657/net_info`)
-   - Verify firewall settings (port 26656 open)
+   - Make sure that peer connections work (`curl http://localhost:26657/net_info`)
+   - Check that the firewall allows port 26656
 
-2. **Performance Issues**
+2. **Performance issues**
 
    - Monitor system resources (`htop` or `iotop`)
    - Check disk I/O performance (`iostat`)
    - Analyze network traffic (`iftop`)
 
-3. **Database Issues**
+3. **Database issues**
 
-   - Run database integrity checks using:
+   - Run database integrity checks:
 
      ```bash
      seid debug dump-db | grep -i error
      ```
 
-     If errors are detected, consider restoring from a recent backup.
+     If you find errors, consider restoring from a recent backup.
 
-   - Consider pruning excessive historical data by adjusting `ss-keep-recent` in
+   - To prune excessive historical data, consider adjusting `ss-keep-recent` in
      `app.toml` or running:
 
      ```bash
      seid tendermint unsafe-reset-all --home $HOME/.sei --keep-addr-book
      ```
 
-     Alternatively, manually remove old state snapshots to free up space:
+     Alternatively, remove old state snapshots manually to free disk space:
 
      ```bash
      rm -rf $HOME/.sei/data/snapshots/*
      ```
 
-## Node Rollback
+## Node rollback
 
-To rollback a node from an AppHashed state, you need to stop the node first.
-Do this in your preferred way.
+To roll back a node from an AppHash mismatch, first stop the node in your
+preferred way.
 
-Next, do a rollback with:
+Next, roll back the node:
 
 ```bash
 seid rollback
@@ -415,12 +413,12 @@ seid rollback
 
 Then, restart the node.
 
-In case you see the following error while trying to rollback:
+If you see this error when you try to roll back:
 
 ```bash
 failed to initialize database: resource temporarily unavailable
 ```
 
-This means that you did not shutdown the node properly. Try to shutdown or kill the `seid` process directly in that case. If this doesn't help, restart your machine.
+This means that you did not shut down the node properly. In that case, try to shut down or kill the `seid` process directly. If this does not help, restart your machine.
 
 Then try the rollback steps again.

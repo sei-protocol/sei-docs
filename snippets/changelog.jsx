@@ -263,7 +263,7 @@ sei-tendermint
 * [#167](https://github.com/sei-protocol/sei-tendermint/pull/167) Perf: Increase buffer size for pubsub server to boost performance
 * [#164](https://github.com/sei-protocol/sei-tendermint/pull/164) Add regex support to query syntax
 * [#163](https://github.com/sei-protocol/sei-tendermint/pull/163) Reduce noisy tendermint logs
-* [#162](https://github.com/sei-protocol/sei-tendermint/pull/162) Use peermanager scores for blocksync peers and don't error out on block mismatch`
+* [#162](https://github.com/sei-protocol/sei-tendermint/pull/162) Use peermanager scores for blocksync peers and do not error out on block mismatch`
     },
     {
       version: 'v3.3.0',
@@ -281,7 +281,7 @@ sei-cosmos
 sei-tendermint
 * [#158](https://github.com/sei-protocol/sei-tendermint/pull/158) Add metrics for peermanager scores
 * [#157](https://github.com/sei-protocol/sei-tendermint/pull/157) Fix findNewPrimary never timing out upon encountering poor witnesses
-* [#156](https://github.com/sei-protocol/sei-tendermint/pull/156) Remove bad witness and don't block on all witnesses for ConsensusParams`
+* [#156](https://github.com/sei-protocol/sei-tendermint/pull/156) Remove bad witness and do not block on all witnesses for ConsensusParams`
     },
     {
       version: 'v3.1.1',
@@ -366,7 +366,7 @@ sei-tendermint
     {
       version: '3.0.1',
       body: `sei-chain
-* [#797](https://github.com/sei-protocol/sei-chain/pull/797) Don't charge gas for loading contract dependencies
+* [#797](https://github.com/sei-protocol/sei-chain/pull/797) Do not charge gas for loading contract dependencies
 * [#792](https://github.com/sei-protocol/sei-chain/pull/792) Reset block gas meter if concurrent processing fails
 * [#791](https://github.com/sei-protocol/sei-chain/pull/791) Disable skipFastStorageUpgrade to make iavl dump faster
 * [#790](https://github.com/sei-protocol/sei-chain/pull/790) Disable non-prioritized tx concurrency
@@ -462,7 +462,7 @@ sei-cosmos
 
 sei-tendermint
 * [#110](https://github.com/sei-protocol/sei-tendermint/pull/110) Add more granular buckets for block interval
-* [#111](https://github.com/sei-protocol/sei-tendermint/pull/111) Add unused prival pubKey back to node info - fix for IBC on full nodes
+* [#111](https://github.com/sei-protocol/sei-tendermint/pull/111) Add unused prival pubKey back to node info (fix for IBC on full nodes)
 * [#113](https://github.com/sei-protocol/sei-tendermint/pull/113) Add metrics label for missing val power`
     },
     {
@@ -483,7 +483,7 @@ sei-tendermint
 * [#654](https://github.com/sei-protocol/sei-chain/pull/654) Improve endblock performance and fix trace
 
 sei-cosmos
-* improvements around monitoring for sei-cosmos, dont enforce gas limit on deliverTx, refactor slashing module
+* improvements around monitoring for sei-cosmos, do not enforce gas limit on deliverTx, refactor slashing module
 
 sei-tendermint
 * [#95](https://github.com/sei-protocol/sei-tendermint/pull/95) Patch forging empty merkle tree attack vector, set default max gas param to 6mil, log tunning for p2p`

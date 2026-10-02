@@ -5,58 +5,57 @@ description: 'Migrate a Sei RPC node to Giga SS Store: split EVM state into a de
 keywords: ['sei node', 'giga storage', 'seidb', 'state sync', 'evm ss', 'flatkv', 'rpc node', 'pebbledb', 'rocksdb']
 ---
 
-Giga SS Store is the next step in Sei's storage evolution on top of [SeiDB](/node/node-operators#architecture).
-It splits the hot EVM state into its own dedicated state-store (SS) database
-so the node can scale toward the **~150k TPS** target throughput, and so
-non-EVM modules stop paying write amplification for EVM state.
+Giga SS Store is the next step in Sei's storage evolution, built on [SeiDB](/node/node-operators#architecture).
+It splits the hot EVM state into a dedicated state-store (SS) database.
+The node can then scale toward the target throughput of approximately 150k TPS,
+and non-EVM modules stop paying write amplification for EVM state.
 
-After migration the SS layer is repartitioned into two cooperating stores:
+After the migration, the SS layer is repartitioned into two cooperating stores:
 
 | Layer | Cosmos backend | EVM backend |
 |---|---|---|
 | **SC** (State Commit, app hash) | `memiavl` | FlatKV |
 | **SS** (State Store, historical queries) | single PebbleDB MVCC database | dedicated EVM SS MVCC databases in the configured EVM SS directory |
 
-Only the **SS** layer changes for this migration. SC layer config is untouched
-and `memiavl` remains the authoritative source for the app hash, so this is
+This migration changes only the **SS** layer. The SC layer config stays the same,
+and `memiavl` remains the authoritative source for the app hash, so the change is
 invisible to the network.
 
-<Info>This guide tracks the canonical procedure in [`docs/migration/giga_store_migration.md`](https://github.com/sei-protocol/sei-chain/blob/main/docs/migration/giga_store_migration.md) inside `sei-chain`. Open an issue there if anything here drifts.</Info>
+<Info>This guide follows the canonical procedure in the `sei-chain` repository: [`docs/migration/giga_store_migration.md`](https://github.com/sei-protocol/sei-chain/blob/main/docs/migration/giga_store_migration.md). If anything here drifts, open an issue there.</Info>
 
 ## Prerequisites
 
-<Warning>This migration is supported on **RPC nodes only**. Validator nodes and archive nodes are not supported by this flow yet — do not run it against either.</Warning>
+<Warning>Run this migration on **RPC nodes only**. This flow does not support validator nodes or archive nodes yet, so do not run it against either.</Warning>
 
-- A `seid` build with the `evm-ss-split` flag wired in (Sei v6.5 or later). Older
-  releases used per-key `evm-ss-write-mode` / `evm-ss-read-mode` toggles; if your
-  `app.toml` still has those keys, upgrade `seid` before continuing.
+- A `seid` build that supports the `evm-ss-split` flag (Sei v6.5 or later). Older
+  releases used the per-key `evm-ss-write-mode` and `evm-ss-read-mode` toggles. If your
+  `app.toml` still has those keys, upgrade `seid` before you continue.
 - `sc-enable = true` and `ss-enable = true` in `app.toml`. Both must stay enabled.
-- A trusted RPC endpoint to state-sync from (chain ID and trust-height source).
+- A trusted RPC endpoint for state sync (the chain ID and trust-height source).
 - Disk headroom for two SS databases. The EVM split does not duplicate data, but
-  during migration both the old and the new layouts may briefly coexist on disk.
+  the old and new layouts may briefly coexist on disk during the migration.
 
 The migration **requires a full state sync**. There is no in-place migration
-path and no live "dual-write then split" workflow — the state sync wipes the
+path and no live "dual-write then split" workflow. The state sync wipes the
 local data directory and imports a fresh snapshot into the new layout.
 
 ## Benefits
 
-- EVM reads are served exclusively from a dedicated EVM SS database.
+- The node serves EVM reads only from a dedicated EVM SS database.
 - Non-EVM modules no longer pay write amplification for EVM state.
 
 ## What's different about EVM SS
 
-EVM SS is **point-query only by design** (`Get` / `Has`). Iteration is
-explicitly disabled on the EVM backend for performance: the hot EVM read path
-is tuned for direct key lookups, and cross-bucket scans would defeat the
-per-type sub-DB layout. Any EVM read that needs iteration must stay on the
-Cosmos SS side.
+EVM SS is **point-query only by design** (`Get` and `Has`). For performance,
+iteration is explicitly disabled on the EVM backend. The hot EVM read path is
+tuned for direct key lookups, and cross-bucket scans would defeat the per-type
+sub-DB layout. Any EVM read that needs iteration must stay on the Cosmos SS side.
 
-## Migration Steps
+## Migration steps
 
 ### Step 1: Update `app.toml`
 
-Apply the following settings in `~/.sei/config/app.toml`:
+Apply these settings in `~/.sei/config/app.toml`:
 
 ```toml copy
 [state-commit]
@@ -84,16 +83,16 @@ Giga SS Store is fully compatible with the existing state-snapshot format. On
 import, the composite state store routes each snapshot node based on the
 importing node's `evm-ss-split`:
 
-- With `evm-ss-split = true`, EVM snapshot nodes go only into EVM SS and
+- With `evm-ss-split = true`, EVM snapshot nodes go only into EVM SS, and
   non-EVM nodes go only into Cosmos SS.
-- The import path normalizes legacy `evm_flatkv` snapshot nodes to `evm`, so
-  snapshots produced by either the old or new FlatKV module are accepted.
+- The import path normalizes legacy `evm_flatkv` snapshot nodes to `evm`, so it
+  accepts snapshots from either the old or the new FlatKV module.
 
-Both stores end up fully populated at the snapshot height, so the node can
-start serving reads immediately.
+Both stores are then fully populated at the snapshot height, so the node can
+serve reads immediately.
 
-The full state-sync flow is documented in the
-[Statesync guide](/node/statesync). The minimal shape for this migration:
+The [state sync guide](/node/statesync) documents the full flow. The minimal
+flow for this migration is:
 
 ```bash copy
 export TRUST_HEIGHT_DELTA=10000
@@ -130,12 +129,12 @@ cp /tmp/genesis.json              $SEID_HOME/config/genesis.json
 sudo systemctl restart seid
 ```
 
-<Warning>Make sure `priv_validator_key.json` is in safe storage before deleting it from the config directory. Loss of this key is unrecoverable for a validator and is not relevant to RPC-only nodes — but if you're following this from the wrong checklist you'll find out the hard way.</Warning>
+<Warning>Make sure `priv_validator_key.json` is in safe storage before you delete it from the config directory. The loss of this key is unrecoverable for a validator but does not matter for RPC-only nodes. If you follow these steps from the wrong checklist, you can lose a validator key permanently.</Warning>
 
 ### Step 3: Verify the new layout
 
-Once the state sync completes and the node starts producing blocks, confirm
-Giga SS Store is active in two places.
+After the state sync completes and the node starts producing blocks, confirm
+that Giga SS Store is active in two places.
 
 **Startup logs.** All three lines should appear:
 
@@ -145,8 +144,8 @@ Giga SS Store is active in two places.
 "EVM state store enabled"                   # with `dir` and `separateDBs` labels
 ```
 
-**EVM RPC.** `debug_traceBlockByNumber` is the cleanest end-to-end check —
-it forces the node to read EVM state out of the new EVM SS backend:
+**EVM RPC.** `debug_traceBlockByNumber` is the cleanest end-to-end check.
+It forces the node to read EVM state from the new EVM SS backend:
 
 ```bash copy
 curl -s -X POST http://127.0.0.1:8545 \
@@ -154,32 +153,32 @@ curl -s -X POST http://127.0.0.1:8545 \
   --data '{"jsonrpc":"2.0","method":"debug_traceBlockByNumber","params":["latest",{}],"id":1}'
 ```
 
-The response should contain a `"result"` field rather than an RPC error.
+The response should contain a `"result"` field, not an RPC error.
 
 ## Safety checks
 
-`seid` runs three DB-state checks at startup and refuses to launch if the EVM
-SS and Cosmos SS DBs are inconsistent. They specifically catch the footgun of
-flipping `evm-ss-split` from `false` to `true` without state syncing.
+`seid` runs three DB-state checks at startup and refuses to start if the EVM SS
+and Cosmos SS DBs are inconsistent. They specifically catch the mistake of
+flipping `evm-ss-split` from `false` to `true` without a state sync.
 
-1. **EVM SS directory missing or empty** (before the EVM SS is opened). When
-   `evm-ss-split = true`, the composite state store refuses to proceed if
-   Cosmos SS already has committed history but the configured EVM SS directory
-   does not exist or is empty. Failing before the sub-DBs are opened means a
-   rejected config does not leave a confusing empty directory behind.
-2. **EVM SS DB empty post-open, pre-recovery.** Belt-and-suspenders for (1)
-   when the directory exists but its DBs are empty. The WAL only covers the
-   last `KeepRecent` blocks, so replay cannot rebuild a fresh EVM SS from
-   scratch.
+1. **EVM SS directory missing or empty** (before the EVM SS is opened). This
+   check applies when `evm-ss-split = true`. If Cosmos SS already has committed
+   history but the configured EVM SS directory is missing or empty, the
+   composite state store refuses to proceed. The check fails before the sub-DBs
+   are opened, so a rejected config does not leave a confusing empty directory
+   behind.
+2. **EVM SS DB empty post-open, pre-recovery.** This second safeguard for check 1
+   covers the case where the directory exists but its DBs are empty. The WAL
+   covers only the last `KeepRecent` blocks, so replay cannot rebuild a fresh
+   EVM SS from scratch.
 3. **Mismatched earliest versions, post-recovery.** If the two DBs were
    populated from different snapshots (or pruned independently), historical
    reads would be inconsistent. A non-zero earliest-version divergence
    aborts startup.
 
-If any check fires, the correct fix is either (a) complete the state sync
-described above, or (b) set `evm-ss-split = false` and restart. If
-the configured EVM SS directory is stale from a failed attempt, remove it
-before state syncing.
+If any check fails, the correct fix is to either (a) complete the state sync
+described above or (b) set `evm-ss-split = false` and restart. If the configured
+EVM SS directory is stale from a failed attempt, remove it before the state sync.
 
 ## Rollback
 
@@ -189,80 +188,84 @@ To roll back:
 2. Restart the node. The EVM SS DB is no longer opened but stays on disk until
    you remove it.
 
-To fully reclaim the disk used by EVM SS, stop the node and delete
-the configured EVM SS directory after reverting the setting.
+To fully reclaim the disk used by EVM SS, revert the setting first. Then stop
+the node and delete the configured EVM SS directory.
 
-<Warning>Cleanly rolling back to `evm-ss-split = false` requires another state sync. Under `evm-ss-split = true`, EVM writes go only to the EVM SS DB, so Cosmos SS will not have those writes. Restarting with `evm-ss-split = false` stops opening the EVM SS DB, but EVM-state queries will miss anything written after the Giga state sync until you re-state-sync without the split.</Warning>
+<Warning>To roll back cleanly to `evm-ss-split = false`, run another state sync. Under `evm-ss-split = true`, EVM writes go only to the EVM SS DB, so Cosmos SS does not have those writes. If you restart with `evm-ss-split = false`, the node stops opening the EVM SS DB. However, EVM-state queries miss anything written after the Giga state sync until you run state sync again without the split.</Warning>
 
 ## FlatKV EVM SC migration flow
 
 Everything above concerns the **SS** (State Store) layer. The **SC** (State
-Commit) layer has its own, separate migration path that moves the hot `evm/`
-data out of `memiavl` and into FlatKV in place, without a state sync. It is
-driven entirely by `app.toml`'s `sc-write-mode` and is coordinated across a
-quorum by stopping the nodes, editing config, and restarting.
+Commit) layer has a separate migration path. It moves the hot `evm/` data out
+of `memiavl` and into FlatKV in place, without a state sync. The `sc-write-mode`
+setting in `app.toml` drives this path entirely. You coordinate it across a
+quorum by stopping the nodes, editing the config, and restarting them.
 
 Unlike the SS split, the SC-side migration **does change how `evm/` data
-contributes to the app hash** (memiavl IAVL root before the migration; FlatKV
-lattice hash after). Because of that, every validator in a quorum must flip at
-the same coordinated stop — a node flipped while its peers are still on the old
-mode will produce a different AppHash on the very next block and consensus will
-halt. The safe sequence is always: stop everyone, rewrite `app.toml`
-everywhere, restart everyone.
+contributes to the app hash**. The contribution moves from the memiavl IAVL root
+to the FlatKV lattice hash. Because of this, every validator in a quorum must
+flip at the same coordinated stop. If a node flips while its peers are still on
+the old mode, it produces a different AppHash on the next block, and consensus
+halts. The safe sequence is always: stop every node, rewrite `app.toml`
+everywhere, and restart every node.
 
-<Warning>This SC-side FlatKV EVM migration flow is exercised by the cluster/devnet integration harness. Do not run it against testnet/mainnet nodes unless the release notes for your version explicitly call it out as supported.</Warning>
+<Warning>Do not run this SC-side flow against Sei Testnet or Sei Mainnet nodes unless your version's release notes explicitly list it as supported. The cluster and devnet integration harness tests this FlatKV EVM migration flow.</Warning>
 
 ### Write modes
 
-The migration is a transition from the `memiavl_only` write mode (v0, where
-memiavl is the sole SC backend and FlatKV is not allocated) to `migrate_evm`
-(the in-flight mode that drains `evm/` keys from memiavl into FlatKV). Once the
-migration completes, operators flip `sc-write-mode` again to `evm_migrated` so
-subsequent restarts don't spin up the migration manager.
+The migration is a transition from the `memiavl_only` write mode to
+`migrate_evm`. In `memiavl_only` (v0), memiavl is the sole SC backend and FlatKV
+is not allocated. The in-flight mode, `migrate_evm`, drains `evm/` keys from
+memiavl into FlatKV. After the migration completes, flip `sc-write-mode`
+again to `evm_migrated`, so that later restarts do not start the migration
+manager.
 
-`evm_migrated` is not the last stop. Three further modes sit between it and
-the terminal mode: `migrate_all_but_bank` (drains every remaining module
-except `bank/` from memiavl into FlatKV), `all_migrated_but_bank` (the steady
-state once that drain completes), and `migrate_bank` (drains the final
-`bank/` module).
+`evm_migrated` is not the last mode. Three more modes sit between it and the
+terminal mode:
 
-`flatkv_only` is the fully-supported **terminal** steady-state write mode:
-FlatKV is the sole SC backend and `memiavl` is not allocated at all. In this
-mode every module's SC state is served from FlatKV, and state-sync snapshot
-export/restore plus app-hash parity work correctly, so a node can boot directly
-into the post-migration shape without ever running the migration manager.
-`flatkv_only` is only valid for a node whose modules have all been drained out
-of memiavl — it is not a flip target for an `evm_migrated` node, which still
+- `migrate_all_but_bank` drains every remaining module except `bank/` from
+  memiavl into FlatKV.
+- `all_migrated_but_bank` is the steady state after that drain completes.
+- `migrate_bank` drains the final `bank/` module.
+
+`flatkv_only` is the fully supported **terminal** steady-state write mode.
+FlatKV is the sole SC backend, and `memiavl` is not allocated at all. FlatKV
+serves the SC state of every module. State-sync snapshot export and restore
+work correctly in this mode, and so does app-hash parity. A node can therefore
+boot or state sync directly into the post-migration shape, without ever running
+the migration manager. Such a node uses `flatkv_only`.
+
+`flatkv_only` is valid only for a node whose modules have all been drained out
+of memiavl. It is not a flip target for an `evm_migrated` node, which still
 holds `bank/` and every other non-EVM module in memiavl. It becomes the valid
-flip target once `migrate_bank` reports complete on the node (migration
-version 3, all modules in FlatKV): restart with `sc-write-mode = "flatkv_only"`
-to reach the terminal steady state. It is also the mode for a node that boots
-or state-syncs directly into the post-migration shape without ever running the
-migration manager.
+flip target after `migrate_bank` reports complete on the node (migration
+version 3, all modules in FlatKV). Then restart with
+`sc-write-mode = "flatkv_only"` to reach the terminal steady state.
 
-<Note>A correctness bug in the WAL replay path — where empty (zero-length)
-values written with no delete flag were dropped on replay (catchup, read-only
-clone, snapshot export, and state-sync restore), diverging the FlatKV state and
-the consensus AppHash from the live chain — is fixed. Empty-value writes are now
-preserved across a WAL round-trip and state-sync, which is what makes
-`flatkv_only` state-sync reliable.</Note>
+<Note>A correctness bug in the WAL replay path is fixed. On replay (catchup,
+read-only clone, snapshot export, and state-sync restore), the bug dropped empty
+(zero-length) values written with no delete flag. This made the FlatKV state and
+the consensus AppHash diverge from the live chain. Empty-value writes are now
+preserved across a WAL round-trip and a state sync, which makes `flatkv_only`
+state sync reliable.</Note>
 
-While in a migration mode:
+While a node is in a migration mode:
 
-- Caller reads of not-yet-migrated keys fall back to FlatKV for brand-new keys
-  written after the migration started, and to memiavl otherwise.
-- Iteration is served by a merging iterator over both backends (memiavl
-  queried first, FlatKV winning on ties), so range scans see the complete key
-  set during a migration.
+- Caller reads of not-yet-migrated keys fall back to FlatKV for new keys written
+  after the migration started, and to memiavl otherwise.
+- A merging iterator over both backends serves iteration. It queries memiavl
+  first, and FlatKV wins on ties, so range scans see the complete key set during
+  a migration.
 - The migration boundary advances at most once per block.
 
 ### Operator-facing knobs
 
 **`sc-keys-to-migrate-per-block`** (`app.toml`, `[state-commit]` section)
 controls how many EVM keys the in-flight migration drains from memiavl into
-FlatKV per block. It defaults to `1024`, which is appropriate for production
-drains. Lowering it spreads the migration across more blocks. It must be `> 0`,
-and it is ignored entirely when `sc-write-mode` is not a migration mode.
+FlatKV per block. The default is `1024`, which is appropriate for production
+drains. A lower value spreads the migration across more blocks. The value must
+be `> 0`. The node ignores it entirely when `sc-write-mode` is not a migration
+mode.
 
 ```toml copy
 [state-commit]
@@ -270,11 +273,11 @@ sc-write-mode = "migrate_evm"
 sc-keys-to-migrate-per-block = 1024
 ```
 
-**`GIGA_MIGRATE_FROM_MEMIAVL`** is a cluster/docker environment variable used by
-the local devnet setup. When set to `true` it boots every node in
-`memiavl_only` mode — the v0 starting point for the FlatKV EVM migrate flow. It
-is mutually exclusive with `GIGA_STORAGE`; if both are set,
-`GIGA_MIGRATE_FROM_MEMIAVL` takes precedence.
+**`GIGA_MIGRATE_FROM_MEMIAVL`** is a Docker cluster environment variable for the
+local devnet setup. When set to `true`, it boots every node in `memiavl_only`
+mode, the v0 starting point for the FlatKV EVM migrate flow. It is mutually
+exclusive with `GIGA_STORAGE`. If both are set, `GIGA_MIGRATE_FROM_MEMIAVL`
+takes precedence.
 
 ```bash copy
 GIGA_MIGRATE_FROM_MEMIAVL=true make docker-cluster-start
@@ -284,30 +287,30 @@ GIGA_MIGRATE_FROM_MEMIAVL=true make docker-cluster-start
 
 The `seidb migrate-evm-status` subcommand reports the on-disk FlatKV EVM
 migrate state of a FlatKV directory as JSON. It clones the latest snapshot and
-WAL into a temp dir before reading, so it can be run against a live node's data
-directory without contending for the FlatKV writer lock.
+WAL into a temporary directory before it reads. You can therefore run it against
+a live node's data directory without contending for the FlatKV writer lock.
 
 ```bash copy
 seidb migrate-evm-status --db-dir <flatkv-dir> [--height <n>]
 # Full flag and JSON-field reference: /node/technical-reference (seidb Tooling Commands)
 ```
 
-`--db-dir` (short `-d`) points at the FlatKV data directory; `--height` selects
-a target version (`0`, the default, selects the latest available version). The
-emitted JSON includes `migrate_evm_complete` (true once the migration finishes),
+`--db-dir` (short `-d`) points at the FlatKV data directory. `--height` selects
+a target version. The default, `0`, selects the latest available version. The
+emitted JSON includes `migrate_evm_complete` (true after the migration finishes),
 `migration_version`, `version_at`, and whether an in-flight boundary is still
-present. Poll it until `migrate_evm_complete` reports `true` on every validator
-before flipping `sc-write-mode` to `evm_migrated`.
+present. Before you flip `sc-write-mode` to `evm_migrated`, poll the command
+until `migrate_evm_complete` reports `true` on every validator.
 
 When the migration finishes, each node also emits a `migration complete` summary
-log line and a set of `seidb_migration_*` OpenTelemetry counters covering keys
-and bytes migrated.
+log line and `seidb_migration_*` OpenTelemetry counters for the migrated keys
+and bytes.
 
-### Importing EVM State from memIAVL into FlatKV
+### Importing EVM state from memIAVL into FlatKV
 
-The `seidb import-flatkv-from-memiavl` command populates a FlatKV store from an existing memIAVL tree, for nodes moving to the FlatKV EVM commit store without a state sync. Two safety properties matter:
+The `seidb import-flatkv-from-memiavl` command populates a FlatKV store from an existing memIAVL tree. It is for nodes that move to the FlatKV EVM commit store without a state sync. Two safety properties matter:
 
-- The import height must equal the memIAVL latest version. The command refuses to import at a lower height (the composite store's version reconciliation would silently roll memIAVL back and truncate blocks) and refuses a higher one. Check the current version first with `seidb memiavl-latest-version`, and roll memIAVL back to the target height before importing if needed.
+- The import height must equal the latest memIAVL version. The command refuses a lower height, because the composite store's version reconciliation would silently roll memIAVL back and truncate blocks. It also refuses a higher height. First, check the current version with `seidb memiavl-latest-version`. If needed, roll memIAVL back to the target height before you import.
 - Overwriting existing committed FlatKV data requires the explicit `--force` flag.
 
 ## FAQ
@@ -318,12 +321,12 @@ The `seidb import-flatkv-from-memiavl` command populates a FlatKV store from an 
   `data/state_store/cosmos/pebbledb/` in the current layout.
 - EVM SS data uses `data/evm_ss/` in the legacy layout and
   `data/state_store/evm/pebbledb/` in the current layout.
-- Nodes created before the layout change keep their legacy paths automatically
-  (a legacy directory takes precedence when present); new nodes use the
+- Nodes created before the layout change keep their legacy paths automatically.
+  A legacy directory takes precedence when it is present. New nodes use the
   current layout.
 - A non-empty `ss-db-directory` or `evm-ss-db-directory` overrides the
   corresponding default path.
-- SC data (`memiavl` + FlatKV) is untouched by this migration.
+- This migration does not change SC data (`memiavl` and FlatKV).
 
 ### Does Giga SS Store change the app hash or consensus?
 
@@ -341,31 +344,31 @@ Not yet. Archive-node migration is out of scope for this guide.
 
 ### Can I toggle back to `evm-ss-split = false` after enabling it?
 
-Yes, but cleanly rolling back requires another state sync — see the
+Yes, but a clean rollback requires another state sync. See the
 [Rollback](#rollback) section above.
 
 ### Why can't I just flip `evm-ss-split = true` on a running node?
 
-Because `evm-ss-split = true` requires the EVM SS DB to already contain the
-full history that Cosmos SS has. A live flip would leave the EVM SS DB empty
-while the composite store refuses to fall back to Cosmos SS, which would
-translate into missing EVM state at query time. The safety checks above
-block this scenario at startup.
+The `evm-ss-split = true` setting requires the EVM SS DB to already contain the
+full history that Cosmos SS has. A live flip would leave the EVM SS DB empty,
+and the composite store refuses to fall back to Cosmos SS. The result would be
+missing EVM state at query time. The safety checks above block this scenario at
+startup.
 
 ### Does Giga SS Store support historical proofs?
 
-No, same as SeiDB. SS stores raw KVs and does not reconstruct IAVL-style
-proofs.
+No, and neither does SeiDB. SS stores raw KVs and does not reconstruct
+IAVL-style proofs.
 
 ### Does enabling Giga Storage change the receipt backend?
 
 In the `localnode` and `rpcnode` configuration scripts, setting
 `GIGA_STORAGE=true` defaults `RECEIPT_BACKEND` to `pebble` unless you set
-`RECEIPT_BACKEND` explicitly. To use a different value while running with Giga
-Storage, provide an explicit `RECEIPT_BACKEND` env var, which takes precedence
-over the default.
+`RECEIPT_BACKEND` explicitly. To use a different value with Giga Storage, set the
+`RECEIPT_BACKEND` environment variable explicitly. The explicit value takes
+precedence over the default.
 
-`pebbledb` (aka `pebble`) is now the only supported receipt-store backend. The
-former `parquet` option has been removed: setting `RECEIPT_BACKEND=parquet` (or
-`rs-backend = "parquet"` in `app.toml`) is rejected with an error
+`pebbledb` (also called `pebble`) is now the only supported receipt-store
+backend. The former `parquet` option was removed. A `RECEIPT_BACKEND=parquet`
+setting (or `rs-backend = "parquet"` in `app.toml`) is rejected with an error
 (`unsupported receipt-store backend "parquet"; supported: pebbledb`).

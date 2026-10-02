@@ -3,16 +3,16 @@ title: 'WebSocket Connections'
 description: 'Connecting to Sei via WebSocket for real-time block and event subscriptions'
 ---
 
-# WebSocket Connections
+# WebSocket connections
 
-Sei supports `eth_subscribe` over WebSocket. You can subscribe to new blocks, event logs, and pending transactions using standard library WebSocket transports.
+Sei supports `eth_subscribe` over WebSocket. With the WebSocket transports in standard libraries, you can subscribe to new blocks, event logs, and pending transactions.
 
 ## Endpoints
 
 | Network | WebSocket endpoint |
 | --- | --- |
-| Mainnet | `wss://evm-ws.sei-apis.com` |
-| Testnet | `wss://evm-ws-testnet.sei-apis.com` |
+| Sei Mainnet | `wss://evm-ws.sei-apis.com` |
+| Sei Testnet | `wss://evm-ws-testnet.sei-apis.com` |
 
 ## Connecting
 
@@ -36,7 +36,7 @@ const provider = new ethers.WebSocketProvider('wss://evm-ws.sei-apis.com');
 
 </CodeGroup>
 
-## Watching New Blocks
+## Watching new blocks
 
 <CodeGroup>
 
@@ -62,7 +62,7 @@ provider.off('block');
 
 </CodeGroup>
 
-## Watching Contract Events
+## Watching contract events
 
 <CodeGroup>
 
@@ -94,7 +94,7 @@ contract.off('Transfer');
 
 </CodeGroup>
 
-## Watching ERC-20 Transfers Across All Contracts
+## Watching ERC-20 transfers across all contracts
 
 ```ts viem
 import { parseAbiItem } from 'viem';
@@ -111,22 +111,22 @@ const unwatch = client.watchEvent({
 
 ## Notes
 
-- Sei's instant finality means every block emitted over WebSocket is already final — no need to wait for additional confirmations before acting on an event.
-- Pending transaction subscriptions (`newPendingTransactions`) are supported at the RPC level but Sei does not guarantee Ethereum-style pending state visibility.
+- Sei has instant finality, so every block emitted over WebSocket is already final. You do not need to wait for more confirmations before you act on an event.
+- Pending transaction subscriptions (`newPendingTransactions`) are supported at the RPC level, but Sei does not guarantee Ethereum-style pending state visibility.
 
 
 
-## `newHeads` Under Autobahn Consensus
+## `newHeads` under Autobahn consensus
 
-When a node runs under Autobahn consensus, `eth_subscribe("newHeads")` notifications are delivered from an in-process notifier that publishes committed-block headers directly, rather than from the legacy consensus event bus. Subscribers still only observe headers for fully committed blocks, but the header payload differs from the legacy path in a few ways:
+When a node runs under Autobahn consensus, `eth_subscribe("newHeads")` notifications come from an in-process notifier, not from the legacy consensus event bus. The notifier publishes committed-block headers directly. Subscribers still observe headers only for fully committed blocks. However, the header payload differs from the legacy path in a few ways:
 
-- **`parentHash`, `receiptsRoot`, and `transactionsRoot` are returned as zero hashes** (`0x0000…0000`). The Autobahn block-execution path does not build a Tendermint-style hash chain, so there is no meaningful value to surface for these fields.
-- **`stateRoot`** is sourced from the finalized block's `AppHash` (the post-execution application hash), rather than from a pre-execution header field.
-- **`hash`** is the Autobahn block-header hash — the same value reported as `blockHash` by `eth_getBlockByNumber` and the receipt APIs, keeping `newHeads` consistent with the rest of the EVM RPC surface.
-- **`gasUsed`** is an approximation (summed from per-transaction results) to keep the notification cheap.
+- **`parentHash`, `receiptsRoot`, and `transactionsRoot` are returned as zero hashes** (`0x0000…0000`). The Autobahn block-execution path does not build a Tendermint-style hash chain, so there is no meaningful value to return in these fields.
+- **`stateRoot`** comes from the finalized block's `AppHash` (the post-execution application hash), not from a pre-execution header field.
+- **`hash`** is the Autobahn block-header hash. It is the same value that `eth_getBlockByNumber` and the receipt APIs report as `blockHash`. This keeps `newHeads` consistent with the rest of the EVM RPC surface.
+- **`gasUsed`** is an approximation (summed from per-transaction results) that keeps the notification cheap.
 
 Because of these differences:
 
-- Subscribers that chain-validate the head stream by linking `parentHash` values cannot rely on `newHeads` under Autobahn and need a different mechanism.
-- If you need exact `gasUsed` or the omitted hash fields, fetch the block explicitly with `eth_getBlockByNumber`.
+- Subscribers that chain-validate the head stream by linking `parentHash` values cannot rely on `newHeads` under Autobahn. They need a different mechanism.
+- If you need the exact `gasUsed` or the omitted hash fields, fetch the block explicitly with `eth_getBlockByNumber`.
 

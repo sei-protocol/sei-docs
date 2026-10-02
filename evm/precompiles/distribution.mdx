@@ -8,17 +8,17 @@ keywords: ['distribution precompile', 'staking rewards', 'validator commissions'
 
 **Address**: `0x0000000000000000000000000000000000001007`
 
-The distribution precompile provides EVM access to Cosmos SDK's distribution module. Smart contracts can manage staking rewards, validator commissions, and withdrawal addresses. This precompile is essential for DeFi applications that need to handle staking rewards programmatically.
+The distribution precompile gives EVM access to the Cosmos SDK distribution module. Smart contracts can use it to manage staking rewards, validator commissions, and withdrawal addresses. DeFi dApps that need to handle staking rewards programmatically depend on this precompile.
 
-## Key Features
+## Key features
 
-- **Reward Management**: Withdraw delegation rewards from validators
-- **Commission Handling**: Validators can withdraw earned commissions
-- **Batch Operations**: Withdraw from multiple validators efficiently
-- **Flexible Withdrawals**: Set custom withdrawal addresses
-- **Comprehensive Queries**: Access detailed reward information through `rewards(address)`
+- Withdraw delegation rewards from validators.
+- Withdraw earned commission (validators only).
+- Withdraw rewards from multiple validators in one batch call.
+- Set a custom withdrawal address.
+- Query detailed reward information with `rewards(address)`.
 
-## Interface Overview
+## Interface overview
 
 ```solidity
 interface IDistr {
@@ -41,13 +41,13 @@ interface IDistr {
 
 ## Setup
 
-Install Ethers.js and the Sei EVM bindings that ship the precompile address and ABI:
+Install ethers and the Sei EVM bindings, which include the precompile address and ABI:
 
 ```bash
 npm install ethers @sei-js/precompiles@^3
 ```
 
-Import both constants wherever you build the contract instance:
+Import both constants where you create the contract instance:
 
 ```ts
 import { DISTRIBUTION_PRECOMPILE_ABI, DISTRIBUTION_PRECOMPILE_ADDRESS } from '@sei-js/precompiles';
@@ -55,7 +55,7 @@ import { DISTRIBUTION_PRECOMPILE_ABI, DISTRIBUTION_PRECOMPILE_ADDRESS } from '@s
 
 ## Events
 
-The distribution precompile emits events for all state-changing operations, allowing off-chain services to track reward distributions and configuration changes.
+The distribution precompile emits events for all state-changing operations. Off-chain services can use these events to track reward distributions and configuration changes.
 
 ### WithdrawAddressSet
 
@@ -67,8 +67,8 @@ event WithdrawAddressSet(address indexed delegator, address withdrawAddr);
 
 **Parameters:**
 
-- `delegator` (indexed): The EVM address of the delegator changing their settings
-- `withdrawAddr`: The new address where rewards will be sent
+- `delegator` (indexed): The EVM address of the delegator who changes the setting
+- `withdrawAddr`: The new address that receives the rewards
 
 **Example usage:**
 
@@ -89,9 +89,9 @@ event DelegationRewardsWithdrawn(address indexed delegator, string validator, ui
 
 **Parameters:**
 
-- `delegator` (indexed): The EVM address of the delegator withdrawing rewards
-- `validator`: The Sei validator address (e.g., "seivaloper1...")
-- `amount`: The amount of rewards withdrawn (in usei, 6 decimal precision)
+- `delegator` (indexed): The EVM address of the delegator who withdraws the rewards
+- `validator`: The Sei validator address (for example, "seivaloper1...")
+- `amount`: The amount of rewards withdrawn (in usei, 6-decimal precision)
 
 **Example usage:**
 
@@ -113,9 +113,9 @@ event MultipleDelegationRewardsWithdrawn(address indexed delegator, string[] val
 
 **Parameters:**
 
-- `delegator` (indexed): The EVM address of the delegator withdrawing rewards
-- `validators`: Array of Sei validator addresses
-- `amounts`: Array of reward amounts corresponding to each validator (in usei, 6 decimal precision)
+- `delegator` (indexed): The EVM address of the delegator who withdraws the rewards
+- `validators`: An array of Sei validator addresses
+- `amounts`: An array of reward amounts, one for each validator (in usei, 6-decimal precision)
 
 **Example usage:**
 
@@ -140,7 +140,7 @@ event ValidatorCommissionWithdrawn(string indexed validator, uint256 amount);
 **Parameters:**
 
 - `validator` (indexed): The Sei validator address
-- `amount`: The commission amount withdrawn (in usei, 6 decimal precision)
+- `amount`: The commission amount withdrawn (in usei, 6-decimal precision)
 
 **Example usage:**
 
@@ -152,13 +152,13 @@ distrContract.on('ValidatorCommissionWithdrawn', (validator, amount) => {
 });
 ```
 
-<Info>**Event Amounts**: All event amounts use 6 decimal precision (usei), matching the actual withdrawn token amounts. This differs from the `rewards()` query which returns 18 decimal precision.</Info>
+<Info>**Event amounts**: All event amounts use 6-decimal precision (usei). This matches the withdrawn token amounts. In contrast, the `rewards()` query returns 18-decimal precision.</Info>
 
-## Transaction Methods
+## Transaction methods
 
 ### setWithdrawAddress
 
-Sets the withdrawal address for staking rewards. By default, rewards are sent to the delegator's address, but this can be customized.
+Sets the withdrawal address for staking rewards. By default, rewards go to the delegator's address, but you can change it.
 
 ```solidity
 function setWithdrawAddress(address withdrawAddr) external returns (bool success);
@@ -166,9 +166,9 @@ function setWithdrawAddress(address withdrawAddr) external returns (bool success
 
 **Parameters:**
 
-- `withdrawAddr`: EVM address where future rewards should be sent
+- `withdrawAddr`: The EVM address that receives future rewards
 
-**Gas Cost**: ~30,000 gas
+**Gas cost**: ~30,000 gas
 
 **Example:**
 
@@ -179,9 +179,9 @@ require(success, "Failed to set withdraw address");
 ```
 
 <Warning>
-  **Recipient Validation**: The withdrawal address must be able to receive external funds. Through the precompile, an unassociated EVM address is rejected with the error `cannot use an unassociated address as withdraw address`. Separately, the bank module rejects addresses it blocks from receiving external funds with `ErrInvalidRecipient` — for example, the cast address of an EVM account that has since been associated with a different Sei address. Ensure the withdrawal address is associated and permitted to receive funds before setting it.
+  **Recipient validation**: Before you set the withdrawal address, make sure that it is associated and allowed to receive funds. The withdrawal address must be able to receive external funds. The precompile rejects an unassociated EVM address with the error `cannot use an unassociated address as withdraw address`. Separately, the bank module returns `ErrInvalidRecipient` for an address that it blocks from receiving external funds. For example, it blocks the cast address of an EVM account that was later associated with a different Sei address.
 
-  Additionally, if a previously set withdrawal address later becomes invalid (blocked or no longer able to receive external funds), reward withdrawals automatically fall back to sending rewards to the delegator's own address instead.
+  If a withdrawal address that was set earlier becomes invalid, reward withdrawals automatically fall back to the delegator's own address. An address is invalid when it is blocked or can no longer receive external funds.
 </Warning>
 
 ### withdrawDelegationRewards
@@ -194,9 +194,9 @@ function withdrawDelegationRewards(string memory validator) external returns (bo
 
 **Parameters:**
 
-- `validator`: Sei validator address (e.g., "seivaloper1...")
+- `validator`: The Sei validator address (for example, "seivaloper1...")
 
-**Gas Cost**: ~50,000-80,000 gas (varies by reward amount)
+**Gas cost**: ~50,000-80,000 gas (varies with the reward amount)
 
 **Example:**
 
@@ -208,7 +208,7 @@ require(success, "Failed to withdraw rewards");
 
 ### withdrawMultipleDelegationRewards
 
-Efficiently withdraws rewards from multiple validators in a single transaction.
+Withdraws rewards from multiple validators in a single transaction.
 
 ```solidity
 function withdrawMultipleDelegationRewards(string[] memory validators) external returns (bool success);
@@ -216,9 +216,9 @@ function withdrawMultipleDelegationRewards(string[] memory validators) external 
 
 **Parameters:**
 
-- `validators`: Array of Sei validator addresses
+- `validators`: An array of Sei validator addresses
 
-**Gas Cost**: ~40,000 + (30,000 × number of validators)
+**Gas cost**: ~40,000 + (30,000 × number of validators)
 
 **Example:**
 
@@ -232,19 +232,19 @@ bool success = DISTR_CONTRACT.withdrawMultipleDelegationRewards(validators);
 require(success, "Failed to withdraw multiple rewards");
 ```
 
-<Info>**Batch Efficiency**: Using `withdrawMultipleDelegationRewards` is significantly more gas-efficient than multiple individual calls, especially when withdrawing from 3+ validators.</Info>
+<Info>**Batch efficiency**: One `withdrawMultipleDelegationRewards` call is significantly more gas-efficient than multiple individual calls, especially when you withdraw from 3 or more validators.</Info>
 
 ### withdrawValidatorCommission
 
-Allows validators to withdraw their earned commission. Only callable by the validator operator address.
+Lets a validator withdraw its earned commission. Only the validator operator address can call this method.
 
 ```solidity
 function withdrawValidatorCommission() external returns (bool success);
 ```
 
-**Parameters:** None - the validator is automatically determined from the caller's associated Sei address.
+**Parameters:** None. The precompile determines the validator automatically from the caller's associated Sei address.
 
-**Gas Cost**: ~60,000-90,000 gas
+**Gas cost**: ~60,000-90,000 gas
 
 **Example:**
 
@@ -254,19 +254,19 @@ bool success = DISTR_CONTRACT.withdrawValidatorCommission();
 require(success, "Failed to withdraw commission");
 ```
 
-<Warning>**Validator Only**: This method can only be called by the validator's operator address. The precompile automatically identifies the validator based on the caller's associated Sei address. If the caller is not a validator operator, the call will fail.</Warning>
+<Warning>**Validator only**: Call this method only from the validator's operator address. The precompile identifies the validator automatically from the caller's associated Sei address. If the caller is not a validator operator, the call fails.</Warning>
 
-## Query Methods
+## Query methods
 
 ### rewards
 
-Retrieves comprehensive reward information for a delegator across all validators.
+Returns the reward information for a delegator across all validators.
 
 ```solidity
 function rewards(address delegatorAddress) external view returns (Rewards rewards);
 ```
 
-**Data Structures:**
+**Data structures:**
 
 ```solidity
 struct Coin {
@@ -287,11 +287,11 @@ struct Rewards {
 ```
 
 <Warning>
-**Critical: Decimal Precision for Rewards**
+**Critical: decimal precision for rewards**
 
-The `rewards()` query returns amounts with **18 decimal precision** (`DecCoins` from Cosmos SDK).
+The `rewards()` query returns amounts with **18-decimal precision** (`DecCoins` from the Cosmos SDK).
 
-This is different from the actual withdrawn reward amounts, which use **6 decimal precision** (`sdk.Coins`).
+In contrast, withdrawn reward amounts use **6-decimal precision** (`sdk.Coins`).
 
 **To convert pending rewards to SEI for display:**
 
@@ -327,11 +327,11 @@ for (uint i = 0; i < userRewards.rewards.length; i++) {
 }
 ```
 
-## Understanding Decimal Precision
+## Understanding decimal precision
 
-The distribution precompile has **different decimal precision for queries vs actual withdrawals** due to how rewards are tracked in the Cosmos SDK:
+Because of how the Cosmos SDK tracks rewards, the distribution precompile uses **different decimal precision for queries and withdrawals**:
 
-| Function | Type | Decimal Precision | Conversion to SEI |
+| Function | Type | Decimal precision | Conversion to SEI |
 | --- | --- | --- | --- |
 | **rewards()** | Query (pending rewards) | 18 decimals (DecCoins) | `amount / 1e18` |
 | **withdrawDelegationRewards()** | Withdrawn amount (event) | 6 decimals (usei) | `amount / 1e6` |
@@ -339,13 +339,13 @@ The distribution precompile has **different decimal precision for queries vs act
 | **withdrawValidatorCommission()** | Withdrawn amount (event) | 6 decimals (usei) | `amount / 1e6` |
 
 
-### Why Different Precisions?
+### Why different precisions?
 
-1. **Pending Rewards (18 decimals)**: The Cosmos SDK tracks pending rewards using `DecCoins` (decimal coins) with 18 decimal precision for higher accuracy during reward accumulation.
+1. **Pending rewards (18 decimals)**: The Cosmos SDK tracks pending rewards as `DecCoins` (decimal coins) with 18-decimal precision. This gives higher accuracy while rewards accumulate.
 
-2. **Withdrawn Rewards (6 decimals)**: When rewards are actually withdrawn, they are converted to `sdk.Coins` (usei) with 6 decimal precision to match Sei's native token units.
+2. **Withdrawn rewards (6 decimals)**: When rewards are withdrawn, they are converted to `sdk.Coins` (usei) with 6-decimal precision. This matches Sei's native token units.
 
-### Conversion Helper Functions
+### Conversion helper functions
 
 ```typescript
 // Convert pending rewards (18 decimals) to SEI
@@ -364,11 +364,11 @@ const pendingSei = pendingRewardsToSei(pendingRewards.total[0].amount);
 console.log(`Pending rewards: ${pendingSei} SEI`);
 ```
 
-<Info>**Note**: When reconciling pending rewards with actual withdrawals, be aware of the 12-decimal difference (10^12 factor) between query results and withdrawal amounts.</Info>
+<Info>When you reconcile pending rewards with withdrawals, remember the 12-decimal difference (10^12 factor) between query results and withdrawal amounts.</Info>
 
-## Practical Examples
+## Practical examples
 
-### DeFi Yield Aggregator
+### DeFi yield aggregator
 
 ```solidity
 contract YieldAggregator {
@@ -400,7 +400,7 @@ contract YieldAggregator {
 }
 ```
 
-### Validator Commission Manager
+### Validator commission manager
 
 ```solidity
 contract ValidatorManager {
@@ -423,9 +423,9 @@ contract ValidatorManager {
 }
 ```
 
-## Error Handling
+## Error handling
 
-Common error scenarios and how to handle them:
+This example shows common error scenarios and how to handle them:
 
 ```solidity
 contract SafeDistribution {
@@ -457,16 +457,16 @@ contract SafeDistribution {
 }
 ```
 
-## Gas Optimization Tips
+## Gas optimization tips
 
-1. **Batch Operations**: Use `withdrawMultipleDelegationRewards` for multiple validators
-2. **Check Before Withdraw**: Query rewards first to avoid unnecessary transactions
-3. **Set Withdraw Address Once**: Avoid repeated `setWithdrawAddress` calls
-4. **Commission Timing**: Withdraw validator commission when amounts are substantial
+1. To withdraw from multiple validators, use one `withdrawMultipleDelegationRewards` batch call.
+2. Query rewards before you withdraw, to avoid unnecessary transactions.
+3. Set the withdrawal address once. Avoid repeated `setWithdrawAddress` calls.
+4. Withdraw validator commission when the amounts are substantial.
 
-## Integration Patterns
+## Integration patterns
 
-### Auto-Compounding Strategy
+### Auto-compounding strategy
 
 ```solidity
 // Automatically reinvest rewards back into staking
@@ -479,7 +479,7 @@ function autoCompound() external {
 }
 ```
 
-### Treasury Management
+### Treasury management
 
 ```solidity
 // Route all rewards to a DAO treasury

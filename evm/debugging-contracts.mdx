@@ -8,23 +8,23 @@ import { RunSnippet } from '/snippets/run-snippet.jsx';
 
 ## Overview
 
-Debugging EVM transactions on Sei requires understanding both the transaction creation process and how to analyze transaction behavior. This guide covers advanced debugging techniques using transaction template generation, analysis tools, and comprehensive transaction inspection methods to help developers identify and resolve issues in their EVM interactions.
+To debug EVM transactions on Sei, you need to understand both how transactions are created and how to analyze their behavior. This guide covers advanced debugging techniques: transaction template generation, analysis tools, and transaction inspection methods. Use them to find and fix issues in your EVM interactions.
 
-## Transaction Template Generation
+## Transaction template generation
 
-The `--generate-only` flag transforms any Sei CLI transaction command into a template generator, creating complete transaction structures without broadcasting them. Through the `--generate-only` flag and Foundry's `cast` tool, developers can craft, analyze, and debug transactions across the EVM environment.
+The `--generate-only` flag turns any `seid` transaction command into a template generator. The command creates a complete transaction structure but does not broadcast it. With the `--generate-only` flag and Foundry's `cast` tool, you can build, analyze, and debug transactions in the EVM environment.
 
-### Basic Command Pattern
+### Basic command pattern
 
-The general pattern follows this structure:
+The general command pattern is:
 
 ```bash
 seid tx <module> <action> <parameters> --from <key> --evm-rpc http://url-to-sei-evm-rpc --generate-only
 ```
 
-### Generating EVM Transaction Templates
+### Generating EVM transaction templates
 
-To generate an EVM transaction template, use the `evm` module with `--generate-only`. Here's an example sending SEI to another EVM address:
+To generate an EVM transaction template, use the `evm` module with `--generate-only`. This example sends SEI to another EVM address:
 
 ```bash
 seid tx evm send 0xRecipientAddress 1000000000000000000 \
@@ -35,20 +35,20 @@ seid tx evm send 0xRecipientAddress 1000000000000000000 \
 --generate-only
 ```
 
-<Info>This command returns a transaction template that you can analyze before broadcasting. The template includes all transaction details without executing the actual transaction.</Info>
+<Info>This command returns a transaction template that you can analyze before you broadcast it. The template includes all transaction details, but the command does not execute the transaction.</Info>
 
 ---
 
-## Analyzing EVM Transactions with Cast
+## Analyzing EVM transactions with Cast
 
-Once you have a transaction hash, you can use Foundry's `cast` command to inspect the transaction details:
+When you have a transaction hash, you can use Foundry's `cast` command to inspect the transaction details:
 
 ```bash
 cast tx 0x5010e6600e67f04a9bc3d3b670a7c2de380b180713d9a014a5dbd76b7e2190f1 \
 --rpc-url=http://url-to-sei-evm-rpc
 ```
 
-**Example Output:**
+**Example output:**
 
 ```text
 blockHash               0x4696d63a9a9ae88b03bcc94ccbd87f407e994b309d1dff9c0626de51ac57b76e
@@ -69,34 +69,34 @@ type                    2
 value                   0
 ```
 
-### Additional Analysis Commands
+### Additional analysis commands
 
-**Get transaction receipt:**
+**Get the transaction receipt:**
 
 ```bash
 cast receipt 0x5010e6600e67f04a9bc3d3b670a7c2de380b180713d9a014a5dbd76b7e2190f1 \
 --rpc-url=http://url-to-sei-evm-rpc
 ```
 
-**Decode transaction input data:**
+**Decode the transaction input data:**
 
 ```bash
 cast 4byte-decode 0xc31d960f0000...
 ```
 
-<Info>All template generation commands create JSON files that you can inspect, modify, and use for debugging before executing the actual transactions.</Info>
+<Info>All template generation commands create JSON files. You can inspect, modify, and use these files for debugging before you execute the transactions.</Info>
 
 ---
 
-## RPC Consistency
+## RPC consistency
 
 <Warning>Always point `cast` commands to an EVM RPC endpoint (for example, `$EVM_RPC_URL`), not a Cosmos RPC URL.</Warning>
 
 ---
 
-## Tracing and Revert Reasons
+## Tracing and revert reasons
 
-If your endpoint supports debug RPC methods, you can retrieve full execution traces and revert reasons:
+If your endpoint supports debug RPC methods, you can get full execution traces and revert reasons:
 
 ```bash
 # Full transaction trace
@@ -110,14 +110,14 @@ cast rpc debug_traceCall '{"from":"0xFROM","to":"0xTO","data":"0xDATA"}' \
 ```
 
 <Info>
-  Many public RPC endpoints disable debug methods. If disabled, run a local fork and trace there. See Tracing docs at <a href="/evm/tracing">/evm/tracing</a>.
+  Many public RPC endpoints disable debug methods. If they are disabled, run a local fork and trace there. See the <a href="/evm/tracing">tracing documentation</a>.
 </Info>
 
 ---
 
-## Reproduce with a Local Fork
+## Reproduce with a local fork
 
-Fork the network locally to reproduce issues deterministically and run traces even if remote debug RPC is disabled:
+Fork the network locally to reproduce issues deterministically. You can then run traces even if the remote debug RPC is disabled:
 
 ```bash
 # Start a local fork
@@ -133,9 +133,9 @@ cast rpc debug_traceCall '{"to":"0xContract","data":"0xENCODED_DATA"}' \
 
 ---
 
-## Event Logs and Decoding
+## Event logs and decoding
 
-Use the receipt to inspect logs and decode with the contract ABI:
+Use the receipt to inspect the logs, and decode them with the contract ABI:
 
 ```bash
 # Fetch receipt JSON and view logs
@@ -145,11 +145,11 @@ cast receipt 0xTX_HASH --rpc-url=$EVM_RPC_URL --json | jq '.logs'
 cast keccak "Transfer(address,address,uint256)"
 ```
 
-<Info>Decode event topics/data using the contract ABI (from your repo or block explorer). Topic[0] equals the keccak of the event signature.</Info>
+<Info>Decode event topics and data with the contract ABI (from your repository or a block explorer). Topic[0] equals the keccak hash of the event signature.</Info>
 
 ---
 
-## Nonce, Balance, and Gas Diagnostics
+## Nonce, balance, and gas diagnostics
 
 Check common failure points quickly:
 
@@ -163,25 +163,25 @@ cast chain-id --rpc-url=$EVM_RPC_URL
 
 **Checklist:**
 
-- Incorrect nonce (pending tx in mempool)
+- Incorrect nonce (a pending transaction in the mempool)
 - Insufficient native balance for gas
-- Underpriced `maxFeePerGas`/`maxPriorityFeePerGas`
+- Underpriced `maxFeePerGas` or `maxPriorityFeePerGas`
 - Chain ID mismatch
 
 ## Try it live
 
-Each `cast` diagnostic above is a plain read-only JSON-RPC call. Run the same four against Sei Mainnet right here — the example address (`0xAa55…3d96`) is the sender from the `cast tx` output earlier on this page.
+Each `cast` diagnostic above is a plain read-only JSON-RPC call. Run four of them against Sei Mainnet here. The example address (`0xAa55…3d96`) is the sender from the `cast tx` output earlier on this page.
 
-<RunSnippet method="eth_chainId" network="mainnet" title="cast chain-id" description="eth_chainId — decodes to 1329. A mismatch here is the most common cause of a rejected transaction." />
+<RunSnippet method="eth_chainId" network="mainnet" title="cast chain-id" description="eth_chainId. The result decodes to 1329. A mismatch here is the most common cause of a rejected transaction." />
 
-<RunSnippet method="eth_gasPrice" network="mainnet" title="cast gas-price" description="eth_gasPrice — the current gas price in wei. Compare it against your maxFeePerGas when a transaction is stuck as underpriced." />
+<RunSnippet method="eth_gasPrice" network="mainnet" title="cast gas-price" description="eth_gasPrice returns the current gas price in wei. If a transaction is stuck as underpriced, compare this value with your maxFeePerGas." />
 
 <RunSnippet
   method="eth_getTransactionCount"
   params={['0xAa55a16dD4E73c48C968928983c2bcC98d913d96', 'latest']}
   network="mainnet"
   title="cast nonce 0xAa55…3d96"
-  description="eth_getTransactionCount at the latest block — the account's next nonce. Swap in your own address."
+  description="eth_getTransactionCount at the latest block returns the account's next nonce. Use your own address instead."
 />
 
 <RunSnippet
@@ -189,14 +189,14 @@ Each `cast` diagnostic above is a plain read-only JSON-RPC call. Run the same fo
   params={['0xAa55a16dD4E73c48C968928983c2bcC98d913d96', 'latest']}
   network="mainnet"
   title="cast balance 0xAa55…3d96"
-  description="eth_getBalance in wei — confirm the account can cover gas before you dig into a failed send."
+  description="eth_getBalance returns the balance in wei. Before you investigate a failed send, confirm that the account can cover gas."
 />
 
 ---
 
-## Offline Workflow with --generate-only
+## Offline workflow with --generate-only
 
-Generate, inspect, sign, and broadcast safely:
+Generate, inspect, sign, and broadcast a transaction safely:
 
 ```bash
 # 1) Generate a template (no broadcast)
@@ -214,18 +214,18 @@ seid tx broadcast signed.json
 
 ---
 
-## Precompile Awareness
+## Precompile awareness
 
-Calls to system precompiles (for example, addresses like `0x...100b`) may have specific input/output formats and error behavior.
+Calls to system precompiles (for example, addresses such as `0x...100b`) may have specific input and output formats and error behavior.
 
-- See [EVM precompiles](/evm/precompiles/example-usage) and [EVM Cosmos precompiles](/evm/precompiles/cosmwasm-precompiles/example-usage)
+- See [EVM precompiles](/evm/precompiles/example-usage) and [CosmWasm precompiles](/evm/precompiles/cosmwasm-precompiles/example-usage)
 - Cross-check expected selectors, parameter encoding, and revert messages
 
 ---
 
-## Storage Inspection
+## Storage inspection
 
-Verify on-chain state directly when debugging state changes:
+When you debug state changes, check the on-chain state directly:
 
 ```bash
 cast storage 0xContract 0xSLOT --rpc-url=$EVM_RPC_URL
@@ -233,16 +233,16 @@ cast storage 0xContract 0xSLOT --rpc-url=$EVM_RPC_URL
 
 ---
 
-## Transaction Analysis
+## Transaction analysis
 
-When analyzing transactions, follow these essential practices:
+When you analyze transactions, follow these practices:
 
 - Always verify EVM transactions thoroughly
-- Use `cast` to decode input data when working with EVM transactions
+- Use `cast` to decode the input data of EVM transactions
 - Keep track of gas parameters
-- Monitor transaction status on the EVM layer
+- Monitor the transaction status on the EVM layer
 
-**Analysis Tips:**
+**Analysis tips:**
 
 ```bash
 # Use Foundry's cast tool for detailed transaction inspection
@@ -258,14 +258,14 @@ cast 4byte-decode 0xa9059cbb000000...
 ```
 
 <Info>
-  <strong>Transaction Analysis Checklist:</strong> Always verify transaction success before proceeding. Check gas usage to optimize future transactions. Use Foundry's cast tool for detailed transaction inspection.
+  <strong>Transaction analysis checklist:</strong> Always verify that a transaction succeeded before you continue. Check gas usage to optimize future transactions. Use Foundry's `cast` tool for detailed transaction inspection.
 </Info>
 
 ---
 
-## Error Handling
+## Error handling
 
-Handle potential EVM transaction issues with proper monitoring:
+Monitor EVM transactions so that you can handle potential issues:
 
 ```javascript
 try {
@@ -280,22 +280,22 @@ try {
 }
 ```
 
-**Best Practices for Error Handling:**
+**Best practices for error handling:**
 
-- Always check transaction status on both Cosmos and EVM layers
-- Use detailed error logging for debugging failed transactions
+- Always check the transaction status on both the Cosmos and EVM layers
+- Use detailed error logging to debug failed transactions
 - Implement retry logic for network-related failures
 - Monitor gas usage and adjust limits accordingly
 
 ---
 
-## Security Guidelines
+## Security guidelines
 
 <Warning>
-  <strong>Critical Security Requirements:</strong> Keep private keys secure and never include them in templates. Use an `.env` file or other environment variables when working with wallet keys or mnemonics. Never commit sensitive information to version control. Always verify transaction details before signing.
+  <strong>Critical security requirements:</strong> Keep private keys secure, and never include them in templates. When you work with wallet keys or mnemonics, use an `.env` file or other environment variables. Never commit sensitive information to version control. Always verify transaction details before you sign.
 </Warning>
 
-**Environment Variable Setup:**
+**Environment variable setup:**
 
 ```bash
 # Create .env file for sensitive data
@@ -307,7 +307,7 @@ PRIVATE_KEY=your_private_key_here
 echo ".env" >> .gitignore
 ```
 
-**Secure Transaction Execution:**
+**Secure transaction execution:**
 
 ```bash
 # Use environment variables in commands
