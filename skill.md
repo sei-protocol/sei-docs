@@ -48,7 +48,7 @@ npx skills add sei-ecosystem    # apps / integrations only
 9. **Dual address system**: Every account has a `sei1...` (Cosmos) address and a `0x...` (EVM) address from the same key. Cross-VM transfers require **association**.
 10. **CosmWasm is deprecated** per SIP-3 (proposal 99): Use EVM for new development.
 11. **Chain IDs:** Sei Mainnet (EVM `1329`, Cosmos `pacific-1`) and Sei Testnet (EVM `1328`, Cosmos `atlantic-2`).
-12. **No `safe` or `finalized` block tags**: Use `latest`.
+12. **`safe` and `finalized` resolve to `latest`**: Sei has instant finality, so all three tags return the same block. Use `latest`.
 
 ## Networks
 
