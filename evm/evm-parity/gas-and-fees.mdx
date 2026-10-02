@@ -3,15 +3,15 @@ title: 'Gas and Fees'
 description: 'Sei gas price floor, EIP-1559 fee model differences, and SSTORE cost'
 ---
 
-# Gas and Fees
+# Gas and fees
 
-Sei supports both legacy and EIP-1559 transactions, but the fee model differs from Ethereum in three ways that affect how you estimate and set gas.
+Sei supports both legacy and EIP-1559 transactions. However, the fee model differs from Ethereum in three ways that affect how you estimate and set gas.
 
-## Legacy Gas Price Floor
+## Legacy gas price floor
 
-Legacy transactions (type 0) on Sei must meet a minimum gas price set by on-chain governance. This floor can change via governance proposals — do not hard-code a specific value.
+Legacy transactions (type 0) on Sei must meet a minimum gas price set by on-chain governance. Governance proposals can change this floor, so do not hard-code a specific value.
 
-Use `eth_gasPrice` to read the current minimum:
+To read the current minimum, use `eth_gasPrice`:
 
 <CodeGroup>
 
@@ -33,11 +33,11 @@ const gasPrice = feeData.gasPrice;
 
 </CodeGroup>
 
-## EIP-1559 Fee Model
+## EIP-1559 fee model
 
-Sei supports EIP-1559 transactions (type 2), but does not burn the base fee. Fees go entirely to validators rather than being partially burned as on Ethereum.
+Sei supports EIP-1559 transactions (type 2), but it does not burn the base fee. All fees go to validators. On Ethereum, part of the fee is burned.
 
-This does not affect how you construct or send transactions — `maxFeePerGas` and `maxPriorityFeePerGas` work as expected. It is relevant only if your application models token supply or displays fee-burn information to users.
+This does not affect how you construct or send transactions. `maxFeePerGas` and `maxPriorityFeePerGas` work as expected. It matters only if your application models token supply or shows fee-burn information to users.
 
 <CodeGroup>
 
@@ -54,16 +54,16 @@ const feeData = await provider.getFeeData();
 </CodeGroup>
 
 
-### Effective Gas Price on Receipts
+### Effective gas price on receipts
 
-For dynamic-fee (type 2) transactions, the transaction receipt's `effectiveGasPrice` field reports the **actual price charged** — `min(baseFee + maxPriorityFeePerGas, maxFeePerGas)` — not the fee cap. This matches standard EIP-1559 semantics, so clients such as ethers and hardhat see the same `effectiveGasPrice` behavior they expect from Ethereum.
+For dynamic-fee (type 2) transactions, the `effectiveGasPrice` field of the transaction receipt reports the **actual price charged**, not the fee cap. That price is `min(baseFee + maxPriorityFeePerGas, maxFeePerGas)`. This matches standard EIP-1559 semantics. Clients such as ethers and Hardhat therefore see the same `effectiveGasPrice` behavior that they expect from Ethereum.
 
-In practice, when your priority tip plus the base fee stays below `maxFeePerGas`, the receipt reports `baseFee + maxPriorityFeePerGas` rather than `maxFeePerGas`. Use the receipt's `effectiveGasPrice` (not `maxFeePerGas`) when computing what a transaction actually paid.
+In practice, when your priority tip plus the base fee stays below `maxFeePerGas`, the receipt reports `baseFee + maxPriorityFeePerGas`, not `maxFeePerGas`. To compute what a transaction paid, use the receipt's `effectiveGasPrice`, not `maxFeePerGas`.
 
 
-## SSTORE Cost
+## SSTORE cost
 
-The gas cost of `SSTORE` (writing to contract storage) is governance-adjustable on Sei. It is currently **72,000 gas** — the same on mainnet and testnet (see [Divergence from Ethereum](/evm/differences-with-ethereum#sstore-gas-cost)) — but treat that as the current value, not a constant: do not hard-code storage write estimates in your application.
+On Sei, governance can adjust the gas cost of `SSTORE` (a write to contract storage). The current cost is **72,000 gas** on both Sei Mainnet and Sei Testnet. For details, see [Differences with Ethereum](/evm/differences-with-ethereum#sstore-gas-cost). Treat this number as the current value, not a constant. Do not hard-code storage write estimates in your application.
 
 Always use `eth_estimateGas` for any transaction that writes to storage:
 
@@ -90,7 +90,7 @@ const gas = await provider.estimateGas({
 
 </CodeGroup>
 
-<Warning>A Foundry `forge test --gas-report --fork-url <sei rpc>` report forks chain *state* but runs revm's standard EVM gas schedule, so it shows `SSTORE` at the Ethereum cost (~22,100) rather than Sei's ~72,000. Use it for relative profiling of your own logic; estimate the absolute storage-write cost with a live `eth_estimateGas` against a Sei RPC.</Warning>
+<Warning>Estimate the absolute storage-write cost with a live `eth_estimateGas` call against a Sei RPC. A Foundry `forge test --gas-report --fork-url <sei rpc>` report forks the chain *state*, but it runs the standard EVM gas schedule of revm. It therefore shows `SSTORE` at the Ethereum cost (approximately 22,100) instead of the Sei cost (approximately 72,000). Use the report for relative profiling of your own logic.</Warning>
 
 ## Summary
 
@@ -99,4 +99,4 @@ const gas = await provider.estimateGas({
 | Legacy gas floor | Protocol minimum | Governance-set, can change |
 | Base fee | Burned | Paid to validators |
 | SSTORE cost | Fixed by EIP | Governance-adjustable |
-| `estimateGas` | Always correct to use | Required — do not hard-code storage costs |
+| `estimateGas` | Always correct to use | Required. Do not hard-code storage costs. |

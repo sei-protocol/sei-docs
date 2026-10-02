@@ -113,7 +113,7 @@ export const RandomPeers = ({ format = 'bash', network = 'mainnet', count = 5 })
         <pre
           className="m-0 p-3 rounded-md bg-neutral-100 dark:bg-neutral-800 text-sm opacity-70"
           style={{ fontFamily: 'var(--sei-font-mono)' }}>
-          No peers configured for network “{network}”.
+          No peers configured for network "{network}".
         </pre>
       </div>
     );

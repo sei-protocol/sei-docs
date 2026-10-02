@@ -6,66 +6,66 @@ keywords: ['parallelization engine', 'multi-core processing', 'blockchain concur
 ---
 ## Introduction
 
-The Sei Parallelization Engine is a core component designed to increase transaction processing throughput beyond the limitations of traditional sequential execution models common in many blockchain systems. The engine enables concurrent execution of non-conflicting transactions within a block and leverages multi-core processors to improve performance and scalability. This document provides a technical explanation of its architecture and mechanisms.
+Many blockchain systems use traditional sequential execution models. The Sei parallelization engine is a core component designed to increase transaction processing throughput beyond the limits of these models. The engine executes non-conflicting transactions in a block concurrently. It uses multi-core processors to improve performance and scalability. This page gives a technical explanation of its architecture and mechanisms.
 
 <Tip>
-  The Parallelization Engine is a key innovation that allows Sei to process transactions concurrently across multiple CPU cores, significantly increasing throughput while maintaining deterministic outcomes identical to sequential processing.
+  The parallelization engine lets Sei process transactions concurrently across multiple CPU cores. This significantly increases throughput, and the outcomes stay deterministic and identical to sequential processing.
 </Tip>
 
-## Core Mechanism: Optimistic Concurrency Control
+## Core mechanism: optimistic concurrency control
 
-At its heart, the Parallelization Engine utilizes an **Optimistic Concurrency Control (OCC)** strategy. Unlike pessimistic approaches that lock state resources before execution, OCC allows transactions to execute in parallel based on an initial _estimation_ of the state they will access. Conflicts (e.g., two transactions writing to the same state key) are detected _during_ or _after_ this parallel execution phase. When conflicts occur, they are resolved through mechanisms that often include re-execution of the conflicting transactions. This approach minimizes overhead when conflicts are infrequent and boosts overall throughput.
+The parallelization engine uses an **Optimistic Concurrency Control (OCC)** strategy. Pessimistic approaches lock state resources before execution. OCC instead lets transactions execute in parallel, based on an initial _estimation_ of the state they will access. Conflicts (for example, two transactions that write to the same state key) are detected _during_ or _after_ this parallel execution phase. When conflicts occur, the engine resolves them, often by re-executing the conflicting transactions. This approach minimizes overhead when conflicts are infrequent and increases overall throughput.
 
-## System Architecture
+## System architecture
 
-**Sei Parallelization Engine**
+**Sei parallelization engine**
 
 <Columns cols={3}>
-  <Card horizontal title="Transaction Preprocessing">
+  <Card horizontal title="Transaction preprocessing">
     - Classifier
-    - Batch Formation
-    - Gas Estimation
+    - Batch formation
+    - Gas estimation
   </Card>
-  <Card horizontal title="Dependency Analysis">
-    - Access Analysis
-    - Dependency Mapping
-    - Contract Interaction
+  <Card horizontal title="Dependency analysis">
+    - Access analysis
+    - Dependency mapping
+    - Contract interaction
   </Card>
-  <Card horizontal title="Parallel Execution">
-    - Worker Pool
-    - State Transitions
-    - Speculative Execution
+  <Card horizontal title="Parallel execution">
+    - Worker pool
+    - State transitions
+    - Speculative execution
   </Card>
 </Columns>
 
 <Columns cols={2}>
-  <Card horizontal title="Conflict Resolution">
-    - Conflict Detection
-    - Sequential Re-execution
+  <Card horizontal title="Conflict resolution">
+    - Conflict detection
+    - Sequential re-execution
   </Card>
-  <Card horizontal title="SeiDB & Consensus">
+  <Card horizontal title="SeiDB & consensus">
     - State Commit
-    - MVCC Support
+    - MVCC support
   </Card>
 </Columns>
 
-This architecture enables the Sei blockchain to process transactions in parallel while ensuring consistency and correctness. Let's explore each component in detail.
+This architecture lets Sei process transactions in parallel and keep the results consistent and correct.
 
-### 1. Transaction Preprocessing
+### 1. Transaction preprocessing
 
-Before execution can begin, incoming transactions undergo preparatory processing. Raw transaction bytes transform into structured transaction objects that allow the system to identify message types and transaction characteristics. Initial validation occurs at this stage through ante handlers that verify signatures, fees, and other prerequisites.
+Before execution can begin, incoming transactions go through preparatory processing. The system converts raw transaction bytes into structured transaction objects. These objects let the system identify message types and transaction characteristics. Initial validation also happens at this stage, through ante handlers that verify signatures, fees, and other prerequisites.
 
-The system also identifies certain critical transactions, such as oracle price feed updates, which may need prioritized execution to ensure timely data processing. This initial analysis leads to transaction grouping into batches for subsequent processing stages and establishes the foundation for parallel execution.
+The system also identifies certain critical transactions, such as oracle price feed updates. These transactions may need prioritized execution so that their data is processed on time. Based on this initial analysis, the system groups transactions into batches for later processing stages. This step is the basis for parallel execution.
 
-### 2. Dependency Analysis (Estimation)
+### 2. Dependency analysis (estimation)
 
-This critical stage forms the backbone of the OCC approach. The system estimates potential state accesses for each transaction rather than determining exact dependencies.
+This stage is the backbone of the OCC approach. The system estimates potential state accesses for each transaction instead of determining exact dependencies.
 
-An access control module analyzes each transaction to predict which state keys it might read or write during execution. Specialized Dependency Generator functions predict potential state access patterns for each transaction type. The precision of this analysis varies depending on transaction complexity:
+An access control module analyzes each transaction to predict which state keys it might read or write during execution. Specialized Dependency Generator functions predict potential state access patterns for each transaction type. The precision of this analysis depends on transaction complexity:
 
-Simple transactions like token transfers allow precise determination of which account balances will be accessed. Complex smart contract interactions make prediction of all potential storage accesses much more challenging. The generators provide broader estimates for these complex cases and acknowledge areas of uncertainty.
+For simple transactions such as token transfers, the system can determine precisely which account balances the transaction will access. For complex smart contract interactions, it is much harder to predict all potential storage accesses. For these complex cases, the generators give broader estimates that acknowledge areas of uncertainty.
 
-For example, a token transfer transaction between accounts `A` and `B` will generate estimated read/write sets that include:
+For example, a token transfer between accounts `A` and `B` generates estimated read-write sets that include:
 
 - Read access to account `A`'s balance
 - Read access to account `B`'s balance
@@ -79,131 +79,136 @@ The dependency analyzer might also consider secondary effects such as:
 - Potential interactions with staking or governance mechanisms if the tokens have such properties
 
 <Note>
-  For smart contract calls, the analyzer employs heuristic methods that consider the contract's address and storage layout, the specific function selectors being called, any parameters passed to the contract functions, and historical patterns of state access from previous similar calls.
+  For smart contract calls, the analyzer uses heuristic methods that consider these inputs:
+
+  - The contract's address and storage layout
+  - The specific function selectors being called
+  - Any parameters passed to the contract functions
+  - Historical patterns of state access from previous similar calls
 </Note>
 
-The dependency generator outputs an estimated read/write set for each transaction. These sets contain the state keys expected to be accessed, with additional metadata indicating access types (read vs. write) and confidence levels for each prediction. The system uses these confidence levels during scheduling decisions to minimize the likelihood of conflicts.
+The dependency generator outputs an estimated read-write set for each transaction. These sets contain the state keys that the transaction is expected to access. They also carry metadata for each prediction: the access type (read or write) and a confidence level. The system uses these confidence levels in scheduling decisions to minimize the likelihood of conflicts.
 
-The output from this phase consists of an "estimated writeset" for each transaction—a prediction of its state impact—which serves as crucial input for the next execution planning phase.
+The output of this phase is an "estimated writeset" for each transaction. The writeset predicts the transaction's effect on state. It is an important input for the next phase, execution planning.
 
-### 3. Parallel Execution
+### 3. Parallel execution
 
-The system attempts concurrent execution with the estimated writesets through these steps:
+The system uses the estimated writesets to attempt concurrent execution in these steps:
 
-1. **Batch Organization**: The process organizes transactions and their associated writesets for processing.
+1. **Batch organization**: The system organizes transactions and their associated writesets for processing.
 
-   - Transactions receive logical grouping based on estimated dependencies
+   - Transactions are grouped logically, based on estimated dependencies
    - The system creates execution units with appropriate metadata
    - Priority queues determine processing order for maximum throughput
    - Metadata tags track transaction relationships for later conflict analysis
 
-2. **Worker Assignment**: A pool of execution workers (typically implemented as goroutines) stands ready to process transactions concurrently.
+2. **Worker assignment**: A pool of execution workers (typically implemented as goroutines) is ready to process transactions concurrently.
 
-   - The worker pool size adapts dynamically based on system resources
+   - The worker pool size adapts dynamically to system resources
    - CPU core allocation strategies optimize for NUMA architectures
-   - Worker specialization allows for targeted execution of specific transaction types
-   - Load balancing algorithms redistribute work for maximum resource utilization
+   - Specialized workers can execute specific transaction types
+   - Load balancing algorithms redistribute work for maximum resource use
 
-3. **Strategic Scheduling**: Transaction assignment to workers occurs based on estimated writesets, with strategic grouping of non-conflicting transactions.
+3. **Strategic scheduling**: The scheduler assigns transactions to workers based on estimated writesets and groups non-conflicting transactions together.
 
    - Graph-based scheduling algorithms minimize potential conflicts
    - The scheduler includes lookahead capabilities for multi-step dependency chains
    - Execution time estimates prioritize shorter transactions when appropriate
    - Locality-aware scheduling places related transactions on the same worker when beneficial
 
-4. **Buffered Execution**: Workers execute transactions and write all state modifications to a temporary buffer instead of the main state store.
+4. **Buffered execution**: Workers execute transactions and write all state modifications to a temporary buffer instead of the main state store.
 
-   - Each worker maintains an isolated transaction context
+   - Each worker keeps an isolated transaction context
    - The execution engine applies gas metering and limits
    - Buffered state operations capture all read and write operations
    - Intermediate results remain isolated until conflict detection completes
 
-5. **Runtime Tracking**: The system monitors which state keys are actually read and written throughout execution to build an accurate picture of real (versus estimated) state access patterns.
+5. **Runtime tracking**: The system monitors which state keys are read and written during execution. This builds an accurate picture of the real (versus estimated) state access patterns.
    - Access tracking captures both direct and indirect state interactions
    - Runtime statistics feed back into the dependency estimation system
    - Execution anomalies trigger adaptive scheduling adjustments
    - Performance metrics identify optimization opportunities
 
-Advanced techniques ensure maximum parallelism extraction:
+The engine uses these advanced techniques to maximize parallelism:
 
 - Adaptive batch sizing based on system load and conflict rates
 - Predictive execution of high-probability transaction paths
 - Distributed execution capabilities across multiple physical nodes when available
 - Resource throttling to prevent worker starvation
 
-### 4. Conflict Detection & Resolution
+### 4. Conflict detection & resolution
 
-The system must identify and resolve any conflicts that emerge during and after parallel execution. The process follows this sequence:
+The system must identify and resolve any conflicts that appear during and after parallel execution. The process has these steps:
 
-1. **Conflict Identification**: The system compares the actual read/write sets recorded during execution. A conflict exists when one transaction reads state that another concurrent transaction wrote, or when multiple transactions write to the same state key.
+1. **Conflict identification**: The system compares the actual read-write sets recorded during execution. A conflict exists when one transaction reads state that another concurrent transaction wrote, or when multiple transactions write to the same state key.
 
    The conflict detector implements several optimized algorithms:
 
    - A hash-based data structure tracks state accesses in memory for efficient lookup
-   - Bloom filters provide rapid preliminary conflict checks
+   - Bloom filters run fast preliminary conflict checks
    - A deterministic conflict resolution order prevents cyclic dependencies during re-execution
-   - Precise timestamp tracking ensures proper sequencing based on arrival order
+   - Precise timestamp tracking makes sure that sequencing follows arrival order
 
    Common conflict patterns include:
 
    - Read-After-Write (RAW): Transaction `B` reads a key that Transaction `A` has modified
    - Write-After-Read (WAR): Transaction `B` modifies a key that Transaction `A` has read
-   - Write-After-Write (WAW): Multiple transactions attempt to modify the same key
+   - Write-After-Write (WAW): Multiple transactions try to modify the same key
 
-2. **Conflict Resolution**: The system executes a resolution strategy when it detects conflicts:
+2. **Conflict resolution**: When the system detects conflicts, it runs a resolution strategy:
 
    - It identifies the conflicting transactions as a group
    - It removes their results from the temporary state buffer
-   - It re-executes the conflicting set in a deterministic, sequential order to ensure correctness
+   - It re-executes the conflicting set in a deterministic, sequential order to make sure the results are correct
 
-   The deterministic ordering relies on transaction prioritization rules:
+   The deterministic order depends on these transaction prioritization rules:
 
-   - Critical system transactions receive highest priority
-   - Oracle updates and price feeds receive elevated priority
+   - Critical system transactions get the highest priority
+   - Oracle updates and price feeds get elevated priority
    - Standard transactions follow their original sequence in the block
    - Gas price and other economic factors may influence the ordering
 
-   The resolution system maintains isolation guarantees through careful state management:
+   The resolution system keeps its isolation guarantees through careful state management:
 
    - Conflict groups remain isolated from successfully processed transactions
    - The temporary buffer preserves successfully executed state transitions
-   - Resolution attempts track their own read/write sets to detect cascading conflicts
+   - Resolution attempts track their own read-write sets to detect cascading conflicts
 
 <Note>
-  This conflict resolution makes the final state after parallel execution identical to what sequential processing would have produced, which maintains blockchain consistency.
+  This conflict resolution makes the final state after parallel execution identical to the state that sequential processing would produce. This keeps the blockchain consistent.
 </Note>
 
-### 5. Fallback Mechanism
+### 5. Fallback mechanism
 
-The OCC approach includes a critical safety mechanism for situations where parallel execution cannot succeed:
+The OCC approach includes a safety mechanism for situations where parallel execution cannot succeed:
 
-1. **Failure Detection**: The system detects failure conditions when parallel execution encounters excessive conflicts or critical errors.
-2. **State Rollback**: All state changes from the failed parallel attempt are discarded.
-3. **Sequential Reprocessing**: The entire transaction batch undergoes sequential processing as a fallback.
+1. **Failure detection**: The system detects a failure condition when parallel execution encounters excessive conflicts or critical errors.
+2. **State rollback**: The system discards all state changes from the failed parallel attempt.
+3. **Sequential reprocessing**: As a fallback, the system processes the entire transaction batch sequentially.
 
-This fallback guarantees that the blockchain can always make progress, even in worst-case scenarios where parallelization proves ineffective for a particular block.
+This fallback guarantees that the chain can always make progress, even in worst-case scenarios where parallelization is ineffective for a particular block.
 
 ## Interaction with SeiDB
 
-The parallelization engine works in close concert with SeiDB, Sei's custom storage layer. SeiDB's State Commit layer provides extremely low-latency read/write access needed for high transaction volume concurrent execution. Its asynchronous commit capabilities also allow quick block state finalization, which creates an efficient pipeline for block processing.
+The parallelization engine works closely with SeiDB, Sei's custom storage layer. SeiDB's State Commit layer gives the low-latency read and write access that concurrent execution at high transaction volume needs. Its asynchronous commit also lets block state finalize quickly. This creates an efficient pipeline for block processing.
 
-SeiDB integration offers several technical advantages crucial for parallelization:
+SeiDB integration has several technical advantages for parallelization:
 
-**Performance Optimizations:**
+**Performance optimizations:**
 
 - Multi-version concurrency control (MVCC) at the storage level supports multiple execution attempts
 - Lock-free read operations prevent stalls during parallel transaction execution
 - Memory-mapped state caching reduces I/O overhead for frequently accessed keys
 - Batch commit optimizations minimize disk write amplification
 
-**Parallelization-Specific Features:**
+**Parallelization-specific features:**
 
-- Snapshot isolation provides consistent views of state for each transaction execution
-- Atomic multi-key operations ensure multi-part state transitions remain consistent
-- Versioned state access allows concurrent reads of different state versions
-- Optimized rollback capabilities support the rapid discarding of speculative state changes
+- Snapshot isolation gives each transaction execution a consistent view of state
+- Atomic multi-key operations keep multi-part state transitions consistent
+- Versioned state access supports concurrent reads of different state versions
+- Optimized rollback lets the engine discard speculative state changes quickly
 
-**Storage Architecture Alignment:**
+**Storage architecture alignment:**
 
 - The key-value structure mirrors the state access patterns in the dependency analysis
 - Prefix-based organization aligns with contract and module-based access patterns
@@ -211,19 +216,19 @@ SeiDB integration offers several technical advantages crucial for parallelizatio
 - Asynchronous persistence decouples block execution from storage commit latency
 
 <Info>
-  The tight integration between the parallelization engine and SeiDB enables the system to maintain high throughput even under challenging workloads with complex dependency patterns or high conflict rates.
+  The tight integration between the parallelization engine and SeiDB lets the system maintain high throughput. This holds even under challenging workloads with complex dependency patterns or high conflict rates.
 </Info>
 
-## Performance Impact
+## Performance impact
 
-The Parallelization Engine delivers significant performance improvements:
+The parallelization engine improves performance significantly:
 
-| Transaction Type | Sequential TPS | Parallel TPS | Improvement |
+| Transaction type | Sequential TPS | Parallel TPS | Improvement |
 | --- | --- | --- | --- |
-| Simple Transfers | 3,000 | 15,000+ | 5x |
-| ERC-20 Transfers | 2,200 | 9,500+ | 4.3x |
-| DEX Swaps | 800 | 2,800+ | 3.5x |
-| Complex Contracts | 500 | 1,500+ | 3x |
+| Simple transfers | 3,000 | 15,000+ | 5x |
+| ERC-20 transfers | 2,200 | 9,500+ | 4.3x |
+| DEX swaps | 800 | 2,800+ | 3.5x |
+| Complex contracts | 500 | 1,500+ | 3x |
 
 
-These improvements scale with CPU core count, allowing Sei to take full advantage of modern server hardware.
+These improvements scale with CPU core count. Sei can therefore take full advantage of modern server hardware.

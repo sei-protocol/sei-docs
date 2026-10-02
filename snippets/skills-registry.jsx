@@ -5,28 +5,28 @@ export const SkillsRegistry = () => {
 	const SKILLS = [
 		{
 			id: 'sei-contracts',
-			title: 'Smart Contracts',
+			title: 'Smart contracts',
 			domain: 'Contracts',
 			href: '/evm/evm-general',
-			desc: 'Foundry and Hardhat setup, the Sei gas model, OCC-aware contract design, and verifying on Seiscan via Sourcify.'
+			desc: 'Foundry and Hardhat setup, the Sei gas model, OCC-aware contract design, and verification on Seiscan through Sourcify.'
 		},
 		{
 			id: 'sei-frontend',
 			title: 'Frontend',
 			domain: 'Frontend',
 			href: '/evm/building-a-frontend',
-			desc: 'wagmi + viem chain config, Sei Global Wallet, dual-address UX, and fast-finality patterns for 400ms blocks.'
+			desc: 'Chain config for wagmi and viem, Sei Global Wallet, dual-address UX, and fast-finality patterns for 400ms blocks.'
 		},
 		{
 			id: 'sei-precompiles',
 			title: 'Precompiles',
 			domain: 'Precompiles',
 			href: '/evm/precompiles/example-usage',
-			desc: 'Call Sei precompiles — Staking, Governance, Distribution, JSON, P256, and Addr — from Solidity and viem, and skip the retired Oracle and IBC ones.'
+			desc: 'Call Sei precompiles (Staking, Governance, Distribution, JSON, P256, and Addr) from Solidity and viem. Skip the retired Oracle and IBC precompiles.'
 		},
 		{
 			id: 'sei-nodes',
-			title: 'Nodes & Validators',
+			title: 'Nodes & validators',
 			domain: 'Infrastructure',
 			href: '/node',
 			desc: 'Run full nodes and validators: state sync, snapshots, monitoring, and the SeiDB storage backend.'
@@ -50,14 +50,14 @@ export const SkillsRegistry = () => {
 			title: 'Bridges',
 			domain: 'Bridges',
 			href: '/evm/bridging/layerzero',
-			desc: 'Bridge assets to and from Sei with LayerZero V2 OFTs and Circle CCTP v2 for native USDC, and why IBC no longer moves assets.'
+			desc: 'Bridge assets to and from Sei with LayerZero V2 OFTs and Circle CCTP v2 for native USDC. The skill also explains why IBC no longer moves assets.'
 		},
 		{
 			id: 'sei-migration',
 			title: 'Migration',
 			domain: 'Migration',
 			href: '/evm/migrate-from-other-evms',
-			desc: 'Port EVM and Solana apps to Sei — the behavioral deltas that break a naive port, plus a Solana-to-Sei concept map.'
+			desc: 'Port EVM and Solana dApps to Sei: the behavioral differences that break a naive port, plus a Solana-to-Sei concept map.'
 		}
 	];
 

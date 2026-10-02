@@ -4,23 +4,23 @@ sidebarTitle: 'Statesync'
 description: 'Detailed guide for using statesync to join the network'
 keywords: ['sei node', 'blockchain node', 'node configuration', 'seidb', 'node maintenance', 'system operations']
 ---
-Follow this guide to join an existing network through statesync. To quickly spin up a fresh full node and join in the network, it's recommended to sync through state sync.
+Use state sync to start a new full node and join an existing network quickly.
 
-## State Sync
+## State sync
 
-State sync allows a new node to join a network by fetching a snapshot of the application state at a recent height instead of fetching and replaying all historical blocks. This can reduce the time needed to sync with the network from days to minutes.
+State sync lets a new node join a network without fetching and replaying all historical blocks. Instead, the node fetches a snapshot of the application state at a recent height. This can reduce the time to sync with the network from days to minutes.
 
-<Warning>RocksDB support for the SeiDB state store will be removed. No target release has been published. Set `ss-backend = "pebbledb"` before you start state sync, especially when rebuilding a node that previously used RocksDB. See [Move off RocksDB](/node/node-operators#move-off-rocksdb) for the full migration checklist.</Warning>
+<Warning>Set `ss-backend = "pebbledb"` before you start state sync. This is especially important if you rebuild a node that previously used RocksDB. RocksDB support for the SeiDB state store will be removed, and there is no published target release for the removal. For the full migration checklist, see [Move off RocksDB](/node/node-operators#move-off-rocksdb).</Warning>
 
 <Danger>Do not use state sync to migrate an archive node. State sync starts from a recent height and does not preserve the earlier state-store versions. Follow the archive-node guidance in [Move off RocksDB](/node/node-operators#move-off-rocksdb).</Danger>
 
-## Clean Up
+## Clean up
 
-If you are not starting a node from fresh, then you need to do some backups and clean ups.
+If the node is not new, back up and clean up the existing node first.
 
-<Info>Note: This step is not needed for fresh nodes.</Info>
+<Info>Skip this step on a new node.</Info>
 
-Assuming your sei home directory is `$HOME/.sei`, back up `priv_validator_key.json` and `priv_validator_state.json`:
+If your Sei home directory is `$HOME/.sei`, back up `priv_validator_key.json` and `priv_validator_state.json`:
 
 ```bash
 cp $HOME/.sei/data/priv_validator_state.json $HOME/priv_validator_state.json
@@ -33,18 +33,16 @@ Reset the state:
 seid tendermint unsafe-reset-all --home $HOME/.sei
 ```
 
-Finally, remove the existing data and wasm folders and restore the `priv_validator_state.json`:
-
-First, print the state-store section from `app.toml`:
+Finally, remove the existing data and wasm folders and restore `priv_validator_state.json`. Before you remove them, print the state-store section from `app.toml`:
 
 ```bash
 sed -n '/^\[state-store\]/,/^\[.*\]/p' $HOME/.sei/config/app.toml
 ```
 
 If `ss-db-directory` or `evm-ss-db-directory` points outside
-`$HOME/.sei/data`, back up anything you need and clear the old state-store
-data there as well. The commands below do not remove custom directories. A
-PebbleDB state sync must not reuse RocksDB data.
+`$HOME/.sei/data`, back up what you need from that directory. Then clear the
+old state-store data there too. The commands below do not remove custom
+directories. A PebbleDB state sync must not reuse RocksDB data.
 
 ```bash
 rm -rf $HOME/.sei/data/*
@@ -54,30 +52,30 @@ cp $HOME/priv_validator_state.json $HOME/.sei/data/priv_validator_state.json
 
 ## Statesync script
 
-Set up the RPC servers for primary and secondary endpoints. You can use one of these RPC endpoints for Statesyning
+Set up the RPC servers for the primary and secondary endpoints. You can use one of these RPC endpoints for state sync.
 
-For `STATE_SYNC_RPC`, pick:
+For `STATE_SYNC_RPC`, use one of these endpoints:
 
-- mainnet (pacific-1): `https://sei-rpc.polkachu.com:443` or `https://rpc.sei-apis.com:443`
-- testnet (atlantic-2): `https://sei-testnet-rpc.polkachu.com:443` or `https://rpc-testnet.sei-apis.com:443`
+- Sei Mainnet (pacific-1): `https://sei-rpc.polkachu.com:443` or `https://rpc.sei-apis.com:443`
+- Sei Testnet (atlantic-2): `https://sei-testnet-rpc.polkachu.com:443` or `https://rpc-testnet.sei-apis.com:443`
 
-For `STATE_SYNC_PEER`, pick the below as `persistent-peers`:
+For `STATE_SYNC_PEER`, use these values as `persistent-peers`:
 
-- mainnet (pacific-1):
+- Sei Mainnet (pacific-1):
 
 ```bash
 3be6b24cf86a5938cce7d48f44fb6598465a9924@p2p.state-sync-0.pacific-1.seinetwork.io:26656,b21279d7092fde2e41770832a1cacc7d0051e9dc@p2p.state-sync-1.pacific-1.seinetwork.io:26656,616c05e9ba24acc89c0de630b5e3adbedaebb478@p2p.state-sync-2.pacific-1.seinetwork.io:26656
 ```
 
-- testnet (atlantic-2):
+- Sei Testnet (atlantic-2):
 
 ```bash
 b2664ccaa84a04b67683093fefb802b172ead6d1@sei-a2-rpc.p2p.brocha.in:30612,babc3f3f7804933265ec9c40ad94f4da8e9e0017@testnet-seed.rhinostake.com:11956
 ```
 
-The script sets up `trust_height` and `trust_hash` automatically. Each statesync snapshot is created at a certain block height. The script uses the best practice here and sets the trust height to be earlier than the latest snapshot block height to avoid backward verifications.
+The script sets `trust_height` and `trust_hash` automatically. Each state sync snapshot is taken at a specific block height. The script follows best practice and sets the trust height earlier than the latest snapshot block height. This avoids backward verification.
 
-Script that you can use:
+Use this script:
 
 ```bash title="state_sync.sh"
 #!/bin/bash
@@ -137,9 +135,9 @@ sed -n '/^\[state-store\]/,/^\[.*\]/p' $HOME/.sei/config/app.toml
 ```
 
 Confirm that the script output includes `ss-backend = "pebbledb"`. If the key
-is absent, add it directly below `[state-store]` before you start `seid`.
+is missing, add it directly below `[state-store]` before you start `seid`.
 
-Finally start the daemon:
+Finally, start the daemon:
 
 ```bash
 sudo systemctl start seid
@@ -147,14 +145,14 @@ sudo systemctl start seid
 
 ## Troubleshooting statesync
 
-**Q:** I can't connect to the state sync url.
+**Q:** I cannot connect to the state sync URL.
 
-**A:** Try another statesync url in that case and inform us in the [Sei Tech Chat](https://t.me/+KZdhZ1eE-G01NmZk).
+**A:** Try a different state sync URL, and report the problem in the [Sei Tech Chat](https://t.me/+KZdhZ1eE-G01NmZk).
 
-**Q:** The statesync finishes, but immediately get `AppHash` errors upon regular block syncing:
+**Q:** State sync finishes, but I get `AppHash` errors as soon as regular block sync starts.
 
-**A:** Make sure that you use the latest version of the chain node when you state-sync.
+**A:** Make sure that you use the latest version of the chain node when you run state sync.
 
-**Q:** The statesync randomly stops.
+**Q:** State sync stops at random.
 
-**A:** State-sync can be flaky at times, just try again. Please give it around 4-5 tries. Join our [Sei Tech Chat](https://t.me/+KZdhZ1eE-G01NmZk) for help if you have any issues.
+**A:** State sync is sometimes unreliable. If it stops, start it again. It can take approximately 4 to 5 attempts. If you still have problems, ask for help in the [Sei Tech Chat](https://t.me/+KZdhZ1eE-G01NmZk).

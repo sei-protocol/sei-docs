@@ -12,7 +12,7 @@ export const SequentialNonceQueue = () => {
   return (
     <div className="not-prose w-full my-5">
       <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/40 p-4 text-neutral-800 dark:text-neutral-200">
-        <svg viewBox="0 0 880 310" role="img" aria-label="A missing EVM nonce strands every later nonce; the usual workaround is more hot wallets" style={{ width: '100%', minWidth: 620, height: 'auto', display: 'block' }}>
+        <svg viewBox="0 0 880 310" role="img" aria-label="A missing EVM nonce strands every later nonce. The usual workaround is more hot wallets" style={{ width: '100%', minWidth: 620, height: 'auto', display: 'block' }}>
           <defs>
             <marker id="queue-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
               <path d="M 0 1 L 9 5 L 0 9 z" fill={ink} fillOpacity="0.6" />
@@ -51,7 +51,7 @@ export const SequentialNonceQueue = () => {
           <text x={440} y={298} fontSize="10.5" textAnchor="middle" fill={ink} fillOpacity="0.6">throughput scales with wallets, and so do fragmented balances, duplicated approvals, and keys that hold funds</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">A transaction that lands and reverts consumes its nonce and blocks nothing. A transaction that never lands leaves a gap, and every later nonce waits behind it. On Sei a pending-nonce read comes from the mempool rather than aliasing latest, and it is too unreliable to rebuild an in-flight queue from. Splitting funds across hot wallets buys width at the cost of custody surface.</div>
+      <div className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">A transaction that lands and reverts consumes its nonce and blocks nothing. A transaction that never lands leaves a gap, and every later nonce waits behind it. On Sei, a pending-nonce read comes from the mempool rather than aliasing latest. It is too unreliable to rebuild an in-flight queue from. Splitting funds across hot wallets buys width at the cost of custody surface.</div>
     </div>
   );
 };
@@ -125,7 +125,7 @@ export const NonceLanes = () => {
           <text x={210} y={328} fontSize="9.5" fill={accent} fontWeight="600">strictly ordered within a lane, left to right</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">EntryPoint v0.8 stores a UserOperation nonce as a 192-bit key plus a 64-bit sequence and tracks one sequence per key. Operations on different keys never queue behind each other; operations on the same key stay sequential. The repository calls a key a lane and forbids lane 0.</div>
+      <div className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">EntryPoint v0.8 stores a UserOperation nonce as a 192-bit key plus a 64-bit sequence and tracks one sequence per key. Operations on different keys never queue behind each other. Operations on the same key stay sequential. The repository calls a key a lane and forbids lane 0.</div>
     </div>
   );
 };
@@ -248,7 +248,7 @@ export const NonceLanePipeline = () => {
           <text x={785} y={299} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.7">msg.sender is the funded EOA</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">UserOperations are not transactions. Gas-only relayers wrap each bundle in an EntryPoint.handleOps transaction and pay for it. Each relayer still has one sequential EVM nonce, but a relayer key can only lose its own gas: it cannot create a valid operation without the funded account's signature.</div>
+      <div className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">UserOperations are not transactions. Gas-only relayers wrap each bundle in an EntryPoint.handleOps transaction and pay for it. Each relayer still has one sequential EVM nonce, but a relayer key can only lose its own gas. It cannot create a valid operation without the funded account's signature.</div>
     </div>
   );
 };
@@ -315,7 +315,7 @@ export const NonceLaneBundleLifecycle = () => {
           <text x={450} y={282} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.6">on restart, the last exact raw transaction is rebroadcast first, then reconciled against lane sequences and the relayer's confirmed nonce</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">Write-ahead ordering is deliberate: the signed outer transaction is journaled before it reaches the network, so a crash between signing and broadcast cannot lose or duplicate work. Replacement always reuses the relayer nonce, which is why a stuck bundle cannot create a nonce gap.</div>
+      <div className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">Write-ahead ordering is deliberate. The signed outer transaction is journaled before it reaches the network, so a crash between signing and broadcast cannot lose or duplicate work. Replacement always reuses the relayer nonce, which is why a stuck bundle cannot create a nonce gap.</div>
     </div>
   );
 };
@@ -335,7 +335,7 @@ export const NonceLaneFailureIsolation = () => {
   return (
     <div className="not-prose w-full my-5">
       <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/40 p-4 text-neutral-800 dark:text-neutral-200">
-        <svg viewBox="0 0 900 320" role="img" aria-label="Execution reverts are isolated to one lane inside a bundle; validation failures revert the whole bundle without consuming anything; never-submitted operations consume nothing" style={{ width: '100%', minWidth: 640, height: 'auto', display: 'block' }}>
+        <svg viewBox="0 0 900 320" role="img" aria-label="Execution reverts are isolated to one lane inside a bundle. Validation failures revert the whole bundle without consuming anything. Never-submitted operations consume nothing" style={{ width: '100%', minWidth: 640, height: 'auto', display: 'block' }}>
           <text x={30} y={28} fontSize="13" fontWeight="600" fill={ink}>Execution revert: isolated to its lane</text>
           <rect x={30} y={44} width={400} height={118} rx={9} fill="none" stroke={ink} strokeOpacity="0.35" strokeWidth="1" strokeDasharray="5 4" />
           <text x={230} y={60} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.6">one handleOps transaction, one block</text>
@@ -404,7 +404,7 @@ export const NonceLaneThroughputComparison = () => {
   return (
     <div className="not-prose w-full my-5">
       <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/40 p-4 text-neutral-800 dark:text-neutral-200">
-        <svg viewBox="0 0 900 468" role="img" aria-label="Landed operations per second for one EOA with sequential nonces, fleets of hot wallets, and nonce lanes, all calling the same venue on Sei Testnet; the block-gas ceiling is about 73 per second" style={{ width: '100%', minWidth: 640, height: 'auto', display: 'block' }}>
+        <svg viewBox="0 0 900 468" role="img" aria-label="Landed operations per second for one EOA with sequential nonces, fleets of hot wallets, and nonce lanes, all calling the same venue on Sei Testnet. The block-gas ceiling is about 73 per second" style={{ width: '100%', minWidth: 640, height: 'auto', display: 'block' }}>
           <text x={20} y={24} fontSize="13" fontWeight="600" fill={ink}>Landed operations per second, same venue call, Sei Testnet</text>
           <rect x={x0} y={37} width={10} height={10} rx={2} fill={accent} />
           <text x={x0 + 15} y={45} fontSize="9.5" fill={ink} fillOpacity="0.8">chain-side: landed ÷ block-timestamp span</text>
@@ -437,7 +437,7 @@ export const NonceLaneThroughputComparison = () => {
           })}
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">One measurement session on Sei Testnet, every strategy calling the same MockPerpVenue.place at about 330,000 gas per call. Block gas, not the nonce model, sets the ceiling: lanes came within 12 percent of it from one address whose EVM nonce never moved, while the single sequential queue matched the hot-wallet fleet only when every transaction left in one JSON-RPC batch. Short runs read high on the chain-side scale because Sei stamps blocks in whole seconds.</div>
+      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">One measurement session on Sei Testnet. Every strategy called the same MockPerpVenue.place at about 330,000 gas per call. Block gas, not the nonce model, sets the ceiling. Lanes came within 12 percent of it from one address whose EVM nonce never moved. The single sequential queue matched the hot-wallet fleet only when every transaction left in one JSON-RPC batch. Short runs read high on the chain-side scale because Sei stamps blocks in whole seconds.</div>
     </div>
   );
 };
@@ -533,7 +533,7 @@ export const NonceLaneScalingSeries = () => {
   return (
     <div className="not-prose w-full my-5">
       <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/40 p-4 text-neutral-800 dark:text-neutral-200">
-        <svg viewBox="0 0 900 312" role="img" aria-label="Landed operations per second as bundle width grows at 4 relayers, and as the relayer count grows at width 4; both series rise toward the block-gas ceiling of about 73 per second" style={{ width: '100%', minWidth: 640, height: 'auto', display: 'block' }}>
+        <svg viewBox="0 0 900 312" role="img" aria-label="Landed operations per second as bundle width grows at 4 relayers, and as the relayer count grows at width 4. Both series rise toward the block-gas ceiling of about 73 per second" style={{ width: '100%', minWidth: 640, height: 'auto', display: 'block' }}>
           {panels.map((p) => {
             const left = p.x0 - 40;
             const right = p.x0 + (p.cats.length - 1) * p.step + 30;
@@ -577,7 +577,7 @@ export const NonceLaneScalingSeries = () => {
           <text x={458} y={305.5} fontSize="9.5" fill={ink} fillOpacity="0.8">client-side</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Categories are evenly spaced, not to scale. Both series climb almost linearly while the pool is the bottleneck, because each relayer's bundle cycle is about 1.5 seconds of sequential RPC round trips plus inclusion, and flatten as the in-flight work approaches what a 12,500,000-gas block can hold. Runs used 32 to 1,024 operations, so the shorter ones read higher on the chain-side scale than they would sustain. The sweep point with 4 relayers and a bundle width of 4 used 32 operations. The tutorial comparison used 24, so their rates differ despite the same bundle shape.</div>
+      <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Categories are evenly spaced, not to scale. While the pool is the bottleneck, both series climb almost linearly: each relayer's bundle cycle is about 1.5 seconds of sequential RPC round trips plus inclusion. They flatten as the in-flight work approaches what a 12,500,000-gas block can hold. Runs used 32 to 1,024 operations, so the shorter ones read higher on the chain-side scale than they would sustain. The sweep point with 4 relayers and a bundle width of 4 used 32 operations. The tutorial comparison used 24, so their rates differ despite the same bundle shape.</div>
     </div>
   );
 };

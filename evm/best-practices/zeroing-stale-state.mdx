@@ -3,19 +3,19 @@ title: 'Zeroing Out Stale State'
 description: 'Strategies for clearing unused EVM storage on Sei to reduce state growth and improve node performance.'
 keywords: ['sei evm', 'state management', 'gas refund', 'storage clearing', 'contract optimization', 'stale state']
 ---
-Zeroing out state means setting stored contract values back to their defaults (e.g., `0`, `false`, `address(0)`) by writing `non-zero → zero` into EVM storage slots.
+Zeroing out state means setting stored contract values back to their defaults, such as `0`, `false`, or `address(0)`. To do this, you write `non-zero → zero` into EVM storage slots.
 
-## Why Zero Out State
+## Why zero out state
 
-Non-zero storage contributes to global state size. Clearing stale state reduces state growth pressure and can improve node operations, sync, and restart behavior. This matters especially on high-throughput chains like Sei where state growth can be aggressive.
+Non-zero storage adds to the global state size. When you clear stale state, you reduce pressure from state growth and can improve node operations, sync, and restart behavior. This matters especially on high-throughput chains such as Sei, where state growth can be aggressive.
 
 <Info>Clearing a non-zero storage slot to zero earns a **4,800 gas refund** per slot.</Info>
 
-## Clearing State Variables, Arrays, and Maps
+## Clearing state variables, arrays, and maps
 
-### Simple Fixed-Size State
+### Simple fixed-size state
 
-For value types and fixed-size arrays, use `delete` (or assign the default) to reset values to their defaults (`0`, `address(0)`, `false`).
+For value types and fixed-size arrays, use `delete` or assign the default value. This resets the values to their defaults (`0`, `address(0)`, `false`).
 
 ```solidity
 uint256 public value;
@@ -31,13 +31,13 @@ function clearSimple() external {
 }
 ```
 
-### Dynamic Arrays
+### Dynamic arrays
 
-Using `delete` on a dynamic array resets its length to 0 and clears all elements, but this can be too expensive for large arrays and risks hitting the block gas limit.
+If you use `delete` on a dynamic array, it resets the length to 0 and clears all elements. For large arrays, this can be too expensive and can hit the block gas limit.
 
-The safer approach is **batched clearing** by repeatedly calling `pop()` in chunks.
+The safer approach is **batched clearing**: call `pop()` repeatedly, in chunks.
 
-<Warning>If a dynamic array might exceed **~500 elements**, use batched clearing to avoid running out of gas.</Warning>
+<Warning>If a dynamic array might exceed **approximately 500 elements**, use batched clearing so that you do not run out of gas.</Warning>
 
 ```solidity
 uint256[] public dynamicArr;
@@ -53,9 +53,9 @@ function batchClear(uint256 batchSize) external {
 
 ### Mappings
 
-You can't iterate a mapping, so you can't clear it unless you can enumerate keys. The main strategy is to **maintain an index of keys** (e.g., a `holders[]` array plus an `_isHolder` flag) whenever you write, then later delete mapping entries in batches by iterating that key list.
+You cannot iterate over a mapping, so you cannot clear it unless you can enumerate its keys. The main strategy is to **maintain an index of keys** whenever you write. For example, use a `holders[]` array plus an `_isHolder` flag. Later, iterate over that key list to delete mapping entries in batches.
 
-<Info>Maintaining an index costs roughly one extra `SSTORE` per write (Sei: ~72,000 gas; see [EVM Differences](/evm/differences-with-ethereum#sstore-gas-cost)), but makes future clearing possible.</Info>
+<Info>Maintaining an index costs roughly one extra `SSTORE` per write, but it makes future clearing possible. On Sei, that extra write costs approximately 72,000 gas. See [EVM differences](/evm/differences-with-ethereum#sstore-gas-cost).</Info>
 
 ```solidity
 mapping(address => uint256) public balances;
@@ -80,37 +80,37 @@ function batchClearBalances(uint256 start, uint256 end) external {
 }
 ```
 
-## Strategies for Existing Contracts
+## Strategies for existing contracts
 
-### External Cleaner Contract
+### External cleaner contract
 
-If you control permissions and the original contract has callable setters/entrypoints, deploy a separate "cleaner" contract that loops through user/key batches and calls the original contract to set values to zero.
+If you control permissions and the original contract has callable setters or entry points, deploy a separate "cleaner" contract. The cleaner loops through batches of users or keys and calls the original contract to set values to zero.
 
-<Warning>This only clears state reachable through the **public/external interface**. Truly internal or private state with no setters can't be touched.</Warning>
+<Warning>This method clears only state that is reachable through the **public or external interface**. It cannot change internal or private state that has no setters.</Warning>
 
 See [Appendix A](#appendix-a---external-cleaner-contract) for example code.
 
-### Proxy / Upgradeable Contract
+### Proxy / upgradeable contract
 
-If you have a proxy or upgradeable contract, this is the best-case scenario. Upgrade the implementation to add reset functions while **preserving storage layout**, run batched resets, then optionally upgrade again to remove the reset logic.
+If you have a proxy or upgradeable contract, this is the best case. Upgrade the implementation to add reset functions, and **preserve the storage layout** when you do. Run the batched resets. Then you can upgrade again to remove the reset logic.
 
 See [Appendix B](#appendix-b---proxyupgradeable-contract) for example code.
 
-### Reconstruct Keys from Event Logs
+### Reconstruct keys from event logs
 
-If contract writes emit events (which is common), scan historical logs to recover mapping keys (e.g., recipients from `Transfer` events), deduplicate them, and pass that list into a batch-clear call.
+Contract writes often emit events. If they do, scan the historical logs to recover mapping keys, such as recipients from `Transfer` events. Remove duplicates, and pass the list to a batch-clear call.
 
-### Use a Subgraph or Custom Indexer
+### Use a subgraph or custom indexer
 
-For complex or nested state, use [The Graph](https://thegraph.com/) or your own indexer to build a full set of non-zero keys/entities off-chain, then feed the resulting address/key list into on-chain batch clearing. This moves enumeration complexity off-chain while the on-chain work is just applying clears.
+For complex or nested state, use [The Graph](https://thegraph.com/) or your own indexer to build a full set of non-zero keys or entities off-chain. Then pass the resulting list of addresses or keys to the on-chain batch clearing. This moves the enumeration complexity off-chain, and the on-chain work only applies the clears.
 
-### Brute-Force via Direct Storage Reads
+### Brute-force via direct storage reads
 
-If you have a candidate universe of keys (e.g., all addresses that ever interacted), compute each mapping slot (`keccak256(key, slot)` — tools like `cast index` do this), read storage via RPC, and keep only the non-zero keys to clear.
+If you have a candidate set of keys, such as all addresses that ever interacted with the contract, compute each mapping slot (`keccak256(key, slot)`). Tools such as `cast index` do this for you. Read the storage through RPC, and keep only the non-zero keys to clear.
 
-<Info>This approach is tedious and RPC-heavy but works when events are missing or unreliable.</Info>
+<Info>This approach is tedious and RPC-heavy, but it works when events are missing or unreliable.</Info>
 
-## Appendix A - External Cleaner Contract
+## Appendix A - External cleaner contract
 
 ```solidity
 // SPDX-License-Identifier: MIT
@@ -135,7 +135,7 @@ contract StateCleaner {
 }
 ```
 
-## Appendix B - Proxy/Upgradeable Contract
+## Appendix B - Proxy/upgradeable contract
 
 ```solidity
 // SPDX-License-Identifier: MIT

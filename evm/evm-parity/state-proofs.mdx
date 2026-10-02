@@ -3,46 +3,46 @@ title: 'State Proofs'
 description: 'How eth_getProof differs on Sei due to IAVL tree storage'
 ---
 
-# State Proofs
+# State proofs
 
-Sei supports `eth_getProof` but returns a different proof format from Ethereum. If your application verifies proofs on-chain or off-chain, you need to account for this difference.
+Sei supports `eth_getProof`, but it returns a different proof format from Ethereum. If your application verifies proofs on-chain or off-chain, account for this difference.
 
-## The Difference
+## The difference
 
-Ethereum stores state in a Merkle Patricia Trie (MPT) and `eth_getProof` returns MPT inclusion proofs. Sei stores state in an IAVL tree and returns IAVL proofs instead.
+Ethereum stores state in a Merkle Patricia Trie (MPT), and `eth_getProof` returns MPT inclusion proofs. Sei stores state in an IAVL tree and returns IAVL proofs instead.
 
 The RPC method exists and responds correctly, but the proof data structure is not compatible with Ethereum MPT proof verifiers.
 
 ### Store backends
 
-`eth_getProof` resolves the underlying account store by unwrapping known KVStore wrappers until it reaches a proof-capable queryable store. This means proofs are served across a broader range of node configurations, not just a classic IAVL store. Supported roots include:
+`eth_getProof` resolves the underlying account store. It unwraps known KVStore wrappers until it reaches a proof-capable queryable store. As a result, proofs work across a broader range of node configurations, not only with a classic IAVL store. Supported roots include:
 
 - Classic IAVL stores
 - store/v2 memiavl commitment stores
 - Any other proof-capable (queryable) store reached through cache, `tracekv`, Giga cache, or prefix store wrappers
 
-If none of these can be reached, the call returns a `cannot find a proof-capable queryable KV store` error. In all cases the returned proof data is IAVL-format, not Ethereum MPT.
+If the call cannot reach any of these stores, it returns a `cannot find a proof-capable queryable KV store` error. In all cases, the returned proof data is in IAVL format, not Ethereum MPT format.
 
-## What This Affects
+## What this affects
 
-Most applications do not call `eth_getProof` directly. It is primarily used by:
+Most applications do not call `eth_getProof` directly. Its main users are:
 
-- Light clients verifying state without trusting an RPC node
-- Cross-chain bridges proving inclusion of state on Sei
-- Applications verifying contract storage values trustlessly
+- Light clients that verify state without trusting an RPC node
+- Cross-chain bridges that prove the inclusion of state on Sei
+- Applications that verify contract storage values trustlessly
 
-If you are doing standard contract reads, event queries, or transaction lookups, this difference does not affect you.
+If you do standard contract reads, event queries, or transaction lookups, this difference does not affect you.
 
 ## Calling eth_getProof
 
 ### Storage key requirements
 
-Before calling `eth_getProof`, note two requirements Sei enforces on the `storageKeys` argument:
+Before you call `eth_getProof`, note these two requirements that Sei enforces on the `storageKeys` argument:
 
-- **Keys must be hex-encoded.** Each storage key must be a valid hex-encoded value (for example `0x0000000000000000000000000000000000000000000000000000000000000001`). Keys are decoded and left-padded to 32 bytes. A malformed, non-hex key is rejected with an `invalid storage key` error. Raw byte strings, which were previously accepted, no longer work.
-- **At most 1024 keys per request.** A single proof request may include a maximum of 1024 storage keys. Requesting more returns a `too many storage keys` error. Split larger sets across multiple requests.
+- **Keys must be hex-encoded.** Each storage key must be a valid hex-encoded value (for example, `0x0000000000000000000000000000000000000000000000000000000000000001`). Sei decodes each key and left-pads it to 32 bytes. Sei rejects a malformed, non-hex key with an `invalid storage key` error. Raw byte strings do not work, although earlier versions accepted them.
+- **At most 1024 keys per request.** A single proof request may include a maximum of 1024 storage keys. A request for more keys returns a `too many storage keys` error. Split larger sets across multiple requests.
 
-The call works through standard libraries:
+The call works with standard libraries:
 
 <CodeGroup>
 
@@ -77,8 +77,8 @@ const proof = await provider.send('eth_getProof', [
 
 </CodeGroup>
 
-## Verifying Proofs
+## Verifying proofs
 
-To verify Sei state proofs, use an IAVL-compatible verifier. Standard Ethereum MPT verifier libraries (e.g. those used in Solidity or in Ethereum bridge contracts) will reject Sei proofs.
+To verify Sei state proofs, use an IAVL-compatible verifier. Standard Ethereum MPT verifier libraries reject Sei proofs. Examples are the libraries used in Solidity or in Ethereum bridge contracts.
 
-Refer to the [Sei RPC reference](/evm/reference) for the exact proof schema returned.
+For the exact proof schema that the method returns, see the [Sei RPC reference](/evm/reference).

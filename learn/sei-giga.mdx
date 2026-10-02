@@ -7,51 +7,53 @@ keywords: ['sei giga', 'multi-proposer blockchain', 'autobahn consensus', 'evm l
 
 import { GigaProposerComparison, GigaAsyncPipeline, GigaTxJourney, GigaRoadmapTrack } from '/snippets/giga-diagrams.jsx';
 
-Sei Giga will be the next generation of the Sei protocol following the Giga Upgrade, designed to be the first Multi-Proposer EVM Layer 1. Every validator will propose transactions at the same time, consensus will finalize only the order of those transactions, and execution and state attestation will happen afterwards, off the critical path. On an internal devnet of 40 nodes across 20 regions, Giga sustained more than 5 gigagas per second (5 billion gas per second) with ordering finality under 250 ms. The separate public-testnet roadmap target is 200,000 TPS. Giga will ship as a series of in-place upgrades to the live Sei network rather than as a new chain.
+Sei Giga will be the next generation of the Sei protocol after the Giga Upgrade. It is designed to be the first Multi-Proposer EVM Layer 1. Every validator will propose transactions at the same time. Consensus will finalize only the order of those transactions. Execution and state attestation will happen after that, off the critical path.
+
+On an internal devnet of 40 nodes across 20 regions, Giga sustained more than 5 gigagas per second (5 billion gas per second). At that throughput, ordering finality was under 250 ms. The separate public-testnet roadmap target is 200,000 TPS. Giga will ship as a series of in-place upgrades to the live Sei network, not as a new chain.
 
 <Info>
-  **Status (August 2026):** The [Giga whitepaper v2.0](https://arxiv.org/abs/2505.14914) was published in June 2026. The mandatory [Sei v6.6 release](https://github.com/sei-protocol/sei-chain/releases/tag/v6.6.0) brought the first execution (Ares) and storage (Eidos) components to Sei Mainnet on August 4. Ares became the default execution path for upgraded nodes; Eidos storage migration remains phased and operator-controlled. Broader Eidos and Ares work continues, and the Autobahn consensus testnet is the next milestone on the [official roadmap](https://giga.seilabs.io). Functionality not yet activated remains forward-looking and subject to change.
+  **Status (August 2026):** The [Giga whitepaper v2.0](https://arxiv.org/abs/2505.14914) was published in June 2026. The mandatory [Sei v6.6 release](https://github.com/sei-protocol/sei-chain/releases/tag/v6.6.0) brought the first execution (Ares) and storage (Eidos) components to Sei Mainnet on August 4. Ares became the default execution path for upgraded nodes. Eidos storage migration remains phased and operator-controlled. Broader Eidos and Ares work continues, and the Autobahn consensus testnet is the next milestone on the [official roadmap](https://giga.seilabs.io). Functionality not yet activated remains forward-looking and subject to change.
 </Info>
 
 ## Sei Giga at a glance
 
 | Property             | Sei Giga                                                                                                             |
 | -------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| Architecture         | Multi-Proposer (MCP) EVM Layer 1; every validator will propose concurrently                                            |
+| Architecture         | Multi-Proposer (MCP) EVM Layer 1: every validator will propose concurrently                                            |
 | Consensus            | Autobahn BFT: per-validator data lanes with periodic cut-of-tips ordering                                              |
-| Consensus cadence    | Effective steady-state cadence of one committed cut per 1.5 network round trips under pipelining; not submission-to-finality latency |
-| Finality             | Sub-250 ms ordering finality (measured on an internal devnet; whitepaper v2.0, June 2026)                             |
-| Throughput           | More than 5 gigagas/s sustained on an internal devnet; separate roadmap target of 200,000 TPS for the Autobahn testnet |
-| Execution            | Asynchronous, after ordering finality; Block-STM-style parallel EVM with optimistic concurrency control               |
+| Consensus cadence    | Effective steady-state cadence of one committed cut per 1.5 network round trips under pipelining, not submission-to-finality latency |
+| Finality             | Sub-250 ms ordering finality, measured on an internal devnet (whitepaper v2.0, June 2026)                             |
+| Throughput           | More than 5 gigagas/s sustained on an internal devnet, and a separate roadmap target of 200,000 TPS for the Autobahn testnet |
+| Execution            | Asynchronous, after ordering finality. Block-STM-style parallel EVM with optimistic concurrency control               |
 | State commitment     | Lattice-hash divergence digests over each block's write log (no Merkle state root on the hot path)                    |
-| State proofs         | Block Update Digests (BUDs); proof cost scales with per-block updates rather than total state size                    |
-| Transaction ingress  | No traditional public mempool; complete transactions route to validator lanes before Sedna, while the later [Sedna](/learn/sei-giga-specs#sedna-private-dissemination) milestone introduces coded symbol bundles |
+| State proofs         | Block Update Digests (BUDs). Proof cost scales with per-block updates, not total state size                           |
+| Transaction ingress  | No traditional public mempool. Before Sedna, complete transactions route to validator lanes. The later [Sedna](/learn/sei-giga-specs#sedna-private-dissemination) milestone introduces coded symbol bundles |
 | EVM compatibility    | Will be equivalent to Ethereum mainnet except EIP-4844 blobs, `PREVRANDAO`, the state root, the block gas limit, and the fee mechanism |
-| Security model       | Whitepaper model: BFT with `n = 3f + 1` replicas; live implementation thresholds are stake-weighted. Under the stated assumptions, safety does not depend on network timing; liveness requires network stabilization |
-| Delivery             | Phased, in-place upgrades of the live Sei network, keeping the existing chain ID                                      |
+| Security model       | Whitepaper model: BFT with `n = 3f + 1` replicas. Live implementation thresholds are stake-weighted. Under the stated assumptions, safety does not depend on network timing, and liveness requires network stabilization |
+| Delivery             | Phased, in-place upgrades of the live Sei network that keep the existing chain ID                                      |
 
 ## Why does Sei Giga exist?
 
-Giga's design goal is efficient, fast, and fair on-chain trading, a workload that needs very high throughput, low latency, and bounded censorship and MEV (maximal extractable value) risk. Sei Labs' [Giga announcement](https://blog.sei.io/announcements/giga/) frames the gap: Ethereum mainnet processes on the order of 100 TPS, while comparable web2 systems handle around 100,000 complex transactions per second. Closing that gap on a single decentralized EVM chain means removing three bottlenecks that all single-proposer blockchains share:
+Giga's design goal is efficient, fast, and fair on-chain trading. This workload needs high throughput, low latency, and bounded censorship and MEV (maximal extractable value) risk. Sei Labs' [Giga announcement](https://blog.sei.io/announcements/giga/) describes the gap: Ethereum mainnet processes on the order of 100 TPS. Comparable web2 systems handle around 100,000 complex transactions per second. Closing that gap on a single decentralized EVM chain means removing three bottlenecks that all single-proposer blockchains share:
 
 1. One leader per block. In Tendermint-style consensus, a single proposer's bandwidth and connectivity cap the whole network's throughput each round. Giga will make every validator a proposer with its own data lane.
 2. Consensus waits for execution. Traditional chains execute transactions and agree on the resulting state root inside the consensus loop, so heavy blocks slow finality. Giga will reach consensus on ordering only and execute asynchronously.
 3. Merkle write amplification. Per-write Merkle tree updates multiply disk I/O as state grows. Giga will replace the hot-path Merkle tree with a flat key-value store and homomorphic lattice hashes.
 
-Sei's [current architecture](/learn/twin-turbo-consensus) already pushed the single-proposer model near its limits: ~400 ms blocks, [optimistic parallel execution](/learn/parallelization-engine), and [SeiDB](/learn/seidb). Giga will replace the model instead of tuning it further.
+Sei's [current architecture](/learn/twin-turbo-consensus) already pushed the single-proposer model near its limits: approximately 400 ms blocks, [optimistic parallel execution](/learn/parallelization-engine), and [SeiDB](/learn/seidb). Giga will replace the model instead of tuning it further.
 
 ## How will Sei Giga work?
 
-Giga is designed to separate the work of a blockchain into four decoupled stages: data dissemination, ordering, execution, and state attestation. Each stage is designed to run concurrently rather than blocking the next.
+Giga is designed to separate the work of a blockchain into four decoupled stages: data dissemination, ordering, execution, and state attestation. Each stage is designed to run concurrently instead of blocking the next.
 
 ### Autobahn consensus
 
 Giga will order transactions with [Autobahn](https://arxiv.org/abs/2401.10369), a Byzantine Fault Tolerant consensus protocol that separates data dissemination from ordering:
 
 - Each validator will continuously stream batches of transactions ("cars") into its own hash-chained lane, in parallel with every other validator.
-- In the whitepaper's replica-count model, a batch will be certified by a Proof of Availability (PoA) after `f + 1` replica votes, which guarantees at least one honest holder under the stated assumptions. The implementation applies stake-weighted thresholds.
-- Consensus will periodically commit a cut: a snapshot of the latest certified tip of every lane. Lanes are hash-chained, so committing a tip implicitly commits everything behind it, and one consensus decision can finalize many blocks of data at once.
-- Pipelined slots are designed for an effective steady-state cadence of one committed cut per 1.5 network round trips, versus three full rounds for Tendermint. This is a throughput cadence rather than a submission-to-finality guarantee. Validators will vote on compact certificates instead of downloading full blocks first.
+- In the whitepaper's replica-count model, a Proof of Availability (PoA) will certify a batch after `f + 1` replica votes. Under the stated assumptions, this guarantees at least one honest holder. The implementation applies stake-weighted thresholds.
+- Consensus will periodically commit a cut: a snapshot of the latest certified tip of every lane. Lanes are hash-chained, so committing a tip implicitly commits everything behind it. One consensus decision can therefore finalize many blocks of data at once.
+- Pipelined slots are designed for an effective steady-state cadence of one committed cut per 1.5 network round trips, versus three full rounds for Tendermint. This is a throughput cadence, not a submission-to-finality guarantee. Validators will vote on compact certificates instead of downloading full blocks first.
 
 <GigaProposerComparison />
 
@@ -59,24 +61,24 @@ The whitepaper's design goal is for dissemination throughput to scale with parti
 
 ### Asynchronous execution and state attestation
 
-Giga will provide two distinct finality signals:
+Giga will have two distinct finality signals:
 
-- Ordering finality: under the protocol's stated fault and cryptographic assumptions, consensus has fixed the transaction order. This is the sub-250 ms signal, but execution follows it, so a receipt or execution result is not available at this stage.
-- State attestation finality: validators have executed the block, computed a compact divergence digest over its write log, and a two-thirds voting-power quorum has attested to that digest in a later block.
+- Ordering finality: under the protocol's stated fault and cryptographic assumptions, consensus has fixed the transaction order. This is the sub-250 ms signal. Execution follows it, so a receipt or execution result is not available at this stage.
+- State attestation finality: validators have executed the block and computed a compact divergence digest over its write log. A two-thirds voting-power quorum has also attested to that digest in a later block.
 
 Applications can inspect the execution result after a node produces the receipt. Whether receipt-level confirmation is sufficient depends on the application's risk policy. High-value or cross-chain flows should wait for state attestation finality.
 
 <GigaAsyncPipeline />
 
-Execution is designed to be deterministic: nodes that apply the same ordered transactions to the same starting state should compute the same result, while ordering continues as execution catches up. Divergence below one-third of voting power can be isolated; divergence beyond the Byzantine threshold is designed to pause the chain. Signing two different digests for the same block will be slashable equivocation.
+Execution is designed to be deterministic. Nodes that apply the same ordered transactions to the same starting state should compute the same result. Ordering continues while execution catches up. Divergence below one-third of voting power can be isolated. Divergence beyond the Byzantine threshold is designed to pause the chain. Signing two different digests for the same block will be slashable equivocation.
 
 ### Parallel execution
 
-Once ordering is final, each block will execute across all CPU cores using optimistic concurrency control:
+After ordering is final, each block will execute across all CPU cores with optimistic concurrency control:
 
-- All transactions in a block will start executing in parallel, buffering their writes privately.
-- A validation phase will detect conflicts (a transaction read or wrote state that an earlier-ordered transaction wrote) and re-execute only the conflicting transactions.
-- The committed result will be identical to sequential execution in block order, and under sustained contention the engine will fall back to sequential execution with unchanged semantics.
+- All transactions in a block will start to execute in parallel, and each will buffer its writes privately.
+- A validation phase will detect conflicts (a transaction read or wrote state that an earlier-ordered transaction wrote). It will then re-execute only the conflicting transactions.
+- The committed result will be identical to sequential execution in block order. Under sustained contention, the engine will fall back to sequential execution with unchanged semantics.
 
 Sei Labs' research found that [64.85% of historical Ethereum transactions could have been parallelized](https://blog.sei.io/research-64-85-of-ethereum-transactions-can-be-parallelized/) this way. Contract-level guidance for maximizing parallelism is in the [developer guide](/learn/sei-giga-developers#writing-parallel-friendly-contracts).
 
@@ -84,25 +86,25 @@ Sei Labs' research found that [64.85% of historical Ethereum transactions could 
 
 Giga's storage layer is designed for a network that will produce petabytes of new data per year at full load:
 
-- Flat key-value store: every account and storage slot will map directly to an entry in a log-structured merge (LSM) tree, with no per-write Merkle path updates. Hot state will be served from RAM; disk writes will be asynchronous, with a write-ahead log for crash recovery.
-- Lattice-hash commitments: instead of a state root, each block's write log will be committed with a homomorphic multiset hash (LtHash). Validators will attest to this digest, and disputes will be resolved by bisecting chunked digests to pinpoint the first divergent write.
-- Block Update Digests (BUDs): Merkle proofs over per-block updates will replace global state proofs, so proof cost will scale with how much a block changed rather than how large total state is. Light clients and bridges will consume these attested digests.
-- Tiered storage: recent, hot data will live on local high-performance SSDs; historical data will move to a distributed columnar store for analytics and audit workloads.
+- Flat key-value store: every account and storage slot will map directly to an entry in a log-structured merge (LSM) tree. There will be no per-write Merkle path updates. Hot state will be served from RAM. Disk writes will be asynchronous, with a write-ahead log for crash recovery.
+- Lattice-hash commitments: instead of a state root, each block's write log will be committed with a homomorphic multiset hash (LtHash). Validators will attest to this digest. Disputes will be resolved by bisecting chunked digests to find the first divergent write.
+- Block Update Digests (BUDs): Merkle proofs over per-block updates will replace global state proofs. Proof cost will then scale with how much a block changed, not with the total size of the state. Light clients and bridges will consume these attested digests.
+- Tiered storage: recent, hot data will live on local high-performance SSDs. Historical data will move to a distributed columnar store for analytics and audit workloads.
 
-Sei v6.6 shipped the first [Eidos](#how-will-sei-giga-ship) support for separating EVM history into dedicated storage. Node migration remains phased and operator-controlled. The FlatKV and lattice-hash state-commitment model described above remains a later phase; its code is operator-gated and off by default. Details are in the [storage specification](/learn/sei-giga-specs#storage).
+Sei v6.6 shipped the first [Eidos](#how-will-sei-giga-ship) support for separating EVM history into dedicated storage. Node migration remains phased and operator-controlled. The FlatKV and lattice-hash state-commitment model described above remains a later phase. Its code is operator-gated and off by default. Details are in the [storage specification](/learn/sei-giga-specs#storage).
 
 ## What will change from today's Sei?
 
 | Layer            | Sei today (v2)                                                             | Sei Giga                                                                                  |
 | ---------------- | -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
 | Block proposal   | One proposer per height                                                     | Every validator will propose concurrently in its own lane                                  |
-| Consensus        | [Twin Turbo](/learn/twin-turbo-consensus) (optimized Tendermint), ~400 ms  | Autobahn: PoA-certified lanes with cut-of-tips ordering, effective 1.5-round-trip steady-state cadence, sub-250 ms measured ordering finality |
-| Execution        | Interleaved with consensus, optimistically parallel ([OCC](/learn/parallelization-engine)) | Fully asynchronous after ordering finality; Block-STM-style OCC                            |
+| Consensus        | [Twin Turbo Consensus](/learn/twin-turbo-consensus) (optimized Tendermint), ~400 ms | Autobahn: PoA-certified lanes with cut-of-tips ordering, effective 1.5-round-trip steady-state cadence, sub-250 ms measured ordering finality |
+| Execution        | Interleaved with consensus, optimistically parallel ([OCC](/learn/parallelization-engine)) | Fully asynchronous after ordering finality, with Block-STM-style OCC                       |
 | State commitment | Merkle app hash ([SeiDB](/learn/seidb): memiavl)                             | Lattice-hash divergence digests attested after execution, with no Merkle root on the hot path |
 | State proofs     | IAVL/Merkle proofs                                                          | Block Update Digests (BUDs) with a governance-set proof window                             |
-| Mempool          | Gossiped mempool                                                            | No public gossiped mempool; complete transactions route to lanes before Sedna, with coded-fragment ingress added by the later [Sedna](/learn/sei-giga-specs#sedna-private-dissemination) milestone |
-| Fee model        | EIP-1559-style base fee + priority fee to the proposer                      | Three-part fees: 1559-style execution fee, ordering fee, distribution fee; tips socialised across validators |
-| Chain surface    | EVM + legacy Cosmos modules                                                 | Streamlined EVM-only stack (via [SIP-3](/learn/sip-03-migration))                          |
+| Mempool          | Gossiped mempool                                                            | No public gossiped mempool. Complete transactions route to lanes before Sedna. The later [Sedna](/learn/sei-giga-specs#sedna-private-dissemination) milestone adds coded-fragment ingress |
+| Fee model        | EIP-1559-style base fee + priority fee to the proposer                      | Three-part fees (1559-style execution fee, ordering fee, distribution fee), with tips socialised across validators |
+| Chain surface    | EVM + legacy Cosmos modules                                                 | EVM-only stack (through [SIP-3](/learn/sip-03-migration))                                  |
 
 ## What will happen to a transaction on Sei Giga?
 
@@ -115,25 +117,25 @@ Giga will have no traditional public mempool. The initial Autobahn flow and the 
 
 The diagram and steps below describe the initial Autobahn flow before Sedna:
 
-1. You will send a signed transaction to an RPC node, which will route it toward a validator. Allocation will be stake-weighted, and you will be able to submit the same transaction to several validators for censorship resistance.
+1. You will send a signed transaction to an RPC node, which will route it toward a validator. Allocation will be stake-weighted. For censorship resistance, you will be able to submit the same transaction to several validators.
 2. The validator will append the transaction to its next batch and chain that batch into its lane.
-3. Once the batch reaches the availability threshold (`f + 1` replicas in the whitepaper model; stake-weighted in the implementation), it will hold a Proof of Availability and the lane tip will advance.
-4. Pipelined consensus will commit a cut of all lane tips. Your transaction's position will now be fixed. This is ordering finality; on the internal devnet it arrived in under 250 ms.
-5. Each executing validator or full node will merge the cut into one sequence using the deterministic tip-priority rule, drop duplicates by hash, and execute the result in parallel. Duplicate copies will not execute and will not pay execution costs twice.
+3. When the batch reaches the availability threshold, it will hold a Proof of Availability, and the lane tip will advance. The threshold is `f + 1` replicas in the whitepaper model and stake-weighted in the implementation.
+4. Pipelined consensus will commit a cut of all lane tips. Your transaction's position will then be fixed. This is ordering finality. On the internal devnet, it arrived in under 250 ms.
+5. Each executing validator or full node will merge the cut into one sequence with the deterministic tip-priority rule. It will drop duplicates by hash and execute the result in parallel. Duplicate copies will not execute and will not pay execution costs twice.
 6. Validators will attest to the block's divergence digest in a later block. This is state attestation finality.
 
-Guidance on which finality signal to use for what is in the [developer guide](/learn/sei-giga-developers#finality-on-giga-which-signal-to-wait-for).
+The [developer guide](/learn/sei-giga-developers#finality-on-giga-which-signal-to-wait-for) explains which finality signal to use for each use case.
 
 ## How will Giga handle MEV and fees?
 
-Multi-Proposer chains eliminate the single sequencer's private block-building monopoly, but they create new MEV channels of their own: same-tick duplicate stealing, proposer-to-proposer orderflow deals, and races around PoA latency. Sei Labs formalized these in a [dedicated MEV paper](https://arxiv.org/abs/2511.13080). Giga will address them at the protocol level:
+Multi-Proposer chains remove the single sequencer's private block-building monopoly. However, they create new MEV channels of their own: same-tick duplicate stealing, proposer-to-proposer orderflow deals, and races around PoA latency. Sei Labs formalized these in a [dedicated MEV paper](https://arxiv.org/abs/2511.13080). Giga will address them at the protocol level:
 
-- The merge rule will be deterministic. The order of transactions within a committed cut will be a pure function of lane contents: lanes will sort by their highest included tip, intra-lane order will be preserved, and duplicates will be dropped. Arrival timing and proposer discretion will play no part.
-- Under the proposed design, priority fees from each epoch will be pooled and distributed to validators by stake and measured liveness rather than paid directly to the carrying proposer. Copying a high-tip transaction into another lane would not earn an additional protocol fee, and routing through a specific proposer would not receive a direct protocol payment. Side payments remain outside the current specification. A tip determines position under the protocol's merge rule.
-- Fees will come in three parts: an EIP-1559-style execution fee, a strictly enforced ordering fee (the priority fee), and a distribution fee that will price duplicate submissions. Duplicates will be deduplicated at merge time, and only one copy will execute; the rest will be refunded part of their tip.
+- The merge rule will be deterministic. The order of transactions within a committed cut will be a pure function of lane contents. Lanes will sort by their highest included tip, intra-lane order will be preserved, and duplicates will be dropped. Arrival timing and proposer discretion will have no effect on the order.
+- Under the proposed design, priority fees from each epoch will be pooled and distributed to validators by stake and measured liveness. They will not be paid directly to the carrying proposer. Copying a high-tip transaction into another lane would not earn an extra protocol fee. Routing through a specific proposer would not receive a direct protocol payment. Side payments remain outside the current specification. A tip determines position under the protocol's merge rule.
+- Fees will come in three parts: an EIP-1559-style execution fee, a strictly enforced ordering fee (the priority fee), and a distribution fee on duplicate submissions. Duplicates will be dropped at merge time, and only one copy will execute. The other copies will receive a partial tip refund.
 - Sedna is intended to add pre-execution privacy. Transactions will travel through [Sedna](/learn/sei-giga-specs#sedna-private-dissemination) as coded symbol bundles spread across selected lanes. The privacy guarantee will depend on the coding parameters and the number of colluding lanes.
 
-The full mechanism is specified in [MEV and fee design](/learn/sei-giga-specs#mev-and-fee-design).
+For the full mechanism, see [MEV and fee design](/learn/sei-giga-specs#mev-and-fee-design).
 
 ## How will Sei Giga ship?
 
@@ -146,31 +148,31 @@ Giga will arrive as a sequence of named upgrades to the live Sei network ([Sei L
 | Giga whitepaper v1     | Initial specification ([arXiv 2505.14914](https://arxiv.org/abs/2505.14914)), MEV formalization ([arXiv 2511.13080](https://arxiv.org/abs/2511.13080)) | Complete |
 | Internal devnet        | Geo-distributed devnet sustaining [5 gigagas/s with Autobahn](https://seiresearch.io/articles/sei-giga-achieving-5-gigagas-with-autobahn-consensus) | Complete |
 | Giga whitepaper v2     | Revised spec (June 2026): sub-250 ms finality, Sedna, BUDs, fee model, post-quantum path            | Complete |
-| Eidos upgrade          | Storage rebuild; v6.6 shipped the first migration support, with node rollout and broader storage work continuing | In progress (first components shipped) |
-| Ares upgrade           | Execution rebuild; first phase activated in v6.6 with per-transaction v2 fallback, with broader execution work continuing | In progress (first phase live) |
-| SIP-3                  | Pre-Giga consolidation to a streamlined EVM-only stack; see the [migration guide](/learn/sip-03-migration) | In progress |
-| Autobahn testnet       | Multi-Proposer, order-first consensus with asynchronous state on a public testnet, targeting 200,000 TPS with 400 ms finality; a final consensus whitepaper will accompany it | Coming soon |
+| Eidos upgrade          | Storage rebuild. Sei v6.6 shipped the first migration support, and node rollout and broader storage work continue | In progress (first components shipped) |
+| Ares upgrade           | Execution rebuild. The first phase activated in v6.6 with per-transaction v2 fallback, and broader execution work continues | In progress (first phase live) |
+| SIP-3                  | Pre-Giga consolidation to an EVM-only stack (see the [migration guide](/learn/sip-03-migration)) | In progress |
+| Autobahn testnet       | Multi-Proposer, order-first consensus with asynchronous state on a public testnet, with a target of 200,000 TPS and 400 ms finality. A final consensus whitepaper will accompany it | Coming soon |
 | Autobahn mainnet       | The live Sei network will upgrade to Autobahn consensus                                            | Coming soon |
 | Sedna upgrade          | Private transaction dissemination (the "private mempool" milestone): transaction fragments will spread across lanes and be reassembled only after ordering | Coming soon |
 | Hermes testnet         | Next-generation consensus beyond Autobahn (whitepaper forthcoming)                                 | Coming soon |
 | Hermes mainnet         | Hermes will merge into Sei Mainnet                                                                 | Coming soon |
 
-Sei v6.6 brought the first Ares and Eidos components to Sei Mainnet at upgrade height `224201091` on August 4, 2026. Ares became the default execution path for upgraded nodes. Eidos migration remains phased and operator-controlled. Autobahn consensus, FlatKV/lattice-hash state commitment, and Sedna remain separate milestones or operator-gated work. Node operators should follow the [release-specific configuration reference](/node/node-operators#giga-storage-and-giga-executor) rather than infer settings from roadmap status.
+Sei v6.6 brought the first Ares and Eidos components to Sei Mainnet at upgrade height `224201091` on August 4, 2026. Ares became the default execution path for upgraded nodes. Eidos migration remains phased and operator-controlled. Autobahn consensus, FlatKV and lattice-hash state commitment, and Sedna remain separate milestones or operator-gated work. Node operators should follow the [release-specific configuration reference](/node/node-operators#giga-storage-and-giga-executor) and not infer settings from roadmap status.
 
 <Warning>
-  There is no public Giga testnet yet (as of August 2026), and therefore no separate Giga chain ID, RPC endpoint, or faucet. Anything claiming otherwise is not official. Current network endpoints remain those of [Sei Mainnet and Sei Testnet](/learn/dev-chains).
+  There is no public Giga testnet yet (as of August 2026). There is therefore no separate Giga chain ID, RPC endpoint, or faucet. Anything that claims otherwise is not official. Current network endpoints remain those of [Sei Mainnet and Sei Testnet](/learn/dev-chains).
 </Warning>
 
 ## Performance claims and targets
 
-Each row carries its source and date. Devnet figures are Sei Labs' internal measurements, consensus comparisons are whitepaper claims, and testnet figures are targets rather than measurements.
+Each row gives its source and date. Devnet figures are Sei Labs' internal measurements. Consensus comparisons are whitepaper claims. Testnet figures are targets, not measurements.
 
 | Metric                        | Value                                  | Context                                                | Source (date)                                                                 |
 | ----------------------------- | -------------------------------------- | ------------------------------------------------------ | ----------------------------------------------------------------------------- |
 | Throughput                    | &gt;5 gigagas/s sustained              | Internal devnet, 40 nodes across 20 regions            | [Whitepaper v2.0](https://arxiv.org/abs/2505.14914) (June 2026)               |
-| Ordering finality             | &lt;250 ms                             | Same devnet (v1 reported &lt;400 ms; Feb 2025 devnet ~700 ms across 4 regions) | Whitepaper v2.0 (June 2026)                                                    |
+| Ordering finality             | &lt;250 ms                             | Same devnet (v1 reported &lt;400 ms, and the Feb 2025 devnet ~700 ms across 4 regions) | Whitepaper v2.0 (June 2026)                                                    |
 | Consensus cadence             | 1.5 round trips (vs 3 in Tendermint)   | Effective steady-state cadence under Autobahn pipelining, not per-transaction latency | Whitepaper §1.1 and §3.4 (2026) |
-| Throughput vs Tendermint      | &gt;50×                                | Autobahn vs single-proposer Tendermint                 | Whitepaper §1.1 (2026); see also the [Autobahn explainer](https://blog.sei.io/autobahn-sei-gigas-multi-proposer-approach-to-blockchain-consensus) (Apr 2025) |
+| Throughput vs Tendermint      | &gt;50×                                | Autobahn vs single-proposer Tendermint                 | Whitepaper §1.1 (2026). See also the [Autobahn explainer](https://blog.sei.io/autobahn-sei-gigas-multi-proposer-approach-to-blockchain-consensus) (Apr 2025) |
 | Block production              | ~70× (180 blocks vs 2.5)               | Multi-Proposer lanes vs single proposer                | Whitepaper §1.1 (2026)                                                         |
 | Parallelizable EVM workload   | 64.85%                                 | Historical Ethereum transactions                       | [Sei research](https://blog.sei.io/research-64-85-of-ethereum-transactions-can-be-parallelized/) (2024) |
 | Autobahn testnet target       | 200,000 TPS, 400 ms finality           | Public testnet milestone                               | [giga.seilabs.io](https://giga.seilabs.io) (May 2026)                          |
@@ -178,23 +180,23 @@ Each row carries its source and date. Devnet figures are Sei Labs' internal meas
 ## Learn more
 
 <CardGroup cols={2}>
-  <Card horizontal title="Technical Specification" icon="file-lines" href="/learn/sei-giga-specs">
+  <Card horizontal title="Technical specification" icon="file-lines" href="/learn/sei-giga-specs">
     The full protocol spec: Autobahn, asynchronous execution, storage, MEV and fee design, security model, and glossary.
   </Card>
-  <Card horizontal title="Developer Guide" icon="code" href="/learn/sei-giga-developers">
-    What will change for contracts and apps: finality semantics, fees, proofs, and parallel-friendly patterns.
+  <Card horizontal title="Developer guide" icon="code" href="/learn/sei-giga-developers">
+    What will change for contracts and dApps: finality semantics, fees, proofs, and parallel-friendly patterns.
   </Card>
-  <Card horizontal title="Giga Whitepaper v2.0" icon="scroll" href="https://arxiv.org/abs/2505.14914">
-    The canonical specification on arXiv (Marsh, Landers, Jog, Ranchal-Pedrosa; June 2026).
+  <Card horizontal title="Giga whitepaper v2.0" icon="scroll" href="https://arxiv.org/abs/2505.14914">
+    The canonical specification on arXiv, by Marsh, Landers, Jog, and Ranchal-Pedrosa (June 2026).
   </Card>
-  <Card horizontal title="Official Roadmap" icon="map" href="https://giga.seilabs.io">
+  <Card horizontal title="Official roadmap" icon="map" href="https://giga.seilabs.io">
     Live milestone tracker for the Giga upgrade.
   </Card>
-  <Card horizontal title="SIP-3 Migration" icon="arrow-right-arrow-left" href="/learn/sip-03-migration">
+  <Card horizontal title="SIP-3 migration" icon="arrow-right-arrow-left" href="/learn/sip-03-migration">
     The EVM-only consolidation that clears the path to Giga.
   </Card>
-  <Card horizontal title="Today's Architecture" icon="clock-rotate-left" href="/learn/twin-turbo-consensus">
-    Twin Turbo consensus, the parallelization engine, and SeiDB: the system Giga will supersede.
+  <Card horizontal title="Today's architecture" icon="clock-rotate-left" href="/learn/twin-turbo-consensus">
+    Twin Turbo Consensus, the parallelization engine, and SeiDB: the system that Giga will replace.
   </Card>
 </CardGroup>
 

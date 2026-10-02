@@ -356,7 +356,7 @@ export const Faucet = () => {
 					}
 					if (data.status === 'error') {
 						stopPolling();
-						setErrorMsg('Transaction failed. Please try again.');
+						setErrorMsg('Transaction failed. Try again.');
 						return;
 					}
 					if (data.status === 'processing' || data.status === 'pending') {
@@ -415,7 +415,7 @@ export const Faucet = () => {
 		for (const candidate of candidates) {
 			if (typeof candidate === 'string' && candidate.trim()) return candidate.trim();
 		}
-		return 'Error requesting tokens. Please try again later.';
+		return 'Error requesting tokens. Try again later.';
 	};
 
 	const handleSubmit = async () => {
@@ -453,7 +453,7 @@ export const Faucet = () => {
 			}
 			resetCaptcha();
 		} catch (e) {
-			setErrorMsg('Error requesting tokens. Please try again later.');
+			setErrorMsg('Error requesting tokens. Try again later.');
 			resetCaptcha();
 		} finally {
 			setSendingRequest(false);
@@ -635,7 +635,7 @@ export const Faucet = () => {
 					<div className='mt-4 flex items-start gap-3 px-4 py-3 text-sm' style={{ borderLeft: '3px solid var(--sei-gold-100)', backgroundColor: 'rgba(150, 111, 34, 0.08)' }}>
 						<AlertTriangleIcon className='w-4 h-4 shrink-0 mt-0.5' />
 						<p className='text-neutral-700 dark:text-neutral-300'>
-							This address fails its EIP-55 checksum, so a character may be wrong. Check it against your wallet. You can still request, and the faucet will reject it if the address is bad.
+							This address fails its EIP-55 checksum, so a character may be wrong. Check it against your wallet. You can still send the request. If the address is wrong, the faucet rejects it.
 						</p>
 					</div>
 				) : null}

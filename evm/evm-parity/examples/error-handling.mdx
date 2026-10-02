@@ -5,20 +5,20 @@ description: 'Decode contract reverts, handle wallet rejections, and recover fro
 
 import { RunSnippet } from '/snippets/run-snippet.jsx';
 
-# Error Handling
+# Error handling
 
 Most transaction failures fall into three categories: contract reverts, wallet rejections, and RPC errors. This page shows how to decode each type and respond correctly.
 
 ## Try it: see real errors
 
-The `RunSnippet` widget surfaces whatever the RPC returns — including failures. These two calls fail on purpose so you can see the exact error shape your code has to handle, live against Sei Mainnet.
+The `RunSnippet` widget shows whatever the RPC returns, including failures. These two live calls to Sei Mainnet fail on purpose. They show the exact error shape that your code has to handle.
 
 <RunSnippet
   method="eth_call"
   params={[{ to: '0xcA11bde05977b3631167028862bE2a173976CA11', data: '0xdeadbeef' }, 'latest']}
   network="mainnet"
   title="A contract revert"
-  description="Calls an unknown selector (0xdeadbeef) on Multicall3. The node rejects it with execution reverted — the same class of failure as the Contract Reverts section below."
+  description="Calls an unknown selector (0xdeadbeef) on Multicall3. The node rejects it with execution reverted. The Contract reverts section below covers this class of failure."
 />
 
 <RunSnippet
@@ -26,12 +26,12 @@ The `RunSnippet` widget surfaces whatever the RPC returns — including failures
   params={['0x123', 'latest']}
   network="mainnet"
   title="An RPC argument error"
-  description="A malformed address (0x123) triggers a JSON-RPC -32602 invalid argument error — distinct from a revert, and the kind of failure the RPC Errors and Retries section below handles."
+  description="A malformed address (0x123) triggers a JSON-RPC -32602 invalid argument error. This is different from a revert. The RPC errors and retries section below handles this kind of failure."
 />
 
-## Contract Reverts
+## Contract reverts
 
-When a transaction reverts, the error contains the revert reason if the contract provides one.
+When a transaction reverts and the contract gives a revert reason, the error contains that reason.
 
 <CodeGroup>
 
@@ -77,9 +77,9 @@ try {
 
 </CodeGroup>
 
-## Simulating Before Sending
+## Simulating before sending
 
-Always simulate write calls before submitting them. Simulation runs the call against current chain state and surfaces reverts before you spend gas:
+Always simulate write calls before you submit them. Simulation runs the call against the current chain state and reports reverts before you spend gas:
 
 ```ts viem
 import { ContractFunctionRevertedError, BaseError } from 'viem';
@@ -92,7 +92,7 @@ async function safeWrite(params: Parameters<typeof walletClient.writeContract>[0
 }
 ```
 
-## Wallet Rejections
+## Wallet rejections
 
 Users can reject signature and transaction requests. These rejections have a predictable error code:
 
@@ -123,7 +123,7 @@ try {
 
 </CodeGroup>
 
-## Insufficient Funds
+## Insufficient funds
 
 <CodeGroup>
 
@@ -151,9 +151,9 @@ try {
 
 </CodeGroup>
 
-## Classifying Any Error
+## Classifying any error
 
-A utility to handle the most common cases in one place:
+This utility handles the most common cases in one place:
 
 ```ts
 import {
@@ -178,9 +178,9 @@ function classifyError(err: unknown): string {
 }
 ```
 
-## RPC Errors and Retries
+## RPC errors and retries
 
-Transient RPC failures (network timeouts, rate limits) can be retried. Don't retry on contract reverts or user rejections — those are deterministic.
+You can retry transient RPC failures, such as network timeouts and rate limits. Do not retry contract reverts or user rejections. Those failures are deterministic.
 
 ```ts
 async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 3): Promise<T> {

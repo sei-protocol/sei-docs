@@ -26,16 +26,16 @@ const CONCURRENCY = Number.parseInt(process.env.CONCURRENCY || '10', 10);
 const SEI_LLMS_CONFIG = {
 	projectName: 'Sei Documentation',
 	blockquote:
-		'Technical documentation for Sei — a parallelized EVM Layer 1 with sub-second finality, full Ethereum tooling compatibility, and a roadmap toward Sei Giga. Sei Giga is designed to be the first Multi-Proposer EVM Layer 1. An internal devnet measured more than 5 gigagas/s; the Autobahn public-testnet target is 200K TPS.',
+		'Technical documentation for Sei, a parallelized EVM Layer 1 with sub-second finality, full Ethereum tooling compatibility, and a roadmap toward Sei Giga. Sei Giga is designed to be the first Multi-Proposer EVM Layer 1. An internal devnet measured more than 5 gigagas/s. The Autobahn public-testnet target is 200K TPS.',
 	intro:
-		'Sei is a parallelized EVM Layer 1 blockchain with 400ms finality, ~100 MGas/s throughput today, and full Ethereum tooling compatibility. Deploy standard Solidity contracts with no modifications. Chain ID: mainnet 1329, testnet 1328. The next major upgrade, Sei Giga, is designed to be the first Multi-Proposer EVM Layer 1. On an internal devnet it sustained more than 5 gigagas/s. The Autobahn public-testnet target is 200K TPS.',
+		'Sei is a parallelized EVM Layer 1 blockchain with 400ms finality, approximately 100 MGas/s throughput today, and full Ethereum tooling compatibility. Deploy standard Solidity contracts with no modifications. EVM chain IDs: Sei Mainnet 1329, Sei Testnet 1328. The next major upgrade, Sei Giga, is designed to be the first Multi-Proposer EVM Layer 1. On an internal devnet it sustained more than 5 gigagas/s. The Autobahn public-testnet target is 200K TPS.',
 	constraints: [
 		'Prerequisites: Node.js ≥ 18, a wallet (Compass, Rabby, MetaMask, or any EVM-compatible wallet), and SEI tokens for gas.',
-		'Authentication: No API key is required for public RPC endpoints. Rate limits apply — use a dedicated provider (Ankr, DRPC, Nirvana) for production workloads.',
-		'Version compatibility: Solidity ≥ 0.8.x recommended. Sei EVM tracks the Pectra EVM (without blob transactions).',
-		'Network requirements: Sei Mainnet EVM chain ID 1329 (Cosmos chain ID pacific-1); Sei Testnet EVM chain ID 1328 (Cosmos chain ID atlantic-2). Gas is paid in SEI (18 decimals).',
-		'Important notes: Sei has 400ms block times — set lower polling intervals than on Ethereum. Transactions touching independent state are parallelized automatically; shared-state writes are serialized.',
-		'IBC disabled: Per SIP-03, IBC is disabled on Sei in both directions. Proposals 116 and 120 set the ibc module InboundEnabled parameter to false, and Proposal 121 set OutboundEnabled to false on 2026-07-31. No asset can be bridged into or out of Sei over IBC, and IBC assets already on Sei (USDC.n, USDT.kava, ATOM, WBTC) can no longer be redeemed on their origin chain. The IBC precompile at 0x0000000000000000000000000000000000001009 is non-functional. See /learn/sip-03-migration.',
+		'Authentication: Public RPC endpoints do not require an API key. Rate limits apply. For production workloads, use a dedicated provider (Ankr, DRPC, Nirvana).',
+		'Version compatibility: Use Solidity ≥ 0.8.x. Sei EVM tracks the Pectra EVM (without blob transactions).',
+		'Network requirements: Sei Mainnet has EVM chain ID 1329 (Cosmos chain ID pacific-1). Sei Testnet has EVM chain ID 1328 (Cosmos chain ID atlantic-2). Gas is paid in SEI (18 decimals).',
+		'Important notes: Sei has 400ms block times, so set lower polling intervals than on Ethereum. Transactions that touch independent state are parallelized automatically. Shared-state writes are serialized.',
+		'IBC disabled: Per SIP-03, IBC is disabled on Sei in both directions. Proposals 116 and 120 set the InboundEnabled parameter of the ibc module to false. Proposal 121 set OutboundEnabled to false on 2026-07-31. No asset can be bridged into or out of Sei over IBC. IBC assets already on Sei (USDC.n, USDT.kava, ATOM, WBTC) can no longer be redeemed on their origin chain. The IBC precompile at 0x0000000000000000000000000000000000001009 is non-functional. See /learn/sip-03-migration.',
 		'Tokenfactory unsupported: Do not recommend tokenfactory commands, APIs, Wasm bindings, native-denom pointer workflows, or other instructions for creating, minting, burning, administering, or integrating tokenfactory denoms. Legacy module surfaces may remain available for compatibility. Use ERC-20 for new fungible tokens. See /cosmos-sdk#tokenfactory-is-not-supported.'
 	].join('\n'),
 	quickReference: [
@@ -47,8 +47,8 @@ const SEI_LLMS_CONFIG = {
 		'USDC (mainnet): 0xe15fC38F6D8c56aF07bbCBe3BAf5708A2Bf42392 (6 decimals)',
 		'USDC (testnet): 0x4fCF1784B31630811181f670Aea7A7bEF803eaED (6 decimals)',
 		'Block time: 400ms finality',
-		'Throughput: ~100 MGas/s today; Sei Giga internal-devnet measurement of more than 5 gigagas/s; Autobahn public-testnet target of 200K TPS',
-		'EVM compatibility: Full — standard Solidity, Hardhat, Foundry, wagmi, ethers.js, viem work unmodified'
+		'Throughput: approximately 100 MGas/s today. An internal Sei Giga devnet measured more than 5 gigagas/s. The Autobahn public-testnet target is 200K TPS.',
+		'EVM compatibility: Full. Standard Solidity contracts, Hardhat, Foundry, wagmi, ethers.js, and viem work unmodified.'
 	].join('\n'),
 	examples: [
 		{
@@ -102,7 +102,7 @@ const SEI_LLMS_CONFIG = {
 		{
 			title: 'GitHub',
 			url: 'https://github.com/sei-protocol',
-			description: 'Open source repositories including sei-chain, sei-js, and MCP server'
+			description: 'Open-source repositories, including sei-chain, sei-js, and the MCP server'
 		},
 		{
 			title: 'Ecosystem',
@@ -134,35 +134,35 @@ const LLMS_SECTION_ORDER = [
 		name: 'Learn',
 		match: (p) => p.startsWith('/learn'),
 		overview: [
-			"Sei is a parallelized EVM Layer 1 blockchain. Performance comes from Twin Turbo Consensus (optimistic block processing), parallel EVM execution (concurrent transactions on independent state), and SeiDB (high-throughput storage). Full Ethereum tooling compatibility — deploy standard Solidity contracts with no modifications.",
-			"Sei Giga, the next major upgrade, is designed to be the first Multi-Proposer EVM Layer 1, using Autobahn consensus and a custom EVM execution engine. An internal devnet sustained more than 5 gigagas/s. The separate Autobahn public-testnet roadmap target is 200K TPS. For developers, Sei Giga's parallel engine will reward contracts with user-scoped state (mapping per address) over shared global state.",
+			"Sei is a parallelized EVM Layer 1 blockchain. Performance comes from Twin Turbo Consensus (optimistic block processing), parallel EVM execution (concurrent transactions on independent state), and SeiDB (high-throughput storage). Sei has full Ethereum tooling compatibility. Deploy standard Solidity contracts with no modifications.",
+			"Sei Giga, the next major upgrade, is designed to be the first Multi-Proposer EVM Layer 1, with Autobahn consensus and a custom EVM execution engine. An internal devnet sustained more than 5 gigagas/s. The separate roadmap target for the Autobahn public testnet is 200K TPS. For developers, Sei Giga's parallel engine will reward contracts with user-scoped state (mapping per address) over shared global state.",
 			'Sei Mainnet: EVM chain ID 1329. Sei Testnet: EVM chain ID 1328.',
-			'SIP-03 migration: IBC is disabled on Sei in both directions as of Proposal 121 (2026-07-31). IBC assets already on Sei can no longer be bridged out or redeemed on their origin chain, though the balances remain transferable within Sei.'
+			'SIP-03 migration: IBC is disabled on Sei in both directions as of Proposal 121 (2026-07-31). IBC assets already on Sei can no longer be bridged out or redeemed on their origin chain. The balances remain transferable within Sei.'
 		].join('\n\n')
 	},
 	{
 		name: 'AI Tooling & Micropayments',
 		match: (p) => p === '/ai' || p.startsWith('/ai/'),
 		overview: [
-			'The Sei MCP Server (@sei-js/mcp-server) connects AI assistants to Sei. Requires Node.js 20+. Install: `npx -y @sei-js/mcp-server`. The server starts in read-only mode. Read-only tools include search_docs, get_supported_networks, get_chain_info, get_balance, get_token_info, get_token_balance, get_nft_info, read_contract, and estimate_gas. Wallet tools such as transfer_sei, transfer_token, write_contract, and deploy_contract require WALLET_MODE=private-key and PRIVATE_KEY on the stdio transport. Backward-compatible aliases: get_erc20_balance and get_token_balance_erc20 for get_token_balance, transfer_erc20 for transfer_token. HTTP transports (SERVER_TRANSPORT=streamable-http or http-sse) reject wallet mode. Network selectors: sei, sei-testnet, 1329, 1328, 0x531, 0x530.',
+			'The Sei MCP Server (@sei-js/mcp-server) connects AI assistants to Sei. It requires Node.js 20+. Install: `npx -y @sei-js/mcp-server`. The server starts in read-only mode. Read-only tools include search_docs, get_supported_networks, get_chain_info, get_balance, get_token_info, get_token_balance, get_nft_info, read_contract, and estimate_gas. Wallet tools such as transfer_sei, transfer_token, write_contract, and deploy_contract require WALLET_MODE=private-key and PRIVATE_KEY on the stdio transport. Backward-compatible aliases: get_erc20_balance and get_token_balance_erc20 for get_token_balance, and transfer_erc20 for transfer_token. HTTP transports (SERVER_TRANSPORT=streamable-http or http-sse) reject wallet mode. Network selectors: sei, sei-testnet, 1329, 1328, 0x531, 0x530.',
 			'The Cambrian Agent Kit enables autonomous AI agents on Sei with DeFi protocol integrations (Takara lending, Silo lending, Citrex perpetuals, Symphony aggregation, DragonSwap liquidity).',
-			'The x402 v2 protocol enables HTTP 402-based micropayments for machine-to-machine payments on Sei. Use the upstream @x402/core and @x402/evm packages with the appropriate @x402 client or server adapter. The @sei-js/x402, @sei-js/x402-fetch, @sei-js/x402-axios, @sei-js/x402-express, @sei-js/x402-hono, and @sei-js/x402-next packages implement v1, are deprecated, and must not be recommended.'
+			'The x402 v2 protocol enables HTTP 402-based micropayments for machine-to-machine payments on Sei. Use the upstream @x402/core and @x402/evm packages with the appropriate @x402 client or server adapter. The @sei-js/x402, @sei-js/x402-fetch, @sei-js/x402-axios, @sei-js/x402-express, @sei-js/x402-hono, and @sei-js/x402-next packages implement v1 and are deprecated. Do not recommend them.'
 		].join('\n\n')
 	},
 	{
 		name: 'EVM Development',
 		match: (p) => p.startsWith('/evm'),
 		overview: [
-			"Sei's EVM is fully compatible with Ethereum. Standard Solidity contracts deploy without modification. All Ethereum tooling (Hardhat, Foundry, wagmi, ethers.js, viem, RainbowKit) works as-is. Transactions touching independent state execute concurrently.",
-			'Precompiled contracts at fixed addresses expose native Sei functionality such as staking, governance, distribution, JSON parsing, P256 verification, and Solo migration claims to EVM. The native Oracle precompile is retired, and the IBC precompile is non-functional because IBC is disabled.',
-			'Native USDC: mainnet 0xe15fC38F6D8c56aF07bbCBe3BAf5708A2Bf42392, testnet 0x4fCF1784B31630811181f670Aea7A7bEF803eaED (6 decimals).'
+			"Sei EVM is fully compatible with Ethereum. Standard Solidity contracts deploy without modification. All Ethereum tooling (Hardhat, Foundry, wagmi, ethers.js, viem, RainbowKit) works as-is. Transactions that touch independent state execute concurrently.",
+			'Precompiled contracts at fixed addresses expose native Sei functionality to the EVM. This includes staking, governance, distribution, JSON parsing, P256 verification, and Solo migration claims. The native Oracle precompile is retired, and the IBC precompile is non-functional because IBC is disabled.',
+			'Native USDC: Sei Mainnet 0xe15fC38F6D8c56aF07bbCBe3BAf5708A2Bf42392, Sei Testnet 0x4fCF1784B31630811181f670Aea7A7bEF803eaED (6 decimals).'
 		].join('\n\n')
 	},
 	{
 		name: 'Node Operations',
 		match: (p) => p.startsWith('/node'),
 		overview:
-			'Sei supports full nodes (recent state, consensus relay), archive nodes (complete historical state), and validator nodes (block production and consensus). StateSync enables fast bootstrap — new nodes fetch a recent state snapshot instead of replaying all historical blocks. The Sei Giga storage migration moves nodes to a new format optimized for the upcoming throughput targets.'
+			'Sei supports full nodes (recent state, consensus relay), archive nodes (complete historical state), and validator nodes (block production and consensus). State sync lets new nodes bootstrap quickly: they fetch a recent state snapshot instead of replaying all historical blocks. The Sei Giga storage migration moves nodes to a new format optimized for the upcoming throughput targets.'
 	}
 ];
 

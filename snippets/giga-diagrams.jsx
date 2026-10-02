@@ -122,7 +122,7 @@ export const GigaAsyncPipeline = () => {
           <text x={126} y={243} fontSize="9.5" fill={ink} fillOpacity="0.55">time</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">Consensus will keep ordering new blocks while earlier blocks execute and their divergence digests are attested. Ordering finality will be the fast signal; state attestation will follow a bounded number of blocks later.</div>
+      <div className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">Consensus will keep ordering new blocks while earlier blocks execute and their divergence digests are attested. Ordering finality will be the fast signal. State attestation will follow a bounded number of blocks later.</div>
     </div>
   );
 };
@@ -277,7 +277,7 @@ export const GigaLanesAndCuts = () => {
           <text x={684} y={239} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.7">off the critical path</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">Each validator will chain batches into its own lane. The whitepaper uses f + 1 replica votes for availability; the implementation applies stake-weighted thresholds.</div>
+      <div className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">Each validator will chain batches into its own lane. The whitepaper uses f + 1 replica votes for availability. The implementation applies stake-weighted thresholds.</div>
     </div>
   );
 };
@@ -318,7 +318,7 @@ export const GigaSlotPipeline = () => {
           <text x={630} y={208} fontSize="10.5" textAnchor="middle" fill={ink} fillOpacity="0.8">steady state: one cut per 1.5 round trips</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">Slots will overlap: replicas will begin slot s+1 as soon as they see the Prepare message for slot s, targeting an effective steady-state cadence of one committed cut per 1.5 network round trips. This is not per-transaction latency.</div>
+      <div className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">Slots will overlap: replicas will begin slot s+1 as soon as they see the Prepare message for slot s. The target is an effective steady-state cadence of one committed cut per 1.5 network round trips, not per-transaction latency.</div>
     </div>
   );
 };
@@ -375,7 +375,7 @@ export const GigaAttestationFlow = () => {
           <text x={460} y={247} fontSize="10" textAnchor="middle" fill={ink} fillOpacity="0.75">divergence under 1/3 of voting power can be isolated; over 1/3 is designed to halt the chain</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">Execution results will be committed as a lattice-hash digest rather than a state root, and validators will attest to that digest a bounded number of blocks later.</div>
+      <div className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">Execution results will be committed as a lattice-hash digest rather than a state root. Validators will attest to that digest a bounded number of blocks later.</div>
     </div>
   );
 };
@@ -477,7 +477,7 @@ export const GigaStorageArchitecture = () => {
           <text x={690} y={276} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.75">bisect, replay one range</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">In the proposed architecture, the write path avoids Merkle-tree updates. State lives in a RAM-first flat store with an append-only WAL, while commitments come from a homomorphic lattice hash over each block's write log.</div>
+      <div className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">In the proposed architecture, the write path avoids Merkle-tree updates. State lives in a RAM-first flat store with an append-only WAL. Commitments come from a homomorphic lattice hash over each block's write log.</div>
     </div>
   );
 };
@@ -529,7 +529,7 @@ export const GigaBudWindow = () => {
           <text x={520} y={232} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.6">touch transactions refresh a stale key's anchor; deletions leave tombstones for exclusion proofs</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">Every block will get a Merkle root over just its own updates. SuperBUDs will aggregate those roots over exponentially sized windows so provers can cover long ranges with a handful of digests.</div>
+      <div className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">Every block will get a Merkle root over only its own updates. SuperBUDs will aggregate those roots over exponentially sized windows so provers can cover long ranges with a few digests.</div>
     </div>
   );
 };
@@ -598,7 +598,7 @@ export const GigaMergeRule = () => {
           <text x={741} y={276} fontSize="9" textAnchor="middle" fill={ink} fillOpacity="0.6">dropped copy gets a partial tip refund</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">The merged order will be a pure function of finalized lane contents: lanes will sort by their highest included tip, order inside each lane will not change, and the first occurrence of a hash will win.</div>
+      <div className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">The merged order will be a pure function of finalized lane contents. Lanes will sort by their highest included tip, order inside each lane will not change, and the first occurrence of a hash will win.</div>
     </div>
   );
 };
@@ -641,7 +641,7 @@ export const GigaFinalitySignals = () => {
           <text x={393} y={216} fontSize="9.5" textAnchor="middle" fill={ink} fillOpacity="0.6">ordering fixes position; execution yields the result; attestation adds a signed quorum confirmation</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">Ordering finality fixes position but has no receipt yet. After execution, applications may use the receipt according to their risk policy; high-value and cross-chain flows should wait for the attested digest.</div>
+      <div className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">Ordering finality fixes position but has no receipt yet. After execution, applications may use the receipt according to their risk policy. High-value and cross-chain flows should wait for the attested digest.</div>
     </div>
   );
 };
@@ -653,7 +653,7 @@ export const GigaParallelismContrast = () => {
   return (
     <div className="not-prose w-full my-5">
       <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white/60 dark:bg-neutral-900/40 p-4 text-neutral-800 dark:text-neutral-200">
-        <svg viewBox="0 0 860 250" role="img" aria-label="Isolated per-user state runs in parallel; a shared hot slot serializes" style={{ width: '100%', minWidth: 620, height: 'auto', display: 'block' }}>
+        <svg viewBox="0 0 860 250" role="img" aria-label="Isolated per-user state runs in parallel. A shared hot slot serializes" style={{ width: '100%', minWidth: 620, height: 'auto', display: 'block' }}>
           <defs>
             <marker id="gpv-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
               <path d="M 0 1 L 9 5 L 0 9 z" fill={ink} fillOpacity="0.6" />
@@ -691,7 +691,7 @@ export const GigaParallelismContrast = () => {
           <text x={648} y={238} fontSize="10" fill={ink} fillOpacity="0.65" textAnchor="middle">conflicting write sets: parallelism lost for the block</text>
         </svg>
       </div>
-      <div className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">The same four transfers, two storage layouts. Per-user slots let Block-STM commit everything in one pass; a shared counter forces retries until the transactions run one by one.</div>
+      <div className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">The same four transfers, two storage layouts. Per-user slots let Block-STM commit everything in one pass. A shared counter forces retries until the transactions run one by one.</div>
     </div>
   );
 };

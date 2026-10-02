@@ -277,7 +277,7 @@ export const EcosystemAppGrid = (props) => {
 	if (hasError) {
 		return (
 			<div className='py-10 text-sm text-neutral-600 dark:text-neutral-400 italic'>
-				Couldn’t load {category} integrations right now. Please refresh to try again.
+				Could not load {category} integrations right now. Refresh the page to try again.
 			</div>
 		);
 	}
