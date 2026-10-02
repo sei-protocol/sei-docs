@@ -195,10 +195,16 @@ const txMax = await writeContract.approve('0xSpenderAddress', ethers.MaxUint256)
 
 ## Watching transfer events
 
+Watch new events over the WebSocket endpoint. Watchers that poll the public HTTP endpoint can miss events or report them twice. For details, see [Listen to events](/evm/cookbook/listen-to-events).
+
 <CodeGroup>
 
 ```ts viem
-const unwatch = client.watchContractEvent({
+import { webSocket } from 'viem';
+
+const wsClient = createPublicClient({ chain: sei, transport: webSocket('wss://evm-ws.sei-apis.com') });
+
+const unwatch = wsClient.watchContractEvent({
   address: TOKEN,
   abi: ERC20_ABI,
   eventName: 'Transfer',
@@ -214,36 +220,47 @@ unwatch();
 ```
 
 ```ts ethers
-readContract.on('Transfer', (from, to, value) => {
+const wsProvider = new ethers.WebSocketProvider('wss://evm-ws.sei-apis.com');
+const wsContract = new ethers.Contract(TOKEN, ERC20_ABI, wsProvider);
+
+wsContract.on('Transfer', (from, to, value) => {
   console.log(`${from} → ${to}: ${value}`);
 });
 
 // Stop watching
-readContract.off('Transfer');
+wsContract.off('Transfer');
 ```
 
 </CodeGroup>
 
 ## Fetching historical transfers
 
+The public endpoints return logs for at most 2,000 blocks per request, so query a bounded range. This example reads the latest 2,000 blocks:
+
 <CodeGroup>
 
 ```ts viem
+const latest = await client.getBlockNumber();
+
 const logs = await client.getContractEvents({
   address: TOKEN,
   abi: ERC20_ABI,
   eventName: 'Transfer',
-  fromBlock: 0n,
-  toBlock: 'latest',
+  fromBlock: latest - 1999n,
+  toBlock: latest,
 });
 ```
 
 ```ts ethers
+const latest = await provider.getBlockNumber();
+
 const filter = readContract.filters.Transfer();
-const logs = await readContract.queryFilter(filter, 0, 'latest');
+const logs = await readContract.queryFilter(filter, latest - 1999, latest);
 ```
 
 </CodeGroup>
+
+To go further back, request consecutive ranges of 2,000 blocks or fewer, or use an [indexer](/learn/indexers).
 
 ## CosmWasm token compatibility
 

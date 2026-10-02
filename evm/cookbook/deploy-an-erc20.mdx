@@ -1,0 +1,242 @@
+---
+title: 'Deploy an ERC-20'
+description: 'Write an ERC-20 token with OpenZeppelin Contracts, deploy it to Sei Testnet with Foundry, Hardhat, or Remix, then verify it and read it back.'
+keywords: ['sei evm', 'erc-20', 'deploy token', 'openzeppelin', 'foundry', 'hardhat', 'remix', 'cookbook']
+---
+
+import { SandboxEmbed } from '/snippets/sandbox-embed.jsx';
+import { AddSeiButton } from '/snippets/add-sei-button.jsx';
+
+This recipe deploys `DemoToken`, a fixed-supply ERC-20 token built on [OpenZeppelin Contracts](https://docs.openzeppelin.com/contracts/5.x/erc20). Standard ERC-20 contracts work on Sei without changes.
+
+## Before you start
+
+- A Sei Testnet account that holds some SEI for gas. Get testnet SEI from the [faucet](/learn/faucet). Use a throwaway account that holds only testnet funds.
+- For Foundry, the account's private key in the `PRIVATE_KEY` environment variable.
+- For Hardhat, the private key in the Hardhat keystore, as the [Hardhat guide](/evm/evm-hardhat#configuring-hardhat-for-sei-evm) shows.
+- For Remix, a browser wallet such as MetaMask.
+
+## The contract
+
+```solidity DemoToken.sol
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+
+contract DemoToken is ERC20 {
+    constructor() ERC20("Demo Token", "DEMO") {
+        _mint(msg.sender, 1_000_000 * 10 ** decimals());
+    }
+}
+```
+
+The constructor mints 1,000,000 DEMO to the account that deploys the contract. `decimals()` returns 18, so the contract stores the supply as 1,000,000 × 10<sup>18</sup> base units.
+
+## Deploy the contract
+
+<Tabs>
+  <Tab title="Foundry">
+
+Create a project and install OpenZeppelin Contracts:
+
+```bash
+forge init demo-token
+cd demo-token
+forge install OpenZeppelin/openzeppelin-contracts
+```
+
+Save the contract as `src/DemoToken.sol`. Then deploy it:
+
+```bash
+forge create src/DemoToken.sol:DemoToken \
+  --rpc-url https://evm-rpc-testnet.sei-apis.com \
+  --private-key $PRIVATE_KEY \
+  --broadcast
+```
+
+Foundry prints the token address after `Deployed to:`.
+
+<Note>Without `--broadcast`, `forge create` only simulates the deployment. It prints the transaction, but it does not send it.</Note>
+
+For project settings, tests, and deploy scripts, see the [Foundry guide](/evm/evm-foundry).
+
+  </Tab>
+  <Tab title="Hardhat">
+
+Start from a Hardhat 3 project that has Sei Testnet configured as the `seitestnet` network. The [Hardhat guide](/evm/evm-hardhat#configuring-hardhat-for-sei-evm) shows the configuration and how to store your key in the Hardhat keystore. Then install OpenZeppelin Contracts:
+
+```bash
+npm install @openzeppelin/contracts
+```
+
+Save the contract as `contracts/DemoToken.sol`. Then describe the deployment in an Ignition module:
+
+```ts ignition/modules/DemoToken.ts
+import { buildModule } from '@nomicfoundation/hardhat-ignition/modules';
+
+export default buildModule('DemoTokenModule', (m) => {
+  const token = m.contract('DemoToken');
+  return { token };
+});
+```
+
+Deploy the module:
+
+```bash
+npx hardhat ignition deploy ignition/modules/DemoToken.ts --network seitestnet
+```
+
+Ignition prints the token address next to `DemoTokenModule#DemoToken`.
+
+  </Tab>
+  <Tab title="Remix">
+
+Remix compiles and deploys from the browser, so you do not install anything. First, add Sei Testnet to your wallet:
+
+<AddSeiButton network="testnet" label="Add Sei Testnet" />
+
+The sandbox below preloads `DemoToken`. Compile it on the **Solidity Compiler** tab. Then deploy it from the **Deploy & Run** tab with **Environment** set to **Injected Provider - MetaMask**. Remix shows the token address under **Deployed Contracts**.
+
+<SandboxEmbed
+  kind="remix"
+  src="https://remix.ethereum.org/?#activate=solidity,fileManager&code=Ly8gU1BEWC1MaWNlbnNlLUlkZW50aWZpZXI6IE1JVApwcmFnbWEgc29saWRpdHkgXjAuOC4yNDsKCmltcG9ydCAiQG9wZW56ZXBwZWxpbi9jb250cmFjdHMvdG9rZW4vRVJDMjAvRVJDMjAuc29sIjsKCmNvbnRyYWN0IERlbW9Ub2tlbiBpcyBFUkMyMCB7CiAgICBjb25zdHJ1Y3RvcigpIEVSQzIwKCJEZW1vIFRva2VuIiwgIkRFTU8iKSB7CiAgICAgICAgX21pbnQobXNnLnNlbmRlciwgMV8wMDBfMDAwICogMTAgKiogZGVjaW1hbHMoKSk7CiAgICB9Cn0"
+  title="DemoToken (ERC-20) · deploy to Sei Testnet"
+  description="Remix IDE with an OpenZeppelin ERC-20 preloaded. Compile in the browser and deploy to Sei Testnet."
+/>
+
+  </Tab>
+</Tabs>
+
+## Verify the source
+
+Verification publishes your source code on [Seiscan](https://testnet.seiscan.io), so that anyone can read the contract. Sourcify verification does not need an API key. Replace `0xYourTokenAddress` with the deployed address:
+
+<CodeGroup>
+
+```bash Foundry
+forge verify-contract \
+  --verifier sourcify \
+  --chain-id 1328 \
+  0xYourTokenAddress \
+  src/DemoToken.sol:DemoToken
+```
+
+```bash Hardhat
+npx hardhat verify sourcify --network seitestnet 0xYourTokenAddress
+```
+
+</CodeGroup>
+
+For Remix and the other verification options, see [Verify contracts](/evm/evm-verify-contracts).
+
+## Read the token back
+
+Read the token's metadata and your balance to confirm the deployment. Replace `0xYourTokenAddress` with the token address and `0xYourAddress` with the deployer address.
+
+<CodeGroup>
+
+```ts viem
+import { createPublicClient, http, parseAbi, formatUnits } from 'viem';
+import { seiTestnet } from 'viem/chains';
+
+const client = createPublicClient({ chain: seiTestnet, transport: http() });
+
+const token = '0xYourTokenAddress';
+const owner = '0xYourAddress';
+const abi = parseAbi([
+  'function name() view returns (string)',
+  'function symbol() view returns (string)',
+  'function decimals() view returns (uint8)',
+  'function totalSupply() view returns (uint256)',
+  'function balanceOf(address owner) view returns (uint256)',
+]);
+
+const [name, symbol, decimals, totalSupply, balance] = await Promise.all([
+  client.readContract({ address: token, abi, functionName: 'name' }),
+  client.readContract({ address: token, abi, functionName: 'symbol' }),
+  client.readContract({ address: token, abi, functionName: 'decimals' }),
+  client.readContract({ address: token, abi, functionName: 'totalSupply' }),
+  client.readContract({ address: token, abi, functionName: 'balanceOf', args: [owner] }),
+]);
+
+console.log(`${name} (${symbol})`);
+console.log('Total supply:', formatUnits(totalSupply, decimals));
+console.log('Your balance:', formatUnits(balance, decimals));
+```
+
+```ts ethers
+import { ethers } from 'ethers';
+
+const provider = new ethers.JsonRpcProvider('https://evm-rpc-testnet.sei-apis.com');
+
+const token = new ethers.Contract(
+  '0xYourTokenAddress',
+  [
+    'function name() view returns (string)',
+    'function symbol() view returns (string)',
+    'function decimals() view returns (uint8)',
+    'function totalSupply() view returns (uint256)',
+    'function balanceOf(address owner) view returns (uint256)',
+  ],
+  provider
+);
+const owner = '0xYourAddress';
+
+const [name, symbol, decimals, totalSupply, balance] = await Promise.all([
+  token.name(),
+  token.symbol(),
+  token.decimals(),
+  token.totalSupply(),
+  token.balanceOf(owner),
+]);
+
+console.log(`${name} (${symbol})`);
+console.log('Total supply:', ethers.formatUnits(totalSupply, decimals));
+console.log('Your balance:', ethers.formatUnits(balance, decimals));
+```
+
+```python web3.py
+from decimal import Decimal
+from web3 import Web3
+
+w3 = Web3(Web3.HTTPProvider("https://evm-rpc-testnet.sei-apis.com"))
+
+def view(name, inputs, output):
+    return {"type": "function", "name": name, "stateMutability": "view",
+            "inputs": [{"name": n, "type": t} for n, t in inputs],
+            "outputs": [{"name": "", "type": output}]}
+
+abi = [
+    view("name", [], "string"),
+    view("symbol", [], "string"),
+    view("decimals", [], "uint8"),
+    view("totalSupply", [], "uint256"),
+    view("balanceOf", [("owner", "address")], "uint256"),
+]
+token = w3.eth.contract(address="0xYourTokenAddress", abi=abi)
+owner = "0xYourAddress"
+
+scale = Decimal(10) ** token.functions.decimals().call()
+print(f"{token.functions.name().call()} ({token.functions.symbol().call()})")
+print("Total supply:", Decimal(token.functions.totalSupply().call()) / scale)
+print("Your balance:", Decimal(token.functions.balanceOf(owner).call()) / scale)
+```
+
+</CodeGroup>
+
+**You are done when you see:**
+
+```text
+Demo Token (DEMO)
+Total supply: 1000000
+Your balance: 1000000
+```
+
+ethers prints `1000000.0`, because `formatUnits` in ethers always includes a decimal place.
+
+## Related recipes
+
+- [ERC-20 interaction](/evm/evm-parity/examples/erc20): transfers, approvals, and allowances
+- [Listen to events](/evm/cookbook/listen-to-events): stream the token's `Transfer` events
+- [Deploy and verify](/evm/evm-parity/examples/deploy-verify): deploy any contract with viem, ethers, Foundry, or Hardhat
