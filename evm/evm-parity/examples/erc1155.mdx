@@ -227,11 +227,17 @@ const isApproved = await readContract.isApprovedForAll('0xOwnerAddress', '0xOper
 
 ## Watching transfer events
 
+Watch new events over the WebSocket endpoint. Watchers that poll the public HTTP endpoint can miss events or report them twice. For details, see [Listen to events](/evm/cookbook/listen-to-events).
+
 <CodeGroup>
 
 ```ts viem
+import { webSocket } from 'viem';
+
+const wsClient = createPublicClient({ chain: sei, transport: webSocket('wss://evm-ws.sei-apis.com') });
+
 // Watch single transfers
-const unwatch = client.watchContractEvent({
+const unwatch = wsClient.watchContractEvent({
   address: CONTRACT,
   abi: ERC1155_ABI,
   eventName: 'TransferSingle',
@@ -243,7 +249,7 @@ const unwatch = client.watchContractEvent({
 });
 
 // Watch batch transfers
-const unwatchBatch = client.watchContractEvent({
+const unwatchBatch = wsClient.watchContractEvent({
   address: CONTRACT,
   abi: ERC1155_ABI,
   eventName: 'TransferBatch',
@@ -256,11 +262,14 @@ const unwatchBatch = client.watchContractEvent({
 ```
 
 ```ts ethers
-readContract.on('TransferSingle', (operator, from, to, id, value) => {
+const wsProvider = new ethers.WebSocketProvider('wss://evm-ws.sei-apis.com');
+const wsContract = new ethers.Contract(CONTRACT, ERC1155_ABI, wsProvider);
+
+wsContract.on('TransferSingle', (operator, from, to, id, value) => {
   console.log(`Token ${id}: ${from} → ${to}, amount: ${value}`);
 });
 
-readContract.on('TransferBatch', (operator, from, to, ids, values) => {
+wsContract.on('TransferBatch', (operator, from, to, ids, values) => {
   console.log(`Batch from ${from} → ${to}:`, ids, values);
 });
 ```
