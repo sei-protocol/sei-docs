@@ -149,7 +149,7 @@ Deploy the contract with [Remix](https://remix.ethereum.org/). Set the construct
 - **Sei Mainnet**: [`0x16392B49EA47D4A21bb17F69aA9E7aD570284838`](https://seiscan.io/address/0x16392B49EA47D4A21bb17F69aA9E7aD570284838)
 - **Sei Testnet**: `0x2880aB155794e7179c9eE2e38200202908C17B43`
 
-Pyth lists the current addresses on its [contract addresses](https://docs.pyth.network/price-feeds/core/upgrade/contracts) page. On Sei Mainnet, the contract has no SEI/USD price until someone submits the first update, so `getLatestSeiPrice()` reverts until then. `getSeiPrice()` submits an update first, so it works right away.
+Pyth lists the current addresses on its [contract addresses](https://docs.pyth.network/price-feeds/core/upgrade/contracts) page. `getLatestSeiPrice()` reverts if the stored price is older than 60 seconds, or if no one has submitted an update yet. `getSeiPrice()` submits an update first, so it doesn't depend on earlier updates.
 
 ### Step 2: JavaScript integration for price updates
 
@@ -167,6 +167,7 @@ dotenv.config();
 async function fetchSeiPriceUpdateData() {
   const seiPriceId = '0x53614f1cb0c031d4af66c04cb9c756234adad0e1cee85303795091499a4084eb'; // SEI/USD Price Feed ID
   const hermesUrl = `https://pyth.dourolabs.app/hermes/v2/updates/price/latest?ids%5B%5D=${seiPriceId}`;
+  if (!process.env.PYTH_API_KEY) throw new Error('Set PYTH_API_KEY to your Pyth API key');
 
   try {
     console.log('Fetching SEI price data from Hermes...');
@@ -414,7 +415,7 @@ Pyth price data includes these fields:
 
 ### Fee structure
 
-- **Update fee**: Paid in SEI when you submit price update data. The fee is currently zero on Sei Mainnet and Sei Testnet. Keep calling `getUpdateFee` and sending its result as `value`, so your code still works if the fee changes.
+- **Update fee**: Paid in SEI when you submit price update data. Pyth governance sets the fee, and it can be zero. Always call `getUpdateFee` and send its result as `value`, so your code keeps working when the fee changes.
 - **Variable cost**: The fee depends on how many price feeds you update
 - **Gas efficiency**: The pull model is more gas efficient than traditional push oracles
 
