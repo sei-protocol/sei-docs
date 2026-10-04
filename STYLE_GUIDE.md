@@ -66,7 +66,7 @@ The EVM section is the primary developer resource for building on Sei. It covers
 
 ### Cookbook
 
-The Cookbook tab holds short, task-focused recipes, such as reading a balance, sending SEI, or listening to events. Each recipe does one task from start to finish. New recipes live in `evm/cookbook/`. The older example pages stay in `evm/evm-parity/examples/` so that their URLs do not change.
+The Cookbook tab holds short, task-focused recipes, such as reading a balance, sending SEI, or listening to events. Each recipe does one task from start to finish. New recipes live in `evm/cookbook/`. The older example pages stay in `evm/evm-parity/examples/` so that their URLs don't change.
 
 When you write a recipe:
 
