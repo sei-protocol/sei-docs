@@ -153,10 +153,10 @@ const LLMS_SECTION_ORDER = [
 		name: 'Cookbook',
 		match: (p) => p.startsWith('/evm/cookbook') || p.startsWith('/evm/evm-parity/examples/'),
 		overview: [
-			'Task-focused recipes with runnable code, most of them in viem, ethers, and web3.py: read balances, send SEI, deploy and use ERC-20, ERC-721, and ERC-1155 tokens, listen to events, batch reads with Multicall3, sponsor gas with an ERC-4337 paymaster, and read the API3 SEI/USD price feed.',
-			'Public endpoint behavior that the recipes rely on: watch live events over WebSocket (wss://evm-ws.sei-apis.com, wss://evm-ws-testnet.sei-apis.com), because the WebSocket endpoints do not serve eth_getLogs or filters and HTTP polling watchers can miss or repeat events. Fetch past events over HTTP with eth_getLogs, which covers at most 2,000 blocks per request.',
+			'The Cookbook has task-focused recipes with runnable code, most of them in viem, ethers, and web3.py. The recipes read balances, send SEI, deploy and use ERC-20, ERC-721, and ERC-1155 tokens, listen to events, batch reads with Multicall3, sponsor gas with an ERC-4337 paymaster, and read the API3 SEI/USD price feed.',
+			'The recipes rely on this public endpoint behavior. Watch live events over WebSocket (wss://evm-ws.sei-apis.com, wss://evm-ws-testnet.sei-apis.com), because HTTP polling watchers can miss or repeat events. The WebSocket endpoints do not serve eth_getLogs or filters. Fetch past events over HTTP with eth_getLogs, which covers at most 2,000 blocks per request.',
 			'Foundry: `forge create` only simulates unless you pass `--broadcast`. Put `--constructor-args` last.',
-			'TypeScript examples use top-level await, so run them as .mts files with `npx tsx`. In a new npm project, a plain .ts file is compiled as CommonJS and fails.'
+			'TypeScript examples use top-level await. Run them as .mts files with `npx tsx`. In a new npm project, tsx compiles a plain .ts file as CommonJS, and the example fails.'
 		].join('\n\n')
 	},
 	{
