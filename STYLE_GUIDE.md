@@ -73,6 +73,7 @@ When you write a recipe:
 - Show the same code in viem, ethers, and web3.py where the task allows it. Label the `<CodeGroup>` tabs exactly `viem`, `ethers`, and `web3.py`, so that the tabs on a page stay in sync.
 - Use Sei Testnet for anything that sends a transaction.
 - Add a `<RunSnippet>` when a read-only JSON-RPC call shows the result live.
+- If a TypeScript example uses top-level `await`, tell readers to save it as a `.mts` file and run it with `npx tsx`. In a new npm project, a plain `.ts` file is compiled as CommonJS, and top-level `await` fails there.
 - End with a "You are done when you see" block that shows the expected output.
 
 ### Cosmos-SDK (Deprecated)
