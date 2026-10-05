@@ -237,6 +237,54 @@ The command accepts these flags:
 
 With `--lthash`, the command prints an `LtHash (lattice hash)` block listing each bucket's count and checksum and the `TOTAL`, followed by a verification line comparing the re-scanned total against the committed snapshot metadata. A match prints `PASS`; a mismatch prints `FAIL` and the command exits non-zero. Verification is skipped when the selected snapshot predates LtHash metadata (its committed hash then covers only replayed WAL deltas, not full state) or when no committed LtHash is recorded at that version.
 
+
+
+#### Inspecting hash log archives
+
+The `hashlog` command group provides read-only tools for inspecting the on-disk hash log archives produced by the hashlogger. Use it to pull the hashes recorded for a single block or to diff two archives without writing any Go code.
+
+##### Printing a single block's hashes
+
+The `get-block` subcommand prints every hash recorded for a single block in a hash log archive.
+
+```bash
+# Print the hashes recorded for a block in an archive
+seidb hashlog get-block <archive> <block>
+
+# Emit JSON instead of human-readable text
+seidb hashlog get-block <archive> <block> --json
+```
+
+If the block was executed more than once (for example, after a rollback that replayed it), the archive holds several records for that block and each execution's hashes are reported separately. A hash type that was registered but not recorded for the block prints as `<none>` (or serializes to JSON `null`, which is distinguishable from an absent type).
+
+##### Comparing two archives
+
+The `compare` subcommand compares two hash log archives and reports the blocks whose hashes differ between them.
+
+```bash
+# Compare two archives over their full range
+seidb hashlog compare <archive-a> <archive-b>
+
+# Restrict the comparison to a block range (both flags required together)
+seidb hashlog compare <archive-a> <archive-b> --low <N> --high <M>
+
+# Cap the number of differing blocks reported
+seidb hashlog compare <archive-a> <archive-b> --max-diffs <N>
+
+# Show every column for each differing block, and emit JSON
+seidb hashlog compare <archive-a> <archive-b> --full --json
+```
+
+The command accepts these flags:
+
+- `--low`: The lowest block to compare (inclusive). Requires `--high`.
+- `--high`: The highest block to compare (inclusive). Requires `--low`. The `--low` and `--high` flags are optional, but must be supplied together; a one-sided range fails with an error.
+- `--max-diffs`: The maximum number of differing blocks to report. The default is `-1`, which reports all of them. When the output is truncated at the cap, the command warns that there may be more differing blocks.
+- `--full`: Show every column of every record for each differing block. The default is a compact view that shows only the columns that differ. This is also the only sensible rendering when the record counts differ between the two sides (a rollback re-executed the block a different number of times), since there is no single pair of records to diff column by column.
+- `--json`: Emit JSON instead of human-readable text. The compact-by-default and `--full` column filtering apply to JSON output as well.
+
+When the archives are identical over the compared range, the command reports that and exits.
+
 The command accepts these flags:
 
 - `--backend`: The backend to read (`flatkv` or `memiavl`).

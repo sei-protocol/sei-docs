@@ -357,6 +357,34 @@ When the migration finishes, each node also emits a `migration complete` summary
 log line and `seidb_migration_*` OpenTelemetry counters for the migrated keys
 and bytes.
 
+### Inspecting hash log archives
+
+If you enable the per-block hash logger, the `seidb hashlog` command group
+provides read-only tools for inspecting the on-disk hash log archives it
+produces, so you can read or diff them without writing Go.
+
+- `seidb hashlog get-block <archive> <block>` prints every hash recorded for a
+  single block. A block with more than one record indicates it was executed more
+  than once (for example after a rollback), and each execution's hashes are
+  reported separately. Add `--json` to emit JSON instead of human-readable text.
+
+  ```bash copy
+  seidb hashlog get-block <archive> <block> [--json]
+  ```
+
+- `seidb hashlog compare <archive-a> <archive-b>` reports blocks whose hashes
+  differ between two archives — useful for pinpointing where two nodes diverged.
+  By default only the columns that differ are shown; pass `--full` to show every
+  column for each differing block. Restrict the comparison to a block range with
+  `--low` and `--high` (both must be supplied together), cap the number of
+  reported diffs with `--max-diffs` (`-1` for all), and add `--json` to emit
+  JSON. When the result is truncated at `--max-diffs`, the command warns that
+  there may be more differing blocks.
+
+  ```bash copy
+  seidb hashlog compare <archive-a> <archive-b> [--low N --high M] [--max-diffs N] [--full] [--json]
+  ```
+
 ### Importing EVM state from memIAVL into FlatKV
 
 The `seidb import-flatkv-from-memiavl` command populates a FlatKV store from an existing memIAVL tree. It is for nodes that move to the FlatKV EVM commit store without a state sync. Two safety properties matter:
