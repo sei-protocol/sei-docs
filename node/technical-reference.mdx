@@ -263,6 +263,28 @@ Any message whose fields exceed these limits is rejected at decode time, so an o
   Giga replaces the CometBFT mempool, so Giga does not support the `unsafe_flush_mempool` RPC endpoint. The endpoint returns `unsafe_flush_mempool is not supported with autobahn mempool`.
 </Note>
 
+
+
+#### HashVault app-hash equivocation guard
+
+When a node runs under Autobahn (GigaRouter), the GigaRouter builds and owns an app-hash equivocation guard called HashVault. As each finalized height is executed, HashVault records that height's committed app hash before the implied state is committed. If the node ever attempts to commit a different app hash for a height it has already finalized, HashVault detects the conflict and halts the node. This protects a validator against externalizing two different app hashes for the same height, which could otherwise lead to slashing.
+
+HashVault is enabled by default on both Autobahn validators and fullnodes. It stores committed app hashes in a durable Pebble DB under the Autobahn persistent state directory, at `<PersistentStateDir>/hashvault` (see the `--persistent-state-dir` flag and the `PersistentStateDir` config field above). When Autobahn runs in memory only (no persistent state directory, for example in tests), HashVault falls back to a no-op with no equivocation protection.
+
+<Warning>
+  If a node hits a startup panic reporting a HashVault app-hash mismatch, **do not restart it without human investigation** — the node attempted to change its mind about an already-finalized height. The panic and the preceding HashVault error log the conflicting hashes and the on-disk HashVault data directory (`hashVaultDir`).
+
+  Only if you are certain there is no real equivocation, you can recover by stopping the node, deleting the HashVault data directory shown in the panic message, and restarting. **This removes equivocation protection**: if the node then commits a conflicting hash for an already-finalized height, the validator may be slashed.
+</Warning>
+
+You can disable HashVault entirely with the top-level `hash-vault-disabled-unsafe` field in `config.toml` (default `false`). This is an explicit, last-resort operator decision to run **without** equivocation protection; a node started with it enabled logs error-level warnings on every startup. Prefer the recovery steps above — only set `hash-vault-disabled-unsafe = true` if you are very sure the stored hashes are wrong and you keep hitting the same panic on new blocks.
+
+```toml
+# config.toml — top-level key, before any [section] header.
+# Leave false to keep equivocation protection enabled (recommended).
+hash-vault-disabled-unsafe = false
+```
+
 ### Key management
 
 Proper key management is critical for security. Use these commands to manage

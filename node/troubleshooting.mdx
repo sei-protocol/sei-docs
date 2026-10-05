@@ -427,3 +427,43 @@ failed to initialize database: resource temporarily unavailable
 This means that you did not shut down the node properly. In that case, try to shut down or kill the `seid` process directly. If this does not help, restart your machine.
 
 Then try the rollback steps again.
+
+
+
+## HashVault app-hash equivocation panic
+
+Autobahn validators and fullnodes run an app-hash equivocation guard called HashVault, enabled by default. It stores the app hashes the node has committed in a durable database under `<PersistentStateDir>/hashvault`. If the node is ever about to commit a different app hash for a height it has already finalized, HashVault halts the node to prevent it from "changing its mind" about a finalized block.
+
+When the guard trips, you will see a panic in the logs similar to:
+
+```text
+Hashvault detected app hash mismatch; node attempted to change its mind. DO NOT RESTART WITHOUT HUMAN INVESTIGATION. ...
+blockHeight=[HEIGHT] existingHex=[...] incomingHex=[...] hashVaultDir=[/path/to/hashvault]
+```
+
+<Warning>
+**Do not restart the node without human investigation.** A HashVault mismatch can indicate a genuine equivocation. Restarting blindly, or removing the guard, can cause your validator to externalize a conflicting hash for an already-finalized height, which risks **slashing**.
+</Warning>
+
+**Investigate first.** Determine whether the mismatch reflects a real equivocation (for example, the same validator key running on more than one machine, or committed state that diverged from what the vault recorded) or a benign situation such as an out-of-band rollback or restore that left the committed app state inconsistent with the vault's history.
+
+### Recovery (only if you are certain there is no real equivocation)
+
+If, and only if, you are certain the stored hashes are wrong and there is no real equivocation, you can bypass the guard:
+
+1. **Stop the node.**
+2. **Delete the HashVault data directory** shown as `hashVaultDir` in the panic message (by default `<PersistentStateDir>/hashvault`).
+3. **Restart the node.** It starts with an empty equivocation history and re-commits hashes as it re-executes blocks.
+
+Deleting this directory removes equivocation protection for the heights it covered. If the node then commits a conflicting hash for a height it has already finalized, the validator may be slashed.
+
+### Last-resort: disabling HashVault
+
+If you repeatedly hit the same panic on new blocks and are very sure the stored hashes are totally wrong, you can run the node with the guard disabled by setting the top-level `hash-vault-disabled-unsafe` field in `config.toml`:
+
+```toml
+# config.toml (top-level, before any [section] header)
+hash-vault-disabled-unsafe = true
+```
+
+This runs the node **without any app-hash equivocation protection** and logs error-level warnings on every startup. The default is `false`, and you should re-enable the guard (set it back to `false` or remove the line) as soon as the underlying issue is resolved.
