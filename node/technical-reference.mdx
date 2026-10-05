@@ -385,9 +385,39 @@ ss-enable = true
 ss-backend = "pebbledb"
 ss-keep-recent = 100000
 ss-prune-interval = 600
+
+# gRPC server configuration
+[grpc]
+enable = true
+address = "0.0.0.0:9090"
+# Maximum message size in bytes the server can receive. Bounds per-request memory
+# allocation before the rate limiter fires. Default 4 MB (4194304).
+max-recv-msg-size = 4194304
+# Maximum number of simultaneous open connections. 0 means unlimited.
+max-open-connections = 1000
+# Duration after which an idle connection is closed. 0 means infinity.
+max-connection-idle = "5m0s"
+# Maximum duration a connection may exist before it is closed. 0 means infinity.
+max-connection-age = "0s"
+# Additive grace period after max-connection-age during which the connection is
+# forcibly closed. 0 means infinity.
+max-connection-age-grace = "0s"
+# Interval after which, with no activity, the server pings the client for liveness.
+keepalive-time = "2h0m0s"
+# Duration the server waits for a keepalive ping ack before closing the connection.
+keepalive-timeout = "20s"
+# Minimum interval a client must wait between keepalive pings; more frequent pings
+# are penalized.
+keepalive-min-time = "5m0s"
+# Whether the server allows keepalive pings even when there are no active streams.
+keepalive-permit-without-stream = false
 ```
 
 </Accordion>
+
+<Note>
+  The `[grpc]` server applies bounded defaults even when these keys are absent from an older `app.toml`. A node upgrading with a config file that predates these fields gets the in-code defaults (for example, a 4 MB `max-recv-msg-size`, `1000` `max-open-connections`, and a `5m` `max-connection-idle`) rather than running with unlimited connections or message sizes. A negative duration override for a keepalive or connection-age field is treated as a misconfiguration and clamped back to its safe default. The `max-connection-age` and `max-connection-age-grace` fields default to `0` (gRPC's "infinity"), and the keepalive-time/timeout/min-time defaults mirror gRPC's own defaults, so they are opt-in and do not change behavior unless configured.
+</Note>
 
 ### Config.toml parameters
 
