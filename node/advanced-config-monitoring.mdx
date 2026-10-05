@@ -614,6 +614,19 @@ enable-read-write-metrics = true
 ```
 
 
+
+## Tuning littidx eth_getLogs parallelism
+
+When the receipt store uses the `littidx` backend, each `eth_getLogs` query scans the requested block range across a bounded worker pool instead of one block at a time. Per-block tag index scans and litt body reads are independent, so fanning them across multiple workers reduces latency on wide-range queries while results stay in strict `(block, txIndex)` order.
+
+The `log-filter-parallelism` config key under `[receipt-store]` in `app.toml` bounds how many blocks a single query scans concurrently. It defaults to `16` and applies only to the `littidx` backend. A value `<= 0` falls back to the default.
+
+```toml
+[receipt-store]
+log-filter-parallelism = 16
+```
+
+
 ## LittDB OpenTelemetry metrics
 
 LittDB emits its metrics through the process-wide OpenTelemetry `MeterProvider` instead of a private Prometheus client. When `MetricsEnabled` is set, LittDB configures a Prometheus exporter on the global provider and serves `/metrics` on `MetricsPort` (default `9101`). The `MetricsNamespace` and `MetricsRegistry` config fields were removed, and all metric names use a fixed `litt_` prefix.
