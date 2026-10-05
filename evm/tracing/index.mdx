@@ -445,6 +445,25 @@ These `[evm]` fields in `app.toml` control trace baking:
 
 <Warning>Trace baking adds a persistent on-disk store at `<home>/data/trace_db` and increases disk usage. The node flushes the store's write-ahead log when it shuts down cleanly.</Warning>
 
+
+
+## Struct-logger output cap
+
+The default `debug_trace*` endpoints (`debug_traceCall`, `debug_traceTransaction`, and `debug_traceBlockByNumber`/`debug_traceBlockByHash`) use the built-in struct logger when no custom tracer is supplied. Traces that read many distinct storage slots can retain large amounts of output, so the node bounds the retained struct-logger output per traced transaction.
+
+The `max_trace_struct_log_bytes` field under `[evm]` in `app.toml` controls this cap:
+
+| Field | Default | Description |
+| ----- | ------- | ----------- |
+| `max_trace_struct_log_bytes` | `33554432` (32 MiB) | Bounds the retained struct-logger output, in bytes, per traced transaction on the default `debug_trace*` endpoints. Set to `0` for unlimited (upstream geth behavior). |
+
+Behavior notes:
+
+- The bound is applied **per transaction**, not per RPC call. Because geth builds a fresh struct logger for each transaction, a `debug_traceBlock*` call over N transactions can retain up to N times this value (and the parallelized block-trace path holds several concurrent traces live).
+- A caller-supplied `Limit` larger than `max_trace_struct_log_bytes` is clamped down to the configured value.
+- A smaller caller-supplied `Limit` is honored unchanged.
+- Custom tracers (for example `callTracer`, `prestateTracer`, or JavaScript tracers) are unaffected, as are requests when the cap is disabled (`0`).
+
 ## Removed legacy trace filters
 
 <Note>The legacy `*ExcludeTraceFail` endpoints have been removed. For block tracing, use `debug_traceBlockByNumber` or `debug_traceBlockByHash`. For EVM receipts, use `eth_getTransactionReceipt`. There is no block or filter method to discover synthetic logs from Cosmos-originated transactions. If you already know a synthetic transaction hash, enable `sei_getTransactionReceipt` to get its receipt and logs.</Note>
