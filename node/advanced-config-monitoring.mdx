@@ -582,6 +582,38 @@ FlatKV metrics carry these labels where applicable:
 
 A single FlatKV-level knob controls Pebble's internal (per-DB) metrics: `enable-pebble-metrics` under `[state-commit.flatkv]` in `app.toml` (default `true`). The node honors this key when it is present, but the `app.toml` that `seid init` generates does not include it. To change the default, add the key manually. The value propagates to every data DB (account, code, storage, legacy, and metadata) during initialization. It overrides any per-DB `EnableMetrics` settings. Configure Pebble metrics through this knob, not through the individual per-DB settings.
 
+
+## Pebble estimated read/write metrics
+
+SeiDB can emit lightweight, opt-in estimates of logical read and write operations observed by its Pebble-backed wrappers. These counters are disabled by default and are intended to approximate read amplification (estimated reads divided by estimated writes) without the overhead of Pebble's full internal metrics.
+
+### Available metrics
+
+| Metric | Type | Unit | Description |
+| --- | --- | --- | --- |
+| `pebble_estimated_reads` | Counter | `{count}` | Estimated logical PebbleDB reads observed by SeiDB wrappers. |
+| `pebble_estimated_writes` | Counter | `{count}` | Estimated logical PebbleDB writes observed by SeiDB wrappers. |
+
+Both counters carry a `db` attribute identifying the database the measurement applies to (derived from the base name of the data directory), so you can distinguish FlatKV data DBs, the state-store backend, and receipt storage.
+
+### Enabling the counters
+
+These estimates are controlled per subsystem in `app.toml`. All default to `false`:
+
+| Config key | Section | Description |
+| --- | --- | --- |
+| `enable-read-write-metrics` | `[state-commit.flatkv]` | Emits estimated read/write counters for FlatKV's Pebble DBs. |
+| `ss-enable-read-write-metrics` | `[state-store]` | Emits estimated PebbleDB MVCC read/write counters for the state-store backend. Applies when `ss-backend = "pebbledb"`. |
+| `enable-read-write-metrics` | `[receipt-store]` | Emits estimated read/write counters for Pebble-backed receipt storage. |
+
+For example, to enable the FlatKV counters, add the following to `app.toml`:
+
+```toml
+[state-commit.flatkv]
+enable-read-write-metrics = true
+```
+
+
 ## LittDB OpenTelemetry metrics
 
 LittDB emits its metrics through the process-wide OpenTelemetry `MeterProvider` instead of a private Prometheus client. When `MetricsEnabled` is set, LittDB configures a Prometheus exporter on the global provider and serves `/metrics` on `MetricsPort` (default `9101`). The `MetricsNamespace` and `MetricsRegistry` config fields were removed, and all metric names use a fixed `litt_` prefix.
