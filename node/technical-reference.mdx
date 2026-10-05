@@ -36,6 +36,27 @@ seid tendermint show-validator
 seid query node info
 ```
 
+
+#### Experimental config manager selection (`SEI_CONFIG_MANAGER`)
+
+`seid` reads the experimental `SEI_CONFIG_MANAGER` environment variable to select which configuration manager resolves a node's configuration at startup. The value is matched exactly — it is not trimmed or case-folded.
+
+- Unset or `legacy`: uses the existing legacy config loader. This is the default and leaves the configuration path unchanged.
+- `v2`: selects the new sei-config-backed manager. This manager is not yet implemented and fails fast with a hard error (`SEI_CONFIG_MANAGER=v2 not yet implemented`) rather than silently falling back to the legacy path, so a `v2` invocation is observable.
+- Any other value: `seid` refuses to start and reports an `invalid SEI_CONFIG_MANAGER` error naming the legal tokens (unset, `legacy`, or `v2`). There is no silent fallback.
+
+```bash
+# Default behavior (legacy loader) — no variable set
+seid start
+
+# Equivalent to the default
+SEI_CONFIG_MANAGER=legacy seid start
+
+# Selects the v2 manager, which currently returns a hard error
+SEI_CONFIG_MANAGER=v2 seid start
+```
+
+
 #### Freeze mode (`--freeze-height`)
 
 As of v6.6.3, you can put a full node into read-only freeze mode at a specified block height. Use the `--freeze-height` start flag or the corresponding `freeze-height` field in `app.toml`. Freeze mode exists for historical RPC nodes. A node frozen at an upgrade height keeps running the pre-upgrade binary and keeps serving the state that binary produced. It does not shut down at the boundary or execute the upgrade block with code that no longer matches that state.
