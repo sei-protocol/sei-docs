@@ -201,6 +201,42 @@ seidb evm-logical-digest --backend memiavl \
 
 Two backends match when the FlatKV `FINAL_DIGEST` equals the memIAVL `FINAL_DIGEST`. FlatKV also writes an internal migration-version marker row, which a memiavl-only node never owns. The command automatically omits that row from the final comparison.
 
+
+
+#### Dumping FlatKV state and verifying its lattice hash
+
+The `dump-flatkv` subcommand dumps every physical `(key, value)` pair of a FlatKV store into per-bucket files, formatted to match `dump-iavl` so the same diff tooling works on both. It can optionally also compute the per-bucket and total LtHash (lattice hash) over the scanned state and verify that total against the committed root recorded in snapshot metadata.
+
+The command opens an independent read-only clone of the store (the snapshot is hard-linked and the changelog WAL is replayed into a temporary directory under the data dir), so it is safe to run against a live, block-producing node. The scan is throttled by `--read-limit-mb` so a dump against a running node does not starve the chain of disk bandwidth.
+
+```bash
+# Latest version, all buckets, default 64 MiB/s throttle, LtHash + verify.
+seidb dump-flatkv -d /.sei/data/state_commit/flatkv -o /tmp/flatkv-dump
+
+# Pin a specific height.
+seidb dump-flatkv -d /.sei/data/state_commit/flatkv -o /tmp/flatkv-dump \
+    --height 216890000
+
+# Offline / idle disk: go full speed, skip LtHash.
+seidb dump-flatkv -d /.sei/data/state_commit/flatkv -o /tmp/flatkv-dump \
+    --read-limit-mb 0 --lthash=false
+
+# Verify the FlatKV lattice hash only, without writing key/value dump files.
+seidb dump-flatkv -d /.sei/data/state_commit/flatkv --lthash-only
+```
+
+The command accepts these flags:
+
+- `--db-dir` (`-d`): The FlatKV data directory (the directory containing `current/`, `snapshot-*`, and `changelog/`). Required.
+- `--output-dir` (`-o`): Where to write the per-bucket dump files (one file per bucket). Required unless `--lthash-only` is set.
+- `--height`: The target version. `0` (the default) selects the latest available version by replaying the WAL to the tip.
+- `--bucket` (`-b`): Restrict the on-disk dump to a single bucket (`account`, `code`, `storage`, or `legacy`). The default is all buckets. This only filters which hex files are written; the full keyspace is always scanned, and `--lthash` always covers all four buckets, so the LtHash total stays valid.
+- `--lthash`: Compute the per-bucket and total LtHash over the scanned state and verify the total against committed snapshot metadata. Default `true`. The LtHash is always computed over all buckets regardless of `--bucket`, so the total matches the node's committed LtHash.
+- `--lthash-only`: Compute and verify the LtHash without writing any bucket dump files. Default `false`. It requires `--lthash=true`, cannot be combined with `--bucket`, and does not require `--output-dir`.
+- `--read-limit-mb`: Throttle the scan to at most this many MiB/s of `(key+value)` bytes read. Default `64`. A value of `0` disables throttling. Keep it low (default or less) on a shared or live node; raise it only for offline runs on idle disks. Negative values are rejected.
+
+With `--lthash`, the command prints an `LtHash (lattice hash)` block listing each bucket's count and checksum and the `TOTAL`, followed by a verification line comparing the re-scanned total against the committed snapshot metadata. A match prints `PASS`; a mismatch prints `FAIL` and the command exits non-zero. Verification is skipped when the selected snapshot predates LtHash metadata (its committed hash then covers only replayed WAL deltas, not full state) or when no committed LtHash is recorded at that version.
+
 The command accepts these flags:
 
 - `--backend`: The backend to read (`flatkv` or `memiavl`).

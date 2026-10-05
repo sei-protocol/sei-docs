@@ -114,15 +114,34 @@ systemctl restart seid
 The `dump-flatkv` command accepts these flags:
 
 - `--db-dir` (`-d`): The FlatKV database directory.
-- `--output-dir` (`-o`): The output directory, with one file for each bucket.
+- `--output-dir` (`-o`): The output directory, with one file for each bucket. Required unless `--lthash-only` is set.
 - `--height`: The FlatKV target version. The default, `0`, selects the latest available version.
-- `--bucket` (`-b`): Restrict the dump to a single bucket (`account`, `code`, `storage`, or `legacy`). The default is all buckets.
+- `--bucket` (`-b`): Restrict the dump to a single bucket (`account`, `code`, `storage`, or `legacy`). The default is all buckets. This only filters which files are written; the full keyspace is always scanned, and the LtHash always covers all four buckets.
+- `--lthash`: Also compute the per-bucket and total LtHash (lattice hash) over the scanned state, and verify the total against the committed root recorded in snapshot metadata. The default is `true`. A mismatch exits non-zero.
+- `--lthash-only`: Compute and verify the LtHash without writing any bucket dump files. Requires `--lthash=true`, and does not require `--output-dir`. The default is `false`.
+- `--read-limit-mb`: Throttle the scan to at most this many MiB/s of (key+value) bytes read, so a dump against a running node does not starve the chain of disk bandwidth. The default is `64`. Set `0` for unlimited. Keep it at the default or lower on a shared/live node; raise it only for offline runs on idle disks.
+
+Because `dump-flatkv` opens an independent read-only clone of the store (the snapshot is hard-linked and the changelog WAL is replayed into a temp directory), it is safe to run against a live, block-producing node, and the `--read-limit-mb` throttle prevents it from starving the node of disk bandwidth.
 
 For example, to dump only the `storage` bucket at a specific version:
 
 ```bash
 seidb dump-flatkv --db-dir $HOME/.sei/data/state_commit/flatkv --output-dir /home/ubuntu/flatkv-dump --height 12345678 --bucket storage
 ```
+
+To verify the FlatKV lattice hash against the committed snapshot metadata without writing any key/value dump files:
+
+```bash
+seidb dump-flatkv --db-dir $HOME/.sei/data/state_commit/flatkv --lthash-only
+```
+
+For an offline run on an idle disk, go full speed and skip the LtHash:
+
+```bash
+seidb dump-flatkv --db-dir $HOME/.sei/data/state_commit/flatkv --output-dir /home/ubuntu/flatkv-dump --read-limit-mb 0 --lthash=false
+```
+
+With `--lthash`, the output prints a per-bucket count and checksum plus a `TOTAL` LtHash, followed by a `LtHash verification vs snapshot metadata` PASS/FAIL line. Verification is skipped (rather than failing) when the selected snapshot predates LtHash metadata, since the committed hash then covers only replayed WAL deltas rather than full state.
 
 ### Comparing EVM state between memIAVL and FlatKV
 
