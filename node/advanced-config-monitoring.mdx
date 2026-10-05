@@ -628,6 +628,36 @@ log-filter-parallelism = 16
 ```
 
 
+
+## Per-block hash logger
+
+The state-commit store can record a per-block CSV of named block hashes to disk as a debugging and forensics tool. For each committed block it logs the memIAVL per-module and root hashes, the flatKV per-DB and root hashes, the application hash, the Tendermint block hash, the result hash (the merkle root over the block's deterministic transaction results, equal to the next block's `LastResultsHash`), and the changeset hash. Recording the same hashes under one block number on every node makes it straightforward to pinpoint where and when block-hash computation diverges across nodes.
+
+The feature is **enabled by default**. By default it writes files into a `hash.log` directory under the state-commit store's data directory (that is, `<home>/data/hash.log`).
+
+### Configuration
+
+The hash logger is configured with five `app.toml` fields under `[state-commit]`:
+
+| Config key | Default | Description |
+| --- | --- | --- |
+| `sc-hash-logger-enable` | `true` | Turns per-block hash logging on or off. |
+| `sc-hash-logger-directory` | empty | Directory for hash log files. When empty, defaults to `<home>/data/hash.log`. |
+| `sc-hash-logger-blocks-to-retain` | `0` | Number of most-recent blocks to keep on disk. `0` disables block-count retention (the disk-size cap is then the only bound). |
+| `sc-hash-logger-target-file-size` | `16 MB` | Size in bytes a log file may reach before it is sealed and a new one is opened. Must be greater than `0`. |
+| `sc-hash-logger-max-disk-size` | `16 GB` | Backstop cap in bytes on the total size of sealed log files. `0` disables the disk-size cap (block-count retention is then the only bound). |
+
+Retention is disk-driven by default: up to roughly 16 GiB of sealed files are kept, with block-count retention disabled. If both `sc-hash-logger-blocks-to-retain` and `sc-hash-logger-max-disk-size` are set to `0`, no retention bound applies and the logs grow without limit — a deliberate operator choice.
+
+For example, to disable the hash logger, add the following to `app.toml`:
+
+```toml
+[state-commit]
+sc-hash-logger-enable = false
+```
+
+
+
 ## LittDB OpenTelemetry metrics
 
 LittDB emits its metrics through the process-wide OpenTelemetry `MeterProvider` instead of a private Prometheus client. When `MetricsEnabled` is set, LittDB configures a Prometheus exporter on the global provider and serves `/metrics` on `MetricsPort` (default `9101`). The `MetricsNamespace` and `MetricsRegistry` config fields were removed, and all metric names use a fixed `litt_` prefix.
