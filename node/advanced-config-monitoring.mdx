@@ -505,6 +505,24 @@ scrape_configs:
       - targets: ['localhost:9100']
 ```
 
+
+
+## Cosmos SDK / Tendermint telemetry chain_id label
+
+Node telemetry automatically injects a `chain_id` global label into the Cosmos SDK / Tendermint Prometheus telemetry (the `GlobalLabels` of the `[telemetry]` configuration) based on the node's client chain ID. The label is appended only when a `chain_id` label is not already configured in `GlobalLabels`, so an explicit operator-set value always takes precedence. This is distinct from the `chain_id` constant label applied to the OpenTelemetry `sei_chain` namespace described above — it covers the separate Cosmos SDK/Tendermint telemetry path.
+
+Because every emitted series carries this label, update any PromQL that aggregates across series (for example `sum(...) without (...)` or `by (...)` clauses) to account for `chain_id`, and add a `chain_id` match where you want to scope a query to a single chain — useful when one Prometheus instance scrapes nodes on more than one chain.
+
+### New Tendermint internal metrics subsystems
+
+Additional Prometheus metrics are exported under the `tendermint` namespace in these new subsystems:
+
+| Subsystem prefix | Description |
+| --- | --- |
+| `tendermint_internal_autobahn_avail_*` | Autobahn availability metrics, including the commit and app road index, the commit and app global block number, proposal-to-commit latency, and commit-to-commit latency (the latter labeled by `timeouts`). |
+| `tendermint_internal_autobahn_data_*` | Autobahn data latency metrics (a `latency` histogram labeled by `resource` and `stage`) tracking resource processing from production to the given stage. |
+| `tendermint_internal_p2p_mux_*` | p2p mux stream metrics, including stream `latency`, `in_flight` open streams, and per-stream `send_msgs`, `recv_msgs`, `send_bytes`, and `recv_bytes` counters (labeled by `role` and `kind`). |
+
 ## EVM RPC OpenTelemetry metrics
 
 The EVM RPC layer emits OpenTelemetry metrics through the process-wide `MeterProvider` (for example, a Prometheus exporter). It emits these metrics in parallel with the legacy `sei_*` metrics, so you can migrate dashboards incrementally.
