@@ -106,15 +106,26 @@ ss-backend = "pebbledb"
 ss-keep-recent = 100000
 
 [receipt-store]
-# Storage backend for EVM transaction receipts. pebbledb (aka pebble) is the
-# only supported backend.
+# Storage backend for EVM transaction receipts. Supported backends: pebbledb
+# (aka pebble) and littidx.
 rs-backend = "pebbledb"
 ```
 
 <Note>
-`pebbledb` (also called `pebble`) is the only supported receipt-store backend.
-The setting `rs-backend = "parquet"` (or `RECEIPT_BACKEND=parquet`) is rejected
-with the error `unsupported receipt-store backend "parquet"; supported: pebbledb`.
+The receipt-store backend accepts `pebbledb` (also called `pebble`) and
+`littidx`. An unsupported value such as `rs-backend = "parquet"` (or
+`RECEIPT_BACKEND=parquet`) is rejected with the error `unsupported receipt-store
+backend "parquet"; supported: pebbledb, littidx`.
+
+`littidx` is a LittDB-based backend that stores receipt bodies in LittDB's
+immutable append-only segments alongside a PebbleDB tag index used to answer
+`eth_getLogs` filters without scanning whole blocks. It honors the same
+`KeepRecent` (derived from `min-retain-blocks`) and `prune-interval-seconds`
+retention and pruning settings as the PebbleDB backend. Because receipt bodies
+are buffered in memory and flushed periodically rather than written through a
+WAL, a hard crash can lose the most recently written receipt bodies; this is an
+accepted tradeoff for auxiliary, non-consensus RPC data.
+
 In the localnode and rpcnode configuration scripts, if you enable Giga Storage
 (`GIGA_STORAGE=true`) and `RECEIPT_BACKEND` is not set, the receipt backend
 defaults to `pebble`. The former `receipt-store.tx-index-backend` config field
