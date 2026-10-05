@@ -1248,6 +1248,33 @@ The max block lookback guard (`max_trace_lookback_blocks`) applies. If a request
 }
 ```
 
+#### `debug_traceStateAccess`
+
+**Supported.** Replays a transaction by hash and returns the per-module state (KVStore) accesses it made, used for prestate derivation and state-access analysis.
+
+**Sei-specific behavior:** Available over HTTP only. The `max_trace_lookback_blocks` historical guard applies (see `debug_traceTransaction`). The call honors the configured `TraceTimeout`: replay and the subsequent prestate/trace serialization bail out when the trace deadline elapses, failing with a `context deadline exceeded` error instead of running unbounded. This prevents long-running replays from consuming resources without limit.
+
+Each module entry in the response carries a `truncated` boolean. Sei caps the key/value payload retained per module in the state-access log at 4 MiB. Once that cap is reached, the module's log is marked `truncated: true` and further accesses are dropped from the retained log, bounding a pathological transaction (such as a huge iterator scan) that would otherwise grow the response without limit. When a module is truncated, its `reads` and `has` entries reflect only the retained prefix, but its `stats` (operation counts and durations) stay complete and accurate, because they are accumulated at record time regardless of truncation.
+
+**Parameters:**
+
+| # | Name | Type | Description |
+| :- | :- | :- | :- |
+| 1 | `hash` | DATA, 32 bytes | Transaction hash to trace. |
+
+**Example request:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "debug_traceStateAccess",
+  "params": [
+    "0x5c504ed432cb51138bcf09aa5e8a410dd4a1e204ef84bfed1be16dfba1b22060"
+  ]
+}
+```
+
 #### `debug_traceCall`
 
 **Supported.** Executes and traces a call against a block's state without creating a transaction.
