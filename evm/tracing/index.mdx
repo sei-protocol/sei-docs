@@ -447,6 +447,26 @@ These `[evm]` fields in `app.toml` control trace baking:
 
 
 
+## Tracer allowlist
+
+Caller-supplied `tracer` values on the `debug_trace*` endpoints are gated by `[evm]` config in `app.toml`. By default, only a fixed set of native geth tracers may be requested, and request-supplied JavaScript tracer source is rejected. This deviates from upstream geth, which accepts JavaScript tracers by default. The gate applies to `debug_traceCall`, `debug_traceTransaction`, `debug_traceBlockByNumber`/`debug_traceBlockByHash`, and `debug_traceTransactionProfile`. When no `tracer` is supplied, the default struct logger remains available.
+
+| Field | Default | Description |
+| ----- | ------- | ----------- |
+| `trace_allowed_tracers` | `["callTracer", "prestateTracer", "flatCallTracer", "4byteTracer", "noopTracer", "muxTracer"]` | Native debug tracer names that callers may request via `TraceConfig.Tracer`. Validated native-only at startup — a non-native or misspelled name fails startup. Set to `[]` to disable all named tracers. Request-supplied JavaScript tracer source can never be enabled through this list. |
+| `trace_allow_js_tracers` | `false` | Opts in to request-supplied JavaScript tracer source in `TraceConfig.Tracer`. This executes untrusted code in-process; keep disabled on public/default RPC nodes. Enabling it does **not** widen `trace_allowed_tracers`: native tracer names must still be listed there to be usable. |
+
+Behavior notes:
+
+- A tracer name that is not listed in `trace_allowed_tracers` is rejected, unless it is JavaScript source and `trace_allow_js_tracers` is enabled.
+- JavaScript tracer source is rejected unless `trace_allow_js_tracers` is set to `true`.
+- When `muxTracer` is requested, its nested tracer names are validated recursively against the same allowlist, with a bounded nesting depth of 16.
+- `trace_bake_tracers` names are held to the same native-only rule and validated at startup, so a non-native or misspelled baked tracer fails startup instead of being evaluated as JavaScript source on every block.
+
+<Note>The `trace_bake_tracers` note above that eligible values are standard named tracers is subsumed by this native-only startup validation: entries must be native tracer names such as `callTracer`, `prestateTracer`, or `flatCallTracer`.</Note>
+
+
+
 ## Struct-logger output cap
 
 The default `debug_trace*` endpoints (`debug_traceCall`, `debug_traceTransaction`, and `debug_traceBlockByNumber`/`debug_traceBlockByHash`) use the built-in struct logger when no custom tracer is supplied. Traces that read many distinct storage slots can retain large amounts of output, so the node bounds the retained struct-logger output per traced transaction.

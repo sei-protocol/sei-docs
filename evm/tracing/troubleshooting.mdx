@@ -142,6 +142,35 @@ This guide covers common issues with EVM transaction tracing on Sei and gives pr
 
 ### 4. Network and connection issues
 
+
+
+#### Tracer not allowed / JavaScript tracers disabled
+
+**Error**: `debug tracer "..." is not allowed; JavaScript tracers are disabled and only native tracers listed in evm.trace_allowed_tracers may be used`
+
+**Cause**: Sei gates which tracers callers may request through `TraceConfig.Tracer` on the `debug_traceCall`, `debug_traceTransaction`, `debug_traceBlockByNumber`, `debug_traceBlockByHash`, and `debug_traceTransactionProfile` endpoints. By default only the native tracers listed in the `[evm]` `trace_allowed_tracers` config are accepted, and request-supplied JavaScript tracer source is rejected. This deviates from upstream geth, which accepts JavaScript tracers by default.
+
+**Solutions**:
+
+- Use one of the allowlisted native tracers. The shipped default allowlist is:
+
+  ```toml
+  [evm]
+  trace_allowed_tracers = ["callTracer", "prestateTracer", "flatCallTracer", "4byteTracer", "noopTracer", "muxTracer"]
+  ```
+
+- If you are an operator and need to permit a native tracer that is not listed, add its name to `trace_allowed_tracers`. Only native geth tracer names are accepted here; a typo or JavaScript source causes the node to fail at startup. Setting the list to `[]` disables all named tracers.
+- To allow request-supplied JavaScript tracer source, an operator must explicitly opt in:
+
+  ```toml
+  [evm]
+  trace_allow_js_tracers = true
+  ```
+
+  This executes untrusted code in-process and should be kept disabled on public/default RPC nodes. Enabling it does **not** widen `trace_allowed_tracers`: native tracer names must still be listed there to be usable.
+
+<Note>When using `muxTracer`, the nested tracer names in `TracerConfig` are validated recursively against the same allowlist, with a bounded nesting depth of 16. A nested name that is not allowlisted produces a `nested debug tracer "..." is not allowed` error. Also note that `trace_bake_tracers` names are validated as native-only at startup, so a non-native or mistyped name there will fail node startup rather than being evaluated as JavaScript.</Note>
+
 **Error**: `connection refused` or `network timeout`
 
 **Solutions**:
