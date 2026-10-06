@@ -314,14 +314,37 @@ seid tendermint gen-autobahn-config [node-dirs...] --output <path>
 # The --output flag may be abbreviated as -o
 seid tendermint gen-autobahn-config ./node0 ./node1 ./node2 -o autobahn.json
 
-# Choose where autobahn consensus and data WALs are persisted (default: data/autobahn)
+# Choose where autobahn consensus state and BlockDB are persisted (default: data/autobahn)
 seid tendermint gen-autobahn-config ./node0 ./node1 --output autobahn.json --persistent-state-dir data/autobahn
 
-# Pass an empty value to disable persistence and run in-memory only
+# Pass an empty value to disable persistence and run in-memory only (memblock)
 seid tendermint gen-autobahn-config ./node0 ./node1 --output autobahn.json --persistent-state-dir=
+
+# Tune BlockDB retention and GC
+seid tendermint gen-autobahn-config ./node0 ./node1 --output autobahn.json --blockdb-retention 30s --blockdb-gc-period 10s
 ```
 
-The `--persistent-state-dir` flag controls where Autobahn persists its consensus and data write-ahead logs (WALs) across restarts. The default is `data/autobahn`, so persistence is enabled by default without any operator action. The consensus and data layers write to distinct subdirectories under this shared on-disk root. At config load time, a relative path is resolved against the node's `--home` directory, and an absolute path is used as is. An empty value (`--persistent-state-dir=`) disables persistence entirely, and both the consensus and data layers run in memory only. When set, the flag populates the `PersistentStateDir` field in the generated config.
+The `--persistent-state-dir` flag controls where Autobahn persists its consensus state and BlockDB across restarts. The default is `data/autobahn`, so persistence is enabled by default without any operator action. Autobahn's durable block and quorum-certificate storage now lives in a LittDB-backed BlockDB opened under `<persistent_state_dir>/blockdb`, replacing the previous data write-ahead logs (the old `globalblocks/` and `fullcommitqcs/` subdirectories are no longer read). At config load time, a relative path is resolved against the node's `--home` directory, and an absolute path is used as is. An empty value (`--persistent-state-dir=`) disables persistence entirely and both the consensus and data layers run in memory only (memblock). When set, the flag populates the `PersistentStateDir` field in the generated config.
+
+<Warning>
+  Operators upgrading from a release that used the data WALs must be aware that Autobahn consensus state now lives under `<persistent_state_dir>/blockdb` (a LittDB BlockDB). The old `globalblocks/` and `fullcommitqcs/` WAL directories are no longer read.
+</Warning>
+
+Two additional flags tune the BlockDB:
+
+- `--blockdb-retention`: Sets the BlockDB retention TTL written into the `block_db` section of the generated config. The default is `30s` because this helper targets local/docker clusters rather than production node bring-up. Pass an empty value (`--blockdb-retention=`) to omit the field and keep littblock's production default of 24h.
+- `--blockdb-gc-period`: Sets the BlockDB garbage-collection period (for example `10s`). Omit it to keep littblock's default GC period.
+
+When either flag is set, an optional `block_db` section is written into `autobahn.json`:
+
+```json
+"block_db": {
+  "retention": "30s",
+  "gc_period": "10s"
+}
+```
+
+Each field is independently optional and is omitted from the JSON when empty; absent fields keep whatever littblock's default config uses. The `block_db` section overlays those defaults only when `persistent_state_dir` is set, and is ignored when persistence is disabled (memblock). When set, `retention` and `gc_period` must each be greater than zero.
 
 The command reads these files from each node directory:
 
