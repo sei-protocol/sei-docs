@@ -789,6 +789,28 @@ everything. Second, when `evm-ss-db-directory` is unset, nodes with an existing
 to `<home>/data/state_store/evm/{backend}`.
 </Note>
 
+
+<Note>
+The `[instrumentation] max-open-connections` field in `config.toml` is not a
+socket limit despite its name. It is passed to promhttp as
+`MaxRequestsInFlight` and caps the number of Prometheus scrapes served
+concurrently; requests past the cap receive an HTTP `503` rather than being
+queued. Keep the value above the number of scrapers that can overlap — an HA
+Prometheus pair, blackbox probes, and the occasional human `curl` — because a
+slow reader occupies a slot until it finishes or hits the write timeout. `0`
+means unlimited.
+
+The Prometheus metrics HTTP server enforces a read timeout of 10s, a write
+timeout of 30s, and an idle timeout of 60s. These bound how long a slow reader
+can hold a request slot and how long idle keep-alive connections persist.
+
+Seed nodes also serve Prometheus metrics (for example the
+`tendermint_p2p_peers` gauge) when instrumentation is enabled. Because a seed
+serves no RPC, Prometheus is its only observability surface, so a failure to
+bind the metrics listener is fatal and causes seed startup to fail — unlike a
+full node, which logs the error and continues serving.
+</Note>
+
 ### Cosmos SDK state pruning
 
 Separate from the SeiDB retention settings above (`min-retain-blocks`,

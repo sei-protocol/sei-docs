@@ -507,6 +507,48 @@ scrape_configs:
 
 
 
+## Seed node Prometheus metrics
+
+Seed nodes now expose a Prometheus `/metrics` endpoint, so they can be scraped like any other node. Because a seed serves no RPC, this endpoint is the only observability surface it has — peer reachability and peer headroom both come from its p2p metrics (for example `tendermint_p2p_peers`).
+
+To enable it, set the usual instrumentation fields in `config.toml` under `[instrumentation]`:
+
+```toml
+[instrumentation]
+prometheus = true
+prometheus-listen-addr = ":26660"
+```
+
+Every exposed series is stamped with the node's `chain_id` label, matching the behavior of full nodes.
+
+<Warning>
+For a seed node, a failure to bind the Prometheus listener (for example, the port is already in use or the address is unparseable) is **fatal**: the seed fails to start. This is deliberate — a seed's value is only realized when it is observable, so an unambiguous crash is preferable to a seed that discovers peers while blind.
+
+A full node behaves differently: a bind failure is **non-fatal**. The full node logs the error and continues running, because it still serves RPC as an in-band way to observe its health.
+</Warning>
+
+The `tendermint_p2p_peers` gauge is present from node startup rather than appearing only after the first refresh interval, so an alert comparing peer count against the connection cap matches immediately rather than sitting unmatched during the startup window.
+
+### Metrics server timeouts
+
+The Prometheus metrics HTTP server enforces request timeouts to bound how long a slow reader can hold a request slot:
+
+| Timeout | Value |
+| --- | --- |
+| `ReadHeaderTimeout` | 10s |
+| `ReadTimeout` | 10s |
+| `WriteTimeout` | 30s |
+| `IdleTimeout` | 60s |
+
+### `max-open-connections` behavior
+
+The `max-open-connections` field under `[instrumentation]` is not a socket limit despite the name. It becomes promhttp's `MaxRequestsInFlight`: the maximum number of scrapes served concurrently. Requests past the limit receive an HTTP `503` rather than being queued, and a slow reader occupies a slot until it finishes or hits the `WriteTimeout`. A value of `0` means unlimited.
+
+Keep this value above the number of scrapers that can overlap — for example, an HA Prometheus pair, blackbox probes, and a human running `curl` — so a burst of concurrent scrapes does not cause a healthy node to report as unscrapeable.
+
+
+
+
 ## Cosmos SDK / Tendermint telemetry chain_id label
 
 Node telemetry automatically injects a `chain_id` global label into the Cosmos SDK / Tendermint Prometheus telemetry (the `GlobalLabels` of the `[telemetry]` configuration) based on the node's client chain ID. The label is appended only when a `chain_id` label is not already configured in `GlobalLabels`, so an explicit operator-set value always takes precedence. This is distinct from the `chain_id` constant label applied to the OpenTelemetry `sei_chain` namespace described above — it covers the separate Cosmos SDK/Tendermint telemetry path.
