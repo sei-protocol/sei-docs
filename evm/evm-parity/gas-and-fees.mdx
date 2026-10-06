@@ -92,6 +92,42 @@ const gas = await provider.estimateGas({
 
 <Warning>Estimate the absolute storage-write cost with a live `eth_estimateGas` call against a Sei RPC. A Foundry `forge test --gas-report --fork-url <sei rpc>` report forks the chain *state*, but it runs the standard EVM gas schedule of revm. It therefore shows `SSTORE` at the Ethereum cost (approximately 22,100) instead of the Sei cost (approximately 72,000). Use the report for relative profiling of your own logic.</Warning>
 
+
+## Precompile calldata decode cost
+
+Sei's dynamic-gas precompiles (such as bank, wasmd, oracle, ibc, json, distribution, pointer, and addr) now charge gas for ABI-decoding a call's calldata *before* the arguments are decoded. The charge covers a length-proportional scan of the input plus the cost of copying any `string` payloads the decoder would materialize — a cost that can be significantly larger than the raw calldata length when a single string is referenced by many array or tuple slots.
+
+Two consequences for callers:
+
+- A precompile call that forwards too little gas to cover the decode is reverted before the precompile runs, instead of being decoded for free.
+- Overall gas used for dynamic-gas precompile calls has increased slightly, since the decode is now metered.
+
+Because this charge depends on the exact shape and size of your calldata, do not hard-code gas limits for precompile calls. Always size them with a live `eth_estimateGas` call against a Sei RPC:
+
+<CodeGroup>
+
+```ts viem
+const gas = await client.estimateGas({
+  account,
+  to: precompileAddress,
+  data: encodedCalldata,
+});
+
+// Add a buffer for safety during high-activity periods
+const gasWithBuffer = (gas * 120n) / 100n; // 20% buffer
+```
+
+```ts ethers
+const gas = await provider.estimateGas({
+  from: signer.address,
+  to: precompileAddress,
+  data: encodedCalldata,
+});
+```
+
+</CodeGroup>
+
+
 ## Summary
 
 | Behavior | Ethereum | Sei |
