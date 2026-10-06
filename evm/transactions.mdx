@@ -290,6 +290,25 @@ Before Sei accepts an EVM transaction, it performs strict semantic validation of
 - [Transaction types](/evm/evm-parity/transaction-types#access-list-and-auth-list-entry-validation) is the canonical field-level reference. It covers signature-value byte caps and zero-padding rules, access-list entries, and EIP-7702 authorization lists.
 - [Differences with Ethereum](/evm/differences-with-ethereum#evm-transaction-envelope-restrictions) covers envelope-level restrictions: no Cosmos wrapper fields, canonical protobuf encoding, and whole-block rejection on decode failure.
 
+
+
+### Cosmos transaction public-key validation
+
+For Cosmos transactions, the ante handlers now validate every public key provided in a transaction before deriving addresses from it or persisting it to account state. This validation runs during both `CheckTx` and `DeliverTx`, so a transaction carrying a malformed key is rejected rather than silently storing an unusable key on the account.
+
+A public key is rejected when:
+
+- A `secp256k1` key has the wrong byte size or fails to parse as a valid curve point — returns `ErrInvalidPubKey`.
+- A multisig key has a threshold of zero, or a threshold greater than the number of member keys — returns `ErrInvalidPubKey`.
+- A multisig key is nested more than 5 levels deep — returns `ErrInvalidPubKey`.
+- The number of member keys consumed exceeds the per-pubkey signature budget derived from the auth module's `TxSigLimit` — returns `ErrTooManySignatures`.
+
+The recursive work budget is kept local to each provided public key, so one multisig tree is bounded on its own without changing the aggregate `TxSigLimit` behavior applied to keys persisted to account state.
+
+<Info>
+  If you build and sign Cosmos transactions manually (for example, assembling multisig keys), ensure member keys are well formed and that multisig nesting stays within 5 levels to avoid rejection.
+</Info>
+
 ### Receipts for nonce-bumping failed transactions
 
 Some EVM transactions pass basic validation and bump the sender's nonce, but still fail during state transition. One example is a transaction whose gas limit clears the intrinsic-gas check but falls short of the EIP-7623 floor-data-gas requirement. This can occur in normal operation after Pectra. Because these transactions bump the nonce, they are considered to have happened and therefore produce a receipt.
