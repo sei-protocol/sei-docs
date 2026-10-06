@@ -42,7 +42,7 @@ seid query node info
 `seid` reads the experimental `SEI_CONFIG_MANAGER` environment variable to select which configuration manager resolves a node's configuration at startup. The value is matched exactly — it is not trimmed or case-folded.
 
 - Unset or `legacy`: uses the existing legacy config loader. This is the default and leaves the configuration path unchanged.
-- `v2`: selects the new sei-config-backed manager. This manager is not yet implemented and fails fast with a hard error (`SEI_CONFIG_MANAGER=v2 not yet implemented`) rather than silently falling back to the legacy path, so a `v2` invocation is observable.
+- `v2`: selects the sei-config-backed manager. This manager boots the node identically to the legacy path — it re-enters the legacy reader on your original `config.toml` and `app.toml`, and never rewrites those files or refuses boot. In addition, it runs an advisory config-validation pass that logs diagnostics at warn level (for example, a missing `chain.min_gas_prices`) without changing the boot outcome. Validation is non-fatal: a diagnostic is informational only. Because the pass reads the on-disk config before the node generates its own files, a brand-new node is not validated on its first boot; diagnostics first appear from the second start onward.
 - Any other value: `seid` refuses to start and reports an `invalid SEI_CONFIG_MANAGER` error naming the legal tokens (unset, `legacy`, or `v2`). There is no silent fallback.
 
 ```bash
@@ -52,7 +52,8 @@ seid start
 # Equivalent to the default
 SEI_CONFIG_MANAGER=legacy seid start
 
-# Selects the v2 manager, which currently returns a hard error
+# Selects the v2 manager, which boots identically to legacy while emitting
+# advisory config-validation warnings to the logs
 SEI_CONFIG_MANAGER=v2 seid start
 ```
 
