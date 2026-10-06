@@ -1,0 +1,151 @@
+---
+title: Authz Precompile
+description: Query authorization grants from the Cosmos authz module directly from EVM smart contracts on Sei.
+---
+
+The Authz precompile exposes read-only queries from the Cosmos `authz` module to EVM smart contracts. It lets contracts inspect authorization grants between a granter and a grantee, as well as all grants issued or received by a given account.
+
+## Address
+
+The Authz precompile is available at the fixed address:
+
+```
+0x000000000000000000000000000000000000100E
+```
+
+## Interface
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+address constant AUTHZ_PRECOMPILE_ADDRESS = 0x000000000000000000000000000000000000100e;
+
+IAuthz constant AUTHZ_CONTRACT = IAuthz(AUTHZ_PRECOMPILE_ADDRESS);
+
+interface IAuthz {
+    // Queries
+
+    /**
+     * @notice Get grants between a granter and a grantee, optionally filtered by message type URL
+     * @param granter The granter's EVM address (must be associated with a Sei address)
+     * @param grantee The grantee's EVM address (must be associated with a Sei address)
+     * @param msgTypeUrl The message type URL to filter by (empty string for all)
+     * @param pageKey Pagination key (empty bytes for the first page)
+     * @return response Grants response with pagination
+     */
+    function grants(
+        address granter,
+        address grantee,
+        string memory msgTypeUrl,
+        bytes memory pageKey
+    ) external view returns (GrantsResponse memory response);
+
+    /**
+     * @notice Get all grants granted by a granter
+     * @param granter The granter's EVM address (must be associated with a Sei address)
+     * @param pageKey Pagination key (empty bytes for the first page)
+     * @return response Grant authorizations response with pagination
+     */
+    function granterGrants(
+        address granter,
+        bytes memory pageKey
+    ) external view returns (GrantAuthorizationsResponse memory response);
+
+    /**
+     * @notice Get all grants granted to a grantee
+     * @param grantee The grantee's EVM address (must be associated with a Sei address)
+     * @param pageKey Pagination key (empty bytes for the first page)
+     * @return response Grant authorizations response with pagination
+     */
+    function granteeGrants(
+        address grantee,
+        bytes memory pageKey
+    ) external view returns (GrantAuthorizationsResponse memory response);
+
+    // Structs
+
+    struct Grant {
+        bytes authorization;
+        int64 expiration;
+    }
+
+    struct GrantsResponse {
+        Grant[] grants;
+        bytes nextKey;
+    }
+
+    struct GrantAuthorization {
+        string granter;
+        string grantee;
+        bytes authorization;
+        int64 expiration;
+    }
+
+    struct GrantAuthorizationsResponse {
+        GrantAuthorization[] grants;
+        bytes nextKey;
+    }
+}
+```
+
+## Methods
+
+All methods on this precompile are read-only `view` queries. They do not mutate state.
+
+### grants
+
+Returns the grants between a specific granter and grantee, optionally filtered by a message type URL.
+
+```solidity
+function grants(
+    address granter,
+    address grantee,
+    string memory msgTypeUrl,
+    bytes memory pageKey
+) external view returns (GrantsResponse memory response);
+```
+
+- `granter` — the granter's EVM address, which must be associated with a Sei address.
+- `grantee` — the grantee's EVM address, which must be associated with a Sei address.
+- `msgTypeUrl` — the message type URL to filter by. Pass an empty string to return all grants.
+- `pageKey` — the pagination key; pass empty bytes to request the first page.
+
+Each returned `Grant` contains the `authorization` encoded as JSON bytes and an `expiration` expressed as a Unix timestamp in seconds. The `nextKey` field of the response is the pagination key for the next page (empty when the result set is exhausted).
+
+### granterGrants
+
+Returns every grant issued by a given granter.
+
+```solidity
+function granterGrants(
+    address granter,
+    bytes memory pageKey
+) external view returns (GrantAuthorizationsResponse memory response);
+```
+
+- `granter` — the granter's EVM address, which must be associated with a Sei address.
+- `pageKey` — the pagination key; pass empty bytes to request the first page.
+
+Each returned `GrantAuthorization` includes the bech32 `granter` and `grantee` addresses, the `authorization` encoded as JSON bytes, and an `expiration` as a Unix timestamp in seconds.
+
+### granteeGrants
+
+Returns every grant received by a given grantee.
+
+```solidity
+function granteeGrants(
+    address grantee,
+    bytes memory pageKey
+) external view returns (GrantAuthorizationsResponse memory response);
+```
+
+- `grantee` — the grantee's EVM address, which must be associated with a Sei address.
+- `pageKey` — the pagination key; pass empty bytes to request the first page.
+
+The response mirrors `granterGrants`, listing each `GrantAuthorization` with its granter, grantee, JSON-encoded authorization, and expiration.
+
+## Notes
+
+- The addresses passed to these methods must be associated with a Sei address; querying an unassociated address reverts.
+- The `authorization` field is returned as JSON-encoded bytes and includes an `@type` discriminator (for example, a `SendAuthorization`).

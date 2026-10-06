@@ -1,0 +1,132 @@
+---
+title: Upgrade Precompile
+description: Query the chain upgrade module from EVM smart contracts using the Upgrade precompile.
+---
+
+The Upgrade precompile exposes read-only queries against the chain's upgrade module to EVM smart contracts. It lets contracts inspect the currently scheduled upgrade plan, look up when a named upgrade was applied, read stored upgraded consensus state, and read the consensus versions of app modules.
+
+## Precompile Address
+
+The Upgrade precompile is available at the fixed address:
+
+```
+0x0000000000000000000000000000000000001015
+```
+
+## Solidity Interface
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+address constant UPGRADE_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000001015;
+
+IUpgrade constant UPGRADE_CONTRACT = IUpgrade(UPGRADE_PRECOMPILE_ADDRESS);
+
+interface IUpgrade {
+    // Queries
+    // Returns the currently scheduled upgrade plan, or a zero-valued plan if
+    // no upgrade is scheduled.
+    function currentPlan() external view returns (Plan memory plan);
+
+    // Returns the block height at which the named upgrade was applied, or 0
+    // if it has not been applied.
+    function appliedPlan(
+        string memory name
+    ) external view returns (int64 height);
+
+    // Returns the upgraded consensus state stored for the given last height,
+    // or empty bytes if none is stored.
+    function upgradedConsensusState(
+        int64 lastHeight
+    ) external view returns (bytes memory consensusState);
+
+    // Returns the consensus versions of app modules. An empty moduleName
+    // returns all modules; a specific moduleName returns just that module.
+    function moduleVersions(
+        string memory moduleName
+    ) external view returns (ModuleVersion[] memory versions);
+
+    // Structs
+    struct Plan {
+        string name;
+        int64 height;
+        string info;
+    }
+
+    struct ModuleVersion {
+        string name;
+        uint64 version;
+    }
+}
+```
+
+## Methods
+
+All methods are read-only `view` queries and are non-payable; sending value reverts the call.
+
+### currentPlan
+
+```solidity
+function currentPlan() external view returns (Plan memory plan);
+```
+
+Returns the currently scheduled upgrade plan. If no upgrade is scheduled, a zero-valued `Plan` is returned (empty `name` and `info`, `height` of `0`).
+
+The returned `Plan` contains:
+
+- `name` — the name of the scheduled upgrade.
+- `height` — the block height at which the upgrade is scheduled to run.
+- `info` — arbitrary metadata attached to the plan.
+
+### appliedPlan
+
+```solidity
+function appliedPlan(string memory name) external view returns (int64 height);
+```
+
+Returns the block height at which the upgrade identified by `name` was applied. If the upgrade has not been applied, it returns `0`.
+
+### upgradedConsensusState
+
+```solidity
+function upgradedConsensusState(int64 lastHeight) external view returns (bytes memory consensusState);
+```
+
+Returns the upgraded consensus state stored for the given `lastHeight`. If no consensus state is stored for that height, it returns empty bytes.
+
+### moduleVersions
+
+```solidity
+function moduleVersions(string memory moduleName) external view returns (ModuleVersion[] memory versions);
+```
+
+Returns the consensus versions of app modules. Passing an empty `moduleName` returns every module; passing a specific `moduleName` returns a single entry for that module. Querying an unknown module name reverts.
+
+Each `ModuleVersion` contains:
+
+- `name` — the module's name.
+- `version` — the module's consensus version.
+
+## Example Usage
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import {IUpgrade, UPGRADE_CONTRACT} from "./Upgrade.sol";
+
+contract UpgradeReader {
+    function getCurrentPlan() external view returns (IUpgrade.Plan memory) {
+        return UPGRADE_CONTRACT.currentPlan();
+    }
+
+    function getAppliedHeight(string memory name) external view returns (int64) {
+        return UPGRADE_CONTRACT.appliedPlan(name);
+    }
+
+    function getModuleVersions() external view returns (IUpgrade.ModuleVersion[] memory) {
+        return UPGRADE_CONTRACT.moduleVersions("");
+    }
+}
+```

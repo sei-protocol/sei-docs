@@ -1,0 +1,96 @@
+---
+title: Feegrant Precompile
+description: Query fee allowances granted on Sei directly from EVM smart contracts using the Feegrant precompile.
+---
+
+The Feegrant precompile exposes read-only queries over the Cosmos `feegrant` module, letting EVM contracts inspect the fee allowances that granters have issued to grantees.
+
+## Address
+
+The Feegrant precompile is located at the fixed address:
+
+```
+0x0000000000000000000000000000000000001010
+```
+
+## Interface
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+address constant FEEGRANT_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000001010;
+
+IFeegrant constant FEEGRANT_CONTRACT = IFeegrant(FEEGRANT_PRECOMPILE_ADDRESS);
+
+interface IFeegrant {
+    // Queries
+    // Returns the fee allowance granted to the grantee by the granter. The
+    // allowance field of the returned grant is JSON-encoded.
+    function allowance(address granter, address grantee) external view returns (Grant memory grant);
+
+    // Returns all the fee allowances granted to the given grantee, with pagination.
+    function allowances(address grantee, bytes memory pageKey) external view returns (AllowancesResponse memory response);
+
+    // Returns all the fee allowances issued by the given granter, with pagination.
+    function allowancesByGranter(address granter, bytes memory pageKey) external view returns (AllowancesResponse memory response);
+
+    // Structs
+    struct Grant {
+        string granter;
+        string grantee;
+        bytes allowance;
+    }
+
+    struct AllowancesResponse {
+        Grant[] allowances;
+        bytes nextKey;
+    }
+}
+```
+
+## Methods
+
+### `allowance`
+
+Returns the fee allowance granted to a grantee by a granter.
+
+```solidity
+function allowance(address granter, address grantee) external view returns (Grant memory grant);
+```
+
+- `granter` — the granter's EVM address (must be associated with a Sei address).
+- `grantee` — the grantee's EVM address (must be associated with a Sei address).
+
+The returned `Grant` contains the bech32 `granter` and `grantee` addresses, and the `allowance` field holds the grant's allowance encoded as JSON. The call reverts if no allowance exists between the two addresses, or if either address is not associated with a Sei address.
+
+### `allowances`
+
+Returns all fee allowances granted to the given grantee, with pagination.
+
+```solidity
+function allowances(address grantee, bytes memory pageKey) external view returns (AllowancesResponse memory response);
+```
+
+- `grantee` — the grantee's EVM address (must be associated with a Sei address).
+- `pageKey` — the pagination key from a previous response; pass empty bytes for the first page.
+
+The returned `AllowancesResponse` contains the list of `Grant` entries and a `nextKey` used to fetch the next page (empty when the results are exhausted).
+
+### `allowancesByGranter`
+
+Returns all fee allowances issued by the given granter, with pagination.
+
+```solidity
+function allowancesByGranter(address granter, bytes memory pageKey) external view returns (AllowancesResponse memory response);
+```
+
+- `granter` — the granter's EVM address (must be associated with a Sei address).
+- `pageKey` — the pagination key from a previous response; pass empty bytes for the first page.
+
+The returned `AllowancesResponse` follows the same shape as `allowances`.
+
+## Notes
+
+- All methods are view-only queries and must not be called with a non-zero `value`; doing so reverts.
+- The `allowance` field of each `Grant` is JSON-encoded and includes a `@type` field identifying the allowance type (for example `BasicAllowance`).

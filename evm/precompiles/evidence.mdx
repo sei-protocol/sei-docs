@@ -1,0 +1,85 @@
+---
+title: Evidence Precompile
+description: Query the evidence module from the EVM using the Evidence precompile.
+---
+
+The Evidence precompile exposes the Cosmos `evidence` module's read-only queries to EVM smart contracts. It lets you look up a single piece of evidence by its hash or page through all recorded evidence. Both methods are views and never mutate state.
+
+## Address
+
+The Evidence precompile is located at the following address:
+
+```
+0x000000000000000000000000000000000000100F
+```
+
+## Interface
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+address constant EVIDENCE_PRECOMPILE_ADDRESS = 0x000000000000000000000000000000000000100f;
+
+IEvidence constant EVIDENCE_CONTRACT = IEvidence(EVIDENCE_PRECOMPILE_ADDRESS);
+
+interface IEvidence {
+    // Queries
+    // Returns the JSON encoding of the evidence with the given hash.
+    function evidence(bytes memory evidenceHash) external view returns (bytes memory);
+
+    // Returns all evidence, each entry JSON-encoded, with pagination.
+    function allEvidence(bytes memory pageKey) external view returns (AllEvidenceResponse memory response);
+
+    // Structs
+    struct AllEvidenceResponse {
+        bytes[] evidenceList;
+        bytes nextKey;
+    }
+}
+```
+
+## Methods
+
+### `evidence`
+
+Returns the evidence recorded under the given hash, JSON-encoded as bytes. The call reverts if no evidence exists for the provided hash.
+
+```solidity
+function evidence(bytes memory evidenceHash) external view returns (bytes memory);
+```
+
+**Parameters**
+
+- `evidenceHash` — the hash of the evidence to look up.
+
+**Returns**
+
+- A `bytes` value containing the JSON encoding of the evidence (for example an `Equivocation` record with its `@type`, height, power, time and consensus address fields).
+
+### `allEvidence`
+
+Returns all recorded evidence, paginated. Each entry in `evidenceList` is the JSON encoding of a single piece of evidence.
+
+```solidity
+function allEvidence(bytes memory pageKey) external view returns (AllEvidenceResponse memory response);
+```
+
+**Parameters**
+
+- `pageKey` — the pagination key returned by a previous call. Pass empty bytes (`""`) to request the first page.
+
+**Returns**
+
+- `AllEvidenceResponse` containing:
+  - `evidenceList` — an array of JSON-encoded evidence entries.
+  - `nextKey` — the pagination key for the next page, or empty bytes when the results are exhausted.
+
+## Structs
+
+### `AllEvidenceResponse`
+
+| Field          | Type      | Description                                            |
+| -------------- | --------- | ------------------------------------------------------ |
+| `evidenceList` | `bytes[]` | JSON-encoded evidence entries for the current page.    |
+| `nextKey`      | `bytes`   | Pagination key for the next page (empty when exhausted).|

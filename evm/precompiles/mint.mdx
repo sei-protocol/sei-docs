@@ -1,0 +1,113 @@
+---
+title: Mint Precompile
+description: Query the Sei mint module from EVM smart contracts to read inflation parameters and the current minter state.
+---
+
+The Mint precompile exposes read-only queries against the Sei mint module, letting EVM smart contracts inspect the chain's token release schedule and the current minter state.
+
+## Address
+
+The Mint precompile is located at the following address:
+
+```
+0x0000000000000000000000000000000000001012
+```
+
+## Interface
+
+```solidity Mint.sol
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+address constant MINT_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000001012;
+
+IMint constant MINT_CONTRACT = IMint(MINT_PRECOMPILE_ADDRESS);
+
+interface IMint {
+    // Queries
+    function params() external view returns (MintParams memory);
+    function minter() external view returns (Minter memory);
+
+    // Structs
+    struct ScheduledTokenRelease {
+        string startDate;
+        string endDate;
+        uint64 tokenReleaseAmount;
+    }
+
+    struct MintParams {
+        string mintDenom;
+        ScheduledTokenRelease[] tokenReleaseSchedule;
+    }
+
+    struct Minter {
+        string startDate;
+        string endDate;
+        string denom;
+        uint64 totalMintAmount;
+        uint64 remainingMintAmount;
+        uint64 lastMintAmount;
+        string lastMintDate;
+        uint64 lastMintHeight;
+    }
+}
+```
+
+## Methods
+
+All methods on the Mint precompile are read-only `view` functions. Calling them with a non-zero `value` reverts.
+
+### `params`
+
+Returns the mint module parameters, including the mint denom and the full scheduled token release schedule.
+
+```solidity
+function params() external view returns (MintParams memory);
+```
+
+**Returns**
+
+- `MintParams` — a struct containing:
+  - `mintDenom` — the denomination minted by the module.
+  - `tokenReleaseSchedule` — an array of `ScheduledTokenRelease` entries, each with a `startDate`, `endDate`, and `tokenReleaseAmount`.
+
+### `minter`
+
+Returns the current minter state, describing the active release window and the amounts minted so far.
+
+```solidity
+function minter() external view returns (Minter memory);
+```
+
+**Returns**
+
+- `Minter` — a struct containing:
+  - `startDate` — the start date of the current release period.
+  - `endDate` — the end date of the current release period.
+  - `denom` — the denomination being minted.
+  - `totalMintAmount` — the total amount to be minted over the current period.
+  - `remainingMintAmount` — the amount still to be minted in the current period.
+  - `lastMintAmount` — the amount minted in the most recent mint.
+  - `lastMintDate` — the date of the most recent mint.
+  - `lastMintHeight` — the block height of the most recent mint.
+
+## Usage Example
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "./Mint.sol";
+
+contract MintReader {
+    function getMintDenom() external view returns (string memory) {
+        IMint.MintParams memory params = MINT_CONTRACT.params();
+        return params.mintDenom;
+    }
+
+    function getRemainingToMint() external view returns (uint64) {
+        IMint.Minter memory minter = MINT_CONTRACT.minter();
+        return minter.remainingMintAmount;
+    }
+}
+```
