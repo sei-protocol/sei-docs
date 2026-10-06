@@ -159,7 +159,29 @@ seidb evm-logical-digest --backend memiavl \
     --db-dir $HOME/.sei/data/state_commit/memiavl --height 213200000
 ```
 
-Each run prints per-bucket `bucket_digest` values and a single `FINAL_DIGEST` line that covers the `account`, `code`, `storage`, and `legacy` buckets. Compare the `FINAL_DIGEST` lines from both backends at the same height. They should match. FlatKV can contain a FlatKV-only migration-version marker that a memIAVL-only node never owns. The command automatically omits that row from the FlatKV final result, so both results cover the same data.
+The `--backend` flag accepts `flatkv`, `memiavl`, and `composite`.
+
+For memIAVL, `--memiavl-open-mode` controls how leaves are read:
+
+- `snapshot` (the default) sequentially scans the completed snapshot `kvs` file at `snapshot-<height>/evm`. This is the fast path and requires an on-disk snapshot at that exact height (or `--height 0` for the current symlink). Prefer it whenever your target height matches an existing snapshot boundary.
+- `replay` opens a read-only DB, replays the changelog up to `--height`, then walks the in-memory/mmap tree. It is roughly an order of magnitude slower than `snapshot`, so use it only when no snapshot exists at the target height (for example, when a node's snapshot rewrite lags the tip):
+
+```bash
+# memIAVL digest for a height with no on-disk snapshot (slower):
+seidb evm-logical-digest --backend memiavl --memiavl-open-mode replay \
+    --db-dir $HOME/.sei/data/state_commit/memiavl --height 213205000
+```
+
+On a node that is mid-migration, EVM state is split between the two backends: FlatKV holds the rows already migrated, while memIAVL still holds the rows not yet past the migration boundary. Use `--backend composite` to digest the union of both, so a migrating node can be compared against a memIAVL-only node at the same height. In `composite` mode, `--db-dir` is not required; instead provide the two backend directories with `--flatkv-dir` and `--memiavl-dir`. Because a live migrating node usually keeps memIAVL snapshots at heights outside FlatKV's retained window, pass `--memiavl-open-mode replay`:
+
+```bash
+# Mid-migration node: digest the flatkv + memiavl union at one height:
+seidb evm-logical-digest --backend composite --memiavl-open-mode replay \
+    --flatkv-dir $HOME/.sei/data/state_commit/flatkv \
+    --memiavl-dir $HOME/.sei/data/state_commit/memiavl --height 213200000
+```
+
+Each run prints per-bucket `bucket_digest` values and a single `FINAL_DIGEST` line that covers the `account`, `code`, `storage`, and `legacy` buckets. Compare the `FINAL_DIGEST` lines from both backends at the same height. They should match. FlatKV can contain FlatKV-only migration marker rows that a memIAVL-only node never owns: the migration-version marker (present once a migration completes) and the migration-boundary cursor (present only while a migration is in flight). The command automatically omits both rows from the final result, so memIAVL, mid-migration, and completed nodes all produce comparable digests.
 
 For targeted debugging, the command can also inspect a single normalized bucket instead of printing the global digest. The [seidb tooling section of the technical reference](/node/technical-reference#comparing-evm-state-across-backends) has the full flag reference, including inspect mode, sharding, and `--find-hash`. These examples list the first 50 `account` rows with version metadata, and shard the `storage` bucket under a key prefix by the next 2 bytes:
 

@@ -287,11 +287,14 @@ When the archives are identical over the compared range, the command reports tha
 
 The command accepts these flags:
 
-- `--backend`: The backend to read (`flatkv` or `memiavl`).
-- `--db-dir` (`-d`): For FlatKV, the FlatKV data directory. For memIAVL, the memIAVL root directory that contains `current/` and `snapshot-*`.
+- `--backend`: The backend to read (`flatkv`, `memiavl`, or `composite`). Use `composite` to digest the union of FlatKV and memIAVL rows for a node that is mid-migration, so it can be compared against a memiavl-only node at the same height.
+- `--db-dir` (`-d`): For FlatKV, the FlatKV data directory. For memIAVL, the memIAVL root directory that contains `current/` and `snapshot-*`. Required unless `--backend composite` is used (composite mode uses `--flatkv-dir` and `--memiavl-dir` instead).
+- `--flatkv-dir`: The FlatKV data directory in `composite` mode. Required with `--backend composite`.
+- `--memiavl-dir`: The memIAVL root directory (containing `current/` and `snapshot-*`) in `composite` mode. Required with `--backend composite`.
 - `--height`: The target version. FlatKV WAL-replays to it, and memIAVL resolves `snapshot-<height>/evm` (`0` selects the `current` symlink).
+- `--memiavl-open-mode`: How memIAVL is read. `snapshot` (the default) is the fast path: it sequentially scans the completed snapshot kvs file and requires an on-disk snapshot at `--height` (or `--height 0` for the `current` symlink). `replay` is the slow path (roughly an order of magnitude slower): it opens a read-only DB, replays the changelog up to `--height`, then walks the mmap tree. Use `replay` only when no snapshot exists at the target height. Prefer `snapshot` whenever `--height` matches an existing snapshot boundary.
 - `--memiavl-normalization`: The memIAVL normalization mode. Use `semantic` or `independent` for the raw EVM key-value decoder, or `translator` for the current migration mapping. The default is `semantic`.
-- `--inspect-bucket`: Inspect one normalized bucket (`account`, `code`, `storage`, or `legacy`) instead of printing the global digest.
+- `--inspect-bucket`: Inspect one normalized bucket (`account`, `code`, `storage`, or `legacy`) instead of printing the global digest. It supports only `--memiavl-open-mode=snapshot`; combining it with `replay` returns an error.
 - `--key-offset` (inspect mode): The byte offset into the physical key, applied before `--key-prefix` or sharding.
 - `--key-prefix` (inspect mode): A hex prefix, relative to `--key-offset`, that filters physical keys.
 - `--shard-next-bytes` (inspect mode): Group matching keys by this many bytes after `--key-prefix`.
