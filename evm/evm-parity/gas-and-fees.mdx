@@ -95,7 +95,13 @@ const gas = await provider.estimateGas({
 
 ## Precompile calldata decode cost
 
-Sei's dynamic-gas precompiles (such as bank, wasmd, oracle, ibc, json, distribution, pointer, and addr) now charge gas for ABI-decoding a call's calldata *before* the arguments are decoded. The charge covers a length-proportional scan of the input plus the cost of copying any `string` payloads the decoder would materialize — a cost that can be significantly larger than the raw calldata length when a single string is referenced by many array or tuple slots.
+Sei's dynamic-gas precompiles (such as bank, wasmd, oracle, ibc, json, distribution, pointer, pointerview, addr, and p256) now charge gas for ABI-decoding a call's calldata *before* the arguments are decoded. The charge covers a length-proportional scan of the input plus the cost of copying any `string` payloads the decoder would materialize — a cost that can be significantly larger than the raw calldata length when a single string is referenced by many array or tuple slots.
+
+The `json`, `p256`, and `pointerview` precompiles use this dynamic gas model as well. Their metering works as follows:
+
+- **`json`** — charges 100 gas per byte of the JSON payload being parsed, consumed against the call's gas meter.
+- **`pointerview`** — self-meters based on the state reads performed during pointer lookups, rather than a flat charge.
+- **`p256`** — charges a fixed **3,450 gas** verification cost, matching RIP-7212's `P256VERIFY`. Because this flat charge is levied outside the verification's panic recovery, a call that forwards too little gas to cover it fails the transaction with an out-of-gas error rather than reverting the call.
 
 Two consequences for callers:
 
