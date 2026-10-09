@@ -150,6 +150,16 @@ const LLMS_SECTION_ORDER = [
 		].join('\n\n')
 	},
 	{
+		name: 'Cookbook',
+		match: (p) => p.startsWith('/evm/cookbook') || p.startsWith('/evm/evm-parity/examples/'),
+		overview: [
+			'The Cookbook has task-focused recipes with runnable code, most of them in viem, ethers, and web3.py. The recipes read balances, send SEI, deploy and use ERC-20, ERC-721, and ERC-1155 tokens, listen to events, batch reads with Multicall3, sponsor gas with an ERC-4337 paymaster, and read the API3 SEI/USD price feed.',
+			'The recipes rely on this public endpoint behavior. Watch live events over WebSocket (wss://evm-ws.sei-apis.com, wss://evm-ws-testnet.sei-apis.com), because HTTP polling watchers can miss or repeat events. The WebSocket endpoints do not serve eth_getLogs or filters. Fetch past events over HTTP with eth_getLogs, which covers at most 2,000 blocks per request.',
+			'Foundry: `forge create` only simulates unless you pass `--broadcast`. Put `--constructor-args` last.',
+			'TypeScript examples use top-level await. Run them as .mts files with `npx tsx`. In a new npm project, tsx compiles a plain .ts file as CommonJS, and the example fails.'
+		].join('\n\n')
+	},
+	{
 		name: 'EVM Development',
 		match: (p) => p.startsWith('/evm'),
 		overview: [

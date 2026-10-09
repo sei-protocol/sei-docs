@@ -1,0 +1,99 @@
+---
+title: 'Sponsor gas with Pimlico'
+description: 'Send a transaction from an ERC-4337 smart account on Sei Testnet while a Pimlico paymaster pays the gas, with permissionless.js and viem.'
+keywords: ['sei evm', 'account abstraction', 'erc-4337', 'paymaster', 'gasless', 'sponsored transaction', 'pimlico', 'permissionless', 'cookbook']
+---
+
+With gas sponsorship, your users do not need SEI to use your dApp. A paymaster pays the gas instead. This recipe uses [Pimlico](https://pimlico.io)'s bundler and paymaster on Sei Testnet. It creates an ERC-4337 smart account and sends its first transaction without any SEI in the account.
+
+## How it works
+
+An ERC-4337 smart account is a contract wallet. It sends a *user operation* instead of a normal transaction:
+
+1. Your code builds a user operation and signs it with the owner key of the smart account.
+2. Pimlico's paymaster agrees to pay for the operation.
+3. Pimlico's bundler submits the operation to the EntryPoint contract on Sei.
+4. The first operation also deploys the smart account contract.
+
+## Before you start
+
+- A Pimlico API key. Create one in the [Pimlico dashboard](https://dashboard.pimlico.io).
+- Node.js 18 or later.
+
+Put the API key and an owner key in environment variables. The owner key can be any new private key, such as one from `generatePrivateKey()` in `viem/accounts`. The account does not need SEI:
+
+```bash
+export PIMLICO_API_KEY=pim_xxxxxxxxxxxxxxxxxxxxxx
+export PRIVATE_KEY=0xYourPrivateKey
+```
+
+## Install
+
+```bash
+npm install viem permissionless
+```
+
+<Note>If npm stops with an `ERESOLVE` error about the `ox` package, run `npm install viem permissionless --legacy-peer-deps`. permissionless.js declares an optional peer version of `ox` that can differ from the version that viem installs.</Note>
+
+## Send a sponsored transaction
+
+```ts sponsored.mts
+import { createPublicClient, http } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { seiTestnet } from 'viem/chains';
+import { createSmartAccountClient } from 'permissionless';
+import { toSimpleSmartAccount } from 'permissionless/accounts';
+import { createPimlicoClient } from 'permissionless/clients/pimlico';
+
+const pimlicoUrl = `https://api.pimlico.io/v2/${seiTestnet.id}/rpc?apikey=${process.env.PIMLICO_API_KEY}`;
+
+const publicClient = createPublicClient({ chain: seiTestnet, transport: http() });
+const pimlicoClient = createPimlicoClient({ chain: seiTestnet, transport: http(pimlicoUrl) });
+
+// A smart account that a single private key controls
+const account = await toSimpleSmartAccount({
+  client: publicClient,
+  owner: privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`),
+});
+console.log('Smart account:', account.address);
+
+const smartAccountClient = createSmartAccountClient({
+  account,
+  chain: seiTestnet,
+  bundlerTransport: http(pimlicoUrl),
+  paymaster: pimlicoClient,
+  userOperation: {
+    estimateFeesPerGas: async () => (await pimlicoClient.getUserOperationGasPrice()).fast,
+  },
+});
+
+const hash = await smartAccountClient.sendTransaction({
+  to: '0xd8da6bf26964af9d7eed9e03e53415d37aa96045',
+  value: 0n,
+  data: '0x1234',
+});
+console.log('Transaction hash:', hash);
+```
+
+Run it with `npx tsx sponsored.mts`. Keep the `.mts` extension. The script uses top-level `await`, which works only when Node.js loads the file as an ES module.
+
+**You are done when you see:**
+
+```text
+Smart account: 0x3308a63562c135E899E0D03F82dcbC081E40aA50
+Transaction hash: 0x61d675675af6dc6e17fa05463f3e7d81c9710d506689eef425cbc180abf346bf
+```
+
+The smart account address depends on the owner key, so yours differs. The account holds no SEI, but the transaction still succeeds because the paymaster paid for it. `sendTransaction` returns after the operation is included in a block. To see the transaction that the bundler submitted, look up the hash on [Seiscan](https://testnet.seiscan.io).
+
+## Notes
+
+- **EntryPoint version.** `toSimpleSmartAccount` uses EntryPoint v0.7 at `0x0000000071727De22E5E9d8BAf0edAc6f37da032` by default. EntryPoint v0.6, v0.7, and v0.8 are deployed on Sei Testnet.
+- **Other account types.** permissionless.js also supports Safe, Kernel, and other smart accounts. See Pimlico's [smart account comparison](https://docs.pimlico.io/permissionless/how-to/accounts/comparison).
+- **Cost.** Pimlico sponsors testnet operations for free. On Sei Mainnet, Pimlico bills you for the gas that its paymaster pays, so you need a paid plan. See [Pimlico pricing](https://docs.pimlico.io/guides/pricing). To use Sei Mainnet, replace `seiTestnet` with `sei`.
+- **Spending limits.** Sponsorship policies in the Pimlico dashboard limit how much you sponsor per transaction, per user, or in total.
+
+## Related recipes
+
+- [Send SEI](/evm/cookbook/send-sei): send a normal transaction from a funded account
+- [Pimlico integration](/evm/wallet-integrations/pimlico): the full walkthrough, with a step-by-step explanation of each client

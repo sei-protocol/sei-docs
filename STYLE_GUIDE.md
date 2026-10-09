@@ -33,7 +33,7 @@ Great documentation is self-explanatory. Documentation shouldn't need more docum
 
 ## Organization
 
-The Sei Docs are structured using [Mintlify](https://mintlify.com). The documentation is organized into four main sections based on target audience and purpose.
+The Sei Docs are structured using [Mintlify](https://mintlify.com). The documentation is organized into tabs based on target audience and purpose.
 
 ### Learn
 
@@ -64,11 +64,23 @@ The EVM section is the primary developer resource for building on Sei. It covers
 - **Reference**: Transactions, RPC reference, tokens, changelog, ecosystem contracts
 - **Hardware Wallets**: Ledger integration with Ethers
 
+### Cookbook
+
+The Cookbook tab holds short, task-focused recipes, such as "Read a balance", "Send SEI", and "Listen to events". Each recipe does one task from start to finish. Put new recipes in `evm/cookbook/`. The older example pages stay in `evm/evm-parity/examples/` so that their URLs do not change.
+
+When you write a recipe:
+
+- Show the same code in viem, ethers, and web3.py where the task allows it. Label the `<CodeGroup>` tabs exactly `viem`, `ethers`, and `web3.py`, so that the tabs on a page stay in sync.
+- Use Sei Testnet for anything that sends a transaction.
+- When a read-only JSON-RPC call shows the result live, add a `<RunSnippet>`.
+- If a TypeScript example uses top-level `await`, tell readers to run it as a `.mts` file with `npx tsx`. In a new npm project, `tsx` compiles a plain `.ts` file as CommonJS, where top-level `await` fails.
+- End with a "You are done when you see" block that shows the expected output.
+
 ### Cosmos-SDK (Deprecated)
 
 > ⚠️ **Deprecation Notice**: Cosmos SDK and CosmWasm functionality is being deprecated in favor of EVM-only. For more details, see [SIP-3](https://github.com/sei-protocol/sips/blob/main/sips/sip-3.md) and [Proposal 99](https://seistream.app/proposals/99).
 
-This section contains legacy documentation for Cosmos SDK functionality. New development should focus on the EVM.
+The Learn tab lists the single deprecation page, `cosmos-sdk/index.mdx`, in the Governance group after the SIPs page. New development should focus on the EVM.
 
 ### Operate (Node)
 
