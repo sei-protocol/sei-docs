@@ -80,7 +80,7 @@ When you write a recipe:
 
 > ⚠️ **Deprecation Notice**: Cosmos SDK and CosmWasm functionality is being deprecated in favor of EVM-only. For more details, see [SIP-3](https://github.com/sei-protocol/sips/blob/main/sips/sip-3.md) and [Proposal 99](https://seistream.app/proposals/99).
 
-The Learn tab lists the single deprecation page, `cosmos-sdk/index.mdx`, next to the SIP-03 migration guide. New development should focus on the EVM.
+The Learn tab lists the single deprecation page, `cosmos-sdk/index.mdx`, in the Governance group after the SIPs page. New development should focus on the EVM.
 
 ### Operate (Node)
 
