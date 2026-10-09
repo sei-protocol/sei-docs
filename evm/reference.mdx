@@ -110,8 +110,11 @@ Because `FinalizeBlock` responses are not stored on disk under Autobahn, `/block
 <Info>
 By default, log filters (`eth_getLogs`, `eth_getFilterLogs`) have these limits:
 
-- **Open-ended block range:** up to 10,000 logs in one response
-- **Close-ended block range:** up to 2,000 blocks in one query
+- **Matched-log count:** a single query may match up to 10,000 logs (`max_log_no_block`, `evm.max_log_no_block`, default 10000). This cap applies to both bounded and open-ended block ranges. Exceeding it returns a `too many logs` error rather than a truncated result.
+- **Estimated log bytes:** a single query may materialize up to 64 MiB of estimated heap bytes of matched logs (`max_log_bytes`, `evm.max_log_bytes`, default 67108864 / 64 MiB). Exceeding it returns a `too many log bytes` error. A non-positive value falls back to the receipt-store default.
+- **Close-ended block range:** up to 2,000 blocks in one query (`max_blocks_for_log`, `evm.max_blocks_for_log`, default 2000).
+
+When a query exceeds the matched-log count or the byte budget, the request now errors instead of silently truncating the result. Narrow the block range or the filter criteria (address and topics) and retry.
 
 Real-time subscriptions (`eth_subscribe` for `newHeads` and `logs`) are available over WebSocket only. For transport details, see [WebSocket connections](/evm/evm-parity/websocket).
 </Info>
@@ -127,7 +130,11 @@ You can also browse every method below in the interactive explorer above. This s
 
 **Sei-specific behavior:** Decodes the bytes to an ethtypes.Transaction, wraps it in a Cosmos MsgEVMTransaction, and broadcasts it through CometBFT. By default, it uses a CheckTx-level BroadcastTx (that is, `broadcast_tx_sync`), and slow mode uses BroadcastTxCommit. Non-zero CheckTx codes are returned as ABCI errors, not geth mempool errors. Legacy (non-1559) transactions must set gasPrice at or above the governance minimum (currently 50 gwei on Sei Mainnet). Blob (EIP-4844) transactions are not enabled. The method supports per-sender EvmProxy forwarding.
 
-**Under Autobahn (`AutobahnConfigFile` set):** Transaction broadcast routes through Autobahn's producer-backed mempool instead of CometBFT's `TxMempool`. This mempool admits EVM transactions strictly in sequential nonce order for each sender. It rejects a transaction with a bad-nonce error if its nonce does not match the sender's next expected nonce. Senders must therefore submit nonces contiguously.
+**Under Autobahn (`AutobahnConfigFile` set):** The node's role follows the top-level `mode` field in the CometBFT config. With `mode = "validator"`, the node runs the validator path and backs transaction submission with a local mempool; any other mode runs the node as a fullnode that loads the committee for routing only and has no local mempool.
+
+On a validator, transaction broadcast routes through Autobahn's producer-backed mempool instead of CometBFT's `TxMempool`. This mempool admits EVM transactions strictly in sequential nonce order for each sender. It rejects a transaction with a bad-nonce error if its nonce does not match the sender's next expected nonce. Senders must therefore submit nonces contiguously.
+
+On an Autobahn fullnode, there is no local mempool. `eth_sendRawTransaction` is proxied to the shard owner (the committee member that owns the sender's EVM shard), which must have an EVM RPC URL configured — the `evmrpc` field is required for every committee member in the Autobahn config file (`autobahn.json`). The underlying Tendermint `broadcast_tx_*` methods (`broadcast_tx_async`, `broadcast_tx_sync`, `broadcast_tx_commit`) have no local backing on a fullnode and return the error `autobahn fullnode has no local mempool; broadcast_tx_* must be sent to a validator`. Submit transactions to a validator (or let `eth_sendRawTransaction`'s per-sender proxy forwarding handle the routing). Pending-nonce queries also behave differently: `eth_getTransactionCount` with the `pending` tag returns the on-chain confirmed nonce (the pending nonce lives on the shard owner), and `unconfirmed_txs` / `num_unconfirmed_txs` return empty.
 
 Under Autobahn, the default CheckTx-synchronous broadcast (`broadcast_tx_sync`, the same path named above) blocks while the mempool is full. It returns only after capacity is available. As a result, a default `eth_sendRawTransaction` call can stall for as long as the mempool stays full. The async path (`broadcast_tx_async`) may silently drop the transaction instead. The `unsafe_flush_mempool` Tendermint RPC endpoint is not supported under Autobahn and returns `unsafe_flush_mempool is not supported with autobahn mempool`.
 
@@ -959,7 +966,7 @@ Heights with pruned or partial base-fee data are skipped in `baseFeePerGas`, but
 
 **Limited.** Opens a WebSocket-only push subscription for newHeads or logs notifications.
 
-**Sei-specific behavior:** Available over WebSocket only. SubscriptionAPI is not registered on the HTTP server, so over HTTP the method returns rpc.ErrNotificationsUnsupported. Only 'newHeads' and 'logs' are implemented in source. There is no 'newPendingTransactions' subscription, although some client docs imply otherwise. MaxSubscriptionsNewHead caps newHeads subscriptions.
+**Sei-specific behavior:** Available over WebSocket only. SubscriptionAPI is not registered on the HTTP server, so over HTTP the method returns rpc.ErrNotificationsUnsupported. Only 'newHeads' and 'logs' are implemented in source. There is no 'newPendingTransactions' subscription, although some client docs imply otherwise. The number of concurrent subscriptions is capped per connection: `max_subscriptions_new_head` (`evm.max_subscriptions_new_head`) caps `newHeads` subscriptions, and `max_subscriptions_logs` (`evm.max_subscriptions_logs`, default 1000) caps concurrent `logs` subscriptions. Once the logs cap is reached, a new `logs` subscription is rejected with `no new subscription can be created`.
 
 **Parameters:**
 
@@ -1030,6 +1037,8 @@ The `filter` object applies only to `logs` subscriptions. For `newHeads`, pass t
 | 3 | `overrides` | object | Optional per-account state overrides (balance, code, nonce, state). |
 | 4 | `blockOverrides` | object | Optional block-context overrides (number, time, coinbase). |
 
+State overrides are bounded in size. `max_state_override_accounts` (`evm.max_state_override_accounts`, default 100) caps the number of accounts in a single override, and `max_state_override_slots` (`evm.max_state_override_slots`, default 1000) caps the number of storage slots per account (applied to both `state` and `stateDiff`). Requests that exceed either cap are rejected with a 'state override has too many accounts' or 'too many slots' error. Setting a cap to 0 disables that limit. These caps apply equally to `eth_estimateGas`, `eth_estimateGasAfterCalls`, and `debug_traceCall`.
+
 **Example request:**
 
 ```json
@@ -1082,7 +1091,7 @@ The `filter` object applies only to `logs` subscriptions. For `newHeads`, pass t
 
 **Limited.** Estimates gas for a transaction after it applies a sequence of preceding calls to the same simulated state.
 
-**Sei-specific behavior:** This is a non-standard Sei/geth extension (not part of the standard Ethereum JSON-RPC spec). It has the same gas-cap and fail-fast-limiter behavior as `eth_estimateGas`.
+**Sei-specific behavior:** This is a non-standard Sei/geth extension (not part of the standard Ethereum JSON-RPC spec). It has the same gas-cap and fail-fast-limiter behavior as `eth_estimateGas`. The number of preceding `calls` is capped by the `evm.max_estimate_gas_calls` config (default 100). A request whose `calls` array exceeds this limit is rejected early with a 'too many calls' error before any state wrapping or resource acquisition.
 
 **Parameters:**
 
@@ -1115,7 +1124,7 @@ The `filter` object applies only to `logs` subscriptions. For `newHeads`, pass t
 
 **Supported.** Generates an EIP-2930 access list (and gas used) for a transaction.
 
-**Sei-specific behavior:** Defaults to the pending block tag, as geth does. If a VM error occurs during simulation, the method reports it in the result's 'error' field instead of failing the RPC.
+**Sei-specific behavior:** Defaults to the pending block tag, as geth does. If a VM error occurs during simulation, the method reports it in the result's 'error' field instead of failing the RPC. A fail-fast request limiter may reject the call with 'eth_createAccessList rejected due to rate limit: server busy' when the limiter is saturated, as with `eth_call`, `eth_estimateGas`, and `eth_estimateGasAfterCalls`.
 
 **Parameters:**
 
@@ -1160,6 +1169,8 @@ The `filter` object applies only to `logs` subscriptions. For `newHeads`, pass t
 **Supported.** Replays a transaction by hash and returns an execution trace from the configured tracer.
 
 **Sei-specific behavior:** Available over HTTP only, because the debug namespace is not registered on the WebSocket server. Supports geth tracers: callTracer, prestateTracer, flatCallTracer, and the struct (opcode) logger. TraceBaker pre-bakes and caches the results of callTracer, prestateTracer, and flatCallTracer. Requires trace-enabled or archive state for the target height.
+
+**Tracer gating.** Caller-supplied `TraceConfig.Tracer` names are gated by `[evm]` config in `app.toml` (#3618). Only native tracer names listed in `trace_allowed_tracers` (`evm.trace_allowed_tracers`, default `["callTracer", "prestateTracer", "flatCallTracer", "4byteTracer", "noopTracer", "muxTracer"]`) may be requested; a name that is not in the list is rejected. Request-supplied JavaScript tracer source is rejected unless `trace_allow_js_tracers` (`evm.trace_allow_js_tracers`, default `false`) is enabled, and enabling it does not widen the native allowlist. When `muxTracer` is requested, its nested tracer names are validated recursively (bounded depth of 16). Omitting `tracer` uses the default struct logger, which is always available. This gating applies consistently across `debug_traceTransaction`, `debug_traceCall`, `debug_traceBlockByNumber`, `debug_traceBlockByHash`, and `debug_traceTransactionProfile`.
 
 The max block lookback guard (`max_trace_lookback_blocks`) applies. If a request's target block is older than the configured lookback, the request is rejected with an error of the form `block number X is beyond max lookback of Y`. Each such request increments the `evmrpc_historical_debug_trace_attempts_total` metric. This guard applies consistently across all `debug_trace*` endpoints.
 
@@ -1240,6 +1251,33 @@ The max block lookback guard (`max_trace_lookback_blocks`) applies. If a request
     {
       "tracer": "callTracer"
     }
+  ]
+}
+```
+
+#### `debug_traceStateAccess`
+
+**Supported.** Replays a transaction by hash and returns the per-module state (KVStore) accesses it made, used for prestate derivation and state-access analysis.
+
+**Sei-specific behavior:** Available over HTTP only. The `max_trace_lookback_blocks` historical guard applies (see `debug_traceTransaction`). The call honors the configured `TraceTimeout`: replay and the subsequent prestate/trace serialization bail out when the trace deadline elapses, failing with a `context deadline exceeded` error instead of running unbounded. This prevents long-running replays from consuming resources without limit.
+
+Each module entry in the response carries a `truncated` boolean. Sei caps the key/value payload retained per module in the state-access log at 4 MiB. Once that cap is reached, the module's log is marked `truncated: true` and further accesses are dropped from the retained log, bounding a pathological transaction (such as a huge iterator scan) that would otherwise grow the response without limit. When a module is truncated, its `reads` and `has` entries reflect only the retained prefix, but its `stats` (operation counts and durations) stay complete and accurate, because they are accumulated at record time regardless of truncation.
+
+**Parameters:**
+
+| # | Name | Type | Description |
+| :- | :- | :- | :- |
+| 1 | `hash` | DATA, 32 bytes | Transaction hash to trace. |
+
+**Example request:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "debug_traceStateAccess",
+  "params": [
+    "0x5c504ed432cb51138bcf09aa5e8a410dd4a1e204ef84bfed1be16dfba1b22060"
   ]
 }
 ```

@@ -114,15 +114,34 @@ systemctl restart seid
 The `dump-flatkv` command accepts these flags:
 
 - `--db-dir` (`-d`): The FlatKV database directory.
-- `--output-dir` (`-o`): The output directory, with one file for each bucket.
+- `--output-dir` (`-o`): The output directory, with one file for each bucket. Required unless `--lthash-only` is set.
 - `--height`: The FlatKV target version. The default, `0`, selects the latest available version.
-- `--bucket` (`-b`): Restrict the dump to a single bucket (`account`, `code`, `storage`, or `legacy`). The default is all buckets.
+- `--bucket` (`-b`): Restrict the dump to a single bucket (`account`, `code`, `storage`, or `legacy`). The default is all buckets. This only filters which files are written; the full keyspace is always scanned, and the LtHash always covers all four buckets.
+- `--lthash`: Also compute the per-bucket and total LtHash (lattice hash) over the scanned state, and verify the total against the committed root recorded in snapshot metadata. The default is `true`. A mismatch exits non-zero.
+- `--lthash-only`: Compute and verify the LtHash without writing any bucket dump files. Requires `--lthash=true`, and does not require `--output-dir`. The default is `false`.
+- `--read-limit-mb`: Throttle the scan to at most this many MiB/s of (key+value) bytes read, so a dump against a running node does not starve the chain of disk bandwidth. The default is `64`. Set `0` for unlimited. Keep it at the default or lower on a shared/live node; raise it only for offline runs on idle disks.
+
+Because `dump-flatkv` opens an independent read-only clone of the store (the snapshot is hard-linked and the changelog WAL is replayed into a temp directory), it is safe to run against a live, block-producing node, and the `--read-limit-mb` throttle prevents it from starving the node of disk bandwidth.
 
 For example, to dump only the `storage` bucket at a specific version:
 
 ```bash
 seidb dump-flatkv --db-dir $HOME/.sei/data/state_commit/flatkv --output-dir /home/ubuntu/flatkv-dump --height 12345678 --bucket storage
 ```
+
+To verify the FlatKV lattice hash against the committed snapshot metadata without writing any key/value dump files:
+
+```bash
+seidb dump-flatkv --db-dir $HOME/.sei/data/state_commit/flatkv --lthash-only
+```
+
+For an offline run on an idle disk, go full speed and skip the LtHash:
+
+```bash
+seidb dump-flatkv --db-dir $HOME/.sei/data/state_commit/flatkv --output-dir /home/ubuntu/flatkv-dump --read-limit-mb 0 --lthash=false
+```
+
+With `--lthash`, the output prints a per-bucket count and checksum plus a `TOTAL` LtHash, followed by a `LtHash verification vs snapshot metadata` PASS/FAIL line. Verification is skipped (rather than failing) when the selected snapshot predates LtHash metadata, since the committed hash then covers only replayed WAL deltas rather than full state.
 
 ### Comparing EVM state between memIAVL and FlatKV
 
@@ -140,7 +159,29 @@ seidb evm-logical-digest --backend memiavl \
     --db-dir $HOME/.sei/data/state_commit/memiavl --height 213200000
 ```
 
-Each run prints per-bucket `bucket_digest` values and a single `FINAL_DIGEST` line that covers the `account`, `code`, `storage`, and `legacy` buckets. Compare the `FINAL_DIGEST` lines from both backends at the same height. They should match. FlatKV can contain a FlatKV-only migration-version marker that a memIAVL-only node never owns. The command automatically omits that row from the FlatKV final result, so both results cover the same data.
+The `--backend` flag accepts `flatkv`, `memiavl`, and `composite`.
+
+For memIAVL, `--memiavl-open-mode` controls how leaves are read:
+
+- `snapshot` (the default) sequentially scans the completed snapshot `kvs` file at `snapshot-<height>/evm`. This is the fast path and requires an on-disk snapshot at that exact height (or `--height 0` for the current symlink). Prefer it whenever your target height matches an existing snapshot boundary.
+- `replay` opens a read-only DB, replays the changelog up to `--height`, then walks the in-memory/mmap tree. It is roughly an order of magnitude slower than `snapshot`, so use it only when no snapshot exists at the target height (for example, when a node's snapshot rewrite lags the tip):
+
+```bash
+# memIAVL digest for a height with no on-disk snapshot (slower):
+seidb evm-logical-digest --backend memiavl --memiavl-open-mode replay \
+    --db-dir $HOME/.sei/data/state_commit/memiavl --height 213205000
+```
+
+On a node that is mid-migration, EVM state is split between the two backends: FlatKV holds the rows already migrated, while memIAVL still holds the rows not yet past the migration boundary. Use `--backend composite` to digest the union of both, so a migrating node can be compared against a memIAVL-only node at the same height. In `composite` mode, `--db-dir` is not required; instead provide the two backend directories with `--flatkv-dir` and `--memiavl-dir`. Because a live migrating node usually keeps memIAVL snapshots at heights outside FlatKV's retained window, pass `--memiavl-open-mode replay`:
+
+```bash
+# Mid-migration node: digest the flatkv + memiavl union at one height:
+seidb evm-logical-digest --backend composite --memiavl-open-mode replay \
+    --flatkv-dir $HOME/.sei/data/state_commit/flatkv \
+    --memiavl-dir $HOME/.sei/data/state_commit/memiavl --height 213200000
+```
+
+Each run prints per-bucket `bucket_digest` values and a single `FINAL_DIGEST` line that covers the `account`, `code`, `storage`, and `legacy` buckets. Compare the `FINAL_DIGEST` lines from both backends at the same height. They should match. FlatKV can contain FlatKV-only migration marker rows that a memIAVL-only node never owns: the migration-version marker (present once a migration completes) and the migration-boundary cursor (present only while a migration is in flight). The command automatically omits both rows from the final result, so memIAVL, mid-migration, and completed nodes all produce comparable digests.
 
 For targeted debugging, the command can also inspect a single normalized bucket instead of printing the global digest. The [seidb tooling section of the technical reference](/node/technical-reference#comparing-evm-state-across-backends) has the full flag reference, including inspect mode, sharding, and `--find-hash`. These examples list the first 50 `account` rows with version metadata, and shard the `storage` bucket under a key prefix by the next 2 bytes:
 
@@ -427,3 +468,43 @@ failed to initialize database: resource temporarily unavailable
 This means that you did not shut down the node properly. In that case, try to shut down or kill the `seid` process directly. If this does not help, restart your machine.
 
 Then try the rollback steps again.
+
+
+
+## HashVault app-hash equivocation panic
+
+Autobahn validators and fullnodes run an app-hash equivocation guard called HashVault, enabled by default. It stores the app hashes the node has committed in a durable database under `<PersistentStateDir>/hashvault`. If the node is ever about to commit a different app hash for a height it has already finalized, HashVault halts the node to prevent it from "changing its mind" about a finalized block.
+
+When the guard trips, you will see a panic in the logs similar to:
+
+```text
+Hashvault detected app hash mismatch; node attempted to change its mind. DO NOT RESTART WITHOUT HUMAN INVESTIGATION. ...
+blockHeight=[HEIGHT] existingHex=[...] incomingHex=[...] hashVaultDir=[/path/to/hashvault]
+```
+
+<Warning>
+**Do not restart the node without human investigation.** A HashVault mismatch can indicate a genuine equivocation. Restarting blindly, or removing the guard, can cause your validator to externalize a conflicting hash for an already-finalized height, which risks **slashing**.
+</Warning>
+
+**Investigate first.** Determine whether the mismatch reflects a real equivocation (for example, the same validator key running on more than one machine, or committed state that diverged from what the vault recorded) or a benign situation such as an out-of-band rollback or restore that left the committed app state inconsistent with the vault's history.
+
+### Recovery (only if you are certain there is no real equivocation)
+
+If, and only if, you are certain the stored hashes are wrong and there is no real equivocation, you can bypass the guard:
+
+1. **Stop the node.**
+2. **Delete the HashVault data directory** shown as `hashVaultDir` in the panic message (by default `<PersistentStateDir>/hashvault`).
+3. **Restart the node.** It starts with an empty equivocation history and re-commits hashes as it re-executes blocks.
+
+Deleting this directory removes equivocation protection for the heights it covered. If the node then commits a conflicting hash for a height it has already finalized, the validator may be slashed.
+
+### Last-resort: disabling HashVault
+
+If you repeatedly hit the same panic on new blocks and are very sure the stored hashes are totally wrong, you can run the node with the guard disabled by setting the top-level `hash-vault-disabled-unsafe` field in `config.toml`:
+
+```toml
+# config.toml (top-level, before any [section] header)
+hash-vault-disabled-unsafe = true
+```
+
+This runs the node **without any app-hash equivocation protection** and logs error-level warnings on every startup. The default is `false`, and you should re-enable the guard (set it back to `false` or remove the line) as soon as the underlying issue is resolved.

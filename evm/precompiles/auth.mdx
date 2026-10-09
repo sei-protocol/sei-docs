@@ -1,0 +1,111 @@
+---
+title: Auth Precompile
+description: Query account information, auth module parameters, and the next account number from the EVM.
+---
+
+The Auth precompile exposes read-only access to the Cosmos SDK `auth` module, letting Solidity contracts look up account details, the auth module parameters, and the next account number. All of its methods are views and never mutate state.
+
+## Address
+
+The Auth precompile is available at the fixed address `0x000000000000000000000000000000000000100D`.
+
+## Solidity Interface
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+address constant AUTH_PRECOMPILE_ADDRESS = 0x000000000000000000000000000000000000100D;
+
+IAuth constant AUTH_CONTRACT = IAuth(AUTH_PRECOMPILE_ADDRESS);
+
+interface IAuth {
+    // Queries
+
+    /**
+     * @notice Get account information for the given address
+     * @param addr The EVM address (must be associated with a Sei address)
+     * @return account Account details
+     */
+    function account(
+        address addr
+    ) external view returns (Account memory account);
+
+    /**
+     * @notice Get all accounts, paginated
+     * @param pageKey Pagination key (empty bytes for the first page)
+     * @return response Accounts response with pagination
+     */
+    function accounts(
+        bytes memory pageKey
+    ) external view returns (AccountsResponse memory response);
+
+    /**
+     * @notice Get the auth module parameters
+     * @return params Auth module parameters
+     */
+    function params() external view returns (AuthParams memory params);
+
+    /**
+     * @notice Get the next account number
+     * @return count The next account number
+     */
+    function nextAccountNumber() external view returns (uint64 count);
+
+    // Structs
+
+    struct Account {
+        string accountAddress;
+        uint64 accountNumber;
+        uint64 sequence;
+    }
+
+    struct AccountsResponse {
+        Account[] accounts;
+        bytes nextKey;
+    }
+
+    struct AuthParams {
+        uint64 maxMemoCharacters;
+        uint64 txSigLimit;
+        uint64 txSizeCostPerByte;
+        uint64 sigVerifyCostEd25519;
+        uint64 sigVerifyCostSecp256k1;
+        bool disableSeqnoCheck;
+    }
+}
+```
+
+## Methods
+
+### account
+
+```solidity
+function account(address addr) external view returns (Account memory account);
+```
+
+Returns the `Account` details (address, account number, and sequence) for the Sei address associated with `addr`. The EVM address must be associated with a Sei address; if it is not, or if no account exists for the resolved address, the call reverts.
+
+### accounts
+
+```solidity
+function accounts(bytes memory pageKey) external view returns (AccountsResponse memory response);
+```
+
+Returns a paginated list of all accounts. Pass empty `bytes` for the first page, then supply the returned `nextKey` to fetch subsequent pages.
+
+### params
+
+```solidity
+function params() external view returns (AuthParams memory params);
+```
+
+Returns the auth module parameters, including `maxMemoCharacters`, `txSigLimit`, `txSizeCostPerByte`, `sigVerifyCostEd25519`, `sigVerifyCostSecp256k1`, and `disableSeqnoCheck`.
+
+### nextAccountNumber
+
+```solidity
+function nextAccountNumber() external view returns (uint64 count);
+```
+
+Returns the next account number. This is a read-only view and does not increment the persisted global account number counter, so repeated calls return the same value.

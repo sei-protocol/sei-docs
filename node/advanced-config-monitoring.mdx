@@ -505,9 +505,75 @@ scrape_configs:
       - targets: ['localhost:9100']
 ```
 
+
+
+## Seed node Prometheus metrics
+
+Seed nodes now expose a Prometheus `/metrics` endpoint, so they can be scraped like any other node. Because a seed serves no RPC, this endpoint is the only observability surface it has — peer reachability and peer headroom both come from its p2p metrics (for example `tendermint_p2p_peers`).
+
+To enable it, set the usual instrumentation fields in `config.toml` under `[instrumentation]`:
+
+```toml
+[instrumentation]
+prometheus = true
+prometheus-listen-addr = ":26660"
+```
+
+Every exposed series is stamped with the node's `chain_id` label, matching the behavior of full nodes.
+
+<Warning>
+For a seed node, a failure to bind the Prometheus listener (for example, the port is already in use or the address is unparseable) is **fatal**: the seed fails to start. This is deliberate — a seed's value is only realized when it is observable, so an unambiguous crash is preferable to a seed that discovers peers while blind.
+
+A full node behaves differently: a bind failure is **non-fatal**. The full node logs the error and continues running, because it still serves RPC as an in-band way to observe its health.
+</Warning>
+
+The `tendermint_p2p_peers` gauge is present from node startup rather than appearing only after the first refresh interval, so an alert comparing peer count against the connection cap matches immediately rather than sitting unmatched during the startup window.
+
+### Metrics server timeouts
+
+The Prometheus metrics HTTP server enforces request timeouts to bound how long a slow reader can hold a request slot:
+
+| Timeout | Value |
+| --- | --- |
+| `ReadHeaderTimeout` | 10s |
+| `ReadTimeout` | 10s |
+| `WriteTimeout` | 30s |
+| `IdleTimeout` | 60s |
+
+### `max-open-connections` behavior
+
+The `max-open-connections` field under `[instrumentation]` is not a socket limit despite the name. It becomes promhttp's `MaxRequestsInFlight`: the maximum number of scrapes served concurrently. Requests past the limit receive an HTTP `503` rather than being queued, and a slow reader occupies a slot until it finishes or hits the `WriteTimeout`. A value of `0` means unlimited.
+
+Keep this value above the number of scrapers that can overlap — for example, an HA Prometheus pair, blackbox probes, and a human running `curl` — so a burst of concurrent scrapes does not cause a healthy node to report as unscrapeable.
+
+
+
+
+## Cosmos SDK / Tendermint telemetry chain_id label
+
+Node telemetry automatically injects a `chain_id` global label into the Cosmos SDK / Tendermint Prometheus telemetry (the `GlobalLabels` of the `[telemetry]` configuration) based on the node's client chain ID. The label is appended only when a `chain_id` label is not already configured in `GlobalLabels`, so an explicit operator-set value always takes precedence. This is distinct from the `chain_id` constant label applied to the OpenTelemetry `sei_chain` namespace described above — it covers the separate Cosmos SDK/Tendermint telemetry path.
+
+Because every emitted series carries this label, update any PromQL that aggregates across series (for example `sum(...) without (...)` or `by (...)` clauses) to account for `chain_id`, and add a `chain_id` match where you want to scope a query to a single chain — useful when one Prometheus instance scrapes nodes on more than one chain.
+
+### New Tendermint internal metrics subsystems
+
+Additional Prometheus metrics are exported under the `tendermint` namespace in these new subsystems:
+
+| Subsystem prefix | Description |
+| --- | --- |
+| `tendermint_internal_autobahn_avail_*` | Autobahn availability metrics, including the commit and app road index, the commit and app global block number, proposal-to-commit latency, and commit-to-commit latency (the latter labeled by `timeouts`). |
+| `tendermint_internal_autobahn_data_*` | Autobahn data latency metrics (a `latency` histogram labeled by `resource` and `stage`) tracking resource processing from production to the given stage. |
+| `tendermint_internal_p2p_mux_*` | p2p mux stream metrics, including stream `latency`, `in_flight` open streams, and per-stream `send_msgs`, `recv_msgs`, `send_bytes`, and `recv_bytes` counters (labeled by `role` and `kind`). |
+
 ## EVM RPC OpenTelemetry metrics
 
 The EVM RPC layer emits OpenTelemetry metrics through the process-wide `MeterProvider` (for example, a Prometheus exporter). It emits these metrics in parallel with the legacy `sei_*` metrics, so you can migrate dashboards incrementally.
+
+
+
+<Note>
+Every OpenTelemetry metric series exported through the Prometheus exporter (the `sei_chain` namespace, including the `evmrpc_*`, `flatkv_*`, `litt_*`, and `pebble_*` metrics documented below) now carries a `chain_id` constant label derived from the node's chain ID. The label is applied to every emitted series, so dashboards and alerting queries can group or filter by chain — for example when a single Prometheus instance scrapes nodes on more than one chain. Update any PromQL that aggregates across series (for example `sum(...) without (...)` or `by (...)` clauses) to account for the new label, and add a `chain_id` match where you want to scope a query to a single chain.
+</Note>
 
 ### Available EVM RPC metrics
 
@@ -517,6 +583,7 @@ The EVM RPC layer emits OpenTelemetry metrics through the process-wide `MeterPro
 | `evmrpc_websocket_connects_total` | Counter | Number of new WebSocket connections. |
 | `evmrpc_redirected_requests_total` | Counter | Number of EVM RPC requests forwarded to another validator. Labeled by `endpoint` and `connection`. |
 | `evmrpc_historical_debug_trace_attempts_total` | Counter | Number of `debug_trace*` requests that target historical blocks beyond the configured max block lookback. Labeled by `endpoint` and `connection`. |
+| `evmrpc_requests_rejected_total` | Counter | Number of JSON-RPC requests rejected by admission control. Labeled by `protocol` (`http` or `ws`) and `reason` (`oversize` or `busy`). On HTTP (:8545), an `oversize` request body exceeds the configured `max_request_body_bytes` cap and is rejected with HTTP 413, while `busy` means the `max_concurrent_request_bytes` budget is exhausted and the request is rejected with HTTP 429. On WebSocket (:8546), `oversize` frames exceed `max_request_body_bytes` and close the connection with WebSocket close code 1009 (no JSON-RPC error response), while `busy` means the connection waited for concurrent-byte budget longer than `ws_admission_timeout` and the peer receives JSON-RPC error `-32005` before the connection is closed (#3818). |
 
 The `evmrpc_request_latency_seconds` histogram carries these labels:
 
@@ -582,9 +649,89 @@ FlatKV metrics carry these labels where applicable:
 
 A single FlatKV-level knob controls Pebble's internal (per-DB) metrics: `enable-pebble-metrics` under `[state-commit.flatkv]` in `app.toml` (default `true`). The node honors this key when it is present, but the `app.toml` that `seid init` generates does not include it. To change the default, add the key manually. The value propagates to every data DB (account, code, storage, legacy, and metadata) during initialization. It overrides any per-DB `EnableMetrics` settings. Configure Pebble metrics through this knob, not through the individual per-DB settings.
 
+
+## Pebble estimated read/write metrics
+
+SeiDB can emit lightweight, opt-in estimates of logical read and write operations observed by its Pebble-backed wrappers. These counters are disabled by default and are intended to approximate read amplification (estimated reads divided by estimated writes) without the overhead of Pebble's full internal metrics.
+
+### Available metrics
+
+| Metric | Type | Unit | Description |
+| --- | --- | --- | --- |
+| `pebble_estimated_reads` | Counter | `{count}` | Estimated logical PebbleDB reads observed by SeiDB wrappers. |
+| `pebble_estimated_writes` | Counter | `{count}` | Estimated logical PebbleDB writes observed by SeiDB wrappers. |
+
+Both counters carry a `db` attribute identifying the database the measurement applies to (derived from the base name of the data directory), so you can distinguish FlatKV data DBs, the state-store backend, and receipt storage.
+
+### Enabling the counters
+
+These estimates are controlled per subsystem in `app.toml`. All default to `false`:
+
+| Config key | Section | Description |
+| --- | --- | --- |
+| `enable-read-write-metrics` | `[state-commit.flatkv]` | Emits estimated read/write counters for FlatKV's Pebble DBs. |
+| `ss-enable-read-write-metrics` | `[state-store]` | Emits estimated PebbleDB MVCC read/write counters for the state-store backend. Applies when `ss-backend = "pebbledb"`. |
+| `enable-read-write-metrics` | `[receipt-store]` | Emits estimated read/write counters for Pebble-backed receipt storage. |
+
+For example, to enable the FlatKV counters, add the following to `app.toml`:
+
+```toml
+[state-commit.flatkv]
+enable-read-write-metrics = true
+```
+
+
+
+## Tuning littidx eth_getLogs parallelism
+
+When the receipt store uses the `littidx` backend, each `eth_getLogs` query scans the requested block range across a bounded worker pool instead of one block at a time. Per-block tag index scans and litt body reads are independent, so fanning them across multiple workers reduces latency on wide-range queries while results stay in strict `(block, txIndex)` order.
+
+The `log-filter-parallelism` config key under `[receipt-store]` in `app.toml` bounds how many blocks a single query scans concurrently. It defaults to `16` and applies only to the `littidx` backend. A value `<= 0` falls back to the default.
+
+```toml
+[receipt-store]
+log-filter-parallelism = 16
+```
+
+
+
+## Per-block hash logger
+
+The state-commit store can record a per-block CSV of named block hashes to disk as a debugging and forensics tool. For each committed block it logs the memIAVL per-module and root hashes, the flatKV per-DB and root hashes, the application hash, the Tendermint block hash, the result hash (the merkle root over the block's deterministic transaction results, equal to the next block's `LastResultsHash`), and the changeset hash. Recording the same hashes under one block number on every node makes it straightforward to pinpoint where and when block-hash computation diverges across nodes.
+
+The feature is **enabled by default**. By default it writes files into a `hash.log` directory under the state-commit store's data directory (that is, `<home>/data/hash.log`).
+
+### Configuration
+
+The hash logger is configured with five `app.toml` fields under `[state-commit]`:
+
+| Config key | Default | Description |
+| --- | --- | --- |
+| `sc-hash-logger-enable` | `true` | Turns per-block hash logging on or off. |
+| `sc-hash-logger-directory` | empty | Directory for hash log files. When empty, defaults to `<home>/data/hash.log`. |
+| `sc-hash-logger-blocks-to-retain` | `0` | Number of most-recent blocks to keep on disk. `0` disables block-count retention (the disk-size cap is then the only bound). |
+| `sc-hash-logger-target-file-size` | `16 MB` | Size in bytes a log file may reach before it is sealed and a new one is opened. Must be greater than `0`. |
+| `sc-hash-logger-max-disk-size` | `16 GB` | Backstop cap in bytes on the total size of sealed log files. `0` disables the disk-size cap (block-count retention is then the only bound). |
+
+Retention is disk-driven by default: up to roughly 16 GiB of sealed files are kept, with block-count retention disabled. If both `sc-hash-logger-blocks-to-retain` and `sc-hash-logger-max-disk-size` are set to `0`, no retention bound applies and the logs grow without limit — a deliberate operator choice.
+
+For example, to disable the hash logger, add the following to `app.toml`:
+
+```toml
+[state-commit]
+sc-hash-logger-enable = false
+```
+
+
+
 ## LittDB OpenTelemetry metrics
 
-LittDB emits its metrics through the process-wide OpenTelemetry `MeterProvider` instead of a private Prometheus client. When `MetricsEnabled` is set, LittDB configures a Prometheus exporter on the global provider and serves `/metrics` on `MetricsPort` (default `9101`). The `MetricsNamespace` and `MetricsRegistry` config fields were removed, and all metric names use a fixed `litt_` prefix.
+LittDB emits its metrics through the process-wide OpenTelemetry `MeterProvider` instead of a private Prometheus client. When `MetricsEnabled` is set, LittDB records its metrics into the global provider. How those metrics are exported depends on `MetricsServeEndpoint` (default `false`):
+
+- When `MetricsServeEndpoint` is `false` (the default), LittDB records into the already-configured global `MeterProvider` and leaves exporting to the embedding application. The application is responsible for standing up the Prometheus exporter and serving the registry. No exporter or `/metrics` server is created by LittDB, and `MetricsPort` is ignored.
+- When `MetricsServeEndpoint` is `true`, LittDB stands up its own Prometheus exporter on the global provider and serves `/metrics` on `MetricsPort` (default `9101`).
+
+`MetricsPort` is ignored unless both `MetricsEnabled` and `MetricsServeEndpoint` are `true`. The `MetricsNamespace` and `MetricsRegistry` config fields were removed, and all metric names use a fixed `litt_` prefix.
 
 ### Available LittDB metrics
 
@@ -592,7 +739,7 @@ LittDB emits its metrics through the process-wide OpenTelemetry `MeterProvider` 
 | --- | --- | --- | --- |
 | `litt_table_size_bytes` | Gauge | bytes | The size of individual tables in the database. |
 | `litt_table_key_count` | Gauge | count | The number of keys in individual tables in the database. |
-| `litt_open_iterator_count` | Gauge | count | The number of currently open iterators for individual tables in the database. A persistently nonzero value indicates a leaked iterator, which suspends garbage collection for the table. |
+| `litt_open_iterator_count` | Gauge | count | The number of currently open iterators for individual tables in the database. A persistently nonzero value indicates a leaked iterator. Garbage collection proceeds while iterators are open — an iterator pins its snapshot segments via reservations so their files survive until it closes — so a leaked iterator pins those segment files on disk indefinitely rather than suspending garbage collection. |
 | `litt_bytes_read` | Counter | bytes | The number of bytes read from disk since startup. |
 | `litt_keys_read` | Counter | count | The number of keys read from disk since startup. |
 | `litt_cache_hits` | Counter | count | The number of cache hits since startup. |
@@ -612,6 +759,11 @@ LittDB emits its metrics through the process-wide OpenTelemetry `MeterProvider` 
 | `litt_chunk_cache_keys_added` | Counter | count | The number of keys added to the chunk cache. |
 | `litt_chunk_cache_weight_added_bytes` | Counter | bytes | The weight of the entries added to the chunk cache. |
 | `litt_chunk_cache_eviction_latency_seconds` | Histogram | seconds | Eviction latency of the chunk cache. |
+
+| `litt_compression_latency_seconds` | Histogram | seconds | Latency of compressing a batch of values before they are written. Emitted only for tables with value compression enabled. |
+| `litt_compression_uncompressed_bytes` | Counter | bytes | The number of uncompressed value bytes submitted to compression since startup. |
+| `litt_compression_compressed_bytes` | Counter | bytes | The number of compressed value bytes produced by compression since startup. Compared against `litt_compression_uncompressed_bytes`, this gives the aggregate compression ratio and total bytes saved. |
+| `litt_compression_ratio` | Histogram | ratio | The per-batch compression ratio (compressed bytes divided by uncompressed bytes); lower is better. |
 
 ### Attributes
 

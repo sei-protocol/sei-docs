@@ -106,15 +106,26 @@ ss-backend = "pebbledb"
 ss-keep-recent = 100000
 
 [receipt-store]
-# Storage backend for EVM transaction receipts. pebbledb (aka pebble) is the
-# only supported backend.
+# Storage backend for EVM transaction receipts. Supported backends: pebbledb
+# (aka pebble) and littidx.
 rs-backend = "pebbledb"
 ```
 
 <Note>
-`pebbledb` (also called `pebble`) is the only supported receipt-store backend.
-The setting `rs-backend = "parquet"` (or `RECEIPT_BACKEND=parquet`) is rejected
-with the error `unsupported receipt-store backend "parquet"; supported: pebbledb`.
+The receipt-store backend accepts `pebbledb` (also called `pebble`) and
+`littidx`. An unsupported value such as `rs-backend = "parquet"` (or
+`RECEIPT_BACKEND=parquet`) is rejected with the error `unsupported receipt-store
+backend "parquet"; supported: pebbledb, littidx`.
+
+`littidx` is a LittDB-based backend that stores receipt bodies in LittDB's
+immutable append-only segments alongside a PebbleDB tag index used to answer
+`eth_getLogs` filters without scanning whole blocks. It honors the same
+`KeepRecent` (derived from `min-retain-blocks`) and `prune-interval-seconds`
+retention and pruning settings as the PebbleDB backend. Because receipt bodies
+are buffered in memory and flushed periodically rather than written through a
+WAL, a hard crash can lose the most recently written receipt bodies; this is an
+accepted tradeoff for auxiliary, non-consensus RPC data.
+
 In the localnode and rpcnode configuration scripts, if you enable Giga Storage
 (`GIGA_STORAGE=true`) and `RECEIPT_BACKEND` is not set, the receipt backend
 defaults to `pebble`. The former `receipt-store.tx-index-backend` config field
@@ -776,6 +787,47 @@ The generated comments above do not describe two behaviors. First,
 everything. Second, when `evm-ss-db-directory` is unset, nodes with an existing
 `<home>/data/evm_ss` directory keep using that legacy path. New nodes default
 to `<home>/data/state_store/evm/{backend}`.
+</Note>
+
+
+<Note>
+The `[instrumentation] max-open-connections` field in `config.toml` is not a
+socket limit despite its name. It is passed to promhttp as
+`MaxRequestsInFlight` and caps the number of Prometheus scrapes served
+concurrently; requests past the cap receive an HTTP `503` rather than being
+queued. Keep the value above the number of scrapers that can overlap — an HA
+Prometheus pair, blackbox probes, and the occasional human `curl` — because a
+slow reader occupies a slot until it finishes or hits the write timeout. `0`
+means unlimited.
+
+The Prometheus metrics HTTP server enforces a read timeout of 10s, a write
+timeout of 30s, and an idle timeout of 60s. These bound how long a slow reader
+can hold a request slot and how long idle keep-alive connections persist.
+
+Seed nodes also serve Prometheus metrics (for example the
+`tendermint_p2p_peers` gauge) when instrumentation is enabled. Because a seed
+serves no RPC, Prometheus is its only observability surface, so a failure to
+bind the metrics listener is fatal and causes seed startup to fail — unlike a
+full node, which logs the error and continues serving.
+</Note>
+
+### Cosmos SDK state pruning
+
+Separate from the SeiDB retention settings above (`min-retain-blocks`,
+`ss-keep-recent`), the node also honors the standard Cosmos SDK pruning options
+(#3618). These control how much historical application state the baseapp keeps
+and are applied to the node via `baseapp.SetPruning`:
+
+- `pruning` — the pruning strategy. Accepts `default`, `nothing` (archiving
+  node; keep all states), `everything` (keep only the most recent state), or
+  `custom` (use the `pruning-keep-recent` and `pruning-interval` values below).
+- `pruning-keep-recent` — with `pruning = "custom"`, the number of recent
+  heights of state to keep.
+- `pruning-interval` — with `pruning = "custom"`, how often (in blocks) pruning
+  is run.
+
+These can be supplied as `app.toml` settings or as the equivalent `seid`
+start flags (e.g. `--pruning`, `--pruning-keep-recent`, `--pruning-interval`).
 </Note>
 
   </Tab>

@@ -101,6 +101,114 @@ function submitProposal(
 ) payable external returns (uint64 proposalID);
 ```
 
+
+### Query functions
+
+The governance precompile also exposes read-only query methods so you can read proposal state on-chain instead of relying on Cosmos REST or RPC. The vote and deposit queries are named `getVote` and `getDeposit` (rather than overloading the `vote`/`deposit` transaction methods) because ambiguous function names break common tooling such as ethers.js.
+
+```solidity
+struct Coin {
+    uint256 amount;
+    string denom;
+}
+
+struct TallyResultData {
+    string yes;
+    string abstain;
+    string no;
+    string noWithVeto;
+}
+
+struct WeightedVoteOptionData {
+    int32 option;
+    string weight; // Weight as decimal string (e.g., "0.7")
+}
+
+struct ProposalData {
+    uint64 id;
+    int32 status; // ProposalStatus enum value
+    TallyResultData finalTallyResult;
+    int64 submitTime; // Unix seconds
+    int64 depositEndTime; // Unix seconds
+    Coin[] totalDeposit;
+    int64 votingStartTime; // Unix seconds
+    int64 votingEndTime; // Unix seconds
+    bool isExpedited;
+    bytes content; // proposal content as JSON
+}
+
+struct VoteData {
+    uint64 proposalId;
+    string voter; // bech32 address
+    WeightedVoteOptionData[] options;
+}
+
+struct DepositData {
+    uint64 proposalId;
+    string depositor; // bech32 address
+    Coin[] amount;
+}
+
+struct GovParams {
+    uint64 votingPeriod; // seconds
+    uint64 expeditedVotingPeriod; // seconds
+    Coin[] minDeposit;
+    uint64 maxDepositPeriod; // seconds
+    Coin[] minExpeditedDeposit;
+    string quorum;
+    string threshold;
+    string vetoThreshold;
+    string expeditedQuorum;
+    string expeditedThreshold;
+}
+
+/// Query a proposal by ID
+function proposal(
+    uint64 proposalID
+) external view returns (ProposalData memory proposal);
+
+/// Query proposals with optional filters. proposalStatus 0 = all; a zero
+/// address for voter/depositor applies no filter.
+function proposals(
+    int32 proposalStatus,
+    address voter,
+    address depositor,
+    bytes memory pageKey
+) external view returns (ProposalData[] memory proposals, bytes memory nextKey);
+
+/// Query a vote cast on a proposal
+function getVote(
+    uint64 proposalID,
+    address voter
+) external view returns (VoteData memory vote);
+
+/// Query all votes cast on a proposal, paginated
+function votes(
+    uint64 proposalID,
+    bytes memory pageKey
+) external view returns (VoteData[] memory votes, bytes memory nextKey);
+
+/// Query the governance module parameters
+function params() external view returns (GovParams memory params);
+
+/// Query a deposit made to a proposal
+function getDeposit(
+    uint64 proposalID,
+    address depositor
+) external view returns (DepositData memory deposit);
+
+/// Query all deposits made to a proposal, paginated
+function deposits(
+    uint64 proposalID,
+    bytes memory pageKey
+) external view returns (DepositData[] memory deposits, bytes memory nextKey);
+
+/// Query the current tally of votes on a proposal
+function tallyResult(
+    uint64 proposalID
+) external view returns (TallyResultData memory tallyResult);
+```
+
 ## Using the contract
 
 ### Setup

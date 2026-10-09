@@ -242,6 +242,14 @@ flip target after `migrate_bank` reports complete on the node (migration
 version 3, all modules in FlatKV). Then restart with
 `sc-write-mode = "flatkv_only"` to reach the terminal steady state.
 
+
+<Note>For backward compatibility with v6.4/v6.5 `app.toml` files, the
+`sc-write-mode` config field (and the `--sc-write-mode` flag) still accepts the
+legacy value `"cosmos_only"`. It is parsed as equivalent to `memiavl_only`, so
+an older config that pins `sc-write-mode = "cosmos_only"` resolves to the same
+memIAVL-only routing and continues to work after upgrading, with no edit
+required before the node starts.</Note>
+
 <Note>A correctness bug in the WAL replay path is fixed. On replay (catchup,
 read-only clone, snapshot export, and state-sync restore), the bug dropped empty
 (zero-length) values written with no delete flag. This made the FlatKV state and
@@ -257,6 +265,57 @@ While a node is in a migration mode:
   first, and FlatKV wins on ties, so range scans see the complete key set during
   a migration.
 - The migration boundary advances at most once per block.
+
+
+
+### The `auto` write mode (runtime transitions without restarts)
+
+`auto` is an additional `sc-write-mode` value that removes the stop-edit-restart
+step between each migration stage. Instead of fixing the write mode in `app.toml`,
+`auto` derives the **effective** write mode from the migration metadata persisted
+in FlatKV. A node stays on `auto` in config across the entire migration chain,
+and the effective mode advances through `memiavl_only` → `migrate_evm` →
+`evm_migrated` → `migrate_all_but_bank` → `all_migrated_but_bank` →
+`migrate_bank` → `flatkv_only` via coordinated runtime transitions, with no
+restart required at any stage.
+
+```toml copy
+[state-commit]
+sc-write-mode = "auto"
+```
+
+Under `auto`:
+
+- FlatKV is **lazy**. On a fresh node the FlatKV directory is not created on disk
+  until the first `migrate_evm` transition occurs. While the directory is absent,
+  the store is effectively `memiavl_only` and FlatKV does not contribute to the
+  app hash at all.
+- Transitions walk the migration chain **one step forward at a time**, and a
+  migration stage must have completed its drain before the node can advance to
+  the following steady state. Skipping steps, moving backward, or exiting a
+  migration mid-flight is rejected.
+- Transitions are **deterministic and level-triggered** across the quorum: every
+  node performs the same transition at the same height. Because migration writes
+  feed the app hash, a transition that is not yet persisted is re-evaluated on
+  every commit, so a node that restarts inside the pre-commit window re-fires the
+  transition and self-heals rather than diverging.
+- On restart, the effective mode is re-derived from the on-disk migration state.
+  An in-flight migration resumes in its migration mode; a completed one comes up
+  in the following steady state even if no explicit completion flip was issued.
+
+State proofs remain supported only for memiavl-resident data — FlatKV has no
+proof builder. This is not specific to `auto`, but it becomes operator-visible
+once an `auto` chain migrates stores into FlatKV.
+
+<Warning>**Never set `sc-write-mode = "auto"` on an existing `flatkv_only`
+node.** `auto` is only valid for a node whose history began in `memiavl` (for
+example, a node switching from `memiavl_only`). A node that started in FlatKV
+mode must keep `flatkv_only` forever. Depending on the node's on-disk metadata,
+setting `auto` on a flatkv-origin node fails in one of two ways: with migration
+metadata present (for example a state-synced node), every commit fails with a
+version-mismatch error; with metadata absent (a genesis FlatKV chain), mode
+derivation resolves `memiavl_only` and reads silently route to an empty
+memiavl, serving incorrect empty results.</Warning>
 
 ### Operator-facing knobs
 
@@ -305,6 +364,34 @@ until `migrate_evm_complete` reports `true` on every validator.
 When the migration finishes, each node also emits a `migration complete` summary
 log line and `seidb_migration_*` OpenTelemetry counters for the migrated keys
 and bytes.
+
+### Inspecting hash log archives
+
+If you enable the per-block hash logger, the `seidb hashlog` command group
+provides read-only tools for inspecting the on-disk hash log archives it
+produces, so you can read or diff them without writing Go.
+
+- `seidb hashlog get-block <archive> <block>` prints every hash recorded for a
+  single block. A block with more than one record indicates it was executed more
+  than once (for example after a rollback), and each execution's hashes are
+  reported separately. Add `--json` to emit JSON instead of human-readable text.
+
+  ```bash copy
+  seidb hashlog get-block <archive> <block> [--json]
+  ```
+
+- `seidb hashlog compare <archive-a> <archive-b>` reports blocks whose hashes
+  differ between two archives — useful for pinpointing where two nodes diverged.
+  By default only the columns that differ are shown; pass `--full` to show every
+  column for each differing block. Restrict the comparison to a block range with
+  `--low` and `--high` (both must be supplied together), cap the number of
+  reported diffs with `--max-diffs` (`-1` for all), and add `--json` to emit
+  JSON. When the result is truncated at `--max-diffs`, the command warns that
+  there may be more differing blocks.
+
+  ```bash copy
+  seidb hashlog compare <archive-a> <archive-b> [--low N --high M] [--max-diffs N] [--full] [--json]
+  ```
 
 ### Importing EVM state from memIAVL into FlatKV
 
@@ -368,7 +455,10 @@ In the `localnode` and `rpcnode` configuration scripts, setting
 `RECEIPT_BACKEND` environment variable explicitly. The explicit value takes
 precedence over the default.
 
-`pebbledb` (also called `pebble`) is now the only supported receipt-store
-backend. The former `parquet` option was removed. A `RECEIPT_BACKEND=parquet`
-setting (or `rs-backend = "parquet"` in `app.toml`) is rejected with an error
-(`unsupported receipt-store backend "parquet"; supported: pebbledb`).
+The supported receipt-store backends are `pebbledb` (also called `pebble`) and
+`littidx`. The `littidx` backend stores receipt bodies in LittDB with a pebble
+tag index for `eth_getLogs` filtering, honoring the `KeepRecent` and
+`PruneIntervalSeconds` config for retention and pruning. The former `parquet`
+option was removed. An unsupported value for `RECEIPT_BACKEND` (or
+`rs-backend` in `app.toml`) is rejected with an error
+(`unsupported receipt-store backend "parquet"; supported: pebbledb, littidx`).

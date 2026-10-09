@@ -56,6 +56,8 @@ Debug tracing is your primary tool to understand how EVM transactions execute on
 | `debug_traceBlockByNumber` | Trace an entire block        | Block-level analysis          |
 | `debug_traceCall`          | Simulate and trace           | Testing before execution      |
 | `debug_traceStateAccess`   | State access patterns        | Performance optimization      |
+
+<Note>`debug_traceStateAccess` respects the node's configured `TraceTimeout`. If the trace deadline elapses during replay or serialization, the call aborts with a `context deadline exceeded` error instead of running unbounded. Additionally, the per-module state-access log is capped at 4 MiB of retained key/value payload. When a module exceeds this cap, its trace dump sets `"truncated": true`: the `reads`/`has` fields then reflect only the retained prefix, while the `stats` (operation counts and durations) remain complete and accurate.</Note>
 | `debug_traceTransactionProfile` | Trace plus timing/store-access profiling | Latency breakdown and DB-access analysis |
 
 ## Transaction analysis example
@@ -442,6 +444,45 @@ These `[evm]` fields in `app.toml` control trace baking:
 | `trace_bake_snapshot_window` | `64` | Number of recent memiavl snapshots to keep for trace baking. |
 
 <Warning>Trace baking adds a persistent on-disk store at `<home>/data/trace_db` and increases disk usage. The node flushes the store's write-ahead log when it shuts down cleanly.</Warning>
+
+
+
+## Tracer allowlist
+
+Caller-supplied `tracer` values on the `debug_trace*` endpoints are gated by `[evm]` config in `app.toml`. By default, only a fixed set of native geth tracers may be requested, and request-supplied JavaScript tracer source is rejected. This deviates from upstream geth, which accepts JavaScript tracers by default. The gate applies to `debug_traceCall`, `debug_traceTransaction`, `debug_traceBlockByNumber`/`debug_traceBlockByHash`, and `debug_traceTransactionProfile`. When no `tracer` is supplied, the default struct logger remains available.
+
+| Field | Default | Description |
+| ----- | ------- | ----------- |
+| `trace_allowed_tracers` | `["callTracer", "prestateTracer", "flatCallTracer", "4byteTracer", "noopTracer", "muxTracer"]` | Native debug tracer names that callers may request via `TraceConfig.Tracer`. Validated native-only at startup — a non-native or misspelled name fails startup. Set to `[]` to disable all named tracers. Request-supplied JavaScript tracer source can never be enabled through this list. |
+| `trace_allow_js_tracers` | `false` | Opts in to request-supplied JavaScript tracer source in `TraceConfig.Tracer`. This executes untrusted code in-process; keep disabled on public/default RPC nodes. Enabling it does **not** widen `trace_allowed_tracers`: native tracer names must still be listed there to be usable. |
+
+Behavior notes:
+
+- A tracer name that is not listed in `trace_allowed_tracers` is rejected, unless it is JavaScript source and `trace_allow_js_tracers` is enabled.
+- JavaScript tracer source is rejected unless `trace_allow_js_tracers` is set to `true`.
+- When `muxTracer` is requested, its nested tracer names are validated recursively against the same allowlist, with a bounded nesting depth of 16.
+- `trace_bake_tracers` names are held to the same native-only rule and validated at startup, so a non-native or misspelled baked tracer fails startup instead of being evaluated as JavaScript source on every block.
+
+<Note>The `trace_bake_tracers` note above that eligible values are standard named tracers is subsumed by this native-only startup validation: entries must be native tracer names such as `callTracer`, `prestateTracer`, or `flatCallTracer`.</Note>
+
+
+
+## Struct-logger output cap
+
+The default `debug_trace*` endpoints (`debug_traceCall`, `debug_traceTransaction`, and `debug_traceBlockByNumber`/`debug_traceBlockByHash`) use the built-in struct logger when no custom tracer is supplied. Traces that read many distinct storage slots can retain large amounts of output, so the node bounds the retained struct-logger output per traced transaction.
+
+The `max_trace_struct_log_bytes` field under `[evm]` in `app.toml` controls this cap:
+
+| Field | Default | Description |
+| ----- | ------- | ----------- |
+| `max_trace_struct_log_bytes` | `33554432` (32 MiB) | Bounds the retained struct-logger output, in bytes, per traced transaction on the default `debug_trace*` endpoints. Set to `0` for unlimited (upstream geth behavior). |
+
+Behavior notes:
+
+- The bound is applied **per transaction**, not per RPC call. Because geth builds a fresh struct logger for each transaction, a `debug_traceBlock*` call over N transactions can retain up to N times this value (and the parallelized block-trace path holds several concurrent traces live).
+- A caller-supplied `Limit` larger than `max_trace_struct_log_bytes` is clamped down to the configured value.
+- A smaller caller-supplied `Limit` is honored unchanged.
+- Custom tracers (for example `callTracer`, `prestateTracer`, or JavaScript tracers) are unaffected, as are requests when the cap is disabled (`0`).
 
 ## Removed legacy trace filters
 

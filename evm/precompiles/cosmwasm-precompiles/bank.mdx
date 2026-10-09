@@ -30,6 +30,96 @@ function sendNative(
 
 The examples below use `balance()` with `usei`. They do not cover arbitrary Bank Module denominations.
 
+
+## Read-only query methods
+
+The Bank precompile also exposes a set of read-only query methods that mirror the Bank Module's gRPC queries.
+
+```solidity
+/// Returns the spendable (unlocked) balances of an account, paginated.
+function spendableBalances(
+    address acc,
+    bytes memory pageKey
+) external view returns (Coin[] memory balances, bytes memory nextKey);
+
+/// Returns the total supply of a single denomination.
+function supply(
+    string memory denom
+) external view returns (uint256 response);
+
+/// Returns the total supply of every denomination, paginated.
+function totalSupply(
+    bytes memory pageKey
+) external view returns (Coin[] memory supply, bytes memory nextKey);
+
+/// Returns the Bank Module parameters.
+function params() external view returns (Params memory params);
+
+/// Returns the metadata for a single denomination.
+function denomMetadata(
+    string memory denom
+) external view returns (Metadata memory metadata);
+
+/// Returns the metadata for every denomination, paginated.
+function denomsMetadata(
+    bytes memory pageKey
+) external view returns (Metadata[] memory metadatas, bytes memory nextKey);
+```
+
+`supply` and `totalSupply` are distinct: `supply(denom)` returns the total supply of a single denomination as a `uint256`, while `totalSupply(pageKey)` returns a paginated list of every denomination's supply.
+
+The supporting structs are:
+
+```solidity
+struct Coin {
+    uint256 amount;
+    string denom;
+}
+
+struct SendEnabled {
+    string denom;
+    bool enabled;
+}
+
+struct Params {
+    SendEnabled[] sendEnabled;
+    bool defaultSendEnabled;
+}
+
+struct DenomUnit {
+    string denom;
+    uint32 exponent;
+    string[] aliases;
+}
+
+struct Metadata {
+    string description;
+    DenomUnit[] denomUnits;
+    string base;
+    string display;
+    string name;
+    string symbol;
+}
+```
+
+Methods that accept a `pageKey` argument are paginated. Pass empty bytes (`0x`) to request the first page, then pass the returned `nextKey` to fetch the next page. An empty `nextKey` means there are no more pages.
+
+```typescript
+const account = '0x1234567890123456789012345678901234567890';
+
+const [balances, nextKey] = await readBank.spendableBalances(account, '0x');
+for (const coin of balances) {
+  console.log(`${coin.amount} ${coin.denom}`);
+}
+
+const seiSupply = await readBank.supply('usei');
+console.log(`${ethers.formatUnits(seiSupply, 6)} SEI total supply`);
+
+const metadata = await readBank.denomMetadata('usei');
+console.log(metadata.name, metadata.symbol);
+```
+
+
 ## Setup
 
 ```bash
