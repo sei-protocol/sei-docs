@@ -32,7 +32,7 @@ In Remix, compile the contract on the **Solidity Compiler** tab. Then deploy it 
 <CodeGroup>
 
 ```ts viem
-import { createPublicClient, createWalletClient, http, parseAbi } from 'viem';
+import { createPublicClient, createWalletClient, http, parseAbi, webSocket } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { sei } from 'viem/chains';
 
@@ -210,10 +210,14 @@ const revokeTx = await writeContract.setApprovalForAll('0xOperatorAddress', fals
 
 ## Watching transfer events
 
+Watch new events over the WebSocket endpoint. Watchers that poll the public HTTP endpoint can miss events or report them twice. For details, see [Listen to events](/evm/cookbook/listen-to-events).
+
 <CodeGroup>
 
 ```ts viem
-const unwatch = client.watchContractEvent({
+const wsClient = createPublicClient({ chain: sei, transport: webSocket('wss://evm-ws.sei-apis.com') });
+
+const unwatch = wsClient.watchContractEvent({
   address: NFT,
   abi: ERC721_ABI,
   eventName: 'Transfer',
@@ -224,17 +228,18 @@ const unwatch = client.watchContractEvent({
   },
 });
 
-// Stop watching
-unwatch();
+// Call unwatch() to stop watching
 ```
 
 ```ts ethers
-readContract.on('Transfer', (from, to, tokenId) => {
+const wsProvider = new ethers.WebSocketProvider('wss://evm-ws.sei-apis.com');
+const wsContract = new ethers.Contract(NFT, ERC721_ABI, wsProvider);
+
+wsContract.on('Transfer', (from, to, tokenId) => {
   console.log(`Token ${tokenId}: ${from} → ${to}`);
 });
 
-// Stop watching
-readContract.off('Transfer');
+// To stop: await wsContract.off('Transfer'); await wsProvider.destroy();
 ```
 
 </CodeGroup>

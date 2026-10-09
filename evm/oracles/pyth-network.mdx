@@ -5,6 +5,8 @@ keywords: ['pyth network', 'oracle', 'price feeds', 'pull oracle', 'real-time da
 ---
 Pyth Network is a first-party oracle that delivers high-fidelity, low-latency financial market data on-chain. Unlike traditional push-based oracles, Pyth uses a "pull" model: applications get signed price updates on demand. This significantly reduces gas costs and still keeps the data fresh. Pyth has more than 400 price feeds across cryptocurrencies, equities, FX, and commodities. It aggregates data directly from more than 120 institutional data publishers, including major exchanges and trading firms.
 
+<Warning>Send a Pyth API key with every request to Hermes. On Sei Mainnet, use the new Pyth contract address. Pyth made both changes in its Pyth Core upgrade on August 26, 2026. This guide includes them. For background, see Pyth's [upgrade guide](https://docs.pyth.network/price-feeds/core/upgrade/preparing).</Warning>
+
 ## What you'll be doing in this guide
 
 This tutorial shows you how to:
@@ -26,6 +28,7 @@ Before you start this tutorial, make sure that you have:
 - **JavaScript and Node.js**: To fetch price data off-chain with the Pyth EVM SDK
 - **Development environment**: Remix IDE, Hardhat, Foundry, or a similar Solidity development setup
 - **Sei network access**: An RPC endpoint and familiarity with the Sei EVM environment
+- **Pyth API key**: Hermes rejects requests without one. Pyth's [upgrade guide](https://docs.pyth.network/price-feeds/core/upgrade/preparing) explains how to get a key.
 
 ### Required dependencies
 
@@ -58,9 +61,9 @@ Make sure that your development environment is configured for Sei:
 
 Pyth's pull-based oracle model consists of:
 
-1. **Publishers**: 120+ institutional data providers that sign and submit price data to Pythnet
-2. **Pythnet**: A dedicated blockchain that aggregates publisher data with a stake-weighted algorithm
-3. **Hermes**: An off-chain price service that supplies signed price update messages
+1. **Publishers**: 120+ institutional data providers that publish price data to Pyth
+2. **Aggregation**: Pyth combines the publishers' prices into one aggregate price with a confidence interval
+3. **Hermes**: An off-chain price service that supplies signed price update messages. It needs a Pyth API key.
 4. **Target chains**: EVM networks (such as Sei) where applications consume price data on demand
 5. **Price update mechanism**: Users submit price update data alongside their transactions
 
@@ -141,9 +144,12 @@ contract SeiPythPriceDemo {
 
 You can find price feeds in the [Pyth docs](https://docs.pyth.network/price-feeds/core/price-feeds/price-feed-ids?search=sei&pageSize=50).
 
-Deploy the contract with [Remix](https://remix.ethereum.org/). Set the constructor arguments to the Pyth contract address on Sei:
+Deploy the contract with [Remix](https://remix.ethereum.org/). Set the constructor argument to the Pyth contract address on your network:
 
-- **Pyth contract on Sei Mainnet and Sei Testnet**: [0x2880aB155794e7179c9eE2e38200202908C17B43](https://docs.pyth.network/price-feeds/core/contract-addresses/evm)
+- **Sei Mainnet**: [`0x16392B49EA47D4A21bb17F69aA9E7aD570284838`](https://seiscan.io/address/0x16392B49EA47D4A21bb17F69aA9E7aD570284838)
+- **Sei Testnet**: [`0x2880aB155794e7179c9eE2e38200202908C17B43`](https://testnet.seiscan.io/address/0x2880aB155794e7179c9eE2e38200202908C17B43)
+
+Pyth lists the current addresses on its [contract addresses](https://docs.pyth.network/price-feeds/core/upgrade/contracts) page. `getLatestSeiPrice()` reverts if the stored price is older than 60 seconds, or if no one has submitted an update yet. `getSeiPrice()` submits an update first, so it does not depend on earlier updates.
 
 ### Step 2: JavaScript integration for price updates
 
@@ -160,14 +166,16 @@ dotenv.config();
  */
 async function fetchSeiPriceUpdateData() {
   const seiPriceId = '0x53614f1cb0c031d4af66c04cb9c756234adad0e1cee85303795091499a4084eb'; // SEI/USD Price Feed ID
-  const hermesUrl = `https://hermes.pyth.network/v2/updates/price/latest?ids%5B%5D=${seiPriceId}`;
+  const hermesUrl = `https://pyth.dourolabs.app/hermes/v2/updates/price/latest?ids%5B%5D=${seiPriceId}`;
+  if (!process.env.PYTH_API_KEY) throw new Error('Set PYTH_API_KEY to your Pyth API key');
 
   try {
     console.log('Fetching SEI price data from Hermes...');
     const response = await fetch(hermesUrl, {
       method: 'GET',
       headers: {
-        accept: 'application/json'
+        accept: 'application/json',
+        Authorization: `Bearer ${process.env.PYTH_API_KEY}`
       }
     });
 
@@ -231,7 +239,7 @@ async function updateAndQuerySeiPrice(contractAddress, privateKey, rpcUrl = 'htt
     const updateFee = await contract.getUpdateFee(priceUpdateData);
     console.log(`Update fee: ${ethers.formatEther(updateFee)} SEI`);
 
-    // Step 4: Update price on contract with 1 SEI (as requested)
+    // Step 4: Update the price on the contract and pay the update fee
     console.log('\nUpdating price on smart contract...');
     const tx = await contract.getSeiPrice(priceUpdateData, {
       value: updateFee
@@ -319,6 +327,7 @@ import { demonstrateSeiPriceIntegration } from './SeiPythIntegration.js';
 // Set your environment variables or update these values
 process.env.PRIVATE_KEY = 'your_private_key_here';
 process.env.CONTRACT_ADDRESS = 'your_deployed_contract_address';
+process.env.PYTH_API_KEY = 'your_pyth_api_key';
 
 // Run the complete demo
 demonstrateSeiPriceIntegration()
@@ -373,7 +382,7 @@ Current SEI Price Info:
 - Publish Time: Thu Dec 12 2024 10:52:55 GMT+0000
 
 Getting update fee...
-Update fee: 0.000000000000001 SEI
+Update fee: 0.0 SEI
 
 Updating price on smart contract...
 Transaction submitted: 0xabc123...
@@ -406,7 +415,7 @@ Pyth price data includes these fields:
 
 ### Fee structure
 
-- **Update fee**: A small fee, paid in the native token (SEI), to submit price update data
+- **Update fee**: You pay it in SEI when you submit price update data. Pyth governance sets the fee, and it can be zero. Always set `value` to the result of `getUpdateFee`, so that your code still works when the fee changes.
 - **Variable cost**: The fee depends on how many price feeds you update
 - **Gas efficiency**: The pull model is more gas efficient than traditional push oracles
 
@@ -423,3 +432,5 @@ Pyth price data includes these fields:
 - [Pyth price feed IDs](https://docs.pyth.network/price-feeds/core/price-feeds/price-feed-ids?search=sei&pageSize=50)
 - [Pyth EVM SDK on GitHub](https://github.com/pyth-network/pyth-crosschain)
 - [Hermes price service API](https://api-reference.pyth.network/price-feeds/evm)
+- [Pyth Core upgrade guide](https://docs.pyth.network/price-feeds/core/upgrade/preparing)
+- [Pyth contract addresses](https://docs.pyth.network/price-feeds/core/upgrade/contracts)

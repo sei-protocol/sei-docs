@@ -10,8 +10,8 @@
 // The <iframe> src is deferred until the reader clicks, so a page with several
 // embeds pays nothing on load (Mintlify has no dynamic import / React.lazy).
 // No `sandbox` attribute is set and `cross-origin-isolated` is intentionally
-// omitted: every working iframe already in this repo (in-app-swaps, videos,
-// snapshot, faucet) sets neither, and a restrictive sandbox is the most common
+// omitted: every working iframe already in this repo (in-app-swaps, snapshot,
+// faucet) sets neither, and a restrictive sandbox is the most common
 // cause of a blank CodeSandbox/Remix frame.
 //
 // Theming note: surfaces/hairlines use theme-agnostic translucent inline styles

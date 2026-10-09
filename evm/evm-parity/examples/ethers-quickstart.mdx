@@ -16,11 +16,13 @@ This example shows how to use ethers v6 with Sei. The patterns apply whether you
 npm install ethers
 ```
 
-These snippets are TypeScript. To run any of them without a separate build step, use [`tsx`](https://www.npmjs.com/package/tsx) (Node 18+):
+These snippets are TypeScript, and they use top-level `await`. To run one without a separate build step, save it as `script.mts`. Then run it with [`tsx`](https://www.npmjs.com/package/tsx) (Node 18+):
 
 ```bash
-npx tsx script.ts
+npx tsx script.mts
 ```
+
+The `.mts` extension tells Node.js to treat the file as an ES module. If you use a plain `.ts` file in a new npm project, `tsx` fails with `Top-level await is currently not supported with the "cjs" output format`.
 
 ## Read-only provider
 
@@ -147,14 +149,24 @@ const gas = await provider.estimateGas({
 
 ## Listening for events
 
+Listen for new events over the WebSocket endpoint. Listeners that poll the public HTTP endpoint can miss events or report them twice. The contract needs the event in its ABI:
+
 ```ts
-contract.on('Transfer', (from, to, value) => {
+const wsProvider = new ethers.WebSocketProvider('wss://evm-ws.sei-apis.com');
+const token = new ethers.Contract(
+  '0xTokenAddress',
+  ['event Transfer(address indexed from, address indexed to, uint256 value)'],
+  wsProvider
+);
+
+token.on('Transfer', (from, to, value) => {
   console.log('Transfer:', { from, to, value });
 });
 
-// Stop listening
-contract.off('Transfer');
+// To stop: await token.off('Transfer'); await wsProvider.destroy();
 ```
+
+For past events and more examples, see [Listen to events](/evm/cookbook/listen-to-events).
 
 ## Next steps
 

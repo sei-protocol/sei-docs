@@ -1,0 +1,132 @@
+---
+title: 'Send SEI'
+description: 'Send SEI from one account to another on Sei Testnet with viem, ethers, or web3.py, then confirm the transfer from its receipt.'
+keywords: ['sei evm', 'send sei', 'transfer', 'sendTransaction', 'receipt', 'viem', 'ethers', 'web3.py', 'cookbook']
+---
+
+This recipe sends 0.01 SEI on Sei Testnet and waits for the receipt. Sei has [instant finality](/evm/evm-parity/finality), so the transfer is final as soon as the receipt arrives.
+
+## Before you start
+
+You need a Sei Testnet account that holds some SEI. Get testnet SEI from the [faucet](/learn/faucet). Then put the account's private key in the `PRIVATE_KEY` environment variable:
+
+```bash
+export PRIVATE_KEY=0xYourPrivateKey
+```
+
+<Warning>Use a throwaway key that holds only testnet funds. Never commit a private key or paste it into your code.</Warning>
+
+## Install
+
+<CodeGroup>
+
+```bash viem
+npm install viem
+```
+
+```bash ethers
+npm install ethers
+```
+
+```bash web3.py
+pip install web3
+```
+
+</CodeGroup>
+
+The TypeScript examples use top-level `await`. Save each one as a `.mts` file, such as `script.mts`. Run it with `npx tsx script.mts` on Node.js 18 or later. In a new npm project, `tsx` compiles a plain `.ts` file as CommonJS, where top-level `await` does not work.
+
+## Send the transaction
+
+Replace `0xRecipientAddress` with the `0x` address that receives the SEI.
+
+<CodeGroup>
+
+```ts viem
+import { createPublicClient, createWalletClient, http, parseEther } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { seiTestnet } from 'viem/chains';
+
+const account = privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`);
+const publicClient = createPublicClient({ chain: seiTestnet, transport: http() });
+const walletClient = createWalletClient({ account, chain: seiTestnet, transport: http() });
+
+const hash = await walletClient.sendTransaction({
+  to: '0xRecipientAddress',
+  value: parseEther('0.01'),
+});
+console.log('Transaction hash:', hash);
+
+const receipt = await publicClient.waitForTransactionReceipt({ hash });
+console.log('Status:', receipt.status);
+console.log('Block:', receipt.blockNumber);
+```
+
+```ts ethers
+import { ethers } from 'ethers';
+
+const provider = new ethers.JsonRpcProvider('https://evm-rpc-testnet.sei-apis.com');
+const wallet = new ethers.Wallet(process.env.PRIVATE_KEY!, provider);
+
+const tx = await wallet.sendTransaction({
+  to: '0xRecipientAddress',
+  value: ethers.parseEther('0.01'),
+});
+console.log('Transaction hash:', tx.hash);
+
+const receipt = await tx.wait();
+console.log('Status:', receipt?.status);
+console.log('Block:', receipt?.blockNumber);
+```
+
+```python web3.py
+import os
+from web3 import Web3
+from web3.middleware import SignAndSendRawMiddlewareBuilder
+
+w3 = Web3(Web3.HTTPProvider("https://evm-rpc-testnet.sei-apis.com"))
+account = w3.eth.account.from_key(os.environ["PRIVATE_KEY"])
+
+# Sign locally: public RPC endpoints don't hold keys
+w3.middleware_onion.inject(SignAndSendRawMiddlewareBuilder.build(account), layer=0)
+
+tx_hash = w3.eth.send_transaction({
+    "from": account.address,
+    "to": Web3.to_checksum_address("0xRecipientAddress"),
+    "value": w3.to_wei(0.01, "ether"),
+})
+print("Transaction hash:", w3.to_hex(tx_hash))
+
+receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
+print("Status:", receipt.status)
+print("Block:", receipt.blockNumber)
+```
+
+</CodeGroup>
+
+**You are done when you see:**
+
+```text
+Transaction hash: 0x9a9531211a1d7257546558b69b9ea092a3937c6034b665f6440fbf9ef117b712
+Status: success
+Block: 274527901n
+```
+
+viem prints the status as `success` and the block number as a `bigint`, with an `n` at the end. ethers and web3.py print the status as `1`. A status of `reverted` or `0` means that the transaction was included but failed. To find the cause, see [Error handling](/evm/evm-parity/examples/error-handling).
+
+To see the transfer in the block explorer, open `https://testnet.seiscan.io/tx/` followed by the transaction hash.
+
+## How gas is set
+
+All three libraries set the nonce, the gas limit, and the fees for you:
+
+- **Gas limit.** The libraries call `eth_estimateGas`. A transfer to a wallet address uses 21,000 gas. A transfer to a contract can use more, because the contract runs code when it receives SEI.
+- **Fees.** The libraries send an EIP-1559 (type 2) transaction and read the current base fee from the latest block. Sei does not burn the base fee. Validators receive the whole fee. See [Gas and fees](/evm/evm-parity/gas-and-fees).
+
+<Note>To send on Sei Mainnet, use the `sei` chain in viem, or the `https://evm-rpc.sei-apis.com` endpoint in ethers and web3.py. Transfers on Sei Mainnet spend real SEI.</Note>
+
+## Related recipes
+
+- [Read a balance](/evm/cookbook/read-a-balance): check the result of the transfer
+- [Transaction lifecycle](/evm/evm-parity/examples/transaction-lifecycle): receipts, logs, and past transactions
+- [Sponsor gas with Pimlico](/evm/cookbook/sponsor-gas-with-pimlico): send from an account that holds no SEI
