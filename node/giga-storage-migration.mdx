@@ -17,9 +17,8 @@ After the migration, the SS layer is repartitioned into two cooperating stores:
 | **SC** (State Commit, app hash) | `memiavl` | FlatKV |
 | **SS** (State Store, historical queries) | single PebbleDB MVCC database | dedicated EVM SS MVCC databases in the configured EVM SS directory |
 
-This migration changes only the **SS** layer. The SC layer config stays the same,
-and `memiavl` remains the authoritative source for the app hash, so the change is
-invisible to the network.
+This migration changes only the **SS** layer. It does not change the SC layer or
+the app hash, so the change is invisible to the network.
 
 <Info>This guide follows the canonical procedure in the `sei-chain` repository: [`docs/migration/giga_store_migration.md`](https://github.com/sei-protocol/sei-chain/blob/main/docs/migration/giga_store_migration.md). If anything here drifts, open an issue there.</Info>
 
@@ -209,8 +208,9 @@ consensus halts.
 Since v6.7.0, governance controls the migration, and nodes follow it without
 config changes:
 
-- By default, every node runs in the `auto` write mode. The node ignores
-  `sc-write-mode` and derives its mode from the migration state on disk.
+- By default, every node runs in the `auto` write mode. The node derives its
+  mode from the migration state on disk. It checks that `sc-write-mode` has a
+  valid value, but it does not use the value.
 - The `NumKeysToMigratePerBlock` parameter in the `migration` params subspace
   sets how many keys move per block. The default, `0`, keeps the migration
   paused. A `ParameterChangeProposal` can raise it to at most 1,000,000.
@@ -222,11 +222,12 @@ In v6.7, governance can start only the EVM migration. The later write modes
 (`migrate_all_but_bank`, `all_migrated_but_bank`, `migrate_bank`, and
 `flatkv_only`) exist, but no parameter starts them.
 
-During the migration, the node reads and iterates over both backends. Each key
-is in one backend at a time, because the migration deletes a key from memiavl
-when it copies the key to FlatKV. The migration boundary advances at most once
-per block. FlatKV has no proof builder, so state proofs work only for data that
-is still in memiavl.
+During the migration, the node reads and iterates over both backends. The
+migration deletes a key from memiavl when it copies the key to FlatKV. If both
+backends report a key, the node uses the memiavl value. The migration boundary
+advances at most once per block. When the migration starts, the node stops
+serving state proofs for the `evm` store, because FlatKV has no proof builder.
+Proofs for other modules still work.
 
 ### Pinning a write mode
 
@@ -249,7 +250,7 @@ A node pinned to `memiavl_only` does not take part in the migration. When
 governance starts the migration, the pinned node diverges from the network.
 Since v6.7.1, a node also refuses to start if a pinned `evm_migrated`,
 `all_migrated_but_bank`, or `flatkv_only` mode disagrees with the migration
-state on disk. The `cosmos_only` value from v6.4 and v6.5 `app.toml` files is
+state on disk. The error starts with `write mode is pinned to`. The `cosmos_only` value from v6.4 and v6.5 `app.toml` files is
 still accepted as an alias for `memiavl_only`.
 
 ### Write modes
@@ -265,8 +266,9 @@ still accepted as an alias for `memiavl_only`.
 | `flatkv_only` | FlatKV is the only SC backend. memiavl is not created. A node can state sync directly into this mode. |
 | `auto` | Derives the mode from the migration state on disk. This is the default. |
 
-For the local Docker devnet, `GIGA_MIGRATE_FROM_MEMIAVL=true` starts every node
-in `memiavl_only`, where the migration begins. Do not set it together with
+For the local Docker devnet, `GIGA_MIGRATE_FROM_MEMIAVL=true` pins every node to
+`memiavl_only` (with `sc-write-mode-enable-auto = false`), the starting point of
+the devnet migration test. Do not set it together with
 `GIGA_STORAGE`. If you set both, `GIGA_MIGRATE_FROM_MEMIAVL` takes precedence.
 
 ```bash copy
@@ -302,6 +304,10 @@ The `seidb import-flatkv-from-memiavl` command populates a FlatKV store from an 
 - The import height must equal the latest memIAVL version. The command refuses a lower height, because the composite store's version reconciliation would silently roll memIAVL back and truncate blocks. It also refuses a higher height. First, check the current version with `seidb memiavl-latest-version`. If needed, roll memIAVL back to the target height before you import.
 - Overwriting existing committed FlatKV data requires the explicit `--force` flag.
 
+In the default `auto` write mode, the node does not use a FlatKV store that this
+command creates. The store has no migration metadata, so the node starts in
+`memiavl_only`.
+
 ## FAQ
 
 ### Where do the data files live after migrating?
@@ -319,9 +325,8 @@ The `seidb import-flatkv-from-memiavl` command populates a FlatKV store from an 
 
 ### Does Giga SS Store change the app hash or consensus?
 
-No. The SC layer is unchanged, so `memiavl` remains the authoritative source
-for the app hash. Giga SS Store is a per-node SS change that is invisible to
-the network.
+No. Giga SS Store changes only the SS layer, which does not affect the app hash.
+It is a per-node change that is invisible to the network.
 
 ### Can I migrate a validator node with this guide?
 

@@ -23,7 +23,7 @@ By default, the explorer hides the remaining deprecated `sei_*` extensions and t
 
 ## Overview
 
-Sei supports the [Ethereum JSON-RPC API](https://ethereum.org/en/developers/docs/apis/json-rpc/). It also has some Sei-specific extensions for cross-VM operations, synthetic transactions, and other advanced features. Because Sei has [instant finality](/evm/differences-with-ethereum#finality), the `safe`, `finalized`, and `latest` block tags all resolve to the same (latest committed) block.
+Sei supports the [Ethereum JSON-RPC API](https://ethereum.org/en/developers/docs/apis/json-rpc/). It also has a few deprecated Sei-specific extensions for address resolution and cross-VM lookups. Because Sei has [instant finality](/evm/differences-with-ethereum#finality), the `safe`, `finalized`, and `latest` block tags all resolve to the same (latest committed) block.
 
 All endpoints follow the standard JSON-RPC format:
 
@@ -112,9 +112,9 @@ By default, log filters (`eth_getLogs`, `eth_getFilterLogs`) have these limits. 
 
 - **Matched logs:** a query can match up to 10,000 logs (`max_log_no_block`), for both bounded and open-ended block ranges.
 - **Log data:** a query can load up to about 64 MiB of matched logs (`max_log_bytes`).
-- **Closed block range:** a query can span up to 2,000 blocks (`max_blocks_for_log`).
+- **Block range:** a query can span up to 2,000 blocks (`max_blocks_for_log`). This limit also applies to a range that ends at the latest block.
 
-A query over the log count or log data limit fails with `query matches too many logs` or `query matches too many log bytes`. It does not return partial results. Narrow the block range or the filters (address and topics), then try again.
+A query over a limit fails with `query matches too many logs`, `query matches too many log bytes`, or `block range too large`. It does not return partial results. Narrow the block range or the filters (address and topics), then try again.
 
 Real-time subscriptions (`eth_subscribe` for `newHeads` and `logs`) are available over WebSocket only. For transport details, see [WebSocket connections](/evm/evm-parity/websocket).
 </Info>
@@ -132,11 +132,11 @@ You can also browse every method below in the interactive explorer above. This s
 
 **Under Autobahn (`AutobahnConfigFile` set):** The node runs as a validator when the top-level `mode` in `config.toml` is `"validator"`. With any other mode, it runs as a fullnode without a local mempool.
 
-On a validator, transactions go to Autobahn's producer mempool instead of CometBFT's `TxMempool`. This mempool admits EVM transactions in strict nonce order for each sender. It rejects a transaction with a bad-nonce error if its nonce is not the sender's next expected nonce, so senders must submit nonces without gaps.
+On a validator, transactions go to Autobahn's producer mempool instead of CometBFT's `TxMempool`. This mempool admits EVM transactions in strict nonce order for each sender. It rejects a transaction with a bad-nonce error if its nonce is not the sender's next expected nonce, so senders must submit nonces without gaps. If another validator owns the sender's EVM shard and is connected, the validator forwards the transaction to that validator instead. The `enable_evm_proxy` field in `autobahn.json` controls this forwarding. Its default is `true`.
 
-On a fullnode, `eth_sendRawTransaction` forwards the transaction to the committee member that owns the sender's EVM shard. For this, every validator in `autobahn.json` must have an `evmrpc` URL. The Tendermint `broadcast_tx_async`, `broadcast_tx_sync`, and `broadcast_tx_commit` methods fail on a fullnode with `autobahn fullnode has no local mempool; broadcast_tx_* must be sent to a validator`. On a fullnode, `eth_getTransactionCount` with the `pending` tag returns the confirmed nonce, and `unconfirmed_txs` and `num_unconfirmed_txs` return empty results.
+On a fullnode, `eth_sendRawTransaction` forwards the transaction to the committee member that owns the sender's EVM shard. For this, every validator in `autobahn.json` must have an `evmrpc` URL. The Tendermint `broadcast_tx_async`, `broadcast_tx_sync`, and `broadcast_tx_commit` methods fail on a fullnode with `autobahn fullnode has no local mempool; broadcast_tx_* must be sent to a validator`. On a fullnode, `eth_getTransactionCount` with the `pending` tag also goes to the shard owner. If the fullnode has no EVM RPC connection to the shard owner, the call returns `0`. `unconfirmed_txs` and `num_unconfirmed_txs` return empty results on a fullnode.
 
-Under Autobahn, the default CheckTx-synchronous broadcast (`broadcast_tx_sync`, the same path named above) blocks while the mempool is full. It returns only after capacity is available. As a result, a default `eth_sendRawTransaction` call can stall for as long as the mempool stays full. The async path (`broadcast_tx_async`) may silently drop the transaction instead. The `unsafe_flush_mempool` Tendermint RPC endpoint is not supported under Autobahn and returns `unsafe_flush_mempool is not supported with autobahn mempool`.
+On an Autobahn validator, the default CheckTx-synchronous broadcast (`broadcast_tx_sync`, the same path named above) blocks while the mempool is full. It returns only after capacity is available. As a result, a default `eth_sendRawTransaction` call can stall for as long as the mempool stays full. The async path (`broadcast_tx_async`) can drop the transaction without an error instead. The `unsafe_flush_mempool` Tendermint RPC endpoint is not supported under Autobahn and returns `unsafe_flush_mempool is not supported with autobahn mempool`.
 
 **Parameters:**
 
@@ -1359,7 +1359,7 @@ Sei keeps three legacy custom endpoints for address resolution and cross-VM tran
 <Warning>
 For new integrations, use standard `eth_*` and `debug_*` methods. The three remaining `sei_*` methods are deprecated and scheduled for removal.
 
-The `sei2_*` namespace has been removed. Most legacy `sei_*` methods have also been removed, including block, filter, log, signing, association, and transaction lookup methods. The `sei_*` cleanup is tracked in [sei-chain PR #3927](https://github.com/sei-protocol/sei-chain/pull/3927). Since v6.7.0, `sei_getTransactionReceipt` is also removed.
+In v6.7.0, Sei removed the `sei2_*` namespace and most legacy `sei_*` methods. The removed methods include `sei_getTransactionReceipt` and the block, filter, log, signing, association, and transaction lookup methods. The `sei_*` cleanup is tracked in [sei-chain PR #3927](https://github.com/sei-protocol/sei-chain/pull/3927).
 </Warning>
 
 <Note>No RPC method returns receipts or logs for synthetic transactions from Cosmos-originated messages. `eth_getTransactionReceipt` returns receipts for EVM transactions only.</Note>

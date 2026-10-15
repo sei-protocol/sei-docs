@@ -523,11 +523,11 @@ If a seed node cannot open the Prometheus listener, the seed fails to start. For
 
 The metrics server uses a 10s read header timeout, a 10s read timeout, a 30s write timeout, and a 60s idle timeout.
 
-`max-open-connections` under `[instrumentation]` is not a connection limit. It caps the number of scrapes that the server handles at the same time. Requests over the cap get HTTP `503`. The server does not queue them. A slow scraper holds its slot until it finishes or reaches the write timeout. `0` means no limit. Set the value higher than the number of scrapers that can overlap, such as an HA Prometheus pair, probes, and manual `curl` requests.
+`max-open-connections` under `[instrumentation]` is not a connection limit. It caps the number of scrapes that the server handles at the same time. Requests over the cap get HTTP `503`. The server does not queue them. A slow scraper holds its slot until it finishes or reaches the write timeout. `0` means no limit. The default is `3`. Set the value higher than the number of scrapers that can overlap, such as an HA Prometheus pair, probes, and manual `curl` requests.
 
 ## `chain_id` label on metrics
 
-Since v6.7.0, the node adds a `chain_id` label to every metric that it exports. This includes the Tendermint Prometheus metrics, the Cosmos SDK telemetry, and the OpenTelemetry metrics (`evmrpc_*`, `flatkv_*`, `litt_*`, and `pebble_*`). If you already set `chain_id` in `global-labels` under `[telemetry]`, the node keeps your value.
+Since v6.7.0, the node adds a `chain_id` label to every metric that it exports. This includes the Tendermint Prometheus metrics, the Cosmos SDK telemetry, and the OpenTelemetry metrics (`evmrpc_*`, `flatkv_*`, `litt_*`, and `pebble_*`). If you already set `chain_id` in `global-labels` under `[telemetry]`, the Cosmos SDK telemetry keeps your value.
 
 Update PromQL that aggregates across series, such as `sum(...) without (...)` or `by (...)`, to account for the new label. To scope a query to one chain, add a `chain_id` match.
 
@@ -537,8 +537,8 @@ The `tendermint` namespace also has these subsystems:
 
 | Subsystem prefix | Description |
 | --- | --- |
-| `tendermint_internal_autobahn_avail_*` | Autobahn availability metrics: the commit and app road index, the commit and app global block number, the proposal-to-commit latency, and the commit-to-commit latency (with a `timeouts` label). |
-| `tendermint_internal_autobahn_data_*` | A `latency` histogram for Autobahn data, with `resource` and `stage` labels. It measures the time from the production of a resource to each stage. |
+| `tendermint_internal_autobahn_avail_*` | Autobahn availability metrics: the commit road index, the commit global block number, the proposal-to-commit latency, and the commit-to-commit latency (with a `timeouts` label). |
+| `tendermint_internal_autobahn_data_*` | Autobahn data metrics: `latency` (time from the production of a resource to each stage, with `resource` and `stage` labels), `next_block` (the next block to process in each stage), `gas_used` (gas used by executed blocks), and `tx_size` (size of executed transactions in bytes). |
 | `tendermint_internal_p2p_mux_*` | p2p mux stream metrics: the stream `latency`, the number of open streams (`in_flight`), and the per-stream counters `send_msgs`, `recv_msgs`, `send_bytes`, and `recv_bytes`. These metrics have `role` and `kind` labels. |
 
 ## EVM RPC OpenTelemetry metrics
@@ -553,7 +553,7 @@ The EVM RPC layer emits OpenTelemetry metrics through the process-wide `MeterPro
 | `evmrpc_websocket_connects_total` | Counter | Number of new WebSocket connections. |
 | `evmrpc_redirected_requests_total` | Counter | Number of EVM RPC requests forwarded to another validator. Labeled by `endpoint` and `connection`. |
 | `evmrpc_historical_debug_trace_attempts_total` | Counter | Number of `debug_trace*` requests that target historical blocks beyond the configured max block lookback. Labeled by `endpoint` and `connection`. |
-| `evmrpc_requests_rejected_total` | Counter | Number of JSON-RPC requests that admission control rejected. Labeled by `protocol` (`http` or `ws`) and `reason`. `oversize` means the request was larger than `max_request_body_bytes` (HTTP 413, or WebSocket close code `1009`). `busy` means the `max_concurrent_request_bytes` budget was full (HTTP 429, or JSON-RPC error `-32005` after `ws_admission_timeout` on WebSocket). See [Frame size and concurrency limits](/evm/evm-parity/websocket#frame-size-and-concurrency-limits). |
+| `evmrpc_requests_rejected_total` | Counter | Number of JSON-RPC requests that admission control rejected. Labeled by `protocol` (`http` or `ws`) and `reason`. For HTTP, `reason` is `oversize` (larger than `max_request_body_bytes`, HTTP 413), `budget_midread` (the `max_concurrent_request_bytes` budget ran out, HTTP 429), `slow_body`, `rate_limited`, `unparseable`, or `read_error`. For WebSocket, `reason` is `oversize` (close code `1009`) or `busy` (no budget within `ws_admission_timeout`, JSON-RPC error `-32005`). See [Frame size and concurrency limits](/evm/evm-parity/websocket#frame-size-and-concurrency-limits). |
 
 The `evmrpc_request_latency_seconds` histogram carries these labels:
 
@@ -654,14 +654,14 @@ log-filter-parallelism = 16
 
 The state-commit store writes a CSV file of named hashes for each block. Each row has the memIAVL module and root hashes and the FlatKV DB and root hashes. It also has the app hash, the block hash, the results hash (the next block's `LastResultsHash`), and the changeset hash. To find where two nodes diverged, compare their logs with [`seidb hashlog compare`](/node/technical-reference#inspecting-hash-log-archives).
 
-The hash logger is on by default and writes to `<home>/data/hash.log`. With the default settings, it keeps up to 16 GiB of closed log files. Configure it in the `[state-commit]` section of `app.toml`:
+The hash logger is on by default. It writes to `data/hash.log` under the state-commit directory, which is `<home>/data/hash.log` by default. With the default settings, it keeps up to 16 GiB of closed log files. Configure it in the `[state-commit]` section of `app.toml`:
 
 | Config key | Default | Description |
 | --- | --- | --- |
 | `sc-hash-logger-enable` | `true` | Turns the hash logger on or off. |
-| `sc-hash-logger-directory` | empty | Directory for the log files. Empty means `<home>/data/hash.log`. |
+| `sc-hash-logger-directory` | empty | Directory for the log files. Empty means `data/hash.log` under the state-commit directory. |
 | `sc-hash-logger-blocks-to-retain` | `0` | Number of recent blocks to keep. `0` turns off the block limit. |
-| `sc-hash-logger-target-file-size` | `16777216` (16 MiB) | Size in bytes at which the logger closes a file and starts a new one. Must be greater than `0`. |
+| `sc-hash-logger-target-file-size` | `16777216` (16 MiB) | Size in bytes at which the logger closes a file and starts a new one. `0` uses the default. |
 | `sc-hash-logger-max-disk-size` | `17179869184` (16 GiB) | Maximum total size in bytes of closed log files. `0` turns off the size limit. |
 
 If you set both `sc-hash-logger-blocks-to-retain` and `sc-hash-logger-max-disk-size` to `0`, the logs grow without limit. To turn the hash logger off:
