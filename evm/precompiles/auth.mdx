@@ -1,17 +1,16 @@
 ---
-title: Auth Precompile
-description: Query account information, auth module parameters, and the next account number from the EVM.
+title: 'Auth Precompile'
+sidebarTitle: 'Auth'
+description: 'Read account details, auth module parameters, and the next account number from EVM contracts with the Auth precompile.'
+keywords: ['auth precompile', 'account query', 'account number', 'account sequence', 'sei evm']
 ---
+**Address:** `0x000000000000000000000000000000000000100D`
 
-The Auth precompile exposes read-only access to the Cosmos SDK `auth` module, letting Solidity contracts look up account details, the auth module parameters, and the next account number. All of its methods are views and never mutate state.
+The Auth precompile reads data from the Cosmos `auth` module: account details, module parameters, and the next account number. All methods are `view` functions. The precompile is available since v6.7.0.
 
-## Address
+## Interface
 
-The Auth precompile is available at the fixed address `0x000000000000000000000000000000000000100D`.
-
-## Solidity Interface
-
-```solidity
+```solidity Auth.sol
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
@@ -20,39 +19,10 @@ address constant AUTH_PRECOMPILE_ADDRESS = 0x00000000000000000000000000000000000
 IAuth constant AUTH_CONTRACT = IAuth(AUTH_PRECOMPILE_ADDRESS);
 
 interface IAuth {
-    // Queries
-
-    /**
-     * @notice Get account information for the given address
-     * @param addr The EVM address (must be associated with a Sei address)
-     * @return account Account details
-     */
-    function account(
-        address addr
-    ) external view returns (Account memory account);
-
-    /**
-     * @notice Get all accounts, paginated
-     * @param pageKey Pagination key (empty bytes for the first page)
-     * @return response Accounts response with pagination
-     */
-    function accounts(
-        bytes memory pageKey
-    ) external view returns (AccountsResponse memory response);
-
-    /**
-     * @notice Get the auth module parameters
-     * @return params Auth module parameters
-     */
+    function account(address addr) external view returns (Account memory account);
+    function accounts(bytes memory pageKey) external view returns (AccountsResponse memory response);
     function params() external view returns (AuthParams memory params);
-
-    /**
-     * @notice Get the next account number
-     * @return count The next account number
-     */
     function nextAccountNumber() external view returns (uint64 count);
-
-    // Structs
 
     struct Account {
         string accountAddress;
@@ -78,34 +48,14 @@ interface IAuth {
 
 ## Methods
 
-### account
+| Method | Returns |
+| --- | --- |
+| `account(addr)` | The Sei address, account number, and sequence of the account linked to `addr`. |
+| `accounts(pageKey)` | All accounts, one page at a time. |
+| `params()` | The `auth` module parameters. |
+| `nextAccountNumber()` | The account number that the next new account gets. The call does not change the counter. |
 
-```solidity
-function account(address addr) external view returns (Account memory account);
-```
+## Notes
 
-Returns the `Account` details (address, account number, and sequence) for the Sei address associated with `addr`. The EVM address must be associated with a Sei address; if it is not, or if no account exists for the resolved address, the call reverts.
-
-### accounts
-
-```solidity
-function accounts(bytes memory pageKey) external view returns (AccountsResponse memory response);
-```
-
-Returns a paginated list of all accounts. Pass empty `bytes` for the first page, then supply the returned `nextKey` to fetch subsequent pages.
-
-### params
-
-```solidity
-function params() external view returns (AuthParams memory params);
-```
-
-Returns the auth module parameters, including `maxMemoCharacters`, `txSigLimit`, `txSizeCostPerByte`, `sigVerifyCostEd25519`, `sigVerifyCostSecp256k1`, and `disableSeqnoCheck`.
-
-### nextAccountNumber
-
-```solidity
-function nextAccountNumber() external view returns (uint64 count);
-```
-
-Returns the next account number. This is a read-only view and does not increment the persisted global account number counter, so repeated calls return the same value.
+- `account()` reverts if `addr` has no associated Sei address, or if no account exists for it.
+- For `accounts()`, pass empty bytes for the first page, then pass the returned `nextKey`. An empty `nextKey` means there are no more pages.

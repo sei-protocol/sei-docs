@@ -18,7 +18,7 @@ The P256 precompile verifies signatures on the `secp256r1` curve efficiently. Ma
 - Various hardware security modules (HSMs)
 - Passkeys
 
-This precompile implementation is significantly more gas efficient than Solidity-based implementations (up to 60x).
+This precompile uses much less gas than a Solidity implementation of P-256 verification.
 
 ## Interface
 
@@ -162,12 +162,9 @@ Total length: 160 bytes
 
 ## Gas costs
 
-The precompile is much more gas efficient than Solidity implementations. Verification is a constant-work, stateless operation, so it is priced as a flat charge against the call's gas meter rather than per byte of input, matching RIP-7212's `P256VERIFY`:
+Each verification costs a fixed 3,450 gas, the same as the RIP-7212 `P256VERIFY` precompile. The cost does not depend on the input size. It is much lower than the cost of P-256 verification in Solidity.
 
-- **Total cost**: a fixed `P256VerifyGas = 3450` gas per verification
-- **Efficiency**: Up to 60x more efficient than pure Solidity implementations
-
-The fixed verification cost is charged before the signature check runs. If the call is not funded for this cost, the resulting out-of-gas condition propagates and fails the transaction rather than being caught and downgraded to a reverted call.
+The precompile charges this gas before it checks the signature. If the call cannot pay this gas, the call fails with an out-of-gas error. The call does not revert.
 
 ## Real-world use cases
 
@@ -438,7 +435,7 @@ contract P256Test {
 
 ## Performance considerations
 
-- **Gas efficiency**: 48,000 gas per verification, compared to 2M gas or more for Solidity implementations
+- **Gas efficiency**: A verification costs a fixed 3,450 gas
 - **Batch operations**: Consider batching multiple verifications in a single transaction
 - **Caching**: Cache public keys on-chain to reduce calldata for repeated verifications
 - **Hardware integration**: Particularly efficient for applications that use hardware-backed keys

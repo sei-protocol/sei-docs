@@ -113,18 +113,16 @@ rs-backend = "pebbledb"
 
 <Note>
 The receipt-store backend accepts `pebbledb` (also called `pebble`) and
-`littidx`. An unsupported value such as `rs-backend = "parquet"` (or
-`RECEIPT_BACKEND=parquet`) is rejected with the error `unsupported receipt-store
+`littidx`. The node rejects an unsupported value, such as `rs-backend = "parquet"`
+(or `RECEIPT_BACKEND=parquet`), with the error `unsupported receipt-store
 backend "parquet"; supported: pebbledb, littidx`.
 
-`littidx` is a LittDB-based backend that stores receipt bodies in LittDB's
-immutable append-only segments alongside a PebbleDB tag index used to answer
-`eth_getLogs` filters without scanning whole blocks. It honors the same
-`KeepRecent` (derived from `min-retain-blocks`) and `prune-interval-seconds`
-retention and pruning settings as the PebbleDB backend. Because receipt bodies
-are buffered in memory and flushed periodically rather than written through a
-WAL, a hard crash can lose the most recently written receipt bodies; this is an
-accepted tradeoff for auxiliary, non-consensus RPC data.
+`littidx` stores receipt bodies in LittDB and keeps a PebbleDB tag index. With
+this index, `eth_getLogs` can filter logs without a scan of whole blocks. It uses
+the same `min-retain-blocks` and `prune-interval-seconds` settings as `pebbledb`.
+It flushes receipt bodies every few milliseconds and does not write them through
+a WAL. A hard crash can therefore lose the newest receipt bodies. A read of a
+lost receipt returns not found.
 
 In the localnode and rpcnode configuration scripts, if you enable Giga Storage
 (`GIGA_STORAGE=true`) and `RECEIPT_BACKEND` is not set, the receipt backend
@@ -960,47 +958,6 @@ everything. Second, when `evm-ss-db-directory` is unset, nodes with an existing
 to `<home>/data/state_store/evm/{backend}`.
 </Note>
 
-
-<Note>
-The `[instrumentation] max-open-connections` field in `config.toml` is not a
-socket limit despite its name. It is passed to promhttp as
-`MaxRequestsInFlight` and caps the number of Prometheus scrapes served
-concurrently; requests past the cap receive an HTTP `503` rather than being
-queued. Keep the value above the number of scrapers that can overlap — an HA
-Prometheus pair, blackbox probes, and the occasional human `curl` — because a
-slow reader occupies a slot until it finishes or hits the write timeout. `0`
-means unlimited.
-
-The Prometheus metrics HTTP server enforces a read timeout of 10s, a write
-timeout of 30s, and an idle timeout of 60s. These bound how long a slow reader
-can hold a request slot and how long idle keep-alive connections persist.
-
-Seed nodes also serve Prometheus metrics (for example the
-`tendermint_p2p_peers` gauge) when instrumentation is enabled. Because a seed
-serves no RPC, Prometheus is its only observability surface, so a failure to
-bind the metrics listener is fatal and causes seed startup to fail — unlike a
-full node, which logs the error and continues serving.
-</Note>
-
-### Cosmos SDK state pruning
-
-Separate from the SeiDB retention settings above (`min-retain-blocks`,
-`ss-keep-recent`), the node also honors the standard Cosmos SDK pruning options
-(#3618). These control how much historical application state the baseapp keeps
-and are applied to the node via `baseapp.SetPruning`:
-
-- `pruning` — the pruning strategy. Accepts `default`, `nothing` (archiving
-  node; keep all states), `everything` (keep only the most recent state), or
-  `custom` (use the `pruning-keep-recent` and `pruning-interval` values below).
-- `pruning-keep-recent` — with `pruning = "custom"`, the number of recent
-  heights of state to keep.
-- `pruning-interval` — with `pruning = "custom"`, how often (in blocks) pruning
-  is run.
-
-These can be supplied as `app.toml` settings or as the equivalent `seid`
-start flags (e.g. `--pruning`, `--pruning-keep-recent`, `--pruning-interval`).
-</Note>
-
   </Tab>
 
   <Tab title="config.toml">
@@ -1692,10 +1649,10 @@ historical data:
    execution and to compute the per-block app hash. Cosmos modules sit on a
    memory-mapped Merkle tree (`memiavl`) ported from Cronos. EVM state can
    also be routed through **FlatKV**, an EVM-tuned PebbleDB store
-   with per-type sub-databases (`account`, `code`, `storage`, `legacy`,
-   `metadata`). The `sc-write-mode` setting controls the routing, and its
-   default is `memiavl_only`. FlatKV is used only when `sc-write-mode` is set
-   to a migration mode or `flatkv_only`.
+   with per-type sub-databases (`account`, `code`, `storage`, and `misc`).
+   Since v6.7.0, nodes run in the `auto` write mode by default and move EVM
+   state into FlatKV when governance starts the migration. See the
+   [FlatKV EVM SC migration flow](/node/giga-storage-migration#flatkv-evm-sc-migration-flow).
 2. **State Store (SS)**: versioned raw key-value pairs for historical
    queries. It is required for any node that serves RPC. The default backend is
    **PebbleDB**. Do not use RocksDB for new nodes. If you already use RocksDB,
@@ -1729,29 +1686,16 @@ sc-snapshot-min-time-interval = 3600
 # Cap on snapshot write throughput across all trees (MB/s). 0 = unlimited.
 sc-snapshot-write-rate-mbps = 100
 
-# EVM data routing between the Cosmos memiavl tree and FlatKV.
-# Default: memiavl_only — all EVM state lives in memiavl. Valid values:
-# memiavl_only, migrate_evm, evm_migrated, migrate_all_but_bank,
-# all_migrated_but_bank, migrate_bank, flatkv_only, test_only_dual_write.
-# Note: sc-read-mode and sc-enable-lattice-hash, which appeared in earlier
-# versions of this page, were never seid config keys; if present in an
-# existing app.toml they are silently ignored and can be removed.
+# The node runs in the auto write mode by default and ignores sc-write-mode.
+# To pin a mode, also set sc-write-mode-enable-auto = false. Read the Giga
+# storage migration guide first.
+# sc-read-mode, sc-enable-lattice-hash, and sc-keys-to-migrate-per-block are
+# not seid config keys. The node ignores them, so you can remove them.
 sc-write-mode = "memiavl_only"
 
-# How many EVM keys the in-flight migration (sc-write-mode = migrate_evm /
-# migrate_bank / migrate_all_but_bank) drains from memiavl into FlatKV per
-# block. Must be > 0; ignored when not in a migration mode.
-sc-keys-to-migrate-per-block = 1024
-
 [state-commit.flatkv]
-# FlatKV is the EVM-optimized commit store (PebbleDB). With the default
-# sc-write-mode = "memiavl_only" it is not used and these settings have
-# no effect. WAL crash recovery is idempotent, so fsync stays off by
-# default.
-fsync = false
-async-write-buffer = 0
-snapshot-interval = 10000
-snapshot-keep-recent = 2
+# FlatKV uses built-in defaults. The only key in this section that the node
+# applies is enable-read-write-metrics (default false).
 
 [state-store]
 # Historical SS layer. Validators can disable this to save disk; any node
@@ -1855,10 +1799,8 @@ write amplification.
 evm-ss-split = true
 ```
 
-The SC layer has its own, separate migration path (`sc-write-mode` and the
-FlatKV drain). It has different coordination requirements and its own
-warnings. Do not combine the two flips in one restart. Before you change
-`sc-write-mode`, see the
+The SC layer has its own, separate migration path, which governance controls.
+Before you change `sc-write-mode` or `sc-write-mode-enable-auto`, see the
 [FlatKV EVM SC migration flow](/node/giga-storage-migration#flatkv-evm-sc-migration-flow).
 
 Enabling Giga Storage requires a fresh state sync. If you flip `evm-ss-split`

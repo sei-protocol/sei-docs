@@ -30,96 +30,6 @@ function sendNative(
 
 The examples below use `balance()` with `usei`. They do not cover arbitrary Bank Module denominations.
 
-
-## Read-only query methods
-
-The Bank precompile also exposes a set of read-only query methods that mirror the Bank Module's gRPC queries.
-
-```solidity
-/// Returns the spendable (unlocked) balances of an account, paginated.
-function spendableBalances(
-    address acc,
-    bytes memory pageKey
-) external view returns (Coin[] memory balances, bytes memory nextKey);
-
-/// Returns the total supply of a single denomination.
-function supply(
-    string memory denom
-) external view returns (uint256 response);
-
-/// Returns the total supply of every denomination, paginated.
-function totalSupply(
-    bytes memory pageKey
-) external view returns (Coin[] memory supply, bytes memory nextKey);
-
-/// Returns the Bank Module parameters.
-function params() external view returns (Params memory params);
-
-/// Returns the metadata for a single denomination.
-function denomMetadata(
-    string memory denom
-) external view returns (Metadata memory metadata);
-
-/// Returns the metadata for every denomination, paginated.
-function denomsMetadata(
-    bytes memory pageKey
-) external view returns (Metadata[] memory metadatas, bytes memory nextKey);
-```
-
-`supply` and `totalSupply` are distinct: `supply(denom)` returns the total supply of a single denomination as a `uint256`, while `totalSupply(pageKey)` returns a paginated list of every denomination's supply.
-
-The supporting structs are:
-
-```solidity
-struct Coin {
-    uint256 amount;
-    string denom;
-}
-
-struct SendEnabled {
-    string denom;
-    bool enabled;
-}
-
-struct Params {
-    SendEnabled[] sendEnabled;
-    bool defaultSendEnabled;
-}
-
-struct DenomUnit {
-    string denom;
-    uint32 exponent;
-    string[] aliases;
-}
-
-struct Metadata {
-    string description;
-    DenomUnit[] denomUnits;
-    string base;
-    string display;
-    string name;
-    string symbol;
-}
-```
-
-Methods that accept a `pageKey` argument are paginated. Pass empty bytes (`0x`) to request the first page, then pass the returned `nextKey` to fetch the next page. An empty `nextKey` means there are no more pages.
-
-```typescript
-const account = '0x1234567890123456789012345678901234567890';
-
-const [balances, nextKey] = await readBank.spendableBalances(account, '0x');
-for (const coin of balances) {
-  console.log(`${coin.amount} ${coin.denom}`);
-}
-
-const seiSupply = await readBank.supply('usei');
-console.log(`${ethers.formatUnits(seiSupply, 6)} SEI total supply`);
-
-const metadata = await readBank.denomMetadata('usei');
-console.log(metadata.name, metadata.symbol);
-```
-
-
 ## Setup
 
 ```bash
@@ -226,3 +136,73 @@ contract NativeSeiSender {
 ```
 
 Validate the recipient before you send SEI. A successful transaction cannot be reversed.
+
+## Other query methods
+
+Since v6.7.0, the Bank precompile also has read-only queries for spendable balances, total supply, Bank Module parameters, and denomination metadata.
+
+```solidity
+function supply(string memory denom) external view returns (uint256 response);
+function spendableBalances(address acc, bytes memory pageKey)
+    external view returns (Coin[] memory balances, bytes memory nextKey);
+function totalSupply(bytes memory pageKey)
+    external view returns (Coin[] memory supply, bytes memory nextKey);
+function params() external view returns (Params memory params);
+function denomMetadata(string memory denom) external view returns (Metadata memory metadata);
+function denomsMetadata(bytes memory pageKey)
+    external view returns (Metadata[] memory metadatas, bytes memory nextKey);
+
+struct Coin {
+    uint256 amount;
+    string denom;
+}
+
+struct SendEnabled {
+    string denom;
+    bool enabled;
+}
+
+struct Params {
+    SendEnabled[] sendEnabled;
+    bool defaultSendEnabled;
+}
+
+struct DenomUnit {
+    string denom;
+    uint32 exponent;
+    string[] aliases;
+}
+
+struct Metadata {
+    string description;
+    DenomUnit[] denomUnits;
+    string base;
+    string display;
+    string name;
+    string symbol;
+}
+```
+
+`supply(denom)` returns the supply of one denomination. `totalSupply(pageKey)` returns the supply of every denomination, one page at a time. For paginated methods, pass empty bytes (`0x`) for the first page, then pass the returned `nextKey`. An empty `nextKey` means there are no more pages.
+
+`BANK_PRECOMPILE_ABI` in `@sei-js/precompiles@3` does not include `spendableBalances`, `totalSupply`, `params`, `denomMetadata`, or `denomsMetadata`. Call them with an ABI fragment:
+
+```typescript
+const bankQueries = new ethers.Contract(
+  BANK_PRECOMPILE_ADDRESS,
+  [
+    'function supply(string denom) view returns (uint256)',
+    'function spendableBalances(address acc, bytes pageKey) view returns ((uint256 amount, string denom)[] balances, bytes nextKey)',
+  ],
+  provider,
+);
+
+const supplyUsei = await bankQueries.supply('usei');
+console.log(`${ethers.formatUnits(supplyUsei, 6)} SEI total supply`);
+
+const account = '0x1234567890123456789012345678901234567890';
+const [balances, nextKey] = await bankQueries.spendableBalances(account, '0x');
+for (const coin of balances) {
+  console.log(`${coin.amount} ${coin.denom}`);
+}
+```

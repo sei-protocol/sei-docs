@@ -1,21 +1,16 @@
 ---
-title: "Slashing Precompile"
-description: "Query the slashing module's parameters and validator signing information directly from the EVM."
+title: 'Slashing Precompile'
+sidebarTitle: 'Slashing'
+description: 'Read slashing parameters and validator signing info, and unjail validators from EVM contracts with the Slashing precompile.'
+keywords: ['slashing precompile', 'unjail', 'validator signing info', 'downtime', 'sei evm']
 ---
+**Address:** `0x0000000000000000000000000000000000001014`
 
-The Slashing precompile exposes the Cosmos `slashing` module's read-only queries to EVM smart contracts. It lets you inspect the module parameters that govern downtime and double-sign penalties, and read per-validator signing information such as missed block counts and jailing status.
-
-## Address
-
-The Slashing precompile is available at the fixed address:
-
-```
-0x0000000000000000000000000000000000001014
-```
+The Slashing precompile reads data from the Cosmos `slashing` module and lets a validator operator unjail its validator. An operator can also let another account unjail the validator. The precompile is available since v6.7.0.
 
 ## Interface
 
-```solidity
+```solidity Slashing.sol
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
@@ -24,18 +19,17 @@ address constant SLASHING_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000
 ISlashing constant SLASHING_CONTRACT = ISlashing(SLASHING_PRECOMPILE_ADDRESS);
 
 interface ISlashing {
+    // Transactions
+    function unjail() external returns (bool success);
+    function grantUnjailAuthorization(address grantee, int64 expiration) external returns (bool success);
+    function unjailWithAuthorization(address validatorOperator) external returns (bool success);
+    function revokeUnjailAuthorization(address grantee) external returns (bool success);
+
     // Queries
     function params() external view returns (SlashingParams memory params);
+    function signingInfo(string memory consAddress) external view returns (SigningInfo memory signingInfo);
+    function signingInfos(bytes memory pageKey) external view returns (SigningInfosResponse memory response);
 
-    function signingInfo(
-        string memory consAddress
-    ) external view returns (SigningInfo memory signingInfo);
-
-    function signingInfos(
-        bytes memory pageKey
-    ) external view returns (SigningInfosResponse memory response);
-
-    // Structs
     struct SlashingParams {
         int64 signedBlocksWindow;
         string minSignedPerWindow;
@@ -62,117 +56,21 @@ interface ISlashing {
 
 ## Methods
 
-### `params`
+### Queries
 
-```solidity
-function params() external view returns (SlashingParams memory params);
-```
+| Method | Returns |
+| --- | --- |
+| `params()` | The slashing parameters. They include the signed-blocks window, the minimum fraction of blocks to sign, and the downtime jail duration in seconds. They also include the slash fractions for double signing and downtime. All fractions are decimal strings. |
+| `signingInfo(consAddress)` | The signing info of the validator with this bech32 consensus address. It includes the start height, the index offset, and the jailed-until time as a Unix timestamp in seconds. It also includes the tombstone status and the missed-block count. The call reverts if the validator has no signing info. |
+| `signingInfos(pageKey)` | The signing info of all validators, one page at a time. Pass empty bytes for the first page, then pass the returned `nextKey`. |
 
-Returns the slashing module parameters.
+### Transactions
 
-**Returns** a `SlashingParams` struct:
+| Method | Effect |
+| --- | --- |
+| `unjail()` | Unjails the validator whose operator address is the caller's associated Sei address. |
+| `grantUnjailAuthorization(grantee, expiration)` | Lets `grantee` unjail the caller's validator until `expiration`, a Unix timestamp in seconds. |
+| `unjailWithAuthorization(validatorOperator)` | Unjails the validator of `validatorOperator`, using a grant that `validatorOperator` gave the caller. |
+| `revokeUnjailAuthorization(grantee)` | Removes the unjail grant that the caller gave `grantee`. |
 
-| Field                     | Type     | Description                                                                 |
-| ------------------------- | -------- | --------------------------------------------------------------------------- |
-| `signedBlocksWindow`      | `int64`  | The size of the sliding window used to track validator liveness.            |
-| `minSignedPerWindow`      | `string` | Minimum fraction of blocks a validator must sign per window (decimal string).|
-| `downtimeJailDuration`    | `uint64` | Duration, in seconds, a validator is jailed for downtime.                   |
-| `slashFractionDoubleSign` | `string` | Fraction of stake slashed for a double-sign (decimal string).               |
-| `slashFractionDowntime`   | `string` | Fraction of stake slashed for downtime (decimal string).                    |
-
-### `signingInfo`
-
-```solidity
-function signingInfo(
-    string memory consAddress
-) external view returns (SigningInfo memory signingInfo);
-```
-
-Returns the signing information for a single validator identified by its consensus address (bech32).
-
-**Parameters**
-
-| Parameter     | Type     | Description                               |
-| ------------- | -------- | ----------------------------------------- |
-| `consAddress` | `string` | The validator's consensus address (bech32).|
-
-**Returns** a `SigningInfo` struct:
-
-| Field                 | Type     | Description                                                      |
-| --------------------- | -------- | ---------------------------------------------------------------- |
-| `validatorAddress`    | `string` | The validator's consensus address (bech32).                      |
-| `startHeight`         | `int64`  | Height at which the validator became bonded.                      |
-| `indexOffset`         | `int64`  | Index offset into the signed block bit array.                     |
-| `jailedUntil`         | `int64`  | Unix timestamp (seconds) until which the validator is jailed.     |
-| `tombstoned`          | `bool`   | Whether the validator has been tombstoned.                        |
-| `missedBlocksCounter` | `int64`  | Number of blocks the validator has missed within the window.      |
-
-Querying a consensus address with no signing information reverts.
-
-
-
-### `unjail`
-
-```solidity
-function unjail() external returns (bool success);
-```
-
-Unjails the validator whose operator address is the caller's associated Sei address. This is a state-mutating transaction, so the caller's EVM address must be associated with a Sei address, and that Sei address must be a validator operator.
-
-**Returns**
-
-| Field     | Type   | Description                              |
-| --------- | ------ | ---------------------------------------- |
-| `success` | `bool` | `true` when the validator was unjailed.  |
-
-The call reverts if the caller has no associated Sei address, if that address is not a validator operator, or if the validator does not currently satisfy the conditions required to be unjailed.
-
-Because this method acts on behalf of the caller, it is non-payable and cannot be invoked via `delegatecall` or `staticcall`; such calls revert.
-
-### `signingInfos`
-
-```solidity
-function signingInfos(
-    bytes memory pageKey
-) external view returns (SigningInfosResponse memory response);
-```
-
-Returns the signing information for all validators, with pagination.
-
-**Parameters**
-
-| Parameter | Type    | Description                                                       |
-| --------- | ------- | ---------------------------------------------------------------- |
-| `pageKey` | `bytes` | Pagination key from a previous response; pass empty bytes for the first page.|
-
-**Returns** a `SigningInfosResponse` struct:
-
-| Field          | Type            | Description                                             |
-| -------------- | --------------- | ------------------------------------------------------- |
-| `signingInfos` | `SigningInfo[]` | The signing information entries for the current page.   |
-| `nextKey`      | `bytes`         | Pagination key for the next page; empty when exhausted. |
-
-## Example Usage
-
-```solidity
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
-
-import "./Slashing.sol";
-
-contract SlashingReader {
-    function getDowntimeSlashFraction() external view returns (string memory) {
-        ISlashing.SlashingParams memory params = SLASHING_CONTRACT.params();
-        return params.slashFractionDowntime;
-    }
-
-    function getMissedBlocks(string memory consAddress) external view returns (int64) {
-        ISlashing.SigningInfo memory info = SLASHING_CONTRACT.signingInfo(consAddress);
-        return info.missedBlocksCounter;
-    }
-}
-```
-
-<Note>
-  All methods on the Slashing precompile are read-only `view` queries. Sending value to any of them reverts.
-</Note>
+Each transaction returns `true` if it succeeds. Transactions do not accept value. A transaction reverts if you call it through `delegatecall` or `staticcall`. The caller and every address argument must have an associated Sei address. `unjail()` also reverts if the caller is not a validator operator, or if the validator does not meet the unjail conditions.
