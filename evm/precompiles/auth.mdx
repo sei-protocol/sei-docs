@@ -1,0 +1,61 @@
+---
+title: 'Auth Precompile'
+sidebarTitle: 'Auth'
+description: 'Read account details, auth module parameters, and the next account number from EVM contracts with the Auth precompile.'
+keywords: ['auth precompile', 'account query', 'account number', 'account sequence', 'sei evm']
+---
+**Address:** `0x000000000000000000000000000000000000100D`
+
+The Auth precompile reads data from the Cosmos `auth` module: account details, module parameters, and the next account number. All methods are `view` functions. The precompile is available since v6.7.0.
+
+## Interface
+
+```solidity Auth.sol
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+address constant AUTH_PRECOMPILE_ADDRESS = 0x000000000000000000000000000000000000100D;
+
+IAuth constant AUTH_CONTRACT = IAuth(AUTH_PRECOMPILE_ADDRESS);
+
+interface IAuth {
+    function account(address addr) external view returns (Account memory account);
+    function accounts(bytes memory pageKey) external view returns (AccountsResponse memory response);
+    function params() external view returns (AuthParams memory params);
+    function nextAccountNumber() external view returns (uint64 count);
+
+    struct Account {
+        string accountAddress;
+        uint64 accountNumber;
+        uint64 sequence;
+    }
+
+    struct AccountsResponse {
+        Account[] accounts;
+        bytes nextKey;
+    }
+
+    struct AuthParams {
+        uint64 maxMemoCharacters;
+        uint64 txSigLimit;
+        uint64 txSizeCostPerByte;
+        uint64 sigVerifyCostEd25519;
+        uint64 sigVerifyCostSecp256k1;
+        bool disableSeqnoCheck;
+    }
+}
+```
+
+## Methods
+
+| Method | Returns |
+| --- | --- |
+| `account(addr)` | The Sei address, account number, and sequence of the account linked to `addr`. |
+| `accounts(pageKey)` | All accounts, one page at a time. |
+| `params()` | The `auth` module parameters. |
+| `nextAccountNumber()` | The account number that the next new account gets. The call does not change the counter. |
+
+## Notes
+
+- `account()` reverts if `addr` has no associated Sei address, or if no account exists for it.
+- For `accounts()`, pass empty bytes for the first page, then pass the returned `nextKey`. An empty `nextKey` means there are no more pages.

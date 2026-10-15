@@ -17,9 +17,8 @@ After the migration, the SS layer is repartitioned into two cooperating stores:
 | **SC** (State Commit, app hash) | `memiavl` | FlatKV |
 | **SS** (State Store, historical queries) | single PebbleDB MVCC database | dedicated EVM SS MVCC databases in the configured EVM SS directory |
 
-This migration changes only the **SS** layer. The SC layer config stays the same,
-and `memiavl` remains the authoritative source for the app hash, so the change is
-invisible to the network.
+This migration changes only the **SS** layer. It does not change the SC layer or
+the app hash, so the change is invisible to the network.
 
 <Info>This guide follows the canonical procedure in the `sei-chain` repository: [`docs/migration/giga_store_migration.md`](https://github.com/sei-protocol/sei-chain/blob/main/docs/migration/giga_store_migration.md). If anything here drifts, open an issue there.</Info>
 
@@ -197,87 +196,80 @@ the node and delete the configured EVM SS directory.
 
 Everything above concerns the **SS** (State Store) layer. The **SC** (State
 Commit) layer has a separate migration path. It moves the hot `evm/` data out
-of `memiavl` and into FlatKV in place, without a state sync. The `sc-write-mode`
-setting in `app.toml` drives this path entirely. You coordinate it across a
-quorum by stopping the nodes, editing the config, and restarting them.
+of `memiavl` and into FlatKV in place, without a state sync.
 
-Unlike the SS split, the SC-side migration **does change how `evm/` data
-contributes to the app hash**. The contribution moves from the memiavl IAVL root
-to the FlatKV lattice hash. Because of this, every validator in a quorum must
-flip at the same coordinated stop. If a node flips while its peers are still on
-the old mode, it produces a different AppHash on the next block, and consensus
-halts. The safe sequence is always: stop every node, rewrite `app.toml`
-everywhere, and restart every node.
+Unlike the SS split, the SC migration **changes how `evm/` data contributes to
+the app hash**. The contribution moves from the memiavl IAVL root to the FlatKV
+lattice hash. Every validator must therefore switch at the same block, or
+consensus halts.
 
-<Warning>Do not run this SC-side flow against Sei Testnet or Sei Mainnet nodes unless your version's release notes explicitly list it as supported. The cluster and devnet integration harness tests this FlatKV EVM migration flow.</Warning>
+### How the migration starts
 
-### Write modes
+Since v6.7.0, governance controls the migration, and nodes follow it without
+config changes:
 
-The migration is a transition from the `memiavl_only` write mode to
-`migrate_evm`. In `memiavl_only` (v0), memiavl is the sole SC backend and FlatKV
-is not allocated. The in-flight mode, `migrate_evm`, drains `evm/` keys from
-memiavl into FlatKV. After the migration completes, flip `sc-write-mode`
-again to `evm_migrated`, so that later restarts do not start the migration
-manager.
+- By default, every node runs in the `auto` write mode. The node derives its
+  mode from the migration state on disk. It checks that `sc-write-mode` has a
+  valid value, but it does not use the value.
+- The `NumKeysToMigratePerBlock` parameter in the `migration` params subspace
+  sets how many keys move per block. The default, `0`, keeps the migration
+  paused. A `ParameterChangeProposal` can raise it to at most 1,000,000.
+- When the parameter becomes greater than `0`, every `auto` node switches from
+  `memiavl_only` to `migrate_evm` at the same height and starts to move keys.
+  The node does not restart.
 
-`evm_migrated` is not the last mode. Three more modes sit between it and the
-terminal mode:
+In v6.7, governance can start only the EVM migration. The later write modes
+(`migrate_all_but_bank`, `all_migrated_but_bank`, `migrate_bank`, and
+`flatkv_only`) exist, but no parameter starts them.
 
-- `migrate_all_but_bank` drains every remaining module except `bank/` from
-  memiavl into FlatKV.
-- `all_migrated_but_bank` is the steady state after that drain completes.
-- `migrate_bank` drains the final `bank/` module.
+During the migration, the node reads and iterates over both backends. The
+migration deletes a key from memiavl when it copies the key to FlatKV. If both
+backends report a key, the node uses the memiavl value. The migration boundary
+advances at most once per block. When the migration starts, the node stops
+serving state proofs for the `evm` store, because FlatKV has no proof builder.
+Proofs for other modules still work.
 
-`flatkv_only` is the fully supported **terminal** steady-state write mode.
-FlatKV is the sole SC backend, and `memiavl` is not allocated at all. FlatKV
-serves the SC state of every module. State-sync snapshot export and restore
-work correctly in this mode, and so does app-hash parity. A node can therefore
-boot or state sync directly into the post-migration shape, without ever running
-the migration manager. Such a node uses `flatkv_only`.
+### Pinning a write mode
 
-`flatkv_only` is valid only for a node whose modules have all been drained out
-of memiavl. It is not a flip target for an `evm_migrated` node, which still
-holds `bank/` and every other non-EVM module in memiavl. It becomes the valid
-flip target after `migrate_bank` reports complete on the node (migration
-version 3, all modules in FlatKV). Then restart with
-`sc-write-mode = "flatkv_only"` to reach the terminal steady state.
-
-<Note>A correctness bug in the WAL replay path is fixed. On replay (catchup,
-read-only clone, snapshot export, and state-sync restore), the bug dropped empty
-(zero-length) values written with no delete flag. This made the FlatKV state and
-the consensus AppHash diverge from the live chain. Empty-value writes are now
-preserved across a WAL round-trip and a state sync, which makes `flatkv_only`
-state sync reliable.</Note>
-
-While a node is in a migration mode:
-
-- Caller reads of not-yet-migrated keys fall back to FlatKV for new keys written
-  after the migration started, and to memiavl otherwise.
-- A merging iterator over both backends serves iteration. It queries memiavl
-  first, and FlatKV wins on ties, so range scans see the complete key set during
-  a migration.
-- The migration boundary advances at most once per block.
-
-### Operator-facing knobs
-
-**`sc-keys-to-migrate-per-block`** (`app.toml`, `[state-commit]` section)
-controls how many EVM keys the in-flight migration drains from memiavl into
-FlatKV per block. The default is `1024`, which is appropriate for production
-drains. A lower value spreads the migration across more blocks. The value must
-be `> 0`. The node ignores it entirely when `sc-write-mode` is not a migration
-mode.
+To pin a write mode, set both keys in the `[state-commit]` section of
+`app.toml`. The generated `app.toml` does not include
+`sc-write-mode-enable-auto`, so add it yourself:
 
 ```toml copy
 [state-commit]
-sc-write-mode = "migrate_evm"
-sc-keys-to-migrate-per-block = 1024
+sc-write-mode-enable-auto = false
+sc-write-mode = "flatkv_only"
 ```
 
-**`GIGA_MIGRATE_FROM_MEMIAVL`** is a Docker cluster environment variable for the
-local devnet setup. When set to `true`, it boots every node in `memiavl_only`
-mode, the v0 starting point for the FlatKV EVM migrate flow. It is mutually
-exclusive with `GIGA_STORAGE`. If both are set, `GIGA_MIGRATE_FROM_MEMIAVL`
-takes precedence.
+<Warning>A node whose history began in FlatKV, such as a node on a chain that
+started in FlatKV, must pin `flatkv_only` as shown above. In `auto`, such a
+node either fails every commit with a version-mismatch error or serves empty
+reads from memiavl.</Warning>
+
+A node pinned to `memiavl_only` does not take part in the migration. When
+governance starts the migration, the pinned node diverges from the network.
+Since v6.7.1, a node also refuses to start if a pinned `evm_migrated`,
+`all_migrated_but_bank`, or `flatkv_only` mode disagrees with the migration
+state on disk. The error starts with `write mode is pinned to`. The `cosmos_only` value from v6.4 and v6.5 `app.toml` files is
+still accepted as an alias for `memiavl_only`.
+
+### Write modes
+
+| Mode | Meaning |
+| --- | --- |
+| `memiavl_only` | memiavl is the only SC backend. FlatKV is not created. |
+| `migrate_evm` | Moves `evm/` keys from memiavl to FlatKV. |
+| `evm_migrated` | The steady state after the `evm/` migration. |
+| `migrate_all_but_bank` | Moves every remaining module except `bank/`. |
+| `all_migrated_but_bank` | The steady state after that move. |
+| `migrate_bank` | Moves the `bank/` module. |
+| `flatkv_only` | FlatKV is the only SC backend. memiavl is not created. A node can state sync directly into this mode. |
+| `auto` | Derives the mode from the migration state on disk. This is the default. |
+
+For the local Docker devnet, `GIGA_MIGRATE_FROM_MEMIAVL=true` pins every node to
+`memiavl_only` (with `sc-write-mode-enable-auto = false`), the starting point of
+the devnet migration test. Do not set it together with
+`GIGA_STORAGE`. If you set both, `GIGA_MIGRATE_FROM_MEMIAVL` takes precedence.
 
 ```bash copy
 GIGA_MIGRATE_FROM_MEMIAVL=true make docker-cluster-start
@@ -297,10 +289,9 @@ seidb migrate-evm-status --db-dir <flatkv-dir> [--height <n>]
 
 `--db-dir` (short `-d`) points at the FlatKV data directory. `--height` selects
 a target version. The default, `0`, selects the latest available version. The
-emitted JSON includes `migrate_evm_complete` (true after the migration finishes),
+JSON includes `migrate_evm_complete` (true after the migration finishes),
 `migration_version`, `version_at`, and whether an in-flight boundary is still
-present. Before you flip `sc-write-mode` to `evm_migrated`, poll the command
-until `migrate_evm_complete` reports `true` on every validator.
+present.
 
 When the migration finishes, each node also emits a `migration complete` summary
 log line and `seidb_migration_*` OpenTelemetry counters for the migrated keys
@@ -312,6 +303,10 @@ The `seidb import-flatkv-from-memiavl` command populates a FlatKV store from an 
 
 - The import height must equal the latest memIAVL version. The command refuses a lower height, because the composite store's version reconciliation would silently roll memIAVL back and truncate blocks. It also refuses a higher height. First, check the current version with `seidb memiavl-latest-version`. If needed, roll memIAVL back to the target height before you import.
 - Overwriting existing committed FlatKV data requires the explicit `--force` flag.
+
+In the default `auto` write mode, the node does not use a FlatKV store that this
+command creates. The store has no migration metadata, so the node starts in
+`memiavl_only`.
 
 ## FAQ
 
@@ -330,9 +325,8 @@ The `seidb import-flatkv-from-memiavl` command populates a FlatKV store from an 
 
 ### Does Giga SS Store change the app hash or consensus?
 
-No. The SC layer is unchanged, so `memiavl` remains the authoritative source
-for the app hash. Giga SS Store is a per-node SS change that is invisible to
-the network.
+No. Giga SS Store changes only the SS layer, which does not affect the app hash.
+It is a per-node change that is invisible to the network.
 
 ### Can I migrate a validator node with this guide?
 
@@ -368,7 +362,9 @@ In the `localnode` and `rpcnode` configuration scripts, setting
 `RECEIPT_BACKEND` environment variable explicitly. The explicit value takes
 precedence over the default.
 
-`pebbledb` (also called `pebble`) is now the only supported receipt-store
-backend. The former `parquet` option was removed. A `RECEIPT_BACKEND=parquet`
-setting (or `rs-backend = "parquet"` in `app.toml`) is rejected with an error
-(`unsupported receipt-store backend "parquet"; supported: pebbledb`).
+The supported receipt-store backends are `pebbledb` (also called `pebble`) and
+`littidx`. For details on `littidx`, see the
+[node operations guide](/node/node-operators). The former `parquet` option was
+removed. The node rejects an unsupported value for `RECEIPT_BACKEND` (or
+`rs-backend` in `app.toml`) with an error
+(`unsupported receipt-store backend "parquet"; supported: pebbledb, littidx`).

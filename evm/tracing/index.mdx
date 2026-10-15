@@ -436,16 +436,37 @@ These `[evm]` fields in `app.toml` control trace baking:
 | `trace_bake_enabled` | `false` | Enables the background trace-baking worker that caches results at `<home>/data/trace_db`. RPC nodes only. |
 | `trace_bake_workers` | `1` | Number of re-execution worker goroutines. |
 | `trace_bake_queue_size` | `4096` | Bounds the in-flight height queue. When the queue is full, heights are dropped so that consensus never blocks. Dropped blocks fall through to live re-execution. |
-| `trace_bake_tracers` | `["callTracer"]` | Which tracers to bake per block. Eligible values: `callTracer`, `prestateTracer`, `flatCallTracer`. |
+| `trace_bake_tracers` | `["callTracer"]` | Which tracers to bake per block. Eligible values: `callTracer`, `prestateTracer`, `flatCallTracer`. The node checks the names at startup and fails to start if a name is not a native tracer. |
 | `trace_bake_window_blocks` | `0` | Rolling prune window: blocks older than `(latest - window)` are pruned. `0` disables pruning, so the cache grows without limit. |
 | `trace_bake_use_snapshot` | `false` | Uses in-memory memiavl snapshots as the state backend for trace baking when the store backend supports snapshots. |
 | `trace_bake_snapshot_window` | `64` | Number of recent memiavl snapshots to keep for trace baking. |
 
 <Warning>Trace baking adds a persistent on-disk store at `<home>/data/trace_db` and increases disk usage. The node flushes the store's write-ahead log when it shuts down cleanly.</Warning>
 
+## Tracer allowlist
+
+Sei limits which tracers callers can request on `debug_trace*` methods. By default, the node accepts only native geth tracers and rejects JavaScript tracers. Upstream geth accepts JavaScript tracers by default. If a request omits `tracer`, the default struct logger runs.
+
+Operators set the allowlist in the `[evm]` section of `app.toml`:
+
+| Field | Default | Description |
+| ----- | ------- | ----------- |
+| `trace_allowed_tracers` | `["callTracer", "prestateTracer", "flatCallTracer", "4byteTracer", "noopTracer", "muxTracer"]` | Native tracers that callers can request. The node checks the names at startup and fails to start if a name is not a native tracer. Set to `[]` to block all named tracers. |
+| `trace_allow_js_tracers` | `false` | Allows JavaScript tracer code in requests. This code runs inside the node, so keep this setting off on public RPC nodes. It does not add tracers to `trace_allowed_tracers`. |
+
+When a request uses `muxTracer`, the node checks the nested tracers against the same allowlist, up to 16 levels deep.
+
+## Struct-logger output cap
+
+The default struct logger can produce large output for transactions that read many storage slots. `max_trace_struct_log_bytes` in the `[evm]` section of `app.toml` limits the output that the node keeps for each traced transaction. The default is 32 MiB (`33554432`). Set it to `0` to remove the limit, as in upstream geth.
+
+- The limit applies to each transaction, not to each RPC call. A `debug_traceBlock*` call over N transactions can keep up to N times this value.
+- If a request sets a larger `Limit`, the node lowers it to `max_trace_struct_log_bytes`. A smaller `Limit` stays as it is.
+- Requests that set a tracer, such as `callTracer` or a JavaScript tracer, do not have this limit.
+
 ## Removed legacy trace filters
 
-<Note>The legacy `*ExcludeTraceFail` endpoints have been removed. For block tracing, use `debug_traceBlockByNumber` or `debug_traceBlockByHash`. For EVM receipts, use `eth_getTransactionReceipt`. There is no block or filter method to discover synthetic logs from Cosmos-originated transactions. If you already know a synthetic transaction hash, enable `sei_getTransactionReceipt` to get its receipt and logs.</Note>
+<Note>The legacy `*ExcludeTraceFail` endpoints have been removed. For block tracing, use `debug_traceBlockByNumber` or `debug_traceBlockByHash`. For EVM receipts, use `eth_getTransactionReceipt`. No RPC method returns receipts or logs for synthetic transactions from Cosmos-originated messages.</Note>
 
 ## Next steps
 

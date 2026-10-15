@@ -36,6 +36,18 @@ seid tendermint show-validator
 seid query node info
 ```
 
+#### Experimental config manager (`SEI_CONFIG_MANAGER`)
+
+The experimental `SEI_CONFIG_MANAGER` environment variable selects how `seid` loads its configuration. The value must match exactly.
+
+- Unset or `legacy`: the default config loader.
+- `v2`: boots the node the same way as `legacy`, from the same `config.toml` and `app.toml`, and also logs config validation warnings. It never changes your files, and the node always starts. `v2` does not validate a new node on its first start, because its config files do not exist yet.
+- Any other value: `seid` refuses to start with an `invalid SEI_CONFIG_MANAGER` error.
+
+```bash
+SEI_CONFIG_MANAGER=v2 seid start
+```
+
 #### Freeze mode (`--freeze-height`)
 
 As of v6.6.3, you can put a full node into read-only freeze mode at a specified block height. Use the `--freeze-height` start flag or the corresponding `freeze-height` field in `app.toml`. Freeze mode exists for historical RPC nodes. A node frozen at an upgrade height keeps running the pre-upgrade binary and keeps serving the state that binary produced. It does not shut down at the boundary or execute the upgrade block with code that no longer matches that state.
@@ -178,15 +190,19 @@ seidb evm-logical-digest --backend memiavl \
     --memiavl-normalization translator
 ```
 
-Two backends match when the FlatKV `FINAL_DIGEST` equals the memIAVL `FINAL_DIGEST`. FlatKV also writes an internal migration-version marker row, which a memiavl-only node never owns. The command automatically omits that row from the final comparison.
+Two backends match when the FlatKV `FINAL_DIGEST` equals the memIAVL `FINAL_DIGEST`. FlatKV can also hold two internal rows that a memiavl-only node never has: the migration-version marker and, during a migration, the migration boundary cursor. The command omits both rows from the final comparison.
 
 The command accepts these flags:
 
-- `--backend`: The backend to read (`flatkv` or `memiavl`).
-- `--db-dir` (`-d`): For FlatKV, the FlatKV data directory. For memIAVL, the memIAVL root directory that contains `current/` and `snapshot-*`.
+- `--backend`: The backend to read: `flatkv`, `memiavl`, or `composite`. Use `composite` on a node in the middle of the migration. It digests the union of the FlatKV and memIAVL rows, so you can compare the node with a memiavl-only node at the same height.
+- `--db-dir` (`-d`): For FlatKV, the FlatKV data directory. For memIAVL, the memIAVL root directory that contains `current/` and `snapshot-*`. Required unless you use `composite`.
+- `--flatkv-dir` and `--memiavl-dir`: The two data directories for `--backend composite`. You must set both in that mode.
 - `--height`: The target version. FlatKV WAL-replays to it, and memIAVL resolves `snapshot-<height>/evm` (`0` selects the `current` symlink).
+- `--memiavl-open-mode`: How the command reads memIAVL. `snapshot` (the default) scans the snapshot file at `--height`. It is the fastest mode, but it needs a snapshot at that height, or `--height 0`. `changelog` reads the nearest snapshot at or below `--height` and adds the changelog's EVM writes up to `--height`. `replay` opens the database, replays the changelog to `--height`, and walks the tree. It is about 10 times slower than `snapshot`. `changelog` and `replay` return the same rows. Use one of them when no snapshot exists at `--height`.
 - `--memiavl-normalization`: The memIAVL normalization mode. Use `semantic` or `independent` for the raw EVM key-value decoder, or `translator` for the current migration mapping. The default is `semantic`.
-- `--inspect-bucket`: Inspect one normalized bucket (`account`, `code`, `storage`, or `legacy`) instead of printing the global digest.
+- `--json`: Print the digest or inspect report as one JSON object on stdout, and the progress messages on stderr.
+- `--inspect-bucket`: Inspect one normalized bucket (`account`, `code`, `storage`, or `misc`), not the global digest. Inspect mode with `--memiavl-normalization translator`, or with `--details` on the `storage` bucket, requires `--memiavl-open-mode snapshot`.
+- `--inspect-plan` (inspect mode): A JSON file that lists several inspect reports to produce from one scan. It replaces the single-report inspect flags.
 - `--key-offset` (inspect mode): The byte offset into the physical key, applied before `--key-prefix` or sharding.
 - `--key-prefix` (inspect mode): A hex prefix, relative to `--key-offset`, that filters physical keys.
 - `--shard-next-bytes` (inspect mode): Group matching keys by this many bytes after `--key-prefix`.
@@ -194,6 +210,61 @@ The command accepts these flags:
 - `--list-limit` (inspect mode): The maximum number of pairs to print with `--list` (default `1000`). A value `<= 0` means unlimited.
 - `--details` (inspect list mode): Include backend-specific version metadata.
 - `--find-hash`: An optional 32-byte hex per-entry hash to search for. When two `bucket_digest` values differ by exactly one entry, their XOR is the hash of that entry. This flag prints every matching entry, so you can locate a single diverging row.
+
+#### Dumping FlatKV state and verifying its lattice hash
+
+`dump-flatkv` writes every physical key-value pair of a FlatKV store to one file per bucket. The format matches `dump-iavl`, so the same diff tools work on both. The command can also compute the lattice hash (LtHash) of each bucket and of the whole store. Then it compares the total with the committed value in the snapshot metadata.
+
+The command reads from a temporary read-only copy of the store, so you can run it against a live node. `--read-limit-mb` limits its disk reads, so it does not slow the node down.
+
+```bash
+# Latest version, all buckets, default 64 MiB/s read limit, LtHash check.
+seidb dump-flatkv -d $HOME/.sei/data/state_commit/flatkv -o /tmp/flatkv-dump
+
+# A specific height.
+seidb dump-flatkv -d $HOME/.sei/data/state_commit/flatkv -o /tmp/flatkv-dump \
+    --height 216890000
+
+# Idle disk: no read limit and no LtHash.
+seidb dump-flatkv -d $HOME/.sei/data/state_commit/flatkv -o /tmp/flatkv-dump \
+    --read-limit-mb 0 --lthash=false
+
+# Check the LtHash only, without writing dump files.
+seidb dump-flatkv -d $HOME/.sei/data/state_commit/flatkv --lthash-only
+```
+
+The command accepts these flags:
+
+- `--db-dir` (`-d`): The FlatKV data directory, which contains `current/`, `snapshot-*`, and `changelog/`. Required.
+- `--output-dir` (`-o`): The directory for the dump files, one file per bucket. Required unless you set `--lthash-only`.
+- `--height`: The target version. The default, `0`, selects the latest version.
+- `--bucket` (`-b`): Write only one bucket: `account`, `code`, `storage`, or `misc`. The command still scans every bucket, so the LtHash total stays valid.
+- `--lthash`: Compute the LtHash and check it against the snapshot metadata. The default is `true`.
+- `--lthash-only`: Check the LtHash, but do not write dump files. It requires `--lthash=true`. Do not use it with `--bucket`.
+- `--read-limit-mb`: The maximum read speed in MiB/s. The default is `64`, and `0` turns the limit off. Raise it only for offline runs.
+
+With `--lthash`, the output lists the count and checksum of each bucket, the `TOTAL`, and a `PASS` or `FAIL` line. On a mismatch, the command prints `TOTAL FAIL` and stops with an error. The command skips the check when the snapshot has no committed LtHash to compare with.
+
+#### Inspecting hash log archives
+
+The `seidb hashlog` commands read the archives that the [per-block hash logger](/node/advanced-config-monitoring#per-block-hash-logger) writes. They do not change the archives.
+
+`get-block` prints every hash recorded for one block. If the node executed the block more than once, for example after a rollback, the command prints each execution separately. A hash type that was not recorded for the block prints as `<none>`, or as `null` in JSON.
+
+```bash
+seidb hashlog get-block <archive> <block> [--json]
+```
+
+`compare` lists the blocks whose hashes differ between two archives, which shows where two nodes diverged. If the archives match over the compared range, the command reports that.
+
+```bash
+seidb hashlog compare <archive-a> <archive-b> [--low <N> --high <M>] [--max-diffs <N>] [--full] [--json]
+```
+
+- `--low` and `--high`: Compare only this block range (inclusive). Set both or neither.
+- `--max-diffs`: The maximum number of blocks with differences to report. The default, `-1`, reports all of them. If the output stops at the limit, the command warns that more blocks can have differences.
+- `--full`: Show every column for each block with differences. By default, the command shows only the columns that differ. Use `--full` when the archives hold a different number of records for a block.
+- `--json`: Print JSON instead of text.
 
 ### Autobahn (GigaRouter) config generation
 
@@ -206,14 +277,33 @@ seid tendermint gen-autobahn-config [node-dirs...] --output <path>
 # The --output flag may be abbreviated as -o
 seid tendermint gen-autobahn-config ./node0 ./node1 ./node2 -o autobahn.json
 
-# Choose where autobahn consensus and data WALs are persisted (default: data/autobahn)
+# Choose where autobahn consensus state and BlockDB are persisted (default: data/autobahn)
 seid tendermint gen-autobahn-config ./node0 ./node1 --output autobahn.json --persistent-state-dir data/autobahn
 
-# Pass an empty value to disable persistence and run in-memory only
+# Pass an empty value to disable persistence and run in-memory only (memblock)
 seid tendermint gen-autobahn-config ./node0 ./node1 --output autobahn.json --persistent-state-dir=
+
+# Tune BlockDB retention and GC
+seid tendermint gen-autobahn-config ./node0 ./node1 --output autobahn.json --blockdb-retention 30s --blockdb-gc-period 10s
 ```
 
-The `--persistent-state-dir` flag controls where Autobahn persists its consensus and data write-ahead logs (WALs) across restarts. The default is `data/autobahn`, so persistence is enabled by default without any operator action. The consensus and data layers write to distinct subdirectories under this shared on-disk root. At config load time, a relative path is resolved against the node's `--home` directory, and an absolute path is used as is. An empty value (`--persistent-state-dir=`) disables persistence entirely, and both the consensus and data layers run in memory only. When set, the flag populates the `PersistentStateDir` field in the generated config.
+The `--persistent-state-dir` flag controls where Autobahn persists its consensus state and BlockDB across restarts. The default is `data/autobahn`, so persistence is on by default. The node resolves a relative path against its `--home` directory. An empty value (`--persistent-state-dir=`) turns persistence off, and Autobahn keeps everything in memory. If you set the flag, it fills the `PersistentStateDir` field in the generated config.
+
+Autobahn stores blocks and commit quorum certificates in a LittDB-based BlockDB under `<persistent_state_dir>/blockdb`. Since v6.7.0, it no longer reads the old `globalblocks/` and `fullcommitqcs/` write-ahead log directories.
+
+Two more flags tune the BlockDB. The command writes their values to the `block_db` section of `autobahn.json`:
+
+- `--blockdb-retention`: The minimum age before the BlockDB can delete pruned records. The default is `30s`, because this command targets local and Docker clusters. Pass an empty value (`--blockdb-retention=`) to omit the field and use the BlockDB default of 1 hour.
+- `--blockdb-gc-period`: How often the BlockDB runs garbage collection, for example `10s`. If you omit it, the BlockDB default applies.
+
+```json
+"block_db": {
+  "retention": "30s",
+  "gc_period": "10s"
+}
+```
+
+Both fields are optional. If you set a field, its value must be greater than zero. Autobahn ignores `block_db` when persistence is off.
 
 The command reads these files from each node directory:
 
@@ -262,6 +352,14 @@ Any message whose fields exceed these limits is rejected at decode time, so an o
 <Note>
   Giga replaces the CometBFT mempool, so Giga does not support the `unsafe_flush_mempool` RPC endpoint. The endpoint returns `unsafe_flush_mempool is not supported with autobahn mempool`.
 </Note>
+
+#### HashVault app-hash equivocation guard
+
+Under Autobahn, validators and fullnodes run HashVault by default. HashVault records the app hash of each finalized height before the node commits the state. If the node later tries to commit a different app hash for the same height, HashVault halts the node. Without HashVault, a validator can commit two different app hashes for one height. This can cause slashing.
+
+HashVault stores the hashes in a Pebble database at `<PersistentStateDir>/hashvault`. When Autobahn runs in memory only, HashVault gives no protection and logs an error at startup.
+
+If HashVault halts a node, follow [HashVault app-hash equivocation panic](/node/troubleshooting#hashvault-app-hash-equivocation-panic) before you restart it. As a last resort, the top-level `hash-vault-disabled-unsafe` key in `config.toml` turns HashVault off. Keep the default, `false`.
 
 ### Key management
 
@@ -342,9 +440,38 @@ ss-enable = true
 ss-backend = "pebbledb"
 ss-keep-recent = 100000
 ss-prune-interval = 600
+
+# gRPC server configuration
+[grpc]
+enable = true
+address = "0.0.0.0:9090"
+# Maximum message size, in bytes, that the server accepts. Default 4 MiB.
+max-recv-msg-size = 4194304
+# Maximum number of simultaneous open connections. 0 means unlimited.
+max-open-connections = 1000
+# Duration after which an idle connection is closed. 0 means infinity.
+max-connection-idle = "5m0s"
+# Maximum duration a connection may exist before it is closed. 0 means infinity.
+max-connection-age = "0s"
+# Extra time after max-connection-age before the server closes the connection.
+# 0 means infinity.
+max-connection-age-grace = "0s"
+# Interval after which, with no activity, the server pings the client for liveness.
+keepalive-time = "2h0m0s"
+# Duration the server waits for a keepalive ping ack before closing the connection.
+keepalive-timeout = "20s"
+# Minimum interval between client keepalive pings.
+# The server penalizes clients that ping more often.
+keepalive-min-time = "5m0s"
+# Whether the server allows keepalive pings even when there are no active streams.
+keepalive-permit-without-stream = false
 ```
 
 </Accordion>
+
+<Note>
+  If an older `app.toml` does not have these `[grpc]` keys, the node uses the defaults shown above, not unlimited values. A negative keepalive or connection-age duration falls back to its default.
+</Note>
 
 ### Config.toml parameters
 
@@ -390,6 +517,15 @@ max-open-connections = 900
 # greater than 0 it is applied as a context timeout on the request, so a
 # BroadcastTxCommit call will be cancelled if it does not complete within this duration.
 timeout-broadcast-tx-commit = "10s"
+# Maximum number of results returned by tx_search and block_search.
+# Set to 0 to disable the cap (not recommended on public nodes).
+max-tx-search-results = 10000
+# Maximum number of KV index entries that all running tx_search and
+# block_search requests may scan at once. The budget is shared by both
+# indexers. When it runs out, searches fail with "kv indexer scan budget
+# exceeded; narrow the query or retry later". Set to 0 to disable the cap
+# (not recommended on public nodes).
+max-search-scan-budget = 100000
 
 # Mempool Configuration
 [mempool]
@@ -458,6 +594,18 @@ Oracle Parameters:
 <Info>
   These values reflect the current on-chain parameters. For the source of truth, query them directly with `seid query staking params` and `seid query slashing params`. Per-validator settings (for example, commission rate and commission max change rate) are configured per validator and are not chain-level parameters.
 </Info>
+
+## Build tags
+
+The `historical_replay` build tag makes a `seid` binary to replay old blocks. This binary accepts transaction bodies with non-canonical encoding. Normal binaries reject these bodies. The replay binary can therefore execute blocks from before that check existed.
+
+```bash
+make install BUILD_TAGS=historical_replay
+```
+
+<Warning>
+A `historical_replay` binary is not safe for consensus. Do not use it to validate, produce blocks, or serve live traffic. Normal builds do not include the lenient decoder.
+</Warning>
 
 ## File locations
 

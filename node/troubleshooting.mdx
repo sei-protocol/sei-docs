@@ -111,18 +111,21 @@ systemctl restart seid
 
 <Note>Nodes created before the storage layout change keep the FlatKV store at the legacy path `$HOME/.sei/data/flatkv` instead of `$HOME/.sei/data/state_commit/flatkv`. Pass whichever directory exists on your node to `--db-dir`.</Note>
 
-The `dump-flatkv` command accepts these flags:
-
-- `--db-dir` (`-d`): The FlatKV database directory.
-- `--output-dir` (`-o`): The output directory, with one file for each bucket.
-- `--height`: The FlatKV target version. The default, `0`, selects the latest available version.
-- `--bucket` (`-b`): Restrict the dump to a single bucket (`account`, `code`, `storage`, or `legacy`). The default is all buckets.
+`dump-flatkv` reads from a temporary copy of the store, so you can also run it against a live node. For all flags, see [Dumping FlatKV state](/node/technical-reference#dumping-flatkv-state-and-verifying-its-lattice-hash) in the technical reference.
 
 For example, to dump only the `storage` bucket at a specific version:
 
 ```bash
 seidb dump-flatkv --db-dir $HOME/.sei/data/state_commit/flatkv --output-dir /home/ubuntu/flatkv-dump --height 12345678 --bucket storage
 ```
+
+To check only the FlatKV lattice hash against the snapshot metadata, with no dump files:
+
+```bash
+seidb dump-flatkv --db-dir $HOME/.sei/data/state_commit/flatkv --lthash-only
+```
+
+If the lattice hash matches, the output shows `result: PASS`. On a mismatch, the command prints `TOTAL FAIL` and stops with an error.
 
 ### Comparing EVM state between memIAVL and FlatKV
 
@@ -140,7 +143,24 @@ seidb evm-logical-digest --backend memiavl \
     --db-dir $HOME/.sei/data/state_commit/memiavl --height 213200000
 ```
 
-Each run prints per-bucket `bucket_digest` values and a single `FINAL_DIGEST` line that covers the `account`, `code`, `storage`, and `legacy` buckets. Compare the `FINAL_DIGEST` lines from both backends at the same height. They should match. FlatKV can contain a FlatKV-only migration-version marker that a memIAVL-only node never owns. The command automatically omits that row from the FlatKV final result, so both results cover the same data.
+The memIAVL digest above needs a snapshot at the target height. If no snapshot exists at that height, add `--memiavl-open-mode changelog`. This mode reads the nearest older snapshot and applies the changelog up to the height. The `replay` mode returns the same rows, but it is about 10 times slower.
+
+```bash
+# memIAVL digest for a height with no on-disk snapshot:
+seidb evm-logical-digest --backend memiavl --memiavl-open-mode changelog \
+    --db-dir $HOME/.sei/data/state_commit/memiavl --height 213205000
+```
+
+On a node in the middle of the migration, EVM state is split between FlatKV and memIAVL. Use `--backend composite` to digest both together, so you can compare the node with a memIAVL-only node at the same height. Pass the two directories with `--flatkv-dir` and `--memiavl-dir` instead of `--db-dir`:
+
+```bash
+# Mid-migration node: digest the flatkv + memiavl union at one height:
+seidb evm-logical-digest --backend composite --memiavl-open-mode changelog \
+    --flatkv-dir $HOME/.sei/data/state_commit/flatkv \
+    --memiavl-dir $HOME/.sei/data/state_commit/memiavl --height 213200000
+```
+
+Each run prints per-bucket `bucket_digest` values and a single `FINAL_DIGEST` line that covers the `account`, `code`, `storage`, and `misc` buckets. Compare the `FINAL_DIGEST` lines from both backends at the same height. If the EVM state is the same, the lines match. The command leaves out FlatKV's internal migration rows, so memIAVL, mid-migration, and migrated nodes all produce comparable digests.
 
 For targeted debugging, the command can also inspect a single normalized bucket instead of printing the global digest. The [seidb tooling section of the technical reference](/node/technical-reference#comparing-evm-state-across-backends) has the full flag reference, including inspect mode, sharding, and `--find-hash`. These examples list the first 50 `account` rows with version metadata, and shard the `storage` bucket under a key prefix by the next 2 bytes:
 
@@ -432,3 +452,41 @@ failed to initialize database: resource temporarily unavailable
 This means that you did not shut down the node properly. In that case, try to shut down or kill the `seid` process directly. If this does not help, restart your machine.
 
 Then try the rollback steps again.
+
+## HashVault app-hash equivocation panic
+
+Under Autobahn, HashVault halts a node that tries to commit a different app hash for a height it already finalized. For background, see [HashVault](/node/technical-reference#hashvault-app-hash-equivocation-guard).
+
+Before the node halts, it logs an error like this:
+
+```text
+Hashvault detected app hash mismatch; node attempted to change its mind. DO NOT RESTART WITHOUT HUMAN INVESTIGATION. ...
+blockHeight=[HEIGHT] existingHex=[...] incomingHex=[...] hashVaultDir=[/path/to/hashvault]
+```
+
+<Warning>
+Do not restart the node before you investigate. A mismatch can mean a real equivocation, for example the same validator key on two machines. If you restart the node or remove the guard, your validator can commit a conflicting hash for a finalized height. This can cause slashing.
+</Warning>
+
+Find out if the mismatch is a real equivocation. A rollback or restore outside the normal process can also leave the app state out of sync with the stored hashes.
+
+### Recovery
+
+Only if you are sure that there is no real equivocation:
+
+1. Stop the node.
+2. Delete the HashVault directory shown as `hashVaultDir` in the log (by default `<PersistentStateDir>/hashvault`).
+3. Restart the node. It starts with an empty hash history.
+
+Deleting the directory removes the protection for the heights it covered.
+
+### Disabling HashVault
+
+If the same panic occurs again on new blocks, and you are sure that the stored hashes are wrong, you can turn off HashVault. Set the top-level `hash-vault-disabled-unsafe` key in `config.toml`:
+
+```toml
+# config.toml (top-level, before any [section] header)
+hash-vault-disabled-unsafe = true
+```
+
+The node then runs without equivocation protection and logs errors at every start. Set the key back to `false` as soon as you fix the problem.

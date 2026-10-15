@@ -106,15 +106,24 @@ ss-backend = "pebbledb"
 ss-keep-recent = 100000
 
 [receipt-store]
-# Storage backend for EVM transaction receipts. pebbledb (aka pebble) is the
-# only supported backend.
+# Storage backend for EVM transaction receipts. Supported backends: pebbledb
+# (aka pebble) and littidx.
 rs-backend = "pebbledb"
 ```
 
 <Note>
-`pebbledb` (also called `pebble`) is the only supported receipt-store backend.
-The setting `rs-backend = "parquet"` (or `RECEIPT_BACKEND=parquet`) is rejected
-with the error `unsupported receipt-store backend "parquet"; supported: pebbledb`.
+The receipt-store backend accepts `pebbledb` (also called `pebble`) and
+`littidx`. The node rejects an unsupported value, such as `rs-backend = "parquet"`
+(or `RECEIPT_BACKEND=parquet`), with the error `unsupported receipt-store
+backend "parquet"; supported: pebbledb, littidx`.
+
+`littidx` stores receipt bodies in LittDB and keeps a PebbleDB tag index. With
+this index, `eth_getLogs` can filter logs without a scan of whole blocks. It uses
+the same `min-retain-blocks` and `prune-interval-seconds` settings as `pebbledb`.
+It flushes receipt bodies every few milliseconds and does not write them through
+a WAL. A hard crash can therefore lose the newest receipt bodies. A read of a
+lost receipt returns not found.
+
 In the localnode and rpcnode configuration scripts, if you enable Giga Storage
 (`GIGA_STORAGE=true`) and `RECEIPT_BACKEND` is not set, the receipt backend
 defaults to `pebble`. The former `receipt-store.tx-index-backend` config field
@@ -1640,10 +1649,10 @@ historical data:
    execution and to compute the per-block app hash. Cosmos modules sit on a
    memory-mapped Merkle tree (`memiavl`) ported from Cronos. EVM state can
    also be routed through **FlatKV**, an EVM-tuned PebbleDB store
-   with per-type sub-databases (`account`, `code`, `storage`, `legacy`,
-   `metadata`). The `sc-write-mode` setting controls the routing, and its
-   default is `memiavl_only`. FlatKV is used only when `sc-write-mode` is set
-   to a migration mode or `flatkv_only`.
+   with per-type sub-databases (`account`, `code`, `storage`, and `misc`).
+   Since v6.7.0, nodes run in the `auto` write mode by default and move EVM
+   state into FlatKV when governance starts the migration. See the
+   [FlatKV EVM SC migration flow](/node/giga-storage-migration#flatkv-evm-sc-migration-flow).
 2. **State Store (SS)**: versioned raw key-value pairs for historical
    queries. It is required for any node that serves RPC. The default backend is
    **PebbleDB**. Do not use RocksDB for new nodes. If you already use RocksDB,
@@ -1677,29 +1686,18 @@ sc-snapshot-min-time-interval = 3600
 # Cap on snapshot write throughput across all trees (MB/s). 0 = unlimited.
 sc-snapshot-write-rate-mbps = 100
 
-# EVM data routing between the Cosmos memiavl tree and FlatKV.
-# Default: memiavl_only — all EVM state lives in memiavl. Valid values:
-# memiavl_only, migrate_evm, evm_migrated, migrate_all_but_bank,
-# all_migrated_but_bank, migrate_bank, flatkv_only, test_only_dual_write.
-# Note: sc-read-mode and sc-enable-lattice-hash, which appeared in earlier
-# versions of this page, were never seid config keys; if present in an
-# existing app.toml they are silently ignored and can be removed.
+# The node runs in the auto write mode by default. It checks that sc-write-mode
+# has a valid value, but it does not use the value.
+# To pin a mode, also set sc-write-mode-enable-auto = false. Read the Giga
+# storage migration guide first.
+# sc-read-mode and sc-enable-lattice-hash are not seid config keys. Since
+# v6.7.0, the node also ignores sc-keys-to-migrate-per-block. You can remove
+# these keys.
 sc-write-mode = "memiavl_only"
 
-# How many EVM keys the in-flight migration (sc-write-mode = migrate_evm /
-# migrate_bank / migrate_all_but_bank) drains from memiavl into FlatKV per
-# block. Must be > 0; ignored when not in a migration mode.
-sc-keys-to-migrate-per-block = 1024
-
 [state-commit.flatkv]
-# FlatKV is the EVM-optimized commit store (PebbleDB). With the default
-# sc-write-mode = "memiavl_only" it is not used and these settings have
-# no effect. WAL crash recovery is idempotent, so fsync stays off by
-# default.
-fsync = false
-async-write-buffer = 0
-snapshot-interval = 10000
-snapshot-keep-recent = 2
+# FlatKV uses built-in defaults. The only key in this section that the node
+# applies is enable-read-write-metrics (default false).
 
 [state-store]
 # Historical SS layer. Validators can disable this to save disk; any node
@@ -1723,7 +1721,7 @@ evm-ss-split = false
 evm-ss-separate-dbs = false
 
 [receipt-store]
-# pebbledb is the only supported backend (parquet was removed in v6.6.0).
+# Supported backends: pebbledb (aka pebble) and littidx. parquet was removed in v6.6.0.
 # Receipts are pruned together with blocks according to min-retain-blocks above.
 rs-backend = "pebbledb"
 async-write-buffer = 100
@@ -1803,10 +1801,8 @@ write amplification.
 evm-ss-split = true
 ```
 
-The SC layer has its own, separate migration path (`sc-write-mode` and the
-FlatKV drain). It has different coordination requirements and its own
-warnings. Do not combine the two flips in one restart. Before you change
-`sc-write-mode`, see the
+The SC layer has its own, separate migration path, which governance controls.
+Before you change `sc-write-mode` or `sc-write-mode-enable-auto`, see the
 [FlatKV EVM SC migration flow](/node/giga-storage-migration#flatkv-evm-sc-migration-flow).
 
 Enabling Giga Storage requires a fresh state sync. If you flip `evm-ss-split`

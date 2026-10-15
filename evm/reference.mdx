@@ -15,7 +15,7 @@ Sei fully supports the standard Ethereum JSON-RPC API, so existing EVM tools (et
 By default, the explorer lists only the current methods that are available. Each method has one of three status labels:
 
 - **Supported**: The method is registered and has a full implementation with standard Ethereum behavior.
-- **Limited**: The method is callable, but it returns a static value or has a Sei-specific caveat (shown in the method's **Sei-specific behavior** note). For example, `eth_coinbase` returns the fee-collector address, and `eth_getProof` returns an IAVL proof.
+- **Limited**: The method is callable, but it returns a static value or has a Sei-specific caveat (shown in the method's **Sei-specific behavior** note). For example, `eth_coinbase` returns the fee-collector address.
 - **Unavailable**: The method is not registered, returns an explicit error, or does not apply to Sei's architecture. This includes blob methods (`eth_blobBaseFee`), proof-of-work and uncle methods, and the `admin`, `miner`, `clique`, `engine`, `les`, and `personal` namespaces.
 
 By default, the explorer hides the remaining deprecated `sei_*` extensions and the unavailable methods. To browse them, enable **Show deprecated & unavailable methods**. The deprecated extensions are also documented under [Sei custom endpoints](#sei-custom-endpoints).
@@ -23,7 +23,7 @@ By default, the explorer hides the remaining deprecated `sei_*` extensions and t
 
 ## Overview
 
-Sei supports the [Ethereum JSON-RPC API](https://ethereum.org/en/developers/docs/apis/json-rpc/). It also has some Sei-specific extensions for cross-VM operations, synthetic transactions, and other advanced features. Because Sei has [instant finality](/evm/differences-with-ethereum#finality), the `safe`, `finalized`, and `latest` block tags all resolve to the same (latest committed) block.
+Sei supports the [Ethereum JSON-RPC API](https://ethereum.org/en/developers/docs/apis/json-rpc/). It also has a few deprecated Sei-specific extensions for address resolution and cross-VM lookups. Because Sei has [instant finality](/evm/differences-with-ethereum#finality), the `safe`, `finalized`, and `latest` block tags all resolve to the same (latest committed) block.
 
 All endpoints follow the standard JSON-RPC format:
 
@@ -108,10 +108,13 @@ Because `FinalizeBlock` responses are not stored on disk under Autobahn, `/block
 ### Filter and subscription limits
 
 <Info>
-By default, log filters (`eth_getLogs`, `eth_getFilterLogs`) have these limits:
+By default, log filters (`eth_getLogs`, `eth_getFilterLogs`) have these limits. Operators set them in the `[evm]` section of `app.toml`.
 
-- **Open-ended block range:** up to 10,000 logs in one response
-- **Close-ended block range:** up to 2,000 blocks in one query
+- **Matched logs:** a query can match up to 10,000 logs (`max_log_no_block`), for both bounded and open-ended block ranges.
+- **Log data:** a query can load up to about 64 MiB of matched logs (`max_log_bytes`).
+- **Block range:** a query can span up to 2,000 blocks (`max_blocks_for_log`). This limit also applies to a range that ends at the latest block.
+
+A query over a limit fails with `query matches too many logs`, `query matches too many log bytes`, or `block range too large`. It does not return partial results. Narrow the block range or the filters (address and topics), then try again.
 
 Real-time subscriptions (`eth_subscribe` for `newHeads` and `logs`) are available over WebSocket only. For transport details, see [WebSocket connections](/evm/evm-parity/websocket).
 </Info>
@@ -127,9 +130,13 @@ You can also browse every method below in the interactive explorer above. This s
 
 **Sei-specific behavior:** Decodes the bytes to an ethtypes.Transaction, wraps it in a Cosmos MsgEVMTransaction, and broadcasts it through CometBFT. By default, it uses a CheckTx-level BroadcastTx (that is, `broadcast_tx_sync`), and slow mode uses BroadcastTxCommit. Non-zero CheckTx codes are returned as ABCI errors, not geth mempool errors. Legacy (non-1559) transactions must set gasPrice at or above the governance minimum (currently 50 gwei on Sei Mainnet). Blob (EIP-4844) transactions are not enabled. The method supports per-sender EvmProxy forwarding.
 
-**Under Autobahn (`AutobahnConfigFile` set):** Transaction broadcast routes through Autobahn's producer-backed mempool instead of CometBFT's `TxMempool`. This mempool admits EVM transactions strictly in sequential nonce order for each sender. It rejects a transaction with a bad-nonce error if its nonce does not match the sender's next expected nonce. Senders must therefore submit nonces contiguously.
+**Under Autobahn (`AutobahnConfigFile` set):** The node runs as a validator when the top-level `mode` in `config.toml` is `"validator"`. With any other mode, it runs as a fullnode without a local mempool.
 
-Under Autobahn, the default CheckTx-synchronous broadcast (`broadcast_tx_sync`, the same path named above) blocks while the mempool is full. It returns only after capacity is available. As a result, a default `eth_sendRawTransaction` call can stall for as long as the mempool stays full. The async path (`broadcast_tx_async`) may silently drop the transaction instead. The `unsafe_flush_mempool` Tendermint RPC endpoint is not supported under Autobahn and returns `unsafe_flush_mempool is not supported with autobahn mempool`.
+On a validator, transactions go to Autobahn's producer mempool instead of CometBFT's `TxMempool`. This mempool admits EVM transactions in strict nonce order for each sender. It rejects a transaction with a bad-nonce error if its nonce is not the sender's next expected nonce, so senders must submit nonces without gaps. If another validator owns the sender's EVM shard and is connected, the validator forwards the transaction to that validator instead. The `enable_evm_proxy` field in `autobahn.json` controls this forwarding. Its default is `true`.
+
+On a fullnode, `eth_sendRawTransaction` forwards the transaction to the committee member that owns the sender's EVM shard. For this, every validator in `autobahn.json` must have an `evmrpc` URL. The Tendermint `broadcast_tx_async`, `broadcast_tx_sync`, and `broadcast_tx_commit` methods fail on a fullnode with `autobahn fullnode has no local mempool; broadcast_tx_* must be sent to a validator`. On a fullnode, `eth_getTransactionCount` with the `pending` tag also goes to the shard owner. If the fullnode has no EVM RPC connection to the shard owner, the call returns `0`. `unconfirmed_txs` and `num_unconfirmed_txs` return empty results on a fullnode.
+
+On an Autobahn validator, the default CheckTx-synchronous broadcast (`broadcast_tx_sync`, the same path named above) blocks while the mempool is full. It returns only after capacity is available. As a result, a default `eth_sendRawTransaction` call can stall for as long as the mempool stays full. The async path (`broadcast_tx_async`) can drop the transaction without an error instead. The `unsafe_flush_mempool` Tendermint RPC endpoint is not supported under Autobahn and returns `unsafe_flush_mempool is not supported with autobahn mempool`.
 
 **Parameters:**
 
@@ -537,39 +544,6 @@ If a receipt exists but its block height is above the safe-latest watermark, the
 }
 ```
 
-#### `eth_getProof`
-
-**Limited.** Returns a Merkle proof for an account and the requested storage slots.
-
-**Sei-specific behavior:** Sei stores state in an IAVL-style tree, not an Ethereum Merkle-Patricia trie. The handler unwraps the EVM store through any intervening wrappers (cache, tracing, Giga cache, prefix stores). It continues until it reaches an underlying proof-capable queryable store: classic IAVL, a store/v2 memiavl commitment, or any other proof-capable root. Proofs therefore work across these backends, not only on classic IAVL. If the handler cannot reach a proof-capable queryable store, it returns `cannot find a proof-capable queryable KV store`.
-
-The result is a Sei-specific ProofResult&#123;address, hexValues, storageProof&#125;. Its storageProof entries are CometBFT/IAVL crypto.ProofOps, not eth-style MPT proof nodes. The result has no accountProof, balance, codeHash, nonce, or storageHash field (Sei has no per-account state root). Standard `eth_getProof` verifiers do not work with it.
-
-**Parameters:**
-
-| # | Name | Type | Description |
-| :- | :- | :- | :- |
-| 1 | `address` | DATA, 20 bytes | Account address. |
-| 2 | `storageKeys` | array of DATA, 32 bytes | Storage slot keys to prove (bounded by MaxStorageKeysPerProof). |
-| 3 | `blockNrOrHash` | BLOCKNUMBER or DATA | Block number, tag, or hash. |
-
-**Example request:**
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "method": "eth_getProof",
-  "params": [
-    "0xE30feDd158A2e3b13e9badaeABaFc5516e95e8C7",
-    [
-      "0x0"
-    ],
-    "latest"
-  ]
-}
-```
-
 #### `eth_accounts`
 
 **Limited.** Returns the list of addresses for which the node holds hosted keys.
@@ -959,7 +933,7 @@ Heights with pruned or partial base-fee data are skipped in `baseFeePerGas`, but
 
 **Limited.** Opens a WebSocket-only push subscription for newHeads or logs notifications.
 
-**Sei-specific behavior:** Available over WebSocket only. SubscriptionAPI is not registered on the HTTP server, so over HTTP the method returns rpc.ErrNotificationsUnsupported. Only 'newHeads' and 'logs' are implemented in source. There is no 'newPendingTransactions' subscription, although some client docs imply otherwise. MaxSubscriptionsNewHead caps newHeads subscriptions.
+**Sei-specific behavior:** Available over WebSocket only. SubscriptionAPI is not registered on the HTTP server, so over HTTP the method returns rpc.ErrNotificationsUnsupported. Only 'newHeads' and 'logs' are implemented in source. There is no 'newPendingTransactions' subscription, although some client docs imply otherwise. The node limits concurrent subscriptions across all connections: up to 10,000 `newHeads` subscriptions (`max_subscriptions_new_head`) and up to 1,000 `logs` subscriptions (`max_subscriptions_logs`). When the node reaches a limit, a new subscription fails with `no new subscription can be created`.
 
 **Parameters:**
 
@@ -1030,6 +1004,8 @@ The `filter` object applies only to `logs` subscriptions. For `newHeads`, pass t
 | 3 | `overrides` | object | Optional per-account state overrides (balance, code, nonce, state). |
 | 4 | `blockOverrides` | object | Optional block-context overrides (number, time, coinbase). |
 
+A state override can include up to 100 accounts (`max_state_override_accounts`) and up to 1,000 storage slots per account in `state` or `stateDiff` (`max_state_override_slots`). A larger override fails with a `too many accounts` or `too many slots` error. An operator can set a limit to `0` to turn it off. The same limits apply to `eth_estimateGas`, `eth_estimateGasAfterCalls`, and `debug_traceCall`.
+
 **Example request:**
 
 ```json
@@ -1082,7 +1058,7 @@ The `filter` object applies only to `logs` subscriptions. For `newHeads`, pass t
 
 **Limited.** Estimates gas for a transaction after it applies a sequence of preceding calls to the same simulated state.
 
-**Sei-specific behavior:** This is a non-standard Sei/geth extension (not part of the standard Ethereum JSON-RPC spec). It has the same gas-cap and fail-fast-limiter behavior as `eth_estimateGas`.
+**Sei-specific behavior:** This is a non-standard Sei/geth extension (not part of the standard Ethereum JSON-RPC spec). It has the same gas-cap and fail-fast-limiter behavior as `eth_estimateGas`. A request can include up to 100 calls to apply first (`max_estimate_gas_calls`). A request with more calls fails with a `too many calls` error.
 
 **Parameters:**
 
@@ -1115,7 +1091,7 @@ The `filter` object applies only to `logs` subscriptions. For `newHeads`, pass t
 
 **Supported.** Generates an EIP-2930 access list (and gas used) for a transaction.
 
-**Sei-specific behavior:** Defaults to the pending block tag, as geth does. If a VM error occurs during simulation, the method reports it in the result's 'error' field instead of failing the RPC.
+**Sei-specific behavior:** Defaults to the pending block tag, as geth does. If a VM error occurs during simulation, the method reports it in the result's 'error' field instead of failing the RPC. When the node's request limiter is full, the call fails with `eth_createAccessList rejected due to rate limit: server busy`, like `eth_call` and `eth_estimateGas` do.
 
 **Parameters:**
 
@@ -1159,7 +1135,9 @@ The `filter` object applies only to `logs` subscriptions. For `newHeads`, pass t
 
 **Supported.** Replays a transaction by hash and returns an execution trace from the configured tracer.
 
-**Sei-specific behavior:** Available over HTTP only, because the debug namespace is not registered on the WebSocket server. Supports geth tracers: callTracer, prestateTracer, flatCallTracer, and the struct (opcode) logger. TraceBaker pre-bakes and caches the results of callTracer, prestateTracer, and flatCallTracer. Requires trace-enabled or archive state for the target height.
+**Sei-specific behavior:** Available over HTTP only, because the debug namespace is not registered on the WebSocket server. Supports native geth tracers such as callTracer, prestateTracer, and flatCallTracer, and the struct (opcode) logger. TraceBaker pre-bakes and caches the results of callTracer, prestateTracer, and flatCallTracer. Requires trace-enabled or archive state for the target height.
+
+**Tracer rules.** The node accepts only the native tracers listed in `trace_allowed_tracers`. By default, these are `callTracer`, `prestateTracer`, `flatCallTracer`, `4byteTracer`, `noopTracer`, and `muxTracer`. The node rejects JavaScript tracer code unless the operator sets `trace_allow_js_tracers = true`. If you omit `tracer`, the default struct logger runs. These rules apply to every `debug_trace*` method that accepts a tracer. For details, see [Tracer allowlist](/evm/tracing#tracer-allowlist).
 
 The max block lookback guard (`max_trace_lookback_blocks`) applies. If a request's target block is older than the configured lookback, the request is rejected with an error of the form `block number X is beyond max lookback of Y`. Each such request increments the `evmrpc_historical_debug_trace_attempts_total` metric. This guard applies consistently across all `debug_trace*` endpoints.
 
@@ -1248,7 +1226,7 @@ The max block lookback guard (`max_trace_lookback_blocks`) applies. If a request
 
 **Supported.** Executes and traces a call against a block's state without creating a transaction.
 
-**Sei-specific behavior:** Available over HTTP only. Arbitrary geth tracer names pass through. Tracing on the pending block is not supported. The `max_trace_lookback_blocks` historical guard applies (see `debug_traceTransaction`).
+**Sei-specific behavior:** Available over HTTP only. The tracer must be on the node's allowlist (see the tracer rules under `debug_traceTransaction`). Tracing on the pending block is not supported. The `max_trace_lookback_blocks` historical guard applies (see `debug_traceTransaction`).
 
 **Parameters:**
 
@@ -1282,7 +1260,9 @@ The max block lookback guard (`max_trace_lookback_blocks`) applies. If a request
 
 **Limited.** Sei extension that replays a transaction and returns its app/tendermint/receipt state-access traces.
 
-**Sei-specific behavior:** This Sei-specific extension is not part of the upstream go-ethereum debug namespace. It is available over HTTP only and subject to the availability guards for historical debug traces. The `max_trace_lookback_blocks` historical guard applies (see `debug_traceTransaction`).
+**Sei-specific behavior:** This Sei-specific extension is not part of the upstream go-ethereum debug namespace. It is available over HTTP only and subject to the availability guards for historical debug traces. The `max_trace_lookback_blocks` historical guard applies (see `debug_traceTransaction`). The call fails with `context deadline exceeded` when `trace_timeout` elapses.
+
+Sei keeps at most 4 MiB of key and value data per module in the access log. A module that goes over this limit has `"truncated": true`. Its `reads` and `has` lists then hold only the first accesses, but its `stats` (operation counts and durations) stay complete.
 
 **Parameters:**
 
@@ -1374,15 +1354,15 @@ The response `result` contains a `trace` field (the standard tracer output) and 
 
 ## Sei custom endpoints
 
-Sei keeps four legacy custom endpoints for address resolution, cross-VM transaction lookup, and synthetic receipts.
+Sei keeps three legacy custom endpoints for address resolution and cross-VM transaction lookup.
 
 <Warning>
-For new integrations, use standard `eth_*` and `debug_*` methods. The four remaining `sei_*` methods are deprecated and scheduled for removal.
+For new integrations, use standard `eth_*` and `debug_*` methods. The three remaining `sei_*` methods are deprecated and scheduled for removal.
 
-The `sei2_*` namespace has been removed. Most legacy `sei_*` methods have also been removed, including block, filter, log, signing, association, and transaction lookup methods. The `sei_*` cleanup is tracked in [sei-chain PR #3927](https://github.com/sei-protocol/sei-chain/pull/3927).
+In v6.7.0, Sei removed the `sei2_*` namespace and most legacy `sei_*` methods. The removed methods include `sei_getTransactionReceipt` and the block, filter, log, signing, association, and transaction lookup methods. The `sei_*` cleanup is tracked in [sei-chain PR #3927](https://github.com/sei-protocol/sei-chain/pull/3927).
 </Warning>
 
-<Note>No remaining block or filter method can discover synthetic logs from Cosmos-originated transactions. If you already know a synthetic transaction hash, enable `sei_getTransactionReceipt` to fetch its receipt and logs.</Note>
+<Note>No RPC method returns receipts or logs for synthetic transactions from Cosmos-originated messages. `eth_getTransactionReceipt` returns receipts for EVM transactions only.</Note>
 
 The `enabled_legacy_sei_apis` setting under `[evm]` in `app.toml` controls access. Only methods explicitly listed in this allowlist are available. Disabled methods return a standard JSON-RPC error (code `-32601`, data `"legacy_sei_deprecated"`). Allowed single-object calls pass through unchanged, with an optional `Sei-Legacy-RPC-Deprecation` HTTP response header that signals deprecation.
 
@@ -1400,20 +1380,16 @@ enabled_legacy_sei_apis = [
   "sei_getSeiAddress",
   "sei_getEVMAddress",
   "sei_getCosmosTx",
-
-  # Optional: enable synthetic receipt lookup.
-  # "sei_getTransactionReceipt",
 ]
 ```
 
-Only these four methods are available:
+Only these three methods are available. The node ignores any other name in the list.
 
 | Method | Description |
 | ------ | ----------- |
 | `sei_getSeiAddress` | Returns the Sei address associated with an EVM address. |
 | `sei_getEVMAddress` | Returns the EVM address associated with a Sei address. |
 | `sei_getCosmosTx` | Returns the wrapping Cosmos transaction hash as uppercase hexadecimal without a `0x` prefix. |
-| `sei_getTransactionReceipt` | Returns a receipt, including a synthetic receipt when its transaction hash is known. |
 
 ### Address resolution
 
@@ -1499,7 +1475,7 @@ Returns the wrapping Cosmos transaction hash for a given EVM transaction hash.
 
 ### Legacy deprecation error
 
-If a client calls a remaining `sei_*` method that is not listed in `enabled_legacy_sei_apis`, the node returns:
+If a client calls a remaining `sei_*` method that is not listed in `enabled_legacy_sei_apis`, the node returns the error below. The node returns the same error for removed `sei_*` methods, such as `sei_getTransactionReceipt`. If you add a removed method to `enabled_legacy_sei_apis`, the method stays unavailable.
 
 ```json
 {
@@ -1507,7 +1483,7 @@ If a client calls a remaining `sei_*` method that is not listed in `enabled_lega
   "id": 1,
   "error": {
     "code": -32601,
-    "message": "sei_getTransactionReceipt is not enabled on this node. The sei_* JSON-RPC surface is deprecated, scheduled for removal, and should not be used for new integrations - prefer standard eth_* (and debug_*) methods and official migration guidance. To allow this legacy method, add it to enabled_legacy_sei_apis under [evm] in app.toml.",
+    "message": "sei_getCosmosTx is not enabled on this node. The sei_* JSON-RPC surface is deprecated, scheduled for removal, and should not be used for new integrations - prefer standard eth_* (and debug_*) methods and official migration guidance. To allow this legacy method, add it to enabled_legacy_sei_apis under [evm] in app.toml.",
     "data": "legacy_sei_deprecated"
   }
 }

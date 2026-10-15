@@ -1,0 +1,77 @@
+---
+title: 'Authz Precompile'
+sidebarTitle: 'Authz'
+description: 'Read Cosmos authz grants between accounts from EVM contracts with the Authz precompile.'
+keywords: ['authz precompile', 'authorization grants', 'granter', 'grantee', 'sei evm']
+---
+**Address:** `0x000000000000000000000000000000000000100E`
+
+The Authz precompile reads grants from the Cosmos `authz` module. A grant lets a grantee account send specific messages for a granter account. All methods are `view` functions. The precompile is available since v6.7.0.
+
+## Interface
+
+```solidity Authz.sol
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+address constant AUTHZ_PRECOMPILE_ADDRESS = 0x000000000000000000000000000000000000100e;
+
+IAuthz constant AUTHZ_CONTRACT = IAuthz(AUTHZ_PRECOMPILE_ADDRESS);
+
+interface IAuthz {
+    function grants(
+        address granter,
+        address grantee,
+        string memory msgTypeUrl,
+        bytes memory pageKey
+    ) external view returns (GrantsResponse memory response);
+
+    function granterGrants(
+        address granter,
+        bytes memory pageKey
+    ) external view returns (GrantAuthorizationsResponse memory response);
+
+    function granteeGrants(
+        address grantee,
+        bytes memory pageKey
+    ) external view returns (GrantAuthorizationsResponse memory response);
+
+    struct Grant {
+        bytes authorization;
+        int64 expiration;
+    }
+
+    struct GrantsResponse {
+        Grant[] grants;
+        bytes nextKey;
+    }
+
+    struct GrantAuthorization {
+        string granter;
+        string grantee;
+        bytes authorization;
+        int64 expiration;
+    }
+
+    struct GrantAuthorizationsResponse {
+        GrantAuthorization[] grants;
+        bytes nextKey;
+    }
+}
+```
+
+## Methods
+
+| Method | Returns |
+| --- | --- |
+| `grants(granter, grantee, msgTypeUrl, pageKey)` | The grants from `granter` to `grantee`. Pass an empty `msgTypeUrl` to get grants for every message type. |
+| `granterGrants(granter, pageKey)` | Every grant that `granter` issued. |
+| `granteeGrants(grantee, pageKey)` | Every grant that `grantee` received. |
+
+## Notes
+
+- Every address argument must have an associated Sei address. Otherwise, the call reverts.
+- If you pass a `msgTypeUrl` and no grant matches it, `grants` reverts.
+- `authorization` is the grant's authorization encoded as JSON. It includes an `@type` field that names the authorization type.
+- `expiration` is a Unix timestamp in seconds. In `GrantAuthorization`, `granter` and `grantee` are Sei addresses.
+- For paginated methods, pass empty bytes for the first page, then pass the returned `nextKey`. An empty `nextKey` means there are no more pages.

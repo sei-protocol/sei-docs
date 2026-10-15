@@ -6,13 +6,13 @@ keywords: ['governance precompile', 'ethers.js', 'proposal voting', 'blockchain 
 ---
 **Address:** `0x0000000000000000000000000000000000001006`
 
-The Sei governance precompile lets EVM applications submit proposals, vote, and deposit tokens. The ABI is write-only. Query proposal state through Cosmos REST or RPC, or with a Sei explorer.
+The Sei governance precompile lets EVM applications submit proposals, vote, deposit tokens, and read proposal state.
 
 <Info>**What is a precompile?** A precompile is a special smart contract that the Sei protocol itself deploys at a fixed address. It exposes custom native chain logic to EVM-based applications. To the EVM, it behaves like a regular contract, but it executes privileged, low-level logic efficiently.</Info>
 
 ## How does the governance precompile work?
 
-The governance precompile at address `0x0000000000000000000000000000000000001006` exposes functions such as `vote()`, `voteWeighted()`, `deposit()`, and `submitProposal()`.
+The governance precompile at address `0x0000000000000000000000000000000000001006` exposes transactions such as `vote()`, `voteWeighted()`, `deposit()`, and `submitProposal()`, and queries such as `proposal()` and `tallyResult()`.
 
 - EVM contracts and dApps can call governance functions like any other smart contract method.
 - Governance operations run natively at the chain level, which makes them efficient.
@@ -101,6 +101,113 @@ function submitProposal(
 ) payable external returns (uint64 proposalID);
 ```
 
+### Query functions
+
+Use these read-only methods to read proposal state from a contract. The vote and deposit queries are `getVote` and `getDeposit`, because the transactions already use the names `vote` and `deposit`. Tools such as ethers.js do not handle overloaded function names well.
+
+```solidity
+struct Coin {
+    uint256 amount;
+    string denom;
+}
+
+struct TallyResultData {
+    string yes;
+    string abstain;
+    string no;
+    string noWithVeto;
+}
+
+struct WeightedVoteOptionData {
+    int32 option;
+    string weight; // Weight as decimal string (e.g., "0.7")
+}
+
+struct ProposalData {
+    uint64 id;
+    int32 status; // ProposalStatus enum value
+    TallyResultData finalTallyResult;
+    int64 submitTime; // Unix seconds
+    int64 depositEndTime; // Unix seconds
+    Coin[] totalDeposit;
+    int64 votingStartTime; // Unix seconds
+    int64 votingEndTime; // Unix seconds
+    bool isExpedited;
+    bytes content; // proposal content as JSON
+}
+
+struct VoteData {
+    uint64 proposalId;
+    string voter; // bech32 address
+    WeightedVoteOptionData[] options;
+}
+
+struct DepositData {
+    uint64 proposalId;
+    string depositor; // bech32 address
+    Coin[] amount;
+}
+
+struct GovParams {
+    uint64 votingPeriod; // seconds
+    uint64 expeditedVotingPeriod; // seconds
+    Coin[] minDeposit;
+    uint64 maxDepositPeriod; // seconds
+    Coin[] minExpeditedDeposit;
+    string quorum;
+    string threshold;
+    string vetoThreshold;
+    string expeditedQuorum;
+    string expeditedThreshold;
+}
+
+/// Query a proposal by ID
+function proposal(
+    uint64 proposalID
+) external view returns (ProposalData memory proposal);
+
+/// Query proposals with optional filters. proposalStatus 0 = all; a zero
+/// address for voter/depositor applies no filter.
+function proposals(
+    int32 proposalStatus,
+    address voter,
+    address depositor,
+    bytes memory pageKey
+) external view returns (ProposalData[] memory proposals, bytes memory nextKey);
+
+/// Query a vote cast on a proposal
+function getVote(
+    uint64 proposalID,
+    address voter
+) external view returns (VoteData memory vote);
+
+/// Query all votes cast on a proposal, paginated
+function votes(
+    uint64 proposalID,
+    bytes memory pageKey
+) external view returns (VoteData[] memory votes, bytes memory nextKey);
+
+/// Query the governance module parameters
+function params() external view returns (GovParams memory params);
+
+/// Query a deposit made to a proposal
+function getDeposit(
+    uint64 proposalID,
+    address depositor
+) external view returns (DepositData memory deposit);
+
+/// Query all deposits made to a proposal, paginated
+function deposits(
+    uint64 proposalID,
+    bytes memory pageKey
+) external view returns (DepositData[] memory deposits, bytes memory nextKey);
+
+/// Query the current tally of votes on a proposal
+function tallyResult(
+    uint64 proposalID
+) external view returns (TallyResultData memory tallyResult);
+```
+
 ## Using the contract
 
 ### Setup
@@ -133,7 +240,7 @@ npm install dotenv
 
 ```typescript
 // Import Governance precompile address and ABI
-// View the entire ABI here: https://github.com/sei-protocol/sei-chain/blob/v6.6.1/precompiles/gov/legacy/v66/abi.json
+// View the entire ABI here: https://github.com/sei-protocol/sei-chain/blob/v6.7.1/precompiles/gov/abi.json
 import { GOVERNANCE_PRECOMPILE_ABI, GOVERNANCE_PRECOMPILE_ADDRESS } from '@sei-js/precompiles';
 import { ethers } from 'ethers';
 ```

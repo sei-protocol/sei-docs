@@ -37,7 +37,7 @@ Standard EVM tools (viem, wagmi, ethers, Foundry, and Hardhat) work on Sei for a
 | `eth_getTransactionCount` (nonce) | Supported | |
 | `eth_getCode` | Supported | |
 | `eth_getStorageAt` | Supported with differences | Governance can adjust the SSTORE cost. Do not hard-code gas assumptions. [See Gas and Fees.](/evm/evm-parity/gas-and-fees) |
-| `eth_getProof` | Supported with differences | Returns IAVL proof data, not Ethereum Merkle Patricia Trie proofs. Proof verification logic must account for this. Proofs resolve across the supported store backends (classic IAVL, store/v2 memiavl, and other proof-capable queryable stores). As a result, the method works across a broader range of node configurations. [See State Proofs.](/evm/evm-parity/state-proofs) |
+| `eth_getProof` | Not supported | Since v6.7.0, the method returns JSON-RPC error `-32000`. [See Proof verification.](#proof-verification) |
 
 ## Blocks and finality
 
@@ -52,7 +52,7 @@ Standard EVM tools (viem, wagmi, ethers, Foundry, and Hardhat) work on Sei for a
 
 | Feature | Sei status | Notes |
 | --- | --- | --- |
-| `eth_getLogs` | Supported | |
+| `eth_getLogs` | Supported with differences | A query fails when it matches more than 10,000 logs (`max_log_no_block`) or about 64 MiB of log data (`max_log_bytes`). The query does not return partial results. Narrow the block range or the filters, then try again. [See Filter and subscription limits.](/evm/reference#filter-and-subscription-limits) |
 | Filter lifecycle (`eth_newFilter`, `eth_getFilterChanges`, `eth_getFilterLogs`, `eth_uninstallFilter`) | Supported | |
 | WebSocket subscriptions (`eth_subscribe`) | Supported | [See WebSocket Connections.](/evm/evm-parity/websocket) |
 
@@ -119,16 +119,16 @@ These JSON-RPC methods are not available on Sei or return errors:
 
 | Method | Behavior on Sei |
 | --- | --- |
-| `eth_getBlockByNumber("pending")` | Returns `null` or the latest committed block. Sei does not maintain an Ethereum-style pending block. |
-| `eth_getTransactionCount(address, "pending")` | Returns the same value as `"latest"`. On Sei, the pending nonce is the same as the confirmed nonce. |
-| `eth_newPendingTransactionFilter` | You can create the filter, but it does not reliably emit pending transactions. Use `eth_newBlockFilter` or WebSocket block subscriptions instead. |
-| `eth_subscribe("newPendingTransactions")` | Supported at the RPC level, but Sei does not guarantee Ethereum-style pending transaction visibility. Treat the results as best effort. |
+| `eth_getBlockByNumber("pending")` | Returns the latest committed block. Sei does not maintain an Ethereum-style pending block. |
+| `eth_getTransactionCount(address, "pending")` | Returns the sender's next nonce, including the sender's transactions in the mempool. If the sender has no transactions in the mempool, it returns the same value as `"latest"`. |
+| `eth_newPendingTransactionFilter` | Not supported. The call always returns an error. Use `eth_newBlockFilter` or a `newHeads` subscription instead. |
+| `eth_subscribe("newPendingTransactions")` | Not supported. Sei supports only the `newHeads` and `logs` subscriptions. |
 
 ### Proof verification
 
 | Method | Behavior on Sei |
 | --- | --- |
-| `eth_getProof` | Returns IAVL tree proofs, not Ethereum Merkle Patricia Trie proofs. The method works, but the proof format is not compatible with standard Ethereum MPT verifiers. [See State Proofs.](/evm/evm-parity/state-proofs) |
+| `eth_getProof` | Not supported since v6.7.0. Sei registers the method, but every call returns JSON-RPC error `-32000` with the message `eth_getProof is not supported yet; please reach out to the Sei Labs if you need this endpoint`. |
 
 ### Deprecated / removed opcodes
 
