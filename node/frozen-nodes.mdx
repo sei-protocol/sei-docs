@@ -1,0 +1,316 @@
+---
+title: 'Run frozen nodes for historical queries'
+sidebarTitle: 'Frozen Nodes'
+description: 'Serve history from before a breaking upgrade: run a read-only frozen node on the outgoing seid release and route RPC requests to it by block height.'
+keywords: ['sei node', 'frozen node', 'freeze node', 'freeze mode', 'freeze-height', 'frozen-rpc-router', 'archive node', 'historical queries', 'upgrade height']
+---
+
+A frozen node is a full node that stops one block before an upgrade height. It runs the release that was live before the upgrade and keeps answering read queries for the heights below it. If you serve historical RPC queries, for example as an RPC provider or a block explorer, run one frozen node for each upgrade.
+
+## How freeze mode works
+
+An upgrade can remove modules and stores that earlier heights depend on. After the upgrade, queries for those heights can fail on the new release or give different results. A node that still runs the outgoing release answers them the way the chain did at the time.
+
+Freeze mode runs such a node. You set `freeze-height` to the upgrade height. The node executes every block below that height and stops before the upgrade block. It does not halt or exit at the boundary. It keeps serving queries from the state at `freeze-height - 1`, which is also its latest block.
+
+From startup, freeze mode changes the node like this:
+
+- Query endpoints stay up: the Tendermint RPC, the REST API, gRPC, and the EVM JSON-RPC.
+- Transaction and evidence submission fail with `RPC writes are disabled in freeze mode`. This includes `eth_sendRawTransaction`.
+- Mempool gossip is off.
+- State sync is off. If it is enabled in `config.toml`, the node logs a notice and uses block sync.
+- Block sync and consensus stop before `freeze-height` and do not advance.
+
+Each frozen node covers the heights up to its own upgrade. To serve the full history of a network, run one frozen node for each upgrade, and a live node on the current release for the heights after the last upgrade. Freeze mode first shipped in v6.6.3. The oldest frozen node therefore runs v6.6 and serves every height below the v6.7 upgrade height that its data holds.
+
+## Freeze heights
+
+Set `freeze-height` to the upgrade height. Run the latest patch of the release that the upgrade replaced.
+
+| Network | Upgrade | `freeze-height` | Last height served | Frozen node release |
+| --- | --- | --- | --- | --- |
+| Sei Mainnet (`pacific-1`) | `v6.7` | `236450000` | `236449999` | v6.6.4 |
+| Sei Testnet (`atlantic-2`) | `v6.7` | `273966500` | `273966499` | v6.6.4 |
+
+Your live node serves the heights from the freeze height on.
+
+<Warning>
+  Use v6.6.4 or a later v6.6 patch. On v6.6.3, the EVM RPC servers do not start again after the process restarts, because a frozen node executes no block that would start them.
+</Warning>
+
+To read upgrade heights from the chain, query the upgrade module. The first command returns the height at which `v6.7` was applied on Sei Mainnet. For Sei Testnet, use `https://rest-testnet.sei-apis.com`. The second command returns the name and height of the next scheduled upgrade, or `no upgrade scheduled`.
+
+```bash
+curl -s https://rest.sei-apis.com/cosmos/upgrade/v1beta1/applied_plan/v6.7 | jq -r .height
+# 236450000
+
+seid query upgrade plan
+```
+
+## Before you begin
+
+You need:
+
+- A full node. Freeze mode does not run in validator or seed mode.
+- A copy of a node's data directory that is below the freeze height. The node refuses to start if its application, block store, or state store has reached `freeze-height`.
+- The history that you want to serve. A frozen node serves only what its data directory holds. To serve the full history, copy an [archive node](/node/node-types).
+- Disk space for a full copy of that data. The copy stops growing when it reaches the freeze height.
+- Peers that store the blocks from the copy's height up to the freeze height. The node fetches these blocks with block sync before it freezes. Pruned nodes delete old blocks, so for a copy far below the freeze height, list archive nodes in `persistent-peers` in `config.toml`.
+
+<Danger>
+  Take the copy before the chain reaches the upgrade height. A node saves each block before it executes it, so a node that halted at the upgrade height already holds the upgrade block. With that block in its block store, the node refuses to start with that `freeze-height`. After the chain has passed the upgrade height, you can build a frozen node only from data below that height, such as a backup.
+</Danger>
+
+Both networks are past the v6.7 freeze height. To build a v6.7 frozen node now, start from a backup of an archive node taken below the freeze height, or from a provider's full-history archive snapshot taken below it. Providers refresh their snapshots regularly, so their current snapshots are usually above the freeze height. Check the height of a snapshot before you download it. The first step below explains how to start from a snapshot.
+
+## Set up a frozen node
+
+These steps use the Sei Mainnet values for the v6.7 upgrade. For Sei Testnet, use the values in [Freeze heights](#freeze-heights).
+
+<Steps>
+
+<Step title="Copy the data directory">
+
+Stop `seid` on a node that holds the history you want to serve. Take a volume snapshot of its data disk, or copy its whole home directory, including `data/` and `wasm/`, to the new host. Then start the source node again.
+
+```bash
+sudo systemctl stop seid
+rsync -a --exclude config/priv_validator_key.json $HOME/.sei/ <user>@<frozen-host>:.sei/
+sudo systemctl start seid
+```
+
+The `--exclude` flag keeps the validator signing key on the source host. A frozen node never signs blocks, so it does not need that key. The remote path `.sei/` is relative to the home directory of `<user>`, so connect as the user that runs `seid` on the new host.
+
+On the new host, delete the node key. If you took a volume snapshot, also delete the validator key. `seid` generates new keys when it starts. Two nodes must not share a node key.
+
+```bash
+rm -f $HOME/.sei/config/node_key.json $HOME/.sei/config/priv_validator_key.json
+```
+
+<Note>
+  To start from a provider's archive snapshot instead, take these steps on the new host:
+
+  1. Install the outgoing release, as described in the next step.
+  2. Run `seid init <moniker> --chain-id pacific-1 --mode archive`. It writes the genesis file and a configuration that keeps all history.
+  3. In `config.toml`, set `persistent-peers` to archive nodes that store the blocks from the snapshot height up to the freeze height. Each entry has the form `<node-id>@<host>:26656`, and `seid tendermint show-node-id` prints the node ID on an archive node that you run.
+  4. Restore the snapshot with the [snapshot guide](/node/snapshot), but stop before its restart step.
+
+  Then continue with step 3.
+</Note>
+
+<Warning>
+  Do not start `seid` on the new host before you set the freeze height in step 3. If the copy runs without `freeze-height` and reaches the upgrade height, it stores the upgrade block and can never freeze at that height.
+</Warning>
+
+<Tip>
+  If you run more than one archive node, you can freeze one of them in place instead. Set `freeze-height` on it and restart it before the chain reaches the upgrade height. It keeps its node key.
+</Tip>
+
+</Step>
+
+<Step title="Install the outgoing release">
+
+Install v6.6.4 on the new host. Do not start `seid` yet.
+
+<Tabs>
+  <Tab title="Prebuilt binary">
+    ```bash
+    VERSION=v6.6.4
+    FILE=sei-chain_${VERSION#v}_linux_x86_64.tar.gz
+
+    curl -fLO https://github.com/sei-protocol/sei-chain/releases/download/${VERSION}/${FILE}
+    curl -fLO https://github.com/sei-protocol/sei-chain/releases/download/${VERSION}/checksums.txt
+    sha256sum -c checksums.txt --ignore-missing \
+      && tar -xzf ${FILE} seid \
+      && sudo install -m 0755 seid /usr/local/bin/seid
+    ```
+
+    The v6.6.4 release has a prebuilt binary for Linux x86_64 only.
+  </Tab>
+
+  <Tab title="Build from source">
+    ```bash
+    git clone https://github.com/sei-protocol/sei-chain.git
+    cd sei-chain
+    git checkout v6.6.4
+    make install
+    ```
+
+    Build with the Go version in the release's `go.mod`, which is Go 1.25.6 for v6.6.4.
+  </Tab>
+</Tabs>
+
+Check the version:
+
+```bash
+seid version
+# v6.6.4
+```
+
+Keep this binary on the frozen node. Exclude the node from any process that upgrades the binaries of your other nodes.
+
+</Step>
+
+<Step title="Set the freeze height">
+
+In `$HOME/.sei/config/config.toml`, make sure that the node runs in full mode. `mode` is a top-level key:
+
+```toml
+mode = "full"
+```
+
+In `$HOME/.sei/config/app.toml`, set `freeze-height` to the upgrade height, and set `halt-height` and `halt-time` to `0`. The three keys sit together in the base configuration at the top of the file, before the first `[section]` header:
+
+```toml app.toml
+###############################################################################
+###                           Base Configuration                            ###
+###############################################################################
+
+# minimum-gas-prices and the other base settings above stay as they are.
+
+halt-height = 0
+
+# FreezeHeight contains the first block height a full node must not execute.
+# Query RPC remains available, while transaction and evidence submission,
+# mempool gossip, and state sync are disabled from startup.
+freeze-height = 236450000  # Sei Mainnet v6.7 upgrade height
+
+halt-time = 0
+
+# inter-block-cache and the other base settings below stay as they are.
+
+###############################################################################
+###                        State Sync Configuration                         ###
+###############################################################################
+
+[state-sync]
+```
+
+An `app.toml` from a release before v6.6.3 has no `freeze-height` line. In that case, add the line after `halt-height`.
+
+If you copied an archive node, keep its pruning settings, so that the node keeps every version up to the freeze height. Do not start the node with `--grpc-only`. The node refuses to start when `freeze-height` is combined with `--grpc-only`, `halt-height`, or `halt-time`. It also refuses to start with Autobahn enabled, that is, with a non-empty `autobahn-config-file` in `config.toml`.
+
+</Step>
+
+<Step title="Start the node">
+
+A new host has no `seid` service yet. Create one that runs the v6.6.4 binary directly. Do not run a frozen node through Cosmovisor, which exists to switch binaries at upgrade heights. Run these commands as the user that runs `seid`:
+
+```bash
+sudo tee /etc/systemd/system/seid.service > /dev/null << EOF
+[Unit]
+Description=Sei frozen node
+After=network-online.target
+
+[Service]
+User=$USER
+ExecStart=$(which seid) start
+Restart=always
+RestartSec=3
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable seid
+```
+
+`$(which seid)` writes the full path of the binary that you checked in step 2 into `ExecStart`. If the host already has a `seid` service, run `systemctl cat seid` and check that its `ExecStart` runs that binary.
+
+Start `seid` and follow the log:
+
+```bash
+sudo systemctl start seid
+sudo journalctl -fu seid
+```
+
+The log shows `Freeze mode enabled` at startup. The node then syncs to height `236449999`. When it reaches that height, it logs `Block sync stopped before configured freeze height` or `Consensus frozen before configured height`, and it keeps serving queries.
+
+If the node exits with `<source> height <n> has already reached freeze height <h>`, its data is at or above the freeze height. Start again from a copy that is below it.
+
+</Step>
+
+<Step title="Verify the frozen node">
+
+Check that the Tendermint RPC and the EVM RPC both report a latest block one below the freeze height:
+
+```bash
+curl -s http://localhost:26657/status | jq -r .sync_info.latest_block_height
+# 236449999
+
+curl -s -X POST http://localhost:8545 -H 'Content-Type: application/json' \
+  --data '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber","params":[]}'
+# {"jsonrpc":"2.0","id":1,"result":"0xe17f0cf"}
+```
+
+Restart the node once, and run the EVM check again. This confirms that the EVM RPC comes back after a restart.
+
+If you scrape the node's Prometheus metrics, `sei_chain_app_build_info` shows the running release in its `seid_version` and `commit` labels. Alert when either label changes.
+
+</Step>
+
+<Step title="Back up the frozen node">
+
+After the node reaches the freeze height boundary, back up its data directory, for example with a volume snapshot. The node executes no more blocks, so the backup stays valid. Keep it, because after the chain has passed the freeze height, you can rebuild this node only from data below that height.
+
+</Step>
+
+</Steps>
+
+## Route queries by block height
+
+Clients usually connect to one endpoint. The `frozen-rpc-router` binary gives them one for EVM JSON-RPC over HTTP. It reads the block height in each request and sends the request to the matching frozen node or to the live node.
+
+The router is a separate binary in the `sei-chain` repository, and `make install` does not install it. Build it from v6.6.3 or a later release tag:
+
+```bash
+git clone https://github.com/sei-protocol/sei-chain.git
+cd sei-chain
+git checkout <release-tag>
+make build-frozen-rpc-router
+```
+
+Pass the live node with `--live-node`, and pass each frozen node with a `--frozen-node <freeze-height>=<address>` flag. In this Sei Mainnet example, the router runs on the live node's host. Move the live node's EVM HTTP port to `9545` with `http_port` under `[evm]` in `app.toml`, so that the router can listen on `8545`. The frozen node runs on its own host.
+
+```bash
+./build/frozen-rpc-router \
+  --listen-address 127.0.0.1:8545 \
+  --live-node localhost:9545 \
+  --frozen-node 236450000=10.0.0.12:8545
+```
+
+Each freeze height is an exclusive boundary. The router sends heights up to `236449999` to the frozen node, and it sends `236450000` and later to the live node. When you add a frozen node for a later upgrade, add one more `--frozen-node` flag. Each frozen node then serves the heights from the previous freeze height up to its own.
+
+The `Sei-RPC-Route` response header shows which backend answered:
+
+```bash
+curl -s -o /dev/null -D - -X POST http://127.0.0.1:8545 \
+  -H 'Content-Type: application/json' \
+  --data '{"jsonrpc":"2.0","id":1,"method":"eth_getBlockByNumber","params":["0xe17f0cf",false]}' \
+  | grep -i sei-rpc-route
+# Sei-Rpc-Route: frozen:236450000
+```
+
+A request for `latest` returns `live`. A batch that the router splits across backends returns `mixed`.
+
+Plan around these limits:
+
+- The router handles only EVM JSON-RPC over HTTP. For the Tendermint RPC, the REST API, or gRPC at old heights, query the frozen node directly.
+- Requests without a block number go to the live node. This includes lookups by block or transaction hash, such as `eth_getTransactionReceipt`.
+- WebSocket clients must connect to the live node directly.
+- An `eth_getLogs` or `eth_feeHistory` range must stay within one interval. A range that crosses a freeze height fails with JSON-RPC error `-32000`.
+- The router has no authentication. Bind it to `127.0.0.1`, or put it behind a firewall or reverse proxy.
+
+For every flag and routing rule, see [Frozen RPC router](/node/technical-reference#frozen-rpc-router) in the technical reference.
+
+## Prepare for each upgrade
+
+Each upgrade adds one frozen node:
+
+1. When an upgrade proposal passes, read its height with `seid query upgrade plan`.
+2. Before the chain reaches that height, set up a frozen node on the latest patch of the current release, with `freeze-height` set to the upgrade height.
+3. After the new frozen node reaches its boundary, back it up and add it to the router with one more `--frozen-node` flag.
+
+Never upgrade a frozen node to the release that its freeze height introduces, and never change its `freeze-height`. You can install a later patch of the same release line, for example v6.6.4 over v6.6.3. Keep each frozen node for as long as you serve queries for its heights.

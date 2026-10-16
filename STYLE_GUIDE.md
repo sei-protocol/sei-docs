@@ -89,7 +89,7 @@ The Operate section covers topics related to running Sei infrastructure. This is
 **Contents include:**
 
 - **Node Operations**: Overview, Seictl setup, statesync, snapshot sync, node types, troubleshooting, API configuration, validators, oracle price feeder
-- **Advanced Operations**: Configuration & monitoring, Giga SS Store migration, technical reference
+- **Advanced Operations**: Configuration & monitoring, Giga SS Store migration, frozen nodes, technical reference
 
 ## Style Guidelines
 
