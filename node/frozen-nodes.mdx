@@ -61,7 +61,7 @@ You need:
   Take the copy before the chain reaches the upgrade height. A node saves each block before it executes it, so a node that halted at the upgrade height already holds the upgrade block. With that block in its block store, the node refuses to start with that `freeze-height`. After the chain has passed the upgrade height, you can build a frozen node only from data below that height, such as a backup.
 </Danger>
 
-Both networks are past the v6.7 freeze height. To build a v6.7 frozen node now, start from a backup of an archive node taken below the freeze height, or from a provider's full-history archive snapshot taken below it. The [snapshot guide](/node/snapshot) explains how to restore one.
+Both networks are past the v6.7 freeze height. To build a v6.7 frozen node now, start from a backup of an archive node taken below the freeze height, or from a provider's full-history archive snapshot taken below it. Providers refresh their snapshots regularly, so their current snapshots are usually above the freeze height. Check the height of a snapshot before you download it. The first step below explains how to start from a snapshot.
 
 ## Set up a frozen node
 
@@ -75,15 +75,21 @@ Stop `seid` on a node that holds the history you want to serve. Take a volume sn
 
 ```bash
 sudo systemctl stop seid
-rsync -a $HOME/.sei/ <user>@<frozen-host>:.sei/
+rsync -a --exclude config/priv_validator_key.json $HOME/.sei/ <user>@<frozen-host>:.sei/
 sudo systemctl start seid
 ```
 
-On the new host, delete the node key. `seid` generates a new one when it starts. Two nodes must not share a node key.
+The `--exclude` flag keeps the validator signing key on the source host. A frozen node never signs blocks, so it does not need that key. The remote path `.sei/` is relative to the home directory of `<user>`, so connect as the user that runs `seid` on the new host.
+
+On the new host, delete the node key. If you took a volume snapshot, also delete the validator key. `seid` generates new keys when it starts. Two nodes must not share a node key.
 
 ```bash
-rm $HOME/.sei/config/node_key.json
+rm -f $HOME/.sei/config/node_key.json $HOME/.sei/config/priv_validator_key.json
 ```
+
+<Note>
+  To start from a provider's archive snapshot instead, install the outgoing release first, as described in the next step. Then run `seid init <moniker> --chain-id pacific-1` on the new host, which writes the configuration files and the genesis file. For full history, set the archive settings from [Node types](/node/node-types). Restore the snapshot with the [snapshot guide](/node/snapshot), but stop before its restart step. Then continue with step 3.
+</Note>
 
 <Warning>
   Do not start `seid` on the new host before you set the freeze height in step 3. If the copy runs without `freeze-height` and reaches the upgrade height, it stores the upgrade block and can never freeze at that height.
@@ -175,7 +181,7 @@ halt-time = 0
 
 An `app.toml` from a release before v6.6.3 has no `freeze-height` line. In that case, add the line after `halt-height`.
 
-If you copied an archive node, keep its pruning settings, so that the node keeps every version up to the freeze height. Do not start the node with `--grpc-only`. The node refuses to start when `freeze-height` is combined with `--grpc-only`, `halt-height`, or `halt-time`.
+If you copied an archive node, keep its pruning settings, so that the node keeps every version up to the freeze height. Do not start the node with `--grpc-only`. The node refuses to start when `freeze-height` is combined with `--grpc-only`, `halt-height`, or `halt-time`. It also refuses to start with Autobahn enabled, that is, with a non-empty `autobahn-config-file` in `config.toml`.
 
 </Step>
 
