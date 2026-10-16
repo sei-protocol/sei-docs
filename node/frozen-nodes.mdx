@@ -55,7 +55,7 @@ You need:
 - A copy of a node's data directory that is below the freeze height. The node refuses to start if its application, block store, or state store has reached `freeze-height`.
 - The history that you want to serve. A frozen node serves only what its data directory holds. To serve the full history, copy an [archive node](/node/node-types).
 - Disk space for a full copy of that data. The copy stops growing when it reaches the freeze height.
-- Peers that store the blocks from the copy's height up to the freeze height. The node fetches these blocks with block sync before it freezes.
+- Peers that store the blocks from the copy's height up to the freeze height. The node fetches these blocks with block sync before it freezes. Pruned nodes delete old blocks, so for a copy far below the freeze height, list archive nodes in `persistent-peers` in `config.toml`.
 
 <Danger>
   Take the copy before the chain reaches the upgrade height. A node saves each block before it executes it, so a node that halted at the upgrade height already holds the upgrade block. With that block in its block store, the node refuses to start with that `freeze-height`. After the chain has passed the upgrade height, you can build a frozen node only from data below that height, such as a backup.
@@ -88,7 +88,14 @@ rm -f $HOME/.sei/config/node_key.json $HOME/.sei/config/priv_validator_key.json
 ```
 
 <Note>
-  To start from a provider's archive snapshot instead, install the outgoing release first, as described in the next step. Then run `seid init <moniker> --chain-id pacific-1` on the new host, which writes the configuration files and the genesis file. For full history, set the archive settings from [Node types](/node/node-types). Restore the snapshot with the [snapshot guide](/node/snapshot), but stop before its restart step. Then continue with step 3.
+  To start from a provider's archive snapshot instead, take these steps on the new host:
+
+  1. Install the outgoing release, as described in the next step.
+  2. Run `seid init <moniker> --chain-id pacific-1 --mode archive`. It writes the genesis file and a configuration that keeps all history.
+  3. In `config.toml`, set `persistent-peers` to archive nodes that store the blocks from the snapshot height up to the freeze height. Each entry has the form `<node-id>@<host>:26656`, and `seid tendermint show-node-id` prints the node ID on an archive node that you run.
+  4. Restore the snapshot with the [snapshot guide](/node/snapshot), but stop before its restart step.
+
+  Then continue with step 3.
 </Note>
 
 <Warning>
@@ -103,7 +110,7 @@ rm -f $HOME/.sei/config/node_key.json $HOME/.sei/config/priv_validator_key.json
 
 <Step title="Install the outgoing release">
 
-Install v6.6.4 on the new host. Do not start the service yet.
+Install v6.6.4 on the new host. Do not start `seid` yet.
 
 <Tabs>
   <Tab title="Prebuilt binary">
@@ -186,6 +193,31 @@ If you copied an archive node, keep its pruning settings, so that the node keeps
 </Step>
 
 <Step title="Start the node">
+
+A new host has no `seid` service yet. Create one that runs the v6.6.4 binary directly. Do not run a frozen node through Cosmovisor, which exists to switch binaries at upgrade heights. Run these commands as the user that runs `seid`:
+
+```bash
+sudo tee /etc/systemd/system/seid.service > /dev/null << EOF
+[Unit]
+Description=Sei frozen node
+After=network-online.target
+
+[Service]
+User=$USER
+ExecStart=$(which seid) start
+Restart=always
+RestartSec=3
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable seid
+```
+
+`$(which seid)` writes the full path of the binary that you checked in step 2 into `ExecStart`. If the host already has a `seid` service, run `systemctl cat seid` and check that its `ExecStart` runs that binary.
 
 Start `seid` and follow the log:
 
