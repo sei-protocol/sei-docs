@@ -127,7 +127,6 @@ Native USDC: Sei Mainnet 0xe15fC38F6D8c56aF07bbCBe3BAf5708A2Bf42392, Sei Testnet
 - [Finality and Block Tags](https://docs.sei.io/evm/evm-parity/finality): How Sei instant finality affects block tag behavior and pending state
 - [Gas and Fees](https://docs.sei.io/evm/evm-parity/gas-and-fees): Sei gas price floor, EIP-1559 fee model differences, and SSTORE cost
 - [Transaction Types](https://docs.sei.io/evm/evm-parity/transaction-types): Which Ethereum transaction types are supported on Sei
-- [State Proofs](https://docs.sei.io/evm/evm-parity/state-proofs): How eth_getProof differs on Sei due to IAVL tree storage
 - [WebSocket Connections](https://docs.sei.io/evm/evm-parity/websocket): Connecting to Sei via WebSocket for real-time block and event subscriptions
 - [Signing](https://docs.sei.io/evm/evm-parity/signing): Wallet signing method support and EIP-712 typed data on Sei
 - [Migrate Your EVM dApp to Sei](https://docs.sei.io/evm/migrate-from-other-evms): Step-by-step checklist for teams that already run on another EVM chain and want to redeploy on Sei, including environment prep, contract migration, liquidity planning, and chain-specific guidance for Ethereum, Arbitrum, Base, Polygon, and Avalanche.
@@ -163,6 +162,13 @@ Native USDC: Sei Mainnet 0xe15fC38F6D8c56aF07bbCBe3BAf5708A2Bf42392, Sei Testnet
 - [Address Precompile](https://docs.sei.io/evm/precompiles/cosmwasm-precompiles/addr): Learn how to interact with Sei's Addr precompile through ethers.js and Solidity, enabling address association and cross-chain address mapping directly in your EVM smart contracts for seamless user experiences.
 - [Bank Precompile](https://docs.sei.io/evm/precompiles/cosmwasm-precompiles/bank): Query and transfer native SEI through Sei's Bank precompile.
 - [CosmWasm Precompile](https://docs.sei.io/evm/precompiles/cosmwasm-precompiles/cosmwasm): Learn how to interact with Sei's CosmWasm precompile through ethers.js, enabling execution, batch operations, and querying of pre-existing CosmWasm contracts directly from your EVM smart contracts.
+- [Auth Precompile](https://docs.sei.io/evm/precompiles/auth): Read account details, auth module parameters, and the next account number from EVM contracts with the Auth precompile.
+- [Authz Precompile](https://docs.sei.io/evm/precompiles/authz): Read Cosmos authz grants between accounts from EVM contracts with the Authz precompile.
+- [Evidence Precompile](https://docs.sei.io/evm/precompiles/evidence): Read evidence of validator misbehavior from EVM contracts with the Evidence precompile.
+- [Mint Precompile](https://docs.sei.io/evm/precompiles/mint): Read the token release schedule and the current minter state from EVM contracts with the Mint precompile.
+- [Params Precompile](https://docs.sei.io/evm/precompiles/params): Read any module parameter by subspace and key from EVM contracts with the Params precompile.
+- [Slashing Precompile](https://docs.sei.io/evm/precompiles/slashing): Read slashing parameters and validator signing info, and unjail validators from EVM contracts with the Slashing precompile.
+- [Upgrade Precompile](https://docs.sei.io/evm/precompiles/upgrade): Read scheduled and applied chain upgrades and module consensus versions from EVM contracts with the Upgrade precompile.
 - [@sei-js SDK](https://docs.sei.io/evm/sei-js): TypeScript packages for building EVM applications on Sei
 - [Scaffold Sei](https://docs.sei.io/evm/sei-js/create-sei): Create a Next.js dApp with wallet integration and Sei network configuration
 - [Templates](https://docs.sei.io/evm/templates): Sei dApp templates you can scaffold in one command with @sei-js/create-sei, with wallet connections, Sei network configuration, and TypeScript already set up.
@@ -209,6 +215,7 @@ Sei supports full nodes (recent state, consensus relay), archive nodes (complete
 - [Sei Validator Operations Guide](https://docs.sei.io/node/validators): Learn how to set up and maintain a validator node on Sei Network, including hardware security configuration, key management, monitoring practices, and governance participation requirements.
 - [Sei Node Advanced Configuration & Monitoring](https://docs.sei.io/node/advanced-config-monitoring): Optimize your Sei node's performance with advanced system configurations, monitoring setup with Prometheus and Grafana, and effective alerting strategies for maintaining reliable node operations.
 - [Giga SS Store Migration Guide](https://docs.sei.io/node/giga-storage-migration): Migrate a Sei RPC node to Giga SS Store: split EVM state into a dedicated state-store backend so non-EVM modules stop paying EVM write amplification.
+- [Run frozen nodes for historical queries](https://docs.sei.io/node/frozen-nodes): Serve history from before a breaking upgrade: run a read-only frozen node on the outgoing seid release and route RPC requests to it by block height.
 - [Sei Technical Reference](https://docs.sei.io/node/technical-reference): Access detailed command syntax, configuration parameters, and troubleshooting procedures for node operators and validators running Sei network infrastructure.
 
 ## Examples
@@ -6231,7 +6238,7 @@ Transaction ingress will initially route complete transactions to validator lane
 | Finality | Block inclusion / finalized tag | Ordering finality (measured \<250 ms), execution receipt, then state attestation finality | Wait for the stage your flow requires (see [below](#finality-on-giga-which-signal-to-wait-for)) |
 | Mempool | Public pending pool, gossip, frontrunning games | No traditional public mempool. Complete transactions route to lanes before Sedna. The later [Sedna](/learn/sei-giga-specs#sedna-private-dissemination) milestone adds coded symbol bundles | Drop pending-pool assumptions. There will be no pending stream to watch |
 | Priority fee | Paid to the block proposer, and buys inclusion favor | Strictly enforced for ordering, then socialised across validators by stake × liveness | Use the tip to express urgency. The protocol does not pay a specific proposer for preferential treatment |
-| State proofs | `eth_getProof` against the block state root | No state root. [BUD proofs](/learn/sei-giga-specs#block-update-digests-buds) against attested per-block digests | Avoid a hard dependency on `eth_getProof`. Plan for BUD-based verification |
+| State proofs | `eth_getProof` against the block state root on Ethereum. Sei does not support `eth_getProof` | No state root. [BUD proofs](/learn/sei-giga-specs#block-update-digests-buds) against attested per-block digests | Avoid a hard dependency on `eth_getProof`. Plan for BUD-based verification |
 | Randomness | `PREVRANDAO` (beacon randomness) | `PREVRANDAO` not supported with Ethereum semantics | Use a VRF or oracle for randomness |
 | Blob transactions | EIP-4844 type-3 transactions | Will not be supported (Giga will remain an L1, not a rollup DA consumer) | Nothing to do unless you post blobs |
 | Block gas limit | Fixed per-block constant | No Ethereum-style fixed block gas limit. Lane and consensus parameters will bound throughput | Do not encode assumptions about a specific block gas limit |
@@ -6361,7 +6368,7 @@ The retired native Oracle precompile at `0x0000000000000000000000000000000000001
 * Build EVM-only. [SIP-3](/learn/sip-03-migration) consolidates Sei to an EVM-only stack ahead of Giga: CosmWasm no longer accepts new deployments. IBC is disabled in both directions: Proposals [116](https://seistream.app/proposals/116) and [120](https://seistream.app/proposals/120) disabled inbound transfers, and [121](https://seistream.app/proposals/121) disabled outbound transfers on July 31, 2026. Existing IBC balances can still move within Sei but can no longer be redeemed over IBC on their origin chain. For external data, use the providers documented for Sei: [API3](/evm/oracles/api3), [Chainlink](/evm/oracles/chainlink), [Pyth](/evm/oracles/pyth-network), and [RedStone](/evm/oracles/redstone).
 * Audit for hot slots. Per-user state isolation is the single most effective change for parallel throughput. The first Ares phase went live with the mandatory Sei Mainnet v6.6 upgrade on August 4, 2026. Broader Ares work continues in later releases.
 * Classify your confirmation flows. Decide which flows only need the fixed order, which act on an execution receipt, and which wait for state attestation. The three-stage model will then need only a configuration change, not a redesign.
-* Remove fragile dependencies. Anything that relies on `eth_getProof` and state roots ([current behavior](/evm/evm-parity/state-proofs)), `PREVRANDAO` randomness, blob transactions, or watching the public mempool will need a plan.
+* Remove fragile dependencies. Anything that relies on `eth_getProof` and state roots ([not supported on Sei](/evm/evm-parity/evm-compatibility#proof-verification)), `PREVRANDAO` randomness, blob transactions, or watching the public mempool will need a plan.
 * Do not wait for a "Giga chain." There will not be one. Giga will arrive on the network where you are already deployed. Standard EVM contracts that do not depend on retired Sei-native surfaces are designed to carry over without redeployment.
 
 ## Related
@@ -7531,7 +7538,7 @@ Sei EVM was first deployed at these block heights and versions:
 | PREVRANDAO | Returns a value derived from the current block time | Returns the RANDAO mix (EIP‑4399) | Not a randomness source. Use an oracle/VRF. `DIFFICULTY` aliases to this. |
 | COINBASE | Always the global fee collector address | Block proposer (miner) address | Do not assume it is the validator address. |
 | BASEFEE | Returns the current base fee, with no burn | Returns the current base fee. A portion is burned (EIP‑1559). | Legacy transactions must meet Sei's governance-set minimum gas price (currently `50 gwei`). Query `eth_gasPrice` for the live value. |
-| BLOCKHASH | Hash of the Tendermint header, with a different encoding | Keccak of the Ethereum block header | Usable for recent blocks only. Values are not interchangeable across chains. |
+| BLOCKHASH | Hash of the Tendermint header, with a different encoding | Keccak of the Ethereum block header | Returns hashes for the previous 256 blocks, as on Ethereum. Older, current, and future blocks return zero. Values are not interchangeable across chains. |
 | GASLIMIT | = 12,500,000 per block | = 60,000,000 per block | Represents the block gas limit on both chains. |
 | TIMESTAMP | Tendermint block time | Proposer-chosen block time | Same semantics. Do not use it for randomness. |
 | DIFFICULTY | Alias of PREVRANDAO | Alias of PREVRANDAO (EIP‑4399) | Returns the same value as PREVRANDAO. |
@@ -7742,7 +7749,7 @@ Standard EVM tools (viem, wagmi, ethers, Foundry, and Hardhat) work on Sei for a
 | `eth_getTransactionCount` (nonce) | Supported | |
 | `eth_getCode` | Supported | |
 | `eth_getStorageAt` | Supported with differences | Governance can adjust the SSTORE cost. Do not hard-code gas assumptions. [See Gas and Fees.](/evm/evm-parity/gas-and-fees) |
-| `eth_getProof` | Supported with differences | Returns IAVL proof data, not Ethereum Merkle Patricia Trie proofs. Proof verification logic must account for this. Proofs resolve across the supported store backends (classic IAVL, store/v2 memiavl, and other proof-capable queryable stores). As a result, the method works across a broader range of node configurations. [See State Proofs.](/evm/evm-parity/state-proofs) |
+| `eth_getProof` | Not supported | Since v6.7.0, the method returns JSON-RPC error `-32000`. [See Proof verification.](#proof-verification) |
 
 ## Blocks and finality
 
@@ -7757,7 +7764,7 @@ Standard EVM tools (viem, wagmi, ethers, Foundry, and Hardhat) work on Sei for a
 
 | Feature | Sei status | Notes |
 | - | - | - |
-| `eth_getLogs` | Supported | |
+| `eth_getLogs` | Supported with differences | A query fails when it matches more than 10,000 logs (`max_log_no_block`) or about 64 MiB of log data (`max_log_bytes`). The query does not return partial results. Narrow the block range or the filters, then try again. [See Filter and subscription limits.](/evm/reference#filter-and-subscription-limits) |
 | Filter lifecycle (`eth_newFilter`, `eth_getFilterChanges`, `eth_getFilterLogs`, `eth_uninstallFilter`) | Supported | |
 | WebSocket subscriptions (`eth_subscribe`) | Supported | [See WebSocket Connections.](/evm/evm-parity/websocket) |
 
@@ -7824,16 +7831,16 @@ These JSON-RPC methods are not available on Sei or return errors:
 
 | Method | Behavior on Sei |
 | - | - |
-| `eth_getBlockByNumber("pending")` | Returns `null` or the latest committed block. Sei does not maintain an Ethereum-style pending block. |
-| `eth_getTransactionCount(address, "pending")` | Returns the same value as `"latest"`. On Sei, the pending nonce is the same as the confirmed nonce. |
-| `eth_newPendingTransactionFilter` | You can create the filter, but it does not reliably emit pending transactions. Use `eth_newBlockFilter` or WebSocket block subscriptions instead. |
-| `eth_subscribe("newPendingTransactions")` | Supported at the RPC level, but Sei does not guarantee Ethereum-style pending transaction visibility. Treat the results as best effort. |
+| `eth_getBlockByNumber("pending")` | Returns the latest committed block. Sei does not maintain an Ethereum-style pending block. |
+| `eth_getTransactionCount(address, "pending")` | Returns the sender's next nonce, including the sender's transactions in the mempool. If the sender has no transactions in the mempool, it returns the same value as `"latest"`. |
+| `eth_newPendingTransactionFilter` | Not supported. The call always returns an error. Use `eth_newBlockFilter` or a `newHeads` subscription instead. |
+| `eth_subscribe("newPendingTransactions")` | Not supported. Sei supports only the `newHeads` and `logs` subscriptions. |
 
 ### Proof verification
 
 | Method | Behavior on Sei |
 | - | - |
-| `eth_getProof` | Returns IAVL tree proofs, not Ethereum Merkle Patricia Trie proofs. The method works, but the proof format is not compatible with standard Ethereum MPT verifiers. [See State Proofs.](/evm/evm-parity/state-proofs) |
+| `eth_getProof` | Not supported since v6.7.0. Sei registers the method, but every call returns JSON-RPC error `-32000` with the message `eth_getProof is not supported yet; please reach out to the Sei Labs if you need this endpoint`. |
 
 ### Deprecated / removed opcodes
 
@@ -8020,6 +8027,17 @@ Always use `eth_estimateGas` for any transaction that writes to storage:
 
 <Warning>Estimate the absolute storage-write cost with a live `eth_estimateGas` call against a Sei RPC. A Foundry `forge test --gas-report --fork-url <sei rpc>` report forks the chain *state*, but it runs the standard EVM gas schedule of revm. It therefore shows `SSTORE` at the Ethereum cost (approximately 22,100) instead of the Sei cost (approximately 72,000). Use the report for relative profiling of your own logic.</Warning>
 
+## Gas for precompile calls
+
+Sei precompiles charge gas based on the work that each call does:
+
+* Before a precompile decodes its arguments, it charges gas for the calldata. The charge grows with the calldata length and with the size of any `string` arguments. A call that cannot pay this charge reverts before the precompile runs.
+* The JSON precompile also charges 100 gas per byte of JSON input.
+* The pointer view precompile also charges for the state that each lookup reads.
+* The P256 precompile also charges a fixed 3,450 gas per verification, the same as RIP-7212 `P256VERIFY`. If the call cannot pay it, the call fails with an out-of-gas error.
+
+Because the cost depends on your calldata, do not hard-code gas limits for precompile calls. Use `eth_estimateGas`, as shown in the example above.
+
 ## Summary
 
 | Behavior | Ethereum | Sei |
@@ -8116,95 +8134,6 @@ Standard library defaults work correctly. viem, wagmi, and ethers all default to
   });
   ```
 </CodeGroup>
-
-
-This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.
-
----
-
-URL: https://docs.sei.io/evm/evm-parity/state-proofs
-
-# State Proofs
-
-> How eth_getProof differs on Sei due to IAVL tree storage
-
-# State proofs
-
-Sei supports `eth_getProof`, but it returns a different proof format from Ethereum. If your application verifies proofs on-chain or off-chain, account for this difference.
-
-## The difference
-
-Ethereum stores state in a Merkle Patricia Trie (MPT), and `eth_getProof` returns MPT inclusion proofs. Sei stores state in an IAVL tree and returns IAVL proofs instead.
-
-The RPC method exists and responds correctly, but the proof data structure is not compatible with Ethereum MPT proof verifiers.
-
-### Store backends
-
-`eth_getProof` resolves the underlying account store. It unwraps known KVStore wrappers until it reaches a proof-capable queryable store. As a result, proofs work across a broader range of node configurations, not only with a classic IAVL store. Supported roots include:
-
-* Classic IAVL stores
-* store/v2 memiavl commitment stores
-* Any other proof-capable (queryable) store reached through cache, `tracekv`, Giga cache, or prefix store wrappers
-
-If the call cannot reach any of these stores, it returns a `cannot find a proof-capable queryable KV store` error. In all cases, the returned proof data is in IAVL format, not Ethereum MPT format.
-
-## What this affects
-
-Most applications do not call `eth_getProof` directly. Its main users are:
-
-* Light clients that verify state without trusting an RPC node
-* Cross-chain bridges that prove the inclusion of state on Sei
-* Applications that verify contract storage values trustlessly
-
-If you do standard contract reads, event queries, or transaction lookups, this difference does not affect you.
-
-## Calling eth\_getProof
-
-### Storage key requirements
-
-Before you call `eth_getProof`, note these two requirements that Sei enforces on the `storageKeys` argument:
-
-* **Keys must be hex-encoded.** Each storage key must be a valid hex-encoded value (for example, `0x0000000000000000000000000000000000000000000000000000000000000001`). Sei decodes each key and left-pads it to 32 bytes. Sei rejects a malformed, non-hex key with an `invalid storage key` error. Raw byte strings do not work, although earlier versions accepted them.
-* **At most 1024 keys per request.** A single proof request may include a maximum of 1024 storage keys. A request for more keys returns a `too many storage keys` error. Split larger sets across multiple requests.
-
-The call works with standard libraries:
-
-<CodeGroup>
-  ```ts viem theme={"dark"}
-  import { createPublicClient, http } from 'viem';
-  import { sei } from 'viem/chains';
-
-  const client = createPublicClient({ chain: sei, transport: http() });
-
-  const proof = await client.getProof({
-    address: '0xContractAddress',
-    storageKeys: ['0xStorageSlot'],
-  });
-
-  // proof.accountProof and proof.storageProof contain IAVL proof data,
-  // not Ethereum MPT proofs — do not pass to an MPT verifier
-  ```
-
-  ```ts ethers theme={"dark"}
-  import { ethers } from 'ethers';
-
-  const provider = new ethers.JsonRpcProvider('https://evm-rpc.sei-apis.com');
-
-  const proof = await provider.send('eth_getProof', [
-    '0xContractAddress',
-    ['0xStorageSlot'],
-    'latest',
-  ]);
-
-  // Same caveat — proof data is IAVL format
-  ```
-</CodeGroup>
-
-## Verifying proofs
-
-To verify Sei state proofs, use an IAVL-compatible verifier. Standard Ethereum MPT verifier libraries reject Sei proofs. Examples are the libraries used in Solidity or in Ethereum bridge contracts.
-
-For the exact proof schema that the method returns, see the [Sei RPC reference](/evm/reference).
 
 
 This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.
@@ -8317,7 +8246,19 @@ const unwatch = client.watchEvent({
 ## Notes
 
 * Sei has instant finality, so every block emitted over WebSocket is already final. You do not need to wait for more confirmations before you act on an event.
-* Pending transaction subscriptions (`newPendingTransactions`) are supported at the RPC level, but Sei does not guarantee Ethereum-style pending state visibility.
+* Sei does not support `newPendingTransactions` subscriptions. You can subscribe only to `newHeads` and `logs`.
+
+## Frame size and concurrency limits
+
+WebSocket connections use the same request limits as HTTP JSON-RPC. Operators set them in the `[evm]` section of `app.toml`:
+
+* `max_request_body_bytes` (default 5 MiB) caps each WebSocket frame and each HTTP request body. If a frame is larger, the node closes the connection with WebSocket close code `1009` and does not send a JSON-RPC error.
+* `max_concurrent_request_bytes` (default 128 MiB) caps the request bytes that the node processes at the same time. WebSocket and HTTP each have their own budget.
+* `ws_admission_timeout` (default `30s`) sets how long a WebSocket request waits for budget. When the wait expires, the client gets JSON-RPC error `-32005` and the node closes the connection, which ends its subscriptions.
+
+<Warning>
+  Before v6.7.0, the WebSocket frame limit was 10 MiB. If your clients send frames between 5 MiB and 10 MiB, set `max_request_body_bytes = 10485760` in `app.toml` before you upgrade. This setting also raises the HTTP body limit to 10 MiB.
+</Warning>
 
 ## `newHeads` under Autobahn consensus
 
@@ -18523,16 +18464,37 @@ These `[evm]` fields in `app.toml` control trace baking:
 | `trace_bake_enabled` | `false` | Enables the background trace-baking worker that caches results at `<home>/data/trace_db`. RPC nodes only. |
 | `trace_bake_workers` | `1` | Number of re-execution worker goroutines. |
 | `trace_bake_queue_size` | `4096` | Bounds the in-flight height queue. When the queue is full, heights are dropped so that consensus never blocks. Dropped blocks fall through to live re-execution. |
-| `trace_bake_tracers` | `["callTracer"]` | Which tracers to bake per block. Eligible values: `callTracer`, `prestateTracer`, `flatCallTracer`. |
+| `trace_bake_tracers` | `["callTracer"]` | Which tracers to bake per block. Eligible values: `callTracer`, `prestateTracer`, `flatCallTracer`. The node checks the names at startup and fails to start if a name is not a native tracer. |
 | `trace_bake_window_blocks` | `0` | Rolling prune window: blocks older than `(latest - window)` are pruned. `0` disables pruning, so the cache grows without limit. |
 | `trace_bake_use_snapshot` | `false` | Uses in-memory memiavl snapshots as the state backend for trace baking when the store backend supports snapshots. |
 | `trace_bake_snapshot_window` | `64` | Number of recent memiavl snapshots to keep for trace baking. |
 
 <Warning>Trace baking adds a persistent on-disk store at `<home>/data/trace_db` and increases disk usage. The node flushes the store's write-ahead log when it shuts down cleanly.</Warning>
 
+## Tracer allowlist
+
+Sei limits which tracers callers can request on `debug_trace*` methods. By default, the node accepts only native geth tracers and rejects JavaScript tracers. Upstream geth accepts JavaScript tracers by default. If a request omits `tracer`, the default struct logger runs.
+
+Operators set the allowlist in the `[evm]` section of `app.toml`:
+
+| Field | Default | Description |
+| - | - | - |
+| `trace_allowed_tracers` | `["callTracer", "prestateTracer", "flatCallTracer", "4byteTracer", "noopTracer", "muxTracer"]` | Native tracers that callers can request. The node checks the names at startup and fails to start if a name is not a native tracer. Set to `[]` to block all named tracers. |
+| `trace_allow_js_tracers` | `false` | Allows JavaScript tracer code in requests. This code runs inside the node, so keep this setting off on public RPC nodes. It does not add tracers to `trace_allowed_tracers`. |
+
+When a request uses `muxTracer`, the node checks the nested tracers against the same allowlist, up to 16 levels deep.
+
+## Struct-logger output cap
+
+The default struct logger can produce large output for transactions that read many storage slots. `max_trace_struct_log_bytes` in the `[evm]` section of `app.toml` limits the output that the node keeps for each traced transaction. The default is 32 MiB (`33554432`). Set it to `0` to remove the limit, as in upstream geth.
+
+* The limit applies to each transaction, not to each RPC call. A `debug_traceBlock*` call over N transactions can keep up to N times this value.
+* If a request sets a larger `Limit`, the node lowers it to `max_trace_struct_log_bytes`. A smaller `Limit` stays as it is.
+* Requests that set a tracer, such as `callTracer` or a JavaScript tracer, do not have this limit.
+
 ## Removed legacy trace filters
 
-<Note>The legacy `*ExcludeTraceFail` endpoints have been removed. For block tracing, use `debug_traceBlockByNumber` or `debug_traceBlockByHash`. For EVM receipts, use `eth_getTransactionReceipt`. There is no block or filter method to discover synthetic logs from Cosmos-originated transactions. If you already know a synthetic transaction hash, enable `sei_getTransactionReceipt` to get its receipt and logs.</Note>
+<Note>The legacy `*ExcludeTraceFail` endpoints have been removed. For block tracing, use `debug_traceBlockByNumber` or `debug_traceBlockByHash`. For EVM receipts, use `eth_getTransactionReceipt`. No RPC method returns receipts or logs for synthetic transactions from Cosmos-originated messages.</Note>
 
 ## Next steps
 
@@ -18553,6 +18515,10 @@ URL: https://docs.sei.io/evm/tracing/javascript-tracers
 > Create custom debugging logic with JavaScript tracers for advanced EVM transaction analysis on Sei. Learn performance optimization, memory management, and advanced debugging patterns.
 
 JavaScript tracers let you create custom debugging logic to analyze EVM transactions on Sei. You can use them for more complex analysis than the built-in tracers support.
+
+<Warning>
+  Sei nodes reject JavaScript tracers by default, unlike upstream geth. To use the tracers on this page, you need a node whose operator set `trace_allow_js_tracers = true` in the `[evm]` section of `app.toml`. Because a JavaScript tracer runs code inside the node, operators must enable it only on private RPC nodes. For most analysis, the native tracers work without this setting. See [Tracer allowlist](/evm/tracing#tracer-allowlist).
+</Warning>
 
 ## Interface overview
 
@@ -19088,6 +19054,15 @@ This guide covers common issues with EVM transaction tracing on Sei and gives pr
 ```
 
 ### 3. JavaScript tracer errors
+
+**Error**: `debug tracer "..." is not allowed; JavaScript tracers are disabled and only native tracers listed in evm.trace_allowed_tracers may be used`
+
+**Cause**: The node accepts only the native tracers in `trace_allowed_tracers` and rejects JavaScript tracers by default. For `muxTracer`, a nested tracer that is not allowed fails with an `invalid muxTracer config` error.
+
+**Solutions**:
+
+* Use a tracer from the default list: `callTracer`, `prestateTracer`, `flatCallTracer`, `4byteTracer`, `noopTracer`, or `muxTracer`.
+* If you run the node, add the native tracer to `trace_allowed_tracers`, or set `trace_allow_js_tracers = true` to allow JavaScript tracers. Keep JavaScript tracers off on public RPC nodes. See [Tracer allowlist](/evm/tracing#tracer-allowlist).
 
 **Error**: `SyntaxError` or `ReferenceError` in a JavaScript tracer
 
@@ -19859,15 +19834,22 @@ Sei precompiles are special smart contracts deployed at fixed addresses. They ex
   | Pointer view | `0x000000000000000000000000000000000000100A` | Look up pointer contract addresses |
   | Pointer | `0x000000000000000000000000000000000000100B` | Register pointer contracts |
   | Solo | `0x000000000000000000000000000000000000100C` | Claim Solo migration payloads |
+  | Auth | `0x000000000000000000000000000000000000100D` | Query accounts, auth parameters, and the next account number |
+  | Authz | `0x000000000000000000000000000000000000100E` | Query authz grants |
+  | Evidence | `0x000000000000000000000000000000000000100F` | Query evidence of validator misbehavior |
   | P256 | `0x0000000000000000000000000000000000001011` | Verify P-256 elliptic curve signatures |
+  | Mint | `0x0000000000000000000000000000000000001012` | Query mint parameters and the minter state |
+  | Params | `0x0000000000000000000000000000000000001013` | Query module parameters by subspace and key |
+  | Slashing | `0x0000000000000000000000000000000000001014` | Query slashing parameters and signing info, and unjail validators |
+  | Upgrade | `0x0000000000000000000000000000000000001015` | Query upgrade plans and module versions |
 
-  This page shows Bank, Staking, Governance, Distribution, JSON, and Solo. The other precompiles have their own pages: [CosmWasm](/evm/precompiles/cosmwasm-precompiles/cosmwasm), [Address](/evm/precompiles/cosmwasm-precompiles/addr), [Pointer contracts](/evm/evm-parity/examples/pointer-contracts) for both pointer precompiles, and [P256](/evm/precompiles/p256-precompile).
+  This page shows Bank, Staking, Governance, Distribution, JSON, and Solo. The other precompiles have their own pages: [CosmWasm](/evm/precompiles/cosmwasm-precompiles/cosmwasm), [Address](/evm/precompiles/cosmwasm-precompiles/addr), [Pointer contracts](/evm/evm-parity/examples/pointer-contracts) for both pointer precompiles, [P256](/evm/precompiles/p256-precompile), [Auth](/evm/precompiles/auth), [Authz](/evm/precompiles/authz), [Evidence](/evm/precompiles/evidence), [Mint](/evm/precompiles/mint), [Params](/evm/precompiles/params), [Slashing](/evm/precompiles/slashing), and [Upgrade](/evm/precompiles/upgrade).
 </Info>
 
 <Warning>The `@sei-js/precompiles` package does not export the IBC and Oracle precompiles. IBC is disabled in both directions, and native Oracle queries are retired. Calls to either precompile cannot succeed on live Sei. See [IBC is disabled](/learn/sip-03-migration#ibc-is-disabled) and [Oracle Precompile (Retired)](/evm/precompiles/oracle).</Warning>
 
 <Note>
-  `@sei-js/precompiles@3` is ESM-only and matches the Sei Chain v6.6.1 ABIs. Import raw `*_PRECOMPILE_ABI` constants from the package root, `@sei-js/precompiles/precompiles`, or `@sei-js/precompiles/viem`. Import the ethers factories from `@sei-js/precompiles/ethers`. The package does not expose `VIEM_*_PRECOMPILE_ABI` aliases. It re-exports the viem `sei` and `seiTestnet` definitions and also exports `seiLocal` (chain ID `713714`, `http://localhost:8545`). The package requires viem 2.55.16 or newer.
+  `@sei-js/precompiles@3` is ESM-only and matches the Sei Chain v6.6.1 ABIs. It does not include the Auth, Authz, Evidence, Mint, Params, Slashing, and Upgrade precompiles. It also does not include the methods that v6.7 added to Bank, Distribution, Governance, and Staking. For those ABIs, use the `abi.json` files in the [sei-chain `precompiles` directory](https://github.com/sei-protocol/sei-chain/tree/v6.7.1/precompiles). Import raw `*_PRECOMPILE_ABI` constants from the package root, `@sei-js/precompiles/precompiles`, or `@sei-js/precompiles/viem`. Import the ethers factories from `@sei-js/precompiles/ethers`. The package does not expose `VIEM_*_PRECOMPILE_ABI` aliases. It re-exports the viem `sei` and `seiTestnet` definitions and also exports `seiLocal` (chain ID `713714`, `http://localhost:8545`). The package requires viem 2.55.16 or newer.
 
   ```ts theme={"dark"}
   import { getStakingPrecompileEthersV6Contract } from '@sei-js/precompiles/ethers';
@@ -20496,6 +20478,8 @@ Returns the reward information for a delegator across all validators.
 function rewards(address delegatorAddress) external view returns (Rewards rewards);
 ```
 
+<Info>Since v6.7.0, `rewards()` and the matching gRPC queries (`DelegationRewards` and `DelegationTotalRewards`) do not change distribution state. Repeated calls return the same result. Before v6.7.0, each call incremented the validator period. `debug_trace*` keeps the old behavior when it replays blocks from before v6.7.0.</Info>
+
 **Data structures:**
 
 ```solidity theme={"dark"}
@@ -20716,7 +20700,7 @@ function setupTreasuryWithdrawals(address treasury) external onlyOwner {
 }
 ```
 
-<Info>View the complete distribution precompile ABI at the [Sei Chain v6.6.1 snapshot](https://github.com/sei-protocol/sei-chain/blob/v6.6.1/precompiles/distribution/legacy/v66/abi.json).</Info>
+<Info>View the complete distribution precompile ABI in [sei-chain v6.7.1](https://github.com/sei-protocol/sei-chain/blob/v6.7.1/precompiles/distribution/abi.json).</Info>
 
 
 This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.
@@ -20731,13 +20715,13 @@ URL: https://docs.sei.io/evm/precompiles/governance
 
 **Address:** `0x0000000000000000000000000000000000001006`
 
-The Sei governance precompile lets EVM applications submit proposals, vote, and deposit tokens. The ABI is write-only. Query proposal state through Cosmos REST or RPC, or with a Sei explorer.
+The Sei governance precompile lets EVM applications submit proposals, vote, deposit tokens, and read proposal state.
 
 <Info>**What is a precompile?** A precompile is a special smart contract that the Sei protocol itself deploys at a fixed address. It exposes custom native chain logic to EVM-based applications. To the EVM, it behaves like a regular contract, but it executes privileged, low-level logic efficiently.</Info>
 
 ## How does the governance precompile work?
 
-The governance precompile at address `0x0000000000000000000000000000000000001006` exposes functions such as `vote()`, `voteWeighted()`, `deposit()`, and `submitProposal()`.
+The governance precompile at address `0x0000000000000000000000000000000000001006` exposes transactions such as `vote()`, `voteWeighted()`, `deposit()`, and `submitProposal()`, and queries such as `proposal()` and `tallyResult()`.
 
 * EVM contracts and dApps can call governance functions like any other smart contract method.
 * Governance operations run natively at the chain level, which makes them efficient.
@@ -20825,6 +20809,113 @@ function submitProposal(
 ) payable external returns (uint64 proposalID);
 ```
 
+### Query functions
+
+Use these read-only methods to read proposal state from a contract. The vote and deposit queries are `getVote` and `getDeposit`, because the transactions already use the names `vote` and `deposit`. Tools such as ethers.js do not handle overloaded function names well.
+
+```solidity theme={"dark"}
+struct Coin {
+    uint256 amount;
+    string denom;
+}
+
+struct TallyResultData {
+    string yes;
+    string abstain;
+    string no;
+    string noWithVeto;
+}
+
+struct WeightedVoteOptionData {
+    int32 option;
+    string weight; // Weight as decimal string (e.g., "0.7")
+}
+
+struct ProposalData {
+    uint64 id;
+    int32 status; // ProposalStatus enum value
+    TallyResultData finalTallyResult;
+    int64 submitTime; // Unix seconds
+    int64 depositEndTime; // Unix seconds
+    Coin[] totalDeposit;
+    int64 votingStartTime; // Unix seconds
+    int64 votingEndTime; // Unix seconds
+    bool isExpedited;
+    bytes content; // proposal content as JSON
+}
+
+struct VoteData {
+    uint64 proposalId;
+    string voter; // bech32 address
+    WeightedVoteOptionData[] options;
+}
+
+struct DepositData {
+    uint64 proposalId;
+    string depositor; // bech32 address
+    Coin[] amount;
+}
+
+struct GovParams {
+    uint64 votingPeriod; // seconds
+    uint64 expeditedVotingPeriod; // seconds
+    Coin[] minDeposit;
+    uint64 maxDepositPeriod; // seconds
+    Coin[] minExpeditedDeposit;
+    string quorum;
+    string threshold;
+    string vetoThreshold;
+    string expeditedQuorum;
+    string expeditedThreshold;
+}
+
+/// Query a proposal by ID
+function proposal(
+    uint64 proposalID
+) external view returns (ProposalData memory proposal);
+
+/// Query proposals with optional filters. proposalStatus 0 = all; a zero
+/// address for voter/depositor applies no filter.
+function proposals(
+    int32 proposalStatus,
+    address voter,
+    address depositor,
+    bytes memory pageKey
+) external view returns (ProposalData[] memory proposals, bytes memory nextKey);
+
+/// Query a vote cast on a proposal
+function getVote(
+    uint64 proposalID,
+    address voter
+) external view returns (VoteData memory vote);
+
+/// Query all votes cast on a proposal, paginated
+function votes(
+    uint64 proposalID,
+    bytes memory pageKey
+) external view returns (VoteData[] memory votes, bytes memory nextKey);
+
+/// Query the governance module parameters
+function params() external view returns (GovParams memory params);
+
+/// Query a deposit made to a proposal
+function getDeposit(
+    uint64 proposalID,
+    address depositor
+) external view returns (DepositData memory deposit);
+
+/// Query all deposits made to a proposal, paginated
+function deposits(
+    uint64 proposalID,
+    bytes memory pageKey
+) external view returns (DepositData[] memory deposits, bytes memory nextKey);
+
+/// Query the current tally of votes on a proposal
+function tallyResult(
+    uint64 proposalID
+) external view returns (TallyResultData memory tallyResult);
+```
+
 ## Using the contract
 
 ### Setup
@@ -20857,7 +20948,7 @@ npm install dotenv
 
 ```typescript theme={"dark"}
 // Import Governance precompile address and ABI
-// View the entire ABI here: https://github.com/sei-protocol/sei-chain/blob/v6.6.1/precompiles/gov/legacy/v66/abi.json
+// View the entire ABI here: https://github.com/sei-protocol/sei-chain/blob/v6.7.1/precompiles/gov/abi.json
 import { GOVERNANCE_PRECOMPILE_ABI, GOVERNANCE_PRECOMPILE_ADDRESS } from '@sei-js/precompiles';
 import { ethers } from 'ethers';
 ```
@@ -22540,7 +22631,7 @@ async function handleMissingKeys(jsonPrecompile: ethers.Contract, data: any) {
   * **Boolean values:** Use the integer 0 for false and 1 for true.
   * **Key paths:** Extract parent objects first, then parse them manually. Dot notation may not be supported.
   * **Arrays:** Object-keyed arrays use `extractAsBytesList()`. JSON arrays by index use `extractAsBytesFromArray()`.
-  * **Gas costs:** Large JSON objects need higher gas limits.
+  * **Gas costs:** The precompile charges 100 gas per byte of JSON input. Like every Sei precompile, it also charges for the calldata. Large JSON inputs need higher gas limits.
   * **Encoding:** Always use UTF-8 encoding with `ethers.toUtf8Bytes()`.
   * **Error handling:** Always implement fallback values for production applications.
 </Info>
@@ -23058,7 +23149,7 @@ npm install @sei-js/precompiles@^3
 
 ```typescript theme={"dark"}
 // Import Staking precompile address and ABI
-// View the entire ABI here: https://github.com/sei-protocol/sei-chain/blob/v6.6.1/precompiles/staking/legacy/v66/abi.json
+// View the entire ABI here: https://github.com/sei-protocol/sei-chain/blob/v6.7.1/precompiles/staking/abi.json
 import { STAKING_PRECOMPILE_ABI, STAKING_PRECOMPILE_ADDRESS } from '@sei-js/precompiles';
 import { ethers } from 'ethers';
 ```
@@ -24033,7 +24124,7 @@ The P256 precompile verifies signatures on the `secp256r1` curve efficiently. Ma
 * Various hardware security modules (HSMs)
 * Passkeys
 
-This precompile implementation is significantly more gas efficient than Solidity-based implementations (up to 60x).
+This precompile uses much less gas than a Solidity implementation of P-256 verification.
 
 ## Interface
 
@@ -24177,10 +24268,9 @@ Total length: 160 bytes
 
 ## Gas costs
 
-The precompile is much more gas efficient than Solidity implementations. The exact gas cost per byte of verified data is set to `GasCostPerByte = 300`. The results are:
+Each verification costs a fixed 3,450 gas, the same as the RIP-7212 `P256VERIFY` precompile. This cost is much lower than the cost of P-256 verification in Solidity. Like every Sei precompile, the call also pays a charge for its calldata. For details, see [Gas for precompile calls](/evm/evm-parity/gas-and-fees#gas-for-precompile-calls).
 
-* **Total cost**: 300 × 160 = **48,000 gas** per verification
-* **Efficiency**: Up to 60x more efficient than pure Solidity implementations
+The precompile charges for the calldata first. Then it charges the 3,450 gas, and then it checks the signature. If the call cannot pay the calldata charge, it reverts. If the call cannot pay the 3,450 gas, it fails with an out-of-gas error and does not revert.
 
 ## Real-world use cases
 
@@ -24451,12 +24541,12 @@ contract P256Test {
 
 ## Performance considerations
 
-* **Gas efficiency**: 48,000 gas per verification, compared to 2M gas or more for Solidity implementations
+* **Gas efficiency**: A verification costs a fixed 3,450 gas, plus the calldata charge
 * **Batch operations**: Consider batching multiple verifications in a single transaction
 * **Caching**: Cache public keys on-chain to reduce calldata for repeated verifications
 * **Hardware integration**: Particularly efficient for applications that use hardware-backed keys
 
-<Info>View the complete P256 precompile ABI in the [sei-chain v6.6.1 snapshot](https://github.com/sei-protocol/sei-chain/blob/v6.6.1/precompiles/p256/legacy/v66/abi.json), or browse the [implementation source](https://github.com/sei-protocol/sei-chain/tree/v6.6.1/precompiles/p256).</Info>
+<Info>View the complete P256 precompile ABI in [sei-chain v6.7.1](https://github.com/sei-protocol/sei-chain/blob/v6.7.1/precompiles/p256/abi.json), or browse the [implementation source](https://github.com/sei-protocol/sei-chain/tree/v6.7.1/precompiles/p256).</Info>
 
 
 This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.
@@ -25463,6 +25553,76 @@ contract NativeSeiSender {
 
 Validate the recipient before you send SEI. A successful transaction cannot be reversed.
 
+## Other query methods
+
+The Bank precompile also has the read-only queries below. All of them except `supply` are available since v6.7.0.
+
+```solidity theme={"dark"}
+function supply(string memory denom) external view returns (uint256 response);
+function spendableBalances(address acc, bytes memory pageKey)
+    external view returns (Coin[] memory balances, bytes memory nextKey);
+function totalSupply(bytes memory pageKey)
+    external view returns (Coin[] memory supply, bytes memory nextKey);
+function params() external view returns (Params memory params);
+function denomMetadata(string memory denom) external view returns (Metadata memory metadata);
+function denomsMetadata(bytes memory pageKey)
+    external view returns (Metadata[] memory metadatas, bytes memory nextKey);
+
+struct Coin {
+    uint256 amount;
+    string denom;
+}
+
+struct SendEnabled {
+    string denom;
+    bool enabled;
+}
+
+struct Params {
+    SendEnabled[] sendEnabled;
+    bool defaultSendEnabled;
+}
+
+struct DenomUnit {
+    string denom;
+    uint32 exponent;
+    string[] aliases;
+}
+
+struct Metadata {
+    string description;
+    DenomUnit[] denomUnits;
+    string base;
+    string display;
+    string name;
+    string symbol;
+}
+```
+
+`supply(denom)` returns the supply of one denomination. `totalSupply(pageKey)` returns the supply of every denomination, one page at a time. For paginated methods, pass empty bytes (`0x`) for the first page, then pass the returned `nextKey`. An empty `nextKey` means there are no more pages. `spendableBalances` reverts if `acc` has no associated Sei address.
+
+`BANK_PRECOMPILE_ABI` in `@sei-js/precompiles@3` does not include `spendableBalances`, `totalSupply`, `params`, `denomMetadata`, or `denomsMetadata`. Call them with an ABI fragment:
+
+```typescript theme={"dark"}
+const bankQueries = new ethers.Contract(
+  BANK_PRECOMPILE_ADDRESS,
+  [
+    'function supply(string denom) view returns (uint256)',
+    'function spendableBalances(address acc, bytes pageKey) view returns ((uint256 amount, string denom)[] balances, bytes nextKey)',
+  ],
+  provider,
+);
+
+const supplyUsei = await bankQueries.supply('usei');
+console.log(`${ethers.formatUnits(supplyUsei, 6)} SEI total supply`);
+
+const account = '0x1234567890123456789012345678901234567890';
+const [balances, nextKey] = await bankQueries.spendableBalances(account, '0x');
+for (const coin of balances) {
+  console.log(`${coin.amount} ${coin.denom}`);
+}
+```
+
 
 This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.
 
@@ -26240,6 +26400,437 @@ const incorrectMsg = ethers.toUtf8Bytes('invalid json');
 * When possible, query contracts to verify their state before you execute calls on them.
 
 <Info>View the [CosmWasm precompile source code and contract ABI](https://github.com/sei-protocol/sei-chain/tree/main/precompiles/wasmd).</Info>
+
+
+This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.
+
+---
+
+URL: https://docs.sei.io/evm/precompiles/auth
+
+# Auth Precompile
+
+> Read account details, auth module parameters, and the next account number from EVM contracts with the Auth precompile.
+
+**Address:** `0x000000000000000000000000000000000000100D`
+
+The Auth precompile reads data from the Cosmos `auth` module: account details, module parameters, and the next account number. All methods are `view` functions. The precompile is available since v6.7.0.
+
+## Interface
+
+```solidity Auth.sol theme={"dark"}
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+address constant AUTH_PRECOMPILE_ADDRESS = 0x000000000000000000000000000000000000100D;
+
+IAuth constant AUTH_CONTRACT = IAuth(AUTH_PRECOMPILE_ADDRESS);
+
+interface IAuth {
+    function account(address addr) external view returns (Account memory account);
+    function accounts(bytes memory pageKey) external view returns (AccountsResponse memory response);
+    function params() external view returns (AuthParams memory params);
+    function nextAccountNumber() external view returns (uint64 count);
+
+    struct Account {
+        string accountAddress;
+        uint64 accountNumber;
+        uint64 sequence;
+    }
+
+    struct AccountsResponse {
+        Account[] accounts;
+        bytes nextKey;
+    }
+
+    struct AuthParams {
+        uint64 maxMemoCharacters;
+        uint64 txSigLimit;
+        uint64 txSizeCostPerByte;
+        uint64 sigVerifyCostEd25519;
+        uint64 sigVerifyCostSecp256k1;
+        bool disableSeqnoCheck;
+    }
+}
+```
+
+## Methods
+
+| Method | Returns |
+| - | - |
+| `account(addr)` | The Sei address, account number, and sequence of the account linked to `addr`. |
+| `accounts(pageKey)` | All accounts, one page at a time. |
+| `params()` | The `auth` module parameters. |
+| `nextAccountNumber()` | The account number that the next new account gets. The call does not change the counter. |
+
+## Notes
+
+* `account()` reverts if `addr` has no associated Sei address, or if no account exists for it.
+* For `accounts()`, pass empty bytes for the first page, then pass the returned `nextKey`. An empty `nextKey` means there are no more pages.
+
+
+This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.
+
+---
+
+URL: https://docs.sei.io/evm/precompiles/authz
+
+# Authz Precompile
+
+> Read Cosmos authz grants between accounts from EVM contracts with the Authz precompile.
+
+**Address:** `0x000000000000000000000000000000000000100E`
+
+The Authz precompile reads grants from the Cosmos `authz` module. A grant lets a grantee account send specific messages for a granter account. All methods are `view` functions. The precompile is available since v6.7.0.
+
+## Interface
+
+```solidity Authz.sol theme={"dark"}
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+address constant AUTHZ_PRECOMPILE_ADDRESS = 0x000000000000000000000000000000000000100e;
+
+IAuthz constant AUTHZ_CONTRACT = IAuthz(AUTHZ_PRECOMPILE_ADDRESS);
+
+interface IAuthz {
+    function grants(
+        address granter,
+        address grantee,
+        string memory msgTypeUrl,
+        bytes memory pageKey
+    ) external view returns (GrantsResponse memory response);
+
+    function granterGrants(
+        address granter,
+        bytes memory pageKey
+    ) external view returns (GrantAuthorizationsResponse memory response);
+
+    function granteeGrants(
+        address grantee,
+        bytes memory pageKey
+    ) external view returns (GrantAuthorizationsResponse memory response);
+
+    struct Grant {
+        bytes authorization;
+        int64 expiration;
+    }
+
+    struct GrantsResponse {
+        Grant[] grants;
+        bytes nextKey;
+    }
+
+    struct GrantAuthorization {
+        string granter;
+        string grantee;
+        bytes authorization;
+        int64 expiration;
+    }
+
+    struct GrantAuthorizationsResponse {
+        GrantAuthorization[] grants;
+        bytes nextKey;
+    }
+}
+```
+
+## Methods
+
+| Method | Returns |
+| - | - |
+| `grants(granter, grantee, msgTypeUrl, pageKey)` | The grants from `granter` to `grantee`. Pass an empty `msgTypeUrl` to get grants for every message type. |
+| `granterGrants(granter, pageKey)` | Every grant that `granter` issued. |
+| `granteeGrants(grantee, pageKey)` | Every grant that `grantee` received. |
+
+## Notes
+
+* Every address argument must have an associated Sei address. Otherwise, the call reverts.
+* If you pass a `msgTypeUrl` and no grant matches it, `grants` reverts.
+* `authorization` is the grant's authorization encoded as JSON. It includes an `@type` field that names the authorization type.
+* `expiration` is a Unix timestamp in seconds. In `GrantAuthorization`, `granter` and `grantee` are Sei addresses.
+* For paginated methods, pass empty bytes for the first page, then pass the returned `nextKey`. An empty `nextKey` means there are no more pages.
+
+
+This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.
+
+---
+
+URL: https://docs.sei.io/evm/precompiles/evidence
+
+# Evidence Precompile
+
+> Read evidence of validator misbehavior from EVM contracts with the Evidence precompile.
+
+**Address:** `0x000000000000000000000000000000000000100F`
+
+The Evidence precompile reads the evidence of validator misbehavior that the Cosmos `evidence` module recorded. All methods are `view` functions. The precompile is available since v6.7.0.
+
+## Interface
+
+```solidity Evidence.sol theme={"dark"}
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+address constant EVIDENCE_PRECOMPILE_ADDRESS = 0x000000000000000000000000000000000000100f;
+
+IEvidence constant EVIDENCE_CONTRACT = IEvidence(EVIDENCE_PRECOMPILE_ADDRESS);
+
+interface IEvidence {
+    function evidence(bytes memory evidenceHash) external view returns (bytes memory);
+    function allEvidence(bytes memory pageKey) external view returns (AllEvidenceResponse memory response);
+
+    struct AllEvidenceResponse {
+        bytes[] evidenceList;
+        bytes nextKey;
+    }
+}
+```
+
+## Methods
+
+| Method | Returns |
+| - | - |
+| `evidence(evidenceHash)` | The evidence with this hash. The call reverts if no evidence has this hash. |
+| `allEvidence(pageKey)` | All evidence, one page at a time. |
+
+## Notes
+
+* The precompile encodes each piece of evidence as JSON. The JSON includes an `@type` field and the fields of the record, such as the height and consensus address of an `Equivocation` record.
+* For `allEvidence()`, pass empty bytes for the first page, then pass the returned `nextKey`. An empty `nextKey` means there are no more pages.
+
+
+This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.
+
+---
+
+URL: https://docs.sei.io/evm/precompiles/mint
+
+# Mint Precompile
+
+> Read the token release schedule and the current minter state from EVM contracts with the Mint precompile.
+
+**Address:** `0x0000000000000000000000000000000000001012`
+
+The Mint precompile reads the Sei `mint` module: the token release schedule and the state of the current release period. All methods are `view` functions. The precompile is available since v6.7.0.
+
+## Interface
+
+```solidity Mint.sol theme={"dark"}
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+address constant MINT_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000001012;
+
+IMint constant MINT_CONTRACT = IMint(MINT_PRECOMPILE_ADDRESS);
+
+interface IMint {
+    function params() external view returns (MintParams memory);
+    function minter() external view returns (Minter memory);
+
+    struct ScheduledTokenRelease {
+        string startDate;
+        string endDate;
+        uint64 tokenReleaseAmount;
+    }
+
+    struct MintParams {
+        string mintDenom;
+        ScheduledTokenRelease[] tokenReleaseSchedule;
+    }
+
+    struct Minter {
+        string startDate;
+        string endDate;
+        string denom;
+        uint64 totalMintAmount;
+        uint64 remainingMintAmount;
+        uint64 lastMintAmount;
+        string lastMintDate;
+        uint64 lastMintHeight;
+    }
+}
+```
+
+## Methods
+
+| Method | Returns |
+| - | - |
+| `params()` | The mint denomination and the token release schedule. Each release has a start date, an end date, and an amount. |
+| `minter()` | The current release period. It includes the start and end dates, the denomination, the total amount to mint, and the amount left to mint. It also includes the amount, date, and block height of the last mint. |
+
+
+This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.
+
+---
+
+URL: https://docs.sei.io/evm/precompiles/params
+
+# Params Precompile
+
+> Read any module parameter by subspace and key from EVM contracts with the Params precompile.
+
+**Address:** `0x0000000000000000000000000000000000001013`
+
+The Params precompile reads module parameters from the Cosmos `x/params` subspaces. It has one `view` method. The precompile is available since v6.7.0.
+
+## Interface
+
+```solidity Params.sol theme={"dark"}
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+address constant PARAMS_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000001013;
+
+IParams constant PARAMS_CONTRACT = IParams(PARAMS_PRECOMPILE_ADDRESS);
+
+interface IParams {
+    function params(string memory subspace, string memory key) external view returns (string memory value);
+}
+```
+
+## Methods
+
+| Method | Returns |
+| - | - |
+| `params(subspace, key)` | The value of the parameter `key` in `subspace`, as a JSON string. For example, `params("staking", "MaxValidators")` returns the maximum number of validators. |
+
+The call reverts if `subspace` or `key` is empty, or if `subspace` does not exist. If `key` does not exist in `subspace`, the call returns an empty string.
+
+
+This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.
+
+---
+
+URL: https://docs.sei.io/evm/precompiles/slashing
+
+# Slashing Precompile
+
+> Read slashing parameters and validator signing info, and unjail validators from EVM contracts with the Slashing precompile.
+
+**Address:** `0x0000000000000000000000000000000000001014`
+
+The Slashing precompile reads data from the Cosmos `slashing` module and lets a validator operator unjail its validator. An operator can also let another account unjail the validator. The precompile is available since v6.7.0.
+
+## Interface
+
+```solidity Slashing.sol theme={"dark"}
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+address constant SLASHING_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000001014;
+
+ISlashing constant SLASHING_CONTRACT = ISlashing(SLASHING_PRECOMPILE_ADDRESS);
+
+interface ISlashing {
+    // Transactions
+    function unjail() external returns (bool success);
+    function grantUnjailAuthorization(address grantee, int64 expiration) external returns (bool success);
+    function unjailWithAuthorization(address validatorOperator) external returns (bool success);
+    function revokeUnjailAuthorization(address grantee) external returns (bool success);
+
+    // Queries
+    function params() external view returns (SlashingParams memory params);
+    function signingInfo(string memory consAddress) external view returns (SigningInfo memory signingInfo);
+    function signingInfos(bytes memory pageKey) external view returns (SigningInfosResponse memory response);
+
+    struct SlashingParams {
+        int64 signedBlocksWindow;
+        string minSignedPerWindow;
+        uint64 downtimeJailDuration;
+        string slashFractionDoubleSign;
+        string slashFractionDowntime;
+    }
+
+    struct SigningInfo {
+        string validatorAddress;
+        int64 startHeight;
+        int64 indexOffset;
+        int64 jailedUntil;
+        bool tombstoned;
+        int64 missedBlocksCounter;
+    }
+
+    struct SigningInfosResponse {
+        SigningInfo[] signingInfos;
+        bytes nextKey;
+    }
+}
+```
+
+## Methods
+
+### Queries
+
+| Method | Returns |
+| - | - |
+| `params()` | The slashing parameters. They include the signed-blocks window, the minimum fraction of blocks to sign, and the downtime jail duration in seconds. They also include the slash fractions for double signing and downtime. All fractions are decimal strings. |
+| `signingInfo(consAddress)` | The signing info of the validator with this bech32 consensus address. It includes the start height, the index offset, and the jailed-until time as a Unix timestamp in seconds. It also includes the tombstone status and the missed-block count. The call reverts if the validator has no signing info. |
+| `signingInfos(pageKey)` | The signing info of all validators, one page at a time. Pass empty bytes for the first page, then pass the returned `nextKey`. |
+
+### Transactions
+
+| Method | Effect |
+| - | - |
+| `unjail()` | Unjails the validator whose operator address is the caller's associated Sei address. |
+| `grantUnjailAuthorization(grantee, expiration)` | Lets `grantee` unjail the caller's validator until `expiration`, a Unix timestamp in seconds. |
+| `unjailWithAuthorization(validatorOperator)` | Unjails the validator of `validatorOperator`, using a grant that `validatorOperator` gave the caller. |
+| `revokeUnjailAuthorization(grantee)` | Removes the unjail grant that the caller gave `grantee`. |
+
+Each transaction returns `true` if it succeeds. Transactions do not accept value. A transaction reverts if you call it through `delegatecall` or `staticcall`. The caller and every address argument must have an associated Sei address. `unjail()` also reverts if the caller is not a validator operator, or if the validator does not meet the unjail conditions. `grantUnjailAuthorization` reverts if `expiration` is not after the current block time. `revokeUnjailAuthorization` reverts if there is no grant to remove.
+
+
+This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.
+
+---
+
+URL: https://docs.sei.io/evm/precompiles/upgrade
+
+# Upgrade Precompile
+
+> Read scheduled and applied chain upgrades and module consensus versions from EVM contracts with the Upgrade precompile.
+
+**Address:** `0x0000000000000000000000000000000000001015`
+
+The Upgrade precompile reads the Cosmos `upgrade` module: scheduled and applied upgrades, stored upgraded consensus state, and module consensus versions. All methods are `view` functions. The precompile is available since v6.7.0.
+
+## Interface
+
+```solidity Upgrade.sol theme={"dark"}
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+address constant UPGRADE_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000001015;
+
+IUpgrade constant UPGRADE_CONTRACT = IUpgrade(UPGRADE_PRECOMPILE_ADDRESS);
+
+interface IUpgrade {
+    function currentPlan() external view returns (Plan memory plan);
+    function appliedPlan(string memory name) external view returns (int64 height);
+    function upgradedConsensusState(int64 lastHeight) external view returns (bytes memory consensusState);
+    function moduleVersions(string memory moduleName) external view returns (ModuleVersion[] memory versions);
+
+    struct Plan {
+        string name;
+        int64 height;
+        string info;
+    }
+
+    struct ModuleVersion {
+        string name;
+        uint64 version;
+    }
+}
+```
+
+## Methods
+
+| Method | Returns |
+| - | - |
+| `currentPlan()` | The scheduled upgrade plan: its name, height, and info. If there is no scheduled upgrade, all fields are empty or zero. |
+| `appliedPlan(name)` | The block height where the chain applied the named upgrade, or `0` if the chain did not apply it. |
+| `upgradedConsensusState(lastHeight)` | The stored upgraded consensus state for `lastHeight`, or empty bytes if there is none. |
+| `moduleVersions(moduleName)` | The consensus version of the named module. Pass an empty string to get all modules. The call reverts if the module is unknown. |
 
 
 This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.
@@ -35192,7 +35783,7 @@ export const RPCMethodsViewer = () => {
       label: 'sei',
       color: '#600014',
       colorDark: '#b99ba1',
-      blurb: 'Remaining legacy Sei extensions for address resolution, cross-VM lookup, and synthetic receipts.',
+      blurb: 'Remaining legacy Sei extensions for address resolution and cross-VM lookup.',
       deprecated: true
     },
     admin: {
@@ -35415,25 +36006,9 @@ export const RPCMethodsViewer = () => {
   }, {
     "namespace": "eth",
     "name": "eth_getProof",
-    "status": "limited",
-    "description": "Returns a Merkle proof for an account and the requested storage slots.",
-    "seiNote": "Sei stores state in an IAVL tree, not an Ethereum Merkle-Patricia trie. The result is a Sei-specific ProofResult{address, hexValues, storageProof}. Its storageProof entries are CometBFT/IAVL crypto.ProofOps, NOT eth-style MPT proof nodes. There is no accountProof, balance, codeHash, nonce, or storageHash field (Sei has no per-account state root). Standard eth_getProof verifiers do not work.",
-    "params": [{
-      "name": "address",
-      "type": "DATA, 20 bytes",
-      "description": "Account address.",
-      "example": "0xE30feDd158A2e3b13e9badaeABaFc5516e95e8C7"
-    }, {
-      "name": "storageKeys",
-      "type": "array of DATA, 32 bytes",
-      "description": "Storage slot keys to prove (bounded by MaxStorageKeysPerProof).",
-      "example": "[\"0x0\"]"
-    }, {
-      "name": "blockNrOrHash",
-      "type": "BLOCKNUMBER or DATA",
-      "description": "Block number, tag, or hash.",
-      "example": "latest"
-    }]
+    "status": "unsupported",
+    "description": "Returns a Merkle proof for an account and the requested storage slots. Sei registers this method, but it always returns an unsupported error.",
+    "seiNote": "Since v6.7.0, always returns JSON-RPC error -32000 with the message 'eth_getProof is not supported yet; please reach out to the Sei Labs if you need this endpoint'."
   }, {
     "namespace": "eth",
     "name": "eth_getNonce",
@@ -36310,18 +36885,6 @@ export const RPCMethodsViewer = () => {
       "name": "ethHash",
       "type": "DATA, 32 bytes",
       "description": "The EVM transaction hash to map to its underlying Cosmos tx hash.",
-      "example": "0x828c91592453fe7c5bf743204495a35bf02b67b579b8f59ee7eea8af031d7c14"
-    }]
-  }, {
-    "namespace": "sei",
-    "name": "sei_getTransactionReceipt",
-    "status": "limited",
-    "description": "Returns a transaction receipt by hash, including synthetic receipts for Cosmos transactions.",
-    "seiNote": "This legacy sei_* method is deprecated and DISABLED by default. It can get logs for a synthetic transaction when its hash is already known. Works over HTTP only.",
-    "params": [{
-      "name": "hash",
-      "type": "DATA, 32 bytes",
-      "description": "Transaction hash.",
       "example": "0x828c91592453fe7c5bf743204495a35bf02b67b579b8f59ee7eea8af031d7c14"
     }]
   }, {
@@ -37327,7 +37890,7 @@ Sei fully supports the standard Ethereum JSON-RPC API, so existing EVM tools (et
   By default, the explorer lists only the current methods that are available. Each method has one of three status labels:
 
   * **Supported**: The method is registered and has a full implementation with standard Ethereum behavior.
-  * **Limited**: The method is callable, but it returns a static value or has a Sei-specific caveat (shown in the method's **Sei-specific behavior** note). For example, `eth_coinbase` returns the fee-collector address, and `eth_getProof` returns an IAVL proof.
+  * **Limited**: The method is callable, but it returns a static value or has a Sei-specific caveat (shown in the method's **Sei-specific behavior** note). For example, `eth_coinbase` returns the fee-collector address.
   * **Unavailable**: The method is not registered, returns an explicit error, or does not apply to Sei's architecture. This includes blob methods (`eth_blobBaseFee`), proof-of-work and uncle methods, and the `admin`, `miner`, `clique`, `engine`, `les`, and `personal` namespaces.
 
   By default, the explorer hides the remaining deprecated `sei_*` extensions and the unavailable methods. To browse them, enable **Show deprecated & unavailable methods**. The deprecated extensions are also documented under [Sei custom endpoints](#sei-custom-endpoints).
@@ -37335,7 +37898,7 @@ Sei fully supports the standard Ethereum JSON-RPC API, so existing EVM tools (et
 
 ## Overview
 
-Sei supports the [Ethereum JSON-RPC API](https://ethereum.org/en/developers/docs/apis/json-rpc/). It also has some Sei-specific extensions for cross-VM operations, synthetic transactions, and other advanced features. Because Sei has [instant finality](/evm/differences-with-ethereum#finality), the `safe`, `finalized`, and `latest` block tags all resolve to the same (latest committed) block.
+Sei supports the [Ethereum JSON-RPC API](https://ethereum.org/en/developers/docs/apis/json-rpc/). It also has a few deprecated Sei-specific extensions for address resolution and cross-VM lookups. Because Sei has [instant finality](/evm/differences-with-ethereum#finality), the `safe`, `finalized`, and `latest` block tags all resolve to the same (latest committed) block.
 
 All endpoints follow the standard JSON-RPC format:
 
@@ -37419,10 +37982,13 @@ This keeps downstream consumers, including evmrpc, block explorers, and monitori
 ### Filter and subscription limits
 
 <Info>
-  By default, log filters (`eth_getLogs`, `eth_getFilterLogs`) have these limits:
+  By default, log filters (`eth_getLogs`, `eth_getFilterLogs`) have these limits. Operators set them in the `[evm]` section of `app.toml`.
 
-  * **Open-ended block range:** up to 10,000 logs in one response
-  * **Close-ended block range:** up to 2,000 blocks in one query
+  * **Matched logs:** a query can match up to 10,000 logs (`max_log_no_block`), for both bounded and open-ended block ranges.
+  * **Log data:** a query can load up to about 64 MiB of matched logs (`max_log_bytes`).
+  * **Block range:** a query can span up to 2,000 blocks (`max_blocks_for_log`). This limit also applies to a range that ends at the latest block.
+
+  A query over a limit fails with `query matches too many logs`, `query matches too many log bytes`, or `block range too large`. It does not return partial results. Narrow the block range or the filters (address and topics), then try again.
 
   Real-time subscriptions (`eth_subscribe` for `newHeads` and `logs`) are available over WebSocket only. For transport details, see [WebSocket connections](/evm/evm-parity/websocket).
 </Info>
@@ -37438,9 +38004,13 @@ You can also browse every method below in the interactive explorer above. This s
 
   **Sei-specific behavior:** Decodes the bytes to an ethtypes.Transaction, wraps it in a Cosmos MsgEVMTransaction, and broadcasts it through CometBFT. By default, it uses a CheckTx-level BroadcastTx (that is, `broadcast_tx_sync`), and slow mode uses BroadcastTxCommit. Non-zero CheckTx codes are returned as ABCI errors, not geth mempool errors. Legacy (non-1559) transactions must set gasPrice at or above the governance minimum (currently 50 gwei on Sei Mainnet). Blob (EIP-4844) transactions are not enabled. The method supports per-sender EvmProxy forwarding.
 
-  **Under Autobahn (`AutobahnConfigFile` set):** Transaction broadcast routes through Autobahn's producer-backed mempool instead of CometBFT's `TxMempool`. This mempool admits EVM transactions strictly in sequential nonce order for each sender. It rejects a transaction with a bad-nonce error if its nonce does not match the sender's next expected nonce. Senders must therefore submit nonces contiguously.
+  **Under Autobahn (`AutobahnConfigFile` set):** The node runs as a validator when the top-level `mode` in `config.toml` is `"validator"`. With any other mode, it runs as a fullnode without a local mempool.
 
-  Under Autobahn, the default CheckTx-synchronous broadcast (`broadcast_tx_sync`, the same path named above) blocks while the mempool is full. It returns only after capacity is available. As a result, a default `eth_sendRawTransaction` call can stall for as long as the mempool stays full. The async path (`broadcast_tx_async`) may silently drop the transaction instead. The `unsafe_flush_mempool` Tendermint RPC endpoint is not supported under Autobahn and returns `unsafe_flush_mempool is not supported with autobahn mempool`.
+  On a validator, transactions go to Autobahn's producer mempool instead of CometBFT's `TxMempool`. This mempool admits EVM transactions in strict nonce order for each sender. It rejects a transaction with a bad-nonce error if its nonce is not the sender's next expected nonce, so senders must submit nonces without gaps. If another validator owns the sender's EVM shard and is connected, the validator forwards the transaction to that validator instead. The `enable_evm_proxy` field in `autobahn.json` controls this forwarding. Its default is `true`.
+
+  On a fullnode, `eth_sendRawTransaction` forwards the transaction to the committee member that owns the sender's EVM shard. For this, every validator in `autobahn.json` must have an `evmrpc` URL. The Tendermint `broadcast_tx_async`, `broadcast_tx_sync`, and `broadcast_tx_commit` methods fail on a fullnode with `autobahn fullnode has no local mempool; broadcast_tx_* must be sent to a validator`. On a fullnode, `eth_getTransactionCount` with the `pending` tag also goes to the shard owner. If the fullnode has no EVM RPC connection to the shard owner, the call returns `0`. `unconfirmed_txs` and `num_unconfirmed_txs` return empty results on a fullnode.
+
+  On an Autobahn validator, the default CheckTx-synchronous broadcast (`broadcast_tx_sync`, the same path named above) blocks while the mempool is full. It returns only after capacity is available. As a result, a default `eth_sendRawTransaction` call can stall for as long as the mempool stays full. The async path (`broadcast_tx_async`) can drop the transaction without an error instead. The `unsafe_flush_mempool` Tendermint RPC endpoint is not supported under Autobahn and returns `unsafe_flush_mempool is not supported with autobahn mempool`.
 
   **Parameters:**
 
@@ -37846,39 +38416,6 @@ You can also browse every method below in the interactive explorer above. This s
   }
   ```
 
-  #### `eth_getProof`
-
-  **Limited.** Returns a Merkle proof for an account and the requested storage slots.
-
-  **Sei-specific behavior:** Sei stores state in an IAVL-style tree, not an Ethereum Merkle-Patricia trie. The handler unwraps the EVM store through any intervening wrappers (cache, tracing, Giga cache, prefix stores). It continues until it reaches an underlying proof-capable queryable store: classic IAVL, a store/v2 memiavl commitment, or any other proof-capable root. Proofs therefore work across these backends, not only on classic IAVL. If the handler cannot reach a proof-capable queryable store, it returns `cannot find a proof-capable queryable KV store`.
-
-  The result is a Sei-specific ProofResult\{address, hexValues, storageProof}. Its storageProof entries are CometBFT/IAVL crypto.ProofOps, not eth-style MPT proof nodes. The result has no accountProof, balance, codeHash, nonce, or storageHash field (Sei has no per-account state root). Standard `eth_getProof` verifiers do not work with it.
-
-  **Parameters:**
-
-  | # | Name | Type | Description |
-  | :- | :- | :- | :- |
-  | 1 | `address` | DATA, 20 bytes | Account address. |
-  | 2 | `storageKeys` | array of DATA, 32 bytes | Storage slot keys to prove (bounded by MaxStorageKeysPerProof). |
-  | 3 | `blockNrOrHash` | BLOCKNUMBER or DATA | Block number, tag, or hash. |
-
-  **Example request:**
-
-  ```json theme={"dark"}
-  {
-    "jsonrpc": "2.0",
-    "id": 1,
-    "method": "eth_getProof",
-    "params": [
-      "0xE30feDd158A2e3b13e9badaeABaFc5516e95e8C7",
-      [
-        "0x0"
-      ],
-      "latest"
-    ]
-  }
-  ```
-
   #### `eth_accounts`
 
   **Limited.** Returns the list of addresses for which the node holds hosted keys.
@@ -38265,7 +38802,7 @@ You can also browse every method below in the interactive explorer above. This s
 
   **Limited.** Opens a WebSocket-only push subscription for newHeads or logs notifications.
 
-  **Sei-specific behavior:** Available over WebSocket only. SubscriptionAPI is not registered on the HTTP server, so over HTTP the method returns rpc.ErrNotificationsUnsupported. Only 'newHeads' and 'logs' are implemented in source. There is no 'newPendingTransactions' subscription, although some client docs imply otherwise. MaxSubscriptionsNewHead caps newHeads subscriptions.
+  **Sei-specific behavior:** Available over WebSocket only. SubscriptionAPI is not registered on the HTTP server, so over HTTP the method returns rpc.ErrNotificationsUnsupported. Only 'newHeads' and 'logs' are implemented in source. There is no 'newPendingTransactions' subscription, although some client docs imply otherwise. The node limits concurrent subscriptions across all connections: up to 10,000 `newHeads` subscriptions (`max_subscriptions_new_head`) and up to 1,000 `logs` subscriptions (`max_subscriptions_logs`). When the node reaches a limit, a new subscription fails with `no new subscription can be created`.
 
   **Parameters:**
 
@@ -38335,6 +38872,8 @@ You can also browse every method below in the interactive explorer above. This s
   | 3 | `overrides` | object | Optional per-account state overrides (balance, code, nonce, state). |
   | 4 | `blockOverrides` | object | Optional block-context overrides (number, time, coinbase). |
 
+  A state override can include up to 100 accounts (`max_state_override_accounts`) and up to 1,000 storage slots per account in `state` or `stateDiff` (`max_state_override_slots`). A larger override fails with a `too many accounts` or `too many slots` error. An operator can set a limit to `0` to turn it off. The same limits apply to `eth_estimateGas`, `eth_estimateGasAfterCalls`, and `debug_traceCall`.
+
   **Example request:**
 
   ```json theme={"dark"}
@@ -38387,7 +38926,7 @@ You can also browse every method below in the interactive explorer above. This s
 
   **Limited.** Estimates gas for a transaction after it applies a sequence of preceding calls to the same simulated state.
 
-  **Sei-specific behavior:** This is a non-standard Sei/geth extension (not part of the standard Ethereum JSON-RPC spec). It has the same gas-cap and fail-fast-limiter behavior as `eth_estimateGas`.
+  **Sei-specific behavior:** This is a non-standard Sei/geth extension (not part of the standard Ethereum JSON-RPC spec). It has the same gas-cap and fail-fast-limiter behavior as `eth_estimateGas`. A request can include up to 100 calls to apply first (`max_estimate_gas_calls`). A request with more calls fails with a `too many calls` error.
 
   **Parameters:**
 
@@ -38420,7 +38959,7 @@ You can also browse every method below in the interactive explorer above. This s
 
   **Supported.** Generates an EIP-2930 access list (and gas used) for a transaction.
 
-  **Sei-specific behavior:** Defaults to the pending block tag, as geth does. If a VM error occurs during simulation, the method reports it in the result's 'error' field instead of failing the RPC.
+  **Sei-specific behavior:** Defaults to the pending block tag, as geth does. If a VM error occurs during simulation, the method reports it in the result's 'error' field instead of failing the RPC. When the node's request limiter is full, the call fails with `eth_createAccessList rejected due to rate limit: server busy`, like `eth_call` and `eth_estimateGas` do.
 
   **Parameters:**
 
@@ -38462,7 +39001,9 @@ You can also browse every method below in the interactive explorer above. This s
 
   **Supported.** Replays a transaction by hash and returns an execution trace from the configured tracer.
 
-  **Sei-specific behavior:** Available over HTTP only, because the debug namespace is not registered on the WebSocket server. Supports geth tracers: callTracer, prestateTracer, flatCallTracer, and the struct (opcode) logger. TraceBaker pre-bakes and caches the results of callTracer, prestateTracer, and flatCallTracer. Requires trace-enabled or archive state for the target height.
+  **Sei-specific behavior:** Available over HTTP only, because the debug namespace is not registered on the WebSocket server. Supports native geth tracers such as callTracer, prestateTracer, and flatCallTracer, and the struct (opcode) logger. TraceBaker pre-bakes and caches the results of callTracer, prestateTracer, and flatCallTracer. Requires trace-enabled or archive state for the target height.
+
+  **Tracer rules.** The node accepts only the native tracers listed in `trace_allowed_tracers`. By default, these are `callTracer`, `prestateTracer`, `flatCallTracer`, `4byteTracer`, `noopTracer`, and `muxTracer`. The node rejects JavaScript tracer code unless the operator sets `trace_allow_js_tracers = true`. If you omit `tracer`, the default struct logger runs. These rules apply to every `debug_trace*` method that accepts a tracer. For details, see [Tracer allowlist](/evm/tracing#tracer-allowlist).
 
   The max block lookback guard (`max_trace_lookback_blocks`) applies. If a request's target block is older than the configured lookback, the request is rejected with an error of the form `block number X is beyond max lookback of Y`. Each such request increments the `evmrpc_historical_debug_trace_attempts_total` metric. This guard applies consistently across all `debug_trace*` endpoints.
 
@@ -38551,7 +39092,7 @@ You can also browse every method below in the interactive explorer above. This s
 
   **Supported.** Executes and traces a call against a block's state without creating a transaction.
 
-  **Sei-specific behavior:** Available over HTTP only. Arbitrary geth tracer names pass through. Tracing on the pending block is not supported. The `max_trace_lookback_blocks` historical guard applies (see `debug_traceTransaction`).
+  **Sei-specific behavior:** Available over HTTP only. The tracer must be on the node's allowlist (see the tracer rules under `debug_traceTransaction`). Tracing on the pending block is not supported. The `max_trace_lookback_blocks` historical guard applies (see `debug_traceTransaction`).
 
   **Parameters:**
 
@@ -38585,7 +39126,9 @@ You can also browse every method below in the interactive explorer above. This s
 
   **Limited.** Sei extension that replays a transaction and returns its app/tendermint/receipt state-access traces.
 
-  **Sei-specific behavior:** This Sei-specific extension is not part of the upstream go-ethereum debug namespace. It is available over HTTP only and subject to the availability guards for historical debug traces. The `max_trace_lookback_blocks` historical guard applies (see `debug_traceTransaction`).
+  **Sei-specific behavior:** This Sei-specific extension is not part of the upstream go-ethereum debug namespace. It is available over HTTP only and subject to the availability guards for historical debug traces. The `max_trace_lookback_blocks` historical guard applies (see `debug_traceTransaction`). The call fails with `context deadline exceeded` when `trace_timeout` elapses.
+
+  Sei keeps at most 4 MiB of key and value data per module in the access log. A module that goes over this limit has `"truncated": true`. Its `reads` and `has` lists then hold only the first accesses, but its `stats` (operation counts and durations) stay complete.
 
   **Parameters:**
 
@@ -38676,15 +39219,15 @@ You can also browse every method below in the interactive explorer above. This s
 
 ## Sei custom endpoints
 
-Sei keeps four legacy custom endpoints for address resolution, cross-VM transaction lookup, and synthetic receipts.
+Sei keeps three legacy custom endpoints for address resolution and cross-VM transaction lookup.
 
 <Warning>
-  For new integrations, use standard `eth_*` and `debug_*` methods. The four remaining `sei_*` methods are deprecated and scheduled for removal.
+  For new integrations, use standard `eth_*` and `debug_*` methods. The three remaining `sei_*` methods are deprecated and scheduled for removal.
 
-  The `sei2_*` namespace has been removed. Most legacy `sei_*` methods have also been removed, including block, filter, log, signing, association, and transaction lookup methods. The `sei_*` cleanup is tracked in [sei-chain PR #3927](https://github.com/sei-protocol/sei-chain/pull/3927).
+  In v6.7.0, Sei removed the `sei2_*` namespace and most legacy `sei_*` methods. The removed methods include `sei_getTransactionReceipt` and the block, filter, log, signing, association, and transaction lookup methods. The `sei_*` cleanup is tracked in [sei-chain PR #3927](https://github.com/sei-protocol/sei-chain/pull/3927).
 </Warning>
 
-<Note>No remaining block or filter method can discover synthetic logs from Cosmos-originated transactions. If you already know a synthetic transaction hash, enable `sei_getTransactionReceipt` to fetch its receipt and logs.</Note>
+<Note>No RPC method returns receipts or logs for synthetic transactions from Cosmos-originated messages. `eth_getTransactionReceipt` returns receipts for EVM transactions only.</Note>
 
 The `enabled_legacy_sei_apis` setting under `[evm]` in `app.toml` controls access. Only methods explicitly listed in this allowlist are available. Disabled methods return a standard JSON-RPC error (code `-32601`, data `"legacy_sei_deprecated"`). Allowed single-object calls pass through unchanged, with an optional `Sei-Legacy-RPC-Deprecation` HTTP response header that signals deprecation.
 
@@ -38702,20 +39245,16 @@ enabled_legacy_sei_apis = [
   "sei_getSeiAddress",
   "sei_getEVMAddress",
   "sei_getCosmosTx",
-
-  # Optional: enable synthetic receipt lookup.
-  # "sei_getTransactionReceipt",
 ]
 ```
 
-Only these four methods are available:
+Only these three methods are available. The node ignores any other name in the list.
 
 | Method | Description |
 | - | - |
 | `sei_getSeiAddress` | Returns the Sei address associated with an EVM address. |
 | `sei_getEVMAddress` | Returns the EVM address associated with a Sei address. |
 | `sei_getCosmosTx` | Returns the wrapping Cosmos transaction hash as uppercase hexadecimal without a `0x` prefix. |
-| `sei_getTransactionReceipt` | Returns a receipt, including a synthetic receipt when its transaction hash is known. |
 
 ### Address resolution
 
@@ -38800,7 +39339,7 @@ The call reverts when the input address is not yet associated. For the full asso
 
 ### Legacy deprecation error
 
-If a client calls a remaining `sei_*` method that is not listed in `enabled_legacy_sei_apis`, the node returns:
+If a client calls a remaining `sei_*` method that is not listed in `enabled_legacy_sei_apis`, the node returns the error below. The node returns the same error for removed `sei_*` methods, such as `sei_getTransactionReceipt`. If you add a removed method to `enabled_legacy_sei_apis`, the method stays unavailable.
 
 ```json theme={"dark"}
 {
@@ -38808,7 +39347,7 @@ If a client calls a remaining `sei_*` method that is not listed in `enabled_lega
   "id": 1,
   "error": {
     "code": -32601,
-    "message": "sei_getTransactionReceipt is not enabled on this node. The sei_* JSON-RPC surface is deprecated, scheduled for removal, and should not be used for new integrations - prefer standard eth_* (and debug_*) methods and official migration guidance. To allow this legacy method, add it to enabled_legacy_sei_apis under [evm] in app.toml.",
+    "message": "sei_getCosmosTx is not enabled on this node. The sei_* JSON-RPC surface is deprecated, scheduled for removal, and should not be used for new integrations - prefer standard eth_* (and debug_*) methods and official migration guidance. To allow this legacy method, add it to enabled_legacy_sei_apis under [evm] in app.toml.",
     "data": "legacy_sei_deprecated"
   }
 }
@@ -46013,18 +46552,10 @@ URL: https://docs.sei.io/node
 
 > Deploy and maintain Sei Network infrastructure with comprehensive guides for validators, RPC nodes, and archive nodes, including hardware requirements, installation steps, and operational best practices.
 
-export const RandomPeers = ({format = 'bash', network = 'mainnet', count = 5}) => {
-  const PEERS = {
-    mainnet: ['d53ab7681ed0df3d3249fc0132df7c3a131c9c1a@45.250.253.40:51656', '4ee8aea5bb58e9038d72e74322e3bba755287398@202.8.8.183:11956', '81409623ae4da3ec7b400cf640dea0b0999a964b@57.128.230.96:51556', '61a5be64b5215786fe5da712584678d0626636b5@87.249.137.71:51556', 'f83c536f43df9a5d900cd3c2f702c04d7dddc7b5@136.243.67.45:11956', 'b8d600a2f568576b5a2df5ee649cf9b809389064@162.19.62.176:26756', '57860b18ed3e1bbe8901ba73f2e63c7e6fe8b3d3@57.129.54.81:26656', '04fc6bba6c5c33034811612dca31c7adda24b299@91.134.60.37:16856', 'de64b779c7f4091e6f1765f5ca4c46f9d3011732@65.108.70.106:46656', '3be6b24cf86a5938cce7d48f44fb6598465a9924@p2p.state-sync.pacific-1.seinetwork.io:26656', '70e0c91b83b5ed1beaca798267f2debdf97dac10@18.156.6.83:26656', 'dd6b1ae002a15c1c8a38e05660f49a93c75d4159@148.251.181.225:26656'],
-    testnet: ['71beea83970431f55816eee5f066a611a1dc80f7@p2p.state-sync.atlantic-2.seinetwork.io:26656', '65c257f9275beb1b99ca169ef89743c034b15db0@3.76.192.224:26656', '33588592e477c5238ff2a5d8dc765f85790ef853@23.109.47.225:26656', 'babc3f3f7804933265ec9c40ad94f4da8e9e0017@testnet-seed.rhinostake.com:11956', '8542cd7e6bf9d260fef543bc49e59be5a3fa9074@seed.publicnode.com:56656']
-  };
-  const pickRandom = (arr, n) => {
-    const shuffled = [...arr];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    return shuffled.slice(0, Math.min(n, arr.length));
+export const Seeds = ({format = 'bash', network = 'mainnet'}) => {
+  const SEEDS = {
+    mainnet: ['0cd5f57c249b5aca815710338e1fe7a14797585d@seed-0-p2p.pacific-1.prod.platform.sei.io:26656', 'f0f057f1593d28bec11591cf146bd223e0be1866@seed-1-p2p.pacific-1.prod-euw1.platform.sei.io:26656', '8e28f62368a1ceae0102645db8584b218650930d@seed-2-p2p.pacific-1.prod-use2.platform.sei.io:26656'],
+    testnet: ['362f934ead3654fca9cafdac63b52b47b2f9a95e@seed-0-p2p.atlantic-2.prod.platform.sei.io:26656', '1f55cd51183d3a6cad8a3667b91d08d0338bd52e@seed-1-p2p.atlantic-2.prod-euw1.platform.sei.io:26656', '7152be2e4c1a057d2b2467723058c5f0ec790472@seed-2-p2p.atlantic-2.prod-use2.platform.sei.io:26656']
   };
   const CopyIcon = ({className}) => <svg role="img" aria-label="Copy" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
       <path d="M7 7m0 2.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667z" />
@@ -46033,33 +46564,19 @@ export const RandomPeers = ({format = 'bash', network = 'mainnet', count = 5}) =
   const CheckIcon = ({className}) => <svg role="img" aria-label="Copied" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
       <path d="M5 12l5 5l10 -10" />
     </svg>;
-  const ShuffleIcon = ({className}) => <svg role="img" aria-label="Shuffle" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M16 3h5v5" />
-      <path d="M4 20l16.2 -16.2" />
-      <path d="M21 16v5h-5" />
-      <path d="M15 15l6 6" />
-      <path d="M4 4l5 5" />
-    </svg>;
-  const pool = PEERS[network] ?? [];
-  const [peers, setPeers] = useState(() => pool.slice(0, count));
   const [copied, setCopied] = useState(false);
-  const shuffle = () => {
-    setPeers(pickRandom(pool, count));
-  };
-  useEffect(() => {
-    shuffle();
-  }, [network, count]);
-  if (pool.length === 0) {
+  const seeds = SEEDS[network] ?? [];
+  if (seeds.length === 0) {
     return <div className="not-prose w-full">
         <pre className="m-0 p-3 rounded-md bg-neutral-100 dark:bg-neutral-800 text-sm opacity-70" style={{
       fontFamily: 'var(--sei-font-mono)'
     }}>
-          No peers configured for network "{network}".
+          No seeds configured for network “{network}”.
         </pre>
       </div>;
   }
-  const peerString = peers.join(',');
-  const displayText = format === 'toml' ? `persistent_peers = "${peerString}"` : `PEERS="${peerString}"`;
+  const seedString = seeds.join(',');
+  const displayText = format === 'toml' ? `bootstrap-peers = "${seedString}"` : `SEEDS="${seedString}"`;
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(displayText);
@@ -46069,7 +46586,7 @@ export const RandomPeers = ({format = 'bash', network = 'mainnet', count = 5}) =
   };
   return <div className="not-prose w-full">
       <div className="relative">
-        <pre className="m-0 px-4 py-3 pr-28 rounded-lg bg-neutral-100 dark:bg-neutral-900 text-[12.5px] leading-[1.55] whitespace-pre-wrap break-all border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100" style={{
+        <pre className="m-0 px-4 py-3 pr-24 rounded-lg bg-neutral-100 dark:bg-neutral-900 text-[12.5px] leading-[1.55] whitespace-pre-wrap break-all border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100" style={{
     fontFamily: 'var(--sei-font-mono)'
   }}>
           <code style={{
@@ -46077,13 +46594,9 @@ export const RandomPeers = ({format = 'bash', network = 'mainnet', count = 5}) =
   }}>{displayText}</code>
         </pre>
         <div className="absolute top-2 right-2 flex items-center gap-1.5">
-          <button type="button" onClick={shuffle} aria-label="Shuffle peers" title="Shuffle" className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold border border-neutral-300 dark:border-neutral-600 bg-white/80 dark:bg-neutral-800/80 text-neutral-700 dark:text-neutral-200 hover:bg-white dark:hover:bg-neutral-800 transition-colors">
-            <ShuffleIcon />
-            Shuffle
-          </button>
-          <button type="button" onClick={handleCopy} aria-label="Copy peers" title="Copy to clipboard" className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold border border-neutral-300 dark:border-neutral-600 bg-white/80 dark:bg-neutral-800/80 text-neutral-700 dark:text-neutral-200 hover:bg-white dark:hover:bg-neutral-800 transition-colors">
+          <button type="button" onClick={handleCopy} aria-label="Copy seeds" title="Copy to clipboard" className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold border border-neutral-300 dark:border-neutral-600 bg-white/80 dark:bg-neutral-800/80 text-neutral-700 dark:text-neutral-200 hover:bg-white dark:hover:bg-neutral-800 transition-colors">
             {copied ? <>
-                <CheckIcon className="text-green-600 dark:text-green-400" />
+                <CheckIcon className="text-green-600" />
                 Copied
               </> : <>
                 <CopyIcon />
@@ -46375,16 +46888,6 @@ These guides show how to run, maintain, and optimize Sei network nodes. Whether 
 
     <Info>The default init mode is **full**, in which RPC and P2P bind to all interfaces. For **validator** or **seed** nodes, use `--mode validator` or `--mode seed`. In these modes, RPC and P2P bind to localhost only. For the full validator init example, see the [Validator Operations Guide](/node/validators).</Info>
 
-    You can find peers here:
-
-    * Sei Mainnet (pacific-1):
-
-    <RandomPeers network="mainnet" format="bash" />
-
-    * Sei Testnet (atlantic-2):
-
-    <RandomPeers network="testnet" format="bash" />
-
     ```bash theme={"dark"}
     # Initialize node (default mode is full: RPC/P2P bind to all interfaces)
     # --chain-id is required, e.g. pacific-1 or atlantic-2
@@ -46398,13 +46901,32 @@ These guides show how to run, maintain, and optimize Sei network nodes. Whether 
     # discovery works with no manual configuration. Devnets (arctic-1) and
     # unknown/private chains get none, and any bootstrap-peers value you already set
     # is never overwritten.
-
-    # Optionally configure additional persistent peers in config.toml.
-    PEERS="<comma-separated-peer-list>"
-
-    #Set persistent peers in config.toml
-    sed -i 's/persistent-peers = .*/persistent-peers = "'$PEERS'"/' ~/.sei/config/config.toml
     ```
+
+    ##### Peer discovery
+
+    As of **v6.6.2**, `seid init` writes the Sei Labs seed nodes into `bootstrap-peers`, so a
+    fresh node finds peers with no further configuration. The seeds run in three regions per
+    network and gossip the rest of the network to you over PEX, so there is no peer list to
+    maintain.
+
+    <Info>
+      Seeds belong in `bootstrap-peers`, not `persistent-peers`. Bootstrap peers seed your
+      address book and may be dropped once you have real peers, whereas `persistent-peers`
+      holds connections open indefinitely, which is only appropriate for nodes you operate
+      yourself.
+    </Info>
+
+    If you need to set them by hand, for example on a node initialized before v6.6.2 or a
+    home directory you did not create with `seid init`, the values are:
+
+    * Sei Mainnet (pacific-1):
+
+    <Seeds network="mainnet" format="toml" />
+
+    * Sei Testnet (atlantic-2):
+
+    <Seeds network="testnet" format="toml" />
 
     ##### Configure app settings
 
@@ -46598,13 +47120,17 @@ These guides show how to run, maintain, and optimize Sei network nodes. Whether 
 
 ### Advanced operations
 
-<CardGroup cols={3}>
+<CardGroup cols={2}>
   <Card horizontal title="Configuration & monitoring" icon="gauge-simple-high" href="/node/advanced-config-monitoring">
     Optimize your node's performance with advanced settings and monitoring tools.
   </Card>
 
   <Card horizontal title="Giga SS store migration" icon="database" href="/node/giga-storage-migration">
     Move EVM historical state into dedicated state-store databases on supported RPC nodes.
+  </Card>
+
+  <Card horizontal title="Frozen nodes" icon="snowflake" href="/node/frozen-nodes">
+    Serve history from before an upgrade with a read-only node on the outgoing release.
   </Card>
 
   <Card horizontal title="Technical reference" icon="terminal" href="/node/technical-reference">
@@ -46724,15 +47250,24 @@ ss-backend = "pebbledb"
 ss-keep-recent = 100000
 
 [receipt-store]
-# Storage backend for EVM transaction receipts. pebbledb (aka pebble) is the
-# only supported backend.
+# Storage backend for EVM transaction receipts. Supported backends: pebbledb
+# (aka pebble) and littidx.
 rs-backend = "pebbledb"
 ```
 
 <Note>
-  `pebbledb` (also called `pebble`) is the only supported receipt-store backend.
-  The setting `rs-backend = "parquet"` (or `RECEIPT_BACKEND=parquet`) is rejected
-  with the error `unsupported receipt-store backend "parquet"; supported: pebbledb`.
+  The receipt-store backend accepts `pebbledb` (also called `pebble`) and
+  `littidx`. The node rejects an unsupported value, such as `rs-backend = "parquet"`
+  (or `RECEIPT_BACKEND=parquet`), with the error `unsupported receipt-store
+    backend "parquet"; supported: pebbledb, littidx`.
+
+  `littidx` stores receipt bodies in LittDB and keeps a PebbleDB tag index. With
+  this index, `eth_getLogs` can filter logs without a scan of whole blocks. It uses
+  the same `min-retain-blocks` and `prune-interval-seconds` settings as `pebbledb`.
+  It flushes receipt bodies every few milliseconds and does not write them through
+  a WAL. A hard crash can therefore lose the newest receipt bodies. A read of a
+  lost receipt returns not found.
+
   In the localnode and rpcnode configuration scripts, if you enable Giga Storage
   (`GIGA_STORAGE=true`) and `RECEIPT_BACKEND` is not set, the receipt backend
   defaults to `pebble`. The former `receipt-store.tx-index-backend` config field
@@ -48240,10 +48775,10 @@ historical data:
    execution and to compute the per-block app hash. Cosmos modules sit on a
    memory-mapped Merkle tree (`memiavl`) ported from Cronos. EVM state can
    also be routed through **FlatKV**, an EVM-tuned PebbleDB store
-   with per-type sub-databases (`account`, `code`, `storage`, `legacy`,
-   `metadata`). The `sc-write-mode` setting controls the routing, and its
-   default is `memiavl_only`. FlatKV is used only when `sc-write-mode` is set
-   to a migration mode or `flatkv_only`.
+   with per-type sub-databases (`account`, `code`, `storage`, and `misc`).
+   Since v6.7.0, nodes run in the `auto` write mode by default and move EVM
+   state into FlatKV when governance starts the migration. See the
+   [FlatKV EVM SC migration flow](/node/giga-storage-migration#flatkv-evm-sc-migration-flow).
 2. **State Store (SS)**: versioned raw key-value pairs for historical
    queries. It is required for any node that serves RPC. The default backend is
    **PebbleDB**. Do not use RocksDB for new nodes. If you already use RocksDB,
@@ -48277,29 +48812,18 @@ sc-snapshot-min-time-interval = 3600
 # Cap on snapshot write throughput across all trees (MB/s). 0 = unlimited.
 sc-snapshot-write-rate-mbps = 100
 
-# EVM data routing between the Cosmos memiavl tree and FlatKV.
-# Default: memiavl_only — all EVM state lives in memiavl. Valid values:
-# memiavl_only, migrate_evm, evm_migrated, migrate_all_but_bank,
-# all_migrated_but_bank, migrate_bank, flatkv_only, test_only_dual_write.
-# Note: sc-read-mode and sc-enable-lattice-hash, which appeared in earlier
-# versions of this page, were never seid config keys; if present in an
-# existing app.toml they are silently ignored and can be removed.
+# The node runs in the auto write mode by default. It checks that sc-write-mode
+# has a valid value, but it does not use the value.
+# To pin a mode, also set sc-write-mode-enable-auto = false. Read the Giga
+# storage migration guide first.
+# sc-read-mode and sc-enable-lattice-hash are not seid config keys. Since
+# v6.7.0, the node also ignores sc-keys-to-migrate-per-block. You can remove
+# these keys.
 sc-write-mode = "memiavl_only"
 
-# How many EVM keys the in-flight migration (sc-write-mode = migrate_evm /
-# migrate_bank / migrate_all_but_bank) drains from memiavl into FlatKV per
-# block. Must be > 0; ignored when not in a migration mode.
-sc-keys-to-migrate-per-block = 1024
-
 [state-commit.flatkv]
-# FlatKV is the EVM-optimized commit store (PebbleDB). With the default
-# sc-write-mode = "memiavl_only" it is not used and these settings have
-# no effect. WAL crash recovery is idempotent, so fsync stays off by
-# default.
-fsync = false
-async-write-buffer = 0
-snapshot-interval = 10000
-snapshot-keep-recent = 2
+# FlatKV uses built-in defaults. The only key in this section that the node
+# applies is enable-read-write-metrics (default false).
 
 [state-store]
 # Historical SS layer. Validators can disable this to save disk; any node
@@ -48323,7 +48847,7 @@ evm-ss-split = false
 evm-ss-separate-dbs = false
 
 [receipt-store]
-# pebbledb is the only supported backend (parquet was removed in v6.6.0).
+# Supported backends: pebbledb (aka pebble) and littidx. parquet was removed in v6.6.0.
 # Receipts are pruned together with blocks according to min-retain-blocks above.
 rs-backend = "pebbledb"
 async-write-buffer = 100
@@ -48402,10 +48926,8 @@ write amplification.
 evm-ss-split = true
 ```
 
-The SC layer has its own, separate migration path (`sc-write-mode` and the
-FlatKV drain). It has different coordination requirements and its own
-warnings. Do not combine the two flips in one restart. Before you change
-`sc-write-mode`, see the
+The SC layer has its own, separate migration path, which governance controls.
+Before you change `sc-write-mode` or `sc-write-mode-enable-auto`, see the
 [FlatKV EVM SC migration flow](/node/giga-storage-migration#flatkv-evm-sc-migration-flow).
 
 Enabling Giga Storage requires a fresh state sync. If you flip `evm-ss-split`
@@ -48596,6 +49118,12 @@ For major upgrades that introduce state-breaking changes:
   Download the release archive (or build the new binary) before the halt
   height. The swap then takes only seconds at upgrade time.
 </Tip>
+
+<Note>
+  If you serve historical queries, set up a frozen node on the outgoing release
+  before the halt height. See
+  [Prepare for each upgrade](/node/frozen-nodes#prepare-for-each-upgrade).
+</Note>
 
 ## Performance optimization
 
@@ -49544,6 +50072,8 @@ You can run a few types of nodes on the Sei network. Each type has a different p
 
 * Archive / full nodes: these nodes keep the full state of the chain from genesis. They generally need large disks (at least 10 TB). To enable this type of node, set `min-retain-blocks=0` and `pruning="nothing"` in your `app.toml`. Also set `ss-keep-recent = 0` under `[state-store]` so that the SeiDB state store keeps every version.
 
+* Frozen nodes: these full nodes stop one block before an upgrade height. They keep running the outgoing release and serve queries for the heights before the upgrade. To run one, see [Run frozen nodes](/node/frozen-nodes).
+
 * State sync nodes: these nodes serve snapshot data that other nodes use to bootstrap onto the chain. To enable this type of node, set a non-zero `snapshot-interval` under `[state-sync]` in `app.toml`. The `enable=true` setting under `[statesync]` in `config.toml` does the opposite: it makes a node bootstrap from the snapshots of other nodes.
 
 * Validator nodes: these nodes propose and sign blocks to secure the chain. To enable this type of node, set `mode=validator` in `config.toml`. Because Sei uses proof of stake, you must have enough delegation to join the active set.
@@ -49558,7 +50088,7 @@ The `seid` binary uses these TCP ports. Change their settings to match your envi
 * `9090`: The default port for gRPC communication. This port is used for high-performance communication with the node.
 * `8545`: The default port for EVM HTTP RPC. This port is used for Ethereum JSON-RPC calls. It must be open if you want to interact with EVM-compatible applications. The [`frozen-rpc-router`](/node/technical-reference#frozen-rpc-router) binary also listens on `127.0.0.1:8545` by default. If you run the router on the same host as a live node, move one of them to a different port. The linked example keeps the router on `8545` and moves the two co-located nodes to `9545` and `9546`.
 * `8546`: The default port for EVM WebSocket RPC. EVM applications that need WebSocket connections use this port for real-time communication.
-* `26660`: The default port for the Prometheus database, which you can use to monitor the environment. In the default configuration, this port is not open.
+* `26660`: The default port for the Prometheus metrics endpoint, which you can use to monitor the environment. The node opens it only when `prometheus = true` under `[instrumentation]` in `config.toml`. In the default configuration, this port is not open. Seed nodes serve it too. See [Seed node Prometheus metrics](/node/advanced-config-monitoring#seed-node-prometheus-metrics).
 
 You can change all of these ports in `$HOME/.sei/config/config.toml` and `$HOME/.sei/config/app.toml`.
 
@@ -49605,18 +50135,10 @@ URL: https://docs.sei.io/node/troubleshooting
 
 > Detailed guide for troubleshooting node problems.
 
-export const RandomPeers = ({format = 'bash', network = 'mainnet', count = 5}) => {
-  const PEERS = {
-    mainnet: ['d53ab7681ed0df3d3249fc0132df7c3a131c9c1a@45.250.253.40:51656', '4ee8aea5bb58e9038d72e74322e3bba755287398@202.8.8.183:11956', '81409623ae4da3ec7b400cf640dea0b0999a964b@57.128.230.96:51556', '61a5be64b5215786fe5da712584678d0626636b5@87.249.137.71:51556', 'f83c536f43df9a5d900cd3c2f702c04d7dddc7b5@136.243.67.45:11956', 'b8d600a2f568576b5a2df5ee649cf9b809389064@162.19.62.176:26756', '57860b18ed3e1bbe8901ba73f2e63c7e6fe8b3d3@57.129.54.81:26656', '04fc6bba6c5c33034811612dca31c7adda24b299@91.134.60.37:16856', 'de64b779c7f4091e6f1765f5ca4c46f9d3011732@65.108.70.106:46656', '3be6b24cf86a5938cce7d48f44fb6598465a9924@p2p.state-sync.pacific-1.seinetwork.io:26656', '70e0c91b83b5ed1beaca798267f2debdf97dac10@18.156.6.83:26656', 'dd6b1ae002a15c1c8a38e05660f49a93c75d4159@148.251.181.225:26656'],
-    testnet: ['71beea83970431f55816eee5f066a611a1dc80f7@p2p.state-sync.atlantic-2.seinetwork.io:26656', '65c257f9275beb1b99ca169ef89743c034b15db0@3.76.192.224:26656', '33588592e477c5238ff2a5d8dc765f85790ef853@23.109.47.225:26656', 'babc3f3f7804933265ec9c40ad94f4da8e9e0017@testnet-seed.rhinostake.com:11956', '8542cd7e6bf9d260fef543bc49e59be5a3fa9074@seed.publicnode.com:56656']
-  };
-  const pickRandom = (arr, n) => {
-    const shuffled = [...arr];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    return shuffled.slice(0, Math.min(n, arr.length));
+export const Seeds = ({format = 'bash', network = 'mainnet'}) => {
+  const SEEDS = {
+    mainnet: ['0cd5f57c249b5aca815710338e1fe7a14797585d@seed-0-p2p.pacific-1.prod.platform.sei.io:26656', 'f0f057f1593d28bec11591cf146bd223e0be1866@seed-1-p2p.pacific-1.prod-euw1.platform.sei.io:26656', '8e28f62368a1ceae0102645db8584b218650930d@seed-2-p2p.pacific-1.prod-use2.platform.sei.io:26656'],
+    testnet: ['362f934ead3654fca9cafdac63b52b47b2f9a95e@seed-0-p2p.atlantic-2.prod.platform.sei.io:26656', '1f55cd51183d3a6cad8a3667b91d08d0338bd52e@seed-1-p2p.atlantic-2.prod-euw1.platform.sei.io:26656', '7152be2e4c1a057d2b2467723058c5f0ec790472@seed-2-p2p.atlantic-2.prod-use2.platform.sei.io:26656']
   };
   const CopyIcon = ({className}) => <svg role="img" aria-label="Copy" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
       <path d="M7 7m0 2.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667z" />
@@ -49625,33 +50147,19 @@ export const RandomPeers = ({format = 'bash', network = 'mainnet', count = 5}) =
   const CheckIcon = ({className}) => <svg role="img" aria-label="Copied" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
       <path d="M5 12l5 5l10 -10" />
     </svg>;
-  const ShuffleIcon = ({className}) => <svg role="img" aria-label="Shuffle" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M16 3h5v5" />
-      <path d="M4 20l16.2 -16.2" />
-      <path d="M21 16v5h-5" />
-      <path d="M15 15l6 6" />
-      <path d="M4 4l5 5" />
-    </svg>;
-  const pool = PEERS[network] ?? [];
-  const [peers, setPeers] = useState(() => pool.slice(0, count));
   const [copied, setCopied] = useState(false);
-  const shuffle = () => {
-    setPeers(pickRandom(pool, count));
-  };
-  useEffect(() => {
-    shuffle();
-  }, [network, count]);
-  if (pool.length === 0) {
+  const seeds = SEEDS[network] ?? [];
+  if (seeds.length === 0) {
     return <div className="not-prose w-full">
         <pre className="m-0 p-3 rounded-md bg-neutral-100 dark:bg-neutral-800 text-sm opacity-70" style={{
       fontFamily: 'var(--sei-font-mono)'
     }}>
-          No peers configured for network "{network}".
+          No seeds configured for network “{network}”.
         </pre>
       </div>;
   }
-  const peerString = peers.join(',');
-  const displayText = format === 'toml' ? `persistent_peers = "${peerString}"` : `PEERS="${peerString}"`;
+  const seedString = seeds.join(',');
+  const displayText = format === 'toml' ? `bootstrap-peers = "${seedString}"` : `SEEDS="${seedString}"`;
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(displayText);
@@ -49661,7 +50169,7 @@ export const RandomPeers = ({format = 'bash', network = 'mainnet', count = 5}) =
   };
   return <div className="not-prose w-full">
       <div className="relative">
-        <pre className="m-0 px-4 py-3 pr-28 rounded-lg bg-neutral-100 dark:bg-neutral-900 text-[12.5px] leading-[1.55] whitespace-pre-wrap break-all border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100" style={{
+        <pre className="m-0 px-4 py-3 pr-24 rounded-lg bg-neutral-100 dark:bg-neutral-900 text-[12.5px] leading-[1.55] whitespace-pre-wrap break-all border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100" style={{
     fontFamily: 'var(--sei-font-mono)'
   }}>
           <code style={{
@@ -49669,13 +50177,9 @@ export const RandomPeers = ({format = 'bash', network = 'mainnet', count = 5}) =
   }}>{displayText}</code>
         </pre>
         <div className="absolute top-2 right-2 flex items-center gap-1.5">
-          <button type="button" onClick={shuffle} aria-label="Shuffle peers" title="Shuffle" className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold border border-neutral-300 dark:border-neutral-600 bg-white/80 dark:bg-neutral-800/80 text-neutral-700 dark:text-neutral-200 hover:bg-white dark:hover:bg-neutral-800 transition-colors">
-            <ShuffleIcon />
-            Shuffle
-          </button>
-          <button type="button" onClick={handleCopy} aria-label="Copy peers" title="Copy to clipboard" className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold border border-neutral-300 dark:border-neutral-600 bg-white/80 dark:bg-neutral-800/80 text-neutral-700 dark:text-neutral-200 hover:bg-white dark:hover:bg-neutral-800 transition-colors">
+          <button type="button" onClick={handleCopy} aria-label="Copy seeds" title="Copy to clipboard" className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold border border-neutral-300 dark:border-neutral-600 bg-white/80 dark:bg-neutral-800/80 text-neutral-700 dark:text-neutral-200 hover:bg-white dark:hover:bg-neutral-800 transition-colors">
             {copied ? <>
-                <CheckIcon className="text-green-600 dark:text-green-400" />
+                <CheckIcon className="text-green-600" />
                 Copied
               </> : <>
                 <CopyIcon />
@@ -49792,18 +50296,21 @@ systemctl restart seid
 
 <Note>Nodes created before the storage layout change keep the FlatKV store at the legacy path `$HOME/.sei/data/flatkv` instead of `$HOME/.sei/data/state_commit/flatkv`. Pass whichever directory exists on your node to `--db-dir`.</Note>
 
-The `dump-flatkv` command accepts these flags:
-
-* `--db-dir` (`-d`): The FlatKV database directory.
-* `--output-dir` (`-o`): The output directory, with one file for each bucket.
-* `--height`: The FlatKV target version. The default, `0`, selects the latest available version.
-* `--bucket` (`-b`): Restrict the dump to a single bucket (`account`, `code`, `storage`, or `legacy`). The default is all buckets.
+`dump-flatkv` reads from a temporary copy of the store, so you can also run it against a live node. For all flags, see [Dumping FlatKV state](/node/technical-reference#dumping-flatkv-state-and-verifying-its-lattice-hash) in the technical reference.
 
 For example, to dump only the `storage` bucket at a specific version:
 
 ```bash theme={"dark"}
 seidb dump-flatkv --db-dir $HOME/.sei/data/state_commit/flatkv --output-dir /home/ubuntu/flatkv-dump --height 12345678 --bucket storage
 ```
+
+To check only the FlatKV lattice hash against the snapshot metadata, with no dump files:
+
+```bash theme={"dark"}
+seidb dump-flatkv --db-dir $HOME/.sei/data/state_commit/flatkv --lthash-only
+```
+
+If the lattice hash matches, the output shows `result: PASS`. On a mismatch, the command prints `TOTAL FAIL` and stops with an error.
 
 ### Comparing EVM state between memIAVL and FlatKV
 
@@ -49821,7 +50328,24 @@ seidb evm-logical-digest --backend memiavl \
     --db-dir $HOME/.sei/data/state_commit/memiavl --height 213200000
 ```
 
-Each run prints per-bucket `bucket_digest` values and a single `FINAL_DIGEST` line that covers the `account`, `code`, `storage`, and `legacy` buckets. Compare the `FINAL_DIGEST` lines from both backends at the same height. They should match. FlatKV can contain a FlatKV-only migration-version marker that a memIAVL-only node never owns. The command automatically omits that row from the FlatKV final result, so both results cover the same data.
+The memIAVL digest above needs a snapshot at the target height. If no snapshot exists at that height, add `--memiavl-open-mode changelog`. This mode reads the nearest older snapshot and applies the changelog up to the height. The `replay` mode returns the same rows, but it is about 10 times slower.
+
+```bash theme={"dark"}
+# memIAVL digest for a height with no on-disk snapshot:
+seidb evm-logical-digest --backend memiavl --memiavl-open-mode changelog \
+    --db-dir $HOME/.sei/data/state_commit/memiavl --height 213205000
+```
+
+On a node in the middle of the migration, EVM state is split between FlatKV and memIAVL. Use `--backend composite` to digest both together, so you can compare the node with a memIAVL-only node at the same height. Pass the two directories with `--flatkv-dir` and `--memiavl-dir` instead of `--db-dir`:
+
+```bash theme={"dark"}
+# Mid-migration node: digest the flatkv + memiavl union at one height:
+seidb evm-logical-digest --backend composite --memiavl-open-mode changelog \
+    --flatkv-dir $HOME/.sei/data/state_commit/flatkv \
+    --memiavl-dir $HOME/.sei/data/state_commit/memiavl --height 213200000
+```
+
+Each run prints per-bucket `bucket_digest` values and a single `FINAL_DIGEST` line that covers the `account`, `code`, `storage`, and `misc` buckets. Compare the `FINAL_DIGEST` lines from both backends at the same height. If the EVM state is the same, the lines match. The command leaves out FlatKV's internal migration rows, so memIAVL, mid-migration, and migrated nodes all produce comparable digests.
 
 For targeted debugging, the command can also inspect a single normalized bucket instead of printing the global digest. The [seidb tooling section of the technical reference](/node/technical-reference#comparing-evm-state-across-backends) has the full flag reference, including inspect mode, sharding, and `--find-hash`. These examples list the first 50 `account` rows with version metadata, and shard the `storage` bucket under a key prefix by the next 2 bytes:
 
@@ -49932,9 +50456,14 @@ ERR peer handshake failed endpoint={} err=EOF module=p2p
 
 **Resolution steps:**
 
-1. **Update peer configurations** with current node IDs:
+1. **Reset peer configuration to the Sei Labs seeds.** These are stable published
+   addresses, so a stale or mismatched node ID is the usual cause of this error:
 
-   <RandomPeers network="mainnet" format="toml" />
+   <Seeds network="mainnet" format="toml" />
+
+   On `seid` v6.6.2 and later, `seid init` writes these for you. Re-running `init`
+   against an existing home will not overwrite a `bootstrap-peers` value you have
+   already set, so edit `config.toml` directly if you need to replace one.
 
 2. **Verify network connectivity:**
 
@@ -50110,6 +50639,44 @@ failed to initialize database: resource temporarily unavailable
 This means that you did not shut down the node properly. In that case, try to shut down or kill the `seid` process directly. If this does not help, restart your machine.
 
 Then try the rollback steps again.
+
+## HashVault app-hash equivocation panic
+
+Under Autobahn, HashVault halts a node that tries to commit a different app hash for a height it already finalized. For background, see [HashVault](/node/technical-reference#hashvault-app-hash-equivocation-guard).
+
+Before the node halts, it logs an error like this:
+
+```text theme={"dark"}
+Hashvault detected app hash mismatch; node attempted to change its mind. DO NOT RESTART WITHOUT HUMAN INVESTIGATION. ...
+blockHeight=[HEIGHT] existingHex=[...] incomingHex=[...] hashVaultDir=[/path/to/hashvault]
+```
+
+<Warning>
+  Do not restart the node before you investigate. A mismatch can mean a real equivocation, for example the same validator key on two machines. If you restart the node or remove the guard, your validator can commit a conflicting hash for a finalized height. This can cause slashing.
+</Warning>
+
+Find out if the mismatch is a real equivocation. A rollback or restore outside the normal process can also leave the app state out of sync with the stored hashes.
+
+### Recovery
+
+Only if you are sure that there is no real equivocation:
+
+1. Stop the node.
+2. Delete the HashVault directory shown as `hashVaultDir` in the log (by default `<PersistentStateDir>/hashvault`).
+3. Restart the node. It starts with an empty hash history.
+
+Deleting the directory removes the protection for the heights it covered.
+
+### Disabling HashVault
+
+If the same panic occurs again on new blocks, and you are sure that the stored hashes are wrong, you can turn off HashVault. Set the top-level `hash-vault-disabled-unsafe` key in `config.toml`:
+
+```toml theme={"dark"}
+# config.toml (top-level, before any [section] header)
+hash-vault-disabled-unsafe = true
+```
+
+The node then runs without equivocation protection and logs errors at every start. Set the key back to `false` as soon as you fix the problem.
 
 
 This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.
@@ -50901,6 +51468,42 @@ scrape_configs:
       - targets: ['localhost:9100']
 ```
 
+## Seed node Prometheus metrics
+
+Since v6.7.0, seed nodes serve Prometheus metrics like other nodes. A seed serves no RPC, so its p2p metrics, such as `tendermint_p2p_peers`, are the only way to watch it. Enable them in the `[instrumentation]` section of `config.toml`:
+
+```toml theme={"dark"}
+[instrumentation]
+prometheus = true
+prometheus-listen-addr = ":26660"
+```
+
+<Warning>
+  If a seed node cannot open the Prometheus listener, the seed fails to start. For example, the port can be in use, or the address can be invalid. A full node logs the error and continues to run.
+</Warning>
+
+### Metrics server limits
+
+The metrics server uses a 10s read header timeout, a 10s read timeout, a 30s write timeout, and a 60s idle timeout.
+
+`max-open-connections` under `[instrumentation]` is not a connection limit. It caps the number of scrapes that the server handles at the same time. Requests over the cap get HTTP `503`. The server does not queue them. A slow scraper holds its slot until it finishes or reaches the write timeout. `0` means no limit. The default is `3`. Set the value higher than the number of scrapers that can overlap, such as an HA Prometheus pair, probes, and manual `curl` requests.
+
+## `chain_id` label on metrics
+
+Since v6.7.0, the node adds a `chain_id` label to every metric that it exports. This includes the Tendermint Prometheus metrics, the Cosmos SDK telemetry, and the OpenTelemetry metrics (`evmrpc_*`, `flatkv_*`, `litt_*`, and `pebble_*`). If you already set `chain_id` in `global-labels` under `[telemetry]`, the Cosmos SDK telemetry keeps your value.
+
+Update PromQL that aggregates across series, such as `sum(...) without (...)` or `by (...)`, to account for the new label. To scope a query to one chain, add a `chain_id` match.
+
+## Tendermint internal metrics
+
+The `tendermint` namespace also has these subsystems:
+
+| Subsystem prefix | Description |
+| - | - |
+| `tendermint_internal_autobahn_avail_*` | Autobahn availability metrics: the commit road index, the commit global block number, the proposal-to-commit latency, and the commit-to-commit latency (with a `timeouts` label). |
+| `tendermint_internal_autobahn_data_*` | Autobahn data metrics: `latency` (time from the production of a resource to each stage, with `resource` and `stage` labels), `next_block` (the next block to process in each stage), `gas_used` (gas used by executed blocks), and `tx_size` (size of executed transactions in bytes). |
+| `tendermint_internal_p2p_mux_*` | p2p mux stream metrics: the stream `latency`, the number of open streams (`in_flight`), and the per-stream counters `send_msgs`, `recv_msgs`, `send_bytes`, and `recv_bytes`. These metrics have `role` and `kind` labels. |
+
 ## EVM RPC OpenTelemetry metrics
 
 The EVM RPC layer emits OpenTelemetry metrics through the process-wide `MeterProvider` (for example, a Prometheus exporter). It emits these metrics in parallel with the legacy `sei_*` metrics, so you can migrate dashboards incrementally.
@@ -50913,6 +51516,7 @@ The EVM RPC layer emits OpenTelemetry metrics through the process-wide `MeterPro
 | `evmrpc_websocket_connects_total` | Counter | Number of new WebSocket connections. |
 | `evmrpc_redirected_requests_total` | Counter | Number of EVM RPC requests forwarded to another validator. Labeled by `endpoint` and `connection`. |
 | `evmrpc_historical_debug_trace_attempts_total` | Counter | Number of `debug_trace*` requests that target historical blocks beyond the configured max block lookback. Labeled by `endpoint` and `connection`. |
+| `evmrpc_requests_rejected_total` | Counter | Number of JSON-RPC requests that admission control rejected. Labeled by `protocol` (`http` or `ws`) and `reason`. For HTTP, `reason` is `oversize` (larger than `max_request_body_bytes`, HTTP 413), `budget_midread` (the `max_concurrent_request_bytes` budget ran out, HTTP 429), `slow_body`, `rate_limited`, `unparseable`, or `read_error`. For WebSocket, `reason` is `oversize` (close code `1009`) or `busy` (no budget within `ws_admission_timeout`, JSON-RPC error `-32005`). See [Frame size and concurrency limits](/evm/evm-parity/websocket#frame-size-and-concurrency-limits). |
 
 The `evmrpc_request_latency_seconds` histogram carries these labels:
 
@@ -50970,17 +51574,69 @@ FlatKV metrics carry these labels where applicable:
 
 | Label | Description |
 | - | - |
-| `db` | The data DB that the measurement applies to (for example, `account`, `storage`, `code`, or `legacy`). Present on per-DB metrics such as `flatkv_commit_batch_latency`, `flatkv_flush_latency`, `flatkv_num_kv_pairs`, `flatkv_pending_writes`, `flatkv_import_kv_pairs`, and `flatkv_import_worker_flush_latency`. |
+| `db` | The data DB that the measurement applies to (`account`, `code`, `storage`, or `misc`). Present on per-DB metrics such as `flatkv_commit_batch_latency`, `flatkv_flush_latency`, `flatkv_num_kv_pairs`, `flatkv_pending_writes`, `flatkv_import_kv_pairs`, and `flatkv_import_worker_flush_latency`. |
 | `success` | Boolean that indicates whether the operation succeeded. Present on latency and attempt metrics that can fail. |
 | `read_only` | Boolean, present on `flatkv_open_latency`, that indicates whether the store was opened read-only. |
 
-### Enabling Pebble internal metrics
+### Pebble internal metrics
 
-A single FlatKV-level knob controls Pebble's internal (per-DB) metrics: `enable-pebble-metrics` under `[state-commit.flatkv]` in `app.toml` (default `true`). The node honors this key when it is present, but the `app.toml` that `seid init` generates does not include it. To change the default, add the key manually. The value propagates to every data DB (account, code, storage, legacy, and metadata) during initialization. It overrides any per-DB `EnableMetrics` settings. Configure Pebble metrics through this knob, not through the individual per-DB settings.
+FlatKV turns on Pebble's internal metrics for each data DB by default. The node does not apply an `enable-pebble-metrics` key from `app.toml`.
+
+## Pebble estimated read/write metrics
+
+SeiDB can count estimated logical reads and writes on its PebbleDB databases. The counters are off by default. They cost less than Pebble's full internal metrics, and you can use them to estimate read amplification (reads divided by writes).
+
+| Metric | Type | Description |
+| - | - | - |
+| `pebble_estimated_reads` | Counter | Estimated logical PebbleDB reads. |
+| `pebble_estimated_writes` | Counter | Estimated logical PebbleDB writes. |
+
+Both counters have a `db` attribute. Its value is the name of the data directory, so you can tell the FlatKV data DBs, the state store, and the receipt store apart. Turn the counters on per store in `app.toml`:
+
+| Config key | Section | Store |
+| - | - | - |
+| `enable-read-write-metrics` | `[state-commit.flatkv]` | FlatKV data DBs |
+| `ss-enable-read-write-metrics` | `[state-store]` | State store, when `ss-backend = "pebbledb"` |
+| `enable-read-write-metrics` | `[receipt-store]` | Pebble-based receipt store |
+
+```toml theme={"dark"}
+[state-commit.flatkv]
+enable-read-write-metrics = true
+```
+
+## Log query parallelism for `littidx`
+
+With the `littidx` receipt store, each `eth_getLogs` query scans several blocks at the same time. Results stay in block and transaction order. `log-filter-parallelism` under `[receipt-store]` sets how many blocks one query scans at once. The default is `16`, and a value of `0` or less uses the default. The setting has no effect on `pebbledb`.
+
+```toml theme={"dark"}
+[receipt-store]
+log-filter-parallelism = 16
+```
+
+## Per-block hash logger
+
+The state-commit store writes a CSV file of named hashes for each block. Each row has the memIAVL module and root hashes and the FlatKV DB and root hashes. It also has the app hash, the block hash, the results hash (the next block's `LastResultsHash`), and the changeset hash. To find where two nodes diverged, compare their logs with [`seidb hashlog compare`](/node/technical-reference#inspecting-hash-log-archives).
+
+The hash logger is on by default. It writes to `data/hash.log` under the state-commit directory, which is `<home>/data/hash.log` by default. With the default settings, it keeps up to 16 GiB of closed log files. Configure it in the `[state-commit]` section of `app.toml`:
+
+| Config key | Default | Description |
+| - | - | - |
+| `sc-hash-logger-enable` | `true` | Turns the hash logger on or off. |
+| `sc-hash-logger-directory` | empty | Directory for the log files. Empty means `data/hash.log` under the state-commit directory. |
+| `sc-hash-logger-blocks-to-retain` | `0` | Number of recent blocks to keep. `0` turns off the block limit. |
+| `sc-hash-logger-target-file-size` | `16777216` (16 MiB) | Size in bytes at which the logger closes a file and starts a new one. `0` uses the default. |
+| `sc-hash-logger-max-disk-size` | `17179869184` (16 GiB) | Maximum total size in bytes of closed log files. `0` turns off the size limit. |
+
+If you set both `sc-hash-logger-blocks-to-retain` and `sc-hash-logger-max-disk-size` to `0`, the logs grow without limit. To turn the hash logger off:
+
+```toml theme={"dark"}
+[state-commit]
+sc-hash-logger-enable = false
+```
 
 ## LittDB OpenTelemetry metrics
 
-LittDB emits its metrics through the process-wide OpenTelemetry `MeterProvider` instead of a private Prometheus client. When `MetricsEnabled` is set, LittDB configures a Prometheus exporter on the global provider and serves `/metrics` on `MetricsPort` (default `9101`). The `MetricsNamespace` and `MetricsRegistry` config fields were removed, and all metric names use a fixed `litt_` prefix.
+LittDB emits its metrics through the process-wide OpenTelemetry `MeterProvider` instead of a private Prometheus client. If `MetricsEnabled` is `true`, LittDB records its metrics in that provider. By default (`MetricsServeEndpoint = false`), the application that uses LittDB exports the metrics, and LittDB does not start a `/metrics` server. If `MetricsServeEndpoint` is `true`, LittDB serves `/metrics` on `MetricsPort` (default `9101`). LittDB no longer has the `MetricsNamespace` and `MetricsRegistry` config fields, and all metric names use a fixed `litt_` prefix.
 
 ### Available LittDB metrics
 
@@ -50988,7 +51644,7 @@ LittDB emits its metrics through the process-wide OpenTelemetry `MeterProvider` 
 | - | - | - | - |
 | `litt_table_size_bytes` | Gauge | bytes | The size of individual tables in the database. |
 | `litt_table_key_count` | Gauge | count | The number of keys in individual tables in the database. |
-| `litt_open_iterator_count` | Gauge | count | The number of currently open iterators for individual tables in the database. A persistently nonzero value indicates a leaked iterator, which suspends garbage collection for the table. |
+| `litt_open_iterator_count` | Gauge | count | The number of currently open iterators for individual tables in the database. A persistently nonzero value indicates a leaked iterator. Garbage collection still runs, but a leaked iterator keeps the segment files it reads on disk until it closes. |
 | `litt_bytes_read` | Counter | bytes | The number of bytes read from disk since startup. |
 | `litt_keys_read` | Counter | count | The number of keys read from disk since startup. |
 | `litt_cache_hits` | Counter | count | The number of cache hits since startup. |
@@ -51008,6 +51664,10 @@ LittDB emits its metrics through the process-wide OpenTelemetry `MeterProvider` 
 | `litt_chunk_cache_keys_added` | Counter | count | The number of keys added to the chunk cache. |
 | `litt_chunk_cache_weight_added_bytes` | Counter | bytes | The weight of the entries added to the chunk cache. |
 | `litt_chunk_cache_eviction_latency_seconds` | Histogram | seconds | Eviction latency of the chunk cache. |
+| `litt_compression_latency_seconds` | Histogram | seconds | Time to compress a batch of values before LittDB writes them. Emitted only for tables with compression enabled. |
+| `litt_compression_uncompressed_bytes` | Counter | bytes | Value bytes sent to compression since startup. |
+| `litt_compression_compressed_bytes` | Counter | bytes | Compressed bytes produced since startup. Divide by `litt_compression_uncompressed_bytes` to get the overall compression ratio. |
+| `litt_compression_ratio` | Histogram | ratio | Compressed bytes divided by uncompressed bytes, per batch. Lower is better. |
 
 ### Attributes
 
@@ -51207,9 +51867,8 @@ After the migration, the SS layer is repartitioned into two cooperating stores:
 | **SC** (State Commit, app hash) | `memiavl` | FlatKV |
 | **SS** (State Store, historical queries) | single PebbleDB MVCC database | dedicated EVM SS MVCC databases in the configured EVM SS directory |
 
-This migration changes only the **SS** layer. The SC layer config stays the same,
-and `memiavl` remains the authoritative source for the app hash, so the change is
-invisible to the network.
+This migration changes only the **SS** layer. It does not change the SC layer or
+the app hash, so the change is invisible to the network.
 
 <Info>This guide follows the canonical procedure in the `sei-chain` repository: [`docs/migration/giga_store_migration.md`](https://github.com/sei-protocol/sei-chain/blob/main/docs/migration/giga_store_migration.md). If anything here drifts, open an issue there.</Info>
 
@@ -51387,87 +52046,80 @@ the node and delete the configured EVM SS directory.
 
 Everything above concerns the **SS** (State Store) layer. The **SC** (State
 Commit) layer has a separate migration path. It moves the hot `evm/` data out
-of `memiavl` and into FlatKV in place, without a state sync. The `sc-write-mode`
-setting in `app.toml` drives this path entirely. You coordinate it across a
-quorum by stopping the nodes, editing the config, and restarting them.
+of `memiavl` and into FlatKV in place, without a state sync.
 
-Unlike the SS split, the SC-side migration **does change how `evm/` data
-contributes to the app hash**. The contribution moves from the memiavl IAVL root
-to the FlatKV lattice hash. Because of this, every validator in a quorum must
-flip at the same coordinated stop. If a node flips while its peers are still on
-the old mode, it produces a different AppHash on the next block, and consensus
-halts. The safe sequence is always: stop every node, rewrite `app.toml`
-everywhere, and restart every node.
+Unlike the SS split, the SC migration **changes how `evm/` data contributes to
+the app hash**. The contribution moves from the memiavl IAVL root to the FlatKV
+lattice hash. Every validator must therefore switch at the same block, or
+consensus halts.
 
-<Warning>Do not run this SC-side flow against Sei Testnet or Sei Mainnet nodes unless your version's release notes explicitly list it as supported. The cluster and devnet integration harness tests this FlatKV EVM migration flow.</Warning>
+### How the migration starts
 
-### Write modes
+Since v6.7.0, governance controls the migration, and nodes follow it without
+config changes:
 
-The migration is a transition from the `memiavl_only` write mode to
-`migrate_evm`. In `memiavl_only` (v0), memiavl is the sole SC backend and FlatKV
-is not allocated. The in-flight mode, `migrate_evm`, drains `evm/` keys from
-memiavl into FlatKV. After the migration completes, flip `sc-write-mode`
-again to `evm_migrated`, so that later restarts do not start the migration
-manager.
+* By default, every node runs in the `auto` write mode. The node derives its
+  mode from the migration state on disk. It checks that `sc-write-mode` has a
+  valid value, but it does not use the value.
+* The `NumKeysToMigratePerBlock` parameter in the `migration` params subspace
+  sets how many keys move per block. The default, `0`, keeps the migration
+  paused. A `ParameterChangeProposal` can raise it to at most 1,000,000.
+* When the parameter becomes greater than `0`, every `auto` node switches from
+  `memiavl_only` to `migrate_evm` at the same height and starts to move keys.
+  The node does not restart.
 
-`evm_migrated` is not the last mode. Three more modes sit between it and the
-terminal mode:
+In v6.7, governance can start only the EVM migration. The later write modes
+(`migrate_all_but_bank`, `all_migrated_but_bank`, `migrate_bank`, and
+`flatkv_only`) exist, but no parameter starts them.
 
-* `migrate_all_but_bank` drains every remaining module except `bank/` from
-  memiavl into FlatKV.
-* `all_migrated_but_bank` is the steady state after that drain completes.
-* `migrate_bank` drains the final `bank/` module.
+During the migration, the node reads and iterates over both backends. The
+migration deletes a key from memiavl when it copies the key to FlatKV. If both
+backends report a key, the node uses the memiavl value. The migration boundary
+advances at most once per block. When the migration starts, the node stops
+serving state proofs for the `evm` store, because FlatKV has no proof builder.
+Proofs for other modules still work.
 
-`flatkv_only` is the fully supported **terminal** steady-state write mode.
-FlatKV is the sole SC backend, and `memiavl` is not allocated at all. FlatKV
-serves the SC state of every module. State-sync snapshot export and restore
-work correctly in this mode, and so does app-hash parity. A node can therefore
-boot or state sync directly into the post-migration shape, without ever running
-the migration manager. Such a node uses `flatkv_only`.
+### Pinning a write mode
 
-`flatkv_only` is valid only for a node whose modules have all been drained out
-of memiavl. It is not a flip target for an `evm_migrated` node, which still
-holds `bank/` and every other non-EVM module in memiavl. It becomes the valid
-flip target after `migrate_bank` reports complete on the node (migration
-version 3, all modules in FlatKV). Then restart with
-`sc-write-mode = "flatkv_only"` to reach the terminal steady state.
-
-<Note>A correctness bug in the WAL replay path is fixed. On replay (catchup,
-read-only clone, snapshot export, and state-sync restore), the bug dropped empty
-(zero-length) values written with no delete flag. This made the FlatKV state and
-the consensus AppHash diverge from the live chain. Empty-value writes are now
-preserved across a WAL round-trip and a state sync, which makes `flatkv_only`
-state sync reliable.</Note>
-
-While a node is in a migration mode:
-
-* Caller reads of not-yet-migrated keys fall back to FlatKV for new keys written
-  after the migration started, and to memiavl otherwise.
-* A merging iterator over both backends serves iteration. It queries memiavl
-  first, and FlatKV wins on ties, so range scans see the complete key set during
-  a migration.
-* The migration boundary advances at most once per block.
-
-### Operator-facing knobs
-
-**`sc-keys-to-migrate-per-block`** (`app.toml`, `[state-commit]` section)
-controls how many EVM keys the in-flight migration drains from memiavl into
-FlatKV per block. The default is `1024`, which is appropriate for production
-drains. A lower value spreads the migration across more blocks. The value must
-be `> 0`. The node ignores it entirely when `sc-write-mode` is not a migration
-mode.
+To pin a write mode, set both keys in the `[state-commit]` section of
+`app.toml`. The generated `app.toml` does not include
+`sc-write-mode-enable-auto`, so add it yourself:
 
 ```toml copy theme={"dark"}
 [state-commit]
-sc-write-mode = "migrate_evm"
-sc-keys-to-migrate-per-block = 1024
+sc-write-mode-enable-auto = false
+sc-write-mode = "flatkv_only"
 ```
 
-**`GIGA_MIGRATE_FROM_MEMIAVL`** is a Docker cluster environment variable for the
-local devnet setup. When set to `true`, it boots every node in `memiavl_only`
-mode, the v0 starting point for the FlatKV EVM migrate flow. It is mutually
-exclusive with `GIGA_STORAGE`. If both are set, `GIGA_MIGRATE_FROM_MEMIAVL`
-takes precedence.
+<Warning>A node whose history began in FlatKV, such as a node on a chain that
+started in FlatKV, must pin `flatkv_only` as shown above. In `auto`, such a
+node either fails every commit with a version-mismatch error or serves empty
+reads from memiavl.</Warning>
+
+A node pinned to `memiavl_only` does not take part in the migration. When
+governance starts the migration, the pinned node diverges from the network.
+Since v6.7.1, a node also refuses to start if a pinned `evm_migrated`,
+`all_migrated_but_bank`, or `flatkv_only` mode disagrees with the migration
+state on disk. The error starts with `write mode is pinned to`. The `cosmos_only` value from v6.4 and v6.5 `app.toml` files is
+still accepted as an alias for `memiavl_only`.
+
+### Write modes
+
+| Mode | Meaning |
+| - | - |
+| `memiavl_only` | memiavl is the only SC backend. FlatKV is not created. |
+| `migrate_evm` | Moves `evm/` keys from memiavl to FlatKV. |
+| `evm_migrated` | The steady state after the `evm/` migration. |
+| `migrate_all_but_bank` | Moves every remaining module except `bank/`. |
+| `all_migrated_but_bank` | The steady state after that move. |
+| `migrate_bank` | Moves the `bank/` module. |
+| `flatkv_only` | FlatKV is the only SC backend. memiavl is not created. A node can state sync directly into this mode. |
+| `auto` | Derives the mode from the migration state on disk. This is the default. |
+
+For the local Docker devnet, `GIGA_MIGRATE_FROM_MEMIAVL=true` pins every node to
+`memiavl_only` (with `sc-write-mode-enable-auto = false`), the starting point of
+the devnet migration test. Do not set it together with
+`GIGA_STORAGE`. If you set both, `GIGA_MIGRATE_FROM_MEMIAVL` takes precedence.
 
 ```bash copy theme={"dark"}
 GIGA_MIGRATE_FROM_MEMIAVL=true make docker-cluster-start
@@ -51487,10 +52139,9 @@ seidb migrate-evm-status --db-dir <flatkv-dir> [--height <n>]
 
 `--db-dir` (short `-d`) points at the FlatKV data directory. `--height` selects
 a target version. The default, `0`, selects the latest available version. The
-emitted JSON includes `migrate_evm_complete` (true after the migration finishes),
+JSON includes `migrate_evm_complete` (true after the migration finishes),
 `migration_version`, `version_at`, and whether an in-flight boundary is still
-present. Before you flip `sc-write-mode` to `evm_migrated`, poll the command
-until `migrate_evm_complete` reports `true` on every validator.
+present.
 
 When the migration finishes, each node also emits a `migration complete` summary
 log line and `seidb_migration_*` OpenTelemetry counters for the migrated keys
@@ -51502,6 +52153,10 @@ The `seidb import-flatkv-from-memiavl` command populates a FlatKV store from an 
 
 * The import height must equal the latest memIAVL version. The command refuses a lower height, because the composite store's version reconciliation would silently roll memIAVL back and truncate blocks. It also refuses a higher height. First, check the current version with `seidb memiavl-latest-version`. If needed, roll memIAVL back to the target height before you import.
 * Overwriting existing committed FlatKV data requires the explicit `--force` flag.
+
+In the default `auto` write mode, the node does not use a FlatKV store that this
+command creates. The store has no migration metadata, so the node starts in
+`memiavl_only`.
 
 ## FAQ
 
@@ -51520,9 +52175,8 @@ The `seidb import-flatkv-from-memiavl` command populates a FlatKV store from an 
 
 ### Does Giga SS Store change the app hash or consensus?
 
-No. The SC layer is unchanged, so `memiavl` remains the authoritative source
-for the app hash. Giga SS Store is a per-node SS change that is invisible to
-the network.
+No. Giga SS Store changes only the SS layer, which does not affect the app hash.
+It is a per-node change that is invisible to the network.
 
 ### Can I migrate a validator node with this guide?
 
@@ -51558,10 +52212,319 @@ In the `localnode` and `rpcnode` configuration scripts, setting
 `RECEIPT_BACKEND` environment variable explicitly. The explicit value takes
 precedence over the default.
 
-`pebbledb` (also called `pebble`) is now the only supported receipt-store
-backend. The former `parquet` option was removed. A `RECEIPT_BACKEND=parquet`
-setting (or `rs-backend = "parquet"` in `app.toml`) is rejected with an error
-(`unsupported receipt-store backend "parquet"; supported: pebbledb`).
+The supported receipt-store backends are `pebbledb` (also called `pebble`) and
+`littidx`. For details on `littidx`, see the
+[node operations guide](/node/node-operators). The former `parquet` option was
+removed. The node rejects an unsupported value for `RECEIPT_BACKEND` (or
+`rs-backend` in `app.toml`) with an error
+(`unsupported receipt-store backend "parquet"; supported: pebbledb, littidx`).
+
+
+This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.
+
+---
+
+URL: https://docs.sei.io/node/frozen-nodes
+
+# Run frozen nodes for historical queries
+
+> Serve history from before a breaking upgrade: run a read-only frozen node on the outgoing seid release and route RPC requests to it by block height.
+
+A frozen node is a full node that stops one block before an upgrade height. It runs the release that was live before the upgrade and keeps answering read queries for the heights below it. If you serve historical RPC queries, for example as an RPC provider or a block explorer, run one frozen node for each upgrade.
+
+## How freeze mode works
+
+An upgrade can remove modules and stores that earlier heights depend on. After the upgrade, queries for those heights can fail on the new release or give different results. A node that still runs the outgoing release answers them the way the chain did at the time.
+
+Freeze mode runs such a node. You set `freeze-height` to the upgrade height. The node executes every block below that height and stops before the upgrade block. It does not halt or exit at the boundary. It keeps serving queries from the state at `freeze-height - 1`, which is also its latest block.
+
+From startup, freeze mode changes the node like this:
+
+* Query endpoints stay up: the Tendermint RPC, the REST API, gRPC, and the EVM JSON-RPC.
+* Transaction and evidence submission fail with `RPC writes are disabled in freeze mode`. This includes `eth_sendRawTransaction`.
+* Mempool gossip is off.
+* State sync is off. If it is enabled in `config.toml`, the node logs a notice and uses block sync.
+* Block sync and consensus stop before `freeze-height` and do not advance.
+
+Each frozen node covers the heights up to its own upgrade. To serve the full history of a network, run one frozen node for each upgrade, and a live node on the current release for the heights after the last upgrade. Freeze mode first shipped in v6.6.3. The oldest frozen node therefore runs v6.6 and serves every height below the v6.7 upgrade height that its data holds.
+
+## Freeze heights
+
+Set `freeze-height` to the upgrade height. Run the latest patch of the release that the upgrade replaced.
+
+| Network | Upgrade | `freeze-height` | Last height served | Frozen node release |
+| - | - | - | - | - |
+| Sei Mainnet (`pacific-1`) | `v6.7` | `236450000` | `236449999` | v6.6.4 |
+| Sei Testnet (`atlantic-2`) | `v6.7` | `273966500` | `273966499` | v6.6.4 |
+
+Your live node serves the heights from the freeze height on.
+
+<Warning>
+  Use v6.6.4 or a later v6.6 patch. On v6.6.3, the EVM RPC servers do not start again after the process restarts, because a frozen node executes no block that would start them.
+</Warning>
+
+To read upgrade heights from the chain, query the upgrade module. The first command returns the height at which `v6.7` was applied on Sei Mainnet. For Sei Testnet, use `https://rest-testnet.sei-apis.com`. The second command returns the name and height of the next scheduled upgrade, or `no upgrade scheduled`.
+
+```bash theme={"dark"}
+curl -s https://rest.sei-apis.com/cosmos/upgrade/v1beta1/applied_plan/v6.7 | jq -r .height
+# 236450000
+
+seid query upgrade plan
+```
+
+## Before you begin
+
+You need:
+
+* A full node. Freeze mode does not run in validator or seed mode.
+* A copy of a node's data directory that is below the freeze height. The node refuses to start if its application, block store, or state store has reached `freeze-height`.
+* The history that you want to serve. A frozen node serves only what its data directory holds. To serve the full history, copy an [archive node](/node/node-types).
+* Disk space for a full copy of that data. The copy stops growing when it reaches the freeze height.
+* Peers that store the blocks from the copy's height up to the freeze height. The node fetches these blocks with block sync before it freezes. Pruned nodes delete old blocks, so for a copy far below the freeze height, list archive nodes in `persistent-peers` in `config.toml`.
+
+<Danger>
+  Take the copy before the chain reaches the upgrade height. A node saves each block before it executes it, so a node that halted at the upgrade height already holds the upgrade block. With that block in its block store, the node refuses to start with that `freeze-height`. After the chain has passed the upgrade height, you can build a frozen node only from data below that height, such as a backup.
+</Danger>
+
+Both networks are past the v6.7 freeze height. To build a v6.7 frozen node now, start from a backup of an archive node taken below the freeze height, or from a provider's full-history archive snapshot taken below it. Providers refresh their snapshots regularly, so their current snapshots are usually above the freeze height. Check the height of a snapshot before you download it. The first step below explains how to start from a snapshot.
+
+## Set up a frozen node
+
+These steps use the Sei Mainnet values for the v6.7 upgrade. For Sei Testnet, use the values in [Freeze heights](#freeze-heights).
+
+<Steps>
+  <Step title="Copy the data directory">
+    Stop `seid` on a node that holds the history you want to serve. Take a volume snapshot of its data disk, or copy its whole home directory, including `data/` and `wasm/`, to the new host. Then start the source node again.
+
+    ```bash theme={"dark"}
+    sudo systemctl stop seid
+    rsync -a --exclude config/priv_validator_key.json $HOME/.sei/ <user>@<frozen-host>:.sei/
+    sudo systemctl start seid
+    ```
+
+    The `--exclude` flag keeps the validator signing key on the source host. A frozen node never signs blocks, so it does not need that key. The remote path `.sei/` is relative to the home directory of `<user>`, so connect as the user that runs `seid` on the new host.
+
+    On the new host, delete the node key. If you took a volume snapshot, also delete the validator key. `seid` generates new keys when it starts. Two nodes must not share a node key.
+
+    ```bash theme={"dark"}
+    rm -f $HOME/.sei/config/node_key.json $HOME/.sei/config/priv_validator_key.json
+    ```
+
+    <Note>
+      To start from a provider's archive snapshot instead, take these steps on the new host:
+
+      1. Install the outgoing release, as described in the next step.
+      2. Run `seid init <moniker> --chain-id pacific-1 --mode archive`. It writes the genesis file and a configuration that keeps all history.
+      3. In `config.toml`, set `persistent-peers` to archive nodes that store the blocks from the snapshot height up to the freeze height. Each entry has the form `<node-id>@<host>:26656`, and `seid tendermint show-node-id` prints the node ID on an archive node that you run.
+      4. Restore the snapshot with the [snapshot guide](/node/snapshot), but stop before its restart step.
+
+      Then continue with step 3.
+    </Note>
+
+    <Warning>
+      Do not start `seid` on the new host before you set the freeze height in step 3. If the copy runs without `freeze-height` and reaches the upgrade height, it stores the upgrade block and can never freeze at that height.
+    </Warning>
+
+    <Tip>
+      If you run more than one archive node, you can freeze one of them in place instead. Set `freeze-height` on it and restart it before the chain reaches the upgrade height. It keeps its node key.
+    </Tip>
+  </Step>
+
+  <Step title="Install the outgoing release">
+    Install v6.6.4 on the new host. Do not start `seid` yet.
+
+    <Tabs>
+      <Tab title="Prebuilt binary">
+        ```bash theme={"dark"}
+        VERSION=v6.6.4
+        FILE=sei-chain_${VERSION#v}_linux_x86_64.tar.gz
+
+        curl -fLO https://github.com/sei-protocol/sei-chain/releases/download/${VERSION}/${FILE}
+        curl -fLO https://github.com/sei-protocol/sei-chain/releases/download/${VERSION}/checksums.txt
+        sha256sum -c checksums.txt --ignore-missing \
+          && tar -xzf ${FILE} seid \
+          && sudo install -m 0755 seid /usr/local/bin/seid
+        ```
+
+        The v6.6.4 release has a prebuilt binary for Linux x86\_64 only.
+      </Tab>
+
+      <Tab title="Build from source">
+        ```bash theme={"dark"}
+        git clone https://github.com/sei-protocol/sei-chain.git
+        cd sei-chain
+        git checkout v6.6.4
+        make install
+        ```
+
+        Build with the Go version in the release's `go.mod`, which is Go 1.25.6 for v6.6.4.
+      </Tab>
+    </Tabs>
+
+    Check the version:
+
+    ```bash theme={"dark"}
+    seid version
+    # v6.6.4
+    ```
+
+    Keep this binary on the frozen node. Exclude the node from any process that upgrades the binaries of your other nodes.
+  </Step>
+
+  <Step title="Set the freeze height">
+    In `$HOME/.sei/config/config.toml`, make sure that the node runs in full mode. `mode` is a top-level key:
+
+    ```toml theme={"dark"}
+    mode = "full"
+    ```
+
+    In `$HOME/.sei/config/app.toml`, set `freeze-height` to the upgrade height, and set `halt-height` and `halt-time` to `0`. The three keys sit together in the base configuration at the top of the file, before the first `[section]` header:
+
+    ```toml app.toml theme={"dark"}
+    ###############################################################################
+    ###                           Base Configuration                            ###
+    ###############################################################################
+
+    # minimum-gas-prices and the other base settings above stay as they are.
+
+    halt-height = 0
+
+    # FreezeHeight contains the first block height a full node must not execute.
+    # Query RPC remains available, while transaction and evidence submission,
+    # mempool gossip, and state sync are disabled from startup.
+    freeze-height = 236450000  # Sei Mainnet v6.7 upgrade height
+
+    halt-time = 0
+
+    # inter-block-cache and the other base settings below stay as they are.
+
+    ###############################################################################
+    ###                        State Sync Configuration                         ###
+    ###############################################################################
+
+    [state-sync]
+    ```
+
+    An `app.toml` from a release before v6.6.3 has no `freeze-height` line. In that case, add the line after `halt-height`.
+
+    If you copied an archive node, keep its pruning settings, so that the node keeps every version up to the freeze height. Do not start the node with `--grpc-only`. The node refuses to start when `freeze-height` is combined with `--grpc-only`, `halt-height`, or `halt-time`. It also refuses to start with Autobahn enabled, that is, with a non-empty `autobahn-config-file` in `config.toml`.
+  </Step>
+
+  <Step title="Start the node">
+    A new host has no `seid` service yet. Create one that runs the v6.6.4 binary directly. Do not run a frozen node through Cosmovisor, which exists to switch binaries at upgrade heights. Run these commands as the user that runs `seid`:
+
+    ```bash theme={"dark"}
+    sudo tee /etc/systemd/system/seid.service > /dev/null << EOF
+    [Unit]
+    Description=Sei frozen node
+    After=network-online.target
+
+    [Service]
+    User=$USER
+    ExecStart=$(which seid) start
+    Restart=always
+    RestartSec=3
+    LimitNOFILE=65535
+
+    [Install]
+    WantedBy=multi-user.target
+    EOF
+
+    sudo systemctl daemon-reload
+    sudo systemctl enable seid
+    ```
+
+    `$(which seid)` writes the full path of the binary that you checked in step 2 into `ExecStart`. If the host already has a `seid` service, run `systemctl cat seid` and check that its `ExecStart` runs that binary.
+
+    Start `seid` and follow the log:
+
+    ```bash theme={"dark"}
+    sudo systemctl start seid
+    sudo journalctl -fu seid
+    ```
+
+    The log shows `Freeze mode enabled` at startup. The node then syncs to height `236449999`. When it reaches that height, it logs `Block sync stopped before configured freeze height` or `Consensus frozen before configured height`, and it keeps serving queries.
+
+    If the node exits with `<source> height <n> has already reached freeze height <h>`, its data is at or above the freeze height. Start again from a copy that is below it.
+  </Step>
+
+  <Step title="Verify the frozen node">
+    Check that the Tendermint RPC and the EVM RPC both report a latest block one below the freeze height:
+
+    ```bash theme={"dark"}
+    curl -s http://localhost:26657/status | jq -r .sync_info.latest_block_height
+    # 236449999
+
+    curl -s -X POST http://localhost:8545 -H 'Content-Type: application/json' \
+      --data '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber","params":[]}'
+    # {"jsonrpc":"2.0","id":1,"result":"0xe17f0cf"}
+    ```
+
+    Restart the node once, and run the EVM check again. This confirms that the EVM RPC comes back after a restart.
+
+    If you scrape the node's Prometheus metrics, `sei_chain_app_build_info` shows the running release in its `seid_version` and `commit` labels. Alert when either label changes.
+  </Step>
+
+  <Step title="Back up the frozen node">
+    After the node reaches the freeze height boundary, back up its data directory, for example with a volume snapshot. The node executes no more blocks, so the backup stays valid. Keep it, because after the chain has passed the freeze height, you can rebuild this node only from data below that height.
+  </Step>
+</Steps>
+
+## Route queries by block height
+
+Clients usually connect to one endpoint. The `frozen-rpc-router` binary gives them one for EVM JSON-RPC over HTTP. It reads the block height in each request and sends the request to the matching frozen node or to the live node.
+
+The router is a separate binary in the `sei-chain` repository, and `make install` does not install it. Build it from v6.6.3 or a later release tag:
+
+```bash theme={"dark"}
+git clone https://github.com/sei-protocol/sei-chain.git
+cd sei-chain
+git checkout <release-tag>
+make build-frozen-rpc-router
+```
+
+Pass the live node with `--live-node`, and pass each frozen node with a `--frozen-node <freeze-height>=<address>` flag. In this Sei Mainnet example, the router runs on the live node's host. Move the live node's EVM HTTP port to `9545` with `http_port` under `[evm]` in `app.toml`, so that the router can listen on `8545`. The frozen node runs on its own host.
+
+```bash theme={"dark"}
+./build/frozen-rpc-router \
+  --listen-address 127.0.0.1:8545 \
+  --live-node localhost:9545 \
+  --frozen-node 236450000=10.0.0.12:8545
+```
+
+Each freeze height is an exclusive boundary. The router sends heights up to `236449999` to the frozen node, and it sends `236450000` and later to the live node. When you add a frozen node for a later upgrade, add one more `--frozen-node` flag. Each frozen node then serves the heights from the previous freeze height up to its own.
+
+The `Sei-RPC-Route` response header shows which backend answered:
+
+```bash theme={"dark"}
+curl -s -o /dev/null -D - -X POST http://127.0.0.1:8545 \
+  -H 'Content-Type: application/json' \
+  --data '{"jsonrpc":"2.0","id":1,"method":"eth_getBlockByNumber","params":["0xe17f0cf",false]}' \
+  | grep -i sei-rpc-route
+# Sei-Rpc-Route: frozen:236450000
+```
+
+A request for `latest` returns `live`. A batch that the router splits across backends returns `mixed`.
+
+Plan around these limits:
+
+* The router handles only EVM JSON-RPC over HTTP. For the Tendermint RPC, the REST API, or gRPC at old heights, query the frozen node directly.
+* Requests without a block number go to the live node. This includes lookups by block or transaction hash, such as `eth_getTransactionReceipt`.
+* WebSocket clients must connect to the live node directly.
+* An `eth_getLogs` or `eth_feeHistory` range must stay within one interval. A range that crosses a freeze height fails with JSON-RPC error `-32000`.
+* The router has no authentication. Bind it to `127.0.0.1`, or put it behind a firewall or reverse proxy.
+
+For every flag and routing rule, see [Frozen RPC router](/node/technical-reference#frozen-rpc-router) in the technical reference.
+
+## Prepare for each upgrade
+
+Each upgrade adds one frozen node:
+
+1. When an upgrade proposal passes, read its height with `seid query upgrade plan`.
+2. Before the chain reaches that height, set up a frozen node on the latest patch of the current release, with `freeze-height` set to the upgrade height.
+3. After the new frozen node reaches its boundary, back it up and add it to the router with one more `--frozen-node` flag.
+
+Never upgrade a frozen node to the release that its freeze height introduces, and never change its `freeze-height`. You can install a later patch of the same release line, for example v6.6.4 over v6.6.3. Keep each frozen node for as long as you serve queries for its heights.
 
 
 This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.
@@ -51606,9 +52569,21 @@ seid tendermint show-validator
 seid query node info
 ```
 
+#### Experimental config manager (`SEI_CONFIG_MANAGER`)
+
+The experimental `SEI_CONFIG_MANAGER` environment variable selects how `seid` loads its configuration. The value must match exactly.
+
+* Unset or `legacy`: the default config loader.
+* `v2`: boots the node the same way as `legacy`, from the same `config.toml` and `app.toml`, and also logs config validation warnings. It never changes your files, and the node always starts. `v2` does not validate a new node on its first start, because its config files do not exist yet.
+* Any other value: `seid` refuses to start with an `invalid SEI_CONFIG_MANAGER` error.
+
+```bash theme={"dark"}
+SEI_CONFIG_MANAGER=v2 seid start
+```
+
 #### Freeze mode (`--freeze-height`)
 
-As of v6.6.3, you can put a full node into read-only freeze mode at a specified block height. Use the `--freeze-height` start flag or the corresponding `freeze-height` field in `app.toml`. Freeze mode exists for historical RPC nodes. A node frozen at an upgrade height keeps running the pre-upgrade binary and keeps serving the state that binary produced. It does not shut down at the boundary or execute the upgrade block with code that no longer matches that state.
+As of v6.6.3, you can put a full node into read-only freeze mode at a specified block height. Use the `--freeze-height` start flag or the corresponding `freeze-height` field in `app.toml`. Freeze mode exists for historical RPC nodes. A node frozen at an upgrade height keeps running the pre-upgrade binary and keeps serving the state that binary produced. It does not shut down at the boundary or execute the upgrade block with code that no longer matches that state. For setup steps and the freeze heights of each network, see [Run frozen nodes](/node/frozen-nodes).
 
 Query RPC remains available, so the node can continue to serve reads, but write and network paths are disabled from startup:
 
@@ -51618,7 +52593,7 @@ Query RPC remains available, so the node can continue to serve reads, but write 
 
 Block sync and consensus stop before they execute the configured height and do not advance beyond it.
 
-The node must not have reached the freeze height yet. If the application, block store, or state store height is already at or above `freeze-height`, startup fails with `<source> height <n> has already reached freeze height <h>`. To build a frozen node, start from a data directory that is below the freeze height. This can be a fresh sync from genesis or a [snapshot](/node/snapshot) taken below that height. Then let block sync stop at the boundary.
+The node must not have reached the freeze height yet. If the application, block store, or state store height is already at or above `freeze-height`, startup fails with `<source> height <n> has already reached freeze height <h>`. To build a frozen node, start from a data directory that is below the freeze height. This can be a copy of another node's data directory or a [snapshot](/node/snapshot) taken below that height. Then let block sync stop at the boundary.
 
 ```bash theme={"dark"}
 # Start a full node in read-only freeze mode at a given block height
@@ -51633,12 +52608,12 @@ freeze-height = 0
 ```
 
 <Warning>
-  Freeze mode is supported only for full nodes. In validator or seed mode, the node rejects a non-zero `freeze-height` at startup with an error (`freeze height is not supported in <mode> mode`). You also cannot combine `freeze-height` with `halt-height`, `halt-time`, or the `--grpc-only` start flag. The node rejects each combination at startup.
+  Freeze mode is supported only for full nodes. In validator or seed mode, the node rejects a non-zero `freeze-height` at startup with an error (`freeze height is not supported in <mode> mode`). Freeze mode also does not run with Autobahn. When `autobahn-config-file` is set in `config.toml`, startup fails with `freeze height is not supported with Autobahn`. You also cannot combine `freeze-height` with `halt-height`, `halt-time`, or the `--grpc-only` start flag. The node rejects each combination at startup.
 </Warning>
 
 ### Frozen RPC router
 
-The `frozen-rpc-router` binary, available as of v6.6.3, is a companion to freeze mode. It exposes a single HTTP EVM JSON-RPC endpoint that transparently proxies requests to a live node and one or more freeze-height-frozen nodes. It routes each request to the correct backend based on the block height that the request references. With the router, a set of archival nodes can collectively serve historical state through one endpoint. Each node is frozen at a different upgrade height and runs the binary that was live for its interval.
+The `frozen-rpc-router` binary, available as of v6.6.3, is a companion to freeze mode. It exposes a single HTTP EVM JSON-RPC endpoint that transparently proxies requests to a live node and one or more freeze-height-frozen nodes. It routes each request to the correct backend based on the block height that the request references. With the router, a set of archival nodes can collectively serve historical state through one endpoint. Each node is frozen at a different upgrade height and runs the binary that was live for its interval. For a walkthrough with the Sei Mainnet and Sei Testnet freeze heights, see [Route queries by block height](/node/frozen-nodes#route-queries-by-block-height).
 
 Because a freeze height is an exclusive boundary, a node started with `--freeze-height 100` serves blocks through height 99. The router therefore sends height 99 to that node. It sends height 100 to the next configured interval, or to the live node when no frozen interval covers it.
 
@@ -51748,15 +52723,19 @@ seidb evm-logical-digest --backend memiavl \
     --memiavl-normalization translator
 ```
 
-Two backends match when the FlatKV `FINAL_DIGEST` equals the memIAVL `FINAL_DIGEST`. FlatKV also writes an internal migration-version marker row, which a memiavl-only node never owns. The command automatically omits that row from the final comparison.
+Two backends match when the FlatKV `FINAL_DIGEST` equals the memIAVL `FINAL_DIGEST`. FlatKV can also hold two internal rows that a memiavl-only node never has: the migration-version marker and, during a migration, the migration boundary cursor. The command omits both rows from the final comparison.
 
 The command accepts these flags:
 
-* `--backend`: The backend to read (`flatkv` or `memiavl`).
-* `--db-dir` (`-d`): For FlatKV, the FlatKV data directory. For memIAVL, the memIAVL root directory that contains `current/` and `snapshot-*`.
+* `--backend`: The backend to read: `flatkv`, `memiavl`, or `composite`. Use `composite` on a node in the middle of the migration. It digests the union of the FlatKV and memIAVL rows, so you can compare the node with a memiavl-only node at the same height.
+* `--db-dir` (`-d`): For FlatKV, the FlatKV data directory. For memIAVL, the memIAVL root directory that contains `current/` and `snapshot-*`. Required unless you use `composite`.
+* `--flatkv-dir` and `--memiavl-dir`: The two data directories for `--backend composite`. You must set both in that mode.
 * `--height`: The target version. FlatKV WAL-replays to it, and memIAVL resolves `snapshot-<height>/evm` (`0` selects the `current` symlink).
+* `--memiavl-open-mode`: How the command reads memIAVL. `snapshot` (the default) scans the snapshot file at `--height`. It is the fastest mode, but it needs a snapshot at that height, or `--height 0`. `changelog` reads the nearest snapshot at or below `--height` and adds the changelog's EVM writes up to `--height`. `replay` opens the database, replays the changelog to `--height`, and walks the tree. It is about 10 times slower than `snapshot`. `changelog` and `replay` return the same rows. Use one of them when no snapshot exists at `--height`.
 * `--memiavl-normalization`: The memIAVL normalization mode. Use `semantic` or `independent` for the raw EVM key-value decoder, or `translator` for the current migration mapping. The default is `semantic`.
-* `--inspect-bucket`: Inspect one normalized bucket (`account`, `code`, `storage`, or `legacy`) instead of printing the global digest.
+* `--json`: Print the digest or inspect report as one JSON object on stdout, and the progress messages on stderr.
+* `--inspect-bucket`: Inspect one normalized bucket (`account`, `code`, `storage`, or `misc`), not the global digest. Inspect mode with `--memiavl-normalization translator`, or with `--details` on the `storage` bucket, requires `--memiavl-open-mode snapshot`.
+* `--inspect-plan` (inspect mode): A JSON file that lists several inspect reports to produce from one scan. It replaces the single-report inspect flags.
 * `--key-offset` (inspect mode): The byte offset into the physical key, applied before `--key-prefix` or sharding.
 * `--key-prefix` (inspect mode): A hex prefix, relative to `--key-offset`, that filters physical keys.
 * `--shard-next-bytes` (inspect mode): Group matching keys by this many bytes after `--key-prefix`.
@@ -51764,6 +52743,61 @@ The command accepts these flags:
 * `--list-limit` (inspect mode): The maximum number of pairs to print with `--list` (default `1000`). A value `<= 0` means unlimited.
 * `--details` (inspect list mode): Include backend-specific version metadata.
 * `--find-hash`: An optional 32-byte hex per-entry hash to search for. When two `bucket_digest` values differ by exactly one entry, their XOR is the hash of that entry. This flag prints every matching entry, so you can locate a single diverging row.
+
+#### Dumping FlatKV state and verifying its lattice hash
+
+`dump-flatkv` writes every physical key-value pair of a FlatKV store to one file per bucket. The format matches `dump-iavl`, so the same diff tools work on both. The command can also compute the lattice hash (LtHash) of each bucket and of the whole store. Then it compares the total with the committed value in the snapshot metadata.
+
+The command reads from a temporary read-only copy of the store, so you can run it against a live node. `--read-limit-mb` limits its disk reads, so it does not slow the node down.
+
+```bash theme={"dark"}
+# Latest version, all buckets, default 64 MiB/s read limit, LtHash check.
+seidb dump-flatkv -d $HOME/.sei/data/state_commit/flatkv -o /tmp/flatkv-dump
+
+# A specific height.
+seidb dump-flatkv -d $HOME/.sei/data/state_commit/flatkv -o /tmp/flatkv-dump \
+    --height 216890000
+
+# Idle disk: no read limit and no LtHash.
+seidb dump-flatkv -d $HOME/.sei/data/state_commit/flatkv -o /tmp/flatkv-dump \
+    --read-limit-mb 0 --lthash=false
+
+# Check the LtHash only, without writing dump files.
+seidb dump-flatkv -d $HOME/.sei/data/state_commit/flatkv --lthash-only
+```
+
+The command accepts these flags:
+
+* `--db-dir` (`-d`): The FlatKV data directory, which contains `current/`, `snapshot-*`, and `changelog/`. Required.
+* `--output-dir` (`-o`): The directory for the dump files, one file per bucket. Required unless you set `--lthash-only`.
+* `--height`: The target version. The default, `0`, selects the latest version.
+* `--bucket` (`-b`): Write only one bucket: `account`, `code`, `storage`, or `misc`. The command still scans every bucket, so the LtHash total stays valid.
+* `--lthash`: Compute the LtHash and check it against the snapshot metadata. The default is `true`.
+* `--lthash-only`: Check the LtHash, but do not write dump files. It requires `--lthash=true`. Do not use it with `--bucket`.
+* `--read-limit-mb`: The maximum read speed in MiB/s. The default is `64`, and `0` turns the limit off. Raise it only for offline runs.
+
+With `--lthash`, the output lists the count and checksum of each bucket, the `TOTAL`, and a `PASS` or `FAIL` line. On a mismatch, the command prints `TOTAL FAIL` and stops with an error. The command skips the check when the snapshot has no committed LtHash to compare with.
+
+#### Inspecting hash log archives
+
+The `seidb hashlog` commands read the archives that the [per-block hash logger](/node/advanced-config-monitoring#per-block-hash-logger) writes. They do not change the archives.
+
+`get-block` prints every hash recorded for one block. If the node executed the block more than once, for example after a rollback, the command prints each execution separately. A hash type that was not recorded for the block prints as `<none>`, or as `null` in JSON.
+
+```bash theme={"dark"}
+seidb hashlog get-block <archive> <block> [--json]
+```
+
+`compare` lists the blocks whose hashes differ between two archives, which shows where two nodes diverged. If the archives match over the compared range, the command reports that.
+
+```bash theme={"dark"}
+seidb hashlog compare <archive-a> <archive-b> [--low <N> --high <M>] [--max-diffs <N>] [--full] [--json]
+```
+
+* `--low` and `--high`: Compare only this block range (inclusive). Set both or neither.
+* `--max-diffs`: The maximum number of blocks with differences to report. The default, `-1`, reports all of them. If the output stops at the limit, the command warns that more blocks can have differences.
+* `--full`: Show every column for each block with differences. By default, the command shows only the columns that differ. Use `--full` when the archives hold a different number of records for a block.
+* `--json`: Print JSON instead of text.
 
 ### Autobahn (GigaRouter) config generation
 
@@ -51776,14 +52810,33 @@ seid tendermint gen-autobahn-config [node-dirs...] --output <path>
 # The --output flag may be abbreviated as -o
 seid tendermint gen-autobahn-config ./node0 ./node1 ./node2 -o autobahn.json
 
-# Choose where autobahn consensus and data WALs are persisted (default: data/autobahn)
+# Choose where autobahn consensus state and BlockDB are persisted (default: data/autobahn)
 seid tendermint gen-autobahn-config ./node0 ./node1 --output autobahn.json --persistent-state-dir data/autobahn
 
-# Pass an empty value to disable persistence and run in-memory only
+# Pass an empty value to disable persistence and run in-memory only (memblock)
 seid tendermint gen-autobahn-config ./node0 ./node1 --output autobahn.json --persistent-state-dir=
+
+# Tune BlockDB retention and GC
+seid tendermint gen-autobahn-config ./node0 ./node1 --output autobahn.json --blockdb-retention 30s --blockdb-gc-period 10s
 ```
 
-The `--persistent-state-dir` flag controls where Autobahn persists its consensus and data write-ahead logs (WALs) across restarts. The default is `data/autobahn`, so persistence is enabled by default without any operator action. The consensus and data layers write to distinct subdirectories under this shared on-disk root. At config load time, a relative path is resolved against the node's `--home` directory, and an absolute path is used as is. An empty value (`--persistent-state-dir=`) disables persistence entirely, and both the consensus and data layers run in memory only. When set, the flag populates the `PersistentStateDir` field in the generated config.
+The `--persistent-state-dir` flag controls where Autobahn persists its consensus state and BlockDB across restarts. The default is `data/autobahn`, so persistence is on by default. The node resolves a relative path against its `--home` directory. An empty value (`--persistent-state-dir=`) turns persistence off, and Autobahn keeps everything in memory. If you set the flag, it fills the `PersistentStateDir` field in the generated config.
+
+Autobahn stores blocks and commit quorum certificates in a LittDB-based BlockDB under `<persistent_state_dir>/blockdb`. Since v6.7.0, it no longer reads the old `globalblocks/` and `fullcommitqcs/` write-ahead log directories.
+
+Two more flags tune the BlockDB. The command writes their values to the `block_db` section of `autobahn.json`:
+
+* `--blockdb-retention`: The minimum age before the BlockDB can delete pruned records. The default is `30s`, because this command targets local and Docker clusters. Pass an empty value (`--blockdb-retention=`) to omit the field and use the BlockDB default of 1 hour.
+* `--blockdb-gc-period`: How often the BlockDB runs garbage collection, for example `10s`. If you omit it, the BlockDB default applies.
+
+```json theme={"dark"}
+"block_db": {
+  "retention": "30s",
+  "gc_period": "10s"
+}
+```
+
+Both fields are optional. If you set a field, its value must be greater than zero. Autobahn ignores `block_db` when persistence is off.
 
 The command reads these files from each node directory:
 
@@ -51832,6 +52885,14 @@ Any message whose fields exceed these limits is rejected at decode time, so an o
 <Note>
   Giga replaces the CometBFT mempool, so Giga does not support the `unsafe_flush_mempool` RPC endpoint. The endpoint returns `unsafe_flush_mempool is not supported with autobahn mempool`.
 </Note>
+
+#### HashVault app-hash equivocation guard
+
+Under Autobahn, validators and fullnodes run HashVault by default. HashVault records the app hash of each finalized height before the node commits the state. If the node later tries to commit a different app hash for the same height, HashVault halts the node. Without HashVault, a validator can commit two different app hashes for one height. This can cause slashing.
+
+HashVault stores the hashes in a Pebble database at `<PersistentStateDir>/hashvault`. When Autobahn runs in memory only, HashVault gives no protection and logs an error at startup.
+
+If HashVault halts a node, follow [HashVault app-hash equivocation panic](/node/troubleshooting#hashvault-app-hash-equivocation-panic) before you restart it. As a last resort, the top-level `hash-vault-disabled-unsafe` key in `config.toml` turns HashVault off. Keep the default, `false`.
 
 ### Key management
 
@@ -51912,8 +52973,37 @@ The `app.toml` file controls application-specific settings:
   ss-backend = "pebbledb"
   ss-keep-recent = 100000
   ss-prune-interval = 600
+
+  # gRPC server configuration
+  [grpc]
+  enable = true
+  address = "0.0.0.0:9090"
+  # Maximum message size, in bytes, that the server accepts. Default 4 MiB.
+  max-recv-msg-size = 4194304
+  # Maximum number of simultaneous open connections. 0 means unlimited.
+  max-open-connections = 1000
+  # Duration after which an idle connection is closed. 0 means infinity.
+  max-connection-idle = "5m0s"
+  # Maximum duration a connection may exist before it is closed. 0 means infinity.
+  max-connection-age = "0s"
+  # Extra time after max-connection-age before the server closes the connection.
+  # 0 means infinity.
+  max-connection-age-grace = "0s"
+  # Interval after which, with no activity, the server pings the client for liveness.
+  keepalive-time = "2h0m0s"
+  # Duration the server waits for a keepalive ping ack before closing the connection.
+  keepalive-timeout = "20s"
+  # Minimum interval between client keepalive pings.
+  # The server penalizes clients that ping more often.
+  keepalive-min-time = "5m0s"
+  # Whether the server allows keepalive pings even when there are no active streams.
+  keepalive-permit-without-stream = false
   ```
 </Accordion>
+
+<Note>
+  If an older `app.toml` does not have these `[grpc]` keys, the node uses the defaults shown above, not unlimited values. A negative keepalive or connection-age duration falls back to its default.
+</Note>
 
 ### Config.toml parameters
 
@@ -51937,7 +53027,7 @@ The `config.toml` file controls the core consensus engine and networking:
   upnp = false
   max-connections = 100
   max-outbound-connections = 20
-  max-packet-msg-payload-size = 10240
+  max-packet-msg-payload-size = 1000000
   handshake-timeout = "10s"
   dial-timeout = "3s"
   # How often the node accepts a new inbound connection. A larger interval paces
@@ -51959,6 +53049,15 @@ The `config.toml` file controls the core consensus engine and networking:
   # greater than 0 it is applied as a context timeout on the request, so a
   # BroadcastTxCommit call will be cancelled if it does not complete within this duration.
   timeout-broadcast-tx-commit = "10s"
+  # Maximum number of results returned by tx_search and block_search.
+  # Set to 0 to disable the cap (not recommended on public nodes).
+  max-tx-search-results = 10000
+  # Maximum number of KV index entries that all running tx_search and
+  # block_search requests may scan at once. The budget is shared by both
+  # indexers. When it runs out, searches fail with "kv indexer scan budget
+  # exceeded; narrow the query or retry later". Set to 0 to disable the cap
+  # (not recommended on public nodes).
+  max-search-scan-budget = 100000
 
   # Mempool Configuration
   [mempool]
@@ -52026,6 +53125,18 @@ Oracle Parameters:
 <Info>
   These values reflect the current on-chain parameters. For the source of truth, query them directly with `seid query staking params` and `seid query slashing params`. Per-validator settings (for example, commission rate and commission max change rate) are configured per validator and are not chain-level parameters.
 </Info>
+
+## Build tags
+
+The `historical_replay` build tag makes a `seid` binary to replay old blocks. This binary accepts transaction bodies with non-canonical encoding. Normal binaries reject these bodies. The replay binary can therefore execute blocks from before that check existed.
+
+```bash theme={"dark"}
+make install BUILD_TAGS=historical_replay
+```
+
+<Warning>
+  A `historical_replay` binary is not safe for consensus. Do not use it to validate, produce blocks, or serve live traffic. Normal builds do not include the lenient decoder.
+</Warning>
 
 ## File locations
 
