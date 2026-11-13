@@ -226,6 +226,51 @@ The command accepts these flags:
 - `--details` (inspect list mode): Include backend-specific version metadata.
 - `--find-hash`: An optional 32-byte hex per-entry hash to search for. When two `bucket_digest` values differ by exactly one entry, their XOR is the hash of that entry. This flag prints every matching entry, so you can locate a single diverging row.
 
+
+<Note>
+  Physical keys in a FlatKV or memIAVL store begin with the module prefix `evm/`. To make `--key-prefix` apply to the EVM key itself, skip past that prefix with `--key-offset 4`. For example, `--inspect-bucket storage --key-offset 4 --key-prefix 03 --shard-next-bytes 2` filters storage rows by the EVM key byte `03`.
+</Note>
+
+```bash
+# List every storage row under a key prefix at one height, from a memiavl
+# reserve and from a production node. Use the same bucket, --key-offset,
+# --key-prefix, and --list-limit 0 on both runs. Physical keys start with
+# "evm/", so --key-offset 4 makes --key-prefix apply to the EVM key.
+seidb evm-logical-digest --backend memiavl --memiavl-open-mode replay \
+    -d <reserve memiavl dir> --height H --inspect-bucket storage \
+    --key-offset 4 --key-prefix 03AB --list --list-limit 0 --json > reserve.json
+seidb evm-logical-digest --backend composite --memiavl-open-mode replay \
+    --flatkv-dir <flatkv dir> --memiavl-dir <memiavl dir> --height H \
+    --inspect-bucket storage --key-offset 4 --key-prefix 03AB \
+    --list --list-limit 0 --json > prod.json
+```
+
+#### Generating KV repair files
+
+The `kvrepair-export` subcommand writes a KV repair file from two `evm-logical-digest` inspect list reports taken at the same height: one from a memIAVL reserve and one from a production node. Each entry it produces sets a key to the reserve value and records the production value as the key's old value, so the repair makes production match the reserve for every key the two reports list. A repair file is a reviewed set of key/value fixes that the node applies, as an embedded hard-fork handler, at the start of one target block on one chain.
+
+First, stop the chain at height `H` and produce a reserve report and a production report for each bucket and key prefix the digest flags as different, as shown above. Then export the repair file:
+
+```bash
+seidb kvrepair-export --reserve reserve.json --prod prod.json \
+    --chain-id pacific-1 --name pacific-1-evm-<H+1> --target-repair-height <H+1> \
+    -o app/upgrades/kvrepair/repairs/pacific-1-evm-<H+1>.json
+```
+
+The command accepts these flags:
+
+- `--reserve`: An inspect list report (`--list --json`) from a memIAVL reserve. Required.
+- `--prod`: An inspect list report (`--list --json`) from a production node, taken at the same height, bucket, offset, and prefix. Required.
+- `--chain-id`: The chain ID the repair runs on. Required.
+- `--name`: The repair name, which must be unique across the repair files. Required.
+- `--target-repair-height`: The height whose block start applies the repair. It must be above the report height. Required.
+- `--source`: Free text for reviewers; it has no effect on execution. Defaults to a description of the two report sources.
+- `--output` (`-o`): The output file. The command writes to stdout when this is empty.
+
+`kvrepair-export` refuses two reports that differ in height, bucket, offset, or prefix, a reserve report that is not a semantic memIAVL read (a `translator`-normalized report shares the migration mapping and is rejected), a list that `--list-limit` cut off, and an account whose balance differs, because the EVM store has no balance key. Before it writes, it checks that a node would parse and validate the resulting file. Do not edit the exported values by hand.
+
+Each repair file names one chain (`chain_id`), the block whose start applies the repair (`target_repair_height`), the committed height the values come from (`state_height`, which must be below `target_repair_height`), an optional free-text `source`, and the `entries` to apply. Each entry names a `store` and `key`, the correct `new` value (a `null` new deletes the key), and the incorrect value the key holds before the repair as `old`, or `"old_absent": true` when the key must not exist beforehand. In the `evm` store, an all-zero storage slot, nonce, or code hash and an empty code value compare as equal to an absent key; every other value, and every value in another store, compares exactly. On a matching chain and height, the handler applies the file at block start, writing or deleting each entry and reading it back; an entry that holds neither its new nor its old value halts the node.
+
 #### Dumping FlatKV state and verifying its lattice hash
 
 `dump-flatkv` writes every physical key-value pair of a FlatKV store to one file per bucket. The format matches `dump-iavl`, so the same diff tools work on both. The command can also compute the lattice hash (LtHash) of each bucket and of the whole store. Then it compares the total with the committed value in the snapshot metadata.
