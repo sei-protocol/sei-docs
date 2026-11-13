@@ -441,6 +441,20 @@ Next, roll back the node:
 seid rollback
 ```
 
+This rewinds the commit store and Tendermint to the target version. It now also rolls back the state store (SS) to that version when possible, so SS no longer silently stays ahead of the commit store after a rollback.
+
+The state store can only follow the rollback when it has a snapshot at or below the target. State store rollback requires the `pebbledb` backend and does not support `evm-ss-split`. Because snapshots are off under the default configuration, the state store cannot be rolled back on a default node and will stay ahead of the commit store.
+
+When the state store cannot follow — it has no rollback support, no snapshot at or below the target, or `evm-ss-split` is enabled — the rollback of the commit store and Tendermint still proceeds, and the command prints a warning like this:
+
+```text
+WARNING: state store rollback skipped: ...
+WARNING: the commit store and Tendermint roll back to version [TARGET] while the state store stays at version [SS_VERSION]
+WARNING: rebuild the state store from state sync unless the chain replays the same blocks above version [TARGET]
+```
+
+If you see this warning, rebuild the state store from [state sync](/node/statesync) unless the chain replays the same blocks above the target — re-execution rewrites the keys the replayed blocks write, but keys written only by the discarded blocks keep their old values. To enable state store rollback going forward, run with the `pebbledb` backend, state store snapshots enabled, and `evm-ss-split` disabled.
+
 Then, restart the node.
 
 If you see this error when you try to roll back:
