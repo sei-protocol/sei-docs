@@ -609,6 +609,21 @@ A `historical_replay` binary is not safe for consensus. Do not use it to validat
 
 
 
+## Query pagination limits
+
+Node-local LCD and gRPC queries no longer cap pagination limits, offsets, or store-scan length. Direct Cosmos queries served by `BaseApp.Query` now page through the full store, so large or sparse stores return complete results instead of errors.
+
+- **Limit:** `MaxLimit` is now the maximum value of a `uint64`, up from the previous `1000`. A `limit` of `0` still falls back to the default page size.
+- **Offset:** There is no longer a maximum offset. The previous cap of `10000` has been removed.
+- **Store scans:** `count_total` and sparse-filter queries scan the full store. The previous `scanned more than N entries` errors no longer occur for node-local queries.
+- **Upper bound:** Pagination arithmetic is performed in signed `int` space, so `limit` or `offset` values above `math.MaxInt64` are still rejected as negative/invalid.
+
+<Note>
+  EVM precompile query paths keep the legacy v6.6 pagination behavior — the `1000` limit, `10000` offset, and `10000`-entry scan limit still apply there — because precompiles run during transaction execution, where relaxing these caps would change gas consumption and break AppHash/LastResultsHash determinism. This only affects queries invoked inside EVM execution; client-facing LCD/gRPC queries use the relaxed semantics described above. The modules covered include `authz`, `distribution`, `feegrant`, `gov`, `staking`, and `bank`.
+</Note>
+
+
+
 ## EVM-only executor load testing
 
 `evmonly-loadtest` is a standalone executable for feeding synthetic blocks to the EVM-only executor without Cosmos SDK state, mempool, RPC, or chain persistence. It generates workloads, runs them through the executor against mock state and receipt sinks, and reports throughput both on stdout and over a Prometheus endpoint. It is a developer and performance-tuning tool, not part of `seid`.
