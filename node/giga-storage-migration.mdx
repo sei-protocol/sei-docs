@@ -220,6 +220,25 @@ In v6.7, governance can start only the EVM migration. The later write modes
 (`migrate_all_but_bank`, `all_migrated_but_bank`, `migrate_bank`, and
 `flatkv_only`) exist, but no parameter starts them.
 
+
+
+### Pausing the migration network-wide
+
+A `pause-state-migration` hard fork handler can halt the migration rate across
+the network at a configured target height. When the handler runs, it sets
+`NumKeysToMigratePerBlock` in the `migration` params subspace back to `0`, so no
+further keys move per block from that height onward. The handler runs only on
+the chain whose ID matches its target, and it takes effect at the target height
+without a node restart.
+
+Pausing this way does not revert in-progress work: the in-flight write mode is
+preserved. A node that has already switched from `memiavl_only` to
+`migrate_evm` stays in `migrate_evm` after the pause; only the per-block
+migration rate drops to zero. To resume, a `ParameterChangeProposal` can raise
+`NumKeysToMigratePerBlock` above `0` again. Node operators should be aware of
+this hard fork during upgrades, since it changes the effective migration rate at
+the target height even though no `app.toml` change is required.
+
 During the migration, the node reads and iterates over both backends. The
 migration deletes a key from memiavl when it copies the key to FlatKV. If both
 backends report a key, the node uses the memiavl value. The migration boundary
