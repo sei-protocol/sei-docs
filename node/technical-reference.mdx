@@ -641,6 +641,14 @@ The `ibc`, `transfer`, and `capability` stores remain mounted for historical sta
 
 To serve pre-v6.7 IBC query history, run a [v6.6 freeze node](/node/frozen-nodes).
 
+
+
+### Retired IBC messages
+
+Along with the removal of IBC store queries, IBC messaging is retired on-chain. Any transaction that carries a message whose type URL begins with the `/ibc.` prefix is now rejected. The IBC ante decorator checks every transaction's messages and returns an `ErrIBCDeprecated` error as soon as it finds an IBC message, so these transactions are turned away at the ante handler (including during `CheckTx`, before they can enter the mempool). The `MsgServiceRouter` handler for IBC messages returns the same `ErrIBCDeprecated` error, so no IBC message is routed or executed on v6.7 nodes.
+
+Previously, the IBC ante decorator only performed redundancy checks on packet messages (`RecvPacket`, `Acknowledgement`, `Timeout`, and `UpdateClient`) and rejected fully redundant relayer transactions with `ErrRedundantTx`. That redundancy logic is gone; all IBC messages are now rejected outright.
+
 <Note>
   EVM precompile query paths keep the legacy v6.6 pagination behavior — the `1000` limit, `10000` offset, and `10000`-entry scan limit still apply there — because precompiles run during transaction execution, where relaxing these caps would change gas consumption and break AppHash/LastResultsHash determinism. This only affects queries invoked inside EVM execution; client-facing LCD/gRPC queries use the relaxed semantics described above. The modules covered include `authz`, `distribution`, `feegrant`, `gov`, `staking`, and `bank`.
 </Note>
