@@ -200,6 +200,17 @@ Another critical role for validators is to review proposed software upgrades to 
 
 Anyone who pays the mandatory (refundable) deposit may submit a governance proposal. Any network user can vote on a proposal. Only votes from accounts that delegate $SEI at the end of a proposal's voting period are given weight.
 
+
+### Recipient deliverability for refunds and payouts
+
+The bank, gov, and staking modules enforce a recipient deliverability check before moving funds to delegators and depositors. When a recipient address cannot receive funds (fails the `CanSendTo` check) or is a blocked address (`BlockedAddr`), the transfer is retained rather than completed. This is an on-chain behavior change that affects validators and their delegators:
+
+- **Undelegation:** `UndelegateCoins` now returns `ErrInvalidRecipient` if the delegator address cannot receive funds. The operation is atomic — no balances are moved when the check fails.
+- **Governance deposit refunds:** `RefundDeposits` skips refunding deposits whose depositor is a blocked address or cannot receive funds. Such deposits remain recorded and stay backed by the governance module balance. Recovering a permanently unreceivable deposit requires a migration.
+- **Matured unbonding:** The staking `EndBlocker` retains an unbonding delegation whose recipient cannot receive funds, keeping the unbonding record and pool balance intact instead of completing the transfer.
+
+If a delegator or depositor is using an address that cannot receive funds, their undelegations, deposit refunds, and matured unbondings will not settle until the address becomes deliverable.
+
 You can query the proposals that are currently on chain at any time:
 
 ```bash
