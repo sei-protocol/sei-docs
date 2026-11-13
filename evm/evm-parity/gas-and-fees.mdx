@@ -99,7 +99,9 @@ Sei precompiles charge gas based on the work that each call does:
 - Before a precompile decodes its arguments, it charges gas for the calldata. The charge grows with the calldata length and with the size of any `string` arguments. A call that cannot pay this charge reverts before the precompile runs.
 - The JSON precompile also charges 100 gas per byte of JSON input.
 - The pointer view precompile also charges for the state that each lookup reads.
-- The P256 precompile also charges a fixed 3,450 gas per verification, the same as RIP-7212 `P256VERIFY`. If the call cannot pay it, the call fails with an out-of-gas error.
+- The P256 precompile also charges a fixed 3,450 gas per verification, the same as RIP-7212 `P256VERIFY`. If the call cannot pay it, the call fails as out-of-gas.
+
+When a dynamic-gas precompile runs out of gas mid-execution, the out-of-gas condition fails only that call frame with `vm.ErrOutOfGas` and zero remaining gas, just like an ordinary EVM out-of-gas. The surrounding transaction completes as a normal failed EVM execution: it produces a failed receipt that charges exactly the gas used at the effective gas price, and an enclosing call frame can continue afterward. The out-of-gas no longer escapes the EVM to fail the whole transaction at the Cosmos layer with a zero-gas receipt.
 
 Because the cost depends on your calldata, do not hard-code gas limits for precompile calls. Use `eth_estimateGas`, as shown in the example above.
 
