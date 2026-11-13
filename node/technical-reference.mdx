@@ -48,6 +48,15 @@ The experimental `SEI_CONFIG_MANAGER` environment variable selects how `seid` lo
 SEI_CONFIG_MANAGER=v2 seid start
 ```
 
+
+##### Mode-aware config resolution
+
+When the experimental config manager resolves configuration defaults, it now takes the node mode into account and is stricter about what it accepts.
+
+- **Unrecognized node modes are rejected.** Resolution accepts only the declared modes — `validator`, `full`, `seed`, and `archive`. An unrecognized value (including an empty string, a capitalized name, or one with a trailing space) no longer silently falls back to full-node defaults. Instead, resolution returns an error naming the modes the binary declares defaults for. This matters because mode-dependent defaults differ: `api.enable` and `grpc.enable` are on for `full` and `archive` nodes and off for `validator` and `seed`, and `min-retain-blocks` is `100000` for a full node. A mode that was quietly treated as a full node would have opened the interfaces a full node serves onto whatever asked.
+- **Some keys cannot be supplied by an environment variable.** An environment variable holds a single string — a value for anything read as a single word or number, and by convention a comma-separated list of those. A key whose value shape is something else (for example `telemetry.global-labels`, which is a list of structured rows) cannot be carried this way. When a variable is set for such a key, it is read but ignored: the file value applies instead, and the key is reported as ignored so the operator can see that the variable did nothing. Plain values and comma-separated lists of words are still accepted from the environment as before.
+
+
 #### Freeze mode (`--freeze-height`)
 
 As of v6.6.3, you can put a full node into read-only freeze mode at a specified block height. Use the `--freeze-height` start flag or the corresponding `freeze-height` field in `app.toml`. Freeze mode exists for historical RPC nodes. A node frozen at an upgrade height keeps running the pre-upgrade binary and keeps serving the state that binary produced. It does not shut down at the boundary or execute the upgrade block with code that no longer matches that state. For setup steps and the freeze heights of each network, see [Run frozen nodes](/node/frozen-nodes).
