@@ -338,6 +338,138 @@ Returns the reward information for a delegator across all validators.
 function rewards(address delegatorAddress) external view returns (Rewards rewards);
 ```
 
+
+
+<Info>Since v6.7.0 (#new precompile upgrade), the distribution precompile also exposes additional query methods that mirror the Cosmos SDK distribution module queries. All of these are `view` methods and do not change distribution state.</Info>
+
+```solidity
+interface IDistr {
+    // Additional query methods
+    function params() external view returns (DistributionParams params);
+    function validatorOutstandingRewards(string memory validatorAddress) external view returns (Coin[] memory rewards);
+    function validatorCommission(string memory validatorAddress) external view returns (Coin[] memory commission);
+    function validatorSlashes(string memory validatorAddress, uint64 startingHeight, uint64 endingHeight, bytes memory pageKey) external view returns (Slash[] memory slashes, bytes memory nextKey);
+    function delegationRewards(address delegatorAddress, string memory validatorAddress) external view returns (Coin[] memory rewards);
+    function delegatorValidators(address delegatorAddress) external view returns (string[] memory validators);
+    function delegatorWithdrawAddress(address delegatorAddress) external view returns (string memory withdrawAddress);
+    function communityPool() external view returns (Coin[] memory pool);
+}
+
+struct DistributionParams {
+    string communityTax;
+    string baseProposerReward;
+    string bonusProposerReward;
+    bool withdrawAddrEnabled;
+}
+
+struct Slash {
+    uint64 validatorPeriod;
+    string fraction;
+}
+```
+
+#### params
+
+Returns the distribution module parameters.
+
+```solidity
+function params() external view returns (DistributionParams params);
+```
+
+The returned `communityTax`, `baseProposerReward`, and `bonusProposerReward` are decimal strings, and `withdrawAddrEnabled` reports whether delegators can set a custom withdrawal address.
+
+#### validatorOutstandingRewards
+
+Returns the outstanding (not-yet-withdrawn) rewards accrued by a validator.
+
+```solidity
+function validatorOutstandingRewards(string memory validatorAddress) external view returns (Coin[] memory rewards);
+```
+
+**Parameters:**
+
+- `validatorAddress`: The Sei validator address (for example, "seivaloper1...")
+
+Amounts use 18-decimal precision (`DecCoins`), like the `rewards()` query.
+
+#### validatorCommission
+
+Returns the commission currently accrued by a validator.
+
+```solidity
+function validatorCommission(string memory validatorAddress) external view returns (Coin[] memory commission);
+```
+
+**Parameters:**
+
+- `validatorAddress`: The Sei validator address
+
+#### validatorSlashes
+
+Returns the slashing events for a validator within a height range, with pagination.
+
+```solidity
+function validatorSlashes(string memory validatorAddress, uint64 startingHeight, uint64 endingHeight, bytes memory pageKey) external view returns (Slash[] memory slashes, bytes memory nextKey);
+```
+
+**Parameters:**
+
+- `validatorAddress`: The Sei validator address
+- `startingHeight`: The first block height to include
+- `endingHeight`: The last block height to include
+- `pageKey`: The pagination key (pass empty bytes for the first page)
+
+Returns the matching `Slash` entries and the `nextKey` to pass in a subsequent call to fetch the next page.
+
+#### delegationRewards
+
+Returns the pending rewards for a specific delegator/validator pair.
+
+```solidity
+function delegationRewards(address delegatorAddress, string memory validatorAddress) external view returns (Coin[] memory rewards);
+```
+
+**Parameters:**
+
+- `delegatorAddress`: The delegator's EVM address (must be associated)
+- `validatorAddress`: The Sei validator address
+
+Amounts use 18-decimal precision (`DecCoins`).
+
+#### delegatorValidators
+
+Returns the list of validator addresses that a delegator currently delegates to.
+
+```solidity
+function delegatorValidators(address delegatorAddress) external view returns (string[] memory validators);
+```
+
+**Parameters:**
+
+- `delegatorAddress`: The delegator's EVM address (must be associated)
+
+#### delegatorWithdrawAddress
+
+Returns the configured withdrawal address for a delegator, as a Sei address string.
+
+```solidity
+function delegatorWithdrawAddress(address delegatorAddress) external view returns (string memory withdrawAddress);
+```
+
+**Parameters:**
+
+- `delegatorAddress`: The delegator's EVM address (must be associated)
+
+#### communityPool
+
+Returns the current community pool balance.
+
+```solidity
+function communityPool() external view returns (Coin[] memory pool);
+```
+
+Amounts use 18-decimal precision (`DecCoins`).
+
 <Info>Since v6.7.0, `rewards()` and the matching gRPC queries (`DelegationRewards` and `DelegationTotalRewards`) do not change distribution state. Repeated calls return the same result. Before v6.7.0, each call incremented the validator period. `debug_trace*` keeps the old behavior when it replays blocks from before v6.7.0.</Info>
 
 **Data structures:**
