@@ -607,6 +607,83 @@ make install BUILD_TAGS=historical_replay
 A `historical_replay` binary is not safe for consensus. Do not use it to validate, produce blocks, or serve live traffic. Normal builds do not include the lenient decoder.
 </Warning>
 
+
+
+## EVM-only executor load testing
+
+`evmonly-loadtest` is a standalone executable for feeding synthetic blocks to the EVM-only executor without Cosmos SDK state, mempool, RPC, or chain persistence. It generates workloads, runs them through the executor against mock state and receipt sinks, and reports throughput both on stdout and over a Prometheus endpoint. It is a developer and performance-tuning tool, not part of `seid`.
+
+The synthetic workload defaults to the local EVM chain ID `1337`; override it with `--chain-id` when testing another signing domain. It can generate pure EVM legacy transfer transactions, ERC20 transfer transactions, and a contract-call workload that exercises nested StateDB snapshot/revert behavior. By default each generated sender account has one nonce-0 transaction and is funded in the command's in-memory genesis state before its block is queued. Recipients are unique by default, so the transfer workloads exercise the optimistic no-overlap case.
+
+Run it from a `sei-chain` source checkout:
+
+```bash
+go run ./giga/evmonly/cmd/evmonly-loadtest --blocks=1000 --txs-per-block=1000
+```
+
+The command prebuilds every block before starting the prepare and executor workers, which isolates executor throughput from block generation. Prebuilding requires `--blocks > 0` and stores every raw block in memory.
+
+### Workload and economics flags
+
+- `--workload`: Workload type: `transfer`, `erc20-transfer`, or `snapshot-revert`. The default is `transfer`.
+- `--chain-id`: EVM chain ID used to sign and execute transactions (default `1337`).
+- `--gas-price-wei`: Legacy transaction gas price in wei (default `1000000000`).
+- `--min-gas-price-wei`: Executor minimum gas price in wei (default `1000000000`). Unless `--disable-gas-price-rule` is set, `--gas-price-wei` must be greater than or equal to this value.
+- `--sender-balance-wei`: Generated sender genesis balance in wei (default `1000000000000000000`). It must cover the transfer value plus maximum gas cost of each sender's transactions.
+- `--transfer-value-wei`: Wei or token units transferred by each generated transaction (default `1`).
+- `--tx-gas-limit`: Gas limit for each generated transaction (default `21000` for the transfer workload, `100000` for `erc20-transfer` and `snapshot-revert` unless overridden).
+- `--block-gas-limit`: Block gas limit; `0` (the default) lets the executor use its maximum.
+- `--coinbase`: Block coinbase address.
+- `--erc20-contract`: EVM address for the generated ERC20 transfer contract.
+- `--snapshot-revert-contract`, `--snapshot-revert-helper`: Generated contract addresses used by `--workload=snapshot-revert`. They must differ.
+- `--disable-gas-price-rule`: Disable the executor min-gas-price validity rule.
+
+### Recipient and sender shaping flags
+
+- `--recipient`: Optional fixed transfer recipient. The default (empty) creates one recipient per transaction, so recipients are unique.
+- `--recipient-conflict-rate`: Fraction `[0,1]` of each block's transactions paired onto shared recipients; `0` (the default) keeps recipients unique and `1` pairs all possible transactions. It cannot be combined with `--recipient`.
+- `--same-sender`: Use one sender per transfer block with sequential transaction nonces. It is only supported with the `transfer` workload.
+
+These shaping flags expose the three executor OCC scenarios: unique senders and recipients (conflict-free), unique senders all crediting one `--recipient` (hot recipient), and a `--same-sender` nonce chain.
+
+### Pipeline and concurrency flags
+
+- `--blocks`: Number of blocks to prebuild and execute. Required and must be greater than `0`.
+- `--txs-per-block`: Transactions generated per block (default `1000`).
+- `--queue-size`: Buffered raw and prepared blocks (default `64`).
+- `--builders`: Parallel block builders used to keep the input queue full. The default is `GOMAXPROCS`.
+- `--prepare-workers`: Parallel stateless preparation workers for transaction decode and sender recovery. The default is `GOMAXPROCS`.
+- `--parse-workers`: Parallel transaction decode/sender recovery workers inside each prepared block. The default `0` uses `1` when `--prepare-workers > 1`, otherwise `GOMAXPROCS`.
+- `--workers`: Parallel executor workers (default `1`).
+- `--executor-workers`: Parallel OCC workers inside each executor. The default is `min(12, GOMAXPROCS)`.
+
+### Result sink and persistence flags
+
+- `--result-sink`: Executor output sink, either `discard` or `file` (default `discard`). The `discard` sink applies the executor state change set to a discard writer and drops receipts.
+- `--result-pool-size`: Reusable executor result slots. The default `0` sizes the pool for in-flight executor and async sink results; a negative value disables result pooling.
+- `--persist-dir`: Directory used by `--result-sink=file` for temporary append-only `changesets.rlp` and `receipts.rlp` files. Required when `--result-sink=file`. The files are removed on shutdown or interrupt cleanup.
+- `--persist-sync`: fsync persistent result files from the async sink writer.
+- `--persist-buffer-size`: Buffered writer size in bytes for `--result-sink=file` (default `4194304`).
+- `--persist-queue-size`: Async file-sink record queue size. The default `0` uses `2 * --queue-size`.
+
+### Observability and profiling flags
+
+- `--metrics-addr`: Prometheus listen address (default `127.0.0.1:9698`). Set it to empty to disable the HTTP metrics server.
+- `--report-interval`: stdout rate reporting interval (default `5s`). `0` disables periodic reports.
+- `--cpu-profile`: Write a Go CPU profile to this file; profiling starts after prebuild.
+- `--heap-profile`: Write a Go heap profile to this file after execution.
+- `--trace-profile`: Write a Go runtime trace to this file; tracing starts after prebuild.
+
+### Metrics server
+
+When `--metrics-addr` is set, the command starts an HTTP server exposing two endpoints:
+
+- `/metrics`: Prometheus metrics for the load test.
+- `/healthz`: A liveness probe that returns `ok`.
+
+The server reports saturation signals including block input, preparation, and finishing throughput; prepared, finished, successful, and failed transactions per second; total gas consumed per second; OCC rerun attempts; queued and cumulative prepared blocks; result-sink records queued, written, bytes written, and enqueue wait; and result-pool capacity, available slots, and overflow allocations. The same rates are also printed to stdout at `--report-interval`. `evmonly_loadtest_result_sink_enqueue_wait_seconds_total` (`sink_enqueue_wait` in the stdout report) is the primary backpressure signal: a non-zero value means executor workers waited for async sink queue capacity.
+
+
 ## File locations
 
 Understanding the purpose and location of important files helps with maintenance
