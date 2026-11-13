@@ -627,6 +627,20 @@ Node-local LCD and gRPC queries no longer cap pagination limits, offsets, or sto
 - **Store scans:** `count_total` and sparse-filter queries scan the full store. The previous `scanned more than N entries` errors no longer occur for node-local queries.
 - **Upper bound:** Pagination arithmetic is performed in signed `int` space, so `limit` or `offset` values above `math.MaxInt64` are still rejected as negative/invalid.
 
+
+
+## Retired IBC store queries
+
+Starting with v6.7, the IBC core query APIs are removed from v6.7 nodes, including raw ABCI store queries against the retired IBC-related stores. Querying any of the following store paths now returns an `ibccoretypes.ErrIBCDeprecated` error instead of store data:
+
+- `/store/ibc/key` and `/store/ibc/subspace`
+- `/store/transfer/key` and `/store/transfer/subspace`
+- `/store/capability/key` and `/store/capability/subspace`
+
+The `ibc`, `transfer`, and `capability` stores remain mounted for historical state access in freeze mode, but direct ABCI store queries against them are intercepted and rejected on v6.7 nodes. Queries against other stores (for example, `/store/bank/key`) are unaffected.
+
+To serve pre-v6.7 IBC query history, run a [v6.6 freeze node](/node/frozen-nodes).
+
 <Note>
   EVM precompile query paths keep the legacy v6.6 pagination behavior — the `1000` limit, `10000` offset, and `10000`-entry scan limit still apply there — because precompiles run during transaction execution, where relaxing these caps would change gas consumption and break AppHash/LastResultsHash determinism. This only affects queries invoked inside EVM execution; client-facing LCD/gRPC queries use the relaxed semantics described above. The modules covered include `authz`, `distribution`, `feegrant`, `gov`, `staking`, and `bank`.
 </Note>
