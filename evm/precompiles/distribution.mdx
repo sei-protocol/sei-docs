@@ -37,6 +37,80 @@ interface IDistr {
 }
 ```
 
+
+## Authorization (authz) methods
+
+The distribution precompile supports Cosmos authz grants, so a granter can authorize another account (the grantee) to withdraw its delegation rewards and validator commission on its behalf. `grantWithdrawAuthorization` creates native generic grants for both `MsgWithdrawDelegatorReward` and `MsgWithdrawValidatorCommission`, and `revokeWithdrawAuthorization` removes them as a group.
+
+```solidity
+interface IDistr {
+    // Authorization methods
+    function grantWithdrawAuthorization(address grantee, int64 expiration) external returns (bool success);
+    function withdrawDelegationRewardsWithAuthorization(address delegator, string memory validator) external returns (bool success);
+    function withdrawValidatorCommissionWithAuthorization(address validatorOperator) external returns (bool success);
+    function revokeWithdrawAuthorization(address grantee) external returns (bool success);
+}
+```
+
+### grantWithdrawAuthorization
+
+Authorizes `grantee` to withdraw the caller's delegation rewards and validator commission until `expiration`.
+
+```solidity
+function grantWithdrawAuthorization(address grantee, int64 expiration) external returns (bool success);
+```
+
+**Parameters:**
+
+- `grantee`: The account receiving the withdrawal authorization
+- `expiration`: Unix timestamp (seconds) after which the authorization is invalid
+
+<Warning>The `expiration` must be after the current block time, otherwise the call reverts. The grant covers only `MsgWithdrawDelegatorReward` and `MsgWithdrawValidatorCommission`; it does not cover `setWithdrawAddress`.</Warning>
+
+### withdrawDelegationRewardsWithAuthorization
+
+Withdraws `delegator`'s delegation rewards from a validator using an authorization previously granted by `delegator`. The caller must be the grantee.
+
+```solidity
+function withdrawDelegationRewardsWithAuthorization(address delegator, string memory validator) external returns (bool success);
+```
+
+**Parameters:**
+
+- `delegator`: The account whose delegation rewards are withdrawn
+- `validator`: The Sei validator address (for example, "seivaloper1...")
+
+Rewards are sent to the delegator's configured withdrawal address. A `DelegationRewardsWithdrawn` event is emitted with the delegator as the indexed address.
+
+### withdrawValidatorCommissionWithAuthorization
+
+Withdraws a validator's earned commission using an authorization previously granted by the validator operator. The caller must be the grantee.
+
+```solidity
+function withdrawValidatorCommissionWithAuthorization(address validatorOperator) external returns (bool success);
+```
+
+**Parameters:**
+
+- `validatorOperator`: The validator operator whose commission is withdrawn
+
+Commission is sent to the operator's configured withdrawal address. A `ValidatorCommissionWithdrawn` event is emitted.
+
+### revokeWithdrawAuthorization
+
+Revokes a grantee's reward and commission withdrawal authorization previously granted by the caller.
+
+```solidity
+function revokeWithdrawAuthorization(address grantee) external returns (bool success);
+```
+
+**Parameters:**
+
+- `grantee`: The account whose withdrawal authorization is revoked
+
+<Info>Both the granter (caller) and the grantee address arguments must be associated Sei addresses. These methods cannot be called from a `staticcall`.</Info>
+
+
 ## Setup
 
 Install ethers and the Sei EVM bindings, which include the precompile address and ABI:

@@ -219,6 +219,98 @@ function editValidator(
 ) external returns (bool success);
 ```
 
+
+### Authorization functions
+
+The staking precompile also supports [authz](https://docs.cosmos.network/main/build/modules/authz)-style delegation, letting a granter authorize another account (the grantee) to delegate, redelegate, and undelegate on the granter's behalf within explicit validator and token limits.
+
+```solidity
+/// @notice Authorize a grantee to delegate, redelegate, and undelegate within explicit validator and token limits
+/// @param grantee The account receiving the staking authorization
+/// @param allowedValidators Validators the grantee may target. For redelegation this limits destination validators
+/// @param maxTokens Maximum cumulative base-denom amount for each of delegate, redelegate, and undelegate
+/// @param expiration Unix timestamp after which the authorization is invalid
+/// @dev Creates three native StakeAuthorizations with independent maxTokens budgets. They can be used through this precompile or native Cosmos MsgExec
+/// @dev Native MsgExec delegation spends the granter's liquid balance, not the grantee's funds. Grant this permission only to a trusted account
+function grantStakingAuthorization(
+    address grantee,
+    string[] memory allowedValidators,
+    uint256 maxTokens,
+    int64 expiration
+) external returns (bool success);
+
+/// @notice Delegate using an authorization granted by delegator. For this EVM method only, the caller supplies msg.value.
+function delegateWithAuthorization(
+    address delegator,
+    string memory valAddress
+) external payable returns (bool success);
+
+/// @notice Redelegate using an authorization granted by delegator
+/// @dev If a destination delegation exists, this first withdraws its accrued rewards to the delegator's configured withdraw address and resets its reward starting info
+function redelegateWithAuthorization(
+    address delegator,
+    string memory srcAddress,
+    string memory dstAddress,
+    uint256 amount
+) external returns (bool success);
+
+/// @notice Undelegate using an authorization granted by delegator.
+function undelegateWithAuthorization(
+    address delegator,
+    string memory valAddress,
+    uint256 amount
+) external returns (bool success);
+
+/// @notice Revoke a grantee's delegate, redelegate, and undelegate authorization.
+function revokeStakingAuthorization(
+    address grantee
+) external returns (bool success);
+```
+
+**How staking authorizations work:**
+
+- `grantStakingAuthorization` creates three independent native `StakeAuthorization` grants — one each for delegate, redelegate, and undelegate. Each grant has its own `maxTokens` budget, so the `maxTokens` value applies separately to each action type rather than as a shared pool.
+- `allowedValidators` scopes which validators the grantee may target. For redelegation this limits the destination validators. At least one allowed validator is required, and `maxTokens` must be positive.
+- `delegateWithAuthorization` is `payable`: the caller (grantee) supplies the delegated amount through `msg.value`, following the same 18-decimal wei convention as `delegate()`. `redelegateWithAuthorization` and `undelegateWithAuthorization` take their amounts as parameters in 6-decimal uSEI precision, like `redelegate()` and `undelegate()`.
+- Each authorized action draws down the matching grant's `maxTokens` budget. Once a budget is exhausted, further actions of that type are rejected. An action whose amount exceeds the remaining budget is rejected with an insufficient-funds error, and an action whose denom does not match the authorization's `maxTokens` denom is rejected with an invalid-request error.
+- `revokeStakingAuthorization` removes all three grants for the grantee at once.
+
+<Warning>
+
+**Native MsgExec spends the granter's liquid balance.** These authorizations create native Cosmos `StakeAuthorization` grants, so the grantee can also exercise them through a Cosmos `MsgExec` outside this precompile. When a delegation is executed through native `MsgExec`, the delegated tokens are debited from the **granter's** liquid balance, not the grantee's. Grant staking authorizations only to a fully trusted account.
+
+</Warning>
+
+#### Grant, use, and revoke a staking authorization
+
+```typescript
+// As the granter (delegator): authorize a grantee to stake on your behalf
+const grantee = '0xGranteeEvmAddress...';
+const allowedValidators = ['seivaloper1abc...', 'seivaloper1xyz...'];
+const maxTokens = ethers.parseUnits('200', 6); // 200 SEI budget per action type (6 decimals / uSEI)
+const expiration = Math.floor(Date.now() / 1000) + 3600; // 1 hour from now (Unix seconds)
+
+let tx = await staking.grantStakingAuthorization(grantee, allowedValidators, maxTokens, expiration);
+await tx.wait();
+
+// As the grantee: delegate on behalf of the delegator (payable, 18-decimal wei)
+const delegator = '0xDelegatorEvmAddress...';
+const delegateAmount = ethers.parseUnits('1', 18);
+tx = await staking.delegateWithAuthorization(delegator, 'seivaloper1abc...', { value: delegateAmount });
+await tx.wait();
+
+// As the grantee: redelegate and undelegate (amounts in 6-decimal uSEI)
+tx = await staking.redelegateWithAuthorization(delegator, 'seivaloper1abc...', 'seivaloper1xyz...', ethers.parseUnits('0.5', 6));
+await tx.wait();
+
+tx = await staking.undelegateWithAuthorization(delegator, 'seivaloper1abc...', ethers.parseUnits('0.5', 6));
+await tx.wait();
+
+// As the granter: revoke all three staking authorizations
+tx = await staking.revokeStakingAuthorization(grantee);
+await tx.wait();
+```
+
 ### Query functions
 
 ```solidity

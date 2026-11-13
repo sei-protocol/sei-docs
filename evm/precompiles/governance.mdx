@@ -138,6 +138,48 @@ function revokeVoteAuthorization(
 ) external returns (bool success);
 ```
 
+
+
+The precompile also supports delegated proposal submission through authz grants. A granter can authorize a grantee to submit proposals on their behalf. The caller supplies the initial deposit through `msg.value`.
+
+```solidity
+/// Grant an account permission to submit proposals on behalf of the caller.
+/// @param grantee The account receiving the proposal authorization.
+/// @param expiration Unix timestamp (seconds) after which the authorization is invalid.
+///        Must be after the current block time or the transaction reverts.
+/// @return success Whether the authorization was successfully granted.
+function grantProposalAuthorization(
+    address grantee,
+    int64 expiration
+) external returns (bool success);
+
+/// Submit a proposal on behalf of a proposer using a MsgSubmitProposal
+/// authorization previously granted by that proposer. The caller must be the
+/// grantee and supplies the initial deposit through msg.value.
+/// @param proposer The account on whose behalf the proposal is submitted.
+/// @param proposalJSON JSON string containing the proposal details.
+/// @return proposalID The ID of the created proposal.
+function submitProposalWithAuthorization(
+    address proposer,
+    string calldata proposalJSON
+) payable external returns (uint64 proposalID);
+
+/// Revoke a previously granted proposal authorization.
+/// @param grantee The account whose proposal authorization is being revoked.
+/// @return success Whether the authorization was successfully revoked.
+function revokeProposalAuthorization(
+    address grantee
+) external returns (bool success);
+```
+
+<Warning>
+**Grant proposal authorization only to a fully trusted account.** The native `MsgSubmitProposal` authorization can also be exercised through a Cosmos `MsgExec` with an arbitrary initial deposit debited from the granter's account. Because proposal deposits can be permanently lost (for example, if a proposal fails to meet the minimum deposit or receives more than 33.4% NoWithVeto votes), a malicious or careless grantee can cause the granter to lose funds.
+</Warning>
+
+<Info>
+**Vote vs. proposal authorization scope:** A `grantVoteAuthorization` grant is limited to `MsgVote` and does **not** cover proposal submission or weighted votes. To delegate proposal submission, grant a separate `grantProposalAuthorization`. The two grants are independent: revoking one does not affect the other.
+</Info>
+
 <Info>
 **Authorization scope and expiration:**
 
