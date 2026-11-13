@@ -640,23 +640,25 @@ Node-local LCD and gRPC queries no longer cap pagination limits, offsets, or sto
 
 ## Retired IBC store queries
 
-Starting with v6.7, the IBC core query APIs are removed from v6.7 nodes, including raw ABCI store queries against the retired IBC-related stores. Querying any of the following store paths now returns an `ibccoretypes.ErrIBCDeprecated` error instead of store data:
+The IBC module is fully unwired from the node: there is no IBC keeper, no IBC `AppModule`, no IBC ante decorator, and no IBC begin-blocker. This includes raw ABCI store queries against the retired IBC-related stores. Querying any of the following store paths now returns a deprecation error instead of store data:
 
 - `/store/ibc/key` and `/store/ibc/subspace`
 - `/store/transfer/key` and `/store/transfer/subspace`
 - `/store/capability/key` and `/store/capability/subspace`
 
-The `ibc`, `transfer`, and `capability` stores remain mounted for historical state access in freeze mode, but direct ABCI store queries against them are intercepted and rejected on v6.7 nodes. Queries against other stores (for example, `/store/bank/key`) are unaffected.
+Each of these queries returns Codespace `ibc`, Code `103`, and Log `ibc module is deprecated`.
 
-To serve pre-v6.7 IBC query history, run a [v6.6 freeze node](/node/frozen-nodes).
+The `ibc`, `transfer`, and `capability` stores remain mounted for historical state access in freeze mode, but direct ABCI store queries against them are intercepted and rejected. Queries against other stores (for example, `/store/bank/key`) are unaffected.
+
+To serve pre-retirement IBC query history, run a [v6.6 freeze node](/node/frozen-nodes).
 
 
 
 ### Retired IBC messages
 
-Along with the removal of IBC store queries, IBC messaging is retired on-chain. Any transaction that carries a message whose type URL begins with the `/ibc.` prefix is now rejected. The IBC ante decorator checks every transaction's messages and returns an `ErrIBCDeprecated` error as soon as it finds an IBC message, so these transactions are turned away at the ante handler (including during `CheckTx`, before they can enter the mempool). The `MsgServiceRouter` handler for IBC messages returns the same `ErrIBCDeprecated` error, so no IBC message is routed or executed on v6.7 nodes.
+Along with the removal of IBC store queries, IBC messaging is retired on-chain. IBC message types are no longer registered with the application, so no message whose type URL begins with the `/ibc.` prefix can be constructed, routed, or executed. Because the IBC ante decorator has been removed entirely and the `MsgServiceRouter` has no IBC handlers, there is no longer a separate `ErrIBCDeprecated` rejection path — IBC messages simply cannot reach `CheckTx` or execution.
 
-Previously, the IBC ante decorator only performed redundancy checks on packet messages (`RecvPacket`, `Acknowledgement`, `Timeout`, and `UpdateClient`) and rejected fully redundant relayer transactions with `ErrRedundantTx`. That redundancy logic is gone; all IBC messages are now rejected outright.
+Earlier releases wired the IBC module and rejected IBC messages at runtime (for example, the ante decorator returned `ErrIBCDeprecated`, and before that it performed redundancy checks on packet messages such as `RecvPacket`, `Acknowledgement`, `Timeout`, and `UpdateClient`). That wiring is gone; IBC is no longer part of the application at all.
 
 <Note>
   EVM precompile query paths keep the legacy v6.6 pagination behavior — the `1000` limit, `10000` offset, and `10000`-entry scan limit still apply there — because precompiles run during transaction execution, where relaxing these caps would change gas consumption and break AppHash/LastResultsHash determinism. This only affects queries invoked inside EVM execution; client-facing LCD/gRPC queries use the relaxed semantics described above. The modules covered include `authz`, `distribution`, `feegrant`, `gov`, `staking`, and `bank`.
