@@ -18,7 +18,7 @@ By default, the explorer lists only the current methods that are available. Each
 - **Limited**: The method is callable, but it returns a static value or has a Sei-specific caveat (shown in the method's **Sei-specific behavior** note). For example, `eth_coinbase` returns the fee-collector address.
 - **Unavailable**: The method is not registered, returns an explicit error, or does not apply to Sei's architecture. This includes blob methods (`eth_blobBaseFee`), proof-of-work and uncle methods, and the `admin`, `miner`, `clique`, `engine`, `les`, and `personal` namespaces.
 
-By default, the explorer hides the remaining deprecated `sei_*` extensions and the unavailable methods. To browse them, enable **Show deprecated & unavailable methods**. The deprecated extensions are also documented under [Sei custom endpoints](#sei-custom-endpoints).
+By default, the explorer hides the deprecated `sei_*` extensions and the unavailable methods. To browse them, enable **Show deprecated & unavailable methods**. The deprecated extensions are also documented under [Sei custom endpoints](#sei-custom-endpoints).
 </Note>
 
 ## Overview
@@ -560,6 +560,8 @@ If a receipt exists but its block height is above the safe-latest watermark, the
 **Supported.** Returns block information by number or tag, with full transactions when fullTx is true.
 
 **Sei-specific behavior:** Under the eth namespace, only EVM transactions are indexed. Synthetic and bank-transfer transactions are excluded. Block number 0 returns a synthetic genesis block, for compatibility with The Graph. Future or non-existent numeric blocks return null. Uncle and PoW header fields (sha3Uncles, nonce, mixHash, difficulty) are placeholders, and the uncles array is always empty (CometBFT consensus). The safe, finalized, and latest tags are equivalent because of instant finality.
+
+Like `eth_getBlockTransactionCountByNumber`, this method verifies that the requested block's receipts have not been pruned from the receipt store before returning. If they have, it returns a "receipts have been pruned" error instead of block data. Because the receipt store can be configured with a smaller `KeepRecent` than the block and state stores, the call can fail for older blocks even when the block data itself is still available.
 
 **Parameters:**
 
@@ -1140,6 +1142,8 @@ A state override can include up to 100 accounts (`max_state_override_accounts`) 
 **Tracer rules.** The node accepts only the native tracers listed in `trace_allowed_tracers`. By default, these are `callTracer`, `prestateTracer`, `flatCallTracer`, `4byteTracer`, `noopTracer`, and `muxTracer`. The node rejects JavaScript tracer code unless the operator sets `trace_allow_js_tracers = true`. If you omit `tracer`, the default struct logger runs. These rules apply to every `debug_trace*` method that accepts a tracer. For details, see [Tracer allowlist](/evm/tracing#tracer-allowlist).
 
 The max block lookback guard (`max_trace_lookback_blocks`) applies. If a request's target block is older than the configured lookback, the request is rejected with an error of the form `block number X is beyond max lookback of Y`. Each such request increments the `evmrpc_historical_debug_trace_attempts_total` metric. This guard applies consistently across all `debug_trace*` endpoints.
+
+**Caller deadline during state reconstruction.** When a trace replays a historical block, the caller's RPC/trace deadline (the context deadline, bounded by `trace_timeout`) is propagated into the state-store MVCC iteration used to reconstruct state. If the deadline expires or the call is cancelled while that iteration is running, the method aborts and returns the context deadline/cancellation error (`context.DeadlineExceeded` or `context.Canceled`). It no longer keeps running after the caller has given up, and it no longer returns a synthesized trace result (such as `{"error": "store access cancelled"}`); such a synthesized result is never returned to the caller or written to the trace cache. The same deadline handling applies to `debug_traceBlockByNumber`, `debug_traceBlockByHash`, and `debug_traceCall`.
 
 **Parameters:**
 

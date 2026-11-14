@@ -37,6 +37,11 @@ Sei governance follows a structured timeline with specific parameters:
 
 <Info> To learn more about the governance process on Sei, read the [governance explainer](/learn/general-governance).</Info>
 
+
+<Warning>
+**Deposit refunds skip undeliverable depositors.** When a proposal's deposits are refunded, any deposit whose depositor is a blocked address or cannot currently receive funds is skipped rather than returned. Such deposits remain recorded against the proposal and stay backed by the governance module balance. Recovering a permanently undeliverable deposit requires a chain migration; it is not returned automatically.
+</Warning>
+
 <Warning>
 **Critical Sei Mainnet considerations:**
 
@@ -100,6 +105,94 @@ function submitProposal(
     string calldata proposalJSON
 ) payable external returns (uint64 proposalID);
 ```
+
+
+#### Delegated voting with authorization
+
+The governance precompile also supports delegated voting through authz grants. A granter can authorize another account (the grantee) to cast simple votes on their behalf. The authorization is limited to `MsgVote` and does **not** cover weighted votes.
+
+```solidity
+/// Grant an account permission to cast simple votes on behalf of the caller.
+/// The authorization is limited to MsgVote and does not cover weighted votes.
+/// @param grantee The account receiving the vote authorization.
+/// @param expiration Unix timestamp (seconds) after which the authorization is invalid.
+///        Must be after the current block time or the transaction reverts.
+/// @return success Whether the authorization was successfully granted.
+function grantVoteAuthorization(
+    address grantee,
+    int64 expiration
+) external returns (bool success);
+
+/// Cast a simple vote on behalf of a voter using a MsgVote authorization
+/// previously granted by that voter. The caller must be the grantee.
+/// @param voter The account whose vote is being cast.
+/// @param proposalID The ID of the proposal to vote on.
+/// @param option The option to vote for. (1=Yes, 2=Abstain, 3=No, 4=NoWithVeto)
+/// @return success Whether the authorized vote was successfully cast.
+function voteWithAuthorization(
+    address voter,
+    uint64 proposalID,
+    int32 option
+) external returns (bool success);
+
+/// Revoke a previously granted vote authorization.
+/// @param grantee The account whose vote authorization is being revoked.
+/// @return success Whether the authorization was successfully revoked.
+function revokeVoteAuthorization(
+    address grantee
+) external returns (bool success);
+```
+
+
+
+The precompile also supports delegated proposal submission through authz grants. A granter can authorize a grantee to submit proposals on their behalf. The caller supplies the initial deposit through `msg.value`.
+
+```solidity
+/// Grant an account permission to submit proposals on behalf of the caller.
+/// @param grantee The account receiving the proposal authorization.
+/// @param expiration Unix timestamp (seconds) after which the authorization is invalid.
+///        Must be after the current block time or the transaction reverts.
+/// @return success Whether the authorization was successfully granted.
+function grantProposalAuthorization(
+    address grantee,
+    int64 expiration
+) external returns (bool success);
+
+/// Submit a proposal on behalf of a proposer using a MsgSubmitProposal
+/// authorization previously granted by that proposer. The caller must be the
+/// grantee and supplies the initial deposit through msg.value.
+/// @param proposer The account on whose behalf the proposal is submitted.
+/// @param proposalJSON JSON string containing the proposal details.
+/// @return proposalID The ID of the created proposal.
+function submitProposalWithAuthorization(
+    address proposer,
+    string calldata proposalJSON
+) payable external returns (uint64 proposalID);
+
+/// Revoke a previously granted proposal authorization.
+/// @param grantee The account whose proposal authorization is being revoked.
+/// @return success Whether the authorization was successfully revoked.
+function revokeProposalAuthorization(
+    address grantee
+) external returns (bool success);
+```
+
+<Warning>
+**Grant proposal authorization only to a fully trusted account.** The native `MsgSubmitProposal` authorization can also be exercised through a Cosmos `MsgExec` with an arbitrary initial deposit debited from the granter's account. Because proposal deposits can be permanently lost (for example, if a proposal fails to meet the minimum deposit or receives more than 33.4% NoWithVeto votes), a malicious or careless grantee can cause the granter to lose funds.
+</Warning>
+
+<Info>
+**Vote vs. proposal authorization scope:** A `grantVoteAuthorization` grant is limited to `MsgVote` and does **not** cover proposal submission or weighted votes. To delegate proposal submission, grant a separate `grantProposalAuthorization`. The two grants are independent: revoking one does not affect the other.
+</Info>
+
+<Info>
+**Authorization scope and expiration:**
+
+- The grant only authorizes simple `MsgVote` votes. It does not allow the grantee to cast weighted votes on the granter's behalf.
+- `expiration` is a Unix timestamp in seconds and must be strictly after the current block time, otherwise `grantVoteAuthorization` reverts.
+- `voteWithAuthorization` reverts if no valid, unexpired authorization exists from `voter` to the caller.
+- Both the granter and grantee accounts must have a Sei address associated with their EVM address.
+</Info>
 
 ### Query functions
 
@@ -207,6 +300,11 @@ function tallyResult(
     uint64 proposalID
 ) external view returns (TallyResultData memory tallyResult);
 ```
+
+
+<Info>
+**Query methods available as of v6.7:** The `proposal`, `proposals`, `getVote`, `votes`, `params`, `getDeposit`, `deposits`, and `tallyResult` read-only methods let contracts inspect governance state directly from the precompile. They run on a branched context and never mutate chain state, so a `tallyResult` call does not consume votes even though the underlying tally logic deletes votes as it counts.
+</Info>
 
 ## Using the contract
 
