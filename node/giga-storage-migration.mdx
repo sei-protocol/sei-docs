@@ -251,6 +251,17 @@ advances at most once per block. When the migration starts, the node stops
 serving state proofs for the `evm` store, because FlatKV has no proof builder.
 Proofs for other modules still work.
 
+FlatKV applies a block's account changes by folding each per-field change (a
+nonce, code hash, or balance) onto the row the account already holds. That fold
+now runs asynchronously on the account store's own threads after the block has
+been staged, rather than reading and merging the old account values synchronously
+while the block is applied. As a result, applying a block no longer fails when it
+touches a corrupted account row: `ApplyChangeSets` succeeds because the fold has
+only been scheduled, and the corruption instead surfaces as a panic when that
+account is later read. The `flatkv_account_update_latency` OpenTelemetry metric
+measures the time to stage a block's account changes; it replaces the former
+`flatkv_batch_read_old_values_latency` metric.
+
 ### Pinning a write mode
 
 To pin a write mode, set both keys in the `[state-commit]` section of
