@@ -48,6 +48,36 @@ The experimental `SEI_CONFIG_MANAGER` environment variable selects how `seid` lo
 SEI_CONFIG_MANAGER=v2 seid start
 ```
 
+
+
+#### Checking sei.toml before a restart (`seid config check`)
+
+The `seid config check` subcommand resolves a node's `sei.toml` the same way a boot resolves it and reports every value this binary would refuse, without starting the node. A boot cannot refuse a file: it applies what it can and reports the rest, so a mistyped value becomes a report on a node that has already restarted. Running `config check` first turns that into a failed check instead. It exits non-zero when it finds a problem, so you can gate a configuration rollout on its exit status.
+
+```bash
+# Check the node's sei.toml against this binary without starting anything
+seid config check --home <dir>
+```
+
+The command locates the node's config directory from the standard `--home` flag (or the `SEID_HOME` environment variable). A home must be set one of these ways; otherwise the command refuses to run rather than reading `sei.toml` from the working directory, because answering confidently about some other node's file is worse than not answering.
+
+`config check` resolves `sei.toml` against the environment it runs in. A declared key answered by an environment variable is only visible to the check if that variable is also set where you run the command, so run it in the same environment the node boots in (for example, the same container or service unit) for the most faithful result. It does not start the node and does not generate any files: unlike a normal boot, it never writes `config.toml` or `app.toml`, so you can safely run it against a node you are only asking a question about.
+
+The report covers every value a boot would refuse or ignore, including:
+
+- Keys that `sei.toml` writes but no section declares, which have no effect.
+- Type mismatches, such as a length of time written as a plain number (which would be read as nanoseconds) or a number larger than the setting can hold.
+- Values that decode cleanly but the node's own delivery rules reject (for example, a negative `max-tx-bytes`).
+- A disagreement about the kind of node: `sei.toml` records the node mode at its top, and the node's own `config.toml` records a `mode` of its own. When they disagree, the values resolved from `sei.toml` are the answer for one kind of node while the node would run as the other.
+- How many of the declared keys the file states, how many are answered by an environment variable or a flag, and how many fall back to the value this binary declares for this kind of node.
+
+`config check` also surfaces the `SEI_CONFIG_MANAGER` gate state (see above), because that determines whether a boot reads `sei.toml` at all:
+
+- Unset or `legacy`: the command notes that a boot in the same environment reads none of this file, then reports what it would reach if the gate were set to `v2`. This keeps a passing check from reading as "in use and correct" on a node where a boot ignores the file.
+- `v2`: a boot reads the file, so the report reflects what it would use.
+- Any other value: the gate is reported as a problem, because a boot refuses an invalid `SEI_CONFIG_MANAGER` value before it reaches the file, and such a node would not start.
+
+
 #### Freeze mode (`--freeze-height`)
 
 As of v6.6.3, you can put a full node into read-only freeze mode at a specified block height. Use the `--freeze-height` start flag or the corresponding `freeze-height` field in `app.toml`. Freeze mode exists for historical RPC nodes. A node frozen at an upgrade height keeps running the pre-upgrade binary and keeps serving the state that binary produced. It does not shut down at the boundary or execute the upgrade block with code that no longer matches that state. For setup steps and the freeze heights of each network, see [Run frozen nodes](/node/frozen-nodes).
