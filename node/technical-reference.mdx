@@ -71,6 +71,30 @@ When `SEI_LTHASH_BACKEND` is empty or names a backend this binary cannot run on 
 
 
 
+
+
+#### tmhash/merkle hashing backend (`SEI_TMHASH_BACKEND`)
+
+The `SEI_TMHASH_BACKEND` environment variable pins the batch hashing backend used for tmhash and Merkle-tree (`HashFromByteSlices`) batched SHA-256. Every backend produces bit-identical digests; they differ only in speed. Merkle root computation follows RFC-6962 regardless of the active backend. The value must match a backend name exactly.
+
+- `default`: the portable scalar backend, which hashes one message at a time with `crypto/sha256` (using the SHA-NI single-lane instructions where the CPU has them). It is always available.
+- `simd`: an AVX-512 backend that hashes sixteen messages per kernel pass. It is compiled in only on `amd64` builds produced with `GOEXPERIMENT=simd`, and it is selectable only when the CPU supports AVX-512F, BW, DQ, and VL plus VBMI and VBMI2. Otherwise it is not present and cannot be chosen. When enough items are available, Merkle root computation switches to a level-batched path that hands each level's independent hashes to this backend in one call.
+- Empty or unknown value: selection is automatic. The node picks the fastest available backend, which is `simd` when the build and CPU support it and `default` otherwise.
+
+```bash
+# Pin the portable scalar backend
+SEI_TMHASH_BACKEND=default seid start
+
+# Request the AVX-512 SIMD backend (requires a GOEXPERIMENT=simd amd64 build on
+# a CPU with AVX-512F + BW + DQ + VL + VBMI + VBMI2; otherwise selection stays
+# automatic)
+SEI_TMHASH_BACKEND=simd seid start
+```
+
+When `SEI_TMHASH_BACKEND` is empty or names a backend this binary cannot run on the current CPU, the node falls back to automatic selection rather than failing to start.
+
+
+
 #### Checking sei.toml before a restart (`seid config check`)
 
 The `seid config check` subcommand resolves a node's `sei.toml` the same way a boot resolves it and reports every value this binary would refuse, without starting the node. A boot cannot refuse a file: it applies what it can and reports the rest, so a mistyped value becomes a report on a node that has already restarted. Running `config check` first turns that into a failed check instead. It exits non-zero when it finds a problem, so you can gate a configuration rollout on its exit status.
