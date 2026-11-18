@@ -628,6 +628,31 @@ SeiDB can count estimated logical reads and writes on its PebbleDB databases. Th
 | `pebble_estimated_reads` | Counter | Estimated logical PebbleDB reads. |
 | `pebble_estimated_writes` | Counter | Estimated logical PebbleDB writes. |
 
+
+
+## Subspace query metrics
+
+`/store/*/subspace` ABCI queries are bounded to prevent memory-exhaustion from wide prefix scans. A scan that would exceed the configured pair or byte caps fails with `subspace result exceeds limit`, empty prefixes are rejected, and queries that exceed the SS fast-path concurrency limit are rejected with `subspace query busy`. Indexers and tooling that issue wide `/subspace` queries must narrow their prefixes, shard by sub-prefix, or raise the caps in `app.toml` (#4009).
+
+| Metric | Type | Description |
+| --- | --- | --- |
+| `subspace_query_rejected` | Counter | Number of rejected `/subspace` ABCI queries. Labeled by `reason`: `semaphore` (the concurrency limit was exceeded) or `cap_exceeded` (the scan hit the pair or byte cap). |
+
+Tune the caps in the `[state-commit]` section of `app.toml`. Values `<= 0` resolve to the defaults; there is no unlimited setting:
+
+| Config key | Default | Description |
+| --- | --- | --- |
+| `sc-subspace-max-pairs` | `1000` | Maximum number of key/value pairs a `/subspace` scan may return. |
+| `sc-subspace-max-bytes` | `4194304` (4 MiB) | Maximum key+value bytes a `/subspace` scan may accumulate. |
+| `sc-subspace-query-max-inflight` | `2` | Maximum concurrent unproven `/subspace` queries on the SS fast path. |
+
+```toml
+[state-commit]
+sc-subspace-max-pairs = 1000
+sc-subspace-max-bytes = 4194304
+sc-subspace-query-max-inflight = 2
+```
+
 Both counters have a `db` attribute. Its value is the name of the data directory, so you can tell the FlatKV data DBs, the state store, and the receipt store apart. Turn the counters on per store in `app.toml`:
 
 | Config key | Section | Store |
