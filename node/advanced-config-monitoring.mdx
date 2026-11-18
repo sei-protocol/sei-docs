@@ -746,6 +746,33 @@ LittDB emits its metrics through the process-wide OpenTelemetry `MeterProvider` 
 | `litt_compression_compressed_bytes` | Counter | bytes | Compressed bytes produced since startup. Divide by `litt_compression_uncompressed_bytes` to get the overall compression ratio. |
 | `litt_compression_ratio` | Histogram | ratio | Compressed bytes divided by uncompressed bytes, per batch. Lower is better. |
 
+
+
+## Giga EVM-only executor OCC OpenTelemetry metrics
+
+The Giga EVM-only executor emits optimistic concurrency control (OCC) metrics through the process-wide OpenTelemetry `MeterProvider`, so you can watch parallel-execution behavior without reading `BlockResult`. The executor emits one sample per block. The node binds the meter provider with a `sei_chain` Prometheus namespace, so each name below is scraped with that prefix (for example, `giga_occ_blocks_total` is scraped as `sei_chain_giga_occ_blocks_total`).
+
+### Available OCC metrics
+
+| Metric | Type | Description |
+| --- | --- | --- |
+| `giga_occ_blocks_total` | Counter | One sample per block, labeled by `outcome`. `parallel` and `fallback` are blocks that tried optimistic execution, `sequential` are blocks that had transactions but were ineligible (a single transaction, `OCCWorkers <= 1`, or registered custom precompiles), and `empty` are blocks with no transactions. Splitting the ineligible blocks from the empty ones keeps `parallel / (parallel + fallback + sequential)` a statement about OCC rather than about block rate. |
+| `giga_occ_fallbacks_total` | Counter | Blocks that abandoned the optimistic path and re-ran sequentially, labeled by `reason`. |
+| `giga_occ_reruns_total` | Counter | Transaction reruns scheduled by optimistic execution validation across the whole block. |
+| `giga_occ_conflicts_total` | Counter | State access conflicts observed while validating optimistic execution, labeled by `access` and `kind`. |
+| `giga_occ_rerun_depth` | Histogram | The deepest incarnation any single transaction reached (`MaxIncarnation`) per optimistically executed block, bucketed one per reachable incarnation. The histogram records every block that tried optimistic execution, including those that never reran a transaction. |
+
+### Labels
+
+| Label | Metric | Values |
+| --- | --- | --- |
+| `outcome` | `giga_occ_blocks_total` | `parallel`, `fallback`, `sequential`, or `empty`. |
+| `reason` | `giga_occ_fallbacks_total` | The fallback reason, such as a validation conflict, a gas limit or gas overflow, max-incarnation exhaustion, or a closed OCC worker pool. |
+| `access` | `giga_occ_conflicts_total` | `read` or `write`. |
+| `kind` | `giga_occ_conflicts_total` | The conflicting state kind: `account`, `balance`, `nonce`, `code`, or `storage`. |
+
+Every label vocabulary is closed: an `outcome`, `reason`, `access`, or `kind` value the emitter does not recognize collapses to `unknown` rather than adding a new series. Conflict addresses and storage slots are deliberately not labels, because they are per-contract and per-slot and would make the series unbounded; they remain available in `OCCStats.ConflictSamples` for logs and spans. A block's conflict samples are summed onto the access-by-kind series before being emitted, so the telemetry work per block is bounded by the label space rather than by the number of conflicting state keys.
+
 ### Attributes
 
 | Attribute | Description |
