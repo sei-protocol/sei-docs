@@ -390,3 +390,24 @@ The supported receipt-store backends are `pebbledb` (also called `pebble`) and
 removed. The node rejects an unsupported value for `RECEIPT_BACKEND` (or
 `rs-backend` in `app.toml`) with an error
 (`unsupported receipt-store backend "parquet"; supported: pebbledb, littidx`).
+
+
+
+### Does the receipt store guard against opening it with the wrong backend?
+
+Yes. The receipt store records which backend owns its directory in a
+`receipt-backend.txt` marker file, written on first open. If you later point a
+different backend at that same directory — for example opening a `pebble` store
+as `littidx` or the reverse — the store refuses to open and fails with a
+mismatch error that names both the backend that owns the directory and the one
+that was requested, instead of silently presenting an empty store. Point the
+configured backend at its own store directory, or configure the backend that
+owns the one on disk.
+
+Directories written before the marker existed carry no marker and are adopted
+as-is on the next open: the configured backend is taken to be the owner and the
+marker is stamped on the way through, so existing nodes keep working without
+intervention. A backend the build does not support, or a config the backend
+rejects (such as `ExternalPruning` with the `pebble` backend), is refused before
+the directory is touched, so a rejected attempt does not leave a marker behind
+that would then refuse the corrected config.

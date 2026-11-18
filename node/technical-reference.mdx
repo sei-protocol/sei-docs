@@ -296,6 +296,27 @@ seidb hashlog compare <archive-a> <archive-b> [--low <N> --high <M>] [--max-diff
 - `--full`: Show every column for each block with differences. By default, the command shows only the columns that differ. Use `--full` when the archives hold a different number of records for a block.
 - `--json`: Print JSON instead of text.
 
+
+
+#### Offline receipt-store maintenance (littidx backend)
+
+The receipt store supports offline operations that read or rewind its on-disk data directly, without starting a live store. These operations are supported only for the `littidx` receipt-store backend; any other backend (for example, `pebbledb`) is refused rather than reported as empty, so the store must not be running while an offline operation runs.
+
+A `littidx` receipt store now records its ownership in a `receipt-backend.txt` marker file in its directory on first open. Opening a store directory with a backend other than the one that owns it fails loudly with a mismatch error instead of presenting a silently empty store. A directory written before markers existed carries no marker and is adopted by the configured backend on its next open. An offline operation checks both the configured backend and this marker, so a `littidx`-configured run pointed at another backend's directory is refused by the marker.
+
+Two offline entry points are available for a `littidx`-backed receipt store:
+
+- **`GetRange`** reports the lowest and highest block heights present on disk for the receipt store, without opening it. It returns a flag that is false when no receipts are present.
+- **`PruneAfter`** deletes every receipt for a block height greater than the target from the store, without opening it. It rolls back the littdb receipt bodies, deletes the pebble tag-index entries above the target, and moves the store's latest-block metadata back to match. A target at or above the store's head is a no-op.
+
+`PruneAfter` validates the target before touching any receipt, so a refusal leaves the store's data unchanged. It refuses a target below the store's retention floor (that data has already been pruned) and a target below the oldest receipt still on disk (which would leave no receipt at all); to discard the store entirely, delete its directory instead.
+
+Underpinning these operations, the offline LittDB rollback utility now lives in the `litt/offline` package (moved from `litt/rollback`) and takes a `*litt.Config` in place of a slice of data directories. Its rollback filter semantics also changed: a table for which the filter never matches any record now retains nothing and is deleted in its entirety — including its gc-watermark — rather than being left unchanged. A filter must therefore not use a never-match to mean "not my table"; every table under the config's paths is subject to it.
+
+<Warning>
+  The database must not be running while any offline receipt-store or LittDB rollback operation runs. These operations take the same directory locks the database uses, so they fail rather than corrupt a live store, and they assume nothing else mutates the data meanwhile.
+</Warning>
+
 ### Autobahn (GigaRouter) config generation
 
 When you use the Autobahn (GigaRouter) networking layer, you can generate the Autobahn JSON config from a set of node directories. Each directory must contain `validator_pubkey.txt`, `node_pubkey.txt`, `autobahn_address.txt`, and `evmrpc_url.txt`. Unlike the key files, `evmrpc_url.txt` is not written automatically, so you must create it by hand with the node's EVM RPC URL. If the file is missing, the command fails with an error. The `mempool_size` field is no longer part of `autobahn.json`. Remove it from existing config files.
