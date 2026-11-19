@@ -280,7 +280,7 @@ The command accepts these flags:
 - `--json`: Print the digest or inspect report as one JSON object on stdout, and send the narration, progress, and warnings to stderr. Storage-layer logging is quieted to error level so it stays off stdout; for an unattended `--json` run, also set `SEI_LOG_OUTPUT=stderr` to keep an error-level log line off stdout, so it cannot corrupt the JSON report.
 - `--inspect-bucket`: Inspect one normalized bucket (`account`, `code`, `storage`, or `misc`), not the global digest. Inspect mode accepts `--backend composite` (which requires `--flatkv-dir` and `--memiavl-dir`) in addition to `flatkv` and `memiavl`, so you can inspect the mid-migration composite EVM view. Inspect mode with `--memiavl-normalization translator`, or with `--details` on the `storage` bucket, requires `--memiavl-open-mode snapshot`.
 - `--inspect-plan` (inspect mode): A JSON file that lists several inspect reports to produce from one scan. It replaces the single-report inspect flags.
-- `--key-offset` (inspect mode): The byte offset into the physical key, applied before `--key-prefix` or sharding.
+- `--key-offset` (inspect mode): The byte offset into the physical key, applied before `--key-prefix` or sharding. Physical keys are prefixed with the module name, so an EVM row's key starts with `evm/`. Use `--key-offset 4` to skip that prefix and make `--key-prefix` apply to the EVM key itself (for example `--key-offset 4 --key-prefix 03` to filter storage keys).
 - `--key-prefix` (inspect mode): A hex prefix, relative to `--key-offset`, that filters physical keys.
 - `--shard-next-bytes` (inspect mode): Group matching keys by this many bytes after `--key-prefix`.
 - `--list` (inspect mode): List pairs of matching keys and logical values instead of shard `bucket_digest` values.
@@ -321,6 +321,45 @@ The command accepts these flags:
 - `--read-limit-mb`: The maximum read speed in MiB/s. The default is `64`, and `0` turns the limit off. Raise it only for offline runs.
 
 With `--lthash`, the output lists the count and checksum of each bucket, the `TOTAL`, and a `PASS` or `FAIL` line. On a mismatch, the command prints `TOTAL FAIL` and stops with an error. The command skips the check when the snapshot has no committed LtHash to compare with.
+
+
+
+#### Exporting a kvrepair file (`kvrepair-export`)
+
+The `kvrepair-export` subcommand writes a kvrepair file from two `evm-logical-digest` inspect list reports taken at the same height: one from a memIAVL reserve and one from a production node. Each entry it writes sets a key to the reserve value and records the production value as the key's old value, so that applying the repair makes production match the reserve. A kvrepair file is a reviewed set of key/value writes that a hard-fork handler applies to module stores at a target height.
+
+Generate the two reports first. Both runs need the same bucket, `--key-offset`, and `--key-prefix`, and `--list-limit 0` so the list is not cut off. Physical keys are prefixed with `evm/`, so use `--key-offset 4` to make `--key-prefix` apply to the EVM key:
+
+```bash
+# Reserve report from a memiavl node (replay mode)
+seidb evm-logical-digest --backend memiavl --memiavl-open-mode replay \
+    -d <reserve memiavl dir> --height H --inspect-bucket storage \
+    --key-offset 4 --key-prefix 03AB --list --list-limit 0 --json > reserve.json
+
+# Production report from a composite (or flatkv) node, at the same height,
+# bucket, offset, and prefix
+seidb evm-logical-digest --backend composite --memiavl-open-mode replay \
+    --flatkv-dir <flatkv dir> --memiavl-dir <memiavl dir> --height H \
+    --inspect-bucket storage --key-offset 4 --key-prefix 03AB \
+    --list --list-limit 0 --json > prod.json
+
+# Export the kvrepair file from the two reports
+seidb kvrepair-export --reserve reserve.json --prod prod.json \
+    --chain-id pacific-1 --name pacific-1-evm-<H+1> --target-repair-height <H+1> \
+    -o app/upgrades/kvrepair/repairs/pacific-1-evm-<H+1>.json
+```
+
+The command accepts these flags:
+
+- `--reserve`: The inspect list report (`--list --json`) from a memIAVL reserve. Required.
+- `--prod`: The inspect list report (`--list --json`) from a production node, taken at the same height, bucket, offset, and prefix. Required.
+- `--chain-id`: The chain ID the repair runs on. Required.
+- `--name`: The repair name, which must be unique across the repair files. Required.
+- `--target-repair-height`: The height whose start applies the repair. It must be above the report height (typically the report height plus one). Required.
+- `--source`: Free text for reviewers. It has no effect on execution. When omitted, it defaults to a description of the two report sources.
+- `--output` (`-o`): The output file. When empty, the file is written to stdout.
+
+`kvrepair-export` gives every entry an `old` value and checks that a node would load the file it writes. It refuses two reports that differ in height, bucket, offset, or prefix; a list that `--list-limit` cut off; a reserve read with `--memiavl-normalization translator`; and two reports that list no differences. Do not edit the exported values by hand.
 
 #### Inspecting hash log archives
 
