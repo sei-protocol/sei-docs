@@ -686,6 +686,24 @@ SeiDB can count estimated logical reads and writes on its PebbleDB databases. Th
 
 
 
+## Undo-log state store OpenTelemetry metrics
+
+When the EVM state store uses the `undolog` backend (a bucketed PebbleDB undo log that keeps recent EVM history), the store emits operation-level OpenTelemetry metrics through the process-wide `MeterProvider` (for example, a Prometheus exporter). Pebble's own internal stats are reported separately, the same way they are for the MVCC state store.
+
+### Available undo-log metrics
+
+| Metric | Type | Unit | Description |
+| --- | --- | --- | --- |
+| `pebble_undo_get_latency` | Histogram | seconds | Time taken to read a key at a height. Carries a `success` boolean attribute. |
+| `pebble_undo_get_probes` | Histogram | `{bucket}` | Number of buckets probed by one read. |
+| `pebble_undo_apply_latency` | Histogram | seconds | Time taken to write one block's undo records. Carries a `success` boolean attribute. |
+| `pebble_undo_apply_records` | Histogram | `{record}` | Number of undo records written for one block. |
+| `pebble_undo_excise_latency` | Histogram | seconds | Time taken to excise expired buckets during pruning. |
+| `pebble_undo_buckets_excised` | Counter | `{bucket}` | Number of buckets removed by excise. |
+| `pebble_undo_pending_changes` | Gauge | `{block}` | Current depth of the asynchronous write queue (blocks waiting to be applied). |
+
+
+
 ## Subspace query metrics
 
 `/store/*/subspace` ABCI queries are bounded to prevent memory-exhaustion from wide prefix scans. A scan that would exceed the configured pair or byte caps fails with `subspace result exceeds limit`, empty prefixes are rejected, and queries that exceed the SS fast-path concurrency limit are rejected with `subspace query busy`. Indexers and tooling that issue wide `/subspace` queries must narrow their prefixes, shard by sub-prefix, or raise the caps in `app.toml` (#4009).
