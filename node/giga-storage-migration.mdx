@@ -262,6 +262,16 @@ advances at most once per block. When the migration starts, the node stops
 serving state proofs for the `evm` store, because FlatKV has no proof builder.
 Proofs for other modules still work.
 
+
+<Note>FlatKV only retains a bounded window of recent history (its snapshots plus
+WAL). A rollback or historical read that targets a version below that retained
+FlatKV history is now refused up front, before any backend state is touched,
+with a non-fatal `version unreachable; use state sync instead` error. The store
+is left usable rather than failing partway through a mutation, and historical
+reads (`LoadVersionReadOnly` and exporters) below the floor return the same
+error instead of panicking or creating a work directory. If you need a version
+older than FlatKV retains, recover it with a state sync rather than a rollback.</Note>
+
 FlatKV applies a block's account changes by folding each per-field change (a
 nonce, code hash, or balance) onto the row the account already holds. That fold
 now runs asynchronously on the account store's own threads after the block has
