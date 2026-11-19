@@ -750,6 +750,10 @@ On ranges where every block has base-fee data, `baseFeePerGas` contains one more
 
 Heights with pruned or partial base-fee data are skipped in `baseFeePerGas`, but they still contribute a `gasUsedRatio` row (0.0 fallback). On ranges with pruned history, the two arrays can therefore diverge from that `+1` relationship. Each block's base fee uses header base fee semantics. That is the same value that the block header reports: `GetNextBaseFee` at the parent's committed height. For early blocks, the base fee falls back to `DefaultMinFeePerGas`.
 
+**On the Giga EVM-only RPC server:** The method behaves differently because Giga has no EIP-1559 fee market. `baseFeePerGas` is always zero for every entry (it still carries one more element than `gasUsedRatio`, the projected child base fee, also zero). Reward percentiles are served from per-block reward-percentile statistics recorded alongside each block's receipts, rather than computed on the fly from a mempool oracle; the stored percentile set is controlled by the `receipt-store.rs-reward-percentiles` config field (see below). A requested percentile that is not already covered by the stored stats is recomputed from the block's receipts. The requested `blockCount` is capped at 1024 — a larger value is clamped down rather than rejected. `rewardPercentiles` must be strictly ascending and each entry within `[0, 100]`, otherwise the call returns an error. A `blockCount` below 1 returns an empty result (oldestBlock `0x0`, empty `gasUsedRatio`).
+
+**Reward-percentile storage (Giga receipt store):** The set of gas-weighted reward percentiles computed and stored per block is configured by `receipt-store.rs-reward-percentiles` in the `[receipt-store]` section of `app.toml`. It applies only to the `littidx` backend. Each entry must be in `[0, 100]` with no duplicates; it can also be set via a comma-separated environment variable. An empty list (`[]`, the default) falls back to `[0, 10, 20, 25, 30, 50, 75, 90, 100]`.
+
 **Parameters:**
 
 | # | Name | Type | Description |
