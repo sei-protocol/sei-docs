@@ -23,6 +23,18 @@ From startup, freeze mode changes the node like this:
 
 Each frozen node covers the heights up to its own upgrade. To serve the full history of a network, run one frozen node for each upgrade, and a live node on the current release for the heights after the last upgrade. Freeze mode first shipped in v6.6.3. The oldest frozen node therefore runs v6.6 and serves every height below the v6.7 upgrade height that its data holds.
 
+
+### IBC and gov history after v6.8
+
+v6.7 removed the IBC module source and wiring, but kept the `ibc`, `transfer`, and `capability` stores mounted so that pre-v6.7 IBC history remained queryable. v6.8 goes further: it deletes the `ibc`, `transfer`, and `capability` stores from state, and it rewrites the four passed `ClientUpdateProposal` governance records (proposals 52, 81, 100, and 119) as `TextProposal`s that keep only their title and description.
+
+As a result, a v6.8 node cannot answer state queries at pre-v6.8 heights for those stores or for those governance records:
+
+- Querying the retired `ibc`, `transfer`, or `capability` stores returns a generic `no such store: <name>` error (`ErrUnknownRequest`) instead of serving data.
+- Gov state queries at pre-v6.8 heights for the rewritten IBC proposals return the `TextProposal` content, not the original `ClientUpdateProposal` content.
+
+To serve the full pre-v6.8 IBC and gov history, run a v6.6 freeze node. It is the only release that still mounts those stores with their original content and decodes the original IBC governance proposals, so it answers these queries the way the chain did at the time.
+
 ## Freeze heights
 
 Set `freeze-height` to the upgrade height. Run the latest patch of the release that the upgrade replaced.
