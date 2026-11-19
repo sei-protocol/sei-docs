@@ -589,6 +589,31 @@ These legacy `sei_*` metrics remain available today but are deprecated. They are
 
 Before the legacy metrics are removed, update your Prometheus and Grafana dashboards to use the `evmrpc_*` metrics. The latency unit changed from milliseconds (`sei_rpc_request_latency_ms`) to seconds (`evmrpc_request_latency_seconds`). Adjust any thresholds and panel formatting to match.
 
+
+### EVM RPC per-method deadlines
+
+EVM JSON-RPC methods are bounded by a per-method deadline over both HTTP and WebSocket (#4299). A method that exceeds its deadline returns a `context deadline exceeded` error. When this happens the node increments the OpenTelemetry counter `rpc_deadline_exceeded_total`, labeled by `plane` (for example, `evm`) and `method_namespace` (for example, `eth`), so you can alert on methods that run past their deadline.
+
+| Metric | Type | Description |
+| --- | --- | --- |
+| `rpc_deadline_exceeded_total` | Counter | Number of EVM JSON-RPC requests that exceeded their configured deadline. Labeled by `plane` and `method_namespace`. |
+
+Configure the deadlines in the `[evm]` section of `app.toml`:
+
+| Config key | Default | Description |
+| --- | --- | --- |
+| `rpc_default_timeout` | `30s` | Deadline applied (on both HTTP and WebSocket) to any RPC method with no entry in `rpc_method_timeouts`, such as `eth_getBalance` or `eth_getBlockByNumber`. Set to `0` to disable (no deadline applied). HTTP requests are also bounded by `write_timeout`; raise it to permit a longer method timeout over HTTP. |
+| `rpc_method_timeouts` | `["eth_estimateGasAfterCalls=5m"]` | List of `"method=duration"` strings that override `rpc_default_timeout` for individual methods. A method name ending in `*` (for example, `"debug_trace*=0"`) matches every method with that prefix; the longest matching prefix wins. A duration of `0` means no deadline is applied by this mechanism. |
+
+```toml
+[evm]
+rpc_default_timeout = "30s"
+rpc_method_timeouts = ["eth_estimateGasAfterCalls=5m"]
+```
+
+The simulation methods `eth_call`, `eth_estimateGas`, and `eth_createAccessList` use the configured `SimulationEVMTimeout` as their dispatch deadline. A wildcard entry in `rpc_method_timeouts` cannot change the timeout for `eth_call`, `eth_estimateGas`, `eth_createAccessList`, `eth_sendRawTransaction`, `eth_sendTransaction`, `eth_getTransactionCount`, or `debug_trace*` methods, because each already has its own exact or prefix entry that takes precedence. To change one of these, name it exactly, for example `"eth_call=1s"`.
+
+
 ## FlatKV OpenTelemetry metrics
 
 The FlatKV state store emits OpenTelemetry metrics through the process-wide `MeterProvider` (for example, a Prometheus exporter). With these metrics, you can observe commit throughput, catchup progress, snapshotting, rollbacks, and snapshot imports.
