@@ -386,11 +386,9 @@ seidb hashlog compare <archive-a> <archive-b> [--low <N> --high <M>] [--max-diff
 
 #### Offline receipt-store maintenance (littidx backend)
 
-The receipt store supports offline operations that read or rewind its on-disk data directly, without starting a live store. These operations are supported only for the `littidx` receipt-store backend; any other backend (for example, `pebbledb`) is refused rather than reported as empty, so the store must not be running while an offline operation runs.
+The receipt store supports offline operations that read or rewind its on-disk data directly, without starting a live store. The store must not be running while an offline operation runs. These operations now live in the `gigareceipt` package, alongside the littidx-backed store they operate on; the earlier config/marker check that refused any non-`littidx` backend has been removed.
 
-A `littidx` receipt store now records its ownership in a `receipt-backend.txt` marker file in its directory on first open. Opening a store directory with a backend other than the one that owns it fails loudly with a mismatch error instead of presenting a silently empty store. A directory written before markers existed carries no marker and is adopted by the configured backend on its next open. An offline operation checks both the configured backend and this marker, so a `littidx`-configured run pointed at another backend's directory is refused by the marker.
-
-Two offline entry points are available for a `littidx`-backed receipt store:
+Two offline entry points are available:
 
 - **`GetRange`** reports the lowest and highest block heights present on disk for the receipt store, without opening it. It returns a flag that is false when no receipts are present.
 - **`PruneAfter`** deletes every receipt for a block height greater than the target from the store, without opening it. It rolls back the littdb receipt bodies, deletes the pebble tag-index entries above the target, and moves the store's latest-block metadata back to match. A target at or above the store's head is a no-op.
