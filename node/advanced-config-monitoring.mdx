@@ -575,6 +575,24 @@ Rate limiting is now enabled by default across EVM RPC, gRPC, and Tendermint RPC
 When `rate_limiting_enabled` is inherited (not explicitly set in `app.toml`) and a configured `ip_rate_limit_burst` is below `batch_request_limit`, the node now raises the burst to the batch limit and logs a warning instead of failing to start. If you set `rate_limiting_enabled` explicitly, a burst below the batch limit is still rejected at startup; set `ip_rate_limit_burst >= batch_request_limit` in that case. To restore the previous behavior, set `rate_limiting_enabled = false` under `[evm]`, `rate-limiting-enabled = false` under `[grpc]`, and the corresponding Tendermint RPC switch in `config.toml`.
 </Warning>
 
+
+
+The EVM RPC per-IP rate limit is configured by `ip_rate_limit_rps` and `ip_rate_limit_burst` in the `[evm]` section of `app.toml`. These two fields can be overridden at startup by the `EVM_IP_RATE_LIMIT_RPS` and `EVM_IP_RATE_LIMIT_BURST` environment variables. When an environment variable is set, it takes precedence over the corresponding `app.toml` field; when it is unset, the `app.toml` value applies. This override is primarily useful for test and CI setups that drive a node from a single IP and would otherwise hit the default per-IP limits.
+
+```toml
+[evm]
+ip_rate_limit_rps = 300
+ip_rate_limit_burst = 1500
+```
+
+```bash
+# Override the app.toml values at startup
+export EVM_IP_RATE_LIMIT_RPS=300
+export EVM_IP_RATE_LIMIT_BURST=1500
+```
+
+The node also rejects JSON-RPC batches larger than `evm.batch_request_limit` (default `100`). Clients that submit batched requests must keep each batch at or below this limit.
+
 The `evmrpc_request_latency_seconds` histogram carries these labels:
 
 | Label | Description |
