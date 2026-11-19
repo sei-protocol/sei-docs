@@ -768,6 +768,41 @@ LittDB emits its metrics through the process-wide OpenTelemetry `MeterProvider` 
 
 
 
+## evmonly-loadtest Prometheus metrics
+
+The `evmonly-loadtest` tool serves Prometheus metrics through an OpenTelemetry Prometheus exporter, so the counters it publishes arrive alongside the phase timers of the storage stack it drives (giga, FlatKV, and the view cache). It listens on port `9698` rather than the `9090` the sims use. Add a scrape target for it:
+
+```yaml
+scrape_configs:
+  - job_name: 'evmonly-loadtest'
+    static_configs:
+      - targets: ['host.docker.internal:9698']
+    scrape_interval: 5s
+```
+
+### Phase-timer metrics
+
+The run is instrumented with two phase timers, each a counter of seconds spent in a labeled phase. Together with the storage stack's own instruments they account for the whole of a block's cost.
+
+| Metric | Type | Description |
+| --- | --- | --- |
+| `evmonly_block_phase_duration_seconds_total` | Counter | Wall time of the single executor goroutine, broken into the phases of a store-backed block (`waiting_for_block`, `open_view`, `execute`, `occ_speculate`, `occ_validate`, `occ_merge`, `await_commit`, `encode_changesets`, `encode_receipts`, `write_receipts`, and `commit_state`), carried on a `phase` label. The slices sum to elapsed time. |
+| `evmonly_pipeline_phase_duration_seconds_total` | Counter | Work across the goroutines of the stages that run ahead of the executor: `build_block` (constructing and signing a block's transactions), `recover_senders` (sender recovery during block preparation), and `waiting` (blocked rather than working). This is total work across workers, not wall time, and is what the executor's `waiting_for_block` is waiting on. |
+
+### Pipeline metrics
+
+The commit of a block runs behind the next block's execution, so a block pays the handoff (`commit_state`) plus whatever the previous commit had not finished (`await_commit`) rather than the write itself. `await_commit` near zero means the overlap is working.
+
+| Metric | Type | Description |
+| --- | --- | --- |
+| `evmonly_loadtest_reorder_pending_blocks` | Gauge | Blocks built ahead of the next height in a streaming run (`--blocks=0`), held in the reorder buffer until that height is sent. Bounded by twice `--builders`; pinned near that bound means one builder is holding the rest back. |
+
+### Grafana dashboard
+
+The tool ships an `EVMOnly Loadtest` Grafana dashboard (`docker/monitornode/dashboards/evmonly-loadtest-dashboard.json`, uid `evmonly-loadtest`). It breaks down where a block's serial time goes and which stage of the pipeline is the constraint, with rows for block time, pipeline stages, state reads, commit, and runtime.
+
+
+
 ## Giga EVM-only executor OCC OpenTelemetry metrics
 
 The Giga EVM-only executor emits optimistic concurrency control (OCC) metrics through the process-wide OpenTelemetry `MeterProvider`, so you can watch parallel-execution behavior without reading `BlockResult`. The executor emits one sample per block. The node binds the meter provider with a `sei_chain` Prometheus namespace, so each name below is scraped with that prefix (for example, `giga_occ_blocks_total` is scraped as `sei_chain_giga_occ_blocks_total`).
