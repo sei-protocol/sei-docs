@@ -567,6 +567,14 @@ The EVM RPC layer emits OpenTelemetry metrics through the process-wide `MeterPro
 | `evmrpc_historical_debug_trace_attempts_total` | Counter | Number of `debug_trace*` requests that target historical blocks beyond the configured max block lookback. Labeled by `endpoint` and `connection`. |
 | `evmrpc_requests_rejected_total` | Counter | Number of JSON-RPC requests that admission control rejected. Labeled by `protocol` (`http` or `ws`) and `reason`. For HTTP, `reason` is `oversize` (larger than `max_request_body_bytes`, HTTP 413), `budget_midread` (the `max_concurrent_request_bytes` budget ran out, HTTP 429), `slow_body`, `rate_limited`, `unparseable`, or `read_error`. For WebSocket, `reason` is `oversize` (close code `1009`) or `busy` (no budget within `ws_admission_timeout`, JSON-RPC error `-32005`). See [Frame size and concurrency limits](/evm/evm-parity/websocket#frame-size-and-concurrency-limits). |
 
+
+
+<Warning>
+Rate limiting is now enabled by default across EVM RPC, gRPC, and Tendermint RPC (#4299). A newly generated `app.toml` sets EVM `rate_limiting_enabled = true`, a generated `config.toml` enables Tendermint RPC rate limiting, and gRPC `rate-limiting-enabled` now defaults to `true`. As a result, operators will see HTTP 429 (`too many requests`) rejections by default when clients exceed the per-IP limits, reflected in `evmrpc_requests_rejected_total` with `reason` `rate_limited`. The default EVM `batch_request_limit` also dropped from `1000` to `100`, and the default EVM per-IP burst (`ip_rate_limit_burst`) is now `200`.
+
+When `rate_limiting_enabled` is inherited (not explicitly set in `app.toml`) and a configured `ip_rate_limit_burst` is below `batch_request_limit`, the node now raises the burst to the batch limit and logs a warning instead of failing to start. If you set `rate_limiting_enabled` explicitly, a burst below the batch limit is still rejected at startup; set `ip_rate_limit_burst >= batch_request_limit` in that case. To restore the previous behavior, set `rate_limiting_enabled = false` under `[evm]`, `rate-limiting-enabled = false` under `[grpc]`, and the corresponding Tendermint RPC switch in `config.toml`.
+</Warning>
+
 The `evmrpc_request_latency_seconds` histogram carries these labels:
 
 | Label | Description |
