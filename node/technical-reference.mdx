@@ -516,6 +516,20 @@ If HashVault halts a node, follow [HashVault app-hash equivocation panic](/node/
 
 ### Key management
 
+
+#### Post-upgrade delegation-by-validator index backfill (v6.8)
+
+The v6.8 upgrade adds a delegation-by-validator index to the staking module. This index lets the `ValidatorDelegations` gRPC query be served from a per-validator prefix instead of scanning the entire delegation store, which fixes cases where the query previously failed for large validators past the scan limit.
+
+The v6.8 upgrade handler does not populate the index in a single pass. Instead it starts a paced backfill that the staking `EndBlocker` advances across subsequent blocks, indexing 1000 delegations per block (`DelegationByValIndexBackfillBatchSize`). On a chain with many delegations, the backfill therefore runs for a number of blocks after the upgrade height before it completes. New chains populate the index fully during genesis, so this post-upgrade backfill applies only to existing chains migrating through the v6.8 upgrade.
+
+Node operators should be aware of the following during the backfill window:
+
+- Until the backfill marks the index ready, `ValidatorDelegations` falls back to the legacy store-scan path, which reproduces the same results and failures those heights had (including reverting past the scan limit for very large validators). Once the index is ready, the same request is answered from the per-validator prefix and scales to large validators.
+- The backfill batch runs as block-level work in the `EndBlocker` and is not charged to any transaction's gas meter.
+- The backfill completes on its own over successive blocks; it requires no operator action. No restart or configuration change is needed to let it finish.
+
+
 Proper key management is critical for security. Use these commands to manage
 your keys:
 
