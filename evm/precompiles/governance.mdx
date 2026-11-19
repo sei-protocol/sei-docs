@@ -109,6 +109,72 @@ function submitProposal(
 ) payable external returns (uint64 proposalID);
 ```
 
+
+### Authorization-based functions
+
+In addition to acting directly, the governance precompile supports [authz](https://docs.cosmos.network/main/build/modules/authz)-style grants so one account (the grantee) can vote or submit proposals on behalf of another account (the granter). Grants are scoped per message type and expire at a Unix timestamp.
+
+```solidity
+/// Grant another account authorization to vote on your behalf.
+/// @param grantee The account receiving the authorization.
+/// @param expiration Unix timestamp (seconds) at which the grant expires.
+/// @return success Whether the authorization was granted.
+function grantVoteAuthorization(
+    address grantee,
+    int64 expiration
+) external returns (bool success);
+
+/// Grant another account authorization to submit proposals on your behalf.
+/// @param grantee The account receiving the authorization.
+/// @param expiration Unix timestamp (seconds) at which the grant expires.
+/// @return success Whether the authorization was granted.
+function grantProposalAuthorization(
+    address grantee,
+    int64 expiration
+) external returns (bool success);
+
+/// Revoke a previously granted vote authorization.
+/// @param grantee The account whose authorization is being revoked.
+/// @return success Whether the authorization was revoked.
+function revokeVoteAuthorization(
+    address grantee
+) external returns (bool success);
+
+/// Revoke a previously granted proposal authorization.
+/// @param grantee The account whose authorization is being revoked.
+/// @return success Whether the authorization was revoked.
+function revokeProposalAuthorization(
+    address grantee
+) external returns (bool success);
+
+/// Cast a vote on behalf of a voter who granted you a vote authorization.
+/// The caller must be the grantee; the vote is recorded for `voter`.
+/// @param voter The granter on whose behalf the vote is cast.
+/// @param proposalID The ID of the proposal to vote on.
+/// @param option The option to vote for. (1=Yes, 2=Abstain, 3=No, 4=NoWithVeto)
+/// @return success Whether the vote was successfully cast.
+function voteWithAuthorization(
+    address voter,
+    uint64 proposalID,
+    int32 option
+) external returns (bool success);
+
+/// Submit a proposal on behalf of a proposer who granted you a proposal
+/// authorization. The caller must be the grantee; the proposal is recorded
+/// for `proposer`. Any initial deposit is provided via msg.value.
+/// @param proposer The granter on whose behalf the proposal is submitted.
+/// @param proposalJSON JSON string containing proposal details.
+/// @return proposalID The ID of the created proposal.
+function submitProposalWithAuthorization(
+    address proposer,
+    string calldata proposalJSON
+) payable external returns (uint64 proposalID);
+```
+
+<Info>
+Authorization grants are scoped by message type: `grantVoteAuthorization` authorizes only votes, and `grantProposalAuthorization` authorizes only proposal submissions. Grant and revoke each type independently. A grant must have an `expiration` in the future, and `voteWithAuthorization` / `submitProposalWithAuthorization` fail if no matching, unexpired grant exists for the caller.
+</Info>
+
 ### Query functions
 
 Use these read-only methods to read proposal state from a contract. The vote and deposit queries are `getVote` and `getDeposit`, because the transactions already use the names `vote` and `deposit`. Tools such as ethers.js do not handle overloaded function names well.

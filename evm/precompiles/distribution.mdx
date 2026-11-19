@@ -425,6 +425,70 @@ contract ValidatorManager {
 
 ## Error handling
 
+
+## v6.8 query and authorization methods
+
+The v6.8 chain upgrade (#) expands the distribution precompile with read-only query methods and authorization-based withdrawal methods. The query methods run on a branched context and discard any state writes, so they are safe views even though the underlying distribution queriers can have side effects.
+
+### Interface additions
+
+```solidity
+interface IDistr {
+    struct DistributionParams {
+        string communityTax;
+        string baseProposerReward;
+        string bonusProposerReward;
+        bool withdrawAddrEnabled;
+    }
+
+    struct Slash {
+        uint64 validatorPeriod;
+        string fraction;
+    }
+
+    // Query methods
+    function communityPool() external view returns (Coin[] memory pool);
+    function params() external view returns (DistributionParams memory params);
+    function validatorOutstandingRewards(string memory validatorAddress) external view returns (Coin[] memory rewards);
+    function validatorCommission(string memory validatorAddress) external view returns (Coin[] memory commission);
+    function validatorSlashes(string memory validatorAddress, uint64 startingHeight, uint64 endingHeight, bytes memory pageKey) external view returns (Slash[] memory slashes, bytes memory nextKey);
+    function delegationRewards(address delegatorAddress, string memory validatorAddress) external view returns (Coin[] memory rewards);
+    function delegatorValidators(address delegatorAddress) external view returns (string[] memory validators);
+    function delegatorWithdrawAddress(address delegatorAddress) external view returns (string memory withdrawAddress);
+
+    // Authorization methods
+    function grantWithdrawAuthorization(address grantee, int64 expiration) external returns (bool success);
+    function revokeWithdrawAuthorization(address grantee) external returns (bool success);
+    function withdrawDelegationRewardsWithAuthorization(address delegator, string memory validator) external returns (bool success);
+    function withdrawValidatorCommissionWithAuthorization(address validatorOperator) external returns (bool success);
+}
+```
+
+### Query methods
+
+- **`communityPool()`** — Returns the current community pool balances as an array of `Coin` (18-decimal `DecCoins`, with `decimals` set to 18).
+- **`params()`** — Returns the distribution module parameters: `communityTax`, `baseProposerReward`, `bonusProposerReward` (decimal strings), and `withdrawAddrEnabled`.
+- **`validatorOutstandingRewards(validatorAddress)`** — Returns the outstanding (not-yet-withdrawn) rewards accrued to a validator, as `Coin[]`.
+- **`validatorCommission(validatorAddress)`** — Returns the accumulated commission for a validator, as `Coin[]`.
+- **`validatorSlashes(validatorAddress, startingHeight, endingHeight, pageKey)`** — Returns the paginated slash events for a validator between two heights. Each `Slash` contains the `validatorPeriod` and the slash `fraction` (a decimal string). Pass an empty `pageKey` for the first page and use the returned `nextKey` to page forward.
+- **`delegationRewards(delegatorAddress, validatorAddress)`** — Returns the pending rewards for a single delegation, as `Coin[]`.
+- **`delegatorValidators(delegatorAddress)`** — Returns the list of validator addresses a delegator is currently delegating to.
+- **`delegatorWithdrawAddress(delegatorAddress)`** — Returns the delegator's configured withdrawal address in Sei bech32 form.
+
+<Warning>As with `rewards()`, the reward and pool query methods return amounts with 18-decimal precision (`DecCoins`). Divide by `1e18` for display. Withdrawn amounts remain 6-decimal (usei).</Warning>
+
+### Authorization methods
+
+These methods let a granter authorize another account (the grantee) to withdraw rewards and commission on its behalf, using the native Cosmos authz module. Each EVM-facing permission is backed by one native grant per message type.
+
+- **`grantWithdrawAuthorization(grantee, expiration)`** — Grants the `grantee` authorization to withdraw delegation rewards and validator commission on behalf of the caller. `expiration` is a Unix timestamp (seconds) and must be after the current block time.
+- **`revokeWithdrawAuthorization(grantee)`** — Revokes a previously granted withdraw authorization for the `grantee`.
+- **`withdrawDelegationRewardsWithAuthorization(delegator, validator)`** — Withdraws the `delegator`'s delegation rewards from `validator`, executed by the caller under a prior authorization. Emits `DelegationRewardsWithdrawn` with the withdrawn amount.
+- **`withdrawValidatorCommissionWithAuthorization(validatorOperator)`** — Withdraws the commission for `validatorOperator`, executed by the caller under a prior authorization. Emits `ValidatorCommissionWithdrawn`.
+
+<Info>The authorized withdrawal methods share the same event and output path as the direct `withdrawDelegationRewards` and `withdrawValidatorCommission` methods; the difference is that execution is routed through the native authz module so the grant is consumed normally.</Info>
+
+
 This example shows common error scenarios and how to handle them:
 
 ```solidity
