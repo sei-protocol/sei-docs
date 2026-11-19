@@ -631,6 +631,25 @@ FlatKV metrics carry these labels where applicable:
 
 FlatKV turns on Pebble's internal metrics for each data DB by default. The node does not apply an `enable-pebble-metrics` key from `app.toml`.
 
+
+
+### FlatKV snapshot retention
+
+FlatKV publishes periodic checkpoints and keeps a number of old ones besides the latest so that composite reads and rollbacks can reach a version both backends still hold. Configure retention in the `[state-commit.flatkv]` section of `app.toml`:
+
+| Config key | Default | Description |
+| --- | --- | --- |
+| `snapshot-keep-recent` | `10` | Number of old checkpoints to keep besides the latest. `0` keeps only the current checkpoint (no old ones). Ignored entirely when external pruning is set. |
+
+```toml
+[state-commit.flatkv]
+snapshot-keep-recent = 10
+```
+
+The default retention is `10` old checkpoints (#4322). A composite read needs a version that both FlatKV and memIAVL still hold. At mainnet state size memIAVL publishes a snapshot only about every 50,000 blocks, so FlatKV must reach back further than that: ten old checkpoints at FlatKV's snapshot interval reach roughly 100,000 blocks. Because a checkpoint hardlinks its SSTs, each one costs only what compaction has obsoleted since, about 290 MiB at mainnet state size.
+
+FlatKV's `snapshot-keep-recent` is no longer derived from memIAVL's `sc-keep-recent`; it uses its own configured or default value. Only FlatKV's snapshot interval follows memIAVL's effective snapshot interval.
+
 ## Pebble estimated read/write metrics
 
 SeiDB can count estimated logical reads and writes on its PebbleDB databases. The counters are off by default. They cost less than Pebble's full internal metrics, and you can use them to estimate read amplification (reads divided by writes).
