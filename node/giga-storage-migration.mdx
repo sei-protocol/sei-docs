@@ -20,6 +20,37 @@ After the migration, the SS layer is repartitioned into two cooperating stores:
 This migration changes only the **SS** layer. It does not change the SC layer or
 the app hash, so the change is invisible to the network.
 
+
+
+## App hash vault on Giga nodes
+
+Giga nodes persist an app hash vault store alongside the block store at
+`data/ledger/app_hash`. The vault (store name `AppHashVault`) holds the app hash
+of every committed block and joins the storage garbage collector's shared prune
+cycle like the other stores.
+
+Operators restarting a Giga node must keep this directory present and consistent
+with the rest of the data directory. The following behaviors affect upgrades and
+restarts:
+
+- **Recovery converges on the app hash vault head.** After an unclean shutdown,
+  recovery brings every store onto the lowest head among the block store, the
+  state WAL, the receipt store, and the app hash vault. If the vault is behind
+  the other stores (for example, a crash left state ahead of the stored app
+  hashes), recovery lowers the target to the vault head and the blocks above it
+  are re-executed, rebuilding their app hashes as they commit. If the vault is
+  ahead of the state (its WAL tail was not flushed before the crash), the vault
+  keeps its app hashes and the re-executed blocks are checked against them.
+- **Chain ID is validated at startup.** The vault commits to the configured EVM
+  chain ID. If the stored app hashes belong to a different chain ID than the one
+  configured, the node fails to start rather than mixing hashes across chains.
+- **The vault cannot roll back below block 1.** If the app hash vault holds no
+  app hash while the other stores hold blocks, recovery errors instead of
+  attempting a rollback that would reach below block 1. Removing or corrupting
+  the `data/ledger/app_hash` directory on a node that already has block and
+  state history therefore blocks startup; restore it from backup alongside the
+  rest of the data directory, or recover the node with a fresh state sync.
+
 ## Prerequisites
 
 <Warning>Run this migration on **RPC nodes only**. This flow does not support validator nodes or archive nodes yet, so do not run it against either.</Warning>
