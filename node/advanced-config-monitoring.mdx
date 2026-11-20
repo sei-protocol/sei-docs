@@ -739,11 +739,11 @@ The backend is selected by the `giga.storage.state_store_backend` config field (
 
 ## Subspace query metrics
 
-`/store/*/subspace` ABCI queries are bounded to prevent memory-exhaustion from wide prefix scans. A scan that would exceed the configured pair or byte caps fails with `subspace result exceeds limit`, empty prefixes are rejected, and queries that exceed the concurrency limit are rejected with `subspace query busy`. The concurrency limit bounds concurrent `/subspace` queries across all store paths (the SS fast path and the commitment path, at the latest height and at historical heights). Indexers and tooling that issue wide `/subspace` queries must narrow their prefixes, shard by sub-prefix, or raise the caps in `app.toml` (#4009).
+`/store/*/subspace` ABCI queries are served only from the state store (SS). On a node with SS disabled, every `/subspace` query is now rejected with an `ErrNotSupported` error (`subspace queries require the state store`) before it takes a concurrency permit. A scan that would exceed the configured pair or byte caps fails with `subspace result exceeds limit`, empty prefixes are rejected, and queries that exceed the concurrency limit are rejected with `subspace query busy`. The concurrency limit bounds concurrent `/subspace` queries; because only nodes with SS enabled serve `/subspace`, it applies only to those nodes. Indexers and tooling that issue wide `/subspace` queries must narrow their prefixes, shard by sub-prefix, or raise the caps in `app.toml` (#4009).
 
 | Metric | Type | Description |
 | --- | --- | --- |
-| `subspace_query_rejected` | Counter | Number of rejected `/subspace` ABCI queries. Labeled by `reason`: `semaphore` (the concurrency limit was exceeded) or `cap_exceeded` (the scan hit the pair or byte cap). |
+| `subspace_query_rejected` | Counter | Number of rejected `/subspace` ABCI queries. Labeled by `reason`: `semaphore` (the concurrency limit was exceeded), `cap_exceeded` (the scan hit the pair or byte cap), or `ss_disabled` (the query was rejected because the state store is disabled). |
 
 Tune the caps in the `[state-commit]` section of `app.toml`. Values `<= 0` resolve to the defaults; there is no unlimited setting:
 
@@ -751,7 +751,7 @@ Tune the caps in the `[state-commit]` section of `app.toml`. Values `<= 0` resol
 | --- | --- | --- |
 | `sc-subspace-max-pairs` | `1000` | Maximum number of key/value pairs a `/subspace` scan may return. |
 | `sc-subspace-max-bytes` | `4194304` (4 MiB) | Maximum key+value bytes a `/subspace` scan may accumulate. |
-| `sc-subspace-query-max-inflight` | `2` | Maximum concurrent unproven `/subspace` queries on the SS fast path. |
+| `sc-subspace-query-max-inflight` | `2` | Maximum concurrent `/subspace` queries. Only nodes with SS enabled serve `/subspace`, so this limit applies only to them. |
 
 ```toml
 [state-commit]
