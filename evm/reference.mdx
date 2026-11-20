@@ -883,6 +883,10 @@ Heights with pruned or partial base-fee data are skipped in `baseFeePerGas`, but
 
 **Supported.** Creates a filter that tracks newly arrived block hashes and returns its ID.
 
+**Sei-specific behavior:** The source of the block hashes depends on whether the node runs Autobahn. Under Autobahn the filter collects hashes from the block-header notifier, and a filter that accumulates more than `max_block_filter_hashes` unpolled hashes is invalidated and removed. On a node without that notifier (the usual Cosmos EVM node), the filter instead polls the CometBFT block store from a numeric cursor that starts at the block after the head at creation, so no poll returns a block from before the filter existed. On a state-synced node whose block store begins above the safe latest height, the cursor starts at the earliest available block instead.
+
+Each `eth_getFilterChanges` poll on a non-Autobahn node covers at most `max_block_filter_hashes` block heights, from the cursor up to the current head, and returns their hashes oldest-first; later polls return the rest. When pruning passes the cursor — before or during a poll — that poll fails with a JSON-RPC `-32000` error of the form `blocks X to Y were pruned before the filter read them`, after which the filter resumes from the earliest available block. A block-store read failure leaves the cursor where it was, so the next poll retries the same heights, and concurrent polls of one filter may return the same hashes.
+
 **Parameters:** none.
 
 #### `eth_getFilterChanges`

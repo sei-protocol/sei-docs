@@ -597,6 +597,24 @@ export EVM_IP_RATE_LIMIT_BURST=1500
 
 The node also rejects JSON-RPC batches larger than `evm.batch_request_limit` (default `100`). Clients that submit batched requests must keep each batch at or below this limit.
 
+
+
+## Block filter polling
+
+The `max_block_filter_hashes` field in the `[evm]` section of `app.toml` governs how an `eth_newBlockFilter` filter handles block hashes. Its meaning depends on whether the node runs with a block header notifier (Autobahn):
+
+- Under Autobahn, the filter collects block hashes from the notifier, and a filter that holds more than this many unpolled hashes is invalidated and removed.
+- Otherwise there is no notifier, and the filter polls the CometBFT block store from a cursor that starts at the block after the head at filter creation, so no poll returns a block from before the filter existed. In this mode one `eth_getFilterChanges` poll covers at most `max_block_filter_hashes` block heights and returns their hashes oldest-first; later polls cover the rest. When pruning passes the cursor, the poll fails with a `-32000` error naming the pruned blocks, and the filter resumes from the earliest available block.
+
+```toml
+[evm]
+max_block_filter_hashes = 10000
+```
+
+<Note>
+`eth_getFilterLogs` rejects a block filter as not existing (`filter does not exist`), matching geth behavior.
+</Note>
+
 When rate limiting rejects a JSON-RPC batch POST with HTTP 429 (`too many requests`), the rejection response now mirrors the shape of the request. A valid batch within the request batch size limit returns a JSON array of error objects, one per non-notification request, each preserving its request ID. A batch made up only of notifications returns an empty body, just as it would when served. An oversized batch (above the request batch size limit) or a malformed batch still returns a single JSON-RPC error object. Single (non-batch) requests continue to return a single error object preserving the request ID.
 
 The `evmrpc_request_latency_seconds` histogram carries these labels:
