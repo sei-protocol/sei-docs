@@ -68,6 +68,26 @@ curl -s $SEI_TENDERMINT_RPC/status | jq '.result.sync_info.last_committed_block_
 
 The field is serialized to JSON as a string (`last_committed_block_height`), like the other height fields in `SyncInfo`.
 
+
+
+### ABCI `/store` state proofs disabled by default
+
+<Warning>
+ABCI `/store` proof queries (requests that set `prove=true`) are deprecated and **disabled by default** since v6.8 (#4573). A node that has not opted in rejects such a query with an `ErrNotSupported` error (ABCI code `37`) and the log `state proofs are disabled on this node; set state-commit.sc-enable-state-proof = true to enable`, instead of returning proof ops. This is a deprecation step before the proof code is removed in a later release.
+
+This affects any ABCI client that sends `prove=true`, including light clients (which always request a proof) and `sei-cosmos/client` queries with `Prove` set. Only requests that would produce a proof are rejected; the same query without `prove=true` is served normally, and a `/subspace` query that asks for a proof is still served unproven.
+
+Operators who need to keep serving state proofs (for example, to support light clients) must opt in after upgrading by setting `sc-enable-state-proof = true` in the `[state-commit]` section of `app.toml`:
+
+```toml
+[state-commit]
+# Enable deprecated ABCI /store state proofs. Disabled by default; this option will be removed with the proof code in a later release.
+sc-enable-state-proof = true
+```
+
+Each rejected proof query increments the `state_proof_rejected` metric, labeled by store and by whether the query was at the latest height.
+</Warning>
+
 | Field | JSON | Description |
 | :- | :- | :- |
 | `last_committed_block_height` | string | Height of the last block finalized by consensus. |

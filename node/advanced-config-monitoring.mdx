@@ -777,6 +777,27 @@ The `[receipt-store]` `enable-read-write-metrics` key is no longer written into 
 enable-read-write-metrics = true
 ```
 
+
+## State proof metrics
+
+ABCI `/store` state proofs are deprecated and disabled by default (#4573). When a node receives a proof query (`prove=true` on a `/store` path that would produce a proof), it rejects the request with an `ErrNotSupported` error (`state proofs are disabled on this node; set state-commit.sc-enable-state-proof = true to enable`) and increments the `state_proof_rejected` counter. This affects light clients, which always set `prove=true`, and any ABCI client that sends `prove=true`. The proof code is scheduled for removal in a later release.
+
+| Metric | Type | Description |
+| --- | --- | --- |
+| `state_proof_rejected` | Counter | Number of ABCI `/store` state proof queries rejected because proofs are disabled. Labeled by `store` (the store the query targeted) and `latest` (a boolean indicating whether the query was at the latest height). |
+
+Operators who need to keep serving state proofs (for example, to support light clients) must opt in by setting `sc-enable-state-proof = true` in the `[state-commit]` section of `app.toml`:
+
+| Config key | Default | Description |
+| --- | --- | --- |
+| `sc-enable-state-proof` | `false` | Enables deprecated ABCI `/store` state proofs. When `false`, proof queries are rejected with `ErrNotSupported`. This option will be removed with the proof code in a later release. |
+
+```toml
+[state-commit]
+sc-enable-state-proof = true
+```
+
+
 ## Log query parallelism for the littidx receipt store
 
 The littidx receipt store is no longer selectable from the standard `[receipt-store]` backend config; `rs-backend` now only accepts `pebble`. The littidx code path (and its block-parallel `eth_getLogs` scanning) is used by the giga/evmonly path through the gigareceipt package rather than by a config-selected littidx backend.
