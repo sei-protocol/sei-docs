@@ -117,6 +117,18 @@ Under Autobahn (`AutobahnConfigFile` set), the CometBFT `BlockStore` and `StateS
 
 This keeps downstream consumers, including evmrpc, block explorers, and monitoring tools, working without each one branching on the consensus engine.
 
+
+
+### EVM return data and logs omitted from Cosmos result data
+
+<Warning>
+The Cosmos result data of an EVM transaction (`MsgEVMTransactionResponse`) no longer carries the transaction's return data or logs (#4577). Both fields are now left unset, so they no longer appear in `tx_response.data` or in the per-transaction `ExecTxResult` details (`TxsResults`) returned by the Tendermint `/block_results` endpoint for new transactions. The response still carries the transaction's `GasUsed`, `VmError`, and `Hash`.
+
+EVM RPC remains the authoritative source for this data: logs are served from the receipt store via `eth_getTransactionReceipt`, `eth_getBlockReceipts`, and the log methods (`eth_getLogs`, `eth_getFilterLogs`), and return data is obtained by re-executing the call through `eth_call`. Clients that previously read EVM logs or return data out of `tx_response.data` or `/block_results` must switch to these receipt- and call-based EVM RPC methods.
+
+Because omitting these fields changes the data that feeds the result hash, `LastResultsHash` differs from the v6.8 upgrade height onward. This is an app-hash/consensus-relevant change.
+</Warning>
+
 `/block` and `/block_by_hash` serve responses only for heights that are still inside Autobahn's retained window. Heights pruned per `RetainHeight` are no longer available. `/block_results` does not read the retained block data; it responds for any height up to the current ABCI head. Requests are validated against the current ABCI head, so heights above it return the same `ErrHeightExceedsChainHead`-class errors as the CometBFT path. Pruned heights on `/block` return `ErrHeightNotAvailable`.
 
 | Endpoint | Autobahn behavior |
