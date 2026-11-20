@@ -1,0 +1,197 @@
+---
+title: 'Run ingress nodes for transaction submission'
+sidebarTitle: 'Ingress Nodes'
+description: 'Run a low-footprint seid full node for EVM transaction submission and WebSocket subscriptions, for example next to high-frequency trading systems.'
+keywords: ['sei node', 'ingress node', 'ingress mode', 'ingress-only node', 'seid start --ingress', 'transaction submission', 'high-frequency trading', 'HFT', 'market maker', 'EVM RPC', 'WebSocket', 'low footprint', 'state sync']
+---
+
+An ingress node is a full node that runs with a small memory and disk footprint. It serves EVM JSON-RPC and WebSocket traffic for the most recent 1000 blocks, which covers transaction submission and live subscriptions. The name comes from transaction ingress, the point where your transactions enter the network.
+
+Run an ingress node when you want your own endpoint for transaction submission and need less memory and disk than a full RPC node uses. For example, a high-frequency trading (HFT) operator can run one next to its trading systems in each region where it trades.
+
+<Warning>
+  No tagged `seid` release includes ingress mode yet. A release without it refuses to start with `--ingress` and reports `unknown flag: --ingress`. The same release ignores `ingress = true` in `app.toml` and starts a regular full node. Check the [`sei-chain` release notes](https://github.com/sei-protocol/sei-chain/releases) for the first release that includes ingress mode.
+</Warning>
+
+## How ingress mode works
+
+You turn on ingress mode with `seid start --ingress`. At startup, `seid` overrides a fixed set of settings in `app.toml` and `config.toml`. The node still executes every block and computes the same app hash as any other full node. P2P networking and the mempool work as on any full node, so the node gossips the transactions that you submit to its peers.
+
+An ingress node serves:
+
+- EVM JSON-RPC over HTTP on port `8545` and over WebSocket on port `8546`. Ingress mode turns on both servers.
+- The Tendermint RPC on port `26657`, without transaction queries.
+- State and EVM transaction receipts for the last 1000 blocks.
+
+Ingress mode turns off:
+
+- The REST API on port `1317`.
+- The transaction index. The Tendermint RPC methods `tx`, `tx_search`, `block_search`, and `broadcast_tx_commit` return errors.
+- Snapshot production for state sync. Other nodes cannot state sync from an ingress node.
+- Gas simulation in `eth_sendRawTransaction`. The node broadcasts each transaction without simulating it first.
+- State-store snapshots, state proofs, trace baking, and the supply invariant check.
+
+Ingress mode also keeps only the latest memIAVL snapshot and writes memIAVL snapshot trees one at a time. It shrinks the FlatKV caches and memtables too. For every setting that it changes, see [Settings that ingress mode overrides](#settings-that-ingress-mode-overrides).
+
+### History on an ingress node
+
+The node keeps state and receipts for the last 1000 blocks. It keeps blocks for longer. The node does not prune blocks inside the evidence window, so it keeps at least as many blocks as the `max_age_num_blocks` evidence parameter. To read the parameter, run:
+
+```bash
+curl -s http://localhost:26657/consensus_params | jq -r .consensus_params.evidence.max_age_num_blocks
+```
+
+A request that needs state or receipts from an older height fails. The error names the earliest height that the node still serves. Send these requests to a full RPC node, an [archive node](/node/node-types), or an [RPC provider](/learn/rpc-providers). This applies to `eth_getLogs` backfills, `debug_trace*` calls on older transactions, and indexers that read history.
+
+## Before you begin
+
+You need:
+
+- A `seid` release that includes ingress mode.
+- A node in `full` mode. Ingress mode refuses validator and seed mode. It also refuses to start with Autobahn enabled, that is, with a non-empty `autobahn-config-file` in `config.toml`. You cannot combine ingress mode with a non-zero `freeze-height`.
+- An empty data directory. State sync runs only on a node without local state. To reuse a host, first follow [Clean up](/node/statesync#clean-up) in the state sync guide.
+- A host sized for your workload. An ingress node needs less memory and disk than the full node [hardware requirements](/node#hardware-requirements). Its disk use still grows with the current state of the network and with the blocks in the evidence window. Measure a test node under your workload before you size production hosts.
+
+## Set up an ingress node
+
+These steps set up an ingress node on Sei Mainnet (`pacific-1`). For Sei Testnet, use the chain ID `atlantic-2`.
+
+<Steps>
+
+<Step title="Install and initialize the node">
+
+Install a `seid` release that includes ingress mode. The [node setup guide](/node) covers the prebuilt binary, a build from source, and Docker.
+
+Initialize the node without `--mode`. The default mode is `full`, which ingress mode requires.
+
+```bash
+seid init <your-moniker> --chain-id pacific-1
+```
+
+</Step>
+
+<Step title="Configure state sync">
+
+Configure state sync with the script in [Statesync script](/node/statesync#statesync-script). Do not start `seid` at the end of that guide. You start it in ingress mode in the next steps.
+
+</Step>
+
+<Step title="Turn on ingress mode">
+
+Create a systemd service that starts `seid` with the `--ingress` flag. Run these commands as the user that runs `seid`:
+
+```bash
+sudo tee /etc/systemd/system/seid.service > /dev/null << EOF
+[Unit]
+Description=Sei ingress node
+After=network-online.target
+
+[Service]
+User=$USER
+ExecStart=$(which seid) start --ingress
+Restart=always
+RestartSec=3
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable seid
+```
+
+Instead of the flag, you can set `ingress = true` in `app.toml`. Put the key in the base configuration at the top of the file, before the first `[section]` header:
+
+```toml app.toml
+# Run this full node in ingress mode.
+ingress = true
+```
+
+<Tip>
+  Prefer the flag. A `seid` release without ingress mode refuses to start with the flag, so you notice the problem at once. The same release ignores the `app.toml` key and starts a regular full node.
+</Tip>
+
+</Step>
+
+<Step title="Start the node">
+
+Start `seid` and follow the log:
+
+```bash
+sudo systemctl start seid
+sudo journalctl -fu seid
+```
+
+The node restores a state sync snapshot and then follows the chain. If it exits right after it starts, look for one of these errors in the log:
+
+- `--ingress requires Tendermint mode "full"`: set `mode = "full"` in `config.toml`.
+- `--ingress is not supported with Autobahn`: leave `autobahn-config-file` empty in `config.toml`.
+- `--ingress cannot be combined with --freeze-height`: set `freeze-height = 0` in `app.toml`, and do not pass the `--freeze-height` flag.
+
+</Step>
+
+<Step title="Verify the ingress node">
+
+Check that the node has caught up and that the EVM RPC answers. The first command prints `false` after the node has caught up:
+
+```bash
+curl -s http://localhost:26657/status | jq -r .sync_info.catching_up
+# false
+
+curl -s -X POST http://localhost:8545 -H 'Content-Type: application/json' \
+  --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
+# {"jsonrpc":"2.0","id":1,"result":"0x531"}
+```
+
+`0x531` is the Sei Mainnet EVM chain ID, `1329`. On Sei Testnet, the result is `0x530`.
+
+Then check the ports that the node listens on:
+
+```bash
+ss -ltn | grep -E ':(1317|8545|8546) '
+```
+
+The output lists ports `8545` and `8546`, and it has no line for port `1317`. `seid init` turns on the REST API in `app.toml`, so a regular full node listens on port `1317`. If the output lists that port, the node did not start in ingress mode. Check that your `seid` release includes ingress mode and that the service passes `--ingress`.
+
+</Step>
+
+</Steps>
+
+## Use ingress nodes for high-frequency trading
+
+Latency-sensitive operators, such as market makers and HFT firms, often want their own transaction submission and WebSocket endpoints in each region where they trade. Ingress mode lowers the memory and disk that each of these nodes needs. When you plan such a setup, follow these guidelines:
+
+- **Run each node near the systems that use it.** Put an ingress node in the same region or data center as the systems that submit transactions through it. Their requests then do not cross regions.
+- **Submit and subscribe on your own node.** Send signed transactions with `eth_sendRawTransaction`. Subscribe to `newHeads` and `logs` with `eth_subscribe` on port `8546`. For client examples, see [WebSocket connections](/evm/evm-parity/websocket).
+- **Set gas limits close to what your transactions use.** An ingress node does not simulate a transaction before it broadcasts it, so it reports the gas limit as the estimated gas. Block proposers count each EVM transaction at its estimated gas when they fill a block. A gas limit far above actual use takes up more of the block's gas budget than the transaction needs.
+- **Keep the node well connected.** The node gossips your transactions to its peers through the mempool, like any full node. It does not send them to validators directly, and it does not give them priority. Keep `broadcast = true` under `[mempool]` in `config.toml`, which is the default. To check the peer count, run `curl -s http://localhost:26657/net_info | jq -r .n_peers`.
+- **Restrict access.** The EVM servers listen on all network interfaces. Allow only your own systems through the firewall to ports `8545`, `8546`, and `26657`. Keep port `26656` open for P2P.
+- **Plan for restarts and upgrades.** Run at least two ingress nodes in each region, so that one serves traffic while the other restarts. An ingress node executes every block, so upgrade it at each upgrade height, like any full node. See [Update procedures](/node/node-operators#update-procedures).
+
+Ingress mode does not add subscription types or earlier block signals. Its WebSocket subscriptions are the same as on any other full node.
+
+## Settings that ingress mode overrides
+
+Ingress mode sets these values at startup. While ingress mode is on, the values in your configuration files for these settings have no effect.
+
+| File and section | Setting | Value in ingress mode |
+| --- | --- | --- |
+| `app.toml`, base configuration | `min-retain-blocks` | `1000` |
+| `app.toml`, `[state-sync]` | `snapshot-interval` | `0` |
+| `app.toml`, `[state-commit]` | `sc-enable-state-proof` | `false` |
+| `app.toml`, `[state-commit]` | `sc-hash-logger-blocks-to-retain` | `1000` |
+| `app.toml`, `[state-commit]` | `sc-snapshot-writer-limit` | `1` |
+| `app.toml`, `[state-store]` | `ss-enable` | `true` |
+| `app.toml`, `[state-store]` | `ss-keep-recent` | `1000` |
+| `app.toml`, `[state-store]` | `ss-snapshot-enable` | `false` |
+| `app.toml`, `[evm]` | `http_enabled` | `true` |
+| `app.toml`, `[evm]` | `ws_enabled` | `true` |
+| `app.toml`, `[evm]` | `enable_simulation` | `false` |
+| `app.toml`, `[evm]` | `trace_bake_enabled` | `false` |
+| `app.toml`, `[api]` | `enable` | `false` |
+| `app.toml`, `[wasm]` | `memory_cache_size` | `16` (MiB) |
+| `app.toml`, `[light_invariance]` | `supply_enabled` | `false` |
+| `config.toml`, `[tx-index]` | `indexer` | `["null"]` |
+
+Ingress mode also tunes two stores in ways that no `app.toml` setting controls. memIAVL keeps only its latest snapshot. FlatKV uses smaller caches, memtables, and write backlogs, and it keeps only one old snapshot.
