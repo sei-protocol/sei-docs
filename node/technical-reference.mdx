@@ -460,6 +460,44 @@ Gas limits are likewise not part of `autobahn.json` and come from the genesis bl
 
 
 
+### EVM-only RPC parity tools
+
+These developer tools record the parity fixtures that the EVM-only RPC's parity test (`TestV2Parity`) replays. They are not part of `seid`; run them from a `sei-chain` source checkout with `go run` and `go test`. Both write fixtures to `giga/evmonly/rpc/testdata/parity/`, which are reviewed like code.
+
+#### Capturing mainnet fixtures (`paritycapture`)
+
+The `paritycapture` command captures consecutive blocks from a v2 archive node into a parity fixture. The archive node must serve `debug_traceBlockByNumber` with the `prestateTracer`, from which the fixture's prestate is built, and the same node's Tendermint RPC supplies each block's exact time.
+
+```bash
+go run ./giga/evmonly/rpc/parity/cmd/paritycapture \
+  -evm-rpc http://<archive>:8545 -tendermint-rpc http://<archive>:26657 \
+  -block <height> -count 1 -name pacific-1-<height>
+```
+
+The command accepts these flags:
+
+- `-evm-rpc`: The v2 EVM JSON-RPC URL of an archive node that serves `debug_traceBlockByNumber`. Required.
+- `-tendermint-rpc`: The Tendermint RPC URL of the same node. Required.
+- `-block`: The first block height of the fixture. Required.
+- `-count`: The number of consecutive blocks in the fixture (default `1`).
+- `-name`: The fixture name. When empty, it defaults to `block-<block>`.
+- `-coinbase`: The EVM address of the fee collector, which v2 executes blocks with as coinbase. It defaults to the chain's fee collector address.
+- `-out`: The directory the fixture is written to (default `giga/evmonly/rpc/testdata/parity`).
+
+The capture refuses a block holding a Cosmos transaction, whose state changes the fixture cannot replay, and a block that calls a Sei custom precompile, which the EVM-only executor rejects.
+
+#### Recording synthetic fixtures (`EVMONLY_PARITY_RECORD`)
+
+The synthetic fixtures are recorded from an in-process v2 node rather than a live archive. Setting the `EVMONLY_PARITY_RECORD=1` environment variable enables the recording test; without it, the test is skipped. The recording is deterministic, so an unchanged v2 rewrites identical files.
+
+```bash
+EVMONLY_PARITY_RECORD=1 go test ./giga/evmonly/rpc/parity/v2record/ -run TestRecordSyntheticFixtures -count=1
+```
+
+Fixtures are recorded locally and are never recorded on CI.
+
+
+
 ##### CheckTx concurrency (`max_concurrent_check_tx`)
 
 The optional `max_concurrent_check_tx` field in `autobahn.json` caps how many `CheckTx` calls the local mempool runs concurrently for incoming `broadcast_tx` requests, so that transaction ingest cannot starve the consensus and data loops of CPU. It is a `uint64`. When absent or set to `0`, it defaults to half of `GOMAXPROCS` (at least `1`). When set, it must be in the range `1..2147483647` (`MaxInt32`); any other value fails config validation with `max_concurrent_check_tx must be in 1..2147483647 when set`.
