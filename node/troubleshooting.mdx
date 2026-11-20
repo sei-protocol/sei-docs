@@ -127,6 +127,30 @@ seidb dump-flatkv --db-dir $HOME/.sei/data/state_commit/flatkv --lthash-only
 
 If the lattice hash matches, the output shows `result: PASS`. On a mismatch, the command prints `TOTAL FAIL` and stops with an error.
 
+
+
+#### Deeper per-module verification with `audit-flatkv`
+
+For a more thorough check than the store-wide lattice hash, the `audit-flatkv` command recomputes a FlatKV snapshot's per-module, per-database, and store-wide lattice hashes and key counts from a full scan of its rows, and compares each of them against the values the snapshot's metadata records. It exits non-zero when any comparison fails, so it can pinpoint exactly which database and module disagree with the recorded state rather than only reporting an overall pass or fail.
+
+The snapshot is hard-linked into a temporary directory under the FlatKV root and opened read-only, so it is safe to audit a snapshot of a running node:
+
+```bash
+seidb audit-flatkv $HOME/.sei/data/state_commit/flatkv
+```
+
+The report prints a section per database holding a section per module, then the store-wide totals and the scan's throughput, and ends with `result: PASS` or `result: FAIL`. A mismatch shows `MISMATCH` alongside both the scanned and recorded values for the failing hash, key count, or logical size.
+
+Useful flags:
+
+- `--snapshot-version` selects which snapshot to audit; `0` (the default) selects the snapshot the current link names.
+- `--read-limit-mb` caps key and value bytes read, in MiB/s; `0` (the default) means no cap.
+- `--hashers` sets the number of goroutines hashing rows (defaults to the CPU count).
+- `--no-color` prints the report without ANSI colors.
+- `--keep-stale-audit-dirs` leaves earlier audit temporary directories under the FlatKV root in place; otherwise they are removed, including that of an audit still running.
+
+<Note>As with `dump-flatkv`, pass whichever FlatKV directory exists on your node: the legacy `$HOME/.sei/data/flatkv` on nodes created before the storage layout change, or `$HOME/.sei/data/state_commit/flatkv` otherwise.</Note>
+
 ### Comparing EVM state between memIAVL and FlatKV
 
 When you debug an AppHash mismatch that involves EVM state, a byte-for-byte physical dump can diverge between backends, even when the underlying state is identical. This happens because every FlatKV value embeds a per-key block-height stamp (the height at which the key was last written or migrated). On a freshly migrated node, this stamp differs from the memIAVL leaf versions.

@@ -310,6 +310,36 @@ With `--lthash`, the output lists the count and checksum of each bucket, the `TO
 
 
 
+#### Auditing a FlatKV snapshot's lattice hashes
+
+The `audit-flatkv` subcommand verifies one FlatKV snapshot against its own metadata. It recomputes the snapshot's per-module, per-database, and store-wide lattice hashes and key counts from a full scan of its rows, and compares each against the values the snapshot's metadata records. It prints a report and exits non-zero when any comparison fails, so you can gate a check on its exit status.
+
+The command hard-links the snapshot into a temporary directory under the FlatKV root and opens it read-only, so it is safe to audit a snapshot of a running node. The temporary directory is removed before the command returns. If an earlier audit was killed before it could clean up, its directory is left under the FlatKV root; the next audit removes any such leftover directory (including that of an audit still running) unless `--keep-stale-audit-dirs` is set.
+
+```bash
+# Audit the snapshot the current link names
+seidb audit-flatkv $HOME/.sei/data/state_commit/flatkv
+
+# Audit a specific snapshot version
+seidb audit-flatkv $HOME/.sei/data/state_commit/flatkv --snapshot-version <n>
+
+# Cap reads at 64 MiB/s and print without ANSI colors
+seidb audit-flatkv $HOME/.sei/data/state_commit/flatkv \
+    --read-limit-mb 64 --no-color
+```
+
+The command accepts these flags:
+
+- `--snapshot-version`: The snapshot version to audit. The default, `0`, selects the snapshot the current link names.
+- `--read-limit-mb`: A cap on the key and value bytes read, in MiB/s. The default, `0`, means no cap.
+- `--hashers`: The number of goroutines that hash the scanned rows. It defaults to the CPU count.
+- `--no-color`: Print the report without ANSI colors. The default is `false`.
+- `--keep-stale-audit-dirs`: Leave the temporary directories earlier audits left under the FlatKV root in place. When `false` (the default), an audit removes them, including the directory of an audit still running against the same root.
+
+The report lays out a section per data database, each with a section per module, then the store-wide totals, the scan's throughput, and a `PASS` or `FAIL` verdict. A mismatch is called out as `MISMATCH` with the scanned and recorded values shown side by side.
+
+
+
 #### Exporting a kvrepair file (`kvrepair-export`)
 
 The `kvrepair-export` subcommand writes a kvrepair file from two `evm-logical-digest` inspect list reports taken at the same height: one from a memIAVL reserve and one from a production node. Each entry it writes sets a key to the reserve value and records the production value as the key's old value, so that applying the repair makes production match the reserve. A kvrepair file is a reviewed set of key/value writes that a hard-fork handler applies to module stores at a target height.
