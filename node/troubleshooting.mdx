@@ -518,3 +518,30 @@ hash-vault-disabled-unsafe = true
 ```
 
 The node then runs without equivocation protection and logs errors at every start. Set the key back to `false` as soon as you fix the problem.
+
+
+
+## v6.8 upgrade halt: retired stores not deleted
+
+The v6.8 upgrade retires several legacy stores (`ibc`, `transfer`, `capability`, and `feegrant`). The store loader deletes these stores only when `data/upgrade-info.json` names the upgrade at the time the node starts. If your node reaches the upgrade height without a correctly populated `data/upgrade-info.json`, the retired stores are left in place, and the v6.8 upgrade handler now refuses to run and halts the node rather than proceeding with retired data still present.
+
+When this happens, the node halts with an error like this:
+
+```text
+store "ibc" was not deleted before the v6.8 upgrade handler ran because data/upgrade-info.json did not name the upgrade when the node started: write {"name":"v6.8","height":<height>} to data/upgrade-info.json in the node home and restart
+```
+
+### Recovery
+
+Follow the instruction in the error message:
+
+1. Stop the node if it is still running.
+2. Write an `upgrade-info.json` file in the node home's `data` directory that names the upgrade and the upgrade height from the error message. Substitute the actual height for `<height>`:
+
+   ```bash
+   echo '{"name":"v6.8","height":<height>}' > $HOME/.sei/data/upgrade-info.json
+   ```
+
+3. Restart the node.
+
+With `data/upgrade-info.json` in place, the store loader deletes the retired stores before the handler runs, and the upgrade proceeds normally.

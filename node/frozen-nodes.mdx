@@ -35,6 +35,17 @@ As a result, a v6.8 node cannot answer state queries at pre-v6.8 heights for tho
 
 To serve the full pre-v6.8 IBC, feegrant, and gov history, run a frozen node on v6.7 or older. Deleting the `feegrant` store at the v6.8 upgrade height is app-hash breaking, so from that height no v6.8 node serves feegrant state at any height; a v6.7 (or older) node is required for that history. A v6.6 freeze node is the only release that also mounts the `ibc`, `transfer`, and `capability` stores with their original content and decodes the original IBC governance proposals, so it answers all of these queries the way the chain did at the time.
 
+
+#### If the v6.8 upgrade halts on missing upgrade-info.json
+
+The store loader deletes the retired `ibc`, `transfer`, `capability`, and `feegrant` stores only when `data/upgrade-info.json` named the upgrade as the node started. If a node reaches the v6.8 upgrade height without that file naming the upgrade, the retired stores are still present, and the v6.8 upgrade handler now halts rather than running against the undeleted stores ([#4563](https://github.com/sei-protocol/sei-chain/pull/4563)). The error identifies the store that was not deleted and tells you to write the upgrade plan to `data/upgrade-info.json`:
+
+```json
+{"name":"v6.8","height":<height>}
+```
+
+Write that file, with `<height>` set to the v6.8 upgrade height, to `data/upgrade-info.json` in the node home, then restart the node. On the restart, the store loader deletes the retired stores before the handler runs, and the upgrade proceeds. This applies to a live node upgrading to v6.8; a frozen node stays on v6.7 or older and never runs the v6.8 handler.
+
 ## Freeze heights
 
 Set `freeze-height` to the upgrade height. Run the latest patch of the release that the upgrade replaced.
