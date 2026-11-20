@@ -599,6 +599,19 @@ The node also rejects JSON-RPC batches larger than `evm.batch_request_limit` (de
 
 
 
+## Large log query rate limit
+
+Log queries that span more than 100 blocks (`eth_getLogs`, `eth_getFilterLogs`, and filter polls) are admitted at a node-wide rate shared by all clients. The rate is configured by `large_log_query_rps` in the `[evm]` section of `app.toml`, which sets the admitted queries per second. The default is `30`. Set it to `0` to disable the limit entirely; negative values are rejected at startup.
+
+When the limit is in effect, an `eth_getLogs` or `eth_getFilterLogs` over 100 blocks that cannot take a token is refused with JSON-RPC error code `-32005` (limit exceeded, retry later), while a filter poll over 100 blocks is instead cut to the next 100 blocks so a filter that has fallen behind keeps advancing. The load check runs before the rate limiter during admission, so a query refused while the node is under load does not spend a rate-limit token.
+
+```toml
+[evm]
+large_log_query_rps = 30
+```
+
+
+
 ## Block filter polling
 
 The `max_block_filter_hashes` field in the `[evm]` section of `app.toml` governs how an `eth_newBlockFilter` filter handles block hashes. Its meaning depends on whether the node runs with a block header notifier (Autobahn):
