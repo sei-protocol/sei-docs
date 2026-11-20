@@ -153,6 +153,63 @@ try {
 
 ## Classifying any error
 
+
+
+## Broadcast rejections
+
+When you submit a signed transaction with `eth_sendRawTransaction`, Sei's mempool may reject it before it is ever included in a block. These rejections are now mapped to the same standard go-ethereum error types that EVM clients already recognize, so you can handle them with the same logic you use against other Ethereum networks:
+
+| Condition | Returned error |
+| --- | --- |
+| Transaction is already pending in the mempool | `ErrAlreadyKnown` (`already known`) |
+| Transaction nonce is below the sender's lowest pending nonce | `ErrNonceTooLow` (`nonce too low`) |
+| A transaction with the same nonce and at least the same priority is already held | `ErrReplaceUnderpriced` (`replacement transaction underpriced`) |
+| The transaction would replace a ready transaction but the sender can't afford it | `ErrInsufficientFunds` (`insufficient funds for gas * price + value`) |
+
+Because these are the canonical Ethereum broadcast errors, you can match on their messages (or the equivalent error classes your client exposes):
+
+<CodeGroup>
+
+```ts viem
+try {
+  await walletClient.sendRawTransaction({ serializedTransaction });
+} catch (err) {
+  const message = (err as Error).message ?? '';
+  if (message.includes('already known')) {
+    // Transaction is already in the mempool — treat as a duplicate submit, don't resend
+    console.log('Transaction already known');
+  } else if (message.includes('nonce too low')) {
+    // Nonce was already used — refetch the pending nonce and rebuild
+    console.error('Nonce too low');
+  } else if (message.includes('replacement transaction underpriced')) {
+    // Bump the gas price/priority fee to replace the pending tx
+    console.error('Replacement underpriced');
+  } else if (message.includes('insufficient funds')) {
+    console.error('Insufficient funds for this transaction');
+  }
+}
+```
+
+```ts ethers
+try {
+  await provider.broadcastTransaction(signedTx);
+} catch (err: any) {
+  const message = err?.error?.message ?? err?.message ?? '';
+  if (message.includes('already known')) {
+    console.log('Transaction already known');
+  } else if (err.code === 'NONCE_EXPIRED' || message.includes('nonce too low')) {
+    console.error('Nonce too low');
+  } else if (err.code === 'REPLACEMENT_UNDERPRICED' || message.includes('replacement transaction underpriced')) {
+    console.error('Replacement underpriced');
+  } else if (err.code === 'INSUFFICIENT_FUNDS' || message.includes('insufficient funds')) {
+    console.error('Insufficient funds for this transaction');
+  }
+}
+```
+
+</CodeGroup>
+
+
 This utility handles the most common cases in one place:
 
 ```ts
