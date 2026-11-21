@@ -306,6 +306,42 @@ In the default `auto` write mode, the node does not use a FlatKV store that this
 command creates. The store has no migration metadata, so the node starts in
 `memiavl_only`.
 
+
+
+### Rollback and historical reads below retained FlatKV history
+
+FlatKV retains only a bounded window of history (its snapshots plus WAL). A
+version below that floor cannot be reconstructed, so operations that would need
+it are now refused up front instead of failing part-way through or serving
+approximate state.
+
+- **Rollback.** A rollback to a version below the retained FlatKV history floor
+  is refused before any backend state is mutated. The node returns an error
+  wrapping `ErrVersionUnreachable` whose message ends with `use state sync
+  instead`. Because the check runs first, both memIAVL and FlatKV are left at
+  their original version and the store stays usable. To reach a target below the
+  floor, run a state sync instead.
+- **Historical reads and exports.** Read-only loads (`LoadVersionReadOnly`) and
+  exports (`Exporter`) at a version below the floor now return an error wrapping
+  `ErrVersionUnreachable` rather than panicking or serving approximate state.
+  Reachable versions — those at or above the retained floor, including a seeded
+  snapshot floor bridged by the WAL — still succeed.
+
+### Automatic cleanup of a stale idle FlatKV directory
+
+In `auto` write mode, the node discards a stale idle FlatKV directory at startup
+(during load). An idle FlatKV directory holds only a seed with no migration
+state. It is treated as stale when its version is above memIAVL's, or more than
+one block behind memIAVL. Such a directory is removed and recreated exactly at
+the next migration kickoff, so it is safe to discard.
+
+A FlatKV directory that is exactly one block behind memIAVL is **not** stale: it
+is a torn kickoff commit left by a crash between the memIAVL and FlatKV commits
+of the kickoff block. The node preserves that FlatKV directory, rolls memIAVL
+back to the seed, and replays the kickoff block to the canonical app hash. When
+a stale idle directory is discarded, the node logs a `discarding stale idle
+flatkv directory` warning with the memIAVL and FlatKV versions.
+
 ## FAQ
 
 ### Where do the data files live after migrating?
