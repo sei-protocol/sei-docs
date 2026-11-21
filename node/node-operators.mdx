@@ -27,6 +27,24 @@ $HOME/.sei/config/
 
 The state-store databases live outside the config directory:
 
+
+
+When Giga Storage is enabled, the ledger stores live under `$HOME/.sei/data/ledger`:
+
+- The block store is at `$HOME/.sei/data/ledger/block`.
+- The receipt store is at `$HOME/.sei/data/ledger/receipt/{backend}`.
+- The app hash vault is at `$HOME/.sei/data/ledger/app_hash`. It holds the
+  giga app hash vault, which persists the app hash of each committed block
+  alongside the block store and joins the storage garbage collector's shared
+  prune cycle (it reports as the `AppHashVault` store). On restart, recovery
+  converges every store onto the lowest head, now including the app hash
+  vault's: a crash that leaves the state ahead of the vault re-executes the
+  blocks above the vault head, while a vault left ahead of the state keeps its
+  app hashes and checks the re-executed blocks against them. The vault's stored
+  app hashes must belong to the node's configured chain ID, and the node fails
+  startup on a mismatch. Keep this directory present and consistent when
+  restarting a Giga node.
+
 - Cosmos SS uses `$HOME/.sei/data/{backend}` in the legacy layout and
   `$HOME/.sei/data/state_store/cosmos/{backend}` in the current layout.
 - EVM SS uses `$HOME/.sei/data/evm_ss` in the legacy layout and
@@ -128,6 +146,27 @@ In the localnode and rpcnode configuration scripts, if you enable Giga Storage
 (`GIGA_STORAGE=true`) and `RECEIPT_BACKEND` is not set, the receipt backend
 defaults to `pebble`. The former `receipt-store.tx-index-backend` config field
 has been removed.
+</Note>
+
+
+<Note>
+The receipt store records which backend owns its directory in a
+`receipt-backend.txt` marker file, written the first time the store is opened.
+On every subsequent open, the node checks this marker and refuses to open a
+directory that belongs to a different backend — for example, opening a
+`littidx` store directory as `pebbledb`, or vice versa, fails loudly with a
+mismatch error rather than presenting a silently empty store. The error names
+both the backend that owns the directory and the backend that was requested, so
+the fix is to either point `db-directory` at the correct backend's store or set
+`rs-backend` to the backend that owns the directory.
+
+For backwards compatibility, a store directory that carries no marker (one
+written before markers existed, or a brand-new directory) is adopted by the
+configured backend and stamped with the marker on that first open. An
+unsupported backend or a config the backend rejects (for example, `pebbledb`
+with external pruning enabled) is refused before the directory is touched, so a
+rejected attempt never leaves a marker behind that would then refuse the
+corrected configuration.
 </Note>
 
 ### Default configurations

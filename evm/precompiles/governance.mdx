@@ -32,10 +32,25 @@ Sei governance follows a structured timeline with specific parameters:
 
 1. **Proposal submission:** Submit a proposal with a minimum deposit of 3,500 SEI.
 2. **Deposit period:** The proposal has 2 days to accumulate the minimum deposit or reach the expedited threshold.
-3. **Voting period:** When the proposal meets the minimum deposit, voting is active for 3 days (1 day for expedited proposals).
-4. **Tallying:** The results are calculated from the quorum and voting thresholds.
+3. **Voting period:** When the proposal meets the minimum deposit, voting is active for 3 days (1 day for expedited proposals). Once a proposal's voting end time is reached, its electorate is frozen: new votes and deposits are rejected with `ErrInactiveProposal`.
+4. **Tallying:** The results are calculated from the quorum and voting thresholds. From the v6.8 upgrade, tallying is incremental — work is bounded per block and a proposal's result may be computed across several blocks rather than in a single end-of-period pass. Before activation, legacy single-pass tallying is preserved.
+
+<Note>
+**v6.8 incremental tally changes:** From the v6.8 upgrade, governance uses a bounded, incremental tally:
+
+- Votes and deposits are rejected once a proposal's voting end time is reached or its electorate snapshot is frozen (`ErrInactiveProposal`), rather than being accepted up to the final tally.
+- Casting a vote that creates a new deferred tally record consumes additional gas (`DeferredVoteTallyGas`), so budget extra gas for first-time votes on a proposal.
+- When an expedited proposal fails and is converted to a regular proposal, the regular round resumes for the remaining window (`VotingPeriod - ExpeditedVotingPeriod`) measured from the conversion time, instead of restarting the full regular voting period from the original voting start time.
+</Note>
 
 <Info> To learn more about the governance process on Sei, read the [governance explainer](/learn/general-governance).</Info>
+
+
+<Note>
+**Deferred deposit settlement:** When a proposal finishes — either because it fails to meet the minimum deposit within the deposit period, or because voting ends — its deposits are no longer burned or refunded all at once in the same block. Settlement is scheduled and processed incrementally across subsequent blocks, bounded by a per-block budget of up to 1000 deposit records (`MaxDepositsSettledPerBlock`). As a result, there may be a short delay between when a proposal ends and when depositors actually receive their refunds or when burned deposits leave the governance module balance. For proposals with many deposit records, settlement can span several blocks.
+
+A deposit whose depositor cannot receive funds (for example, a blocked address) remains recorded and stays backed by the governance module balance rather than being refunded.
+</Note>
 
 <Warning>
 **Critical Sei Mainnet considerations:**
@@ -100,6 +115,72 @@ function submitProposal(
     string calldata proposalJSON
 ) payable external returns (uint64 proposalID);
 ```
+
+
+### Authorization-based functions
+
+In addition to acting directly, the governance precompile supports [authz](https://docs.cosmos.network/main/build/modules/authz)-style grants so one account (the grantee) can vote or submit proposals on behalf of another account (the granter). Grants are scoped per message type and expire at a Unix timestamp.
+
+```solidity
+/// Grant another account authorization to vote on your behalf.
+/// @param grantee The account receiving the authorization.
+/// @param expiration Unix timestamp (seconds) at which the grant expires.
+/// @return success Whether the authorization was granted.
+function grantVoteAuthorization(
+    address grantee,
+    int64 expiration
+) external returns (bool success);
+
+/// Grant another account authorization to submit proposals on your behalf.
+/// @param grantee The account receiving the authorization.
+/// @param expiration Unix timestamp (seconds) at which the grant expires.
+/// @return success Whether the authorization was granted.
+function grantProposalAuthorization(
+    address grantee,
+    int64 expiration
+) external returns (bool success);
+
+/// Revoke a previously granted vote authorization.
+/// @param grantee The account whose authorization is being revoked.
+/// @return success Whether the authorization was revoked.
+function revokeVoteAuthorization(
+    address grantee
+) external returns (bool success);
+
+/// Revoke a previously granted proposal authorization.
+/// @param grantee The account whose authorization is being revoked.
+/// @return success Whether the authorization was revoked.
+function revokeProposalAuthorization(
+    address grantee
+) external returns (bool success);
+
+/// Cast a vote on behalf of a voter who granted you a vote authorization.
+/// The caller must be the grantee; the vote is recorded for `voter`.
+/// @param voter The granter on whose behalf the vote is cast.
+/// @param proposalID The ID of the proposal to vote on.
+/// @param option The option to vote for. (1=Yes, 2=Abstain, 3=No, 4=NoWithVeto)
+/// @return success Whether the vote was successfully cast.
+function voteWithAuthorization(
+    address voter,
+    uint64 proposalID,
+    int32 option
+) external returns (bool success);
+
+/// Submit a proposal on behalf of a proposer who granted you a proposal
+/// authorization. The caller must be the grantee; the proposal is recorded
+/// for `proposer`. Any initial deposit is provided via msg.value.
+/// @param proposer The granter on whose behalf the proposal is submitted.
+/// @param proposalJSON JSON string containing proposal details.
+/// @return proposalID The ID of the created proposal.
+function submitProposalWithAuthorization(
+    address proposer,
+    string calldata proposalJSON
+) payable external returns (uint64 proposalID);
+```
+
+<Info>
+Authorization grants are scoped by message type: `grantVoteAuthorization` authorizes only votes, and `grantProposalAuthorization` authorizes only proposal submissions. Grant and revoke each type independently. A grant must have an `expiration` in the future, and `voteWithAuthorization` / `submitProposalWithAuthorization` fail if no matching, unexpired grant exists for the caller.
+</Info>
 
 ### Query functions
 
@@ -203,6 +284,9 @@ function deposits(
 ) external view returns (DepositData[] memory deposits, bytes memory nextKey);
 
 /// Query the current tally of votes on a proposal
+/// For proposals in the Passed, Rejected, or Failed state this returns the
+/// stored FinalTallyResult; proposals still in the deposit period return an
+/// empty tally.
 function tallyResult(
     uint64 proposalID
 ) external view returns (TallyResultData memory tallyResult);
@@ -723,6 +807,16 @@ const proposalID = 1n;
 const additionalDeposit = ethers.parseUnits('1000', 18); // 1,000 SEI
 await addDepositToProposal(proposalID, additionalDeposit);
 ```
+
+
+<Note>
+**Deposit denom validation (incremental tally):** When incremental tally is enabled, deposits are validated against the proposal's minimum deposit denoms:
+
+- A deposit may only contain denoms that are a subset of the proposal's minimum deposit denoms. If it includes any other denom, the deposit is rejected with `ErrInvalidCoins`.
+- An empty deposit is silently ignored — no deposit record is created and no error is returned.
+
+In practice, deposit to a Sei governance proposal using SEI (the chain's bond denom), which is part of the minimum deposit set. A deposit carrying an unrelated denom will fail.
+</Note>
 
 ## Complete integration example
 

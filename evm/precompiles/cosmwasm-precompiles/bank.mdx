@@ -11,6 +11,10 @@ keywords: ['bank precompile', 'native sei', 'ethers.js', 'balance query', 'sei d
 Do not use the Bank precompile as an IBC or tokenfactory integration path. This page covers native SEI (`usei`) only. IBC is disabled in both directions. Tokenfactory is not supported for new development. See [IBC is disabled](/learn/sip-03-migration#ibc-is-disabled) and [Tokenfactory is not supported](/cosmos-sdk#tokenfactory-is-not-supported).
 </Warning>
 
+<Warning>
+The bank module's `factory/` denom transfer allowlist enforcement was removed with the v6.8 upgrade (#4536). Denoms that previously restricted transfers through an allowlist now transfer freely, and the send/receive allowlist checks are gone. Do not rely on allowlist behavior to gate `factory/` denom transfers through this precompile.
+</Warning>
+
 The Bank precompile exposes the Bank Module balance for native SEI. It also lets an EVM caller send SEI to a native `sei1...` address.
 
 ## Functions
@@ -139,7 +143,7 @@ Validate the recipient before you send SEI. A successful transaction cannot be r
 
 ## Other query methods
 
-The Bank precompile also has the read-only queries below. All of them except `supply` are available since v6.7.0.
+The Bank precompile also has the read-only queries below. `supply` has been available since earlier releases; the remaining query methods (`spendableBalances`, `totalSupply`, `params`, `denomMetadata`, `denomsMetadata`) are available on the bank precompile version registered for the v6.8 upgrade (#diff adds the v6.8 bank precompile and v6.7 legacy registration).
 
 ```solidity
 function supply(string memory denom) external view returns (uint256 response);
@@ -183,7 +187,7 @@ struct Metadata {
 }
 ```
 
-`supply(denom)` returns the supply of one denomination. `totalSupply(pageKey)` returns the supply of every denomination, one page at a time. For paginated methods, pass empty bytes (`0x`) for the first page, then pass the returned `nextKey`. An empty `nextKey` means there are no more pages. `spendableBalances` reverts if `acc` has no associated Sei address.
+`supply(denom)` returns the supply of one denomination. `totalSupply(pageKey)` returns the supply of every denomination, one page at a time. For paginated methods, pass empty bytes (`0x`) for the first page, then pass the returned `nextKey`. An empty `nextKey` means there are no more pages. `spendableBalances` resolves `acc` directly, so it also returns balances for unassociated (uncast) EVM addresses that have no associated Sei address (#4).
 
 `BANK_PRECOMPILE_ABI` in `@sei-js/precompiles@3` does not include `spendableBalances`, `totalSupply`, `params`, `denomMetadata`, or `denomsMetadata`. Call them with an ABI fragment:
 

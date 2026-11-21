@@ -61,6 +61,16 @@ For dynamic-fee (type 2) transactions, the `effectiveGasPrice` field of the tran
 In practice, when your priority tip plus the base fee stays below `maxFeePerGas`, the receipt reports `baseFee + maxPriorityFeePerGas`, not `maxFeePerGas`. To compute what a transaction paid, use the receipt's `effectiveGasPrice`, not `maxFeePerGas`.
 
 
+
+### Admission is priced on effective gas price
+
+Transaction admission at `CheckTx` compares a transaction's **effective gas price** against the minimum gas price, not its fee cap. For a dynamic-fee (type 2) transaction the effective gas price is `min(baseFee + maxPriorityFeePerGas, maxFeePerGas)`, which at a zero base fee reduces to `maxPriorityFeePerGas` (the tip).
+
+As a result, a dynamic-fee transaction with a high `maxFeePerGas` but a low or zero `maxPriorityFeePerGas` is rejected at admission, even though its fee cap would clear the floor. Admission is priced on the same quantity block validity uses, so a transaction that was admitted on its fee cap alone would later be refused by the executor.
+
+When setting fees for a dynamic-fee transaction, make sure `maxPriorityFeePerGas` alone (not just `maxFeePerGas`) meets the minimum gas price. A transaction that fails this check is rejected with an `effective gas price is below` error.
+
+
 ## SSTORE cost
 
 On Sei, governance can adjust the gas cost of `SSTORE` (a write to contract storage). The current cost is **72,000 gas** on both Sei Mainnet and Sei Testnet. For details, see [Differences with Ethereum](/evm/differences-with-ethereum#sstore-gas-cost). Treat this number as the current value, not a constant. Do not hard-code storage write estimates in your application.
@@ -100,6 +110,8 @@ Sei precompiles charge gas based on the work that each call does:
 - The JSON precompile also charges 100 gas per byte of JSON input.
 - The pointer view precompile also charges for the state that each lookup reads.
 - The P256 precompile also charges a fixed 3,450 gas per verification, the same as RIP-7212 `P256VERIFY`. If the call cannot pay it, the call fails with an out-of-gas error.
+
+When a dynamic-gas precompile (such as JSON, P256, or pointer view) runs out of gas partway through execution, the out-of-gas condition fails as a standard EVM out-of-gas call (#4318): it fails only that EVM call frame rather than the whole transaction. The frame's gas is fully consumed, any state changes it made are reverted, and the enclosing frame is free to continue. The transaction completes as a normal failed EVM execution: it produces a failed EVM receipt carrying the real gas used and effective gas price, and the sender is charged for exactly the gas consumed.
 
 Because the cost depends on your calldata, do not hard-code gas limits for precompile calls. Use `eth_estimateGas`, as shown in the example above.
 
