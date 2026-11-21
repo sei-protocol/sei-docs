@@ -1,0 +1,147 @@
+---
+title: Feegrant Precompile
+description: Query fee allowances granted between accounts from EVM smart contracts on Sei.
+---
+
+<Warning>
+  The feegrant EVM precompile has been removed along with the rest of the feegrant module (#3958). It was never released on a live network. The precompile keepers no longer register `FeegrantQuerier`, so this precompile is not available at any address. Transactions that specify a fee granter different from the fee payer are now rejected, and fees are always deducted from the fee payer. The feegrant store remains mounted for historical state access only. This page is retained for historical reference; the interface described below is no longer callable.
+</Warning>
+
+The feegrant precompile previously exposed the Cosmos `feegrant` module's query methods to EVM smart contracts, letting Solidity code read the fee allowances that one account (the granter) had granted another account (the grantee) to pay fees on its behalf.
+
+## Address
+
+The feegrant precompile is available at the fixed address:
+
+```
+0x0000000000000000000000000000000000001010
+```
+
+All methods are `view` functions; the precompile exposes no state-mutating operations.
+
+## Interface
+
+```solidity
+interface IFeegrant {
+    struct Grant {
+        string granter;
+        string grantee;
+        bytes allowance;
+    }
+
+    struct AllowancesResponse {
+        Grant[] allowances;
+        bytes nextKey;
+    }
+
+    function allowance(
+        address granter,
+        address grantee
+    ) external view returns (Grant memory grant);
+
+    function allowances(
+        address grantee,
+        bytes memory pageKey
+    ) external view returns (AllowancesResponse memory response);
+
+    function allowancesByGranter(
+        address granter,
+        bytes memory pageKey
+    ) external view returns (AllowancesResponse memory response);
+}
+```
+
+### Types
+
+#### Grant
+
+| Field       | Type     | Description                                                                 |
+| ----------- | -------- | --------------------------------------------------------------------------- |
+| `granter`   | `string` | Bech32 address of the account that granted the allowance.                   |
+| `grantee`   | `string` | Bech32 address of the account that may spend fees against the allowance.    |
+| `allowance` | `bytes`  | The fee allowance encoded as JSON.                                          |
+
+#### AllowancesResponse
+
+| Field        | Type      | Description                                                                              |
+| ------------ | --------- | ---------------------------------------------------------------------------------------- |
+| `allowances` | `Grant[]` | The page of grants returned by the query.                                                |
+| `nextKey`    | `bytes`   | Pagination key for the next page. Pass it back as `pageKey` to continue; empty when done. |
+
+## Methods
+
+### allowance
+
+Returns the fee allowance that `granter` has granted to `grantee`, if one exists.
+
+```solidity
+function allowance(
+    address granter,
+    address grantee
+) external view returns (Grant memory grant);
+```
+
+| Parameter | Type      | Description                                        |
+| --------- | --------- | -------------------------------------------------- |
+| `granter` | `address` | EVM address of the account that granted the fees.  |
+| `grantee` | `address` | EVM address of the account allowed to spend them.  |
+
+Both addresses must be associated with Sei accounts. The call reverts if no allowance exists between the two accounts.
+
+### allowances
+
+Returns all fee allowances granted to a given grantee, with pagination.
+
+```solidity
+function allowances(
+    address grantee,
+    bytes memory pageKey
+) external view returns (AllowancesResponse memory response);
+```
+
+| Parameter | Type      | Description                                                            |
+| --------- | --------- | --------------------------------------------------------------------- |
+| `grantee` | `address` | EVM address of the grantee whose incoming allowances to list.         |
+| `pageKey` | `bytes`   | Pagination key; pass empty bytes for the first page.                  |
+
+### allowancesByGranter
+
+Returns all fee allowances issued by a given granter, with pagination.
+
+```solidity
+function allowancesByGranter(
+    address granter,
+    bytes memory pageKey
+) external view returns (AllowancesResponse memory response);
+```
+
+| Parameter | Type      | Description                                                            |
+| --------- | --------- | --------------------------------------------------------------------- |
+| `granter` | `address` | EVM address of the granter whose issued allowances to list.           |
+| `pageKey` | `bytes`   | Pagination key; pass empty bytes for the first page.                  |
+
+## Usage
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+IFeegrant constant FEEGRANT = IFeegrant(0x0000000000000000000000000000000000001010);
+
+contract FeegrantReader {
+    function getAllowance(
+        address granter,
+        address grantee
+    ) external view returns (IFeegrant.Grant memory) {
+        return FEEGRANT.allowance(granter, grantee);
+    }
+
+    function getAllowancesByGranter(
+        address granter
+    ) external view returns (IFeegrant.Grant[] memory) {
+        return FEEGRANT.allowancesByGranter(granter, "").allowances;
+    }
+}
+```
+
+The `allowance` field in each `Grant` is returned as JSON-encoded bytes describing the underlying fee allowance; decode it off-chain to inspect the allowance type and its spend limits or expiration.

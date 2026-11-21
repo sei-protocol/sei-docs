@@ -220,6 +220,25 @@ In v6.7, governance can start only the EVM migration. The later write modes
 (`migrate_all_but_bank`, `all_migrated_but_bank`, `migrate_bank`, and
 `flatkv_only`) exist, but no parameter starts them.
 
+
+
+### Pausing the migration network-wide
+
+A `pause-state-migration` hard fork handler can halt the migration rate across
+the network at a configured target height. When the handler runs, it sets
+`NumKeysToMigratePerBlock` in the `migration` params subspace back to `0`, so no
+further keys move per block from that height onward. The handler runs only on
+the chain whose ID matches its target, and it takes effect at the target height
+without a node restart.
+
+Pausing this way does not revert in-progress work: the in-flight write mode is
+preserved. A node that has already switched from `memiavl_only` to
+`migrate_evm` stays in `migrate_evm` after the pause; only the per-block
+migration rate drops to zero. To resume, a `ParameterChangeProposal` can raise
+`NumKeysToMigratePerBlock` above `0` again. Node operators should be aware of
+this hard fork during upgrades, since it changes the effective migration rate at
+the target height even though no `app.toml` change is required.
+
 During the migration, the node reads and iterates over both backends. The
 migration deletes a key from memiavl when it copies the key to FlatKV. If both
 backends report a key, the node uses the memiavl value. The migration boundary
@@ -305,6 +324,92 @@ The `seidb import-flatkv-from-memiavl` command populates a FlatKV store from an 
 In the default `auto` write mode, the node does not use a FlatKV store that this
 command creates. The store has no migration metadata, so the node starts in
 `memiavl_only`.
+
+
+
+## KV repair hard forks
+
+The FlatKV EVM migration can surface rare key/value divergences between a
+memiavl reserve and a production FlatKV node. The `kvrepair` mechanism applies a
+reviewed set of corrections to module stores as a hard fork, so every node
+commits the same changeset at the same height.
+
+Each repair is a JSON file under `app/upgrades/kvrepair/repairs/` that is
+compiled into the binary. At the start of a block, a repair runs only on the
+chain whose ID matches its `chain_id` and only at its `target_repair_height`.
+No `app.toml` change or restart is required: the repair ships inside the binary
+and applies automatically on the matching chain and height.
+
+### Repair file fields
+
+| Field | Meaning |
+| --- | --- |
+| `name` | Unique repair name across all repair files. Becomes the hard fork handler name `kvrepair-<name>`. |
+| `chain_id` | The chain the repair runs on. |
+| `target_repair_height` | The block whose start applies the repair. |
+| `state_height` | The height whose committed state the `new` values come from. Must be below `target_repair_height`. |
+| `source` | Free text for reviewers. It has no effect on execution. |
+| `entries` | The list of key/value writes to apply. |
+
+Each entry names a `store` and a hex `key`, with or without a `0x` prefix:
+
+- `new` is the correct value. A `null` `new` deletes the key.
+- `old` is the incorrect value the key holds before the repair.
+- `old_absent: true` states that the key must not exist before the repair. An
+  entry may set `old` or `old_absent`, but not both.
+- An entry that already holds its `new` value skips the `old` check, so a
+  correct node and a repaired node commit the same changeset. If an entry finds
+  neither `new` nor `old`, the node halts at `target_repair_height`.
+
+When `state_height` is not `target_repair_height - 1`, every entry must state an
+`old` value, because a key can change between the two heights.
+
+### EVM absence semantics
+
+In the `evm` store, repairs compare values with absence semantics: an all-zero
+storage slot, nonce, or code hash, and an empty code value, read as equal to an
+absent key. Every other value, and every value in another store, compares
+exactly, so an empty value (`""`) differs from an absent key. This affects how
+an entry's `old` value and `old_absent` flag are matched, and whether a `new`
+value is written or the key is deleted.
+
+### Generating a repair file
+
+Stop the chain at height `H`. For each bucket and key prefix the EVM logical
+digest reports as different, list the keys on a memiavl reserve and on a
+production node at `H`. Physical keys start with `evm/`, so `--key-offset 4`
+makes `--key-prefix` apply to the EVM key. Run both sides with the same bucket,
+`--key-offset`, `--key-prefix`, and `--list-limit 0`:
+
+The `changelog` open mode scans the snapshot at or below `--height` merged
+with the EVM changelog writes above it; it reads the same rows as `replay`
+more quickly. The `replay` open mode is still supported and reads the same
+rows, more slowly.
+
+```bash copy
+seidb evm-logical-digest --backend memiavl --memiavl-open-mode changelog \
+  -d <reserve memiavl dir> --height H --inspect-bucket storage \
+  --key-offset 4 --key-prefix 03AB --list --list-limit 0 --json > reserve.json
+seidb evm-logical-digest --backend composite --memiavl-open-mode changelog \
+  --flatkv-dir <flatkv dir> --memiavl-dir <memiavl dir> --height H \
+  --inspect-bucket storage --key-offset 4 --key-prefix 03AB \
+  --list --list-limit 0 --json > prod.json
+seidb kvrepair-export --reserve reserve.json --prod prod.json \
+  --chain-id <chain_id> --name <chain_id>-evm-<H+1> --target-repair-height <H+1> \
+  -o app/upgrades/kvrepair/repairs/<chain_id>-evm-<H+1>.json
+```
+
+The `seidb kvrepair-export` subcommand writes one entry per differing key,
+setting the reserve value as `new` and the production value as `old`. It refuses
+two reports that differ in height, bucket, offset, or prefix, a list that
+`--list-limit` cut off, a reserve read with `--memiavl-normalization translator`,
+and an account whose balance differs, because the `evm` store has no balance
+key. It also checks that a node can load the file it writes. Do not edit the
+values by hand.
+
+<Warning>A repair name may be used only once, and no two files may repair the
+same store key at the same height. A node validates every embedded repair at
+startup and panics on an invalid repair file.</Warning>
 
 ## FAQ
 

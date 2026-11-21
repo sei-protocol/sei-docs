@@ -30,6 +30,21 @@ This guide covers common issues with EVM transaction tracing on Sei and gives pr
 - Use built-in tracers when possible, because they are faster
 - Optimize JavaScript tracer code for performance
 
+
+
+**Deadline and cancellation during historical traces**:
+
+When a debug trace method reconstructs historical state, the node propagates the RPC/trace deadline into the underlying state-store iteration. If the `trace_timeout` expires (or the caller cancels the request) while the node is still skipping MVCC versions to rebuild the requested block's state, the method aborts and returns the context deadline/cancellation error (`context deadline exceeded` or `context canceled`).
+
+This applies to `debug_traceTransaction`, `debug_traceBlockByNumber`, `debug_traceBlockByHash`, `debug_traceCall`, and the trace profile method.
+
+Previously an expired or cancelled trace could return a synthesized fake trace result — for example a result whose body contained `"error": "store access cancelled"` — or keep running after the caller had already given up. The deadline is now honored directly: no synthesized result is returned, and such results are never written to the trace cache.
+
+**What to do**:
+
+- Treat a `context deadline exceeded` response as a timeout, not as a valid trace. Increase `trace_timeout` (see below) or narrow the scope of the request (for example, trace a single transaction instead of a whole block).
+- If you see this error consistently on older blocks, the historical state reconstruction is taking longer than the configured deadline; tracing a more recent block or raising the timeout usually resolves it.
+
 ### 2. Memory limit errors
 
 **Error**: `out of memory` or `memory limit exceeded`
