@@ -48,6 +48,15 @@ The experimental `SEI_CONFIG_MANAGER` environment variable selects how `seid` lo
 SEI_CONFIG_MANAGER=v2 seid start
 ```
 
+
+##### Mode-aware config resolution
+
+When the experimental config manager resolves configuration defaults, it now takes the node mode into account and is stricter about what it accepts.
+
+- **Unrecognized node modes are rejected.** Resolution accepts only the declared modes — `validator`, `full`, `seed`, and `archive`. An unrecognized value (including an empty string, a capitalized name, or one with a trailing space) no longer silently falls back to full-node defaults. Instead, resolution returns an error naming the modes the binary declares defaults for. This matters because mode-dependent defaults differ: `api.enable` and `grpc.enable` are on for `full` and `archive` nodes and off for `validator` and `seed`, and `min-retain-blocks` is `100000` for a full node. A mode that was quietly treated as a full node would have opened the interfaces a full node serves onto whatever asked.
+- **Some keys cannot be supplied by an environment variable.** An environment variable holds a single string — a value for anything read as a single word or number, and by convention a comma-separated list of those. A key whose value shape is something else (for example `telemetry.global-labels`, which is a list of structured rows) cannot be carried this way. When a variable is set for such a key, it is read but ignored: the file value applies instead, and the key is reported as ignored so the operator can see that the variable did nothing. Plain values and comma-separated lists of words are still accepted from the environment as before.
+
+
 #### Freeze mode (`--freeze-height`)
 
 As of v6.6.3, you can put a full node into read-only freeze mode at a specified block height. Use the `--freeze-height` start flag or the corresponding `freeze-height` field in `app.toml`. Freeze mode exists for historical RPC nodes. A node frozen at an upgrade height keeps running the pre-upgrade binary and keeps serving the state that binary produced. It does not shut down at the boundary or execute the upgrade block with code that no longer matches that state. For setup steps and the freeze heights of each network, see [Run frozen nodes](/node/frozen-nodes).
@@ -92,6 +101,12 @@ cd sei-chain
 git checkout <version-tag>  # v6.6.3 or later
 make build-frozen-rpc-router
 ```
+
+For local testing, the repository also ships a Docker topology that runs a live chain alongside archival nodes frozen at different heights, with the router in front of them. These Makefile targets drive it:
+
+- `make docker-frozen-rpc-cluster-start`: Start the frozen-router Docker cluster (two live validators, two archival nodes frozen before preset heights, and `frozen-rpc-router` published on a host port).
+- `make docker-frozen-rpc-cluster-stop`: Stop the cluster and remove its containers.
+- `make frozen-rpc-router-integration-test`: Run the complete start-test-stop flow, bringing the cluster up, running the frozen-RPC-router integration tests, and tearing the cluster down afterward.
 
 ```bash
 # Route between a live node and two frozen nodes. The router takes the default EVM
@@ -200,9 +215,9 @@ The command accepts these flags:
 - `--height`: The target version. FlatKV WAL-replays to it, and memIAVL resolves `snapshot-<height>/evm` (`0` selects the `current` symlink).
 - `--memiavl-open-mode`: How the command reads memIAVL. `snapshot` (the default) scans the snapshot file at `--height`. It is the fastest mode, but it needs a snapshot at that height, or `--height 0`. `changelog` reads the nearest snapshot at or below `--height` and adds the changelog's EVM writes up to `--height`. `replay` opens the database, replays the changelog to `--height`, and walks the tree. It is about 10 times slower than `snapshot`. `changelog` and `replay` return the same rows. Use one of them when no snapshot exists at `--height`.
 - `--memiavl-normalization`: The memIAVL normalization mode. Use `semantic` or `independent` for the raw EVM key-value decoder, or `translator` for the current migration mapping. The default is `semantic`.
-- `--json`: Print the digest or inspect report as one JSON object on stdout, and the progress messages on stderr.
-- `--inspect-bucket`: Inspect one normalized bucket (`account`, `code`, `storage`, or `misc`), not the global digest. Inspect mode with `--memiavl-normalization translator`, or with `--details` on the `storage` bucket, requires `--memiavl-open-mode snapshot`.
-- `--inspect-plan` (inspect mode): A JSON file that lists several inspect reports to produce from one scan. It replaces the single-report inspect flags.
+- `--json`: Print the digest or inspect report as one JSON object on stdout, and the narration (start banner, scan progress, and text report) on stderr. In this mode the storage-layer logging is quieted to error level so it leaves stdout. One error-level log line can still reach stdout, so for unattended callers also set `SEI_LOG_OUTPUT=stderr` to move that line off stdout and keep the JSON report clean; the command prints a warning when `SEI_LOG_OUTPUT` is unset. The JSON digest report adds a `zero_census` object (with the `zero_accounts`, `zero_codehash_rows`, `live_accounts_with_zero_codehash_row`, `live_accounts_without_codehash_row`, `empty_code_values`, and `zero_storage_slots` counters) on the memIAVL paths that take a zero-value census, and a `marker_adjustments` list naming the FlatKV-only `MigrationStore` rows XORed back out of the misc bucket, which distinguishes a mid-migration reading from a completed one. The object is absent on backends that take no census, matching the omitted census block in the text report.
+- `--inspect-bucket`: Inspect one normalized bucket (`account`, `code`, `storage`, or `misc`), not the global digest. It works with the `flatkv`, `memiavl`, and `composite` backends, and with the `snapshot`, `replay`, and `changelog` open modes. With `--backend composite` you must set both `--flatkv-dir` and `--memiavl-dir`. Inspect mode with `--memiavl-normalization translator`, or with `--details` on the `storage` bucket, still requires `--memiavl-open-mode snapshot`. Together with `--json`, inspect mode can examine a FlatKV migration that is still in flight: point it at a node mid-migration (for example with `--backend composite`) to inspect the buckets and migration state as they currently stand, rather than only a completed migration.
+- `--inspect-plan` (inspect mode): A JSON file that holds a list of inspect reports to take from one scan, so you can produce many reports without rescanning. Each item is an object with `inspect_bucket`, `key_offset`, `key_prefix` (hex), `shard_next_bytes`, `list`, `list_limit`, and `out` (the file its JSON report is written to). An item without `list_limit` lists every match. For example, `[{"inspect_bucket":"storage","key_offset":4,"list":true,"out":"storage.json"},{"inspect_bucket":"account","key_offset":4,"list":true,"out":"account.json"}]`. This flag replaces the single-report inspect flags (`--inspect-bucket`, `--key-offset`, `--key-prefix`, `--shard-next-bytes`, `--list`, `--list-limit`, and `--details`) and cannot be combined with them.
 - `--key-offset` (inspect mode): The byte offset into the physical key, applied before `--key-prefix` or sharding.
 - `--key-prefix` (inspect mode): A hex prefix, relative to `--key-offset`, that filters physical keys.
 - `--shard-next-bytes` (inspect mode): Group matching keys by this many bytes after `--key-prefix`.
@@ -210,6 +225,51 @@ The command accepts these flags:
 - `--list-limit` (inspect mode): The maximum number of pairs to print with `--list` (default `1000`). A value `<= 0` means unlimited.
 - `--details` (inspect list mode): Include backend-specific version metadata.
 - `--find-hash`: An optional 32-byte hex per-entry hash to search for. When two `bucket_digest` values differ by exactly one entry, their XOR is the hash of that entry. This flag prints every matching entry, so you can locate a single diverging row.
+
+
+<Note>
+  Physical keys in a FlatKV or memIAVL store begin with the module prefix `evm/`. To make `--key-prefix` apply to the EVM key itself, skip past that prefix with `--key-offset 4`. For example, `--inspect-bucket storage --key-offset 4 --key-prefix 03 --shard-next-bytes 2` filters storage rows by the EVM key byte `03`.
+</Note>
+
+```bash
+# List every storage row under a key prefix at one height, from a memiavl
+# reserve and from a production node. Use the same bucket, --key-offset,
+# --key-prefix, and --list-limit 0 on both runs. Physical keys start with
+# "evm/", so --key-offset 4 makes --key-prefix apply to the EVM key.
+seidb evm-logical-digest --backend memiavl --memiavl-open-mode replay \
+    -d <reserve memiavl dir> --height H --inspect-bucket storage \
+    --key-offset 4 --key-prefix 03AB --list --list-limit 0 --json > reserve.json
+seidb evm-logical-digest --backend composite --memiavl-open-mode replay \
+    --flatkv-dir <flatkv dir> --memiavl-dir <memiavl dir> --height H \
+    --inspect-bucket storage --key-offset 4 --key-prefix 03AB \
+    --list --list-limit 0 --json > prod.json
+```
+
+#### Generating KV repair files
+
+The `kvrepair-export` subcommand writes a KV repair file from two `evm-logical-digest` inspect list reports taken at the same height: one from a memIAVL reserve and one from a production node. Each entry it produces sets a key to the reserve value and records the production value as the key's old value, so the repair makes production match the reserve for every key the two reports list. A repair file is a reviewed set of key/value fixes that the node applies, as an embedded hard-fork handler, at the start of one target block on one chain.
+
+First, stop the chain at height `H` and produce a reserve report and a production report for each bucket and key prefix the digest flags as different, as shown above. Then export the repair file:
+
+```bash
+seidb kvrepair-export --reserve reserve.json --prod prod.json \
+    --chain-id pacific-1 --name pacific-1-evm-<H+1> --target-repair-height <H+1> \
+    -o app/upgrades/kvrepair/repairs/pacific-1-evm-<H+1>.json
+```
+
+The command accepts these flags:
+
+- `--reserve`: An inspect list report (`--list --json`) from a memIAVL reserve. Required.
+- `--prod`: An inspect list report (`--list --json`) from a production node, taken at the same height, bucket, offset, and prefix. Required.
+- `--chain-id`: The chain ID the repair runs on. Required.
+- `--name`: The repair name, which must be unique across the repair files. Required.
+- `--target-repair-height`: The height whose block start applies the repair. It must be above the report height. Required.
+- `--source`: Free text for reviewers; it has no effect on execution. Defaults to a description of the two report sources.
+- `--output` (`-o`): The output file. The command writes to stdout when this is empty.
+
+`kvrepair-export` refuses two reports that differ in height, bucket, offset, or prefix, a reserve report that is not a semantic memIAVL read (a `translator`-normalized report shares the migration mapping and is rejected), a list that `--list-limit` cut off, and an account whose balance differs, because the EVM store has no balance key. Before it writes, it checks that a node would parse and validate the resulting file. Do not edit the exported values by hand.
+
+Each repair file names one chain (`chain_id`), the block whose start applies the repair (`target_repair_height`), the committed height the values come from (`state_height`, which must be below `target_repair_height`), an optional free-text `source`, and the `entries` to apply. Each entry names a `store` and `key`, the correct `new` value (a `null` new deletes the key), and the incorrect value the key holds before the repair as `old`, or `"old_absent": true` when the key must not exist beforehand. In the `evm` store, an all-zero storage slot, nonce, or code hash and an empty code value compare as equal to an absent key; every other value, and every value in another store, compares exactly. On a matching chain and height, the handler applies the file at block start, writing or deleting each entry and reading it back; an entry that holds neither its new nor its old value halts the node.
 
 #### Dumping FlatKV state and verifying its lattice hash
 
@@ -304,6 +364,14 @@ Two more flags tune the BlockDB. The command writes their values to the `block_d
 ```
 
 Both fields are optional. If you set a field, its value must be greater than zero. Autobahn ignores `block_db` when persistence is off.
+
+
+
+<Warning>
+  The LittDB BlockDB on-disk table was renamed from `ledger` to `blocks`. The block DB now refuses to open when a pre-rename `ledger` table directory is still present under one of its data roots, because the blocks and QCs stored under the old name would be neither served nor reclaimed, leaving the store looking healthy and empty while the history you wanted was silently unreachable. Startup fails with an error naming the `ledger` directory and instructing you to delete or move it aside.
+
+  To recover, stop the node, delete (or move aside) the `ledger` directory under `<persistent_state_dir>/blockdb` for each affected data root, and restart. The node then starts from an empty BlockDB and refills it from its ingest path. The refusal happens before any new table is created, so a failed start leaves the directory exactly as it found it.
+</Warning>
 
 The command reads these files from each node directory:
 
@@ -542,10 +610,11 @@ ttl-num-blocks = 10
 # Consensus Configuration
 [consensus]
 wal-file = "data/tendermint/cs.wal/wal"
-# Consensus timeouts are governed by on-chain ConsensusParams; the old
-# timeout-* keys were removed and produce a startup error if present.
-# Local overrides are only possible via the unsafe-*-timeout-override
-# keys, which take effect only when unsafe-overrides-enabled = true.
+# Consensus timeouts are governed entirely by on-chain genesis
+# consensus_params.timeout fields (propose, vote, vote_delta, commit, and
+# bypass_commit_timeout). The unsafe-*-timeout-override keys and
+# unsafe-overrides-enabled no longer exist in config.toml and have no effect;
+# set consensus timeouts in genesis.json instead.
 double-sign-check-height = 0
 ```
 
@@ -606,6 +675,122 @@ make install BUILD_TAGS=historical_replay
 <Warning>
 A `historical_replay` binary is not safe for consensus. Do not use it to validate, produce blocks, or serve live traffic. Normal builds do not include the lenient decoder.
 </Warning>
+
+
+
+## Query pagination limits
+
+Node-local LCD and gRPC queries no longer cap pagination limits, offsets, or store-scan length. Direct Cosmos queries served by `BaseApp.Query` now page through the full store, so large or sparse stores return complete results instead of errors.
+
+- **Limit:** `MaxLimit` is now the maximum value of a `uint64`, up from the previous `1000`. A `limit` of `0` still falls back to the default page size.
+- **Offset:** There is no longer a maximum offset. The previous cap of `10000` has been removed.
+- **Store scans:** `count_total` and sparse-filter queries scan the full store. The previous `scanned more than N entries` errors no longer occur for node-local queries.
+- **Upper bound:** Pagination arithmetic is performed in signed `int` space, so `limit` or `offset` values above `math.MaxInt64` are still rejected as negative/invalid.
+
+
+
+## Retired IBC store queries
+
+The IBC module is fully unwired from the node: there is no IBC keeper, no IBC `AppModule`, no IBC ante decorator, and no IBC begin-blocker. This includes raw ABCI store queries against the retired IBC-related stores. Querying any of the following store paths now returns a deprecation error instead of store data:
+
+- `/store/ibc/key` and `/store/ibc/subspace`
+- `/store/transfer/key` and `/store/transfer/subspace`
+- `/store/capability/key` and `/store/capability/subspace`
+
+Each of these queries returns Codespace `ibc`, Code `103`, and Log `ibc module is deprecated`.
+
+The `ibc`, `transfer`, and `capability` stores remain mounted for historical state access in freeze mode, but direct ABCI store queries against them are intercepted and rejected. Queries against other stores (for example, `/store/bank/key`) are unaffected.
+
+To serve pre-retirement IBC query history, run a [v6.6 freeze node](/node/frozen-nodes).
+
+
+
+### Retired IBC messages
+
+Along with the removal of IBC store queries, IBC messaging is retired on-chain. IBC message types are no longer registered with the application, so no message whose type URL begins with the `/ibc.` prefix can be constructed, routed, or executed. Because the IBC ante decorator has been removed entirely and the `MsgServiceRouter` has no IBC handlers, there is no longer a separate `ErrIBCDeprecated` rejection path — IBC messages simply cannot reach `CheckTx` or execution.
+
+Earlier releases wired the IBC module and rejected IBC messages at runtime (for example, the ante decorator returned `ErrIBCDeprecated`, and before that it performed redundancy checks on packet messages such as `RecvPacket`, `Acknowledgement`, `Timeout`, and `UpdateClient`). That wiring is gone; IBC is no longer part of the application at all.
+
+<Note>
+  EVM precompile query paths keep the legacy v6.6 pagination behavior — the `1000` limit, `10000` offset, and `10000`-entry scan limit still apply there — because precompiles run during transaction execution, where relaxing these caps would change gas consumption and break AppHash/LastResultsHash determinism. This only affects queries invoked inside EVM execution; client-facing LCD/gRPC queries use the relaxed semantics described above. The modules covered include `authz`, `distribution`, `feegrant`, `gov`, `staking`, and `bank`.
+</Note>
+
+
+
+## EVM-only executor load testing
+
+`evmonly-loadtest` is a standalone executable for feeding synthetic blocks to the EVM-only executor without Cosmos SDK state, mempool, RPC, or chain persistence. It generates workloads, runs them through the executor against mock state and receipt sinks, and reports throughput both on stdout and over a Prometheus endpoint. It is a developer and performance-tuning tool, not part of `seid`.
+
+The synthetic workload defaults to the local EVM chain ID `1337`; override it with `--chain-id` when testing another signing domain. It can generate pure EVM legacy transfer transactions, ERC20 transfer transactions, and a contract-call workload that exercises nested StateDB snapshot/revert behavior. By default each generated sender account has one nonce-0 transaction and is funded in the command's in-memory genesis state before its block is queued. Recipients are unique by default, so the transfer workloads exercise the optimistic no-overlap case.
+
+Run it from a `sei-chain` source checkout:
+
+```bash
+go run ./giga/evmonly/cmd/evmonly-loadtest --blocks=1000 --txs-per-block=1000
+```
+
+The command prebuilds every block before starting the prepare and executor workers, which isolates executor throughput from block generation. Prebuilding requires `--blocks > 0` and stores every raw block in memory.
+
+### Workload and economics flags
+
+- `--workload`: Workload type: `transfer`, `erc20-transfer`, or `snapshot-revert`. The default is `transfer`.
+- `--chain-id`: EVM chain ID used to sign and execute transactions (default `1337`).
+- `--gas-price-wei`: Legacy transaction gas price in wei (default `1000000000`).
+- `--min-gas-price-wei`: Executor minimum gas price in wei (default `1000000000`). Unless `--disable-gas-price-rule` is set, `--gas-price-wei` must be greater than or equal to this value.
+- `--sender-balance-wei`: Generated sender genesis balance in wei (default `1000000000000000000`). It must cover the transfer value plus maximum gas cost of each sender's transactions.
+- `--transfer-value-wei`: Wei or token units transferred by each generated transaction (default `1`).
+- `--tx-gas-limit`: Gas limit for each generated transaction (default `21000` for the transfer workload, `100000` for `erc20-transfer` and `snapshot-revert` unless overridden).
+- `--block-gas-limit`: Block gas limit; `0` (the default) lets the executor use its maximum.
+- `--coinbase`: Block coinbase address.
+- `--erc20-contract`: EVM address for the generated ERC20 transfer contract.
+- `--snapshot-revert-contract`, `--snapshot-revert-helper`: Generated contract addresses used by `--workload=snapshot-revert`. They must differ.
+- `--disable-gas-price-rule`: Disable the executor min-gas-price validity rule.
+
+### Recipient and sender shaping flags
+
+- `--recipient`: Optional fixed transfer recipient. The default (empty) creates one recipient per transaction, so recipients are unique.
+- `--recipient-conflict-rate`: Fraction `[0,1]` of each block's transactions paired onto shared recipients; `0` (the default) keeps recipients unique and `1` pairs all possible transactions. It cannot be combined with `--recipient`.
+- `--same-sender`: Use one sender per transfer block with sequential transaction nonces. It is only supported with the `transfer` workload.
+
+These shaping flags expose the three executor OCC scenarios: unique senders and recipients (conflict-free), unique senders all crediting one `--recipient` (hot recipient), and a `--same-sender` nonce chain.
+
+### Pipeline and concurrency flags
+
+- `--blocks`: Number of blocks to prebuild and execute. Required and must be greater than `0`.
+- `--txs-per-block`: Transactions generated per block (default `1000`).
+- `--queue-size`: Buffered raw and prepared blocks (default `64`).
+- `--builders`: Parallel block builders used to keep the input queue full. The default is `GOMAXPROCS`.
+- `--prepare-workers`: Parallel stateless preparation workers for transaction decode and sender recovery. The default is `GOMAXPROCS`.
+- `--parse-workers`: Parallel transaction decode/sender recovery workers inside each prepared block. The default `0` uses `1` when `--prepare-workers > 1`, otherwise `GOMAXPROCS`.
+- `--workers`: Parallel executor workers (default `1`).
+- `--executor-workers`: Parallel OCC workers inside each executor. The default is `min(12, GOMAXPROCS)`.
+
+### Result sink and persistence flags
+
+- `--result-sink`: Executor output sink, either `discard` or `file` (default `discard`). The `discard` sink applies the executor state change set to a discard writer and drops receipts.
+- `--result-pool-size`: Reusable executor result slots. The default `0` sizes the pool for in-flight executor and async sink results; a negative value disables result pooling.
+- `--persist-dir`: Directory used by `--result-sink=file` for temporary append-only `changesets.rlp` and `receipts.rlp` files. Required when `--result-sink=file`. The files are removed on shutdown or interrupt cleanup.
+- `--persist-sync`: fsync persistent result files from the async sink writer.
+- `--persist-buffer-size`: Buffered writer size in bytes for `--result-sink=file` (default `4194304`).
+- `--persist-queue-size`: Async file-sink record queue size. The default `0` uses `2 * --queue-size`.
+
+### Observability and profiling flags
+
+- `--metrics-addr`: Prometheus listen address (default `127.0.0.1:9698`). Set it to empty to disable the HTTP metrics server.
+- `--report-interval`: stdout rate reporting interval (default `5s`). `0` disables periodic reports.
+- `--cpu-profile`: Write a Go CPU profile to this file; profiling starts after prebuild.
+- `--heap-profile`: Write a Go heap profile to this file after execution.
+- `--trace-profile`: Write a Go runtime trace to this file; tracing starts after prebuild.
+
+### Metrics server
+
+When `--metrics-addr` is set, the command starts an HTTP server exposing two endpoints:
+
+- `/metrics`: Prometheus metrics for the load test.
+- `/healthz`: A liveness probe that returns `ok`.
+
+The server reports saturation signals including block input, preparation, and finishing throughput; prepared, finished, successful, and failed transactions per second; total gas consumed per second; OCC rerun attempts; queued and cumulative prepared blocks; result-sink records queued, written, bytes written, and enqueue wait; and result-pool capacity, available slots, and overflow allocations. The same rates are also printed to stdout at `--report-interval`. `evmonly_loadtest_result_sink_enqueue_wait_seconds_total` (`sink_enqueue_wait` in the stdout report) is the primary backpressure signal: a non-zero value means executor workers waited for async sink queue capacity.
+
 
 ## File locations
 

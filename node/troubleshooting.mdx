@@ -441,6 +441,20 @@ Next, roll back the node:
 seid rollback
 ```
 
+This rewinds the commit store and Tendermint to the target version. It now also rolls back the state store (SS) to that version when possible, so SS no longer silently stays ahead of the commit store after a rollback.
+
+The state store can only follow the rollback when it has a snapshot at or below the target. State store rollback requires the `pebbledb` backend and does not support `evm-ss-split`. Because snapshots are off under the default configuration, the state store cannot be rolled back on a default node and will stay ahead of the commit store.
+
+When the state store cannot follow — it has no rollback support, no snapshot at or below the target, or `evm-ss-split` is enabled — the rollback of the commit store and Tendermint still proceeds, and the command prints a warning like this:
+
+```text
+WARNING: state store rollback skipped: ...
+WARNING: the commit store and Tendermint roll back to version [TARGET] while the state store stays at version [SS_VERSION]
+WARNING: rebuild the state store from state sync unless the chain replays the same blocks above version [TARGET]
+```
+
+If you see this warning, rebuild the state store from [state sync](/node/statesync) unless the chain replays the same blocks above the target — re-execution rewrites the keys the replayed blocks write, but keys written only by the discarded blocks keep their old values. To enable state store rollback going forward, run with the `pebbledb` backend, state store snapshots enabled, and `evm-ss-split` disabled.
+
 Then, restart the node.
 
 If you see this error when you try to roll back:
@@ -452,6 +466,42 @@ failed to initialize database: resource temporarily unavailable
 This means that you did not shut down the node properly. In that case, try to shut down or kill the `seid` process directly. If this does not help, restart your machine.
 
 Then try the rollback steps again.
+
+
+
+## BlockDB refuses to open on a pre-rename table
+
+On Autobahn nodes, the BlockDB stores blocks and QCs in a LittDB-backed table. The
+on-disk table was renamed from `ledger` to `blocks`. On startup the block DB now
+refuses to open if a pre-rename `ledger` table directory is still present under any
+of its root paths (by default `<PersistentStateDir>/blockdb`). The old data cannot
+be reached under the new name, so opening silently would leave the store looking
+healthy and empty while the blocks and QCs it holds would be neither served nor
+reclaimed.
+
+The node fails to start with an error like this:
+
+```text
+block db: found a pre-rename "ledger" table at [/path/to/blockdb/ledger]; the table is now named "blocks", so those blocks and QCs would be neither served nor reclaimed. Delete or move the directory aside to start from an empty store
+```
+
+The refusal happens before anything is written, so the directory is left exactly as
+found — nothing new is created beside the legacy table.
+
+### Recovery
+
+To start from an empty store, delete the legacy `ledger` directory or move it aside:
+
+```bash
+# Stop the node first, then either delete the directory...
+rm -rf <PersistentStateDir>/blockdb/ledger
+
+# ...or move it aside to keep it for inspection:
+mv <PersistentStateDir>/blockdb/ledger <PersistentStateDir>/blockdb/ledger.bak
+```
+
+After the directory is gone, restart the node. The block DB opens fresh under the
+`blocks` name and refills from its own ingest path.
 
 ## HashVault app-hash equivocation panic
 
