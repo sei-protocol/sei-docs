@@ -9,7 +9,7 @@ keywords: ['cosmwasm precompile', 'ethers.js', 'wasm execution', 'cross-chain co
 <Danger>
   **Deprecation notice (Prop 115)**
 
-  Under [governance Proposal 115](https://seistream.app/proposals/115), CosmWasm code uploads (`MsgStoreCode`) and contract instantiations (`MsgInstantiateContract`) are disabled chain-wide. The `instantiate()` function on this precompile **reverts** for all callers. Only calls to `execute()`, `execute_batch()`, and `query()` against pre-existing CosmWasm contracts still work. All CosmWasm functionality is deprecated in favor of EVM-only under [SIP-3](https://github.com/sei-protocol/sips/blob/main/sips/sip-3.md).
+  Under [governance Proposal 115](https://seistream.app/proposals/115), CosmWasm code uploads (`MsgStoreCode`) and contract instantiations (`MsgInstantiateContract`) are disabled chain-wide. The `instantiate()` function on this precompile **reverts** for all callers. The `execute_batch()` function is also **disabled** at the precompile level and fails with the error `wasmd execute_batch is disabled`; use single `execute()` calls instead. Only calls to `execute()` and `query()` against pre-existing CosmWasm contracts still work. All CosmWasm functionality is deprecated in favor of EVM-only under [SIP-3](https://github.com/sei-protocol/sips/blob/main/sips/sip-3.md).
 
   The examples on this page attach only native SEI. Do not use the `coins` field to build IBC or tokenfactory integrations. IBC is disabled in both directions. Tokenfactory is not a supported development path.
 
@@ -439,6 +439,21 @@ contract CosmWasmQuery {
 </Tabs>
 
 <Warning> **Query limitations:** Consider parsing responses off-chain. CosmWasm queries are read-only operations and do not consume gas. However, parsing JSON responses in Solidity is complex. </Warning>
+
+
+
+## Governance kill switches for contract execution
+
+Governance can halt CosmWasm contract execution in stages through two wasm module parameters, each settable with a param-change proposal against the `wasm` subspace. Both default to `false`.
+
+| Parameter | Subspace key | Effect on this precompile |
+| --- | --- | --- |
+| `contract_execution_disabled` | `contractExecutionDisabled` | When `true`, no contract runs from any origin, including the EVM wasmd precompile. Calls to `execute()` and `instantiate()` **revert**; `query()` still works. |
+| `msg_execute_contract_disabled` | `msgExecuteContractDisabled` | When `true`, every `MsgExecuteContract` fails, but contract calls that go through the EVM wasmd precompile are **not** affected, so `execute()` on this precompile keeps working. |
+
+When `contract_execution_disabled` is set, `execute()` and `instantiate()` through this precompile revert with the wasm error `ErrContractExecutionDisabled` (codespace `wasm`, code `32`). Direct `MsgExecuteContract` transactions blocked by `msg_execute_contract_disabled` fail with `ErrMsgExecuteContractDisabled` (codespace `wasm`, code `31`); that param leaves the precompile path open, so only `contract_execution_disabled` stops execution here.
+
+<Info> Because `msg_execute_contract_disabled` does not apply to precompile calls, use `contract_execution_disabled` if you need to halt contract execution reaching CosmWasm through the EVM. Queries remain available under both parameters. </Info>
 
 ## Advanced usage examples
 

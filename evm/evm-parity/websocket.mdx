@@ -111,6 +111,38 @@ const unwatch = client.watchEvent({
 - Sei has instant finality, so every block emitted over WebSocket is already final. You do not need to wait for more confirmations before you act on an event.
 - Sei does not support `newPendingTransactions` subscriptions. You can subscribe only to `newHeads` and `logs`.
 
+- `newHeads` notifications include a Sei-specific `milliTimestamp` field alongside the standard seconds-based `timestamp`. It carries the header time as a hex quantity of Unix milliseconds, giving sub-second precision that the seconds-based `timestamp` cannot, since Sei commits blocks faster than once a second and `timestamp` repeats across consecutive blocks. This field is present under both Autobahn and CometBFT consensus. Note that `milliTimestamp` is not guaranteed unique per block under Autobahn, where consecutive blocks may be spaced less than a millisecond apart.
+
+
+## `logs` subscription behavior
+
+A `logs` subscription polls for matching logs from a cursor that is fixed when the subscription is created. Where that cursor starts depends on the filter's `fromBlock`:
+
+- A numeric `fromBlock` is used as given. A `fromBlock` in the past makes the subscription's first poll return that history. A numeric `fromBlock` above 0 that is below the earliest available (non-pruned) block is rejected when the subscription is created, with an error such as `requested fromBlock 1 is before earliest available block 2`. A `fromBlock` of 0 (or `earliest`) polls from the earliest available block and is never rejected.
+- An omitted or tag `fromBlock` (such as `latest`, `safe`, `finalized`, or `pending`) starts the cursor at the block after the head at creation time, so the subscription delivers only new logs and never replays the block that was the head when it was created.
+- A `fromBlock` of 0 paired with a tag `toBlock` — what `ethclient` sends for an open-ended query — is treated as an omitted `fromBlock`, so the subscription starts after the head rather than resolving to the current latest block.
+
+Each poll scans from the cursor to the head (or to a numeric `toBlock` below the head), covering at most `max_blocks_for_log` blocks per poll; any remaining blocks are returned by later polls. A tag `toBlock` such as `latest` follows the head and never ends the subscription.
+
+Unlike `eth_getLogs`, `eth_getFilterLogs`, and `eth_getFilterChanges`, subscription polls are not subject to the shared log-query admission (rate-limit tokens for large ranges and worker-queue/DB-semaphore load shedding). A subscription poll is never refused with the `-32005` (limit exceeded, retry later) code, so load or rate limiting cannot end a subscription. A historical `fromBlock` still makes each poll scan up to `max_blocks_for_log` blocks until the subscription catches up to the head.
+
+### Error notifications
+
+When a poll fails, the subscription sends a notification containing a JSON object in place of logs:
+
+```json
+{ "error": "<message>" }
+```
+
+If a poll reaches a block whose matching logs alone exceed the node's log caps, that single poll fails, but the subscription continues past the block instead of wedging on it. In that case the error notification also includes the skipped block's number:
+
+```json
+{ "error": "logs of block 42 skipped: query matches too many logs", "blockNumber": "0x2a" }
+```
+
+Any other failure ends the subscription after sending its `{ "error": "<message>" }` notification.
+
+
 ## Frame size and concurrency limits
 
 WebSocket connections use the same request limits as HTTP JSON-RPC. Operators set them in the `[evm]` section of `app.toml`:

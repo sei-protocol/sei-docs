@@ -20,6 +20,37 @@ After the migration, the SS layer is repartitioned into two cooperating stores:
 This migration changes only the **SS** layer. It does not change the SC layer or
 the app hash, so the change is invisible to the network.
 
+
+
+## App hash vault on Giga nodes
+
+Giga nodes persist an app hash vault store alongside the block store at
+`data/ledger/app_hash`. The vault (store name `AppHashVault`) holds the app hash
+of every committed block and joins the storage garbage collector's shared prune
+cycle like the other stores.
+
+Operators restarting a Giga node must keep this directory present and consistent
+with the rest of the data directory. The following behaviors affect upgrades and
+restarts:
+
+- **Recovery converges on the app hash vault head.** After an unclean shutdown,
+  recovery brings every store onto the lowest head among the block store, the
+  state WAL, the receipt store, and the app hash vault. If the vault is behind
+  the other stores (for example, a crash left state ahead of the stored app
+  hashes), recovery lowers the target to the vault head and the blocks above it
+  are re-executed, rebuilding their app hashes as they commit. If the vault is
+  ahead of the state (its WAL tail was not flushed before the crash), the vault
+  keeps its app hashes and the re-executed blocks are checked against them.
+- **Chain ID is validated at startup.** The vault commits to the configured EVM
+  chain ID. If the stored app hashes belong to a different chain ID than the one
+  configured, the node fails to start rather than mixing hashes across chains.
+- **The vault cannot roll back below block 1.** If the app hash vault holds no
+  app hash while the other stores hold blocks, recovery errors instead of
+  attempting a rollback that would reach below block 1. Removing or corrupting
+  the `data/ledger/app_hash` directory on a node that already has block and
+  state history therefore blocks startup; restore it from backup alongside the
+  rest of the data directory, or recover the node with a fresh state sync.
+
 ## Prerequisites
 
 <Warning>Run this migration on **RPC nodes only**. This flow does not support validator nodes or archive nodes yet, so do not run it against either.</Warning>
@@ -76,9 +107,9 @@ evm-ss-split = true
 
 ### Step 2: State sync into the new layout
 
-Giga SS Store is fully compatible with the existing state-snapshot format. On
-import, the composite state store routes each snapshot node based on the
-importing node's `evm-ss-split`:
+Giga SS Store is fully compatible with the existing **P2P state-sync** snapshot
+format. On import, the composite state store routes each snapshot node based on
+the importing node's `evm-ss-split`:
 
 - With `evm-ss-split = true`, EVM snapshot nodes go only into EVM SS, and
   non-EVM nodes go only into Cosmos SS.
@@ -87,6 +118,30 @@ importing node's `evm-ss-split`:
 
 Both stores are then fully populated at the snapshot height, so the node can
 serve reads immediately.
+
+P2P state-sync snapshots (the chunks peers serve over the network) are **not**
+layout-sensitive. Giga SS Store only changes how the importing node writes those
+nodes onto disk.
+
+#### Alternative: restore a Giga SS data-directory snapshot
+
+**Data-directory snapshots** (a tarball of `~/.sei/data`) *are* layout-sensitive.
+A tarball taken from a Giga SS node contains `data/state_store/evm/` (and
+`data/state_store/cosmos/`) instead of a single mixed Cosmos SS directory. You
+can enable Giga SS Store by restoring such a snapshot and setting
+`evm-ss-split = true`; you do not need to P2P state sync again.
+
+The restoring node's `ss-backend`, `evm-ss-separate-dbs`, and any
+`ss-db-directory` / `evm-ss-db-directory` overrides must match the node the
+snapshot was taken from. Both SS paths are backend-qualified
+(`data/state_store/{cosmos,evm}/{backend}`), so a backend mismatch opens empty
+directories and the node starts against restored SC with empty SS instead of
+refusing to launch. A tarball from a non-Giga node cannot be used this way —
+convert those nodes with the state sync flow below.
+
+Snapshot hosts that publish `data/` tarballs may offer both Giga SS and non-Giga
+copies while the fleet migrates. Use a Giga SS snapshot only when you intend to
+run with `evm-ss-split = true`.
 
 The [state sync guide](/node/statesync) documents the full flow. The minimal
 flow for this migration is:
@@ -216,6 +271,17 @@ config changes:
   `memiavl_only` to `migrate_evm` at the same height and starts to move keys.
   The node does not restart.
 
+
+
+A `pause-state-migration` hard fork handler can force `NumKeysToMigratePerBlock`
+to `0` at a configured target height on a specific chain. When it fires, it sets
+the migration rate back to zero through the `migration` params subspace, which
+pauses key movement without changing the current write mode: a node already in
+`migrate_evm` stays in `migrate_evm`, it simply stops advancing the migration
+boundary. Operators should be aware that an upgrade may ship this handler to
+halt the migration at a coordinated height, after which governance can resume it
+by raising `NumKeysToMigratePerBlock` above `0` again.
+
 In v6.7, governance can start only the EVM migration. The later write modes
 (`migrate_all_but_bank`, `all_migrated_but_bank`, `migrate_bank`, and
 `flatkv_only`) exist, but no parameter starts them.
@@ -226,6 +292,27 @@ backends report a key, the node uses the memiavl value. The migration boundary
 advances at most once per block. When the migration starts, the node stops
 serving state proofs for the `evm` store, because FlatKV has no proof builder.
 Proofs for other modules still work.
+
+
+<Note>FlatKV only retains a bounded window of recent history (its snapshots plus
+WAL). A rollback or historical read that targets a version below that retained
+FlatKV history is now refused up front, before any backend state is touched,
+with a non-fatal `version unreachable; use state sync instead` error. The store
+is left usable rather than failing partway through a mutation, and historical
+reads (`LoadVersionReadOnly` and exporters) below the floor return the same
+error instead of panicking or creating a work directory. If you need a version
+older than FlatKV retains, recover it with a state sync rather than a rollback.</Note>
+
+FlatKV applies a block's account changes by folding each per-field change (a
+nonce, code hash, or balance) onto the row the account already holds. That fold
+now runs asynchronously on the account store's own threads after the block has
+been staged, rather than reading and merging the old account values synchronously
+while the block is applied. As a result, applying a block no longer fails when it
+touches a corrupted account row: `ApplyChangeSets` succeeds because the fold has
+only been scheduled, and the corruption instead surfaces as a panic when that
+account is later read. The `flatkv_account_update_latency` OpenTelemetry metric
+measures the time to stage a block's account changes; it replaces the former
+`flatkv_batch_read_old_values_latency` metric.
 
 ### Pinning a write mode
 
@@ -360,9 +447,37 @@ In the `localnode` and `rpcnode` configuration scripts, setting
 `RECEIPT_BACKEND` environment variable explicitly. The explicit value takes
 precedence over the default.
 
-The supported receipt-store backends are `pebbledb` (also called `pebble`) and
-`littidx`. For details on `littidx`, see the
-[node operations guide](/node/node-operators). The former `parquet` option was
-removed. The node rejects an unsupported value for `RECEIPT_BACKEND` (or
-`rs-backend` in `app.toml`) with an error
-(`unsupported receipt-store backend "parquet"; supported: pebbledb, littidx`).
+The only receipt-store backend selectable from `app.toml` is `pebbledb` (also
+called `pebble`). The `littidx` backend can no longer be selected via
+`RECEIPT_BACKEND` or `rs-backend`; it is reserved for Giga, which opens it
+through its own storage config. Selecting `littidx` from `app.toml` is rejected
+with an error stating it cannot be selected from `app.toml` and is opened by
+Giga. The former `parquet` option was removed. The node rejects any other
+unsupported value for `RECEIPT_BACKEND` (or `rs-backend` in `app.toml`) with an
+error (`unsupported receipt-store backend "parquet"; supported: pebbledb`).
+
+
+
+### Does the receipt store guard against opening it with the wrong backend?
+
+Yes. The receipt store records which backend owns its directory in a
+`receipt-backend.txt` marker file, written on first open. If you later point a
+different backend at that same directory than the one that owns it, the store
+refuses to open and fails with a mismatch error that names both the backend
+that owns the directory and the one that was requested, instead of silently
+presenting an empty store. Point the configured backend at its own store
+directory, or configure the backend that owns the one on disk.
+
+Since `littidx` is no longer selectable from the standard `rs-backend` config,
+the only backend you can select from `app.toml` is `pebble`; a directory owned
+by Giga's `littidx` store (opened through the `gigareceipt` path) cannot be
+adopted by the standard receipt-store config, and the marker guards against
+pointing the standard `pebble` backend at it.
+
+Directories written before the marker existed carry no marker and are adopted
+as-is on the next open: the configured backend is taken to be the owner and the
+marker is stamped on the way through, so existing nodes keep working without
+intervention. A backend the build does not support, or a config the backend
+rejects (such as `ExternalPruning` with the `pebble` backend), is refused before
+the directory is touched, so a rejected attempt does not leave a marker behind
+that would then refuse the corrected config.

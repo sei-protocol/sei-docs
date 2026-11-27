@@ -36,17 +36,78 @@ seid tendermint show-validator
 seid query node info
 ```
 
-#### Experimental config manager (`SEI_CONFIG_MANAGER`)
+#### LtHash hashing backend (`SEI_LTHASH_BACKEND`)
 
-The experimental `SEI_CONFIG_MANAGER` environment variable selects how `seid` loads its configuration. The value must match exactly.
+The `SEI_LTHASH_BACKEND` environment variable pins the hashing backend used for FlatKV state-commitment LtHash computation. Every backend produces bit-identical results; they differ only in speed. The value must match a backend name exactly.
 
-- Unset or `legacy`: the default config loader.
-- `v2`: boots the node the same way as `legacy`, from the same `config.toml` and `app.toml`, and also logs config validation warnings. It never changes your files, and the node always starts. `v2` does not validate a new node on its first start, because its config files do not exist yet.
-- Any other value: `seid` refuses to start with an `invalid SEI_CONFIG_MANAGER` error.
+- `default`: the portable scalar backend, built on zeebo/blake3 with plain Go limb arithmetic. It is always available.
+- `simd`: an AVX-512 backend. It is compiled in only on `amd64` builds produced with `GOEXPERIMENT=simd`, and it is selectable only when the CPU supports AVX-512F, VBMI2, and BW. Otherwise it is not present and cannot be chosen.
+- Empty or unknown value: selection is automatic. The node picks the fastest available backend, which is `simd` when the build and CPU support it and `default` otherwise.
 
 ```bash
-SEI_CONFIG_MANAGER=v2 seid start
+# Pin the portable scalar backend
+SEI_LTHASH_BACKEND=default seid start
+
+# Request the AVX-512 SIMD backend (requires a GOEXPERIMENT=simd amd64 build on
+# a CPU with AVX-512F + VBMI2 + BW; otherwise selection stays automatic)
+SEI_LTHASH_BACKEND=simd seid start
 ```
+
+When `SEI_LTHASH_BACKEND` is empty or names a backend this binary cannot run on the current CPU, the node falls back to automatic selection rather than failing to start.
+
+
+
+
+
+#### tmhash/merkle hashing backend (`SEI_TMHASH_BACKEND`)
+
+The `SEI_TMHASH_BACKEND` environment variable pins the batch hashing backend used for tmhash and Merkle-tree (`HashFromByteSlices`) batched SHA-256. Every backend produces bit-identical digests; they differ only in speed. Merkle root computation follows RFC-6962 regardless of the active backend. The value must match a backend name exactly.
+
+- `default`: the portable scalar backend, which hashes one message at a time with `crypto/sha256` (using the SHA-NI single-lane instructions where the CPU has them). It is always available.
+- `simd`: an AVX-512 backend that hashes sixteen messages per kernel pass. It is compiled in only on `amd64` builds produced with `GOEXPERIMENT=simd`, and it is selectable only when the CPU supports AVX-512F, BW, DQ, and VL plus VBMI and VBMI2. Otherwise it is not present and cannot be chosen. When enough items are available, Merkle root computation switches to a level-batched path that hands each level's independent hashes to this backend in one call.
+- Empty or unknown value: selection is automatic. The node picks the fastest available backend, which is `simd` when the build and CPU support it and `default` otherwise.
+
+```bash
+# Pin the portable scalar backend
+SEI_TMHASH_BACKEND=default seid start
+
+# Request the AVX-512 SIMD backend (requires a GOEXPERIMENT=simd amd64 build on
+# a CPU with AVX-512F + BW + DQ + VL + VBMI + VBMI2; otherwise selection stays
+# automatic)
+SEI_TMHASH_BACKEND=simd seid start
+```
+
+When `SEI_TMHASH_BACKEND` is empty or names a backend this binary cannot run on the current CPU, the node falls back to automatic selection rather than failing to start.
+
+
+
+#### Checking sei.toml before a restart (`seid config check`)
+
+The `seid config check` subcommand resolves a node's `sei.toml` the same way a boot resolves it and reports every value this binary would refuse, without starting the node. A boot cannot refuse a file: it applies what it can and reports the rest, so a mistyped value becomes a report on a node that has already restarted. Running `config check` first turns that into a failed check instead. It exits non-zero when it finds a problem, so you can gate a configuration rollout on its exit status.
+
+```bash
+# Check the node's sei.toml against this binary without starting anything
+seid config check --home <dir>
+```
+
+The command locates the node's config directory from the standard `--home` flag (or the `SEID_HOME` environment variable). A home must be set one of these ways; otherwise the command refuses to run rather than reading `sei.toml` from the working directory, because answering confidently about some other node's file is worse than not answering.
+
+`config check` resolves `sei.toml` against the environment it runs in. A declared key answered by an environment variable is only visible to the check if that variable is also set where you run the command, so run it in the same environment the node boots in (for example, the same container or service unit) for the most faithful result. It does not start the node and does not generate any files: unlike a normal boot, it never writes `config.toml` or `app.toml`, so you can safely run it against a node you are only asking a question about.
+
+The report covers every value a boot would refuse or ignore, including:
+
+- Keys that `sei.toml` writes but no section declares, which have no effect.
+- Type mismatches, such as a length of time written as a plain number (which would be read as nanoseconds) or a number larger than the setting can hold.
+- Values that decode cleanly but the node's own delivery rules reject (for example, a negative `max-tx-bytes`).
+- A disagreement about the kind of node: `sei.toml` records the node mode at its top, and the node's own `config.toml` records a `mode` of its own. When they disagree, the values resolved from `sei.toml` are the answer for one kind of node while the node would run as the other.
+- How many of the declared keys the file states, how many are answered by an environment variable or a flag, and how many fall back to the value this binary declares for this kind of node.
+
+`config check` also surfaces the `SEI_CONFIG_MANAGER` gate state (see above), because that determines whether a boot reads `sei.toml` at all:
+
+- Unset or `legacy`: the command notes that a boot in the same environment reads none of this file, then reports what it would reach if the gate were set to `v2`. This keeps a passing check from reading as "in use and correct" on a node where a boot ignores the file.
+- `v2`: a boot reads the file, so the report reflects what it would use.
+- Any other value: the gate is reported as a problem, because a boot refuses an invalid `SEI_CONFIG_MANAGER` value before it reaches the file, and such a node would not start.
+
 
 #### Freeze mode (`--freeze-height`)
 
@@ -75,7 +136,7 @@ freeze-height = 0
 ```
 
 <Warning>
-  Freeze mode is supported only for full nodes. In validator or seed mode, the node rejects a non-zero `freeze-height` at startup with an error (`freeze height is not supported in <mode> mode`). Freeze mode also does not run with Autobahn. When `autobahn-config-file` is set in `config.toml`, startup fails with `freeze height is not supported with Autobahn`. You also cannot combine `freeze-height` with `halt-height`, `halt-time`, or the `--grpc-only` start flag. The node rejects each combination at startup.
+  Freeze mode is supported only for full nodes. In validator or seed mode, the node rejects a non-zero `freeze-height` at startup with an error (`freeze height is not supported in <mode> mode`). Freeze mode also does not run with Autobahn. When `autobahn-config-file` is set in `config.toml`, startup fails with `freeze height is not supported with Autobahn`. You also cannot combine `freeze-height` with `halt-height` or `halt-time`. The node rejects each combination at startup.
 </Warning>
 
 ### Frozen RPC router
@@ -165,6 +226,8 @@ The emitted JSON contains these fields:
 - `boundary_hex`: The hex-encoded migration boundary cursor. It appears only when a boundary is present.
 - `version_raw_hex`: The hex-encoded raw migration-version bytes. It appears only when a migration version is present.
 
+Together, `boundary_present` and `boundary_hex` let operator tooling inspect a FlatKV migration while it is still in flight, rather than only seeing the final completed state. When `boundary_present` is `true`, the migration has not finished and the resume cursor in `boundary_hex` marks where it left off; once the migration completes, the boundary is cleared and `migrate_evm_complete` becomes `true`.
+
 #### Comparing EVM state across backends
 
 The `evm-logical-digest` subcommand computes a backend-independent digest of the EVM logical state (the account, code, and storage buckets). With this digest, you can compare a memIAVL node and a FlatKV node at the same chain height.
@@ -198,12 +261,12 @@ The command accepts these flags:
 - `--db-dir` (`-d`): For FlatKV, the FlatKV data directory. For memIAVL, the memIAVL root directory that contains `current/` and `snapshot-*`. Required unless you use `composite`.
 - `--flatkv-dir` and `--memiavl-dir`: The two data directories for `--backend composite`. You must set both in that mode.
 - `--height`: The target version. FlatKV WAL-replays to it, and memIAVL resolves `snapshot-<height>/evm` (`0` selects the `current` symlink).
-- `--memiavl-open-mode`: How the command reads memIAVL. `snapshot` (the default) scans the snapshot file at `--height`. It is the fastest mode, but it needs a snapshot at that height, or `--height 0`. `changelog` reads the nearest snapshot at or below `--height` and adds the changelog's EVM writes up to `--height`. `replay` opens the database, replays the changelog to `--height`, and walks the tree. It is about 10 times slower than `snapshot`. `changelog` and `replay` return the same rows. Use one of them when no snapshot exists at `--height`.
+- `--memiavl-open-mode`: How the command reads memIAVL. `snapshot` (the default) scans the snapshot file at `--height`. It is the fastest mode, but it needs a snapshot at that height, or `--height 0`. `changelog` reads the nearest snapshot at or below `--height` and adds the changelog's EVM writes up to `--height`. `replay` opens the database read-only and replays the changelog to `--height`, then walks the tree. It is about 10 times slower than `snapshot`. `changelog` and `replay` return the same rows. Use one of them when no snapshot exists at `--height`. On a live node, `replay` can encounter a changelog record that the node is partway through writing. In that case it does not repair (truncate) the torn changelog tail, because doing so could discard a block the node has just committed. Instead it leaves the changelog directory as it found it and fails with an error that tells you to rerun the command; if the failure persists across reruns, the changelog is genuinely corrupt and the node needs attention. Inspect mode (`--inspect-bucket`) accepts `--memiavl-open-mode=replay` in addition to `snapshot`, so you can shard and locate mismatched EVM keys during a FlatKV drain without a snapshot at `--height`.
 - `--memiavl-normalization`: The memIAVL normalization mode. Use `semantic` or `independent` for the raw EVM key-value decoder, or `translator` for the current migration mapping. The default is `semantic`.
-- `--json`: Print the digest or inspect report as one JSON object on stdout, and the progress messages on stderr.
-- `--inspect-bucket`: Inspect one normalized bucket (`account`, `code`, `storage`, or `misc`), not the global digest. Inspect mode with `--memiavl-normalization translator`, or with `--details` on the `storage` bucket, requires `--memiavl-open-mode snapshot`.
-- `--inspect-plan` (inspect mode): A JSON file that lists several inspect reports to produce from one scan. It replaces the single-report inspect flags.
-- `--key-offset` (inspect mode): The byte offset into the physical key, applied before `--key-prefix` or sharding.
+- `--json`: Print the digest or inspect report as one JSON object on stdout, and send the narration, progress, and warnings to stderr. Storage-layer logging is quieted to error level so it stays off stdout; for an unattended `--json` run, also set `SEI_LOG_OUTPUT=stderr` to keep an error-level log line off stdout, so it cannot corrupt the JSON report.
+- `--inspect-bucket`: Inspect one normalized bucket (`account`, `code`, `storage`, or `misc`), not the global digest. Inspect mode accepts `--backend composite` (which requires `--flatkv-dir` and `--memiavl-dir`) in addition to `flatkv` and `memiavl`, so you can inspect the mid-migration composite EVM view. Inspect mode with `--memiavl-normalization translator`, or with `--details` on the `storage` bucket, requires `--memiavl-open-mode snapshot`.
+- `--inspect-plan` (inspect mode): A JSON file that lists several inspect reports to produce from one scan. Each item is an object with `inspect_bucket`, `key_offset`, `key_prefix` (hex), `shard_next_bytes`, `list`, `list_limit`, and `out` (the file its JSON report is written to). An item without `list_limit` lists every match. When set, `--inspect-plan` replaces the single-report inspect flags (`--inspect-bucket`, `--key-offset`, `--key-prefix`, `--shard-next-bytes`, `--list`, `--list-limit`, and `--details`); setting any of those alongside `--inspect-plan` is an error.
+- `--key-offset` (inspect mode): The byte offset into the physical key, applied before `--key-prefix` or sharding. Physical keys are prefixed with the module name, so an EVM row's key starts with `evm/`. Use `--key-offset 4` to skip that prefix and make `--key-prefix` apply to the EVM key itself (for example `--key-offset 4 --key-prefix 03` to filter storage keys).
 - `--key-prefix` (inspect mode): A hex prefix, relative to `--key-offset`, that filters physical keys.
 - `--shard-next-bytes` (inspect mode): Group matching keys by this many bytes after `--key-prefix`.
 - `--list` (inspect mode): List pairs of matching keys and logical values instead of shard `bucket_digest` values.
@@ -245,6 +308,75 @@ The command accepts these flags:
 
 With `--lthash`, the output lists the count and checksum of each bucket, the `TOTAL`, and a `PASS` or `FAIL` line. On a mismatch, the command prints `TOTAL FAIL` and stops with an error. The command skips the check when the snapshot has no committed LtHash to compare with.
 
+
+
+#### Auditing a FlatKV snapshot's lattice hashes
+
+The `audit-flatkv` subcommand verifies one FlatKV snapshot against its own metadata. It recomputes the snapshot's per-module, per-database, and store-wide lattice hashes and key counts from a full scan of its rows, and compares each against the values the snapshot's metadata records. It prints a report and exits non-zero when any comparison fails, so you can gate a check on its exit status.
+
+The command hard-links the snapshot into a temporary directory under the FlatKV root and opens it read-only, so it is safe to audit a snapshot of a running node. The temporary directory is removed before the command returns. If an earlier audit was killed before it could clean up, its directory is left under the FlatKV root; the next audit removes any such leftover directory (including that of an audit still running) unless `--keep-stale-audit-dirs` is set.
+
+```bash
+# Audit the snapshot the current link names
+seidb audit-flatkv $HOME/.sei/data/state_commit/flatkv
+
+# Audit a specific snapshot version
+seidb audit-flatkv $HOME/.sei/data/state_commit/flatkv --snapshot-version <n>
+
+# Cap reads at 64 MiB/s and print without ANSI colors
+seidb audit-flatkv $HOME/.sei/data/state_commit/flatkv \
+    --read-limit-mb 64 --no-color
+```
+
+The command accepts these flags:
+
+- `--snapshot-version`: The snapshot version to audit. The default, `0`, selects the snapshot the current link names.
+- `--read-limit-mb`: A cap on the key and value bytes read, in MiB/s. The default, `0`, means no cap.
+- `--hashers`: The number of goroutines that hash the scanned rows. It defaults to the CPU count.
+- `--no-color`: Print the report without ANSI colors. The default is `false`.
+- `--keep-stale-audit-dirs`: Leave the temporary directories earlier audits left under the FlatKV root in place. When `false` (the default), an audit removes them, including the directory of an audit still running against the same root.
+
+The report lays out a section per data database, each with a section per module, then the store-wide totals, the scan's throughput, and a `PASS` or `FAIL` verdict. A mismatch is called out as `MISMATCH` with the scanned and recorded values shown side by side.
+
+
+
+#### Exporting a kvrepair file (`kvrepair-export`)
+
+The `kvrepair-export` subcommand writes a kvrepair file from two `evm-logical-digest` inspect list reports taken at the same height: one from a memIAVL reserve and one from a production node. Each entry it writes sets a key to the reserve value and records the production value as the key's old value, so that applying the repair makes production match the reserve. A kvrepair file is a reviewed set of key/value writes that a hard-fork handler applies to module stores at a target height.
+
+Generate the two reports first. Both runs need the same bucket, `--key-offset`, and `--key-prefix`, and `--list-limit 0` so the list is not cut off. Physical keys are prefixed with `evm/`, so use `--key-offset 4` to make `--key-prefix` apply to the EVM key:
+
+```bash
+# Reserve report from a memiavl node (replay mode)
+seidb evm-logical-digest --backend memiavl --memiavl-open-mode replay \
+    -d <reserve memiavl dir> --height H --inspect-bucket storage \
+    --key-offset 4 --key-prefix 03AB --list --list-limit 0 --json > reserve.json
+
+# Production report from a composite (or flatkv) node, at the same height,
+# bucket, offset, and prefix
+seidb evm-logical-digest --backend composite --memiavl-open-mode replay \
+    --flatkv-dir <flatkv dir> --memiavl-dir <memiavl dir> --height H \
+    --inspect-bucket storage --key-offset 4 --key-prefix 03AB \
+    --list --list-limit 0 --json > prod.json
+
+# Export the kvrepair file from the two reports
+seidb kvrepair-export --reserve reserve.json --prod prod.json \
+    --chain-id pacific-1 --name pacific-1-evm-<H+1> --target-repair-height <H+1> \
+    -o app/upgrades/kvrepair/repairs/pacific-1-evm-<H+1>.json
+```
+
+The command accepts these flags:
+
+- `--reserve`: The inspect list report (`--list --json`) from a memIAVL reserve. Required.
+- `--prod`: The inspect list report (`--list --json`) from a production node, taken at the same height, bucket, offset, and prefix. Required.
+- `--chain-id`: The chain ID the repair runs on. Required.
+- `--name`: The repair name, which must be unique across the repair files. Required.
+- `--target-repair-height`: The height whose start applies the repair. It must be above the report height (typically the report height plus one). Required.
+- `--source`: Free text for reviewers. It has no effect on execution. When omitted, it defaults to a description of the two report sources.
+- `--output` (`-o`): The output file. When empty, the file is written to stdout.
+
+`kvrepair-export` gives every entry an `old` value and checks that a node would load the file it writes. It refuses two reports that differ in height, bucket, offset, or prefix; a list that `--list-limit` cut off; a reserve read with `--memiavl-normalization translator`; and two reports that list no differences. Do not edit the exported values by hand.
+
 #### Inspecting hash log archives
 
 The `seidb hashlog` commands read the archives that the [per-block hash logger](/node/advanced-config-monitoring#per-block-hash-logger) writes. They do not change the archives.
@@ -266,6 +398,25 @@ seidb hashlog compare <archive-a> <archive-b> [--low <N> --high <M>] [--max-diff
 - `--full`: Show every column for each block with differences. By default, the command shows only the columns that differ. Use `--full` when the archives hold a different number of records for a block.
 - `--json`: Print JSON instead of text.
 
+
+
+#### Offline receipt-store maintenance (littidx backend)
+
+The receipt store supports offline operations that read or rewind its on-disk data directly, without starting a live store. The store must not be running while an offline operation runs. These operations now live in the `gigareceipt` package, alongside the littidx-backed store they operate on; the earlier config/marker check that refused any non-`littidx` backend has been removed.
+
+Two offline entry points are available:
+
+- **`GetRange`** reports the lowest and highest block heights present on disk for the receipt store, without opening it. It returns a flag that is false when no receipts are present.
+- **`PruneAfter`** deletes every receipt for a block height greater than the target from the store, without opening it. It rolls back the littdb receipt bodies, deletes the pebble tag-index entries above the target, and moves the store's latest-block metadata back to match. A target at or above the store's head is a no-op.
+
+`PruneAfter` validates the target before touching any receipt, so a refusal leaves the store's data unchanged. It refuses a target below the store's retention floor (that data has already been pruned) and a target below the oldest receipt still on disk (which would leave no receipt at all); to discard the store entirely, delete its directory instead.
+
+Underpinning these operations, the offline LittDB rollback utility now lives in the `litt/offline` package (moved from `litt/rollback`) and takes a `*litt.Config` in place of a slice of data directories. Its rollback filter semantics also changed: a table for which the filter never matches any record now retains nothing and is deleted in its entirety — including its gc-watermark — rather than being left unchanged. A filter must therefore not use a never-match to mean "not my table"; every table under the config's paths is subject to it.
+
+<Warning>
+  The database must not be running while any offline receipt-store or LittDB rollback operation runs. These operations take the same directory locks the database uses, so they fail rather than corrupt a live store, and they assume nothing else mutates the data meanwhile.
+</Warning>
+
 ### Autobahn (GigaRouter) config generation
 
 When you use the Autobahn (GigaRouter) networking layer, you can generate the Autobahn JSON config from a set of node directories. Each directory must contain `validator_pubkey.txt`, `node_pubkey.txt`, `autobahn_address.txt`, and `evmrpc_url.txt`. Unlike the key files, `evmrpc_url.txt` is not written automatically, so you must create it by hand with the node's EVM RPC URL. If the file is missing, the command fails with an error. The `mempool_size` field is no longer part of `autobahn.json`. Remove it from existing config files.
@@ -280,14 +431,11 @@ seid tendermint gen-autobahn-config ./node0 ./node1 ./node2 -o autobahn.json
 # Choose where autobahn consensus state and BlockDB are persisted (default: data/autobahn)
 seid tendermint gen-autobahn-config ./node0 ./node1 --output autobahn.json --persistent-state-dir data/autobahn
 
-# Pass an empty value to disable persistence and run in-memory only (memblock)
-seid tendermint gen-autobahn-config ./node0 ./node1 --output autobahn.json --persistent-state-dir=
-
 # Tune BlockDB retention and GC
 seid tendermint gen-autobahn-config ./node0 ./node1 --output autobahn.json --blockdb-retention 30s --blockdb-gc-period 10s
 ```
 
-The `--persistent-state-dir` flag controls where Autobahn persists its consensus state and BlockDB across restarts. The default is `data/autobahn`, so persistence is on by default. The node resolves a relative path against its `--home` directory. An empty value (`--persistent-state-dir=`) turns persistence off, and Autobahn keeps everything in memory. If you set the flag, it fills the `PersistentStateDir` field in the generated config.
+The `--persistent-state-dir` flag controls where Autobahn persists its consensus state and BlockDB across restarts. It is required: Autobahn runs only on on-disk storage, so `gen-autobahn-config` rejects an empty value with `persistent-state-dir is required`, and a config whose `persistent_state_dir` is empty fails validation with `persistent_state_dir must not be empty`. The default is `data/autobahn`. The node resolves a relative path against its `--home` directory. The flag fills the `PersistentStateDir` field in the generated config.
 
 Autobahn stores blocks and commit quorum certificates in a LittDB-based BlockDB under `<persistent_state_dir>/blockdb`. Since v6.7.0, it no longer reads the old `globalblocks/` and `fullcommitqcs/` write-ahead log directories.
 
@@ -310,19 +458,78 @@ The command reads these files from each node directory:
 - `validator_pubkey.txt`: The validator public key in `validator:<pubkey>` format.
 - `node_pubkey.txt`: The p2p node public key in `node:ed25519:public:<hex>` format.
 - `autobahn_address.txt`: The network address (`host:port`) that the node advertises to peers.
-- `evmrpc_url.txt`: The node's EVM RPC URL. It is written into the validator's `evmrpc` field for cross-shard transaction proxying.
+- `evmrpc_url.txt`: The node's EVM RPC WebSocket URL. It is written into the validator's `evmrpc` field for cross-shard transaction proxying. The URL must use a WebSocket scheme (`ws://` or `wss://`, port `8546` by convention, for example `ws://validator.example:8546`). HTTP and HTTPS URLs (such as a port-`8545` EVM RPC endpoint) are rejected during config validation and during the Autobahn handshake.
 
 The `validator_pubkey.txt` and `node_pubkey.txt` files are written automatically next to `priv_validator_key.json` and `node_key.json` whenever those keys are saved. They are therefore usually already present in each node's config directory.
 
-The generated `autobahn.json` file describes the validator set, transaction limits, block interval, view timeout, and dial interval. Gas limits are not part of this file and come from the genesis block parameters instead. To make a node use the file, reference it from `config.toml` with the `autobahn-config-file` key.
+The generated `autobahn.json` file describes the validator set, transaction limits, block interval, and dial interval. To make a node use the file, reference it from `config.toml` with the `autobahn-config-file` key.
+
+The view timeout is no longer part of `autobahn.json`; `gen-autobahn-config` does not emit it. Like the gas limits, it is now sourced from the genesis doc instead, through a new `autobahn` section with a `view_timeout` field. Its value is a duration in nanoseconds encoded as a string. When the section or field is omitted, the view timeout defaults to 1500ms (`"1500000000"` nanoseconds). If present, it must be greater than zero, or genesis validation fails with `autobahn.view_timeout must be greater than 0`.
+
+```json
+"autobahn": {
+  "view_timeout": "1500000000"
+}
+```
+
+Gas limits are likewise not part of `autobahn.json` and come from the genesis block parameters instead.
+
+
+
+### EVM-only RPC parity tools
+
+These developer tools record the parity fixtures that the EVM-only RPC's parity test (`TestV2Parity`) replays. They are not part of `seid`; run them from a `sei-chain` source checkout with `go run` and `go test`. Both write fixtures to `giga/evmonly/rpc/testdata/parity/`, which are reviewed like code.
+
+#### Capturing mainnet fixtures (`paritycapture`)
+
+The `paritycapture` command captures consecutive blocks from a v2 archive node into a parity fixture. The archive node must serve `debug_traceBlockByNumber` with the `prestateTracer`, from which the fixture's prestate is built, and the same node's Tendermint RPC supplies each block's exact time.
+
+```bash
+go run ./giga/evmonly/rpc/parity/cmd/paritycapture \
+  -evm-rpc http://<archive>:8545 -tendermint-rpc http://<archive>:26657 \
+  -block <height> -count 1 -name pacific-1-<height>
+```
+
+The command accepts these flags:
+
+- `-evm-rpc`: The v2 EVM JSON-RPC URL of an archive node that serves `debug_traceBlockByNumber`. Required.
+- `-tendermint-rpc`: The Tendermint RPC URL of the same node. Required.
+- `-block`: The first block height of the fixture. Required.
+- `-count`: The number of consecutive blocks in the fixture (default `1`).
+- `-name`: The fixture name. When empty, it defaults to `block-<block>`.
+- `-coinbase`: The EVM address of the fee collector, which v2 executes blocks with as coinbase. It defaults to the chain's fee collector address.
+- `-out`: The directory the fixture is written to (default `giga/evmonly/rpc/testdata/parity`).
+
+The capture refuses a block holding a Cosmos transaction, whose state changes the fixture cannot replay, and a block that calls a Sei custom precompile, which the EVM-only executor rejects.
+
+#### Recording synthetic fixtures (`EVMONLY_PARITY_RECORD`)
+
+The synthetic fixtures are recorded from an in-process v2 node rather than a live archive. Setting the `EVMONLY_PARITY_RECORD=1` environment variable enables the recording test; without it, the test is skipped. The recording is deterministic, so an unchanged v2 rewrites identical files.
+
+```bash
+EVMONLY_PARITY_RECORD=1 go test ./giga/evmonly/rpc/parity/v2record/ -run TestRecordSyntheticFixtures -count=1
+```
+
+Fixtures are recorded locally and are never recorded on CI.
+
+
+
+##### CheckTx concurrency (`max_concurrent_check_tx`)
+
+The optional `max_concurrent_check_tx` field in `autobahn.json` caps how many `CheckTx` calls the local mempool runs concurrently for incoming `broadcast_tx` requests, so that transaction ingest cannot starve the consensus and data loops of CPU. It is a `uint64`. When absent or set to `0`, it defaults to half of `GOMAXPROCS` (at least `1`). When set, it must be in the range `1..2147483647` (`MaxInt32`); any other value fails config validation with `max_concurrent_check_tx must be in 1..2147483647 when set`.
+
+```json
+"max_concurrent_check_tx": 8
+```
 
 #### Giga mode behavior and per-block limits
 
-A node starts in Giga mode when `autobahn-config-file` is set in `config.toml`. In Giga mode, the block production and networking behavior differs significantly from standard Tendermint consensus:
+A node starts in Giga mode when `autobahn-config-file` is set in `config.toml`. Setting `autobahn-config-file` also makes the node serve the EVM JSON-RPC instead of Tendermint RPC, and run the disk-backed EVM-only executor unless `mock-app` is set. The Cosmos `evmrpc` HTTP and WebSocket servers are not started when Autobahn is enabled, because the node serves its own EVM-only JSON-RPC. In Giga mode, the block production and networking behavior differs significantly from standard Tendermint consensus:
 
 - **The CometBFT `TxMempool` is not used.** Under Giga, the standard mempool and its gossip reactor are disabled entirely. Transactions route through the Autobahn producer-backed mempool instead.
 - **Consensus reactor, state sync, and block sync are disabled.** In Giga mode, the node skips the consensus and state-sync reactors entirely. The block-sync reactor still runs without a syncer. State sync and block sync are both forced off, regardless of other configuration.
 - **Transactions are admitted through the producer mempool.** The RPC broadcast endpoints call the producer's `InsertTx` or `TryInsertTx`, not the CometBFT mempool's `CheckTx`. `BroadcastTx` uses `InsertTx`, which blocks while the mempool is full. The async path calls `TryInsertTx` in the background and returns immediately. As a result, when the mempool is full, the transaction is silently dropped. The `mempool is full` error from `TryInsertTx` never reaches async callers.
+- **`broadcast_tx_commit` is not supported under Autobahn.** When Autobahn is active, the Tendermint `BroadcastTxCommit` RPC no longer inserts the transaction into the producer mempool and waits for commit. It now fail-fasts, returning the error `broadcast_tx_commit is not supported on Autobahn; use broadcast_tx_sync` without submitting the transaction at all. Use `broadcast_tx` (CheckTx) instead and confirm inclusion from committed state. Correspondingly, `eth_sendRawTransaction` with `evm.slow` enabled falls back to the `BroadcastTx` (sync) path on Autobahn nodes rather than `BroadcastTxCommit`, so EVM transactions still land.
 - **Sequential EVM nonce ordering is enforced.** For EVM transactions, the producer mempool admits transactions strictly in nonce order per sender. A transaction whose nonce does not match the next expected nonce is rejected with a `bad nonce` error. Because admission is sequential, the mempool can track pending nonces (`EvmNextPendingNonce`) as callers submit them.
 
 The producer enforces these limits on each Autobahn block payload as it fills a block:
@@ -362,6 +569,20 @@ HashVault stores the hashes in a Pebble database at `<PersistentStateDir>/hashva
 If HashVault halts a node, follow [HashVault app-hash equivocation panic](/node/troubleshooting#hashvault-app-hash-equivocation-panic) before you restart it. As a last resort, the top-level `hash-vault-disabled-unsafe` key in `config.toml` turns HashVault off. Keep the default, `false`.
 
 ### Key management
+
+
+#### Post-upgrade delegation-by-validator index backfill (v6.8)
+
+The v6.8 upgrade adds a delegation-by-validator index to the staking module. This index lets the `ValidatorDelegations` gRPC query be served from a per-validator prefix instead of scanning the entire delegation store, which fixes cases where the query previously failed for large validators past the scan limit.
+
+The v6.8 upgrade handler does not populate the index in a single pass. Instead it starts a paced backfill that the staking `EndBlocker` advances across subsequent blocks, indexing 1000 delegations per block (`DelegationByValIndexBackfillBatchSize`). On a chain with many delegations, the backfill therefore runs for a number of blocks after the upgrade height before it completes. New chains populate the index fully during genesis, so this post-upgrade backfill applies only to existing chains migrating through the v6.8 upgrade.
+
+Node operators should be aware of the following during the backfill window:
+
+- Until the backfill marks the index ready, `ValidatorDelegations` falls back to the legacy store-scan path, which reproduces the same results and failures those heights had (including reverting past the scan limit for very large validators). Once the index is ready, the same request is answered from the per-validator prefix and scales to large validators.
+- The backfill batch runs as block-level work in the `EndBlocker` and is not charged to any transaction's gas meter.
+- The backfill completes on its own over successive blocks; it requires no operator action. No restart or configuration change is needed to let it finish.
+
 
 Proper key management is critical for security. Use these commands to manage
 your keys:
@@ -553,6 +774,22 @@ double-sign-check-height = 0
 
 <Note>
   The `[consensus]` section may still parse a `stateless-leader-election` field, but the field is **deprecated and ignored**. Stateless (seed-based) leader election is always enabled, regardless of the value, so the field has no effect. It remains only for config-parsing compatibility, and you can safely omit it.
+</Note>
+
+<Note>
+  The node config registry now declares the `[consensus]` and `[mempool]` sections, so a newly generated `config.toml` carries their fields.
+
+  For `[consensus]`, the declared settings cover a node's own local behavior: the WAL/log path, the proposer's empty-block policy, the gossip mode, two reactor sleeps, and a local restart (double-sign) check. The settings that have to agree across the validator set are intentionally **not** declared, so the generated file does not offer them. These excluded keys are the unsafe override settings (`unsafe-overrides-enabled`, `unsafe-propose-timeout-override`, `unsafe-propose-timeout-delta-override`, `unsafe-vote-timeout-override`, `unsafe-vote-timeout-delta-override`, `unsafe-commit-timeout-override`, `unsafe-bypass-commit-timeout-override`), the `timeout-*` settings (`timeout-propose`, `timeout-propose-delta`, `timeout-prevote`, `timeout-prevote-delta`, `timeout-precommit`, `timeout-precommit-delta`, `timeout-commit`), `skip-timeout-commit`, and `stateless-leader-election`. Each names a field the node marks deprecated, so writing it would not change the setting.
+
+  For `[mempool]`, `ttl-duration` and `ttl-num-blocks` are declared, but `max-batch-bytes`, `pending-ttl-duration`, and `pending-ttl-num-blocks` are **not** declared, because no code reads them and writing one changes nothing.
+</Note>
+
+<Note>
+  A newly generated `config.toml` also declares five more sections: `[statesync]`, `[tx-index]`, `[instrumentation]`, `[priv-validator]`, and `[self-remediation]`.
+
+  Most of these carry the same defaults for every kind of node. The `[tx-index]` section is the exception: its `indexer` default varies by mode, set to `[kv]` for full and archive nodes (which serve queries and so index transactions to answer them) and to `[null]` for validator and seed nodes (which serve none). For `[statesync]`, the keys an operator fills together to turn state sync on — `enable`, `use-p2p`, `rpc-servers`, `trust-height`, and `trust-hash` — are declared and written to the generated file as a set; `temp-dir` is declared but omitted from the written template.
+
+  Some fields are intentionally **not** declared, so the generated file does not offer them: `instrumentation.namespace` (the node marks it deprecated and always uses one fixed metric prefix), `self-remediation.p2p-no-peers-available-window-seconds` (no reactor reads it, so a written value changes nothing about when the node restarts), `mempool.max-batch-bytes` (nothing reads it), and the `priv-validator` root directory (`home`), which the node fills from the command line after the file is read.
 </Note>
 
 <Warning>

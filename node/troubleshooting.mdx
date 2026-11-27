@@ -127,6 +127,30 @@ seidb dump-flatkv --db-dir $HOME/.sei/data/state_commit/flatkv --lthash-only
 
 If the lattice hash matches, the output shows `result: PASS`. On a mismatch, the command prints `TOTAL FAIL` and stops with an error.
 
+
+
+#### Deeper per-module verification with `audit-flatkv`
+
+For a more thorough check than the store-wide lattice hash, the `audit-flatkv` command recomputes a FlatKV snapshot's per-module, per-database, and store-wide lattice hashes and key counts from a full scan of its rows, and compares each of them against the values the snapshot's metadata records. It exits non-zero when any comparison fails, so it can pinpoint exactly which database and module disagree with the recorded state rather than only reporting an overall pass or fail.
+
+The snapshot is hard-linked into a temporary directory under the FlatKV root and opened read-only, so it is safe to audit a snapshot of a running node:
+
+```bash
+seidb audit-flatkv $HOME/.sei/data/state_commit/flatkv
+```
+
+The report prints a section per database holding a section per module, then the store-wide totals and the scan's throughput, and ends with `result: PASS` or `result: FAIL`. A mismatch shows `MISMATCH` alongside both the scanned and recorded values for the failing hash, key count, or logical size.
+
+Useful flags:
+
+- `--snapshot-version` selects which snapshot to audit; `0` (the default) selects the snapshot the current link names.
+- `--read-limit-mb` caps key and value bytes read, in MiB/s; `0` (the default) means no cap.
+- `--hashers` sets the number of goroutines hashing rows (defaults to the CPU count).
+- `--no-color` prints the report without ANSI colors.
+- `--keep-stale-audit-dirs` leaves earlier audit temporary directories under the FlatKV root in place; otherwise they are removed, including that of an audit still running.
+
+<Note>As with `dump-flatkv`, pass whichever FlatKV directory exists on your node: the legacy `$HOME/.sei/data/flatkv` on nodes created before the storage layout change, or `$HOME/.sei/data/state_commit/flatkv` otherwise.</Note>
+
 ### Comparing EVM state between memIAVL and FlatKV
 
 When you debug an AppHash mismatch that involves EVM state, a byte-for-byte physical dump can diverge between backends, even when the underlying state is identical. This happens because every FlatKV value embeds a per-key block-height stamp (the height at which the key was last written or migrated). On a freshly migrated node, this stamp differs from the memIAVL leaf versions.
@@ -151,6 +175,9 @@ seidb evm-logical-digest --backend memiavl --memiavl-open-mode changelog \
     --db-dir $HOME/.sei/data/state_commit/memiavl --height 213205000
 ```
 
+
+<Note>On a live node, `--memiavl-open-mode changelog` can read a changelog record that the node is partway through writing for a block it is committing. A record that ends mid-write is indistinguishable from a genuinely corrupt one, so rather than truncating the changelog tail (which could discard a block the node just committed), the command now leaves the changelog directory untouched and fails with an error that reports the torn tail and asks you to rerun the command. The message reads like `the changelog under <dir> ends mid-record, which is what a node writing a block looks like ... rerun this command`. Simply run the command again. If it keeps failing after repeated reruns, the changelog is genuinely corrupt and the node needs attention.</Note>
+
 On a node in the middle of the migration, EVM state is split between FlatKV and memIAVL. Use `--backend composite` to digest both together, so you can compare the node with a memIAVL-only node at the same height. Pass the two directories with `--flatkv-dir` and `--memiavl-dir` instead of `--db-dir`:
 
 ```bash
@@ -169,8 +196,21 @@ seidb evm-logical-digest --backend flatkv -d $HOME/.sei/data/state_commit/flatkv
     --inspect-bucket account --list --list-limit 50 --details
 
 seidb evm-logical-digest --backend flatkv -d $HOME/.sei/data/state_commit/flatkv --height 213200000 \
-    --inspect-bucket storage --key-prefix 03 --shard-next-bytes 2
+    --inspect-bucket storage --key-offset 4 --key-prefix 03 --shard-next-bytes 2
 ```
+
+Physical keys are prefixed with the module name (`evm/`), so pass `--key-offset 4` to make `--key-prefix` apply to the EVM key rather than the physical prefix.
+
+Inspect mode accepts `--backend composite` as well, so you can shard and locate mismatched EVM keys in the mid-migration FlatKV + memIAVL union during a drain. As with a composite digest, pass `--flatkv-dir` and `--memiavl-dir` instead of `--db-dir`, and pick the memIAVL open mode with `--memiavl-open-mode` (`snapshot` or `replay`):
+
+```bash
+seidb evm-logical-digest --backend composite --memiavl-open-mode replay \
+    --flatkv-dir $HOME/.sei/data/state_commit/flatkv \
+    --memiavl-dir $HOME/.sei/data/state_commit/memiavl --height 213200000 \
+    --inspect-bucket storage --key-offset 4 --key-prefix 03 --shard-next-bytes 2
+```
+
+Pass `--json` to emit either the global digest or the inspect report as one JSON object on stdout, with progress and warnings sent to stderr. When running `--json` unattended, also set `SEI_LOG_OUTPUT=stderr` so an error-level log line cannot be written into the report.
 
 <Warning>
 **Enable SeiDB State Commit (SC).** Set `sc-enable = true` in the `[state-commit]` section of `app.toml`. The legacy IAVL backend was fully removed, and SC is now mandatory. If SC is not enabled, the node no longer falls back to IAVL. It panics at startup with this error:
@@ -453,6 +493,18 @@ This means that you did not shut down the node properly. In that case, try to sh
 
 Then try the rollback steps again.
 
+
+
+On Giga Storage nodes, EVM state lives in a FlatKV store, and a rollback can only reach a target version that FlatKV can reconstruct from its retained snapshots and WAL. If you ask `seid rollback` to roll back below that retained history, the rollback is refused before any backend state is modified, so the store stays usable. You will see an error like this:
+
+```text
+flatkv cannot roll back to version [TARGET]: version unreachable: ...; use state sync instead
+```
+
+This is not a corruption. The target version is simply older than the FlatKV history the node kept, so there is nothing to roll back to. Rather than rolling back, recover the node with [state sync](/node/statesync) or by restoring from a recent [snapshot](/node/snapshot).
+
+<Note>The same `version unreachable` error can surface from historical reads (for example an offline export) when the requested version is below the retained FlatKV history. The operation returns the error cleanly without side effects; use state sync or a snapshot to obtain the older state instead.</Note>
+
 ## HashVault app-hash equivocation panic
 
 Under Autobahn, HashVault halts a node that tries to commit a different app hash for a height it already finalized. For background, see [HashVault](/node/technical-reference#hashvault-app-hash-equivocation-guard).
@@ -490,3 +542,30 @@ hash-vault-disabled-unsafe = true
 ```
 
 The node then runs without equivocation protection and logs errors at every start. Set the key back to `false` as soon as you fix the problem.
+
+
+
+## v6.8 upgrade halt: retired stores not deleted
+
+The v6.8 upgrade retires several legacy stores (`ibc`, `transfer`, `capability`, and `feegrant`). The store loader deletes these stores only when `data/upgrade-info.json` names the upgrade at the time the node starts. If your node reaches the upgrade height without a correctly populated `data/upgrade-info.json`, the retired stores are left in place, and the v6.8 upgrade handler now refuses to run and halts the node rather than proceeding with retired data still present.
+
+When this happens, the node halts with an error like this:
+
+```text
+store "ibc" was not deleted before the v6.8 upgrade handler ran because data/upgrade-info.json did not name the upgrade when the node started: write {"name":"v6.8","height":<height>} to data/upgrade-info.json in the node home and restart
+```
+
+### Recovery
+
+Follow the instruction in the error message:
+
+1. Stop the node if it is still running.
+2. Write an `upgrade-info.json` file in the node home's `data` directory that names the upgrade and the upgrade height from the error message. Substitute the actual height for `<height>`:
+
+   ```bash
+   echo '{"name":"v6.8","height":<height>}' > $HOME/.sei/data/upgrade-info.json
+   ```
+
+3. Restart the node.
+
+With `data/upgrade-info.json` in place, the store loader deletes the retired stores before the handler runs, and the upgrade proceeds normally.
